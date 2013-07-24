@@ -1,0 +1,18 @@
+{
+	"server": {
+		"port": 4000,
+		"mode": "development"
+	},
+	"log": {
+		"appenders": [
+			{ 
+				"type": "console" 
+			},
+			{
+				"type": "file",
+				"filename": "../logs/spellCheck.log"
+			}
+		],
+		"replaceConsole": "true"
+	}
+}
