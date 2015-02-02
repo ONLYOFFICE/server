@@ -8,15 +8,16 @@
 		"port": 27017,
 		"database": "coAuthoring"
 	},
-	"mysql": {
-		"host"				: "localhost",
-		"database"			: "canvaseditors",
-		"user"				: "canvas_usr",
-		"pass"				: "canvas_usr",
-		"charset"			: "utf8",
-		"tableChanges"		: "doc_changes",
-		"tableCallbacks"	: "doc_callbacks",
-		"tableResult"		: "tast_result",
-		"tablePucker"		: "doc_pucker"
-	}
+    "sql": {
+      "type"			: "mysql",
+      "tableChanges"	: "doc_changes",
+      "tableCallbacks"	: "doc_callbacks",
+      "tableResult"		: "tast_result",
+      "tablePucker"		: "doc_pucker",
+      "host"			: "localhost",
+      "database"		: "canvaseditors",
+      "user"			: "canvas_usr",
+      "pass"			: "canvas_usr",
+      "charset"			: "utf8"
+    }
 }

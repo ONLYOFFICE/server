@@ -43,7 +43,7 @@ var sockjs = require('sockjs'),
 	url = require('url'),
 	logger = require('./../../Common/sources/logger'),
 	config = require('./config.json'),
-	mysqlBase = require('./mySqlBase');
+	sqlBase = require('./baseConnector');
 
 var defaultHttpPort = 80, defaultHttpsPort = 443;	// Порты по умолчанию (для http и https)
 var messages					= {}, // Сообщения из чата для документов
@@ -53,7 +53,7 @@ var messages					= {}, // Сообщения из чата для докумен
 	arrCacheDocumentsChanges	= [], // Кэш для хранения изменений активных документов
 	nCacheSize					= 100;// Размер кэша
 
-var asc_coAuthV	= '3.0.7';				// Версия сервера совместного редактирования
+var asc_coAuthV	= '3.0.8';				// Версия сервера совместного редактирования
 
 function DocumentChanges (docId) {
 	this.docId = docId;
@@ -371,7 +371,7 @@ function parseUrl (callbackUrl) {
 
 function deleteCallback (id) {
 	// Нужно удалить из базы callback-ов
-	mysqlBase.deleteCallback(id);
+	sqlBase.deleteCallback(id);
 	delete objServiceInfo[id];
 }
 
@@ -395,7 +395,7 @@ function sendStatusDocument (docId, bChangeBase) {
 	if (c_oAscChangeBase.No !== bChangeBase) {
 		if (c_oAscServerStatus.Editing === status && c_oAscChangeBase.All === bChangeBase) {
 			// Добавить в базу
-			mysqlBase.insertInTable(mysqlBase.tableId.callbacks, docId, callback.href);
+			sqlBase.insertInTable(sqlBase.tableId.callbacks, docId, callback.href);
 		} else if (c_oAscServerStatus.Closed === status) {
 			// Удалить из базы
 			deleteCallback(docId);
@@ -479,16 +479,16 @@ function removeChanges (id, isCorrupted) {
 		// Удаляем информацию о сборщике
 		deletePucker(id);
 		// Нужно удалить изменения из базы
-		mysqlBase.deleteChanges(id, null);
+		sqlBase.deleteChanges(id, null);
 	} else {
 		// Обновим статус файла (т.к. ошибка, выставим, что не собиралось)
-		mysqlBase.updateStatusFile(id);
+		sqlBase.updateStatusFile(id);
 		logger.error('saved corrupted id = %s', id);
 	}
 }
 function deletePucker (docId) {
 	// Нужно удалить из базы сборщика
-	mysqlBase.deletePucker(docId);
+	sqlBase.deletePucker(docId);
 	delete objServicePucker[docId];
 }
 function updatePucker (docId, url, documentFormatSave, inDataBase) {
@@ -513,7 +513,7 @@ function insertPucker (docId) {
 	var pucker = objServicePucker[docId];
 	// Добавляем в базу если мы еще не добавляли
 	if (pucker && !pucker.inDataBase) {
-		mysqlBase.insertInTable(mysqlBase.tableId.pucker, docId, pucker.url, pucker.documentFormatSave);
+		sqlBase.insertInTable(sqlBase.tableId.pucker, docId, pucker.url, pucker.documentFormatSave);
 		pucker.inDataBase = true;
 	}
 	return pucker;
@@ -666,7 +666,7 @@ exports.install = function (server, callbackFunction) {
 
 			var callbackGetChanges = function (error, arrayElements) {
 				// Если за тот момент, пока мы ждали из базы ответа, все ушли, то отправлять ничего не нужно
-				if (!oPucker)
+				if (!oPucker || error)
 					return;
 
 				var j, element;
@@ -685,7 +685,7 @@ exports.install = function (server, callbackFunction) {
 				callback(objChangesDocument.arrChanges, oPucker.index);
 			};
 			// Берем из базы данных
-			mysqlBase.getChanges(docId, callbackGetChanges);
+			sqlBase.getChanges(docId, callbackGetChanges);
 			return;
 		}
 		callback(undefined, 0);
@@ -1003,7 +1003,7 @@ exports.install = function (server, callbackFunction) {
 
 				// Останавливаем сборку (вдруг она началась)
 				// Когда переподсоединение, нам нужна проверка на сборку файла
-				mysqlBase.checkStatusFile(docId, function (error, result) {
+				sqlBase.checkStatusFile(docId, function (error, result) {
 					if (null !== error || 0 === result.length) {
 						// error database
 						sendFileError(conn, 'DataBase error');
@@ -1015,7 +1015,7 @@ exports.install = function (server, callbackFunction) {
 						// Все хорошо, статус обновлять не нужно
 					} else if (FileStatus.SaveVersion === status) {
 						// Обновим статус файла (идет сборка, нужно ее остановить)
-						mysqlBase.updateStatusFile(docId);
+						sqlBase.updateStatusFile(docId);
 					} else if (FileStatus.UpdateVersion === status) {
 						// error version
 						sendFileError(conn, 'Update Version error');
@@ -1290,7 +1290,7 @@ exports.install = function (server, callbackFunction) {
 				if (objChangesDocument)
 					objChangesDocument.splice(deleteIndex, deleteCount);
 				pucker.index -= deleteCount;
-				mysqlBase.deleteChanges(docId, deleteIndex);
+				sqlBase.deleteChanges(docId, deleteIndex);
 			}
 		}
 
@@ -1311,7 +1311,7 @@ exports.install = function (server, callbackFunction) {
 			if (objChangesDocument)
 				objChangesDocument.concat(arrNewDocumentChanges);
 			pucker.index += arrNewDocumentChanges.length;
-			mysqlBase.insertChanges(arrNewDocumentChanges, docId, startIndex, userId, conn.user.idOriginal);
+			sqlBase.insertChanges(arrNewDocumentChanges, docId, startIndex, userId, conn.user.idOriginal);
 		}
 
 		var changesIndex = (-1 === deleteIndex && data.startSaveChanges) ? startIndex : -1;
@@ -1409,7 +1409,7 @@ exports.install = function (server, callbackFunction) {
 			}
 		}
 
-		mysqlBase.loadTable(mysqlBase.tableId.callbacks, callbackLoadCallbacksMySql);
+		sqlBase.loadTable(sqlBase.tableId.callbacks, callbackLoadCallbacksMySql);
 	};
 
 	var callbackLoadCallbacksMySql = function (error, arrayElements) {
@@ -1440,7 +1440,7 @@ exports.install = function (server, callbackFunction) {
 		callbackFunction();
 	};
 
-	mysqlBase.loadTable(mysqlBase.tableId.pucker, callbackLoadPuckerMySql);
+	sqlBase.loadTable(sqlBase.tableId.pucker, callbackLoadPuckerMySql);
 };
 // Команда с сервера (в частности teamlab)
 exports.commandFromServer = function (query) {
