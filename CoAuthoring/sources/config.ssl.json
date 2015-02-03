@@ -10,6 +10,7 @@
 	},
 	"ssl":{
 		"key": "../cert/privatekey.pem",
-		"cert": "../cert/certificate.pem"
+		"cert": "../cert/certificate.pem",
+		"ca": "../cert/gd_bundle-g2.pem"
 	}
 }

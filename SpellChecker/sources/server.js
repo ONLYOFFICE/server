@@ -17,9 +17,10 @@ var server = {};
 
 if (config['ssl']) {
 	var privateKey = fs.readFileSync(config['ssl']['key']).toString();
-	var certificate = fs.readFileSync(config['ssl']['cert']).toString();
-	
-	var options = {key: privateKey, cert:certificate};
+	var certificateKey = fs.readFileSync(config['ssl']['cert']).toString();
+	var trustedCertificate = fs.readFileSync(config['ssl']['ca']).toString();
+	//See detailed options format here: http://nodejs.org/api/tls.html#tls_tls_createserver_options_secureconnectionlistener
+	var options = {key: privateKey, cert: certificateKey, ca: [trustedCertificate]};
 	
 	server = https.createServer(options, app);
 } else {

@@ -1,4 +1,4 @@
-﻿var config = require('./config.json');
+var config = require('./config.json');
 process.env.NODE_ENV = config['server']['mode'];
 
 var logger = require('./../../Common/sources/logger'),
@@ -14,9 +14,11 @@ logger.warn('Express server starting...');
 
 if (config['ssl']) {
 	var privateKey = fs.readFileSync(config['ssl']['key']).toString(),
-		certificate = fs.readFileSync(config['ssl']['cert']).toString(),
-		options = {key: privateKey, cert:certificate};
-
+		certificateKey = fs.readFileSync(config['ssl']['cert']).toString(),
+		trustedCertificate = fs.readFileSync(config['ssl']['ca']).toString(),
+		//See detailed options format here: http://nodejs.org/api/tls.html#tls_tls_createserver_options_secureconnectionlistener
+		options = {key: privateKey, cert: certificateKey, ca: [trustedCertificate]};
+	
 	server = https.createServer(options, app);
 } else {
 	server = http.createServer(app);
