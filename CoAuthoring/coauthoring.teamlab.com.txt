@@ -14,6 +14,19 @@ SSH через PyTTY - http://www.chiark.greenend.org.uk/~sgtatham/putty/downloa
 supervisord запущен от root и сама nodejs тоже работает от root
 supervisor.conf  - (симлинка) на конфиг приложения в супервизоре
 
+Симлинка создаётся командой
+ln -s /home/www/nodejs-spellchecker/SpellChecker/supervisor.conf /etc/supervisor/conf.d/supervisor.conf
+
+Содержимое файла supervisor.conf (правда для спелчекера)
+[program:nodejs-spellchecker]
+command=node /home/www/nodejs-spellchecker/SpellChecker/sources/server.js
+directory=/home/www/nodejs-spellchecker/SpellChecker/sources/
+stdout_logfile=/home/www/nodejs-spellchecker/SpellChecker/logs/out.log
+stderr_logfile=/home/www/nodejs-spellchecker/SpellChecker/logs/err.log
+autostart=true
+autorestart=true
+redirect_stderr=true
+
 чтоб перезапустить приложение необходимо выплнить в консоли
 >sudo supervisorctl restart nodejs-coauthoring
 
