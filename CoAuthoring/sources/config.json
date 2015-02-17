@@ -15,6 +15,7 @@
       "tableResult"		: "tast_result",
       "tablePucker"		: "doc_pucker",
       "host"			: "localhost",
+      "port"            : 3306,
       "database"		: "canvaseditors",
       "user"			: "canvas_usr",
       "pass"			: "canvas_usr",
