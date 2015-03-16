@@ -998,7 +998,7 @@ exports.install = function (server, callbackFunction) {
 			updatePucker(docId, data.server, data.documentFormatSave, false);
 
 			//Set the unique ID
-			if (data.sessionId !== null && _.isString(data.sessionId) && data.sessionId !== "") {
+			if (null != data.sessionId) {
 				logger.info("restored old session id = %s", data.sessionId);
 
 				// Останавливаем сборку (вдруг она началась)
