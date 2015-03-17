@@ -34,6 +34,12 @@
 * 2) Загружаем информацию о callback-ах
 * 3) Собираем только те файлы, у которых есть callback и информация для сборки
 *-----------------------------------------------------------------------------------------------------------------------
+*------------------------------------------Переподключение при разрыве соединения---------------------------------------
+* 1) Проверяем файл на сборку. Если она началась, то останавливаем.
+* 2) Если сборка уже завершилась, то отправляем пользователю уведомление о невозможности редактировать дальше
+* 3) Далее проверяем время последнего сохранения и lock-и пользователя. Если кто-то уже успел сохранить или
+* 		заблокировать объекты, то мы не можем дальше редактировать.
+*-----------------------------------------------------------------------------------------------------------------------
 * */
 
 var sockjs = require('sockjs'),
@@ -544,9 +550,7 @@ exports.install = function (server, callbackFunction) {
 				switch (data.type) {
 					case 'auth'					: auth(conn, data); break;
 					case 'message'				: onMessage(conn, data); break;
-					case 'getLock'				: getLock(conn, data); break;
-					case 'getLockRange'			: getLockRange(conn, data); break;
-					case 'getLockPresentation'	: getLockPresentation(conn, data); break;
+					case 'getLock'				: getLock(conn, data, false); break;
 					case 'saveChanges'			: saveChanges(conn, data); break;
 					case 'isSaveLock'			: isSaveLock(conn, data); break;
 					case 'getMessages'			: getMessages(conn, data); break;
@@ -979,18 +983,18 @@ exports.install = function (server, callbackFunction) {
 			if (false === data.isViewer && saveTimers[docId])
 				clearTimeout(saveTimers[docId]);
 
-			// Увеличиваем индекс обращения к документу
-			if (!indexUser.hasOwnProperty(docId))
-				indexUser[docId] = 0;
-			else
-				indexUser[docId] += 1;
+			var bIsRestore = null != data.sessionId;
+
+			// Увеличиваем индекс обращения к документу (если восстанавливаем, индекс тоже восстанавливаем)
+			var curIndexUser = bIsRestore ? user.indexUser : (!indexUser.hasOwnProperty(docId) ? (indexUser[docId] = 0) : indexUser[docId] += 1);
+			var curUserId = user.id + curIndexUser;
 
 			conn.sessionState = 1;
 			conn.user = {
-				id			: user.id + indexUser[docId],
+				id			: curUserId,
 				idOriginal	: user.id,
 				name		: user.name,
-				indexUser	: indexUser[docId]
+				indexUser	: curIndexUser
 			};
 			conn.isViewer = data.isViewer;
 
@@ -998,7 +1002,7 @@ exports.install = function (server, callbackFunction) {
 			updatePucker(docId, data.server, data.documentFormatSave, false);
 
 			//Set the unique ID
-			if (null != data.sessionId) {
+			if (bIsRestore) {
 				logger.info("restored old session id = %s", data.sessionId);
 
 				// Останавливаем сборку (вдруг она началась)
@@ -1026,13 +1030,32 @@ exports.install = function (server, callbackFunction) {
 						return;
 					}
 
-					//Kill previous connections
-					connections = _.reject(connections, function (el) {
-						return el.connection.sessionId === data.sessionId;//Delete this connection
-					});
-					conn.sessionId = data.sessionId;//restore old
+					getDocumentChanges(docId, function (objChangesDocument, changesIndex) {
+						var bIsSuccessRestore = true;
+						if (objChangesDocument && 0 < objChangesDocument.length) {
+							var change = objChangesDocument[objChangesDocument.length - 1];
+							if (change['change'])
+								if (change['user'] !== curUserId)
+									bIsSuccessRestore = data['lastOtherSaveTime'] === change['time'];
+						}
 
-					endAuth(conn, true);
+						if (bIsSuccessRestore) {
+							conn.sessionId = data.sessionId;//restore old
+
+							// Проверяем lock-и
+							var arrayBlocks = data['block'];
+							if (arrayBlocks && (0 === arrayBlocks.length || getLock(conn, data, true))) {
+								//Kill previous connections
+								connections = _.reject(connections, function (el) {
+									return el.connection.sessionId === data.sessionId;//Delete this connection
+								});
+
+								endAuth(conn, true);
+							} else
+								sendFileError(conn, 'Restore error. Locks not checked.');
+						} else
+							sendFileError(conn, 'Restore error. Document modified.');
+					});
 				});
 
 			} else {
@@ -1084,9 +1107,12 @@ exports.install = function (server, callbackFunction) {
 			};
 			sendData(conn, sendObject);//Or 0 if fails
 		} else {
-			getDocumentChanges(docId, function (objChangesDocument, changesIndex) {
-				sendAuthInfo(objChangesDocument, changesIndex, conn, participantsMap);
-			});
+			if (bIsRestore)
+				sendAuthInfo(undefined, undefined, conn, participantsMap);
+			else
+				getDocumentChanges(docId, function (objChangesDocument, changesIndex) {
+					sendAuthInfo(objChangesDocument, changesIndex, conn, participantsMap);
+				});
 		}
 
 		sendParticipantsState(participants, true, conn);
@@ -1123,153 +1149,81 @@ exports.install = function (server, callbackFunction) {
 			sendData(participant.connection, {type:"message", messages:[msg]});
 		});
 	}
-	function getLock(conn, data) {
-		var participants = getParticipants(conn.docId, undefined, true), documentLocks;
-		if (!locks.hasOwnProperty(conn.docId)) {
-			locks[conn.docId] = {};
-		}
-		documentLocks = locks[conn.docId];
-
-		// Data is array now
-		var arrayBlocks = data.block;
-		var isLock = false;
-		var i = 0;
-		var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
-		for (; i < lengthArray; ++i) {
-			logger.info("getLock id: %s", arrayBlocks[i]);
-			if (documentLocks.hasOwnProperty(arrayBlocks[i]) && documentLocks[arrayBlocks[i]] !== null) {
-				isLock = true;
+	function getLock(conn, data, bIsRestore) {
+		var fLock = null;
+		switch(data['editorType']) {
+			case 0:
+				// Word
+				fLock = getLockWord;
 				break;
-			}
+			case 1:
+				// Excel
+				fLock = getLockExcel;
+				break;
+			case 2:
+				// PP
+				fLock = getLockPresentation;
+				break;
 		}
-		if (0 === lengthArray)
-			isLock = true;
+		return fLock ? fLock(conn, data, bIsRestore) : false;
+	}
+	function getLockWord(conn, data, bIsRestore) {
+		var docId = conn.docId, participants = getParticipants(docId, undefined, true), arrayBlocks = data.block;
+		if (!locks.hasOwnProperty(docId))
+			locks[docId] = {};
 
-		if (!isLock) {
+		var i, documentLocks = locks[docId];
+		if (_checkLock(documentLocks, arrayBlocks)) {
 			//Ok. take lock
-			for (i = 0; i < lengthArray; ++i) {
+			for (i = 0; i < arrayBlocks.length; ++i) {
 				documentLocks[arrayBlocks[i]] = {time:Date.now(), user:conn.user.id,
 					block:arrayBlocks[i], sessionId:conn.sessionId};
 			}
-		}
+		} else if (bIsRestore)
+			return false;
 
-		_.each(participants, function (participant) {
-			sendData(participant.connection, {type:"getLock", locks:locks[conn.docId]});
-		});
+		sendGetLock(participants, documentLocks);
+		return true;
 	}
 	// Для Excel block теперь это объект { sheetId, type, rangeOrObjectId, guid }
-	function getLockRange(conn, data) {
-		var participants = getParticipants(conn.docId, undefined, true), documentLocks, documentLock;
-		if (!locks.hasOwnProperty(conn.docId)) {
-			locks[conn.docId] = [];
-		}
-		documentLocks = locks[conn.docId];
+	function getLockExcel(conn, data, bIsRestore) {
+		var docId = conn.docId, userId = conn.user.id, participants = getParticipants(docId, undefined, true), arrayBlocks = data.block;
+		if (!locks.hasOwnProperty(docId))
+			locks[docId] = [];
 
-		// Data is array now
-		var arrayBlocks = data.block;
-		var isLock = false;
-		var isExistInArray = false;
-		var i = 0, blockRange = null;
-		var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
-		for (; i < lengthArray && false === isLock; ++i) {
-			blockRange = arrayBlocks[i];
-			for (var keyLockInArray in documentLocks) {
-				if (true === isLock)
-					break;
-				if (!documentLocks.hasOwnProperty(keyLockInArray))
-					continue;
-				documentLock = documentLocks[keyLockInArray];
-				// Проверка вхождения объекта в массив (текущий пользователь еще раз прислал lock)
-				if (documentLock.user === conn.user.id &&
-					blockRange.sheetId === documentLock.block.sheetId &&
-					blockRange.type === c_oAscLockTypeElem.Object &&
-					documentLock.block.type === c_oAscLockTypeElem.Object &&
-					documentLock.block.rangeOrObjectId === blockRange.rangeOrObjectId) {
-					isExistInArray = true;
-					break;
-				}
-
-				if (c_oAscLockTypeElem.Sheet === blockRange.type &&
-					c_oAscLockTypeElem.Sheet === documentLock.block.type) {
-					// Если текущий пользователь прислал lock текущего листа, то не заносим в массив, а если нового, то заносим
-					if (documentLock.user === conn.user.id) {
-						if (blockRange.sheetId === documentLock.block.sheetId) {
-							// уже есть в массиве
-							isExistInArray = true;
-							break;
-						} else {
-							// новый лист
-							continue;
-						}
-					} else {
-						// Если кто-то залочил sheet, то больше никто не может лочить sheet-ы (иначе можно удалить все листы)
-						isLock = true;
-						break;
-					}
-				}
-
-				if (documentLock.user === conn.user.id || !(documentLock.block) ||
-					blockRange.sheetId !== documentLock.block.sheetId)
-					continue;
-				isLock = compareExcelBlock(blockRange, documentLock.block);
-			}
-		}
-		if (0 === lengthArray)
-			isLock = true;
-
-		if (!isLock && !isExistInArray) {
+		var i, documentLocks = locks[docId];
+		if (_checkLockExcel(documentLocks, arrayBlocks, userId)) {
 			//Ok. take lock
-			for (i = 0; i < lengthArray; ++i) {
-				blockRange = arrayBlocks[i];
-				documentLocks.push({time:Date.now(), user:conn.user.id, block:blockRange, sessionId:conn.sessionId});
+			for (i = 0; i < arrayBlocks.length; ++i) {
+				documentLocks.push({time:Date.now(), user:userId, block:arrayBlocks[i], sessionId:conn.sessionId});
 			}
-		}
+		} else if (bIsRestore)
+			return false;
 
-		_.each(participants, function (participant) {
-			sendData(participant.connection, {type:"getLock", locks:locks[conn.docId]});
-		});
+		sendGetLock(participants, documentLocks);
+		return true;
 	}
 	// Для презентаций это объект { type, val } или { type, slideId, objId }
-	function getLockPresentation(conn, data) {
-		var participants = getParticipants(conn.docId, undefined, true), documentLocks, documentLock;
-		if (!locks.hasOwnProperty(conn.docId)) {
-			locks[conn.docId] = [];
-		}
-		documentLocks = locks[conn.docId];
+	function getLockPresentation(conn, data, bIsRestore) {
+		var docId = conn.docId, userId = conn.user.id, participants = getParticipants(docId, undefined, true), arrayBlocks = data.block;
+		if (!locks.hasOwnProperty(docId))
+			locks[docId] = [];
 
-		// Data is array now
-		var arrayBlocks = data.block;
-		var isLock = false;
-		var isExistInArray = false;
-		var i = 0, blockRange = null;
-		var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
-		for (; i < lengthArray && false === isLock; ++i) {
-			blockRange = arrayBlocks[i];
-			for (var keyLockInArray in documentLocks) {
-				if (true === isLock)
-					break;
-				if (!documentLocks.hasOwnProperty(keyLockInArray))
-					continue;
-				documentLock = documentLocks[keyLockInArray];
-
-				if (documentLock.user === conn.user.id || !(documentLock.block))
-					continue;
-				isLock = comparePresentationBlock(blockRange, documentLock.block);
-			}
-		}
-		if (0 === lengthArray)
-			isLock = true;
-
-		if (!isLock && !isExistInArray) {
+		var i, documentLocks = locks[docId];
+		if (_checkLockPresentation(documentLocks, arrayBlocks, userId)) {
 			//Ok. take lock
-			for (i = 0; i < lengthArray; ++i) {
-				blockRange = arrayBlocks[i];
-				documentLocks.push({time:Date.now(), user:conn.user.id, block:blockRange, sessionId:conn.sessionId});
+			for (i = 0; i < arrayBlocks.length; ++i) {
+				documentLocks.push({time:Date.now(), user:userId, block:arrayBlocks[i], sessionId:conn.sessionId});
 			}
-		}
+		} else if (bIsRestore)
+			return false;
 
+		sendGetLock(participants, documentLocks);
+		return true;
+	}
+	function sendGetLock(participants, documentLocks) {
 		_.each(participants, function (participant) {
-			sendData(participant.connection, {type:"getLock", locks:locks[conn.docId]});
+			sendData(participant.connection, {type:"getLock", locks:documentLocks});
 		});
 	}
 	// Для Excel необходимо делать пересчет lock-ов при добавлении/удалении строк/столбцов
@@ -1393,6 +1347,101 @@ exports.install = function (server, callbackFunction) {
 	// Возвращаем все сообщения для документа
 	function getMessages(conn) {
 		sendData(conn, {type:"message", messages:messages[conn.docId]});
+	}
+
+	function _checkLock(documentLocks, arrayBlocks) {
+		// Data is array now
+		var isLock = false;
+		var i, lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
+		for (i = 0; i < lengthArray; ++i) {
+			logger.info("getLock id: %s", arrayBlocks[i]);
+			if (documentLocks.hasOwnProperty(arrayBlocks[i]) && documentLocks[arrayBlocks[i]] !== null) {
+				isLock = true;
+				break;
+			}
+		}
+		if (0 === lengthArray)
+			isLock = true;
+		return !isLock;
+	}
+
+	function _checkLockExcel(documentLocks, arrayBlocks, userId) {
+		// Data is array now
+		var documentLock;
+		var isLock = false;
+		var isExistInArray = false;
+		var i, blockRange;
+		var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
+		for (i = 0; i < lengthArray && false === isLock; ++i) {
+			blockRange = arrayBlocks[i];
+			for (var keyLockInArray in documentLocks) {
+				if (true === isLock)
+					break;
+				if (!documentLocks.hasOwnProperty(keyLockInArray))
+					continue;
+				documentLock = documentLocks[keyLockInArray];
+				// Проверка вхождения объекта в массив (текущий пользователь еще раз прислал lock)
+				if (documentLock.user === userId &&
+					blockRange.sheetId === documentLock.block.sheetId &&
+					blockRange.type === c_oAscLockTypeElem.Object &&
+					documentLock.block.type === c_oAscLockTypeElem.Object &&
+					documentLock.block.rangeOrObjectId === blockRange.rangeOrObjectId) {
+					isExistInArray = true;
+					break;
+				}
+
+				if (c_oAscLockTypeElem.Sheet === blockRange.type &&
+					c_oAscLockTypeElem.Sheet === documentLock.block.type) {
+					// Если текущий пользователь прислал lock текущего листа, то не заносим в массив, а если нового, то заносим
+					if (documentLock.user === userId) {
+						if (blockRange.sheetId === documentLock.block.sheetId) {
+							// уже есть в массиве
+							isExistInArray = true;
+							break;
+						} else {
+							// новый лист
+							continue;
+						}
+					} else {
+						// Если кто-то залочил sheet, то больше никто не может лочить sheet-ы (иначе можно удалить все листы)
+						isLock = true;
+						break;
+					}
+				}
+
+				if (documentLock.user === userId || !(documentLock.block) ||
+					blockRange.sheetId !== documentLock.block.sheetId)
+					continue;
+				isLock = compareExcelBlock(blockRange, documentLock.block);
+			}
+		}
+		if (0 === lengthArray)
+			isLock = true;
+		return !isLock && !isExistInArray;
+	}
+
+	function _checkLockPresentation(documentLocks, arrayBlocks, userId) {
+		// Data is array now
+		var isLock = false;
+		var i, documentLock, blockRange;
+		var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
+		for (i = 0; i < lengthArray && false === isLock; ++i) {
+			blockRange = arrayBlocks[i];
+			for (var keyLockInArray in documentLocks) {
+				if (true === isLock)
+					break;
+				if (!documentLocks.hasOwnProperty(keyLockInArray))
+					continue;
+				documentLock = documentLocks[keyLockInArray];
+
+				if (documentLock.user === userId || !(documentLock.block))
+					continue;
+				isLock = comparePresentationBlock(blockRange, documentLock.block);
+			}
+		}
+		if (0 === lengthArray)
+			isLock = true;
+		return !isLock;
 	}
 
     sockjs_echo.installHandlers(server, {prefix:'/doc/[0-9-.a-zA-Z_=]*/c', log:function (severity, message) {
