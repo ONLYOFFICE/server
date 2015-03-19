@@ -1265,7 +1265,7 @@ exports.install = function (server, callbackFunction) {
 			if (objChangesDocument)
 				objChangesDocument.concat(arrNewDocumentChanges);
 			pucker.index += arrNewDocumentChanges.length;
-			sqlBase.insertChanges(arrNewDocumentChanges, docId, startIndex, userId, conn.user.idOriginal);
+			sqlBase.insertChanges(arrNewDocumentChanges, docId, startIndex, conn.user);
 		}
 
 		var changesIndex = (-1 === deleteIndex && data.startSaveChanges) ? startIndex : -1;

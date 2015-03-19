@@ -13,7 +13,7 @@ var tableChanges = configSql["tableChanges"],
 	tablePucker = configSql["tablePucker"];
 
 var g_oCriticalSection = {}, lockTimeOut = 200;
-var maxPacketSize = 1024 * 1024 - 200; // Размер по умолчанию для запроса в базу данных (вычли 200 на поля)
+var maxPacketSize = 1024 * 1024 - 400; // Размер по умолчанию для запроса в базу данных (вычли 400 на поля)
 
 function getDataFromTable (tableId, data, getCondition, callback) {
 	var table = getTableById(tableId);
@@ -69,11 +69,11 @@ exports.insertInTable = function (tableId) {
 exports.insertChanges = function (objChanges, docId, index, userId, userIdOriginal) {
 	lockCriticalSection(docId, function () {_insertChanges(0, objChanges, docId, index, userId, userIdOriginal);});
 };
-function _insertChanges (startIndex, objChanges, docId, index, userId, userIdOriginal) {
+function _insertChanges (startIndex, objChanges, docId, index, user) {
 	var sqlCommand = "INSERT INTO " + tableChanges + " VALUES";
 	for (var i = startIndex, l = objChanges.length; i < l; ++i, ++index) {
-		sqlCommand += "('" + docId + "','" + index + "','" + userId + "','" + userIdOriginal + "','"
-		+ objChanges[i].change + "')";
+		sqlCommand += "('" + docId + "','" + index + "','" + user.id + "','" + user.idOriginal + "','"
+			+ user.name + "','" + objChanges[i].change + "')";
 		if (i === l - 1)
 			sqlCommand += ';';
 		else if (sqlCommand.length + objChanges[i + 1].change.length >= maxPacketSize) {
@@ -81,7 +81,7 @@ function _insertChanges (startIndex, objChanges, docId, index, userId, userIdOri
 			(function (tmpStart, tmpIndex) {
 				baseConnector.sqlQuery(sqlCommand, function () {
 					// lock не снимаем, а продолжаем добавлять
-					_insertChanges(tmpStart, objChanges, docId, tmpIndex, userId, userIdOriginal);
+					_insertChanges(tmpStart, objChanges, docId, tmpIndex, user);
 				});
 			})(i + 1, index + 1);
 			return;
