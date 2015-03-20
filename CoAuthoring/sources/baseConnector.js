@@ -69,11 +69,17 @@ exports.insertInTable = function (tableId) {
 exports.insertChanges = function (objChanges, docId, index, userId, userIdOriginal) {
 	lockCriticalSection(docId, function () {_insertChanges(0, objChanges, docId, index, userId, userIdOriginal);});
 };
+function _getDateTime(nTime) {
+	var oDate = new Date(nTime);
+	return oDate.getUTCFullYear() + '-' + ('0' + (oDate.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + oDate.getUTCDate()).slice(-2)
+		+ ' ' + ('0' + oDate.getUTCHours()).slice(-2) + ':' + ('0' + oDate.getUTCMinutes()).slice(-2) + ':'
+		+ ('0' + oDate.getUTCSeconds()).slice(-2);
+}
 function _insertChanges (startIndex, objChanges, docId, index, user) {
 	var sqlCommand = "INSERT INTO " + tableChanges + " VALUES";
 	for (var i = startIndex, l = objChanges.length; i < l; ++i, ++index) {
 		sqlCommand += "('" + docId + "','" + index + "','" + user.id + "','" + user.idOriginal + "','"
-			+ user.name + "','" + objChanges[i].change + "')";
+			+ user.name + "','" + objChanges[i].change + "','" + _getDateTime(objChanges[i].time) + "')";
 		if (i === l - 1)
 			sqlCommand += ';';
 		else if (sqlCommand.length + objChanges[i + 1].change.length >= maxPacketSize) {
