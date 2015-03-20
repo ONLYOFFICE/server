@@ -678,8 +678,10 @@ exports.install = function (server, callbackFunction) {
 				for (j = 0; j < arrayElements.length; ++j) {
 					element = arrayElements[j];
 
-					objChangesDocument.push({docid: docId, change: element['dc_data'], time: Date.now(),
-						user: element['dc_user_id'], useridoriginal: element['dc_user_id_original']});
+					// Добавляем GMT, т.к. в базу данных мы пишем UTC, но сохраняется туда строка без UTC и при зачитывании будет неправильное время
+					objChangesDocument.push({docid: docId, change: element['dc_data'],
+						time: Date.parse(element['dc_date'] + ' GMT'), user: element['dc_user_id'],
+						useridoriginal: element['dc_user_id_original']});
 				}
 
 				oPucker.index = objChangesDocument.getLength();
@@ -1036,7 +1038,7 @@ exports.install = function (server, callbackFunction) {
 							var change = objChangesDocument[objChangesDocument.length - 1];
 							if (change['change'])
 								if (change['user'] !== curUserId)
-									bIsSuccessRestore = data['lastOtherSaveTime'] === change['time'];
+									bIsSuccessRestore = 0 === (((data['lastOtherSaveTime'] - change['time']) / 1000) >> 0);
 						}
 
 						if (bIsSuccessRestore) {
