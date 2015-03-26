@@ -557,7 +557,7 @@ exports.install = function (server, callbackFunction) {
 					case 'unLockDocument'		: checkEndAuthLock(data.isSave, conn.docId, conn.user.id, null, conn); break;
 				}
             } catch (e) {
-                logger.error("error receiving response: %s docId = %s", e, conn ? conn.docId : 'null');
+                logger.error("error receiving response: %s docId = %s type = %s", e, conn ? conn.docId : 'null', (data && data.type) ? data.type : 'null');
             }
 
         });
@@ -1253,10 +1253,10 @@ exports.install = function (server, callbackFunction) {
 
 		// Стартовый индекс изменения при добавлении
 		var startIndex = pucker.index;
-		logger.info("saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s", docId, deleteIndex, startIndex);
 
 		var newChanges = JSON.parse(data.changes);
 		var arrNewDocumentChanges = [];
+		logger.info("saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s ; length: %s", docId, deleteIndex, startIndex, newChanges.length);
 		if (0 < newChanges.length) {
 			var oElement = null;
 
