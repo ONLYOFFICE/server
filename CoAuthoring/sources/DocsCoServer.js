@@ -1059,7 +1059,6 @@ exports.install = function (server, callbackFunction) {
 							sendFileError(conn, 'Restore error. Document modified.');
 					});
 				});
-
 			} else {
 				conn.sessionId = conn.id;
 				endAuth(conn, false, data.documentCallbackUrl);
@@ -1152,6 +1151,7 @@ exports.install = function (server, callbackFunction) {
 		});
 	}
 	function getLock(conn, data, bIsRestore) {
+		logger.info("getLock docid: %s", conn.docId);
 		var fLock = null;
 		switch(data['editorType']) {
 			case 0:
@@ -1231,6 +1231,7 @@ exports.install = function (server, callbackFunction) {
 	// Для Excel необходимо делать пересчет lock-ов при добавлении/удалении строк/столбцов
 	function saveChanges(conn, data) {
 		var docId = conn.docId, userId = conn.user.id;
+		logger.info("saveChanges docid: %s", docId);
 		var participants = getParticipants(docId, userId, true);
 
 		// Пишем в базу информацию о сборщике и получаем текущий индекс
@@ -1252,6 +1253,7 @@ exports.install = function (server, callbackFunction) {
 
 		// Стартовый индекс изменения при добавлении
 		var startIndex = pucker.index;
+		logger.info("saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s", docId, deleteIndex, startIndex);
 
 		var newChanges = JSON.parse(data.changes);
 		var arrNewDocumentChanges = [];
