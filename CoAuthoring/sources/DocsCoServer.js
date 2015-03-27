@@ -553,6 +553,7 @@ exports.install = function (server, callbackFunction) {
 					case 'getLock'				: getLock(conn, data, false); break;
 					case 'saveChanges'			: saveChanges(conn, data); break;
 					case 'isSaveLock'			: isSaveLock(conn, data); break;
+					case 'unSaveLock'			: unSaveLock(conn, -1); break;	// Индекс отправляем -1, т.к. это экстренное снятие без сохранения
 					case 'getMessages'			: getMessages(conn, data); break;
 					case 'unLockDocument'		: checkEndAuthLock(data.isSave, conn.docId, conn.user.id, null, conn); break;
 				}
@@ -1244,10 +1245,13 @@ exports.install = function (server, callbackFunction) {
 			deleteIndex = data.deleteIndex;
 			if (-1 !== deleteIndex) {
 				var deleteCount = pucker.index - deleteIndex;
-				if (objChangesDocument)
-					objChangesDocument.splice(deleteIndex, deleteCount);
-				pucker.index -= deleteCount;
-				sqlBase.deleteChanges(docId, deleteIndex);
+				if (0 < deleteCount) {
+					if (objChangesDocument)
+						objChangesDocument.splice(deleteIndex, deleteCount);
+					pucker.index -= deleteCount;
+					sqlBase.deleteChanges(docId, deleteIndex);
+				} else
+					logger.error("saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s ; deleteCount: %s", docId, deleteIndex, pucker.index, deleteCount);
 			}
 		}
 
