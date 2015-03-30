@@ -132,6 +132,11 @@ exports.updateStatusFile = function (docId) {
 	baseConnector.sqlQuery(sqlCommand);
 };
 
+exports.updateIndexUser = function (docId, indexUser) {
+	var sqlCommand = "UPDATE " + tablePucker + " SET dp_indexUser=" + indexUser + " WHERE dp_key='" + docId + "' AND dp_indexUser<" + indexUser + ";";
+	baseConnector.sqlQuery(sqlCommand);
+};
+
 // Критическая секция
 function lockCriticalSection (id, callback) {
 	if (g_oCriticalSection[id]) {

@@ -497,32 +497,50 @@ function deletePucker (docId) {
 	sqlBase.deletePucker(docId);
 	delete objServicePucker[docId];
 }
-function updatePucker (docId, url, documentFormatSave, inDataBase) {
-	if (!objServicePucker.hasOwnProperty(docId)) {
-		var serverUrl = parseUrl(url);
-		if (null === serverUrl) {
-			logger.error('Error server url = %s', url);
-			return;
-		}
+function _createPucker (url, documentFormatSave, indexUser, inDataBase) {
+	var serverUrl = parseUrl(url);
+	if (null === serverUrl) {
+		logger.error('Error server url = %s', url);
+		return null;
+	}
 
-		objServicePucker[docId] = {
-			url					: url,					// Оригинальная ссылка
-			server				: serverUrl,			// Распарсили ссылку
-			documentFormatSave	: documentFormatSave,	// Формат документа
-			inDataBase			: inDataBase,			// Записали ли мы в базу (в базу добавляем только на сохранении)
-			index				: 0						// Текущий индекс изменения
-		};
-	}
+	return {
+		url					: url,					// Оригинальная ссылка
+		server				: serverUrl,			// Распарсили ссылку
+		documentFormatSave	: documentFormatSave,	// Формат документа
+		inDataBase			: inDataBase,			// Записали ли мы в базу (в базу добавляем только на сохранении)
+		index				: 0,					// Текущий индекс изменения
+		indexUser			: indexUser				// Новый индекс пользователя (такого индекса еще нет)
+	};
 }
-// Добавление в базу информации для сборки (только на сохранении)
-function insertPucker (docId) {
-	var pucker = objServicePucker[docId];
-	// Добавляем в базу если мы еще не добавляли
-	if (pucker && !pucker.inDataBase) {
-		sqlBase.insertInTable(sqlBase.tableId.pucker, docId, pucker.url, pucker.documentFormatSave);
-		pucker.inDataBase = true;
+function createPucker (docId, url, documentFormatSave, indexUser, inDataBase) {
+	var pucker = null;
+	if (!objServicePucker.hasOwnProperty(docId)) {
+		pucker = _createPucker(url, documentFormatSave, indexUser, inDataBase);
+		if (null === pucker)
+			return null;
+
+		objServicePucker[docId] = pucker;
 	}
-	return pucker;
+	return objServicePucker[docId];
+}
+function updatePucker (docId, indexUser) {
+	var pucker = objServicePucker[docId];
+	var nOldIndex;
+	if (pucker) {
+		// Обновляем индекс пользователя
+		nOldIndex = pucker.indexUser;
+		pucker.indexUser = indexUser;
+
+		// Добавляем в базу если мы еще не добавляли
+		if (!pucker.inDataBase) {
+			sqlBase.insertInTable(sqlBase.tableId.pucker, docId, pucker.url, pucker.documentFormatSave, pucker.indexUser);
+			pucker.inDataBase = true;
+		} else if (nOldIndex !== pucker.indexUser) {
+			// Обновляем только индекс
+			sqlBase.updateIndexUser(docId, pucker.indexUser);
+		}
+	}
 }
 
 exports.version = asc_coAuthV;
@@ -531,7 +549,6 @@ exports.install = function (server, callbackFunction) {
     'use strict';
     var sockjs_opts = {sockjs_url: './../../Common/sources/sockjs-0.3.min.js'},
         sockjs_echo = sockjs.createServer(sockjs_opts),
-		indexUser = {},
         locks = {},
 		lockDocuments = {},
 		arrSaveLock = {},
@@ -639,6 +656,9 @@ exports.install = function (server, callbackFunction) {
 
 					// Для данного пользователя снимаем Lock с документа
 					checkEndAuthLock(false, docId, connection.user.id, participants);
+				} else if (!hasEditors(docId)) {
+					// Если были во view и нет редакторов, то удалить сборщик
+					deletePucker(docId);
 				}
             }
         });
@@ -988,8 +1008,16 @@ exports.install = function (server, callbackFunction) {
 
 			var bIsRestore = null != data.sessionId;
 
-			// Увеличиваем индекс обращения к документу (если восстанавливаем, индекс тоже восстанавливаем)
-			var curIndexUser = bIsRestore ? user.indexUser : (!indexUser.hasOwnProperty(docId) ? (indexUser[docId] = 0) : indexUser[docId] += 1);
+			// Создаем информацию для сборки, если ее нет
+			var pucker = createPucker(docId, data.server, data.documentFormatSave, 0, false);
+			if (!pucker) {
+				sendFileError(conn, 'pucker error');
+				return;
+			}
+
+			// Если восстанавливаем, индекс тоже восстанавливаем
+			var curIndexUser = bIsRestore ? user.indexUser : pucker.indexUser;
+
 			var curUserId = user.id + curIndexUser;
 
 			conn.sessionState = 1;
@@ -1001,8 +1029,10 @@ exports.install = function (server, callbackFunction) {
 			};
 			conn.isViewer = data.isViewer;
 
-			// Сохраняем информацию для сборки
-			updatePucker(docId, data.server, data.documentFormatSave, false);
+			if (!conn.isViewer) {
+				// Если мы редактируем, то нужно обновить информацию в базе о файле и увеличиваем индекс обращения к документу
+				updatePucker(docId, Math.max(pucker.indexUser, curIndexUser + 1));
+			}
 
 			//Set the unique ID
 			if (bIsRestore) {
@@ -1130,7 +1160,7 @@ exports.install = function (server, callbackFunction) {
 			locks			: locks[docId],
 			changes			: objChangesDocument,
 			changesIndex	: changesIndex,
-			indexUser		: indexUser[docId]
+			indexUser		: conn.user.indexUser
 		};
 		sendData(conn, sendObject);//Or 0 if fails
 	}
@@ -1233,10 +1263,16 @@ exports.install = function (server, callbackFunction) {
 	function saveChanges(conn, data) {
 		var docId = conn.docId, userId = conn.user.id;
 		logger.info("saveChanges docid: %s", docId);
-		var participants = getParticipants(docId, userId, true);
 
 		// Пишем в базу информацию о сборщике и получаем текущий индекс
-		var pucker = insertPucker(docId);
+		var pucker = objServicePucker[docId];
+		if (!pucker) {
+			logger.error("saveChanges find pucker error docid: %s", docId);
+			// ToDo возможно стоит ответить ошибкой?
+			return;
+		}
+
+		var participants = getParticipants(docId, userId, true);
 		// Закэшированный объект с изменениями
 		var objChangesDocument = getDocumentChangesCache(docId);
 
@@ -1462,7 +1498,8 @@ exports.install = function (server, callbackFunction) {
 			var i, element;
 			for (i = 0; i < arrayElements.length; ++i) {
 				element = arrayElements[i];
-		 		updatePucker(element['dp_key'], element['dp_callback'], element['dp_documentFormatSave'], true);
+				createPucker(element['dp_key'], element['dp_callback'], element['dp_documentFormatSave'],
+					element['dp_indexUser'], true);
 			}
 		}
 
