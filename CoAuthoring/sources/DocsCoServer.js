@@ -1286,7 +1286,7 @@ exports.install = function (server, callbackFunction) {
 						objChangesDocument.splice(deleteIndex, deleteCount);
 					pucker.index -= deleteCount;
 					sqlBase.deleteChanges(docId, deleteIndex);
-				} else
+				} else if (0 > deleteCount)
 					logger.error("saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s ; deleteCount: %s", docId, deleteIndex, pucker.index, deleteCount);
 			}
 		}
