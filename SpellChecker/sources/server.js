@@ -2,18 +2,16 @@
 
 process.env.NODE_ENV = config['server']['mode'];
 
-var logger = require('./../../Common/sources/logger');
+var logger = require('./../../Common/sources/logger'),
+	express = require('express'),
+	http = require('http'),
+	https = require('https'),
+	fs = require("fs"),
+	spellCheck  = require('./spellCheck'),
+	app = express(),
+	server = {};
 
-// 2. Express server
-var express = require('express');
-
-var http = require('http');
-var https = require('https');
-
-var fs = require("fs");
-	
-var app = express();
-var server = {};
+logger.warn('Express server starting...');
 
 if (config['ssl']) {
 	var privateKey = fs.readFileSync(config['ssl']['key']).toString();
@@ -31,11 +29,9 @@ if (config['ssl']) {
 // то с помощью app.settings.env (https://github.com/strongloop/express/issues/936)
 // Если нужна обработка ошибок, то теперь она такая https://github.com/expressjs/errorhandler
 
-var spellCheck  = require('./spellCheck');
-
 spellCheck.install(server, function(){
 	server.listen(config['server']['port'], function(){
-		logger.info("Express server listening on port %d in %s mode", config['server']['port'], app.settings.env);
+		logger.warn("Express server listening on port %d in %s mode", config['server']['port'], app.settings.env);
 	});
 	
 	app.get('/index.html', function(req, res) {

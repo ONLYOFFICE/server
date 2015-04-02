@@ -36,8 +36,7 @@ CheckDictionary(arrDictionaries[0x0409], 'color', 'calor');*/
 exports.install = function (server, callbackFunction) {
 	'use strict';
 	var sockjs_opts = {sockjs_url: './../../Common/sources/sockjs-0.3.min.js'},
-		sockjs_echo = sockjs.createServer(sockjs_opts),
-		dataHandler;
+		sockjs_echo = sockjs.createServer(sockjs_opts);
 
 	sockjs_echo.on('connection', function (conn) {
 		if (null == conn) {
@@ -47,11 +46,12 @@ exports.install = function (server, callbackFunction) {
 		conn.on('data', function (message) {
 			try {
 				var data = JSON.parse(message);
-				dataHandler[data.type](conn, data);
+				switch (data.type) {
+					case 'spellCheck':	spellCheck(conn, data);break;
+				}
 			} catch (e) {
 				logger.error("error receiving response:" + e);
 			}
-
 		});
 		conn.on('error', function () {
 			logger.error("On error");
@@ -65,52 +65,46 @@ exports.install = function (server, callbackFunction) {
 		conn.write(JSON.stringify(data));
 	}
 
-	dataHandler = (function () {
-		function spellCheck(conn, data) {
-			function checkEnd() {
-				if (0 === data.usrWordsLength) {
-					//data.end = new Date();
-					//console.log("time - " + (data.end.getTime() - data.start.getTime()));
-					sendData(conn, { type:"spellCheck", spellCheckData:JSON.stringify(data) });
-				}
+	function spellCheck(conn, data) {
+		function checkEnd() {
+			if (0 === data.usrWordsLength) {
+				//data.end = new Date();
+				//console.log("time - " + (data.end.getTime() - data.start.getTime()));
+				sendData(conn, { type:"spellCheck", spellCheckData:JSON.stringify(data) });
 			}
-			function spellSuggest(index, word, lang) {
-				var oDictionary = arrDictionaries[lang];
-				if (undefined === oDictionary) {
-					data.usrCorrect[index] = false;
+		}
+		function spellSuggest(index, word, lang) {
+			var oDictionary = arrDictionaries[lang];
+			if (undefined === oDictionary) {
+				data.usrCorrect[index] = false;
+				--data.usrWordsLength;
+				checkEnd();
+			} else if ("spell" === data.type) {
+				oDictionary.spellSuggest(word, function (a, b) {
+					data.usrCorrect[index] = a;
 					--data.usrWordsLength;
 					checkEnd();
-				} else if ("spell" === data.type) {
-					oDictionary.spellSuggest(word, function (a, b) {
-						data.usrCorrect[index] = a;
-						--data.usrWordsLength;
-						checkEnd();
-					});
-				} else if ("suggest" === data.type) {
-					oDictionary.spellSuggestions(word, function (a, b) {
-						data.usrSuggest[index] = b;
-						--data.usrWordsLength;
-						checkEnd();
-					});
-				}
-			}
-
-			data = JSON.parse(data.spellCheckData);
-			// Ответ
-			data.usrCorrect = [];
-			data.usrSuggest = [];
-			data.usrWordsLength = data.usrWords.length;
-
-			//data.start = new Date();
-			for (var i = 0, length = data.usrWords.length; i < length; ++i) {
-				spellSuggest(i, data.usrWords[i], data.usrLang[i]);
+				});
+			} else if ("suggest" === data.type) {
+				oDictionary.spellSuggestions(word, function (a, b) {
+					data.usrSuggest[index] = b;
+					--data.usrWordsLength;
+					checkEnd();
+				});
 			}
 		}
 
-		return {
-			spellCheck:spellCheck
-		};
-	}());
+		data = JSON.parse(data.spellCheckData);
+		// Ответ
+		data.usrCorrect = [];
+		data.usrSuggest = [];
+		data.usrWordsLength = data.usrWords.length;
+
+		//data.start = new Date();
+		for (var i = 0, length = data.usrWords.length; i < length; ++i) {
+			spellSuggest(i, data.usrWords[i], data.usrLang[i]);
+		}
+	}
 
 	sockjs_echo.installHandlers(server, {prefix:'/doc/[0-9-.a-zA-Z_=]*/c', log:function (severity, message) {
 		//TODO: handle severity
