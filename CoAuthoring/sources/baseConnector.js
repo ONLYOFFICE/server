@@ -66,8 +66,8 @@ exports.insertInTable = function (tableId) {
 
 	baseConnector.sqlQuery(sqlCommand);
 };
-exports.insertChanges = function (objChanges, docId, index, userId, userIdOriginal) {
-	lockCriticalSection(docId, function () {_insertChanges(0, objChanges, docId, index, userId, userIdOriginal);});
+exports.insertChanges = function (objChanges, docId, index, user) {
+	lockCriticalSection(docId, function () {_insertChanges(0, objChanges, docId, index, user);});
 };
 function _getDateTime(nTime) {
 	var oDate = new Date(nTime);
