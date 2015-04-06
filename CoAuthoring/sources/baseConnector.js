@@ -1,19 +1,19 @@
 var sqlDataBaseType = {
-	mySql		: "mysql",
-	postgreSql	: "postgres"
+	mySql		: 'mysql',
+	postgreSql	: 'postgres'
 };
 
 var config = require('./config.json');
-var configSql = config["sql"];
-var baseConnector = (sqlDataBaseType.mySql === configSql["type"]) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
+var configSql = config['sql'];
+var baseConnector = (sqlDataBaseType.mySql === configSql['type']) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
 
-var tableChanges = configSql["tableChanges"],
-	tableCallbacks = configSql["tableCallbacks"],
-	tableResult = configSql["tableResult"],
-	tablePucker = configSql["tablePucker"];
+var tableChanges = configSql['tableChanges'],
+	tableCallbacks = configSql['tableCallbacks'],
+	tableResult = configSql['tableResult'],
+	tablePucker = configSql['tablePucker'];
 
 var g_oCriticalSection = {}, lockTimeOut = 200;
-var maxPacketSize = 1024 * 1024 - 400; // Размер по умолчанию для запроса в базу данных (вычли 400 на поля)
+var maxPacketSize = configSql['max_allowed_packet']; // Размер по умолчанию для запроса в базу данных 1Mb
 
 function getDataFromTable (tableId, data, getCondition, callback) {
 	var table = getTableById(tableId);
@@ -69,6 +69,9 @@ exports.insertInTable = function (tableId) {
 exports.insertChanges = function (objChanges, docId, index, user) {
 	lockCriticalSection(docId, function () {_insertChanges(0, objChanges, docId, index, user);});
 };
+function _lengthInUtf8Bytes (s) {
+	return ~-encodeURI(s).split(/%..|./).length;
+}
 function _getDateTime(nTime) {
 	var oDate = new Date(nTime);
 	return oDate.getUTCFullYear() + '-' + ('0' + (oDate.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + oDate.getUTCDate()).slice(-2)
@@ -77,23 +80,37 @@ function _getDateTime(nTime) {
 }
 function _insertChanges (startIndex, objChanges, docId, index, user) {
 	var sqlCommand = "INSERT INTO " + tableChanges + " VALUES";
-	for (var i = startIndex, l = objChanges.length; i < l; ++i, ++index) {
-		sqlCommand += "('" + docId + "','" + index + "','" + user.id + "','" + user.idOriginal + "','"
+	var i = startIndex, l = objChanges.length, sqlNextRow = "", lengthUtf8Current = 0, lengthUtf8Row = 0;
+	if (i === l)
+		return;
+
+	for (; i < l; ++i, ++index) {
+		sqlNextRow = "('" + docId + "','" + index + "','" + user.id + "','" + user.idOriginal + "','"
 			+ user.name + "','" + objChanges[i].change + "','" + _getDateTime(objChanges[i].time) + "')";
-		if (i === l - 1)
-			sqlCommand += ';';
-		else if (sqlCommand.length + objChanges[i + 1].change.length >= maxPacketSize) {
-			sqlCommand += ';';
-			(function (tmpStart, tmpIndex) {
-				baseConnector.sqlQuery(sqlCommand, function () {
-					// lock не снимаем, а продолжаем добавлять
-					_insertChanges(tmpStart, objChanges, docId, tmpIndex, user);
-				});
-			})(i + 1, index + 1);
-			return;
-		} else
-			sqlCommand += ',';
+		lengthUtf8Row = _lengthInUtf8Bytes(sqlNextRow) + 1; // 1 - это на символ ',' или ';' в конце команды
+		if (i === startIndex) {
+			lengthUtf8Current = _lengthInUtf8Bytes(sqlCommand);
+			sqlCommand += sqlNextRow;
+		} else {
+			if (lengthUtf8Row + lengthUtf8Current >= maxPacketSize) {
+				sqlCommand += ';';
+				(function (tmpStart, tmpIndex) {
+					baseConnector.sqlQuery(sqlCommand, function () {
+						// lock не снимаем, а продолжаем добавлять
+						_insertChanges(tmpStart, objChanges, docId, tmpIndex, user);
+					});
+				})(i, index);
+				return;
+			} else {
+				sqlCommand += ',';
+				sqlCommand += sqlNextRow;
+			}
+		}
+
+		lengthUtf8Current += lengthUtf8Row;
 	}
+
+	sqlCommand += ';';
 	baseConnector.sqlQuery(sqlCommand, function () {unLockCriticalSection(docId);});
 }
 
