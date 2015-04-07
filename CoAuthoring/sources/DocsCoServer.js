@@ -102,6 +102,7 @@ var c_oAscServerCommandErrors = {
 };
 
 var c_oAscSaveTimeOutDelay = 5000;	// Время ожидания для сохранения на сервере (для отработки F5 в браузере)
+var c_oAscLockTimeOutDelay = 500;	// Время ожидания для сохранения, когда зажата база данных
 
 var c_oAscRecalcIndexTypes = {
 	RecalcIndexAdd:		1,
@@ -625,9 +626,7 @@ exports.install = function (server, callbackFunction) {
 						// Send changes to save server
 						oPucker = objServicePucker[docId];
 						if (oPucker && oPucker.inDataBase && 0 !== oPucker.index) {
-							saveTimers[docId] = setTimeout(function () {
-								sendChangesToServer(docId);
-							}, c_oAscSaveTimeOutDelay);
+							_createSaveTimer(docId);
 						} else {
 							// Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
 							deletePucker(docId);
@@ -1488,6 +1487,18 @@ exports.install = function (server, callbackFunction) {
 		return !isLock;
 	}
 
+	function _createSaveTimer (docId) {
+		var oTimeoutFunction = function () {
+			if (sqlBase.isLockCriticalSection(docId))
+				saveTimers[docId] = setTimeout(oTimeoutFunction, c_oAscLockTimeOutDelay);
+			else {
+				delete saveTimers[docId];
+				sendChangesToServer(docId);
+			}
+		};
+		saveTimers[docId] = setTimeout(oTimeoutFunction, c_oAscSaveTimeOutDelay);
+	}
+
     sockjs_echo.installHandlers(server, {prefix:'/doc/[0-9-.a-zA-Z_=]*/c', log:function (severity, message) {
 		//TODO: handle severity
 		logger.info(message);
@@ -1525,7 +1536,7 @@ exports.install = function (server, callbackFunction) {
 			for (docId in objServiceInfo) {
 				// Если есть информация для сборки, то запускаем. Иначе - удаляем подписчика? : ToDo
 				if (objServicePucker[docId])
-					saveTimers[docId] = createTimer(docId);
+					_createSaveTimer(docId);
 				else
 					deleteCallback(docId);
 			}

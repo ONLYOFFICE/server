@@ -154,6 +154,10 @@ exports.updateIndexUser = function (docId, indexUser) {
 	baseConnector.sqlQuery(sqlCommand);
 };
 
+exports.isLockCriticalSection = function (id) {
+	return !!(g_oCriticalSection[id]);
+};
+
 // Критическая секция
 function lockCriticalSection (id, callback) {
 	if (g_oCriticalSection[id]) {
