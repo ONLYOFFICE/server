@@ -158,13 +158,19 @@ exports.updateIndexUser = function (docId, indexUser) {
 function lockCriticalSection (id, callback) {
 	if (g_oCriticalSection[id]) {
 		// Ждем
-		setTimeout(function () {lockCriticalSection(id, callback);}, lockTimeOut);
+		g_oCriticalSection[id].push(callback);
 		return;
 	}
 	// Ставим lock
-	g_oCriticalSection[id] = true;
+	g_oCriticalSection[id] = [];
+	g_oCriticalSection[id].push(callback);
 	callback();
 }
 function unLockCriticalSection (id) {
-	delete g_oCriticalSection[id];
+	var arrCallbacks = g_oCriticalSection[id];
+	arrCallbacks.shift();
+	if (0 < arrCallbacks.length)
+		arrCallbacks[0]();
+	else
+		delete g_oCriticalSection[id];
 }
