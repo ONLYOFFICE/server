@@ -1518,9 +1518,6 @@ exports.install = function (server, callbackFunction) {
 	};
 
 	var callbackLoadCallbacksMySql = function (error, arrayElements) {
-		var createTimer = function (id) {
-			return setTimeout(function () { sendChangesToServer(id); }, c_oAscSaveTimeOutDelay);
-		};
 		if (null != arrayElements) {
 			var i, element, callbackUrl;
 			for (i = 0; i < arrayElements.length; ++i) {
