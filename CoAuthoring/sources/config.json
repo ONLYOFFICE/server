@@ -20,6 +20,6 @@
       "user"				: "canvas_usr",
       "pass"				: "canvas_usr",
       "charset"				: "utf8",
-	  "max_allowed_packet"	: 1048576
+	  "max_allowed_packet"	: 1048575
     }
 }

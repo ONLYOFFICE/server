@@ -12,8 +12,8 @@ var tableChanges = configSql['tableChanges'],
 	tableResult = configSql['tableResult'],
 	tablePucker = configSql['tablePucker'];
 
-var g_oCriticalSection = {}, lockTimeOut = 200;
-var maxPacketSize = configSql['max_allowed_packet']; // Размер по умолчанию для запроса в базу данных 1Mb
+var g_oCriticalSection = {};
+var maxPacketSize = configSql['max_allowed_packet']; // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
 
 function getDataFromTable (tableId, data, getCondition, callback) {
 	var table = getTableById(tableId);
