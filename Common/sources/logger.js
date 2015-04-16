@@ -3,7 +3,7 @@
 var log4js = require('log4js');
 log4js.configure(config['log']);
 
-var logger = log4js.getLogger("nodeJS");
+var logger = log4js.getLogger('nodeJS');
 
 exports.trace = function (){
 	return logger.trace.apply(logger, Array.prototype.slice.call(arguments));
@@ -22,4 +22,7 @@ exports.error = function (){
 };
 exports.fatal = function (){
 	return logger.fatal.apply(logger, Array.prototype.slice.call(arguments));
+};
+exports.shutdown = function (callback) {
+	return log4js.shutdown(callback);
 };
