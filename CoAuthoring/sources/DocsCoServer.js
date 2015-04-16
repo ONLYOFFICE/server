@@ -473,7 +473,7 @@ function bindEvents(docId, callback) {
 }
 
 // Удаляем изменения из памяти (используется только с основного сервера, для очистки!)
-function removeChanges (id, isCorrupted) {
+function removeChanges (id, isCorrupted, isConvertService) {
 	logger.info('removeChanges: %s', id);
 	// remove messages from memory
 	delete messages[id];
@@ -490,7 +490,7 @@ function removeChanges (id, isCorrupted) {
 	} else {
 		// Обновим статус файла (т.к. ошибка, выставим, что не собиралось)
 		sqlBase.updateStatusFile(id);
-		logger.error('saved corrupted id = %s', id);
+		logger.error('saved corrupted id = %s convert = %s', id, isConvertService);
 	}
 }
 function deletePucker (docId) {
@@ -840,7 +840,7 @@ exports.install = function (server, callbackFunction) {
 		var sendData = JSON.stringify({
 			'id': docId,
 			'c': 'sfc',
-			'url': '/CommandService.ashx?c=saved&key=' + docId + '&status=',
+			'url': '/CommandService.ashx?c=saved&conv=1&key=' + docId + '&status=',
 			'outputformat': objServicePucker[docId].documentFormatSave,
 			'data': c_oAscSaveTimeOutDelay
 		});
@@ -1565,7 +1565,7 @@ exports.commandFromServer = function (query) {
 			break;
 		case 'saved':
 			// Результат от менеджера документов о статусе обработки сохранения файла после сборки
-			removeChanges(docId, '1' !== query.status);
+			removeChanges(docId, '1' !== query.status, '1' === query.conv);
 			break;
 		default:
 			result = c_oAscServerCommandErrors.CommandError;
