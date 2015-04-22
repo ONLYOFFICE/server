@@ -584,7 +584,7 @@ exports.install = function (server, callbackFunction) {
             logger.error("On error");
         });
         conn.on('close', function () {
-            var connection = this, userLocks, participants, reconnected, oPucker;
+            var connection = this, userLocks, participants, reconnected, oPucker, bHasEditors, bHasChanges;
 			var docId = conn.docId;
 			if (null == docId)
 				return;
@@ -613,10 +613,14 @@ exports.install = function (server, callbackFunction) {
 					arrSaveLock[docId] = undefined;
 				}
 
+				oPucker = objServicePucker[docId];
+				bHasEditors = hasEditors(docId);
+				bHasChanges = oPucker && oPucker.inDataBase && 0 !== oPucker.index;
+
 				// Только если редактируем
 				if (false === connection.isViewer) {
 					// Если у нас нет пользователей, то удаляем все сообщения
-					if (!hasEditors(docId)) {
+					if (!bHasEditors) {
 						// Очищаем предыдущий таймер
 						if (null != arrSaveLock[docId] && null != arrSaveLock[docId].saveLockTimeOutId)
 							clearTimeout(arrSaveLock[docId].saveLockTimeOutId);
@@ -624,8 +628,7 @@ exports.install = function (server, callbackFunction) {
 						arrSaveLock[docId] = undefined;
 
 						// Send changes to save server
-						oPucker = objServicePucker[docId];
-						if (oPucker && oPucker.inDataBase && 0 !== oPucker.index) {
+						if (bHasChanges) {
 							_createSaveTimer(docId);
 						} else {
 							// Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
@@ -655,8 +658,8 @@ exports.install = function (server, callbackFunction) {
 
 					// Для данного пользователя снимаем Lock с документа
 					checkEndAuthLock(false, docId, connection.user.id, participants);
-				} else if (!hasEditors(docId)) {
-					// Если были во view и нет редакторов, то удалить сборщик
+				} else if (!bHasEditors && !bHasChanges) {
+					// Если были во view, нет редакторов и нет изменений, то удалить сборщик
 					deletePucker(docId);
 				}
             }
@@ -815,6 +818,7 @@ exports.install = function (server, callbackFunction) {
     }
 
 	function sendFileError(conn, errorId) {
+		logger.error('error description: %s', errorId);
 		sendData(conn, {type : 'error', description: errorId});
 	}
 
