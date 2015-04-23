@@ -85,8 +85,9 @@ function _insertChanges (startIndex, objChanges, docId, index, user) {
 		return;
 
 	for (; i < l; ++i, ++index) {
-		sqlNextRow = "('" + docId + "','" + index + "','" + user.id + "','" + user.idOriginal + "','"
-			+ user.name + "','" + objChanges[i].change + "','" + _getDateTime(objChanges[i].time) + "')";
+		sqlNextRow = "('" + docId + "','" + index + "','" + user.id + "','" + user.idOriginal + "',"
+			+ baseConnector.sqlEscape(user.name) + ",'" + objChanges[i].change + "','"
+			+ _getDateTime(objChanges[i].time) + "')";
 		lengthUtf8Row = _lengthInUtf8Bytes(sqlNextRow) + 1; // 1 - это на символ ',' или ';' в конце команды
 		if (i === startIndex) {
 			lengthUtf8Current = _lengthInUtf8Bytes(sqlCommand);
