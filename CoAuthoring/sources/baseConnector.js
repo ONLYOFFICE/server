@@ -58,7 +58,7 @@ exports.insertInTable = function (tableId, callbackFunction) {
 	var table = getTableById(tableId);
 	var sqlCommand = "INSERT INTO " + table + " VALUES (";
 	for (var i = 2, l = arguments.length; i < l; ++i) {
-		sqlCommand += "'" + arguments[i] + "'";
+		sqlCommand += baseConnector.sqlEscape(arguments[i]);
 		if (i !== l - 1)
 			sqlCommand += ",";
 	}
@@ -85,9 +85,10 @@ function _insertChanges (startIndex, objChanges, docId, index, user) {
 		return;
 
 	for (; i < l; ++i, ++index) {
-		sqlNextRow = "('" + docId + "','" + index + "','" + user.id + "','" + user.idOriginal + "',"
-			+ baseConnector.sqlEscape(user.name) + ",'" + objChanges[i].change + "','"
-			+ _getDateTime(objChanges[i].time) + "')";
+		sqlNextRow = "(" + baseConnector.sqlEscape(docId) + "," + baseConnector.sqlEscape(index) + ","
+			+ baseConnector.sqlEscape(user.id) + "," + baseConnector.sqlEscape(user.idOriginal) + ","
+			+ baseConnector.sqlEscape(user.name) + "," + baseConnector.sqlEscape(objChanges[i].change) + ","
+			+ baseConnector.sqlEscape(_getDateTime(objChanges[i].time)) + ")";
 		lengthUtf8Row = _lengthInUtf8Bytes(sqlNextRow) + 1; // 1 - это на символ ',' или ';' в конце команды
 		if (i === startIndex) {
 			lengthUtf8Current = _lengthInUtf8Bytes(sqlCommand);
