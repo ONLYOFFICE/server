@@ -54,17 +54,17 @@ exports.loadTable = function (tableId, callbackFunction) {
 	var sqlCommand = "SELECT * FROM " + table + ";";
 	baseConnector.sqlQuery(sqlCommand, callbackFunction);
 };
-exports.insertInTable = function (tableId) {
+exports.insertInTable = function (tableId, callbackFunction) {
 	var table = getTableById(tableId);
 	var sqlCommand = "INSERT INTO " + table + " VALUES (";
-	for (var i = 1, l = arguments.length; i < l; ++i) {
+	for (var i = 2, l = arguments.length; i < l; ++i) {
 		sqlCommand += "'" + arguments[i] + "'";
 		if (i !== l - 1)
 			sqlCommand += ",";
 	}
 	sqlCommand += ");";
 
-	baseConnector.sqlQuery(sqlCommand);
+	baseConnector.sqlQuery(sqlCommand, callbackFunction);
 };
 exports.insertChanges = function (objChanges, docId, index, user) {
 	lockCriticalSection(docId, function () {_insertChanges(0, objChanges, docId, index, user);});

@@ -402,7 +402,7 @@ function sendStatusDocument (docId, bChangeBase) {
 	if (c_oAscChangeBase.No !== bChangeBase) {
 		if (c_oAscServerStatus.Editing === status && c_oAscChangeBase.All === bChangeBase) {
 			// Добавить в базу
-			sqlBase.insertInTable(sqlBase.tableId.callbacks, docId, callback.href);
+			sqlBase.insertInTable(sqlBase.tableId.callbacks, null, docId, callback.href);
 		} else if (c_oAscServerStatus.Closed === status) {
 			// Удалить из базы
 			deleteCallback(docId);
@@ -535,12 +535,34 @@ function updatePucker (docId, indexUser) {
 
 		// Добавляем в базу если мы еще не добавляли
 		if (!pucker.inDataBase) {
-			sqlBase.insertInTable(sqlBase.tableId.pucker, docId, pucker.url, pucker.documentFormatSave, pucker.indexUser);
+			sqlBase.insertInTable(sqlBase.tableId.pucker, null, docId, pucker.url, pucker.documentFormatSave, pucker.indexUser);
 			pucker.inDataBase = true;
 		} else if (nOldIndex !== pucker.indexUser) {
 			// Обновляем только индекс
 			sqlBase.updateIndexUser(docId, pucker.indexUser);
 		}
+	}
+}
+
+// Добавление в базу данных ссылки на отправку данных с сервера для mail-merge рассылки по почте
+function addMailMergeCallback (docId, callback) {
+	var oCallbackUrl = parseUrl(callback);
+	if (null === oCallbackUrl)
+		return c_oAscServerCommandErrors.ParseError;
+
+	var oPucker = objServicePucker[docId];
+	if (null !== oPucker) {
+		// В базу добавляем с префиксом, чтобы не перепутать с нашими callback-ми
+		sqlBase.insertInTable(sqlBase.tableId.callbacks, function (error) {
+			var participants = getParticipants(docId, null, true);
+			var isSuccess = !error;
+			_.each(participants, function (participant) {
+				sendData(participant.connection, {
+					type	: "mailMerge",
+					result	: isSuccess
+				});
+			});
+		}, 'mailmerge_' + docId, oCallbackUrl.href);
 	}
 }
 
@@ -1570,6 +1592,9 @@ exports.commandFromServer = function (query) {
 		case 'saved':
 			// Результат от менеджера документов о статусе обработки сохранения файла после сборки
 			removeChanges(docId, '1' !== query.status, '1' === query.conv);
+			break;
+		case 'mailmerge':
+			result = addMailMergeCallback(docId, query.callback);
 			break;
 		default:
 			result = c_oAscServerCommandErrors.CommandError;
