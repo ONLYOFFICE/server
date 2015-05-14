@@ -544,28 +544,6 @@ function updatePucker (docId, indexUser) {
 	}
 }
 
-// Добавление в базу данных ссылки на отправку данных с сервера для mail-merge рассылки по почте
-function addMailMergeCallback (docId, callback) {
-	var oCallbackUrl = parseUrl(callback);
-	if (null === oCallbackUrl)
-		return c_oAscServerCommandErrors.ParseError;
-
-	var oPucker = objServicePucker[docId];
-	if (null !== oPucker) {
-		// В базу добавляем с префиксом, чтобы не перепутать с нашими callback-ми
-		sqlBase.insertInTable(sqlBase.tableId.callbacks, function (error) {
-			var participants = getParticipants(docId, null, true);
-			var isSuccess = !error;
-			_.each(participants, function (participant) {
-				sendData(participant.connection, {
-					type	: "mailMerge",
-					result	: isSuccess
-				});
-			});
-		}, 'mailmerge_' + docId, oCallbackUrl.href);
-	}
-}
-
 exports.version = asc_coAuthV;
 
 exports.install = function (server, callbackFunction) {
@@ -1592,9 +1570,6 @@ exports.commandFromServer = function (query) {
 		case 'saved':
 			// Результат от менеджера документов о статусе обработки сохранения файла после сборки
 			removeChanges(docId, '1' !== query.status, '1' === query.conv);
-			break;
-		case 'mailmerge':
-			result = addMailMergeCallback(docId, query.callback);
 			break;
 		default:
 			result = c_oAscServerCommandErrors.CommandError;
