@@ -13,8 +13,8 @@ call npm list -g node-gyp || call npm install -g node-gyp || exit /b 1
 
 XCOPY /S nodehun node_modules\nodehun\ /Y 
 
-cd /D node_modules\nodehun\src || exit /b 1
-call node-gyp build	|| exit /b 1
+cd /D node_modules\nodehun || exit /b 1
+call node-gyp rebuild	|| exit /b 1
 
 CD /D %RUN_FOLDER% || exit /b 1
 
