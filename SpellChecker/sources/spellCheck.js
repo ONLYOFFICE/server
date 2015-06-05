@@ -1,7 +1,8 @@
 ﻿var sockjs = require('sockjs'),
 	nodehun = require('nodehun'),
 	config = require('./config.json'),
-	logger = require('./../../Common/sources/logger');
+	logger = require('./../../Common/sources/logger'),
+	fs = require('fs');
 var arrDictionaries = {};
 
 (function() {
@@ -12,20 +13,20 @@ var arrDictionaries = {};
 		oDictTmp = arrDictionariesConfig[indexDict];
 		oDictName = oDictTmp.name;
 		pathTmp = __dirname + '/../Dictionaries/' + oDictName + '/' + oDictName + '.';
-		arrDictionaries[oDictTmp.id] = new nodehun.Dictionary(pathTmp + 'aff', pathTmp + 'dic');
+		arrDictionaries[oDictTmp.id] = new nodehun(fs.readFileSync(pathTmp + 'aff'), fs.readFileSync(pathTmp + 'dic'));
 	}
 })();
 
-/*function CheckDictionary (dict, correct, uncorect) {
+/*function CheckDictionary (dict, correct, unCorrect) {
 	if (dict) {
-		dict.spellSuggest(correct, function (a, b) {
-			if(!a)
-				logger.error('Error: spelling correct word %s failed!', correct);
+		dict.spellSuggest(correct, function (err, correct, suggestion, origWord) {
+			console.log(err, correct, suggestion, origWord);
+			if (err || !correct) logger.error('Error: spelling correct word %s failed!', correct);
 		});
 
-		dict.spellSuggestions(uncorect, function (a, b) {
-			if(a)
-				logger.error('Error: spelling uncorect word %s failed!', uncorect);
+		dict.spellSuggestions(unCorrect, function (err, correct, suggestions, origWord) {
+			console.log(err, correct, suggestions, origWord);
+			if (err || correct) logger.error('Error: spelling unCorrect word %s failed!', unCorrect);
 		});
 	} else {
 		logger.error('Error: no dictionary');
@@ -80,14 +81,14 @@ exports.install = function (server, callbackFunction) {
 				--data.usrWordsLength;
 				checkEnd();
 			} else if ("spell" === data.type) {
-				oDictionary.spellSuggest(word, function (a, b) {
-					data.usrCorrect[index] = a;
+				oDictionary.spellSuggest(word, function (err, correct, suggestion, origWord) {
+					data.usrCorrect[index] = (!err && correct);
 					--data.usrWordsLength;
 					checkEnd();
 				});
 			} else if ("suggest" === data.type) {
-				oDictionary.spellSuggestions(word, function (a, b) {
-					data.usrSuggest[index] = b;
+				oDictionary.spellSuggestions(word, function (err, correct, suggestions, origWord) {
+					data.usrSuggest[index] = suggestions;
 					--data.usrWordsLength;
 					checkEnd();
 				});
