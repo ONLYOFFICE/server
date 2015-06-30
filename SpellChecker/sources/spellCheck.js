@@ -51,7 +51,7 @@ exports.install = function (server, callbackFunction) {
 					case 'spellCheck':	spellCheck(conn, data);break;
 				}
 			} catch (e) {
-				logger.error("error receiving response:" + e);
+				logger.error("error receiving response: %s", e);
 			}
 		});
 		conn.on('error', function () {
@@ -75,6 +75,7 @@ exports.install = function (server, callbackFunction) {
 			}
 		}
 		function spellSuggest(index, word, lang) {
+			logger.info('word = %s, lang = %s', word, lang);
 			var oDictionary = arrDictionaries[lang];
 			if (undefined === oDictionary) {
 				data.usrCorrect[index] = false;
