@@ -1,2 +1,2 @@
-call node --debug ../sources/server.js
+call node ../sources/server.js
 pause
