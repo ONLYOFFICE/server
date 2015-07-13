@@ -4,6 +4,6 @@
     "homepage": "http://www.onlyoffice.com",
     "private": true,
     "dependencies": {
-		"log4js": "0.6.22"
+		"log4js": "0.6.26"
     }
 }
