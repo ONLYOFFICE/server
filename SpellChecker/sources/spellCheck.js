@@ -19,8 +19,8 @@ var arrDictionaries = {};
 
 /*function CheckDictionary (dict, correct, unCorrect) {
 	if (dict) {
-		dict.spellSuggest(correct, function (err, correct, suggestion, origWord) {
-			console.log(err, correct, suggestion, origWord);
+		dict.isCorrect(correct, function (err, correct, origWord) {
+			console.log(err, correct, origWord);
 			if (err || !correct) logger.error('Error: spelling correct word %s failed!', correct);
 		});
 
@@ -82,7 +82,7 @@ exports.install = function (server, callbackFunction) {
 				--data.usrWordsLength;
 				checkEnd();
 			} else if ("spell" === data.type) {
-				oDictionary.spellSuggest(word, function (err, correct, suggestion, origWord) {
+				oDictionary.isCorrect(word, function (err, correct, origWord) {
 					data.usrCorrect[index] = (!err && correct);
 					--data.usrWordsLength;
 					checkEnd();
