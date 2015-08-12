@@ -67,15 +67,15 @@ exports.install = function (server, callbackFunction) {
 	}
 
 	function spellCheck(conn, data) {
+		var oSpellInfo;
 		function checkEnd() {
-			if (0 === data.usrWordsLength) {
-				//data.end = new Date();
-				//console.log("time - " + (data.end.getTime() - data.start.getTime()));
+			if (0 === oSpellInfo.usrWordsLength) {
 				sendData(conn, { type:"spellCheck", spellCheckData:JSON.stringify(data) });
 			}
 		}
 		function spellSuggest(index, word, lang) {
-			logger.info('word = %s, lang = %s', word, lang);
+			oSpellInfo.arrTimes[index] = new Date();
+			logger.info('start %s word = %s, lang = %s', data.type, word, lang);
 			var oDictionary = arrDictionaries[lang];
 			if (undefined === oDictionary) {
 				data.usrCorrect[index] = false;
@@ -84,13 +84,15 @@ exports.install = function (server, callbackFunction) {
 			} else if ("spell" === data.type) {
 				oDictionary.isCorrect(word, function (err, correct, origWord) {
 					data.usrCorrect[index] = (!err && correct);
-					--data.usrWordsLength;
+					logger.info('spell word = %s, lang = %s, time = %s', word, lang, new Date() - oSpellInfo.arrTimes[index]);
+					--oSpellInfo.usrWordsLength;
 					checkEnd();
 				});
 			} else if ("suggest" === data.type) {
 				oDictionary.spellSuggestions(word, function (err, correct, suggestions, origWord) {
 					data.usrSuggest[index] = suggestions;
-					--data.usrWordsLength;
+					logger.info('suggest word = %s, lang = %s, time = %s', word, lang, new Date() - oSpellInfo.arrTimes[index]);
+					--oSpellInfo.usrWordsLength;
 					checkEnd();
 				});
 			}
@@ -100,7 +102,8 @@ exports.install = function (server, callbackFunction) {
 		// Ответ
 		data.usrCorrect = [];
 		data.usrSuggest = [];
-		data.usrWordsLength = data.usrWords.length;
+
+		oSpellInfo = {usrWordsLength: data.usrWords.length, arrTimes: []};
 
 		//data.start = new Date();
 		for (var i = 0, length = data.usrWords.length; i < length; ++i) {
@@ -114,4 +117,18 @@ exports.install = function (server, callbackFunction) {
 	}});
 
 	callbackFunction();
+};
+exports.spellSuggest = function (type, word, lang, callbackFunction) {
+	var oDictionary = arrDictionaries[lang];
+	if (undefined === oDictionary) {
+		callbackFunction(false);
+	} else if ('spell' === type) {
+		oDictionary.isCorrect(word, function (err, correct, origWord) {
+			callbackFunction(!err && correct);
+		});
+	} else if ('suggest' === type) {
+		oDictionary.spellSuggestions(word, function (err, correct, suggestions, origWord) {
+			callbackFunction(suggestions);
+		});
+	}
 };
