@@ -15,4 +15,5 @@ call npm install
 
 CD /D %RUN_FOLDER% || exit /b 1
 
+pause
 exit /b 0
