@@ -3,5 +3,7 @@
   "version": "1.0.0",
   "homepage": "http://www.onlyoffice.com",
   "private": true,
-  "dependencies": {}
+  "dependencies": {
+	"config": "^1.15.0"
+  }
 }

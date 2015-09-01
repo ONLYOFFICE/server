@@ -1,9 +1,0 @@
-{
-	"s3rver":
-	{
-		"host": "",
-		"port": 4567,
-		"directory": "",
-		"silent": true
-	}
-}

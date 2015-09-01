@@ -6,6 +6,7 @@
     "dependencies": {
 		"express"	: "4.13.1",
 		"sockjs"	: "0.3.15",
-		"nodehun"	: "2.0.6"
+		"nodehun"	: "2.0.6",
+		"config":	"^1.15.0"
     }
 }

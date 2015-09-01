@@ -3,7 +3,7 @@ var sqlDataBaseType = {
 	postgreSql	: 'postgres'
 };
 
-var config = require('./config.json');
+var config = require('config');
 var configSql = config['sql'];
 var baseConnector = (sqlDataBaseType.mySql === configSql['type']) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
 
