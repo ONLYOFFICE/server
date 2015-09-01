@@ -1,6 +1,7 @@
-SET NODE_ENV=development-windows
-
 SET RUN_DIR=%CD%
+
+SET NODE_ENV=development-windows
+SET NODE_CONFIG_DIR=%RUN_DIR%\Common\config
 
 cd %RUN_DIR%\CoAuthoring\sources
 start node --harmony server.js
