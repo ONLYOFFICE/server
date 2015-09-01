@@ -1,0 +1,178 @@
+﻿{
+	"log": {
+		"appenders": [{
+			"type": "console"
+		}],
+		"replaceConsole": "true",
+		"levels": {
+			"nodeJS": "Debug"
+		}
+	},
+	"queue": {
+		"name": "taskqueueRabbitMQ",
+		"visibilityTimeout": 300,
+		"retentionPeriod": 900
+	},
+	"storage": {
+		"name": "storage-s3",
+		"region": "",
+		"endpoint": "http://localhost/s3",
+		"bucketName": "cache",
+		"storageFolderName": "files",
+		"urlExpires": 60,
+		"accessKeyId": "AKID",
+		"secretAccessKey": "SECRET",
+		"useRequestToGetUrl": false,
+		"fs": {
+			"folderPath": "../../App_Data"
+		}
+	},
+	"rabbitmq": {
+		"url": "amqp://localhost",
+		"login": "guest",
+		"password": "guest",
+		"connectionTimeout": "10000",
+		"authMechanism": "AMQPLAIN",
+		"vhost": "/",
+		"noDelay": true,
+		"sslenabled": false,
+		"exchangepubsub": "dc.pubsub",
+		"queueconverttask": "dc.converttask",
+		"queueconvertresponse": "dc.convertresponse"
+	},
+	"services": {
+		"CoAuthoring": {
+			"server": {
+				"port": 8000,
+				"workerpercpu": 1,
+				"mode": "development",
+				"fonts.route": "OfficeWeb/sdk/Fonts/",
+				"static.content": [{
+					"name": "/OfficeWeb",
+					"path": "../../../OfficeWeb"
+				},
+				{
+					"name": "/office",
+					"path": "../../../office"
+				}],
+				"limits.tempfile.upload": 104857600,
+				"limits.image.size": 26214400,
+				"editor.settings.autosave.enable": "true",
+				"editor.settings.autosave.mininterval": 300,
+				"editor.settings.coauthoring.url": "",
+				"editor.settings.spellchecker.url": "",
+				"license.activeconnections.tracking.interval": 300,
+				"editor.settings.readerformats": "doct;docx;doc;odt;rtf;txt;mht;html;htm;epub;mobi;fb2",
+				"editor.settings.editorformats": "doct;xlst;pptt;docx;doc;odt;xlsx;xls;ods;csv;pptx;ppt;ppsx;pps;odp;rtf;txt;mht;html;htm;epub;mobi;fb2",
+				"editor.settings.viewerformats": "pdf;xps;djvu;tiff"
+			},
+			"utils": {
+				"utils.common.fontdir": "../../../OfficeWeb/Fonts/native",
+				"utils.fonts.search_patterns": "*.ttf;*.ttc;*.otf",
+				"resource.expires": 86400,
+				"limits.image.types.upload": "jpg;png;gif;bmp;ico",
+				"limits.image.types.copy": "jpg;png;gif;bmp;emf;wmf;svg"
+			},
+			"sql": {
+				"type": "mysql",
+				"tableChanges": "doc_changes",
+				"tableCallbacks": "doc_callbacks",
+				"tableResult": "tast_result",
+				"tablePucker": "doc_pucker",
+				"host": "localhost",
+				"dbport": 3306,
+				"database": "onlyoffice",
+				"user": "root",
+				"pass": "onlyoffice",
+				"charset": "utf8",
+				"max_allowed_packet": 1048575
+			},
+			"redis": {
+				"name": "redis",
+				"prefix": "ds:",
+				"host": "localhost",
+				"port": 6379
+			},
+			"pubsub": {
+				"name": "pubsubRabbitMQ",
+				"maxChanges": 1000
+			},
+			"expire": {
+				"callback": 3600,
+				"saveLock": 60,
+				"lockDoc": 60,
+				"message": 86400,
+				"documents": 300,
+				"documentsCron": "0 5 * * * *",
+				"files": 604800,
+				"filesCron": "00 59 23 * * *"
+			}
+		}
+	},
+	"FileConverter": {
+		"log": {
+			"appenders": [{
+				"type": "console"
+			}],
+			"replaceConsole": "true",
+			"levels": {
+				"nodeJS": "WARN"
+			}
+		},
+		"converter": {
+			"maxDownloadBytes": 100000000,
+			"downloadTimeout": 120,
+			"maxprocesscount": 1,
+			"fontDir": "../../../OfficeWeb/Fonts/native",
+			"presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
+			"filePath": "../../../AsyncServerComponents/Bin/FileConverter2.exe",
+			"args": "",
+			"errorfiles": "error"
+		}
+	},
+	"FileStorage": {
+		"host": "",
+		"port": 4567,
+		"directory": "",
+		"silent": true
+	},
+	"SpellChecker": {
+		"server": {
+			"port": 4000,
+			"mode": "development"
+		},
+		"dictionaries": [
+			{"name": "ca_ES", "id": 1027},
+			{"name": "cs_CZ", "id": 1029},
+			{"name": "da_DK", "id": 1030},
+			{"name": "de_DE", "id": 1031},
+			{"name": "el_GR", "id": 1032},
+			{"name": "en_US", "id": 1033},
+			{"name": "fr_FR", "id": 1036},
+			{"name": "hu_HU", "id": 1038},
+			{"name": "it_IT", "id": 1040},
+			{"name": "ko_KR", "id": 1042},
+			{"name": "nl_NL", "id": 1043},
+			{"name": "nb_NO", "id": 1044},
+			{"name": "pl_PL", "id": 1045},
+			{"name": "pt_BR", "id": 1046},
+			{"name": "ro_RO", "id": 1048},
+			{"name": "ru_RU", "id": 1049},
+			{"name": "sk_SK", "id": 1051},
+			{"name": "sv_SE", "id": 1053},
+			{"name": "tr_TR", "id": 1055},
+			{"name": "uk_UA", "id": 1058},
+			{"name": "lv_LV", "id": 1062},
+			{"name": "lt_LT", "id": 1063},
+			{"name": "vi_VN", "id": 1066},
+			{"name": "az_Latn_AZ", "id": 1068},
+			{"name": "de_CH", "id": 2055},
+			{"name": "en_GB", "id": 2057},
+			{"name": "nn_NO", "id": 2068},
+			{"name": "pt_PT", "id": 2070},
+			{"name": "de_AT", "id": 3079},
+			{"name": "en_AU", "id": 3081},
+			{"name": "es_ES", "id": 3082}
+		]	
+	}
+}
