@@ -3,17 +3,16 @@ var sqlDataBaseType = {
 	postgreSql	: 'postgres'
 };
 
-var config = require('config');
-var configSql = config['sql'];
-var baseConnector = (sqlDataBaseType.mySql === configSql['type']) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
+var config = require('config').get('services.CoAuthoring.sql');
+var baseConnector = (sqlDataBaseType.mySql === config.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
 
-var tableChanges = configSql['tableChanges'],
-	tableCallbacks = configSql['tableCallbacks'],
-	tableResult = configSql['tableResult'],
-	tablePucker = configSql['tablePucker'];
+var tableChanges = config.get('tableChanges'),
+	tableCallbacks = config.get('tableCallbacks'),
+	tableResult = config.get('tableResult'),
+	tablePucker = config.get('tablePucker');
 
 var g_oCriticalSection = {};
-var maxPacketSize = configSql['max_allowed_packet']; // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
+var maxPacketSize = config.get('max_allowed_packet'); // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
 
 function getDataFromTable (tableId, data, getCondition, callback) {
 	var table = getTableById(tableId);

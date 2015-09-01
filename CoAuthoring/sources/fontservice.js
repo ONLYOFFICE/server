@@ -6,11 +6,11 @@ var base64 = require('base64-stream');
 var utils = require('./../../Common/sources/utils');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var logger = require('./../../Common/sources/logger');
-var config = require('./config.json');
+var config = require('config').get('services.CoAuthoring.utils');
 
-var cfgFontDir = config['utils']['utils.common.fontdir'];
-var cfgSearchPatterns = config['utils']['utils.fonts.search_patterns'];
-var cfgResourceExpires = config['utils']['resource.expires'];
+var cfgFontDir = config.get('utils.common.fontdir');
+var cfgSearchPatterns = config.get('utils.fonts.search_patterns');
+var cfgResourceExpires = config.get('resource.expires');
 
 var JS_EXTENTION = '.js';
 var BYTE_MAX_VALUE = 255;
