@@ -1,13 +1,13 @@
 'use strict';
-var config = require('./config.json');
+var config = require('config').get('services.CoAuthoring.redis');
 var events = require('events');
 var util = require('util');
 var logger = require('./../../Common/sources/logger');
-var redis = require(config['redis']['name']);
+var redis = require(config.get('name'));
 
-var cfgRedisPrefix = config['redis']['prefix'];
-var cfgRedisHost = config['redis']['host'];
-var cfgRedisPort = config['redis']['port'];
+var cfgRedisPrefix = config.get('prefix');
+var cfgRedisHost = config.get('host');
+var cfgRedisPort = config.get('port');
 
 var channelName = cfgRedisPrefix + 'pubsub';
 

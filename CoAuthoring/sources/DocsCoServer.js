@@ -42,7 +42,7 @@
  *-----------------------------------------------------------------------------------------------------------------------
  * */
 
-var configCommon = require('././../../Common/sources/config.json');
+var configCommon = require('config');
 var sockjs = require('sockjs'),
   _ = require('underscore'),
   https = require('https'),
@@ -54,27 +54,27 @@ var sockjs = require('sockjs'),
   constants = require('./../../Common/sources/constants'),
   utils = require('./../../Common/sources/utils'),
   commonDefines = require('./../../Common/sources/commondefines'),
-  config = require('./config.json'),
+  config = require('config').get('services.CoAuthoring'),
   sqlBase = require('./baseConnector'),
   taskResult = require('./taskresult');
   canvasService = require('./canvasservice');
-var redis = require(config['redis']['name']);
-var pubsubService = require('./' + config['pubsub']['name']);
-var queueService = require('./../../Common/sources/' + configCommon['queue']['name']);
+var redis = require(config.get('redis.name'));
+var pubsubService = require('./' + config.get('pubsub.name'));
+var queueService = require('./../../Common/sources/' + configCommon.get('queue.name'));
 
-var cfgPubSubMaxChanges = config['pubsub']['maxChanges'];
+var cfgPubSubMaxChanges = config.get('pubsub.maxChanges');
 
-var cfgRedisPrefix = config['redis']['prefix'];
-var cfgRedisHost = config['redis']['callback'];
-var cfgRedisPort = config['redis']['port'];
-var cfgExpCallback = config['expire']['callback'];
-var cfgExpSaveLock = config['expire']['saveLock'];
-var cfgExpLockDoc = config['expire']['lockDoc'];
-var cfgExpDocuments = config['expire']['documents'];
-var cfgExpDocumentsCron = config['expire']['documentsCron'];
-var cfgExpFiles = config['expire']['files'];
-var cfgExpFilesCron = config['expire']['filesCron'];
-var cfgExpMessage = config['expire']['message'];
+var cfgRedisPrefix = config.get('redis.prefix');
+var cfgRedisHost = config.get('redis.callback');
+var cfgRedisPort = config.get('redis.port');
+var cfgExpCallback = config.get('expire.callback');
+var cfgExpSaveLock = config.get('expire.saveLock');
+var cfgExpLockDoc = config.get('expire.lockDoc');
+var cfgExpDocuments = config.get('expire.documents');
+var cfgExpDocumentsCron = config.get('expire.documentsCron');
+var cfgExpFiles = config.get('expire.files');
+var cfgExpFilesCron = config.get('expire.filesCron');
+var cfgExpMessage = config.get('expire.message');
 
 var redisKeyCallback = cfgRedisPrefix + 'callback:';
 var redisKeyUserIndex = cfgRedisPrefix + 'userindex:';

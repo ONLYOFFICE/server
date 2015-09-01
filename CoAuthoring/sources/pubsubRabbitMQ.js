@@ -1,11 +1,10 @@
 'use strict';
-var configCommon = require('./../../Common/sources/config.json');
 var events = require('events');
 var util = require('util');
 var utils = require('./../../Common/sources/utils');
 var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 
-var cfgRabbitExchangePubSub = configCommon['rabbitmq']['exchangepubsub'];
+var cfgRabbitExchangePubSub = require('config').get('rabbitmq.exchangepubsub');
 
 function PubsubRabbitMQ() {
   this.channelPublish = null;

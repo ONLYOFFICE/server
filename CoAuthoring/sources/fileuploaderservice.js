@@ -4,9 +4,9 @@ var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 var storageBase = require('./../../Common/sources/storage-base');
 var logger = require('./../../Common/sources/logger');
-var config = require('./config.json');
+var config = require('config').get('services.CoAuthoring.server');
 
-var cfgImageSize = config['server']['limits.image.size'];
+var cfgImageSize = config.get('limits.image.size');
 
 exports.uploadTempFile = function(req, res) {
   utils.spawn(function* () {

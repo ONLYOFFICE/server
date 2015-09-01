@@ -1,7 +1,7 @@
-﻿var config = require('./config.json');
+﻿var config = require('config');
 
 var log4js = require('log4js');
-log4js.configure(config['log']);
+log4js.configure(config.get('log'));
 
 var logger = log4js.getLogger('nodeJS');
 

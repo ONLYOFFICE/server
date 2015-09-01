@@ -1,11 +1,11 @@
 var cluster = require('cluster');
-var config = require('./config.json');
+var config = require('config').get('services.CoAuthoring');
 var numCPUs = require('os').cpus().length;
-process.env.NODE_ENV = config['server']['mode'];
+process.env.NODE_ENV = config.get('server.mode');
 
 var logger = require('./../../Common/sources/logger');
 
-var cfgWorkerPerCpu = config['server']['workerpercpu'];
+var cfgWorkerPerCpu = config.get('server.workerpercpu');
 var workersCount = Math.ceil(numCPUs * cfgWorkerPerCpu);
 
 if (cluster.isMaster) {
@@ -37,11 +37,11 @@ if (cluster.isMaster) {
 
 	logger.warn('Express server starting...');
 
-	var configSSL = config['ssl'];
+	var configSSL = config.get('ssl');
 	if (configSSL) {
-		var privateKey = fs.readFileSync(configSSL['key']).toString(),
-			certificateKey = fs.readFileSync(configSSL['cert']).toString(),
-			trustedCertificate = fs.readFileSync(configSSL['ca']).toString(),
+		var privateKey = fs.readFileSync(configSSL.get('key')).toString(),
+			certificateKey = fs.readFileSync(configSSL.get('cert')).toString(),
+			trustedCertificate = fs.readFileSync(configSSL.get('ca')).toString(),
 			//See detailed options format here: http://nodejs.org/api/tls.html#tls_tls_createserver_options_secureconnectionlistener
 			options = {key: privateKey, cert: certificateKey, ca: [trustedCertificate]};
 
@@ -50,30 +50,30 @@ if (cluster.isMaster) {
 		server = http.createServer(app);
 	}
 
-	if (config['server'] && config['server']['static.content']) {
-		var staticContent = config['server']['static.content'];
+	if (config.get('server') && config.get('server.static.content')) {
+		var staticContent = config.get('server.static.content');
 		for(var i = 0; i < staticContent.length; ++i) {
 			var staticContentElem = staticContent[i];
 			app.use(staticContentElem['name'], express.static(staticContentElem['path']));
 		}
 	}
 
-	if (configCommon && configCommon['storage'] && configCommon['storage']['fs'] &&
-		configCommon['storage']['fs']['folderPath']) {
-		var cfgBucketName = configCommon['storage']['bucketName'];
-		var cfgStorageFolderName = configCommon['storage']['storageFolderName'];
+	if (configCommon && configCommon['storage') && configCommon['storage.fs') &&
+		configCommon['storage.fs.folderPath')) {
+		var cfgBucketName = configCommon['storage.bucketName');
+		var cfgStorageFolderName = configCommon['storage.storageFolderName');
 		app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, function(req, res, next) {
 			res.setHeader("Content-Disposition", 'attachment');
 			next();
-		}, express.static(configCommon['storage']['fs']['folderPath']));
+		}, express.static(configCommon['storage.fs.folderPath')));
 	}
 
 	// Если захочется использовать 'development' и 'production',
 	// то с помощью app.settings.env (https://github.com/strongloop/express/issues/936)
 	// Если нужна обработка ошибок, то теперь она такая https://github.com/expressjs/errorhandler
 	docsCoServer.install(server, function() {
-		server.listen(config['server']['port'], function() {
-			logger.warn("Express server listening on port %d in %s mode", config['server']['port'], app.settings.env);
+		server.listen(config.get('server.port'), function() {
+			logger.warn("Express server listening on port %d in %s mode", config.get('server.port'), app.settings.env);
 		});
 
 		app.get('/index.html', function(req, res) {
@@ -92,14 +92,14 @@ if (cluster.isMaster) {
 			res.send(result);
 		}
 
-		app.get('/' + config['server']['fonts.route'] + 'native/:fontname', fontService.getFont);
-		app.get('/' + config['server']['fonts.route'] + 'js/:fontname', fontService.getFont);
-		app.get('/' + config['server']['fonts.route'] + 'odttf/:fontname', fontService.getFont);
+		app.get('/' + config.get('server.fonts.route') + 'native/:fontname', fontService.getFont);
+		app.get('/' + config.get('server.fonts.route') + 'js/:fontname', fontService.getFont);
+		app.get('/' + config.get('server.fonts.route') + 'odttf/:fontname', fontService.getFont);
 
 		app.get('/ConvertService.ashx', converterService.convert);
 		app.post('/ConvertService.ashx', converterService.convert);
 
-		var rawFileParser = bodyParser.raw({ inflate: true, limit: config['server']['limits.tempfile.upload'], type: '*/*' });
+		var rawFileParser = bodyParser.raw({ inflate: true, limit: config.get('server.limits.tempfile.upload'), type: '*/*' });
 		app.post('/FileUploader.ashx', rawFileParser, fileUploaderService.uploadTempFile);
 
 		var docIdRegExp = new RegExp("^[" + constants.DOC_ID_PATTERN + "]*$", 'i');

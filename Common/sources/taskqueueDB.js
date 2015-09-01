@@ -5,10 +5,10 @@ var sqlBase = require('./../../CoAuthoring/sources/baseConnector');
 var utils = require('./utils');
 var commonDefines = require('./commondefines');
 var constants = require('./constants');
-var config = require('./config.json');
+var config = require('config').get('queue');
 
-var cfgVisibilityTimeout = config['queue']['visibilityTimeout'];
-var cfgRetentionPeriod = config['queue']['retentionPeriod'];
+var cfgVisibilityTimeout = config.get('visibilityTimeout');
+var cfgRetentionPeriod = config.get('retentionPeriod');
 var TABLE_NAME = 'convert_queue';
 var DB_TIMEOUT = 1000;
 

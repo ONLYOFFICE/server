@@ -1,14 +1,14 @@
 'use strict';
-var config = require('./config.json');
+var config = require('config');
 var events = require('events');
 var util = require('util');
 var utils = require('./utils');
 var constants = require('./constants');
 var rabbitMQCore = require('./rabbitMQCore');
 
-var cfgQueueRetentionPeriod = config['queue']['retentionPeriod'];
-var cfgRabbitQueueConvertTask = config['rabbitmq']['queueconverttask'];
-var cfgRabbitQueueConvertResponse = config['rabbitmq']['queueconvertresponse'];
+var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
+var cfgRabbitQueueConvertTask = config.get('rabbitmq.queueconverttask');
+var cfgRabbitQueueConvertResponse = config.get('rabbitmq.queueconvertresponse');
 
 function TaskQueueRabbitMQ() {
   this.channelConvertTask = null;
