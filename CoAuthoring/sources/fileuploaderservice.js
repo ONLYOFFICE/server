@@ -6,7 +6,7 @@ var storageBase = require('./../../Common/sources/storage-base');
 var logger = require('./../../Common/sources/logger');
 var config = require('config').get('services.CoAuthoring.server');
 
-var cfgImageSize = config.get('limits.image.size');
+var cfgImageSize = config.get('limits_image_size');
 
 exports.uploadTempFile = function(req, res) {
   utils.spawn(function* () {

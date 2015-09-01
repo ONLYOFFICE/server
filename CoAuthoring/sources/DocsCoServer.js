@@ -65,7 +65,7 @@ var queueService = require('./../../Common/sources/' + configCommon.get('queue.n
 var cfgPubSubMaxChanges = config.get('pubsub.maxChanges');
 
 var cfgRedisPrefix = config.get('redis.prefix');
-var cfgRedisHost = config.get('redis.callback');
+var cfgRedisHost = config.get('redis.host');
 var cfgRedisPort = config.get('redis.port');
 var cfgExpCallback = config.get('expire.callback');
 var cfgExpSaveLock = config.get('expire.saveLock');

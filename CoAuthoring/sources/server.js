@@ -1,5 +1,6 @@
 var cluster = require('cluster');
-var config = require('config').get('services.CoAuthoring');
+var configCommon = require('config');
+var config = configCommon.get('services.CoAuthoring');
 var numCPUs = require('os').cpus().length;
 process.env.NODE_ENV = config.get('server.mode');
 
@@ -31,14 +32,14 @@ if (cluster.isMaster) {
 		fontService = require('./fontservice'),
 		fileUploaderService = require('./fileuploaderservice'),
 		constants = require('./../../Common/sources/constants'),
-		configCommon = require('./../../Common/sources/config.json'),
+        configStorage = configCommon.get('storage'),
 		app = express(),
 		server = null;
 
 	logger.warn('Express server starting...');
 
-	var configSSL = config.get('ssl');
-	if (configSSL) {
+	if (config.has('ssl')) {
+        var configSSL = config.get('ssl');
 		var privateKey = fs.readFileSync(configSSL.get('key')).toString(),
 			certificateKey = fs.readFileSync(configSSL.get('cert')).toString(),
 			trustedCertificate = fs.readFileSync(configSSL.get('ca')).toString(),
@@ -50,22 +51,21 @@ if (cluster.isMaster) {
 		server = http.createServer(app);
 	}
 
-	if (config.get('server') && config.get('server.static.content')) {
-		var staticContent = config.get('server.static.content');
+	if (config.get('server') && config.get('server.static_content')) {
+		var staticContent = config.get('server.static_content');
 		for(var i = 0; i < staticContent.length; ++i) {
 			var staticContentElem = staticContent[i];
 			app.use(staticContentElem['name'], express.static(staticContentElem['path']));
 		}
 	}
 
-	if (configCommon && configCommon['storage') && configCommon['storage.fs') &&
-		configCommon['storage.fs.folderPath')) {
-		var cfgBucketName = configCommon['storage.bucketName');
-		var cfgStorageFolderName = configCommon['storage.storageFolderName');
+	if (configStorage.has('fs.folderPath')) {
+		var cfgBucketName = configStorage.get('bucketName');
+		var cfgStorageFolderName = configStorage.get('storageFolderName');
 		app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, function(req, res, next) {
 			res.setHeader("Content-Disposition", 'attachment');
 			next();
-		}, express.static(configCommon['storage.fs.folderPath')));
+		}, express.static(configStorage.get('fs.folderPath')));
 	}
 
 	// Если захочется использовать 'development' и 'production',
@@ -92,14 +92,14 @@ if (cluster.isMaster) {
 			res.send(result);
 		}
 
-		app.get('/' + config.get('server.fonts.route') + 'native/:fontname', fontService.getFont);
-		app.get('/' + config.get('server.fonts.route') + 'js/:fontname', fontService.getFont);
-		app.get('/' + config.get('server.fonts.route') + 'odttf/:fontname', fontService.getFont);
+		app.get('/' + config.get('server.fonts_route') + 'native/:fontname', fontService.getFont);
+		app.get('/' + config.get('server.fonts_route') + 'js/:fontname', fontService.getFont);
+		app.get('/' + config.get('server.fonts_route') + 'odttf/:fontname', fontService.getFont);
 
 		app.get('/ConvertService.ashx', converterService.convert);
 		app.post('/ConvertService.ashx', converterService.convert);
 
-		var rawFileParser = bodyParser.raw({ inflate: true, limit: config.get('server.limits.tempfile.upload'), type: '*/*' });
+		var rawFileParser = bodyParser.raw({ inflate: true, limit: config.get('server.limits_tempfile_upload'), type: '*/*' });
 		app.post('/FileUploader.ashx', rawFileParser, fileUploaderService.uploadTempFile);
 
 		var docIdRegExp = new RegExp("^[" + constants.DOC_ID_PATTERN + "]*$", 'i');

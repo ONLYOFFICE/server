@@ -6,7 +6,6 @@ var commonDefines = require('./../../Common/sources/commondefines');
 var docsCoServer = require('./DocsCoServer');
 var storage = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
-//var config = require('./config.json');
 
 //todo
 var CONVERT_TIMEOUT = 6 * 60 * 1000;
