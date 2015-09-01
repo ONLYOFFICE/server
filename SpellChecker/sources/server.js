@@ -1,7 +1,7 @@
 ﻿var cluster = require('cluster');
-var config = require('config');
+var config = require('config').get('SpellChecker');
 
-process.env.NODE_ENV = config.get('SpellChecker.server.mode');
+process.env.NODE_ENV = config.get('server.mode');
 
 var logger = require('./../../Common/sources/logger');
 var spellCheck;
@@ -55,10 +55,10 @@ if (cluster.isMaster) {
 
 	logger.warn('Express server starting...');
 
-	if (config.has('SpellChecker.ssl')) {
-		var privateKey = fs.readFileSync(config.get('SpellChecker.ssl.key')).toString();
-		var certificateKey = fs.readFileSync(config.get('SpellChecker.ssl.cert')).toString();
-		var trustedCertificate = fs.readFileSync(config.get('SpellChecker.ssl.ca')).toString();
+	if (config.has('ssl')) {
+		var privateKey = fs.readFileSync(config.get('ssl.key')).toString();
+		var certificateKey = fs.readFileSync(config.get('ssl.cert')).toString();
+		var trustedCertificate = fs.readFileSync(config.get('ssl.ca')).toString();
 		//See detailed options format here: http://nodejs.org/api/tls.html#tls_tls_createserver_options_secureconnectionlistener
 		var options = {key: privateKey, cert: certificateKey, ca: [trustedCertificate]};
 
@@ -71,8 +71,8 @@ if (cluster.isMaster) {
 	// то с помощью app.settings.env (https://github.com/strongloop/express/issues/936)
 	// Если нужна обработка ошибок, то теперь она такая https://github.com/expressjs/errorhandler
 	spellCheck.install(server, function(){
-		server.listen(config.get('SpellChecker.server.port'), function(){
-			logger.warn("Express server listening on port %d in %s mode", config.get('SpellChecker.server.port'), app.settings.env);
+		server.listen(config.get('server.port'), function(){
+			logger.warn("Express server listening on port %d in %s mode", config.get('server.port'), app.settings.env);
 		});
 
 		app.get('/index.html', function(req, res) {

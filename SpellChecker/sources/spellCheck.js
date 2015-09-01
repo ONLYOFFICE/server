@@ -1,13 +1,13 @@
 ﻿var sockjs = require('sockjs'),
 	nodehun = require('nodehun'),
-    config = require('config'),
+    config = require('config').get('SpellChecker'),
 	logger = require('./../../Common/sources/logger'),
 	fs = require('fs');
 var arrDictionaries = {};
 
 (function() {
 	// Read dictionaries
-	var arrDictionariesConfig = config.get('SpellChecker.dictionaries');
+	var arrDictionariesConfig = config.get('dictionaries');
 	var oDictTmp = null, pathTmp = '', oDictName = null;
 	for (var indexDict = 0, lengthDict = arrDictionariesConfig.length; indexDict < lengthDict; ++indexDict) {
 		oDictTmp = arrDictionariesConfig[indexDict];
