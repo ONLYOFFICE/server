@@ -1,0 +1,10 @@
+{
+  "name": "filestorage",
+  "version": "1.0.0",
+  "homepage": "http://www.onlyoffice.com",
+  "private": true,
+  "dependencies": { 
+    "s3rver": "^0.0.5",
+	"config": "^1.15.0"
+  }
+}
