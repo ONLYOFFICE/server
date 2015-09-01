@@ -1,27 +1,21 @@
-1.	Установить nodeJS с официального сайта nodejs.org
-2.	Скачать mongoDB с официального сайта mongodb.org в папку mongodb в текущий каталог
+Настройка сервиса документов
 
-Далее возможна работа компонентов коавторинга в двух режимах: как сервисы, и как обычные приложения.
+1. Установка необходимых компонентов
 
-Установка коавторинга как сервис:
-а.	Скачать с официального сайта microsoft и установить Windows Server 2003 Resource Kit Tools
-б.	Запустить InstallAndRunCoAuthoring.bat с правами администратора. 
-Этот скрипт делает следующее:
- - устанавливает и запускает как службу, базу данных (mongodb).
- - конфигурирует базу данных, создаёт таблицы в базе coAuthoring и индексирует их, выполнив следующие команды.
-	- db.createCollection("messages").
-	- db.messages.ensureIndex({"docid":1}).
-	- db.createCollection("changes").
-	- db.changes.ensureIndex({"docid":1}).
- - устанавливает и запускает как службу node.js.
+Для работы сервиса документов необходимо установить в системе следующие компоненты:
+	а) 32-х разрядную версии Node.js 0.12.x (https://nodejs.org/dist/v0.12.7/node-v0.12.7-x86.msi)
+	б) MySql Server 5.6 (https://dev.mysql.com/downloads/mysql/) При установке для пользователя root используйте пароль onlyoffice
+	в) RabbitMQ (https://www.rabbitmq.com/releases/rabbitmq-server/v3.5.4/rabbitmq-server-3.5.4.exe)
+	г) Redis (https://github.com/MSOpenTech/redis/releases/download/win-2.8.2102/Redis-x64-2.8.2102.msi)
+	д) Python 2.7.3 ()http://www.python.org/download/releases/2.7.3/#download)
 
- Запуск компонентов коавторинга как приложения:
- а. При первом запуске: 
-	- сконфигурировать бд, запустив install_script\ConfigMongoDB.bat
-	- поставить необходимые компоненты для node.js, запустив install_script\InstallNodeJSModules.bat
- б. Запустить процесс базы данных (mongodb), выполнив install_script\StartMongoDb.bat
- в. Запустить node.js выполив install_script\StartServer.bat
- 
- Установка проверки орфографии:
-  - Скачать Python версию 2.7.3 http://www.python.org/download/releases/2.7.3/#download
-  - Запустить InstallNodeJSSpellCheck.bat
+2. Настройка системы
+
+	а) Настройка БД
+	
+	б) Установка npm модулей.
+	Запустите скрипт install_npm_modules.bat
+
+3. Запуск сервиса
+
+Запустите скриптом run_services.bat
