@@ -1,9 +1,9 @@
 var cluster = require('cluster');
 var numCPUs = require('os').cpus().length;
 var logger = require('./../../Common/sources/logger');
-var config = require('./config.json');
+var config = require('config').get('FileConverter.converter');
 
-var cfgMaxProcessCount = config['converter']['maxprocesscount'];
+var cfgMaxProcessCount = config.get('maxprocesscount');
 
 var workersCount = Math.ceil(numCPUs * cfgMaxProcessCount);
 

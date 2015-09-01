@@ -6,7 +6,9 @@ var http = require('http');
 var https = require('https');
 var url = require('url');
 var childProcess = require('child_process');
-var configCommon = require('./../../Common/sources/config.json');
+var config = require('config');
+var configConverter = config.get('FileConverter.converter');
+
 var commonDefines = require('./../../Common/sources/commondefines');
 var storage = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
@@ -15,17 +17,15 @@ var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
 var nodeZip = require('./../../Common/node_modules/node-zip');
 var baseConnector = require('./../../CoAuthoring/sources/baseConnector');
-var config = require('./config.json');
-var queueService = require('./../../Common/sources/' + configCommon['queue']['name']);
+var queueService = require('./../../Common/sources/' + config.get('queue.name'));
 
-var configConverter = config['converter'];
-var cfgMaxDownloadBytes = configConverter['maxDownloadBytes'] || 100000000;
-var cfgDownloadTimeout = configConverter['downloadTimeout'] || 60;
-var cfgFontDir = configConverter['fontDir'];
-var cfgPresentationThemesDir = configConverter['presentationThemesDir'];
-var cfgFilePath = configConverter['filePath'];
-var cfgArgs = configConverter['args'];
-var cfgErrorFiles = configConverter['errorfiles'];
+var cfgMaxDownloadBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
+var cfgDownloadTimeout = configConverter.has('downloadTimeout') ? configConverter.get('downloadTimeout') : 60;
+var cfgFontDir = configConverter.get('fontDir');
+var cfgPresentationThemesDir = configConverter.get('presentationThemesDir');
+var cfgFilePath = configConverter.get('filePath');
+var cfgArgs = configConverter.get('args');
+var cfgErrorFiles = configConverter.get('errorfiles');
 
 var TEMP_PREFIX = 'ASC_CONVERT';
 var queue = null;
