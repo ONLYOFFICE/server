@@ -1,10 +1,13 @@
 var cluster = require('cluster');
 var config = require('./config.json');
+var numCPUs = require('os').cpus().length;
 process.env.NODE_ENV = config['server']['mode'];
 
 var logger = require('./../../Common/sources/logger');
 
-var workersCount = 1;	// ToDo Пока только 1 процесс будем задействовать. Но в будующем стоит рассмотреть несколько.
+var cfgWorkerPerCpu = config['server']['workerpercpu'];
+var workersCount = Math.ceil(numCPUs * cfgWorkerPerCpu);
+
 if (cluster.isMaster) {
 	logger.warn('start cluster with %s workers', workersCount);
 	for (var nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
@@ -21,7 +24,14 @@ if (cluster.isMaster) {
 		http = require('http'),
 		https = require('https'),
 		fs = require("fs"),
+		bodyParser = require("body-parser");
 		docsCoServer = require('./DocsCoServer'),
+		canvasService = require('./canvasservice'),
+		converterService = require('./converterservice'),
+		fontService = require('./fontservice'),
+		fileUploaderService = require('./fileuploaderservice'),
+		constants = require('./../../Common/sources/constants'),
+		configCommon = require('./../../Common/sources/config.json'),
 		app = express(),
 		server = null;
 
@@ -40,6 +50,24 @@ if (cluster.isMaster) {
 		server = http.createServer(app);
 	}
 
+	if (config['server'] && config['server']['static.content']) {
+		var staticContent = config['server']['static.content'];
+		for(var i = 0; i < staticContent.length; ++i) {
+			var staticContentElem = staticContent[i];
+			app.use(staticContentElem['name'], express.static(staticContentElem['path']));
+		}
+	}
+
+	if (configCommon && configCommon['storage'] && configCommon['storage']['fs'] &&
+		configCommon['storage']['fs']['folderPath']) {
+		var cfgBucketName = configCommon['storage']['bucketName'];
+		var cfgStorageFolderName = configCommon['storage']['storageFolderName'];
+		app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, function(req, res, next) {
+			res.setHeader("Content-Disposition", 'attachment');
+			next();
+		}, express.static(configCommon['storage']['fs']['folderPath']));
+	}
+
 	// Если захочется использовать 'development' и 'production',
 	// то с помощью app.settings.env (https://github.com/strongloop/express/issues/936)
 	// Если нужна обработка ошибок, то теперь она такая https://github.com/expressjs/errorhandler
@@ -52,17 +80,46 @@ if (cluster.isMaster) {
 			res.send('Server is functioning normally. Version: ' + docsCoServer.version);
 		});
 
-		app.get('/CommandService.ashx', onServiceCall);
-		app.post('/CommandService.ashx', onServiceCall);
+		app.get('/coauthoring/CommandService.ashx', onServiceCall);
+		app.post('/coauthoring/CommandService.ashx', onServiceCall);
 
 		function onServiceCall (req, res) {
-			var result = docsCoServer.commandFromServer(req.query);
+			var result = docsCoServer.commandFromServer(req);
 			result = JSON.stringify({'key': req.query.key, 'error': result});
 
 			res.setHeader('Content-Type', 'application/json');
 			res.setHeader('Content-Length', result.length);
 			res.send(result);
 		}
+
+		app.get('/' + config['server']['fonts.route'] + 'native/:fontname', fontService.getFont);
+		app.get('/' + config['server']['fonts.route'] + 'js/:fontname', fontService.getFont);
+		app.get('/' + config['server']['fonts.route'] + 'odttf/:fontname', fontService.getFont);
+
+		app.get('/ConvertService.ashx', converterService.convert);
+		app.post('/ConvertService.ashx', converterService.convert);
+
+		var rawFileParser = bodyParser.raw({ inflate: true, limit: config['server']['limits.tempfile.upload'], type: '*/*' });
+		app.post('/FileUploader.ashx', rawFileParser, fileUploaderService.uploadTempFile);
+
+		var docIdRegExp = new RegExp("^[" + constants.DOC_ID_PATTERN + "]*$", 'i');
+		app.param('docid', function(req, res, next, val) {
+			if (docIdRegExp.test(val)) {
+				next();
+			} else {
+				res.sendStatus(403);
+			}
+		});
+		app.param('index', function(req, res, next, val) {
+			if (!isNaN(parseInt(val))) {
+				next();
+			} else {
+				res.sendStatus(403);
+			}
+		});
+		app.post('/upload/:docid/:userid/:index/:vkey?', fileUploaderService.uploadImageFile);
+
+		app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);
 	});
 }
 

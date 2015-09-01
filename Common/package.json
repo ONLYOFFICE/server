@@ -1,9 +1,15 @@
 {
-    "name": "common",
-    "version": "1.0.0",
-    "homepage": "http://www.onlyoffice.com",
-    "private": true,
-    "dependencies": {
-		"log4js": "0.6.26"
-    }
+  "name": "common",
+  "version": "1.0.0",
+  "homepage": "http://www.onlyoffice.com",
+  "private": true,
+  "dependencies": {
+    "amqplib": "^0.3.2",
+    "aws-sdk": "^2.1.33",
+    "cfb": "^0.10.3",
+    "log4js": "0.6.26",
+    "mime": "^1.3.4",
+    "mkdirp": "^0.5.1",
+    "node-zip": "^1.1.1"
+  }
 }

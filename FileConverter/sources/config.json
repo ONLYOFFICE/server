@@ -1,0 +1,23 @@
+{
+	"log": {
+		"appenders": [
+			{ 
+				"type": "console"
+			}
+		],
+		"replaceConsole": "true",
+		"levels": {
+			"nodeJS": "WARN"
+		}
+	},
+  "converter": {
+    "maxDownloadBytes": 100000000,
+    "downloadTimeout": 120,
+    "maxprocesscount": 1,
+    "fontDir": "../../../OfficeWeb/Fonts/native",
+    "presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
+    "filePath": "../../../AsyncServerComponents/Bin/FileConverter2.exe",
+    "args": "",
+    "errorfiles": "error"
+  }
+}

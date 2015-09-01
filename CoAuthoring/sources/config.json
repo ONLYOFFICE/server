@@ -1,12 +1,30 @@
-﻿{
+{
 	"server": {
-		"port": 3000,
-		"mode": "development"
+		"port": 8000,
+		"workerpercpu": 1,
+		"mode": "development",
+		"fonts.route": "OfficeWeb/sdk/Fonts/",
+		"static.content": [
+			{"name" : "/OfficeWeb", "path" : "../../../OfficeWeb"},
+			{"name" : "/office", "path" : "../../../office"}
+		],
+		"limits.tempfile.upload": 104857600,
+		"limits.image.size": 26214400,
+		"editor.settings.autosave.enable": "true",
+		"editor.settings.autosave.mininterval": 300,
+		"editor.settings.coauthoring.url": "",
+		"editor.settings.spellchecker.url": "",
+		"license.activeconnections.tracking.interval": 300,
+		"editor.settings.readerformats": "doct;docx;doc;odt;rtf;txt;mht;html;htm;epub;mobi;fb2",
+		"editor.settings.editorformats": "doct;xlst;pptt;docx;doc;odt;xlsx;xls;ods;csv;pptx;ppt;ppsx;pps;odp;rtf;txt;mht;html;htm;epub;mobi;fb2",
+		"editor.settings.viewerformats": "pdf;xps;djvu;tiff"
 	},
-	"nomongodb": {
-		"host": "localhost",
-		"port": 27017,
-		"database": "coAuthoring"
+	"utils": {
+		"utils.common.fontdir" : "../../../OfficeWeb/Fonts/native",
+		"utils.fonts.search_patterns": "*.ttf;*.ttc;*.otf",
+		"resource.expires" : 86400,
+		"limits.image.types.upload": "jpg;png;gif;bmp;ico",
+		"limits.image.types.copy": "jpg;png;gif;bmp;emf;wmf;svg"
 	},
     "sql": {
       "type"				: "mysql",
@@ -21,5 +39,25 @@
       "pass"				: "onlyoffice",
       "charset"				: "utf8",
 	  "max_allowed_packet"	: 1048575
-    }
+    },
+  "redis": {
+    "name" : "redis",
+    "prefix" : "ds:",
+    "host" : "localhost",
+    "port" : 6379
+  },
+  "pubsub": {
+    "name" : "pubsubRabbitMQ",
+    "maxChanges" : 1000
+  },
+  "expire": {
+    "callback": 3600,
+    "saveLock": 60,
+    "lockDoc": 60,
+    "message": 86400,
+    "documents": 300,
+    "documentsCron": "0 5 * * * *",
+    "files": 604800,
+    "filesCron": "00 59 23 * * *"
+  }
 }

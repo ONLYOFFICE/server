@@ -3,15 +3,44 @@
 		"appenders": [
 			{ 
 				"type": "console"
-			},
-			{
-				"type": "file",
-				"filename": "../logs/serverLogs.log"
 			}
 		],
 		"replaceConsole": "true",
 		"levels": {
-			"nodeJS": "WARN"
+			"nodeJS": "Debug"
 		}
-	}
+	},
+  "queue": {
+    "name": "taskqueueRabbitMQ",
+    "visibilityTimeout": 300,
+    "retentionPeriod" : 900
+  },
+  "storage": {
+    "name": "storage-s3",
+    "region": "",
+    "endpoint" : "http://localhost/s3",
+    "bucketName" : "cache",
+    "storageFolderName" : "files",
+    "urlExpires": 60,
+    "accessKeyId": "AKID",
+    "secretAccessKey": "SECRET",
+    "useRequestToGetUrl" : false,
+    "fs": {
+      "folderPath": "../../App_Data"
+    }
+  },
+  "rabbitmq": {
+    "url": "amqp://localhost",
+    "login": "guest",
+    "password": "guest",
+    "connectionTimeout": "10000",
+    "authMechanism": "AMQPLAIN",
+    "vhost": "/",
+    "noDelay": true,
+    "sslenabled": false,
+
+    "exchangepubsub": "dc.pubsub",
+    "queueconverttask": "dc.converttask",
+    "queueconvertresponse": "dc.convertresponse"
+  }
 }
