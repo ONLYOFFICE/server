@@ -6,7 +6,7 @@
 
 1. Установка необходимых компонентов
 
-Для работы сервиса документов необходимо установить в системе следующие компоненты:
+Для работы сервиса документов необходимо установить в системе следующие компоненты (если не указано дополнительно, нужно ставить последнюю стабильную версию, любой разрядности, с дефолтными настройками):
 	а) 32-х разрядную версии Node.js 0.12.x (https://nodejs.org/dist/v0.12.7/node-v0.12.7-x86.msi) 
 		Для уточнения существующей версии Node.js выполните 'node -v' 
 		32-х разрядная версия требуется только для модуля проверки орфографии, если не планируется использовать этот модуль можно использовать 64-х разрядную версию.
@@ -14,7 +14,7 @@
 	в) Erlang (http://www.erlang.org/download.html)
 	г) RabbitMQ (https://www.rabbitmq.com/releases/rabbitmq-server/v3.5.4/rabbitmq-server-3.5.4.exe)
 	д) Redis (https://github.com/MSOpenTech/redis/releases/download/win-2.8.2102/Redis-x64-2.8.2102.msi)
-	е) Python 2.7.3 (http://www.python.org/download/releases/2.7.3/#download)
+	е) Python 2.7.x (http://www.python.org/download/releases/2.7.3/#download)
 	ё) Microsoft Visual C++ Express 2010 (?) (требуется для сборки модулей для Spellchecker)
 
 2. Настройка системы
