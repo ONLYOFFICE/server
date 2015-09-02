@@ -30,7 +30,7 @@ function getUpsertString(task) {
   var commandArgEsc = commandArg.map(function(curVal) {
     return sqlBase.baseConnector.sqlEscape(curVal)
   });
-  return 'INSERT INTO tast_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title )' +
+  return 'INSERT INTO task_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title )' +
     ' VALUES (' + commandArgEsc.join(', ') + ')' +
     'ON DUPLICATE KEY UPDATE tr_last_open_date = ' + sqlBase.baseConnector.sqlEscape(dateNow) + ';';
 }
@@ -49,7 +49,7 @@ function upsert(task) {
 }
 
 function getSelectString(task) {
-  return 'SELECT * FROM tast_result WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(task.key) + ';';
+  return 'SELECT * FROM task_result WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(task.key) + ';';
 }
 
 function select(task) {
@@ -85,7 +85,7 @@ function toUpdateArray(task, updateTime) {
 }
 function getUpdateString(task) {
   var commandArgEsc = toUpdateArray(task);
-  return 'UPDATE tast_result SET ' + commandArgEsc.join(', ') +
+  return 'UPDATE task_result SET ' + commandArgEsc.join(', ') +
     ' WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(task.key) + ';';
 }
 
@@ -108,7 +108,7 @@ function getInsertString(task) {
   var commandArgEsc = commandArg.map(function(curVal) {
     return sqlBase.baseConnector.sqlEscape(curVal)
   });
-  return 'INSERT INTO tast_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title )' +
+  return 'INSERT INTO task_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title )' +
     ' VALUES (' + commandArgEsc.join(', ') + ');';
 }
 function addRandomKey(task) {
@@ -138,7 +138,7 @@ function* addRandomKeyTask(key) {
 }
 
 function getRemoveString(docId) {
-  return 'DELETE FROM tast_result WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(docId) + ';';
+  return 'DELETE FROM task_result WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(docId) + ';';
 }
 function remove(docId) {
   return new Promise(function(resolve, reject) {
@@ -156,7 +156,7 @@ function getExpiredString(expireSeconds) {
   var expireDate = new Date();
   utils.addSeconds(expireDate, -expireSeconds);
   var expireDateStr = sqlBase.baseConnector.sqlEscape(sqlBase.getDateTime(expireDate));
-  return 'SELECT * FROM tast_result WHERE tr_last_open_date <= ' + expireDateStr + ';';
+  return 'SELECT * FROM task_result WHERE tr_last_open_date <= ' + expireDateStr + ';';
 }
 function getExpired(expireSeconds) {
   return new Promise(function(resolve, reject) {
