@@ -8,11 +8,13 @@
 	в) Erlang (http://www.erlang.org/download.html)
 	г) RabbitMQ (https://www.rabbitmq.com/releases/rabbitmq-server/v3.5.4/rabbitmq-server-3.5.4.exe)
 	д) Redis (https://github.com/MSOpenTech/redis/releases/download/win-2.8.2102/Redis-x64-2.8.2102.msi)
-	е) Python 2.7.3 ()http://www.python.org/download/releases/2.7.3/#download)
+	е) Python 2.7.3 (http://www.python.org/download/releases/2.7.3/#download)
+	ё) Microsoft Visual C++ Express 2010 (?) (требуется для сборки модулей для Spellchecker)
 
 2. Настройка системы
 
 	а) Настройка БД
+	Выполните скрипт в mysql svn://fileserver/activex/AVS/Sources/TeamlabOffice/trunk/AsyncServerComponents/FileConverterUtils2/FileConverterUtils2/schema/MySql.CreateDb.sql
 	
 	б) Установка npm модулей.
 	Запустите скрипт install_npm_modules.bat
