@@ -12,5 +12,8 @@
 			"presentationThemesDir": "/var/www/onlyoffice/documentserver/OfficeWeb/sdk/PowerPoint/themes",
 			"filePath": "/var/www/onlyoffice/documentserver/nodeJSProjects/FileConverter/Bin/x2t",
 		}
+	},
+	"FileStorage": {
+		"directory": "/var/lib/onlyoffice/documentserver/App_Data"
 	}
 }

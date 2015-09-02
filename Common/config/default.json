@@ -49,7 +49,7 @@
 				"editor_settings_autosave_enable": "true",
 				"editor_settings_autosave_mininterval": 300,
 				"editor_settings_coauthoring_url": "",
-				"editor_settings_spellchecker_url": "",
+				"editor_settings_spellchecker_url": "/spellchecker",
                 "editor_settings_analytics_enable": true,
 				"license_activeconnections_tracking_interval": 300,
 				"editor_settings_readerformats": "doct;docx;doc;odt;rtf;txt;mht;html;htm;epub;mobi;fb2",
@@ -57,7 +57,7 @@
 				"editor_settings_viewerformats": "pdf;xps;djvu;tiff"
 			},
 			"utils": {
-				"utils_common_fontdir": "../../../OfficeWeb/Fonts/native",
+				"utils_common_fontdir": "",
 				"utils_fonts_search_patterns": "*.ttf;*.ttc;*.otf",
 				"resource_expires": 86400,
 				"limits_image_types_upload": "jpg;png;gif;bmp;ico",
