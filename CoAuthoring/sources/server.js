@@ -2,7 +2,7 @@ var cluster = require('cluster');
 var configCommon = require('config');
 var config = configCommon.get('services.CoAuthoring');
 var numCPUs = require('os').cpus().length;
-process.env.NODE_ENV = config.get('server.mode');
+//process.env.NODE_ENV = config.get('server.mode');
 
 var logger = require('./../../Common/sources/logger');
 
