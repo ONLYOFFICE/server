@@ -1,12 +1,16 @@
 Настройка сервиса документов
 
+ВНИМАНИЕ, инструкция описывает разворачивание сервиса документов на Windows-платформе.
+
 0. Остановить сайт IIS сайт на 8001 порту(тестовый пример надо оставить)
 
 1. Установка необходимых компонентов
 
 Для работы сервиса документов необходимо установить в системе следующие компоненты:
-	а) 32-х разрядную версии Node.js 0.12.x (https://nodejs.org/dist/v0.12.7/node-v0.12.7-x86.msi)
-	б) MySql Server 5.6 (http://dev.mysql.com/downloads/windows/installer/) При установке для пользователя root используйте пароль onlyoffice
+	а) 32-х разрядную версии Node.js 0.12.x (https://nodejs.org/dist/v0.12.7/node-v0.12.7-x86.msi) 
+		Для уточнения существующей версии Node.js выполните 'node -v' 
+		32-х разрядная версия требуется только для модуля проверки орфографии, если не планируется использовать этот модуль можно использовать 64-х разрядную версию.
+	б) MySql Server 5.6 и выше (http://dev.mysql.com/downloads/windows/installer/) При установке для пользователя root используйте пароль onlyoffice
 	в) Erlang (http://www.erlang.org/download.html)
 	г) RabbitMQ (https://www.rabbitmq.com/releases/rabbitmq-server/v3.5.4/rabbitmq-server-3.5.4.exe)
 	д) Redis (https://github.com/MSOpenTech/redis/releases/download/win-2.8.2102/Redis-x64-2.8.2102.msi)
@@ -52,3 +56,13 @@
 3. Запуск сервиса
 
 Запустите скриптом run_services.bat
+
+Замечания
+
+	а) Все конфиги для серверной части храняться в папке nodeJSProjects\Common\config
+		 - default.json  общие конфиги одинаковые для всех версий продакшина.
+		 - production-windows.json конфиги для запуска продакшин-версии на windows платформе
+		 - production-linux.json конфиги для запуска продакшин-версии на linux платформе
+		 - development-windows.json конфиги для запуска девелоперской-версии на windows платформе (Эта конфигурация используется при запуске run_services.bat)
+
+	При необходимости внести временные изменения в конфиги создайте файл local.json и переопределите значения там. Файл коммитить под svn не надо. Это позволит случайно не залить локальные правки и избежать потери конфига при обновлении svn. Пример использования описан в пункте 2-д. Подробно о файлах конфигурации см. https://github.com/lorenwest/node-config/wiki/Configuration-Fileshttps://github.com/lorenwest/node-config/wiki/Configuration-Files
