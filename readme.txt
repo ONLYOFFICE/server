@@ -1,5 +1,7 @@
 Настройка сервиса документов
 
+0. Остановить сайт IIS сайт на 8001 порту(тестовый пример надо оставить)
+
 1. Установка необходимых компонентов
 
 Для работы сервиса документов необходимо установить в системе следующие компоненты:
@@ -23,6 +25,29 @@
 	открытивает cmd. переходим в папку (cd /d Installation-directory/sbin)
 	вызываем(rabbitmq-plugins.bat enable rabbitmq_management)
 	Web Monitor распологается по адресу(http://localhost:15672/). логин/пароль(guest/guest)
+
+	г) Создать папку App_Data на одном уровне с nodeJSProjects.
+
+	д) Если папка с меню называется не office или лежит не на одном уровне с OfficeWeb. то нужно создать локальный файл конфига nodeJSProjects\Common\config\local.json(под svn заливать не нужно)
+	с содержимым(в элементах static_content.path указать путь к меню)
+{
+  "services": {
+    "CoAuthoring": {
+      "server": {
+        "static_content": [
+          {
+            "name": "/OfficeWeb",
+            "path": "../../../OfficeWeb"
+          },
+          {
+            "name": "/office",
+            "path": "../../../office"
+          }
+        ]
+      }
+    }
+  }
+}
 
 3. Запуск сервиса
 
