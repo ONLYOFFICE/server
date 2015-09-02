@@ -22,10 +22,7 @@
 		"urlExpires": 60,
 		"accessKeyId": "AKID",
 		"secretAccessKey": "SECRET",
-		"useRequestToGetUrl": false,
-		"fs": {
-			"folderPath": "../../App_Data"
-		}
+		"useRequestToGetUrl": false
 	},
 	"rabbitmq": {
 		"url": "amqp://localhost",
@@ -47,14 +44,6 @@
 				"workerpercpu": 1,
 				"mode": "development",
 				"fonts_route": "OfficeWeb/sdk/Fonts/",
-				"static_content": [{
-					"name": "/OfficeWeb",
-					"path": "../../../OfficeWeb"
-				},
-				{
-					"name": "/office",
-					"path": "../../../office"
-				}],
 				"limits_tempfile_upload": 104857600,
 				"limits_image_size": 26214400,
 				"editor_settings_autosave_enable": "true",
@@ -111,15 +100,6 @@
 		}
 	},
 	"FileConverter": {
-		"log": {
-			"appenders": [{
-				"type": "console"
-			}],
-			"replaceConsole": "true",
-			"levels": {
-				"nodeJS": "WARN"
-			}
-		},
 		"converter": {
 			"maxDownloadBytes": 100000000,
 			"downloadTimeout": 120,
