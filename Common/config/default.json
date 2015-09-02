@@ -119,7 +119,7 @@
 	},
 	"SpellChecker": {
 		"server": {
-			"port": 4000,
+			"port": 8080,
 			"mode": "development"
 		},
 		"dictionaries": [
