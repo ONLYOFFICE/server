@@ -43,7 +43,6 @@
 				"port": 8000,
 				"workerpercpu": 1,
 				"mode": "development",
-				"fonts_route": "OfficeWeb/sdk/Fonts/",
 				"limits_tempfile_upload": 104857600,
 				"limits_image_size": 26214400,
 				"editor_settings_autosave_enable": "true",
@@ -57,7 +56,7 @@
 				"editor_settings_viewerformats": "pdf;xps;djvu;tiff"
 			},
 			"utils": {
-				"utils_common_fontdir": "",
+				"utils_common_fontdir": "null",
 				"utils_fonts_search_patterns": "*.ttf;*.ttc;*.otf",
 				"resource_expires": 86400,
 				"limits_image_types_upload": "jpg;png;gif;bmp;ico",
@@ -104,9 +103,9 @@
 			"maxDownloadBytes": 100000000,
 			"downloadTimeout": 120,
 			"maxprocesscount": 1,
-			"fontDir": "../../../OfficeWeb/Fonts/native",
-			"presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
-			"filePath": "../../../AsyncServerComponents/Bin/FileConverter2.exe",
+			"fontDir": "null",
+			"presentationThemesDir": "null",
+			"filePath": "null",
 			"args": "",
 			"errorfiles": "error"
 		}

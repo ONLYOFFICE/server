@@ -51,7 +51,7 @@ if (cluster.isMaster) {
 		server = http.createServer(app);
 	}
 
-	if (config.get('server') && config.get('server.static_content')) {
+	if (config.has('server.static_content')) {
 		var staticContent = config.get('server.static_content');
 		for(var i = 0; i < staticContent.length; ++i) {
 			var staticContentElem = staticContent[i];
@@ -91,10 +91,12 @@ if (cluster.isMaster) {
 			res.setHeader('Content-Length', result.length);
 			res.send(result);
 		}
-
-		app.get('/' + config.get('server.fonts_route') + 'native/:fontname', fontService.getFont);
-		app.get('/' + config.get('server.fonts_route') + 'js/:fontname', fontService.getFont);
-		app.get('/' + config.get('server.fonts_route') + 'odttf/:fontname', fontService.getFont);
+		if(config.has('server.fonts_route')) {
+			var fontsRoute = config.get('server.fonts_route');
+			app.get('/' + fontsRoute + 'native/:fontname', fontService.getFont);
+			app.get('/' + fontsRoute + 'js/:fontname', fontService.getFont);
+			app.get('/' + fontsRoute + 'odttf/:fontname', fontService.getFont);
+		}
 
 		app.get('/ConvertService.ashx', converterService.convert);
 		app.post('/ConvertService.ashx', converterService.convert);
