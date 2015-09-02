@@ -2,7 +2,7 @@
 	"services": {
 		"CoAuthoring": {
 			"utils": {
-				"utils_common_fontdir": "/usr/share/fonts",
+				"utils_common_fontdir": "/usr/share/fonts"
 			}
 		}
 	},
@@ -10,7 +10,7 @@
 		"converter": {
 			"fontDir": "/usr/share/fonts",
 			"presentationThemesDir": "/var/www/onlyoffice/documentserver/OfficeWeb/sdk/PowerPoint/themes",
-			"filePath": "/var/www/onlyoffice/documentserver/nodeJSProjects/FileConverter/Bin/x2t",
+			"filePath": "/var/www/onlyoffice/documentserver/nodeJSProjects/FileConverter/Bin/x2t"
 		}
 	},
 	"FileStorage": {
