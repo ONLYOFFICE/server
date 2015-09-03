@@ -4,6 +4,7 @@
   "homepage": "http://www.onlyoffice.com",
   "private": true,
   "dependencies": {
+    "amazon-s3-url-signer": "0.0.7",
     "amqplib": "^0.3.2",
     "aws-sdk": "^2.1.33",
     "cfb": "^0.10.3",
