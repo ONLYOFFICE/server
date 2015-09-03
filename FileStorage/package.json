@@ -4,7 +4,7 @@
   "homepage": "http://www.onlyoffice.com",
   "private": true,
   "dependencies": { 
-    "s3rver": "^0.0.5",
+    "s3rver": "https://github.com/agolybev/s3rver/archive/v0.0.6.tar.gz",
 	"config": "^1.15.0"
   }
 }
