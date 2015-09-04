@@ -521,10 +521,15 @@ function receiveTask(data, dataRaw) {
         if (res) {
           yield queue.addResponse(res);
         }
-        yield queue.removeTask(dataRaw);
       }
     } catch (err) {
       logger.error(err);
+    } finally {
+      try {
+        yield queue.removeTask(dataRaw);
+      } catch (err) {
+        logger.error(err);
+      }
     }
   });
 }
