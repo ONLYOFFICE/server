@@ -30,7 +30,7 @@
 	вызываем(rabbitmq-plugins.bat enable rabbitmq_management)
 	Web Monitor распологается по адресу(http://localhost:15672/). логин/пароль(guest/guest)
 
-	г) Создать папку App_Data на одном уровне с nodeJSProjects.
+	г) Создать папку App_Data в папке nodeJSProjects.
 
 	д) Если папка с меню называется не office или лежит не на одном уровне с OfficeWeb. то нужно создать локальный файл конфига nodeJSProjects\Common\config\local.json(под svn заливать не нужно)
 	с содержимым(в элементах static_content.path указать путь к меню)
