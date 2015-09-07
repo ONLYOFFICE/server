@@ -569,8 +569,6 @@ exports.getFileFormat = function(buffer, optExt) {
     if (0 == buffer.length) {
       format = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_TXT;
     } else {
-      //signature
-      format = getFileFormatBySignature(buffer);
       //zip
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN == format) {
         format = getFileFormatByZip(buffer);
@@ -579,6 +577,9 @@ exports.getFileFormat = function(buffer, optExt) {
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN == format) {
         format = getconstantstorage(buffer);
       }
+      //меняем местами getFileFormatBySignature и getFileFormatByZip(epub распознается как html)
+      //signature
+      format = getFileFormatBySignature(buffer);
       //возвращаем тип по расширению
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN == format && optExt) {
         if ('.mht' == optExt) {
