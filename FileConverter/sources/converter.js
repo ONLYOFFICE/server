@@ -407,7 +407,8 @@ function* processUploadToStorage(dir, storagePath) {
 
 function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
   var exitCode = childRes ? childRes.status : 0;
-  if (0 !== exitCode) {
+  var exitSignal = childRes ? childRes.signal : null;
+  if (0 !== exitCode || null !== exitSignal) {
     if (-constants.CONVERT_MS_OFFCRYPTO == exitCode) {
       error = constants.CONVERT_MS_OFFCRYPTO;
     } else if (-constants.CONVERT_CORRUPTED == exitCode) {
@@ -417,7 +418,7 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
     }
     if (cfgErrorFiles) {
       var errorFile = path.join(tempDirs.temp, 'error.txt');
-      fs.appendFileSync(errorFile, 'returnCode:' + exitCode + ';error:' + error + '\r\n');
+      fs.appendFileSync(errorFile, 'returnCode:' + exitCode + ';signal:' + exitSignal +';error:' + error + '\r\n');
       if (childRes) {
         if (childRes.error) {
           fs.appendFileSync(errorFile, childRes.error.toString() + '\r\n');
@@ -501,7 +502,7 @@ function* ExecuteTask(task) {
     childArgs.push(paramsFile);
     var waitMS = (task.getVisibilityTimeout() || 600) * 1000 - (new Date().getTime() - getTaskTime.getTime());
     childRes = childProcess.spawnSync(cfgFilePath, childArgs, {timeout: waitMS});
-    logger.debug('ExitCode (code=%d;id=%s)', childRes.status, dataConvert.key);
+    logger.debug('ExitCode (code=%d;signal=%s;id=%s)', childRes.status, childRes.signal, dataConvert.key);
   }
   resData = yield* postProcess(cmd, dataConvert, tempDirs, childRes, error);
   logger.debug('postProcess (id=%s)', dataConvert.key);
