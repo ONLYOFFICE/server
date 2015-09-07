@@ -30,9 +30,15 @@
 	вызываем(rabbitmq-plugins.bat enable rabbitmq_management)
 	Web Monitor распологается по адресу(http://localhost:15672/). логин/пароль(guest/guest)
 
-	г) Создать папку App_Data в папке nodeJSProjects.
+	г) Если по какой-то причине у вас не стартует Redis, либо он стартует и через какое-то время падает, попробуйте в настройках конфига выставить размер параметра maxheap. Для WIN7 x64 файл конфига лежит тут: C:\Program Files\Redis\redis.windows-service.conf. В файле ищем строку
+	# maxheap <bytes>
+	и меняет ее, например, на  
+	maxheap 128MB. 
+	Перезапускаем сервис.
+	
+	д) Создать папку App_Data в папке nodeJSProjects.
 
-	д) Если папка с меню называется не office или лежит не на одном уровне с OfficeWeb. то нужно создать локальный файл конфига nodeJSProjects\Common\config\local.json(под svn заливать не нужно)
+	е) Если папка с меню называется не office или лежит не на одном уровне с OfficeWeb. то нужно создать локальный файл конфига nodeJSProjects\Common\config\local.json(под svn заливать не нужно)
 	с содержимым(в элементах static_content.path указать путь к меню)
 {
   "services": {
