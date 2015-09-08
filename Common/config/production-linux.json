@@ -1,4 +1,10 @@
 ﻿{
+	"storage": {
+		"name": "storage-fs",
+		"fs": {
+			"folderPath": "/var/lib/onlyoffice/documentserver/App_Data"
+		}
+	},
 	"services": {
 		"CoAuthoring": {
 			"utils": {
