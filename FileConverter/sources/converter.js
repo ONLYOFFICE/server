@@ -126,14 +126,13 @@ function promiseHttpsGet(uri) {
     }
     var urlParsed = url.parse(uri);
     var proto;
-	if (urlParsed.protocol === 'https:') {
-		proto = https;
-		//TODO: Check how to correct handle a ssl link
-		urlParsed.rejectUnauthorized = false;
-	}
-	else {
-		proto = http;
-	}
+    if (urlParsed.protocol === 'https:') {
+      proto = https;
+      //TODO: Check how to correct handle a ssl link
+      urlParsed.rejectUnauthorized = false;
+    } else {
+      proto = http;
+    }
     var request = proto.get(urlParsed, function(res) {
       resolve({request: request, response: res});
     });
@@ -515,18 +514,27 @@ function* ExecuteTask(task) {
 
 function receiveTask(data, dataRaw) {
   utils.spawn(function* () {
+    var res = null;
+    var task = null;
     try {
-      var task = new commonDefines.TaskQueueData(JSON.parse(data));
+      task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
-        var res = yield* ExecuteTask(task);
-        if (res) {
-          yield queue.addResponse(res);
-        }
+        res = yield* ExecuteTask(task);
       }
     } catch (err) {
       logger.error(err);
     } finally {
       try {
+        if (!res && task) {
+          //если все упало так что даже нет res, все равно пытаемся отдать ошибку.
+          var cmd = task.getCmd();
+          cmd.setStatusInfo(constants.CONVERT);
+          res = new commonDefines.TaskQueueData();
+          res.setCmd(cmd);
+        }
+        if(res) {
+          yield queue.addResponse(res);
+        }
         yield queue.removeTask(dataRaw);
       } catch (err) {
         logger.error(err);
