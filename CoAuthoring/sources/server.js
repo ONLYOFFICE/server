@@ -25,7 +25,7 @@ if (cluster.isMaster) {
 		http = require('http'),
 		https = require('https'),
 		fs = require("fs"),
-		bodyParser = require("body-parser");
+		bodyParser = require("body-parser"),
 		docsCoServer = require('./DocsCoServer'),
 		canvasService = require('./canvasservice'),
 		converterService = require('./converterservice'),
