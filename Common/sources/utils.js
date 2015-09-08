@@ -409,3 +409,13 @@ function stream2Buffer(stream) {
   });
 }
 exports.stream2Buffer = stream2Buffer;
+function changeOnlyOfficeUrl(inputUrl, strPath) {
+  //onlyoffice file server expects url end with file extension
+  if (-1 == inputUrl.indexOf('?')) {
+    inputUrl += '?';
+  } else {
+    inputUrl += '&';
+  }
+  return inputUrl + 'ooname=file' + path.extname(strPath);
+}
+exports.changeOnlyOfficeUrl = changeOnlyOfficeUrl;
