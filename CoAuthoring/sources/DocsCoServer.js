@@ -1510,9 +1510,12 @@ exports.install = function(server, callbackFunction) {
   // Возвращаем все сообщения для документа
   function* getMessages(conn) {
     var allMessages = yield utils.promiseRedis(redisClient, redisClient.lrange, redisKeyMessage + conn.docId, 0, -1);
-    var allMessagesParsed = allMessages.map(function(val){
-      return JSON.parse(val);
-    });
+    var allMessagesParsed = undefined;
+    if(allMessages && allMessages.length > 0) {
+      allMessagesParsed = allMessages.map(function (val) {
+        return JSON.parse(val);
+      });
+    }
     sendData(conn, {type: "message", messages: allMessagesParsed});
   }
 
