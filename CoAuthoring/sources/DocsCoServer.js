@@ -833,31 +833,31 @@ exports.install = function(server, callbackFunction) {
 
   function* getAllLocks(docId) {
     var docLockRes = [];
-    var docLock = yield utils.promiseRedis(redisClient, redisClient.hgetall, redisKeyLocks + docId);
-    if (docLock) {
-      for (var i in docLock) {
-        if (docLock.hasOwnProperty(i)) {
-          docLockRes.push(JSON.parse(docLock[i]));
-        }
-      }
+    var docLock = yield utils.promiseRedis(redisClient, redisClient.lrange, redisKeyLocks + docId, 0, -1);
+    for (var i = 0; i < docLock.length; ++i) {
+      docLockRes.push(JSON.parse(docLock[i]));
     }
     return docLockRes;
   }
 
   function* getUserLocks(docId, sessionId) {
     var userLocks = [], i;
-    var toDelete = [];
+    var toCache = [];
     var docLock = yield* getAllLocks(docId);
     for (i = 0; i < docLock.length; ++i) {
       var elem = docLock[i];
       if (elem.sessionId === sessionId) {
         userLocks.push(elem);
-        toDelete.push(elem.block);
+      } else {
+        toCache.push(JSON.stringify(elem));
       }
     }
-    if (toDelete.length > 0) {
-      toDelete.unshift(redisClient, redisClient.hdel, redisKeyLocks + docId);
-      yield utils.promiseRedis.apply(this, toDelete);
+    //remove all
+    yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + docId);
+    if (toCache.length > 0) {
+      //set all
+      toCache.unshift(redisClient, redisClient.rpush, redisKeyLocks + docId);
+      yield utils.promiseRedis.apply(this, toCache);
     }
 
     return userLocks;
@@ -1310,20 +1310,19 @@ exports.install = function(server, callbackFunction) {
 
   function* getLockWord(conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
-    var documentLocks = {};
     var i;
     var checkRes = yield* _checkLock(docId, arrayBlocks);
-    if (checkRes) {
+    var documentLocks = checkRes.documentLocks;
+    if (checkRes.res) {
       //Ok. take lock
       var toCache = [];
       for (i = 0; i < arrayBlocks.length; ++i) {
         var block = arrayBlocks[i];
         var elem = {time: Date.now(), user: userId, block: block, sessionId: conn.sessionId};
         documentLocks[block] = elem;
-        toCache.push(block);
         toCache.push(JSON.stringify(elem));
       }
-      toCache.unshift(redisClient, redisClient.hmset, redisKeyLocks + docId);
+      toCache.unshift(redisClient, redisClient.rpush, redisKeyLocks + docId);
       yield utils.promiseRedis.apply(this, toCache);
     } else if (bIsRestore) {
       return false;
@@ -1337,20 +1336,19 @@ exports.install = function(server, callbackFunction) {
   // Для Excel block теперь это объект { sheetId, type, rangeOrObjectId, guid }
   function* getLockExcel(conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
-    var documentLocks = [];
     var i;
     var checkRes = yield* _checkLockExcel(docId, arrayBlocks, userId);
-    if (checkRes) {
+    var documentLocks = checkRes.documentLocks;
+    if (checkRes.res) {
       //Ok. take lock
       var toCache = [];
       for (i = 0; i < arrayBlocks.length; ++i) {
         var block = arrayBlocks[i];
         var elem = {time: Date.now(), user: userId, block: block, sessionId: conn.sessionId};
         documentLocks.push(elem);
-        toCache.push(block);
         toCache.push(JSON.stringify(elem));
       }
-      toCache.unshift(redisClient, redisClient.hmset, redisKeyLocks + docId);
+      toCache.unshift(redisClient, redisClient.rpush, redisKeyLocks + docId);
       yield utils.promiseRedis.apply(this, toCache);
     } else if (bIsRestore) {
       return false;
@@ -1364,20 +1362,19 @@ exports.install = function(server, callbackFunction) {
   // Для презентаций это объект { type, val } или { type, slideId, objId }
   function* getLockPresentation(conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
-    var documentLocks = [];
     var i;
     var checkRes = yield* _checkLockPresentation(docId, arrayBlocks, userId);
-    if (checkRes) {
+    var documentLocks = checkRes.documentLocks;
+    if (checkRes.res) {
       //Ok. take lock
       var toCache = [];
       for (i = 0; i < arrayBlocks.length; ++i) {
         var block = arrayBlocks[i];
         var elem = {time: Date.now(), user: userId, block: block, sessionId: conn.sessionId};
         documentLocks.push(elem);
-        toCache.push(block);
         toCache.push(JSON.stringify(elem));
       }
-      toCache.unshift(redisClient, redisClient.hmset, redisKeyLocks + docId);
+      toCache.unshift(redisClient, redisClient.rpush, redisKeyLocks + docId);
       yield utils.promiseRedis.apply(this, toCache);
     } else if (bIsRestore) {
       return false;
@@ -1522,17 +1519,25 @@ exports.install = function(server, callbackFunction) {
   function* _checkLock(docId, arrayBlocks) {
     // Data is array now
     var isLock = false;
+    var allLocks = yield* getAllLocks(docId);
+    var documentLocks = {};
+    for(var i = 0 ; i < allLocks.length; ++i) {
+      var elem = allLocks[i];
+      documentLocks[elem.block] =elem;
+    }
     if (arrayBlocks.length > 0) {
-      var copyarrayBlocks = arrayBlocks.concat();
-      copyarrayBlocks.unshift(redisClient, redisClient.hmget, redisKeyLocks + docId);
-      var getRes = yield utils.promiseRedis.apply(this, copyarrayBlocks);
-      isLock = getRes.some(function(currentValue) {
-        return null != currentValue;
-      });
+      for (var i = 0; i < arrayBlocks.length; ++i) {
+        var block = arrayBlocks[i];
+        logger.info("getLock id: %s", block);
+        if (documentLocks.hasOwnProperty(block) && documentLocks[block] !== null) {
+          isLock = true;
+          break;
+        }
+      }
     } else {
       isLock = true;
     }
-    return !isLock;
+    return {res: !isLock, documentLocks: documentLocks};
   }
 
   function* _checkLockExcel(docId, arrayBlocks, userId) {
@@ -1592,7 +1597,7 @@ exports.install = function(server, callbackFunction) {
     if (0 === lengthArray) {
       isLock = true;
     }
-    return !isLock && !isExistInArray;
+    return {res: !isLock && !isExistInArray, documentLocks: documentLocks};
   }
 
   function* _checkLockPresentation(docId, arrayBlocks, userId) {
@@ -1621,7 +1626,7 @@ exports.install = function(server, callbackFunction) {
     if (0 === lengthArray) {
       isLock = true;
     }
-    return !isLock;
+    return {res: !isLock, documentLocks: documentLocks};
   }
 
   function _createSaveTimer(docId) {
