@@ -57,8 +57,9 @@
 				"editor_settings_autosave_mininterval": 300,
 				"editor_settings_coauthoring_url": "",
 				"editor_settings_spellchecker_url": "/spellchecker",
-                "editor_settings_analytics_enable": true,
+				"editor_settings_analytics_enable": true,
 				"license_activeconnections_tracking_interval": 300,
+				"license_activeconnections_tracking_cleanupperiods": 2,
 				"editor_settings_readerformats": "doct;docx;doc;odt;rtf;txt;mht;html;htm;epub;mobi;fb2",
 				"editor_settings_editorformats": "doct;xlst;pptt;docx;doc;odt;xlsx;xls;ods;csv;pptx;ppt;ppsx;pps;odp;rtf;txt;mht;html;htm;epub;mobi;fb2",
 				"editor_settings_viewerformats": "pdf;xps;djvu;tiff"
