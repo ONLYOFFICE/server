@@ -17,6 +17,7 @@ var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
 var nodeZip = require('./../../Common/node_modules/node-zip');
 var baseConnector = require('./../../CoAuthoring/sources/baseConnector');
+var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/' + config.get('queue.name'));
 
 var cfgMaxDownloadBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
@@ -29,6 +30,7 @@ var cfgErrorFiles = configConverter.get('errorfiles');
 
 var TEMP_PREFIX = 'ASC_CONVERT';
 var queue = null;
+var clientStatsD = statsDClient.getClient();
 
 function TaskQueueDataConvert(task) {
   var cmd = task.getCmd();
@@ -458,6 +460,11 @@ function deleteFolderRecursive(strPath) {
 }
 
 function* ExecuteTask(task) {
+  var startDate = null;
+  var curDate = null;
+  if(clientStatsD) {
+    startDate = curDate = new Date();
+  }
   var resData;
   var tempDirs;
   var getTaskTime = new Date();
@@ -476,12 +483,20 @@ function* ExecuteTask(task) {
       error = constants.CONVERT_DOWNLOAD;
       logger.error(err);
     }
+    if(clientStatsD) {
+      clientStatsD.timing('downloadFile', new Date() - curDate);
+      curDate = new Date();
+    }
     if (constants.NO_ERROR === error) {
       error = processDownloadFile(dataConvert, cmd.format);
     }
   } else if (cmd.getSaveKey()) {
     yield* downloadFileFromStorage(cmd.getDocId(), cmd.getDocId(), tempDirs.source);
     logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
+    if(clientStatsD) {
+      clientStatsD.timing('downloadFileFromStorage', new Date() - curDate);
+      curDate = new Date();
+    }
     yield* processDownloadFromStorage(dataConvert, cmd, task, tempDirs);
   } else {
     error = constants.UNKNOWN;
@@ -502,12 +517,27 @@ function* ExecuteTask(task) {
     var waitMS = (task.getVisibilityTimeout() || 600) * 1000 - (new Date().getTime() - getTaskTime.getTime());
     childRes = childProcess.spawnSync(cfgFilePath, childArgs, {timeout: waitMS});
     logger.debug('ExitCode (code=%d;signal=%s;id=%s)', childRes.status, childRes.signal, dataConvert.key);
+    if(clientStatsD) {
+      clientStatsD.timing('spawnSync', new Date() - curDate);
+      curDate = new Date();
+    }
   }
   resData = yield* postProcess(cmd, dataConvert, tempDirs, childRes, error);
   logger.debug('postProcess (id=%s)', dataConvert.key);
+  if(clientStatsD) {
+    clientStatsD.timing('postProcess', new Date() - curDate);
+    curDate = new Date();
+  }
   if (tempDirs) {
     deleteFolderRecursive(tempDirs.temp);
     logger.debug('deleteFolderRecursive (id=%s)', dataConvert.key);
+    if(clientStatsD) {
+      clientStatsD.timing('deleteFolderRecursive', new Date() - curDate);
+      curDate = new Date();
+    }
+  }
+  if(clientStatsD) {
+    clientStatsD.timing('convert', new Date() - startDate);
   }
   return resData;
 }

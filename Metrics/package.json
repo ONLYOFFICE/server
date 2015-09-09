@@ -1,0 +1,9 @@
+{
+  "name": "metrics",
+  "version": "1.0.0",
+  "homepage": "http://www.onlyoffice.com",
+  "private": true,
+  "dependencies": {
+    "statsd": "^0.7.2"
+  }
+}

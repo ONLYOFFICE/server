@@ -54,6 +54,7 @@ var sockjs = require('sockjs'),
   constants = require('./../../Common/sources/constants'),
   utils = require('./../../Common/sources/utils'),
   commonDefines = require('./../../Common/sources/commondefines'),
+  statsDClient = require('./../../Common/sources/statsdclient'),
   config = require('config').get('services.CoAuthoring'),
   sqlBase = require('./baseConnector'),
   taskResult = require('./taskresult');
@@ -102,6 +103,7 @@ var connections = [], // Активные соединения
   redisClient,
   pubsub,
   queue;
+var clientStatsD = statsDClient.getClient();
 
 var asc_coAuthV = '3.0.8';				// Версия сервера совместного редактирования
 
@@ -696,6 +698,10 @@ exports.install = function(server, callbackFunction) {
     conn.on('data', function(message) {
       utils.spawn(function* () {
       try {
+        var startDate = null;
+        if(clientStatsD) {
+          startDate = new Date();
+        }
         var data = JSON.parse(message);
         logger.info('data.type = ' + data.type + ' id = ' + conn.docId);
         switch (data.type) {
@@ -729,6 +735,9 @@ exports.install = function(server, callbackFunction) {
           case 'openDocument'      :
             canvasService.openDocument(conn, data);
             break;
+        }
+        if(clientStatsD) {
+          clientStatsD.timing('data_' + data.type, new Date() - startDate);
         }
       } catch (e) {
         logger.error("error receiving response: docId = %s type = %s\r\n%s", conn ? conn.docId : 'null', (data && data.type) ? data.type : 'null', e.stack);

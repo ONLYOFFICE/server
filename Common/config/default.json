@@ -1,4 +1,10 @@
 ﻿{
+	"statsd": {
+		"useMetrics": false,
+		"host": "localhost",
+		"port": "8125",
+		"prefix": "ds."
+	},
 	"log": {
 		"appenders": [{
 			"type": "console"

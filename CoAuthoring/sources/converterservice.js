@@ -6,10 +6,13 @@ var commonDefines = require('./../../Common/sources/commondefines');
 var docsCoServer = require('./DocsCoServer');
 var storage = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
+var statsDClient = require('./../../Common/sources/statsdclient');
 
 //todo
 var CONVERT_TIMEOUT = 6 * 60 * 1000;
 var CONVERT_ASYNC_DELAY = 1000;
+
+var clientStatsD = statsDClient.getClient();
 
 function* getConvertStatus(cmd, selectRes, req) {
   var status = {url: undefined, err: constants.NO_ERROR};
@@ -36,6 +39,10 @@ function* getConvertStatus(cmd, selectRes, req) {
 exports.convert = function(req, res) {
   utils.spawn(function* () {
     try {
+      var startDate = null;
+      if(clientStatsD) {
+        startDate = new Date();
+      }
       logger.debug('Start convert request');
       var cmd = new commonDefines.InputCommand();
       cmd.setCommand('conv');
@@ -92,6 +99,9 @@ exports.convert = function(req, res) {
       }
       utils.fillXmlResponse(res, status.url, status.err);
       logger.debug('End convert request');
+      if(clientStatsD) {
+        clientStatsD.timing('convertservice', new Date() - startDate);
+      }
     }
     catch (e) {
       logger.error('error convert:\r\n%s', e.stack);

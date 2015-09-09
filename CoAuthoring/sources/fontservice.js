@@ -6,6 +6,7 @@ var base64 = require('base64-stream');
 var utils = require('./../../Common/sources/utils');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var logger = require('./../../Common/sources/logger');
+var statsDClient = require('./../../Common/sources/statsdclient');
 var config = require('config').get('services.CoAuthoring.utils');
 
 var cfgFontDir = config.get('utils_common_fontdir');
@@ -17,6 +18,7 @@ var BYTE_MAX_VALUE = 255;
 var GUID_ODTTF = [0xA0, 0x66, 0xD6, 0x20, 0x14, 0x96, 0x47, 0xfa, 0x95, 0x69, 0xB8, 0x50, 0xB0, 0x41, 0x49, 0x48];
 
 var fontNameToFullPath = {};
+var clientStatsD = statsDClient.getClient();
 
 function ZBase32Encoder() {
   this.encodingTable = 'ybndrfg8ejkmcpqxot1uwisza345h769';
@@ -175,6 +177,10 @@ var zBase32Encoder = new ZBase32Encoder();
 exports.getFont = function(req, res) {
   utils.spawn(function* () {
     try {
+      var startDate = null;
+      if(clientStatsD) {
+        startDate = new Date();
+      }
       logger.debug('Start getFont request');
       var fontname = req.params.fontname;
       logger.debug('fontname:' + fontname);
@@ -230,6 +236,9 @@ exports.getFont = function(req, res) {
         res.sendStatus(404);
       }
       logger.debug('End getFont request');
+      if(clientStatsD) {
+        clientStatsD.timing('getFont', new Date() - startDate);
+      }
     }
     catch (e) {
       logger.error('error getFont:\r\n%s', e.stack);
