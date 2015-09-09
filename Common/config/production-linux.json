@@ -2,7 +2,7 @@
 	"storage": {
 		"name": "storage-fs",
 		"fs": {
-			"folderPath": "/var/lib/onlyoffice/documentserver/App_Data",
+			"folderPath": "/var/lib/onlyoffice/documentserver/App_Data/cache/files",
 			"secretString": "onlyoffice"
 		}
 	},
