@@ -2,7 +2,8 @@
   "storage": {
     "name": "storage-fs",
     "fs": {
-      "folderPath": "../../App_Data"
+      "folderPath": "../../App_Data",
+	  "secretString": "onlyoffice"
     }
   },
 	"services": {
