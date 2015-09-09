@@ -53,6 +53,7 @@
 				"fonts_route": "OfficeWeb/sdk/Fonts/",
 				"limits_tempfile_upload": 104857600,
 				"limits_image_size": 26214400,
+				"limits_image_download_timeout": 120,
 				"editor_settings_autosave_enable": "true",
 				"editor_settings_autosave_mininterval": 300,
 				"editor_settings_coauthoring_url": "",

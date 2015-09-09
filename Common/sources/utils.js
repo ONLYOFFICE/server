@@ -1,8 +1,7 @@
 ﻿var fs = require('fs');
 var path = require('path');
-var http = require('http');
-var https = require('https');
 var url = require('url');
+var request = require('request');
 var constants = require('./constants');
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
@@ -150,56 +149,33 @@ exports.getContentDisposition = function(filename, useragent) {
   }
   return contentDisposition;
 };
-function promiseHttpsGet(uri, optTimeout) {
-  return new Promise(function(resolve, reject) {
-    var urlParsed = url.parse(uri);
-    var proto = (urlParsed.protocol === 'https:') ? https : http;
-    var request = proto.get(uri, function(res) {
-      resolve({request: request, response: res});
-    });
-    request.on('error', function(e) {
-      reject(e);
-    });
-    if (optTimeout) {
-      request.setTimeout(optTimeout * 1000, function() {
-        request.abort();
-      });
+function downloadUrlPromise(uri, optTimeout, optLimit) {
+  return new Promise(function (resolve, reject) {
+    //todo может стоит делать url.parse, а потом с каждой частью отдельно работать
+    //для ссылок с руссикими буквами приходит 404
+    if (!containsAllAsciiNP(uri)) {
+      uri = encodeURI(uri);
     }
+    var urlParsed = url.parse(uri);
+    if (urlParsed.protocol === 'https:') {
+      //TODO: Check how to correct handle a ssl link
+      urlParsed.rejectUnauthorized = false;
+    }
+    var options = {uri: urlParsed, encoding: null, timeout: optTimeout};
+    request.get(options, function (err, response, body) {
+      if (err) {
+        reject(err);
+      } else {
+        if (response.statusCode == 200 && (!optLimit || body.length < optLimit)) {
+          resolve(body);
+        } else {
+          reject(new Error('Error statusCode:' + response.statusCode + ' or contentLength:' + body.length));
+        }
+      }
+    })
   });
 }
-function promiseReadResponse(request, response, optLimit) {
-  return new Promise(function(resolve, reject) {
-    var bufs = [];
-    var realByteSize = 0;
-    response.on('data', function(chunk) {
-      realByteSize += chunk.length;
-      if (realByteSize <= optLimit) {
-        bufs.push(chunk);
-      } else {
-        request.abort();
-      }
-    });
-    response.on('end', function() {
-      if (request.aborted) {
-        reject(new Error('Error request.aborted'));
-      } else {
-        resolve(Buffer.concat(bufs));
-      }
-    });
-  });
-}
-exports.downloadUrl = function*(uri, optTimeout, optLimit) {
-  var getRes = yield promiseHttpsGet(uri, optTimeout);
-  var contentLength = 0;
-  if (getRes.response.headers['content-length']) {
-    contentLength = getRes.response.headers['content-length'] - 0;
-  }
-  if (200 === getRes.response.statusCode && contentLength <= optLimit) {
-    return yield promiseReadResponse(getRes.request, getRes.response, optLimit);
-  } else {
-    throw new Error('Error statusCode or contentLength');
-  }
-};
+exports.downloadUrlPromise = downloadUrlPromise;
 exports.mapAscServerErrorToOldError = function(error) {
   var res = -1;
   switch (error) {
@@ -358,9 +334,10 @@ exports.promiseRedis = function(client, func) {
 exports.containsAllAscii = function(str) {
   return /^[\000-\177]*$/.test(str);
 };
-exports.containsAllAsciiNP = function(str) {
+function containsAllAsciiNP(str) {
   return /^[\040-\176]*$/.test(str);//non-printing characters
-};
+}
+exports.containsAllAsciiNP = containsAllAsciiNP;
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader) {
   var url = '';
   if (forwardedProtoHeader) {

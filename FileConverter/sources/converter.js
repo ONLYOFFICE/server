@@ -2,8 +2,6 @@
 var os = require('os');
 var path = require('path');
 var fs = require('fs');
-var http = require('http');
-var https = require('https');
 var url = require('url');
 var childProcess = require('child_process');
 var config = require('config');
@@ -120,66 +118,9 @@ function getTempDir() {
   fs.mkdirSync(resultDir);
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
-function promiseHttpsGet(uri) {
-  return new Promise(function(resolve, reject) {
-    //todo может стоит делать url.parse, а потом с каждой частью отдельно работать
-    if (!utils.containsAllAsciiNP(uri)) {
-      uri = encodeURI(uri);
-    }
-    var urlParsed = url.parse(uri);
-    var proto;
-    if (urlParsed.protocol === 'https:') {
-      proto = https;
-      //TODO: Check how to correct handle a ssl link
-      urlParsed.rejectUnauthorized = false;
-    } else {
-      proto = http;
-    }
-    var request = proto.get(urlParsed, function(res) {
-      resolve({request: request, response: res});
-    });
-    request.on('error', function(e) {
-      reject(e);
-    });
-    request.setTimeout(cfgDownloadTimeout * 1000, function() {
-      request.abort();
-    });
-  });
-}
-function promiseReadResponse(request, response, file) {
-  return new Promise(function(resolve, reject) {
-    var realByteSize = 0;
-    response.on('data', function(chunk) {
-      realByteSize += chunk.length;
-      if (realByteSize <= cfgMaxDownloadBytes) {
-        file.write(chunk);
-      } else {
-        request.abort();
-      }
-    });
-    response.on('end', function() {
-      file.end(function() {
-        if (request.aborted) {
-          reject(new Error('Error statusCode or contentLength'));
-        } else {
-          resolve(realByteSize);
-        }
-      });
-    });
-  });
-}
 function* downloadFile(uri, fileFrom) {
-  var getRes = yield promiseHttpsGet(uri);
-  var contentLength = 0;
-  if (getRes.response.headers['content-length']) {
-    contentLength = getRes.response.headers['content-length'] - 0;
-  }
-  if (200 === getRes.response.statusCode && contentLength <= cfgMaxDownloadBytes) {
-    var file = yield utils.promiseCreateWriteStream(fileFrom);
-    yield promiseReadResponse(getRes.request, getRes.response, file);
-  } else {
-    throw new Error('Error statusCode:' + getRes.response.statusCode + ' or contentLength:' + contentLength);
-  }
+  var data = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout * 1000, cfgMaxDownloadBytes);
+  fs.writeFileSync(fileFrom, data);
 }
 function promiseGetChanges(key) {
   return new Promise(function(resolve, reject) {
