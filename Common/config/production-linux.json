@@ -8,6 +8,9 @@
 	},
 	"services": {
 		"CoAuthoring": {
+			"server": {
+				"license_file_path": "/var/www/onlyoffice/Data"
+			},
 			"utils": {
 				"utils_common_fontdir": "/usr/share/fonts"
 			}
