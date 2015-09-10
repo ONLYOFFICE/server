@@ -81,6 +81,7 @@ function LicenseReaderBase() {
   this._endDateThreshold = null;
 
   this._customer = '';
+  this._customer_id = '';
   this._customer_addr = '';
   this._customer_www = '';
   this._customer_mail = '';
@@ -112,6 +113,7 @@ LicenseReaderBase.prototype._fillMembersBase = function(xmlDocObj) {
 
       this._endDateThreshold = startElem.hasOwnProperty('enddatethreshold') ? new Date(startElem['enddatethreshold'][0]) : null;
       this._customer = startElem.hasOwnProperty('customer') ? startElem['customer'][0] : '';
+      this._customer_id = startElem.hasOwnProperty('customer_id') ? startElem['customer_id'][0] : '';
       this._customer_addr = startElem.hasOwnProperty('customer_addr') ? startElem['customer_addr'][0] : '';
       this._customer_www = startElem.hasOwnProperty('customer_www') ? startElem['customer_www'][0] : '';
       this._customer_mail = startElem.hasOwnProperty('customer_mail') ? startElem['customer_mail'][0] : '';
@@ -173,6 +175,9 @@ LicenseReaderBase.prototype.getId = function() {
 };
 LicenseReaderBase.prototype.getCustomer = function() {
   return this._customer;
+};
+LicenseReaderBase.prototype.getCustomerId = function() {
+  return this._customer_id;
 };
 LicenseReaderBase.prototype.getCustomerAddr = function() {
   return this._customer_addr;
@@ -315,6 +320,16 @@ ActiveConnectionsLicenseReader.prototype.getCustomer = function() {
   var licenses = this.getLicensesByTime(true);
   if (0 < licenses.length) {
     res = licenses[0].getCustomer();
+  }
+
+  return res;
+};
+ActiveConnectionsLicenseReader.prototype.getCustomerId = function() {
+  var res = null;
+
+  var licenses = this.getLicensesByTime(true);
+  if (0 < licenses.length) {
+    res = licenses[0].getCustomerId();
   }
 
   return res;
