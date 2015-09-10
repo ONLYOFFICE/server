@@ -3,10 +3,24 @@ var crypto = require("crypto");
 var utils = require('./utils');
 var xmlParseString = require('xml2js').parseString;
 var logger = require('./logger');
-var config_server = require('config').get('services.CoAuthoring.server');
+var configCoAuthoring = require('config').get('services.CoAuthoring');
+var config_server = configCoAuthoring.get('server');
+var commonDefines = require('./commondefines');
+var constants = require('./constants');
 
-var cfgActiveconnectionsTrackingCleanupperiods = config_server.get('license_activeconnections_tracking_cleanupperiods');
-var cfgActiveconnectionsTrackingInterval = config_server.get('license_activeconnections_tracking_interval');
+var cfgActiveConnectionsTrackingCleanupPeriods = config_server.get('license_activeconnections_tracking_cleanupperiods');
+var cfgActiveConnectionsTrackingInterval = config_server.get('license_activeconnections_tracking_interval');
+
+var redis = require(configCoAuthoring.get('redis.name'));
+var cfgRedisPrefix = configCoAuthoring.get('redis.prefix');
+var cfgRedisHost = configCoAuthoring.get('redis.host');
+var cfgRedisPort = configCoAuthoring.get('redis.port');
+var redisKeyLicense = cfgRedisPrefix + 'license';
+
+var redisClient = redis.createClient(cfgRedisPort, cfgRedisHost, {});
+redisClient.on('error', function(err) {
+  logger.error('redisClient error:\r\n%s', err.stack);
+});
 
 function extendClass (Child, Parent) {
   var F = function() { };
@@ -235,15 +249,15 @@ ActiveConnectionsLicenseReader.prototype.read = function*(path) {
   }
   this._correct = (0 < this._licenses.length);
 };
-ActiveConnectionsLicenseReader.prototype.getLicensesByTime = function(useTreshold) {
+ActiveConnectionsLicenseReader.prototype.getLicensesByTime = function(useThreshold) {
   var time = new Date();
-  var res = [], item, startTime, endTime, endTimeTreshold;
+  var res = [], item, startTime, endTime, endTimeThreshold;
   for (var i = 0; i < this._licenses.length; ++i) {
     item = this._licenses[i];
     startTime = item.getStartDate();
     endTime = item.getEndDate();
-    endTimeTreshold = item.getEndDateThreshold();
-    if ((startTime <= time) && (useTreshold ? (time <= endTimeTreshold) : (time <= endTime))) {
+    endTimeThreshold = item.getEndDateThreshold();
+    if ((startTime <= time) && (useThreshold ? (time <= endTimeThreshold) : (time <= endTime))) {
       res.push(item);
     }
   }
@@ -276,20 +290,20 @@ ActiveConnectionsLicenseReader.prototype.getEndDate = function() {
 ActiveConnectionsLicenseReader.prototype.getEndDateThreshold = function() {
   if (!this.isLicenseCorrect())
     return null;
-  var tresholdDate = this._licenses[0].getEndDateThreshold(), endDateTres;
+  var thresholdDate = this._licenses[0].getEndDateThreshold(), endDateThreshold;
   for (var i = 1; i < this._licenses.length; ++i) {
-    endDateTres = this._licenses[i].getEndDateThreshold();
+    endDateThreshold = this._licenses[i].getEndDateThreshold();
 
-    if (tresholdDate < endDateTres)
-      tresholdDate = endDateTres;
+    if (thresholdDate < endDateThreshold)
+      thresholdDate = endDateThreshold;
   }
-  return tresholdDate;
+  return thresholdDate;
 };
 ActiveConnectionsLicenseReader.prototype.getId = function() {
   var res = null;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getId();
   }
 
@@ -299,7 +313,7 @@ ActiveConnectionsLicenseReader.prototype.getCustomer = function() {
   var res = null;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getCustomer();
   }
 
@@ -309,7 +323,7 @@ ActiveConnectionsLicenseReader.prototype.getCustomerAddr = function() {
   var res = null;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getCustomerAddr();
   }
 
@@ -319,7 +333,7 @@ ActiveConnectionsLicenseReader.prototype.getCustomerWww = function() {
   var res = null;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getCustomerWww();
   }
 
@@ -329,7 +343,7 @@ ActiveConnectionsLicenseReader.prototype.getCustomerMail = function() {
   var res = null;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getCustomerMail();
   }
 
@@ -339,7 +353,7 @@ ActiveConnectionsLicenseReader.prototype.getCustomerInfo = function() {
   var res = null;
 
   var licenses = this.getLicensesByTime(false);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getCustomerInfo();
   }
 
@@ -349,7 +363,7 @@ ActiveConnectionsLicenseReader.prototype.getCustomerLogo = function() {
   var res = null;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getCustomerLogo();
   }
 
@@ -359,7 +373,7 @@ ActiveConnectionsLicenseReader.prototype.getUserData = function() {
   var res = null;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getUserData();
   }
 
@@ -390,7 +404,7 @@ ActiveConnectionsLicenseReader.prototype.getCanCoAuthoring = function() {
   var res = false;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getCanCoAuthoring();
   }
 
@@ -400,7 +414,7 @@ ActiveConnectionsLicenseReader.prototype.getCanBranding = function() {
   var res = false;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getCanBranding();
   }
 
@@ -410,141 +424,58 @@ ActiveConnectionsLicenseReader.prototype.getPermissions = function() {
   var res = EditorPermissions.PERMISSION_NONE;
 
   var licenses = this.getLicensesByTime(true);
-  if (0 < licenses.Count()) {
+  if (0 < licenses.length) {
     res = licenses[0].getPermissions();
   }
 
   return res;
 };
 
+function LicenseMetaData() {
+  this.vkey = '';
+  this.docId = '';
+  this.userId = '';
+  this.checkIP = false;
+  this.currentIP = '';
+  this.editorId = -1;
+}
+LicenseMetaData.prototype.init = function(vkey, docId, userId, editorId) {
+  this.vkey = vkey;
+
+  this.docId = docId;
+  if (null == this.docId || '' === this.docId)
+    this.docId = 'doc';
+
+  this.userId = userId;
+  if (null == this.userId || '' === this.userId)
+    this.userId = 'usr';
+
+  this.editorId = editorId;
+};
 function LicenseRights(bIsAllEnabled) {
-  this._bCanOpen = true;
-  this._bCanSave = true;
-  this._bCanCoAuthoring = false;
-  this._bCanExport = true;
-  this._bCanPrint = true;
-  this._bCanBranding = false;
+  this.canOpen = true;
+  this.canSave = true;
+  this.canCoAuthoring = false;
+  this.canExport = true;
+  this.canPrint = true;
+  this.canBranding = false;
   if (bIsAllEnabled) {
-    this._bCanOpen = true;
-    this._bCanSave = true;
-    this._bCanCoAuthoring = true;
-    this._bCanExport = true;
-    this._bCanPrint = true;
-    this._bCanBranding = true;
+    this.enableAll();
   }
 }
-function VKeyLicenseInfo() {
-}
-VKeyLicenseInfo.prototype.getRights = function() {
-  errorCode = ErrorTypes.NoError;
-  var oRights = new LicenseRights(true);
-  // ToDo Affiliete
-  return oRights;
-};
-VKeyLicenseInfo.prototype.read = function*(path) {
-};
-
-function ActiveConnectionLicenseInfo() {
-  this.trackInfo = this.createTrackingInfo();
-}
-ActiveConnectionLicenseInfo.prototype.read = function*(path) {
-  // set license reader
-  this.trackInfo.setLicense(yield* this.createLicenseReader(path));
-};
-ActiveConnectionLicenseInfo.prototype.createLicenseReader = function*(path) {
-  var res = new ActiveConnectionsLicenseReader();
-  yield* res.read(path);
-  return res;
-};
-ActiveConnectionLicenseInfo.prototype.createTrackingInfo = function() {
-  return new TrackingInfo();
-};
-ActiveConnectionLicenseInfo.prototype.track = function(userId, docId, isAlive) {
-  this.trackInfo.track(userId, docId, isAlive);
-};
-ActiveConnectionLicenseInfo.prototype.getActiveUserCount = function() {
-  return this.trackInfo.getActiveUserCount();
-};
-ActiveConnectionLicenseInfo.prototype.getInactiveUserCount = function() {
-  return this.trackInfo.getInactiveUserCount();
-};
-
-function UserCountLicenseInfo() {
-  UserCountLicenseInfo.superclass.constructor.apply(this, arguments);
-}
-extendClass(UserCountLicenseInfo, ActiveConnectionLicenseInfo);
-UserCountLicenseInfo.prototype.track = function(userId, docId, isAlive) {
-  this.trackInfo.track(userId, null, isAlive);
-};
-
-function UserCount2LicenseInfo() {
-  UserCount2LicenseInfo.superclass.constructor.apply(this, arguments);
-}
-extendClass(UserCount2LicenseInfo, UserCountLicenseInfo);
-UserCount2LicenseInfo.prototype.createTrackingInfo = function() {
-  return new UserCount2TrackingInfo();
-};
-
-function MockLicenseInfo() {
-  // ToDo
-}
-function DocumentSessionLicenseInfo() {
-  // ToDo
-}
-function ActiveConnectionAWSLicenseInfo() {
-  // ToDo
-}
-
-function TrackingValue() {
-  this.inactiveTicks = 0;
-  this.lastTrackingTime = new Date();
-}
-function TrackingDictionary() {
-  this.dict = [];
-  this.count = 0;
-}
-TrackingDictionary.prototype.add = function(key, value) {
-  if (!this.dict.hasOwnProperty(key)) {
-    ++this.count;
-  }
-  this.dict[key] = value;
-};
-TrackingDictionary.prototype.remove = function(key) {
-  if (this.dict.hasOwnProperty(key)) {
-    delete this.dict[key];
-    --this.count;
-  }
-};
-TrackingDictionary.prototype.removeOldItems = function(lastTime) {
-  var newDict = [];
-  var newCount = 0;
-  if (null !== lastTime) {
-    for (var i in this.dict) if (this.dict.hasOwnProperty(i)) {
-      if (this.dict[i].lastTrackingTime > lastTime) {
-        newDict[i] = this.dict[i];
-        ++newCount;
-      }
-    }
-  }
-  if (this.count !== newCount) {
-    this.dict = newDict;
-    this.count = newCount;
-  }
-};
-TrackingDictionary.prototype.getValue = function(key) {
-  return this.dict[key];
-};
-TrackingDictionary.prototype.getCount = function() {
-  return this.dict[key];
+LicenseRights.prototype.enableAll = function() {
+  this.canOpen = true;
+  this.canSave = true;
+  this.canCoAuthoring = true;
+  this.canExport = true;
+  this.canPrint = true;
+  this.canBranding = true;
 };
 
 function BaseTrackingInfo() {
   this.oLastCleanupTime = new Date();
 
   this.license = null;
-
-  this.activeUsers = new TrackingDictionary();
-  this.inactiveUsers = new TrackingDictionary();
 }
 BaseTrackingInfo.prototype.setLicense = function(license) {
   this.license = license;
@@ -552,100 +483,62 @@ BaseTrackingInfo.prototype.setLicense = function(license) {
 BaseTrackingInfo.prototype.getLicense = function() {
   return this.license;
 };
-BaseTrackingInfo.prototype.getActiveUserCount = function() {
-  return this.activeUsers.getCount();
+BaseTrackingInfo.prototype.getActiveUserCount = function*() {
+  return yield utils.promiseRedis(redisClient, redisClient.hlen, redisKeyLicense);
 };
-BaseTrackingInfo.prototype.getInactiveUserCount = function() {
-  return this.inactiveUsers.getCount();
-};
-BaseTrackingInfo.prototype.track = function(userId, docId, isAlive) {
-  if (null == userId)
+BaseTrackingInfo.prototype.track = function*(userId, docId, isAlive) {
+  if (null == userId) {
     userId = '';
-
-  if (null == docId)
+  }
+  if (null == docId) {
     docId = '';
+  }
 
   var key = userId + docId;
-  if ('' === key)
+  if ('' === key) {
     key = 'empty';
+  }
 
-  var value, now = new Date();
+  var now = new Date();
   if (0 === isAlive) {
     // inactive
-    // find firstly in a list of inactive users
-    if (value = this.inactiveUsers.getValue(key)) {
-      // ok, this user/document is still inactive. update it state
-      value.lastTrackingTime = now;
-      ++value.inactiveTicks;
-    } else {
-      // this user/document pair is not exists in inactive list. may be it is a new user or
-      // may be it is in a list of active user/dodcument pair
-      if (value = this.activeUsers.getValue(key)) {
-        // he is in active list
-        // delete him from this list and insert into a inactive list
-        this.activeUsers.remove(key);
-      } else {
-        // this is a new user
-        value = new TrackingValue();
-      }
-
-      value.inactiveTicks = 1;
-      value.lastTrackingTime = now;
-      this.inactiveUsers.add(key, value);
-    }
+    yield* this.cleanup();
   } else {
     // active
-    // find firstly in a list of active users
-    if (value = this.activeUsers.getValue(key)) {
-      // ok, this user/document is still inactive. update it state
-      value.lastTrackingTime = now;
-      value.inactiveTicks = 0;                // but it must be 0 anyway
-    } else {
-      // may be user/doc pair is inactive?
-      if (value = this.inactiveUsers.getValue(key)) {
-        // ok, let's move him to active list
-        this.inactiveUsers.remove(key);
-      } else {
-        // create new
-        value = new TrackingValue();
-      }
-      value.inactiveTicks = 0;
-      value.lastTrackingTime = now;
-
-      // there are no limitations for adding new users in 'track' method!
-      this.activeUsers.add(key, value);
-    }
+    yield utils.promiseRedis(redisClient, redisClient.hset, redisKeyLicense, key, now.getTime());
   }
 
   // make cleanup (once per day)
-  this.checkCleanUp(now);
+  yield* this.checkCleanUp(now);
 };
-BaseTrackingInfo.prototype.isQuotaExceed = function(userId, docId) {
+BaseTrackingInfo.prototype.isQuotaExceed = function*(userId, docId) {
   // no license, no quota
-  if (null === this.license)
+  if (null === this.license) {
     return false;
+  }
 
-  if (null == userId)
+  if (null == userId) {
     userId = '';
-  if (null == docId)
+  }
+  if (null == docId) {
     docId = '';
+  }
 
-  var count = this.getActiveUserCount();
+  var count = yield* this.getActiveUserCount();
   // ok anyway
-  if (count < this.license.getUserQuota())
+  if (count < this.license.getUserQuota()) {
     return false;
+  }
 
   // quota is exeeded. try to find this user/document in active or inactive list
   var key = userId + docId;
-  if ('' === key)
+  if ('' === key) {
     key = 'empty';
+  }
 
-  // if user/document is already exists in active list, return false.
-  if (this.activeUsers.getValue(key))
+  if (yield utils.promiseRedis(redisClient, redisClient.hexists, redisKeyLicense, key)) {
     return false;
-  // if user/document is already exists in inactive list, return false.
-  if (this.inactiveUsers.getValue(key))
-    return false;
+  }
 
   // the quota is exceeded
   return true;
@@ -672,28 +565,46 @@ BaseTrackingInfo.prototype.isLicenseEndDateGreater = function(time) {
   var end = this.license.getEndDate();
   return end > time;
 };
-BaseTrackingInfo.prototype.isLicenseDateTresholdExpired = function() {
+BaseTrackingInfo.prototype.isLicenseDateThresholdExpired = function() {
   if (!this.license) {
     return true;
   }
   var now = new Date();
-  var treshold = this.license.getEndDateThreshold();
+  var threshold = this.license.getEndDateThreshold();
 
-  return now > treshold;
+  return now > threshold;
 };
-BaseTrackingInfo.prototype.checkCleanUp = function(now) {
+BaseTrackingInfo.prototype.getPermissions = function() {
+  return this.license ? this.license.getPermissions() : EditorPermissions.PERMISSION_NONE;
+};
+BaseTrackingInfo.prototype.checkCleanUp = function*(now) {
   if (!now) {
     now = new Date();
   }
   now.setDate(now.getDate() - 1);
   if (now > this.oLastCleanupTime) {
-    this.cleanup();
+    yield* this.cleanup();
     this.oLastCleanupTime = now;
   }
 };
-BaseTrackingInfo.prototype.cleanup = function() {
-  this.activeUsers.removeOldItems(null);
-  this.inactiveUsers.removeOldItems(null);
+BaseTrackingInfo.prototype.removeByTime = function*(time) {
+  logger.debug('removeByTime fields');
+  var oAllFields = yield utils.promiseRedis(redisClient, redisClient.hgetall, redisKeyLicense);
+  var arrToRemove = [];
+  if (oAllFields) {
+    for (var i in oAllFields) if (oAllFields.hasOwnProperty(i)) {
+      if ((oAllFields[i] >> 0) <= time)
+        arrToRemove.push(i);
+    }
+    if (0 < arrToRemove.length) {
+      logger.debug(arrToRemove);
+      arrToRemove.unshift(redisClient, redisClient.hdel, redisKeyLicense);
+      yield utils.promiseRedis.apply(this, arrToRemove);
+    }
+  }
+};
+BaseTrackingInfo.prototype.cleanup = function*() {
+  yield* this.removeByTime(Number.MAX_VALUE);
 };
 function TrackingInfo() {
   TrackingInfo.superclass.constructor.apply(this, arguments);
@@ -703,52 +614,207 @@ function TrackingInfo() {
 }
 extendClass(TrackingInfo, BaseTrackingInfo);
 TrackingInfo.prototype._init = function() {
-  var periods = cfgActiveconnectionsTrackingCleanupperiods || 2;
-  var tracking_time = cfgActiveconnectionsTrackingInterval || 300;
+  var periods = cfgActiveConnectionsTrackingCleanupPeriods || 2;
+  var tracking_time = cfgActiveConnectionsTrackingInterval || 300;
   this.sdCleanupExpiredMinutes = periods * tracking_time / 60.0;
 };
-TrackingInfo.prototype.cleanup = function() {
-  var active_count = this.getActiveUserCount();
-  var inactive_count = this.getInactiveUserCount();
+TrackingInfo.prototype.cleanup = function*() {
+  var active_count = yield* this.getActiveUserCount();
   var quota = (null === this.license) ? 2048 : this.license.getUserQuota();
 
   if (active_count >= (quota - 1)) {
     // cleanup active list
-    this.cleanupTrackingDictionary(this.activeUsers);
+    var date = new Date();
+    date.setMinutes(date.getMinutes() - this.sdCleanupExpiredMinutes);
+    yield* this.removeByTime(date.getTime());
   }
-  if (inactive_count >= quota) {
-    // cleanup inactive list
-    this.cleanupTrackingDictionary(this.inactiveUsers);
-  }
-};
-TrackingInfo.prototype.cleanupTrackingDictionary = function(dict) {
-  var date = new Date();
-  date.setMinutes(date.getMinutes() - this.sdCleanupExpiredMinutes);
-  dict.removeOldItems(date);
 };
 
 function UserCount2TrackingInfo() {
   UserCount2TrackingInfo.superclass.constructor.apply(this, arguments);
 }
 extendClass(UserCount2TrackingInfo, BaseTrackingInfo);
-UserCount2TrackingInfo.prototype.track = function(userId, docId, isAlive) {
+UserCount2TrackingInfo.prototype.track = function*(userId, docId, isAlive) {
   // don't use "docId" in ths scheme, 'isAlive' flag must be ignored
-  return UserCount2TrackingInfo.superclass.track.call(this, userId, null, 1);
+  return yield* UserCount2TrackingInfo.superclass.track.call(this, userId, null, 1);
 };
-UserCount2TrackingInfo.prototype.isQuotaExceed = function(userId, docId) {
+UserCount2TrackingInfo.prototype.isQuotaExceed = function*(userId, docId) {
   // don't use "docId" in ths scheme
-  return UserCount2TrackingInfo.superclass.isQuotaExceed.call(this, userId, null);
+  return yield* UserCount2TrackingInfo.superclass.isQuotaExceed.call(this, userId, null);
 };
+
+function VKeyLicenseInfo() {
+}
+VKeyLicenseInfo.prototype.getRights = function() {
+  // ToDo Affiliete
+  return new LicenseRights(true);
+};
+VKeyLicenseInfo.prototype.read = function*(path) {
+};
+
+function ActiveConnectionLicenseInfo() {
+  this.m_dtBuildTime = new Date(); //ToDo возможно стоит от этого отказаться
+
+  this.trackInfo = this.createTrackingInfo();
+}
+ActiveConnectionLicenseInfo.prototype.read = function*(path) {
+  // set license reader
+  this.trackInfo.setLicense(yield* this.createLicenseReader(path));
+};
+ActiveConnectionLicenseInfo.prototype.createLicenseReader = function*(path) {
+  var res = new ActiveConnectionsLicenseReader();
+  yield* res.read(path);
+  return res;
+};
+ActiveConnectionLicenseInfo.prototype.createTrackingInfo = function() {
+  return new TrackingInfo();
+};
+ActiveConnectionLicenseInfo.prototype.track = function*(userId, docId, isAlive) {
+  yield* this.trackInfo.track(userId, docId, isAlive);
+};
+ActiveConnectionLicenseInfo.prototype.getActiveUserCount = function*() {
+  return yield* this.trackInfo.getActiveUserCount();
+};
+ActiveConnectionLicenseInfo.prototype.getRights = function*(oLicenseMetaData) {
+  var result = new commonDefines.ErrorWithResult();
+  var oRights = result.data = new LicenseRights();
+
+  if (!this.trackInfo.isLicenseFileValid()) {
+    result.errorCode = constants.LICENSE_ERROR_FILE;
+
+    // we have to allow editing in demo mode
+    // we must verify only quota.
+    // don't verify dates, build time, editor permissions
+
+    // check connections quota
+    if (yield* this.checkQuotaExceeded(oLicenseMetaData)) {
+      result.errorCode = constants.LICENSE_ERROR_ACTIVE_CONNECTION_QUOTA_EXCEED;
+    } else {
+      oRights.canSave = true;
+      oRights.canCoAuthoring = false;
+      oRights.canExport = true;
+    }
+    return result;
+  }
+
+  // license file is valid, we have to work with license scheme
+  var bValidDate = false;
+
+  // check dates
+  if (this.trackInfo.isLicenseDateValid()) {
+    // valid date
+    bValidDate = true;
+  } else {
+    // license dates are invalid, check threshold
+
+    result.errorCode = constants.LICENSE_ERROR_INVALID_DATE;
+
+    if (!this.trackInfo.isLicenseDateThresholdExpired()) {
+      bValidDate = true;
+    }
+  }
+
+  // check build time (it must be lower than license end time)
+  var bBuildTimeValid = this.trackInfo.isLicenseEndDateGreater(this.m_dtBuildTime);
+  var bQuotaExceed = true;
+  var bEditorAllowed = false;
+
+  var permissions = this.trackInfo.getPermissions();
+  if (oLicenseMetaData.editorId === constants.EDITOR_TYPE_CONVERTATION
+    && permissions !== EditorPermissions.PERMISSION_NONE) {
+    // if ConvertService.ashx or FileUploader.ashx are used don't check quota
+    bQuotaExceed = false;
+    bEditorAllowed = true;
+  } else {
+    // check connections quota
+    bQuotaExceed = yield* this.checkQuotaExceeded(oLicenseMetaData);
+    if (bQuotaExceed) {
+      result.errorCode = constants.LICENSE_ERROR_ACTIVE_CONNECTION_QUOTA_EXCEED;
+    }
+
+    // check editor id and permissions
+    if ((oLicenseMetaData.editorId === constants.EDITOR_TYPE_WORD && 0 !== (permissions & EditorPermissions.PERMISSION_WRITER))
+      || (oLicenseMetaData.editorId === constants.EDITOR_TYPE_SPREADSHEET && 0 !== (permissions & EditorPermissions.PERMISSION_SPREADSHEET))
+      || (oLicenseMetaData.editorId === constants.EDITOR_TYPE_PRESENTATION && 0 !== (permissions & EditorPermissions.PERMISSION_PRESENTATION))) {
+      // editor usage is allowed by license.
+      bEditorAllowed = true;
+    } else {
+      // editor usage is not allowed by license
+    }
+  }
+
+  // set up rights
+  //oRights.CanBranding = oLicense.getCanBranding(); ToDo убрали взятие из лицензии. Теперь если есть лицензия, то разрешаем. Нет - без лицензии.
+  oRights.canBranding = true;
+  if (bValidDate && bEditorAllowed && !bQuotaExceed && bBuildTimeValid) {
+    oRights.canSave = true;
+    oRights.canExport = true;
+    oRights.canCoAuthoring = true;
+  }
+  return result;
+};
+ActiveConnectionLicenseInfo.prototype.checkQuotaExceeded = function*(oLicenseMetaData) {
+  var userId = this.getUserId(oLicenseMetaData);
+  var documentId = this.getDocumentId(oLicenseMetaData);
+  var bQuotaExceed = yield* this.trackInfo.isQuotaExceed(userId, documentId);
+
+  if (bQuotaExceed) {
+    // cleare lists of inactive users
+    yield* this.trackInfo.cleanup();
+    bQuotaExceed = yield* this.trackInfo.isQuotaExceed(userId, documentId);
+  }
+
+  return bQuotaExceed;
+};
+ActiveConnectionLicenseInfo.prototype.getUserId = function(oLicenseMetaData) {
+  return oLicenseMetaData.userId;
+};
+ActiveConnectionLicenseInfo.prototype.getDocumentId = function(oLicenseMetaData) {
+  return oLicenseMetaData.docId;
+};
+
+function UserCountLicenseInfo() {
+  UserCountLicenseInfo.superclass.constructor.apply(this, arguments);
+}
+extendClass(UserCountLicenseInfo, ActiveConnectionLicenseInfo);
+UserCountLicenseInfo.prototype.track = function*(userId, docId, isAlive) {
+  yield* this.trackInfo.track(userId, null, isAlive);
+};
+ActiveConnectionLicenseInfo.prototype.getDocumentId = function(oLicenseMetaData) {
+  return '';
+};
+
+function UserCount2LicenseInfo() {
+  UserCount2LicenseInfo.superclass.constructor.apply(this, arguments);
+}
+extendClass(UserCount2LicenseInfo, UserCountLicenseInfo);
+UserCount2LicenseInfo.prototype.createTrackingInfo = function() {
+  return new UserCount2TrackingInfo();
+};
+
+function MockLicenseInfo() {
+  // ToDo
+}
+function DocumentSessionLicenseInfo() {
+  // ToDo
+}
+function ActiveConnectionAWSLicenseInfo() {
+  // ToDo
+}
 
 function* getLicenseFiles(path) {
   var res = [];
-  var files = yield utils.listObjects(path);
-  if (files) {
-    for (var i = 0; i < files.length; ++i) {
-      if (files[i].endsWith('.lic')) {
-        res.push(files[i]);
+  try {
+    var files = yield utils.listObjects(path);
+    if (files) {
+      for (var i = 0; i < files.length; ++i) {
+        if (files[i].endsWith('.lic')) {
+          res.push(files[i]);
+        }
       }
     }
+  } catch (e) {
+    logger.error('error getLicenseFiles:\r\n%s', e.stack);
   }
   return res;
 }
@@ -814,3 +880,4 @@ function* createLicenseInfo(path) {
 exports.createLicenseInfo = createLicenseInfo;
 exports.getLicenseType = getLicenseType;
 exports.LicenseType = LicenseType;
+exports.LicenseMetaData = LicenseMetaData;

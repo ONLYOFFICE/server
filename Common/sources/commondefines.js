@@ -1,3 +1,5 @@
+var constants = require('./constants');
+
 function InputCommand(data) {
   if (data) {
     this['c'] = data['c'];
@@ -364,6 +366,12 @@ TaskQueueData.prototype = {
   }
 };
 
+function ErrorWithResult() {
+  this.errorCode = constants.NO_ERROR;
+  this.data = null;
+}
+
 exports.TaskQueueData = TaskQueueData;
 exports.CMailMergeSendData = CMailMergeSendData;
 exports.InputCommand = InputCommand;
+exports.ErrorWithResult = ErrorWithResult;
