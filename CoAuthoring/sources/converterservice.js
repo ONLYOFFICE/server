@@ -100,7 +100,7 @@ exports.convert = function(req, res) {
       utils.fillXmlResponse(res, status.url, status.err);
       logger.debug('End convert request');
       if(clientStatsD) {
-        clientStatsD.timing('convertservice', new Date() - startDate);
+        clientStatsD.timing('coauth.convertservice', new Date() - startDate);
       }
     }
     catch (e) {

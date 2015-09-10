@@ -237,7 +237,7 @@ exports.getFont = function(req, res) {
       }
       logger.debug('End getFont request');
       if(clientStatsD) {
-        clientStatsD.timing('getFont', new Date() - startDate);
+        clientStatsD.timing('coauth.getFont', new Date() - startDate);
       }
     }
     catch (e) {

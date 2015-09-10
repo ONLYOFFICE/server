@@ -737,7 +737,9 @@ exports.install = function(server, callbackFunction) {
             break;
         }
         if(clientStatsD) {
-          clientStatsD.timing('data_' + data.type, new Date() - startDate);
+          if('openDocument' != data.type) {
+            clientStatsD.timing('coauth.data.' + data.type, new Date() - startDate);
+          }
         }
       } catch (e) {
         logger.error("error receiving response: docId = %s type = %s\r\n%s", conn ? conn.docId : 'null', (data && data.type) ? data.type : 'null', e.stack);

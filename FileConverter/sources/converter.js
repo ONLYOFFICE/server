@@ -425,7 +425,7 @@ function* ExecuteTask(task) {
       logger.error(err);
     }
     if(clientStatsD) {
-      clientStatsD.timing('downloadFile', new Date() - curDate);
+      clientStatsD.timing('conv.downloadFile', new Date() - curDate);
       curDate = new Date();
     }
     if (constants.NO_ERROR === error) {
@@ -435,7 +435,7 @@ function* ExecuteTask(task) {
     yield* downloadFileFromStorage(cmd.getDocId(), cmd.getDocId(), tempDirs.source);
     logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
     if(clientStatsD) {
-      clientStatsD.timing('downloadFileFromStorage', new Date() - curDate);
+      clientStatsD.timing('conv.downloadFileFromStorage', new Date() - curDate);
       curDate = new Date();
     }
     yield* processDownloadFromStorage(dataConvert, cmd, task, tempDirs);
@@ -459,26 +459,26 @@ function* ExecuteTask(task) {
     childRes = childProcess.spawnSync(cfgFilePath, childArgs, {timeout: waitMS});
     logger.debug('ExitCode (code=%d;signal=%s;id=%s)', childRes.status, childRes.signal, dataConvert.key);
     if(clientStatsD) {
-      clientStatsD.timing('spawnSync', new Date() - curDate);
+      clientStatsD.timing('conv.spawnSync', new Date() - curDate);
       curDate = new Date();
     }
   }
   resData = yield* postProcess(cmd, dataConvert, tempDirs, childRes, error);
   logger.debug('postProcess (id=%s)', dataConvert.key);
   if(clientStatsD) {
-    clientStatsD.timing('postProcess', new Date() - curDate);
+    clientStatsD.timing('conv.postProcess', new Date() - curDate);
     curDate = new Date();
   }
   if (tempDirs) {
     deleteFolderRecursive(tempDirs.temp);
     logger.debug('deleteFolderRecursive (id=%s)', dataConvert.key);
     if(clientStatsD) {
-      clientStatsD.timing('deleteFolderRecursive', new Date() - curDate);
+      clientStatsD.timing('conv.deleteFolderRecursive', new Date() - curDate);
       curDate = new Date();
     }
   }
   if(clientStatsD) {
-    clientStatsD.timing('convert', new Date() - startDate);
+    clientStatsD.timing('conv.allconvert', new Date() - startDate);
   }
   return resData;
 }
