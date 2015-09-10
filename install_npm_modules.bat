@@ -22,6 +22,5 @@ call npm install
 
 :ERROR
 :SUCCESS
-pause
 
 exit /b 0
