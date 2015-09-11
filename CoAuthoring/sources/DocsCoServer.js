@@ -43,22 +43,22 @@
  * */
 
 var configCommon = require('config');
-var sockjs = require('sockjs'),
-  _ = require('underscore'),
-  https = require('https'),
-  http = require('http'),
-  url = require('url'),
-  cron = require('cron'),
-  storage = require('./../../Common/sources/storage-base'),
-  logger = require('./../../Common/sources/logger'),
-  constants = require('./../../Common/sources/constants'),
-  utils = require('./../../Common/sources/utils'),
-  commonDefines = require('./../../Common/sources/commondefines'),
-  statsDClient = require('./../../Common/sources/statsdclient'),
-  config = require('config').get('services.CoAuthoring'),
-  sqlBase = require('./baseConnector'),
-  taskResult = require('./taskresult');
-  canvasService = require('./canvasservice');
+var sockjs = require('sockjs');
+var _ = require('underscore');
+var https = require('https');
+var http = require('http');
+var url = require('url');
+var cron = require('cron');
+var storage = require('./../../Common/sources/storage-base');
+var logger = require('./../../Common/sources/logger');
+var constants = require('./../../Common/sources/constants');
+var utils = require('./../../Common/sources/utils');
+var commonDefines = require('./../../Common/sources/commondefines');
+var statsDClient = require('./../../Common/sources/statsdclient');
+var config = require('config').get('services.CoAuthoring');
+var sqlBase = require('./baseConnector');
+var taskResult = require('./taskresult');
+var canvasService = require('./canvasservice');
 var redis = require(config.get('redis.name'));
 var pubsubService = require('./' + config.get('pubsub.name'));
 var queueService = require('./../../Common/sources/' + configCommon.get('queue.name'));
@@ -99,10 +99,10 @@ var PublishType = {
 };
 
 var defaultHttpPort = 80, defaultHttpsPort = 443;	// Порты по умолчанию (для http и https)
-var connections = [], // Активные соединения
-  redisClient,
-  pubsub,
-  queue;
+var connections = []; // Активные соединения
+var redisClient;
+var pubsub;
+var queue;
 var clientStatsD = statsDClient.getClient();
 
 var asc_coAuthV = '3.0.8';				// Версия сервера совместного редактирования
@@ -561,6 +561,8 @@ function* getChangesIndex(docId) {
  * Отправка статуса, чтобы знать когда документ начал редактироваться, а когда закончился
  * @param docId
  * @param {number} bChangeBase
+ * @param callback
+ * @param baseUrl
  */
 function* sendStatusDocument(docId, bChangeBase, callback, baseUrl) {
   if (!callback) {
