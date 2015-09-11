@@ -1,12 +1,12 @@
 var fs = require('fs');
 var crypto = require("crypto");
-var utils = require('./utils');
+var utils = require('./../../Common/sources/utils');
 var xmlParseString = require('xml2js').parseString;
-var logger = require('./logger');
+var logger = require('./../../Common/sources/logger');
 var configCoAuthoring = require('config').get('services.CoAuthoring');
 var config_server = configCoAuthoring.get('server');
-var commonDefines = require('./commondefines');
-var constants = require('./constants');
+var commonDefines = require('./../../Common/sources/commondefines');
+var constants = require('./../../Common/sources/constants');
 
 var cfgActiveConnectionsTrackingCleanupPeriods = config_server.get('license_activeconnections_tracking_cleanupperiods');
 var cfgActiveConnectionsTrackingInterval = config_server.get('license_activeconnections_tracking_interval');
