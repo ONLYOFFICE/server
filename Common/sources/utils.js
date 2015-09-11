@@ -157,11 +157,12 @@ function downloadUrlPromise(uri, optTimeout, optLimit) {
       uri = encodeURI(uri);
     }
     var urlParsed = url.parse(uri);
+    var options = {uri: urlParsed, encoding: null, timeout: optTimeout};
     if (urlParsed.protocol === 'https:') {
       //TODO: Check how to correct handle a ssl link
       urlParsed.rejectUnauthorized = false;
+      options.rejectUnauthorized = false;
     }
-    var options = {uri: urlParsed, encoding: null, timeout: optTimeout};
     request.get(options, function (err, response, body) {
       if (err) {
         reject(err);
