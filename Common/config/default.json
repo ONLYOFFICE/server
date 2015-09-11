@@ -63,7 +63,8 @@
 				"license_activeconnections_tracking_cleanupperiods": 2,
 				"editor_settings_readerformats": "doct;docx;doc;odt;rtf;txt;mht;html;htm;epub;mobi;fb2",
 				"editor_settings_editorformats": "doct;xlst;pptt;docx;doc;odt;xlsx;xls;ods;csv;pptx;ppt;ppsx;pps;odp;rtf;txt;mht;html;htm;epub;mobi;fb2",
-				"editor_settings_viewerformats": "pdf;xps;djvu;tiff"
+				"editor_settings_viewerformats": "pdf;xps;djvu;tiff",
+				"license_file_path": ""
 			},
 			"utils": {
 				"utils_common_fontdir": "null",
