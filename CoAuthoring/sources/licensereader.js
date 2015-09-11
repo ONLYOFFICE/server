@@ -515,7 +515,7 @@ BaseTrackingInfo.prototype.track = function*(userId, docId, isAlive) {
   }
 
   var now = new Date();
-  if (0 === isAlive) {
+  if (!isAlive) {
     // inactive
     yield* this.cleanup();
   } else {
@@ -651,7 +651,7 @@ function UserCount2TrackingInfo() {
 extendClass(UserCount2TrackingInfo, BaseTrackingInfo);
 UserCount2TrackingInfo.prototype.track = function*(userId, docId, isAlive) {
   // don't use "docId" in ths scheme, 'isAlive' flag must be ignored
-  return yield* UserCount2TrackingInfo.superclass.track.call(this, userId, null, 1);
+  return yield* UserCount2TrackingInfo.superclass.track.call(this, userId, null, true);
 };
 UserCount2TrackingInfo.prototype.isQuotaExceed = function*(userId, docId) {
   // don't use "docId" in ths scheme
