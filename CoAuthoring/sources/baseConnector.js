@@ -125,7 +125,7 @@ function _lengthInUtf8Bytes (s) {
 	return ~-encodeURI(s).split(/%..|./).length;
 }
 function _getDateTime2(oDate) {
-  return oDate.toISOString().slice(0, 19).replace('T', ' ');
+  return oDate.toISOString().slice(0, 23).replace('T', ' ');
 }
 function _getDateTime(nTime) {
 	var oDate = new Date(nTime);
