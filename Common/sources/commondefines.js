@@ -194,10 +194,10 @@ function CMailMergeSendData(obj) {
     this['message'] = obj['message'];
     this['recordFrom'] = obj['recordFrom'];
     this['recordTo'] = obj['recordTo'];
-    this['recordToExec'] = obj['recordToExec'];
     this['recordCount'] = obj['recordCount'];
     this['userId'] = obj['userId'];
     this['url'] = obj['url'];
+    this['baseUrl'] = obj['baseUrl'];
     this['jsonkey'] = obj['jsonkey'];
   } else {
     this['from'] = null;
@@ -211,6 +211,7 @@ function CMailMergeSendData(obj) {
     this['recordCount'] = null;
     this['userId'] = null;
     this['url'] = null;
+    this['baseUrl'] = null;
     this['jsonkey'] = null;
   }
 }
