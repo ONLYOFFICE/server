@@ -85,4 +85,4 @@
   }
 }
 Актуальная версия лицензии лежит: http://buildserver/view/ClosedSource/job/LicenseCreator/lastSuccessfulBuild/artifact/license.lic
-Логин и пароль такие же, как при заходе в систему.
+Логин и пароль такие же, как при заходе в систему, имя и фамилию в логине нужно писать с большой буквы.
