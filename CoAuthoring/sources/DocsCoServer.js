@@ -708,11 +708,7 @@ exports.install = function(server, callbackFunction) {
         logger.info('data.type = ' + data.type + ' id = ' + conn.docId);
         switch (data.type) {
           case 'auth'          :
-            if (authInit(conn, data)) {
-              yield* auth(conn, data);
-              // При заходе трекаем лицензию, мы вошли как неактивные
-              yield* canvasService.trackLicense(data.user.id, conn.docId, false);
-            }
+            yield* auth(conn, data);
             break;
           case 'message'        :
             yield* onMessage(conn, data);
@@ -737,6 +733,8 @@ exports.install = function(server, callbackFunction) {
             break;
           case 'ping':
             yield utils.promiseRedis(redisClient, redisClient.zadd, redisKeyDocuments, new Date().getTime(), conn.docId);
+            if (0 <= data.ua)
+              yield* canvasService.trackLicense(conn.user.idOriginal, conn.docId, 0 !== data.ua);
             break;
           case 'openDocument'      :
             canvasService.openDocument(conn, data);
@@ -1092,114 +1090,113 @@ exports.install = function(server, callbackFunction) {
     return resultLock;
   }
 
-  function authInit(conn, data) {
+  function* auth(conn, data) {
     // Проверка версий
     if (data.version !== asc_coAuthV) {
       sendFileError(conn, 'Old Version Sdk');
-      return false;
+      return;
     }
 
     //TODO: Do authorization etc. check md5 or query db
     if (data.token && data.user) {
+      var docId;
+      var user = data.user;
+      //Parse docId
       var parsed = urlParse.exec(conn.url);
       if (parsed.length > 1) {
-        conn.docId = parsed[1];
-        return true;
+        docId = conn.docId = parsed[1];
+      } else {
+        //TODO: Send some shit back
       }
-    }
-    return false;
-  }
-  function* auth(conn, data) {
-    var docId = conn.docId;
-    var user = data.user;
 
-    // Очищаем таймер сохранения
-    if (false === data.isViewer && saveTimers[docId]) {
-      clearTimeout(saveTimers[docId]);
-    }
+      // Очищаем таймер сохранения
+      if (false === data.isViewer && saveTimers[docId]) {
+        clearTimeout(saveTimers[docId]);
+      }
 
-    var bIsRestore = null != data.sessionId;
+      var bIsRestore = null != data.sessionId;
 
-    // Если восстанавливаем, индекс тоже восстанавливаем
-    var curIndexUser;
-    if (bIsRestore) {
-      curIndexUser = user.indexUser;
-    } else {
-      curIndexUser = yield utils.promiseRedis(redisClient, redisClient.incr, redisKeyUserIndex + docId);
-    }
+      // Если восстанавливаем, индекс тоже восстанавливаем
+      var curIndexUser;
+      if (bIsRestore) {
+        curIndexUser = user.indexUser;
+      } else {
+        curIndexUser = yield utils.promiseRedis(redisClient, redisClient.incr, redisKeyUserIndex + docId);
+      }
 
-    var curUserId = user.id + curIndexUser;
+      var curUserId = user.id + curIndexUser;
 
-    conn.sessionState = 1;
-    conn.user = {
-      id: curUserId,
-      idOriginal: user.id,
-      name: user.name,
-      indexUser: curIndexUser
-    };
-    conn.isViewer = data.isViewer;
+      conn.sessionState = 1;
+      conn.user = {
+        id: curUserId,
+        idOriginal: user.id,
+        name: user.name,
+        indexUser: curIndexUser
+      };
+      conn.isViewer = data.isViewer;
 
-    //Set the unique ID
-    if (bIsRestore) {
-      logger.info("restored old session id = %s", data.sessionId);
+      //Set the unique ID
+      if (bIsRestore) {
+        logger.info("restored old session id = %s", data.sessionId);
 
-      // Останавливаем сборку (вдруг она началась)
-      // Когда переподсоединение, нам нужна проверка на сборку файла
-      try {
-        var result = yield sqlBase.checkStatusFilePromise(docId);
+        // Останавливаем сборку (вдруг она началась)
+        // Когда переподсоединение, нам нужна проверка на сборку файла
+        try {
+          var result = yield sqlBase.checkStatusFilePromise(docId);
 
-        var status = result[0]['tr_status'];
-        if (FileStatus.Ok === status) {
-          // Все хорошо, статус обновлять не нужно
-        } else if (FileStatus.SaveVersion === status) {
-          // Обновим статус файла (идет сборка, нужно ее остановить)
-          sqlBase.updateStatusFile(docId);
-        } else if (FileStatus.UpdateVersion === status) {
-          // error version
-          sendFileError(conn, 'Update Version error');
-          return;
-        } else {
-          // Other error
-          sendFileError(conn, 'Other error');
-          return;
-        }
+          var status = result[0]['tr_status'];
+          if (FileStatus.Ok === status) {
+            // Все хорошо, статус обновлять не нужно
+          } else if (FileStatus.SaveVersion === status) {
+            // Обновим статус файла (идет сборка, нужно ее остановить)
+            sqlBase.updateStatusFile(docId);
+          } else if (FileStatus.UpdateVersion === status) {
+            // error version
+            sendFileError(conn, 'Update Version error');
+            return;
+          } else {
+            // Other error
+            sendFileError(conn, 'Other error');
+            return;
+          }
 
-        var objChangesDocument = yield* getDocumentChanges(docId);
-        var bIsSuccessRestore = true;
-        if (objChangesDocument && 0 < objChangesDocument.arrChanges.length) {
-          var change = objChangesDocument.arrChanges[objChangesDocument.getLength() - 1];
-          if (change['change']) {
-            if (change['user'] !== curUserId) {
-              bIsSuccessRestore = 0 === (((data['lastOtherSaveTime'] - change['time']) / 1000) >> 0);
+          var objChangesDocument = yield* getDocumentChanges(docId);
+          var bIsSuccessRestore = true;
+          if (objChangesDocument && 0 < objChangesDocument.arrChanges.length) {
+            var change = objChangesDocument.arrChanges[objChangesDocument.getLength() - 1];
+            if (change['change']) {
+              if (change['user'] !== curUserId) {
+                bIsSuccessRestore = 0 === (((data['lastOtherSaveTime'] - change['time']) / 1000) >> 0);
+              }
             }
           }
-        }
 
-        if (bIsSuccessRestore) {
-          conn.sessionId = data.sessionId;//restore old
+          if (bIsSuccessRestore) {
+            conn.sessionId = data.sessionId;//restore old
 
-          // Проверяем lock-и
-          var arrayBlocks = data['block'];
-          var getLockRes = yield* getLock(conn, data, true);
-          if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
-            //Kill previous connections
-            connections = _.reject(connections, function(el) {
-              return el.connection.sessionId === data.sessionId;//Delete this connection
-            });
+            // Проверяем lock-и
+            var arrayBlocks = data['block'];
+            var getLockRes = yield* getLock(conn, data, true);
+            if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
+              //Kill previous connections
+              connections = _.reject(connections, function(el) {
+                return el.connection.sessionId === data.sessionId;//Delete this connection
+              });
 
-            yield* endAuth(conn, true);
+              yield* endAuth(conn, true);
+            } else {
+              sendFileError(conn, 'Restore error. Locks not checked.');
+            }
           } else {
-            sendFileError(conn, 'Restore error. Locks not checked.');
+            sendFileError(conn, 'Restore error. Document modified.');
           }
-        } else {
-          sendFileError(conn, 'Restore error. Document modified.');
+        } catch (err) {
+          sendFileError(conn, 'DataBase error');
         }
-      } catch (err) {
-        sendFileError(conn, 'DataBase error');
+      } else {
+        conn.sessionId = conn.id;
+        yield* endAuth(conn, false, data.documentCallbackUrl);
       }
-    } else {
-      conn.sessionId = conn.id;
-      yield* endAuth(conn, false, data.documentCallbackUrl);
     }
   }
 

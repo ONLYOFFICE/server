@@ -621,6 +621,10 @@ BaseTrackingInfo.prototype.removeByTime = function*(time) {
 BaseTrackingInfo.prototype.cleanup = function*() {
   yield* this.removeByTime(Number.MAX_VALUE);
 };
+BaseTrackingInfo.prototype.cleanupIfQuotaExceed = function*() {
+  yield* this.cleanup();
+};
+
 function TrackingInfo() {
   TrackingInfo.superclass.constructor.apply(this, arguments);
   this.sdCleanupExpiredMinutes = 2.0;
@@ -656,6 +660,9 @@ UserCount2TrackingInfo.prototype.track = function*(userId, docId, isAlive) {
 UserCount2TrackingInfo.prototype.isQuotaExceed = function*(userId, docId) {
   // don't use "docId" in ths scheme
   return yield* UserCount2TrackingInfo.superclass.isQuotaExceed.call(this, userId, null);
+};
+UserCount2TrackingInfo.prototype.cleanupIfQuotaExceed = function*() {
+  yield* UserCount2TrackingInfo.superclass.checkCleanUp.call();
 };
 
 function VKeyLicenseInfo() {
@@ -775,7 +782,7 @@ ActiveConnectionLicenseInfo.prototype.checkQuotaExceeded = function*(oLicenseMet
 
   if (bQuotaExceed) {
     // cleare lists of inactive users
-    yield* this.trackInfo.cleanup();
+    yield* this.trackInfo.cleanupIfQuotaExceed();
     bQuotaExceed = yield* this.trackInfo.isQuotaExceed(userId, documentId);
   }
 
