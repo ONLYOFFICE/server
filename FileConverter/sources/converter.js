@@ -350,6 +350,7 @@ function* processUploadToStorage(dir, storagePath) {
 function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
   var exitCode = childRes ? childRes.status : 0;
   var exitSignal = childRes ? childRes.signal : null;
+  logger.debug(childRes.stdout.toString());
   if (0 !== exitCode || null !== exitSignal) {
     if (-constants.CONVERT_MS_OFFCRYPTO == exitCode) {
       error = constants.CONVERT_MS_OFFCRYPTO;
@@ -358,19 +359,14 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
     } else {
       error = constants.CONVERT;
     }
+    logger.error(childRes.stderr.toString());
+    logger.error('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
     if (cfgErrorFiles) {
-      var errorFile = path.join(tempDirs.temp, 'error.txt');
-      fs.appendFileSync(errorFile, 'returnCode:' + exitCode + ';signal:' + exitSignal +';error:' + error + '\r\n');
-      if (childRes) {
-        if (childRes.error) {
-          fs.appendFileSync(errorFile, childRes.error.toString() + '\r\n');
-        }
-        fs.appendFileSync(errorFile, childRes.stdout);
-        fs.appendFileSync(errorFile, childRes.stderr);
-      }
       yield* processUploadToStorage(tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
       logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
     }
+  } else{
+    logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
   }
   if (constants.NO_ERROR === error || constants.CONVERT_CORRUPTED === error) {
     yield* processUploadToStorage(tempDirs.result, dataConvert.key);
@@ -457,7 +453,6 @@ function* ExecuteTask(task) {
     childArgs.push(paramsFile);
     var waitMS = (task.getVisibilityTimeout() || 600) * 1000 - (new Date().getTime() - getTaskTime.getTime());
     childRes = childProcess.spawnSync(cfgFilePath, childArgs, {timeout: waitMS});
-    logger.debug('ExitCode (code=%d;signal=%s;id=%s)', childRes.status, childRes.signal, dataConvert.key);
     if(clientStatsD) {
       clientStatsD.timing('conv.spawnSync', new Date() - curDate);
       curDate = new Date();
