@@ -579,7 +579,9 @@ exports.getFileFormat = function(buffer, optExt) {
       }
       //меняем местами getFileFormatBySignature и getFileFormatByZip(epub распознается как html)
       //signature
-      format = getFileFormatBySignature(buffer);
+      if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN == format) {
+        format = getFileFormatBySignature(buffer);
+      }
       //возвращаем тип по расширению
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN == format && optExt) {
         if ('.mht' == optExt) {
