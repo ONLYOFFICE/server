@@ -1516,7 +1516,8 @@ exports.install = function(server, callbackFunction) {
   // Снимаем лок с сохранения
   function* unSaveLock(conn, index) {
     var saveLock = yield utils.promiseRedis(redisClient, redisClient.get, redisKeySaveLock + conn.docId);
-    if (conn.user.id == saveLock) {
+    // ToDo проверка null === saveLock это заглушка на подключение второго пользователя в документ (не делается saveLock в этот момент, но идет сохранение и снять его нужно)
+    if (null === saveLock || conn.user.id == saveLock) {
       yield utils.promiseRedis(redisClient, redisClient.del, redisKeySaveLock + conn.docId);
       sendData(conn, {type: 'unSaveLock', index: index});
     }
