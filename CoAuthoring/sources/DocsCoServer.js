@@ -736,6 +736,9 @@ exports.install = function(server, callbackFunction) {
             if (0 <= data.ua)
               yield* canvasService.trackLicense(conn.user.idOriginal, conn.docId, 0 !== data.ua);
             break;
+          case 'close':
+            yield* closeDocument(conn);
+            break;
           case 'openDocument'      :
             canvasService.openDocument(conn, data);
             break;
@@ -754,81 +757,84 @@ exports.install = function(server, callbackFunction) {
       logger.error("On error");
     });
     conn.on('close', function() {
-      var connection = this;
       utils.spawn(function* () {
         try {
-          var userLocks, reconnected, bHasEditors, bHasChanges;
-          var docId = conn.docId;
-          if (null == docId) {
-            return;
-          }
-
-          logger.info("Connection closed or timed out");
-          //Check if it's not already reconnected
-
-          //Notify that participant has gone
-          connections = _.reject(connections, function(el) {
-            return el.connection.id === connection.id;//Delete this connection
-          });
-          reconnected = _.any(connections, function(el) {
-            return el.connection.sessionId === connection.sessionId;//This means that client is reconnected
-          });
-          var state = (false == reconnected) ? false : undefined;
-          var tmpUser = connection.user;
-          yield* publish({type: PublishType.participantsState, docId: docId, userId: tmpUser.id, state: state,
-            username: tmpUser.name, indexUser: tmpUser.indexUser, view: connection.isViewer}, docId, tmpUser.id);
-
-          if (!reconnected) {
-            // Для данного пользователя снимаем лок с сохранения
-            var saveLock = yield utils.promiseRedis(redisClient, redisClient.get, redisKeySaveLock + docId);
-            if (connection.user.id == saveLock) {
-              yield utils.promiseRedis(redisClient, redisClient.del, redisKeySaveLock + docId);
-            }
-
-            yield utils.promiseRedis(redisClient, redisClient.hdel, redisKeyEditors + docId, tmpUser.id);
-            bHasEditors = yield* hasEditors(docId);
-            var puckerIndex = yield* getChangesIndex(docId);
-            bHasChanges = puckerIndex > 0;
-
-            // Только если редактируем
-            if (false === connection.isViewer) {
-              // Если у нас нет пользователей, то удаляем все сообщения
-              if (!bHasEditors) {
-                // На всякий случай снимаем lock
-                yield utils.promiseRedis(redisClient, redisClient.del, redisKeySaveLock + docId);
-                //удаляем из списка документов
-                yield utils.promiseRedis(redisClient, redisClient.zrem, redisKeyDocuments, docId);
-
-                // Send changes to save server
-                if (bHasChanges) {
-                  _createSaveTimer(docId);
-                } else {
-                  // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
-                  yield* sendStatusDocument(docId, c_oAscChangeBase.All);
-                }
-              } else {
-                yield* sendStatusDocument(docId, c_oAscChangeBase.No);
-              }
-
-              //Давайдосвиданья!
-              //Release locks
-              userLocks = yield* getUserLocks(docId, connection.sessionId);
-              if (0 < userLocks.length) {
-                //todo на close себе ничего не шлем
-                //sendReleaseLock(connection, userLocks);
-                yield* publish({type: PublishType.releaseLock, docId: docId, userId: connection.user.id, locks: userLocks}, docId, connection.user.id);
-              }
-
-              // Для данного пользователя снимаем Lock с документа
-              yield* checkEndAuthLock(false, docId, connection.user.id, null);
-            }
-          }
+          yield* closeDocument(conn);
         } catch (err) {
           logger.error('conn close:\r\n%s', err.stack);
         }
       });
     });
   });
+  function* closeDocument(conn) {
+    var userLocks, reconnected, bHasEditors, bHasChanges;
+    var docId = conn.docId;
+    if (null == docId || conn.isCloseCoAuthoring) {
+      return;
+    }
+
+    logger.info("Connection closed or timed out");
+    //Check if it's not already reconnected
+
+    //Notify that participant has gone
+    connections = _.reject(connections, function(el) {
+      return el.connection.id === conn.id;//Delete this connection
+    });
+    reconnected = _.any(connections, function(el) {
+      return el.connection.sessionId === conn.sessionId;//This means that client is reconnected
+    });
+    var state = (false == reconnected) ? false : undefined;
+    var tmpUser = conn.user;
+    yield* publish({type: PublishType.participantsState, docId: docId, userId: tmpUser.id, state: state,
+      username: tmpUser.name, indexUser: tmpUser.indexUser, view: conn.isViewer}, docId, tmpUser.id);
+
+    if (!reconnected) {
+      conn.isCloseCoAuthoring = true;
+      // Для данного пользователя снимаем лок с сохранения
+      var saveLock = yield utils.promiseRedis(redisClient, redisClient.get, redisKeySaveLock + docId);
+      if (conn.user.id == saveLock) {
+        yield utils.promiseRedis(redisClient, redisClient.del, redisKeySaveLock + docId);
+      }
+
+      yield utils.promiseRedis(redisClient, redisClient.hdel, redisKeyEditors + docId, tmpUser.id);
+      bHasEditors = yield* hasEditors(docId);
+      var puckerIndex = yield* getChangesIndex(docId);
+      bHasChanges = puckerIndex > 0;
+
+      // Только если редактируем
+      if (false === conn.isViewer) {
+        // Если у нас нет пользователей, то удаляем все сообщения
+        if (!bHasEditors) {
+          // На всякий случай снимаем lock
+          yield utils.promiseRedis(redisClient, redisClient.del, redisKeySaveLock + docId);
+          //удаляем из списка документов
+          yield utils.promiseRedis(redisClient, redisClient.zrem, redisKeyDocuments, docId);
+
+          // Send changes to save server
+          if (bHasChanges) {
+            _createSaveTimer(docId);
+          } else {
+            // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
+            yield* sendStatusDocument(docId, c_oAscChangeBase.All);
+          }
+        } else {
+          yield* sendStatusDocument(docId, c_oAscChangeBase.No);
+        }
+
+        //Давайдосвиданья!
+        //Release locks
+        userLocks = yield* getUserLocks(docId, conn.sessionId);
+        if (0 < userLocks.length) {
+          //todo на close себе ничего не шлем
+          //sendReleaseLock(conn, userLocks);
+          yield* publish({type: PublishType.releaseLock, docId: docId, userId: conn.user.id, locks: userLocks}, docId, conn.user.id);
+        }
+
+        // Для данного пользователя снимаем Lock с документа
+        yield* checkEndAuthLock(false, docId, conn.user.id, null);
+      }
+    }
+  }
   // Получение изменений для документа (либо из кэша, либо обращаемся к базе, но только если были сохранения)
   function* getDocumentChanges(docId, optStartIndex, optEndIndex) {
     // Если за тот момент, пока мы ждали из базы ответа, все ушли, то отправлять ничего не нужно
