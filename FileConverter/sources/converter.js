@@ -9,7 +9,6 @@ var configConverter = config.get('FileConverter.converter');
 
 var commonDefines = require('./../../Common/sources/commondefines');
 var storage = require('./../../Common/sources/storage-base');
-var formatChecker = require('./../../Common/sources/formatchecker');
 var utils = require('./../../Common/sources/utils');
 var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
@@ -35,7 +34,6 @@ function TaskQueueDataConvert(task) {
   this.key = cmd.savekey ? cmd.savekey : cmd.id;
   this.fileFrom = null;
   this.fileTo = null;
-  this.formatFrom = constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   this.formatTo = cmd.outputformat;
   this.csvTxtEncoding = cmd.codepage;
   this.csvDelimiter = cmd.delimiter;
@@ -56,7 +54,6 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_sKey', this.key);
     xml += this.serializeXmlProp('m_sFileFrom', this.fileFrom);
     xml += this.serializeXmlProp('m_sFileTo', this.fileTo);
-    xml += this.serializeXmlProp('m_nFormatFrom', this.formatFrom);
     xml += this.serializeXmlProp('m_nFormatTo', this.formatTo);
     xml += this.serializeXmlProp('m_nCsvTxtEncoding', this.csvTxtEncoding);
     xml += this.serializeXmlProp('m_nCsvDelimiter', this.csvDelimiter);
@@ -133,37 +130,6 @@ function promiseGetChanges(key) {
     });
   });
 }
-function processDownloadFile(dataConvert, fromFormatStr) {
-  var error = constants.NO_ERROR;
-  var fileData = fs.readFileSync(dataConvert.fileFrom);
-  dataConvert.formatFrom = formatChecker.getFileFormat(fileData, fromFormatStr);
-  switch (dataConvert.formatFrom) {
-    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML:
-      //Заглушка для Html.dll, потому что она открывает только файлы с расширениями html и mht
-      //не стал ставить для всех форматов, потому что остальные длл не смотрят на расширение
-      var fileExt = path.extname(dataConvert.fileFrom);
-      if ('.html' != fileExt) {
-        var newName = dataConvert.fileFrom.substring(0, dataConvert.fileFrom.length - fileExt.length) + '.html';
-        fs.renameSync(dataConvert.fileFrom, newName);
-        dataConvert.fileFrom = newName;
-      }
-      break;
-    case constants.AVS_OFFICESTUDIO_FILE_OTHER_MS_OFFCRYPTO:
-      error = constants.CONVERT_MS_OFFCRYPTO;
-      break;
-    case constants.AVS_OFFICESTUDIO_FILE_UNKNOWN:
-      error = constants.CONVERT_UNKNOWN_FORMAT;
-      break;
-    //для txt и csv нужно расширение и разделитель
-    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_TXT:
-      //todo
-      break;
-    case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_CSV:
-      //todo
-      break;
-  }
-  return error;
-}
 function* downloadFileFromStorage(id, strPath, dir) {
   var list = yield storage.listObjects(strPath);
   logger.debug('downloadFileFromStorage list %s (id=%s)', list.toString(), id);
@@ -211,7 +177,7 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
   if (task.getFromOrigin()) {
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin');
   } else if (task.getFromSettings()) {
-    //todo
+    dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
     //перезаписываем некоторые файлы из m_sKey(например Editor.bin или changes)
     yield* downloadFileFromStorage(cmd.getSaveKey(), cmd.getSaveKey(), tempDirs.source);
@@ -253,11 +219,6 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
     } else {
       logger.error('mail merge format')
     }
-  }
-  if (dataConvert.fileFrom) {
-    var fileData = fs.readFileSync(dataConvert.fileFrom);
-    var fileExt = path.extname(dataConvert.fileFrom);
-    dataConvert.formatFrom = formatChecker.getFileFormat(fileData, fileExt);
   }
   if (task.getFromChanges()) {
     var changesDir = path.join(tempDirs.source, 'changes');
@@ -306,38 +267,6 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
     fs.writeFileSync(path.join(tempDirs.result, 'changes.zip'), dataZip, 'binary');
   }
 }
-function processInnerFormats(dataConvert) {
-  var toFormat = dataConvert.formatTo;
-  var formatFrom = dataConvert.formatFrom;
-  if (constants.AVS_OFFICESTUDIO_FILE_CANVAS === toFormat) {
-    if (constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY === formatFrom ||
-      0 !== (constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET & formatFrom)) {
-      toFormat = constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET;
-    } else if (constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY === formatFrom ||
-      0 !== (constants.AVS_OFFICESTUDIO_FILE_PRESENTATION & formatFrom)) {
-      toFormat = constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION;
-    } else {
-      toFormat = constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
-    }
-  } else if (constants.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER === toFormat) {
-    if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET === formatFrom ||
-      constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY === formatFrom ||
-      0 !== (constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET & formatFrom)) {
-      toFormat = constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX;
-    } else if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION === formatFrom ||
-      constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY === formatFrom ||
-      0 !== (constants.AVS_OFFICESTUDIO_FILE_PRESENTATION & formatFrom)) {
-      toFormat = constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX;
-    } else {
-      toFormat = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX;
-    }
-    var fileTo = dataConvert.fileTo;
-    var ext = path.extname(fileTo);
-    var fileToWithoutExt = fileTo.substring(0, fileTo.length - ext.length);
-    dataConvert.fileTo = fileToWithoutExt + '.' + formatChecker.getStringFromFormat(toFormat);
-  }
-  dataConvert.formatTo = toFormat;
-}
 function* processUploadToStorage(dir, storagePath) {
   var list = yield utils.listObjects(dir);
   yield Promise.all(list.map(function(curValue) {
@@ -354,6 +283,8 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
   if (0 !== exitCode || null !== exitSignal) {
     if (-constants.CONVERT_MS_OFFCRYPTO == exitCode) {
       error = constants.CONVERT_MS_OFFCRYPTO;
+    } else if (-constants.CONVERT_NEED_PARAMS == exitCode) {
+      error = constants.CONVERT_NEED_PARAMS;
     } else if (-constants.CONVERT_CORRUPTED == exitCode) {
       error = constants.CONVERT_CORRUPTED;
     } else {
@@ -368,7 +299,7 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
   } else{
     logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
   }
-  if (constants.NO_ERROR === error || constants.CONVERT_CORRUPTED === error) {
+  if (constants.NO_ERROR === error || constants.CONVERT_CORRUPTED === error || constants.CONVERT_NEED_PARAMS === error) {
     yield* processUploadToStorage(tempDirs.result, dataConvert.key);
     logger.debug('processUploadToStorage complete(id=%s)', dataConvert.key);
   }
@@ -424,9 +355,6 @@ function* ExecuteTask(task) {
       clientStatsD.timing('conv.downloadFile', new Date() - curDate);
       curDate = new Date();
     }
-    if (constants.NO_ERROR === error) {
-      error = processDownloadFile(dataConvert, cmd.format);
-    }
   } else if (cmd.getSaveKey()) {
     yield* downloadFileFromStorage(cmd.getDocId(), cmd.getDocId(), tempDirs.source);
     logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
@@ -440,8 +368,6 @@ function* ExecuteTask(task) {
   }
   var childRes = null;
   if (constants.NO_ERROR === error) {
-    processInnerFormats(dataConvert);
-
     var paramsFile = path.join(tempDirs.temp, 'params.xml');
     dataConvert.serialize(paramsFile);
     var childArgs;
