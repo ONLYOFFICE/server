@@ -597,9 +597,9 @@ function* sendStatusDocument(docId, bChangeBase, callback, baseUrl) {
 
   var sendData = JSON.stringify({'key': docId, 'status': status, 'url': '', 'users': participants});
   var replyData = yield sendServerRequestPromise(callback, sendData);
-  onReplySendStatusDocument(docId, replyData);
+  yield* onReplySendStatusDocument(docId, replyData);
 }
-function onReplySendStatusDocument(docId, replyData) {
+function* onReplySendStatusDocument(docId, replyData) {
   if (!replyData) {
     return;
   }
@@ -1853,42 +1853,47 @@ exports.install = function(server, callbackFunction) {
   });
 };
 // Команда с сервера (в частности teamlab)
-exports.commandFromServer = function(req) {
+exports.commandFromServer = function (req, res) {
   utils.spawn(function* () {
-  try {
-  var query = req.query;
-  // Ключ id-документа
-  var docId = query.key;
-  if (null == docId) {
-    return c_oAscServerCommandErrors.DocumentIdError;
-  }
-
-  logger.info('commandFromServer: docId = %s c = %s', docId, query.c);
-  var result = c_oAscServerCommandErrors.NoError;
-  switch (query.c) {
-    case 'info':
-      yield* bindEvents(docId, query.callback, utils.getBaseUrlByRequest(req));
-      break;
-    case 'drop':
-      if (query.userid) {
-        yield* publish({type: PublishType.drop, docId: docId, users: [query.userid], description: query.description});
+    var result = c_oAscServerCommandErrors.NoError;
+    try {
+      var query = req.query;
+      // Ключ id-документа
+      var docId = query.key;
+      if (null == docId) {
+        result = c_oAscServerCommandErrors.DocumentIdError;
+      } else {
+        logger.info('commandFromServer: docId = %s c = %s', docId, query.c);
+        switch (query.c) {
+          case 'info':
+            yield* bindEvents(docId, query.callback, utils.getBaseUrlByRequest(req));
+            break;
+          case 'drop':
+            if (query.userid) {
+              yield* publish({type: PublishType.drop, docId: docId, users: [query.userid], description: query.description});
+            }
+            else if (query.users) {
+              yield* onReplySendStatusDocument(docId, query.users);
+            }
+            break;
+          case 'saved':
+            // Результат от менеджера документов о статусе обработки сохранения файла после сборки
+            yield* removeChanges(docId, '1' !== query.status, '1' === query.conv);
+            break;
+          default:
+            result = c_oAscServerCommandErrors.CommandError;
+            break;
+        }
       }
-      else if (query.users) {
-        onReplySendStatusDocument(docId, query.users);
-      }
-      break;
-    case 'saved':
-      // Результат от менеджера документов о статусе обработки сохранения файла после сборки
-      yield* removeChanges(docId, '1' !== query.status, '1' === query.conv);
-      break;
-    default:
+    } catch (err) {
       result = c_oAscServerCommandErrors.CommandError;
-      break;
-  }
-
-  return result;
-  } catch(err){
-    logger.debug('commandFromServer error:\r\n%s', err.stack);
-  }
+      logger.debug('commandFromServer error:\r\n%s', err.stack);
+    } finally {
+      var output = JSON.stringify({'key': req.query.key, 'error': result});
+      var outputBuffer = new Buffer(output, 'utf8');
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Length', outputBuffer.length);
+      res.send(outputBuffer);
+    }
   });
 };

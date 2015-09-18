@@ -28,7 +28,7 @@ exports.uploadTempFile = function(req, res) {
     }
     catch (e) {
       logger.error('error uploadTempFile:\r\n%s', e.stack);
-      res.sendStatus(400);
+      utils.fillXmlResponse(res, undefined, constants.UNKNOWN);
     }
   });
 };

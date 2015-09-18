@@ -77,17 +77,8 @@ if (cluster.isMaster) {
       res.send('Server is functioning normally. Version: ' + docsCoServer.version);
     });
 
-    app.get('/coauthoring/CommandService.ashx', onServiceCall);
-    app.post('/coauthoring/CommandService.ashx', onServiceCall);
-
-    function onServiceCall(req, res) {
-      var result = docsCoServer.commandFromServer(req);
-      result = JSON.stringify({'key': req.query.key, 'error': result});
-
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Length', result.length);
-      res.send(result);
-    }
+    app.get('/coauthoring/CommandService.ashx', docsCoServer.commandFromServer);
+    app.post('/coauthoring/CommandService.ashx', docsCoServer.commandFromServer);
 
     if (config.has('server.fonts_route')) {
       var fontsRoute = config.get('server.fonts_route');
@@ -100,6 +91,7 @@ if (cluster.isMaster) {
     app.post('/ConvertService.ashx', converterService.convert);
 
     var rawFileParser = bodyParser.raw({ inflate: true, limit: config.get('server.limits_tempfile_upload'), type: '*/*' });
+    app.get('/FileUploader.ashx', rawFileParser, fileUploaderService.uploadTempFile);
     app.post('/FileUploader.ashx', rawFileParser, fileUploaderService.uploadTempFile);
 
     var docIdRegExp = new RegExp("^[" + constants.DOC_ID_PATTERN + "]*$", 'i');
