@@ -435,13 +435,14 @@ function sendServerRequest(server, postData, onReplyCallback) {
   if (!server.host || !server.path) {
     return;
   }
+  var postDataBuffer = new Buffer(postData, 'utf8');
   var options = {
     host: server.host,
     path: server.path,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Length': postData.length
+      'Content-Length': postDataBuffer.length
     },
     rejectUnauthorized: false
   };
@@ -472,7 +473,7 @@ function sendServerRequest(server, postData, onReplyCallback) {
   });
 
   // write data to request body
-  req.write(postData);
+  req.write(postDataBuffer);
   req.end();
 }
 function sendServerRequestPromise(server, postData) {
