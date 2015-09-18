@@ -277,9 +277,13 @@ function* processUploadToStorage(dir, storagePath) {
 }
 
 function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
-  var exitCode = childRes ? childRes.status : 0;
-  var exitSignal = childRes ? childRes.signal : null;
-  logger.debug(childRes.stdout.toString());
+  var exitCode = 0;
+  var exitSignal = null;
+  if(childRes) {
+    exitCode = childRes.status;
+    exitSignal = childRes.signal;
+    logger.debug(childRes.stdout.toString());
+  }
   if (0 !== exitCode || null !== exitSignal) {
     if (-constants.CONVERT_MS_OFFCRYPTO == exitCode) {
       error = constants.CONVERT_MS_OFFCRYPTO;
@@ -290,7 +294,9 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
     } else {
       error = constants.CONVERT;
     }
-    logger.error(childRes.stderr.toString());
+    if(childRes) {
+      logger.error(childRes.stderr.toString());
+    }
     logger.error('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
     if (cfgErrorFiles) {
       yield* processUploadToStorage(tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
