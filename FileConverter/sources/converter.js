@@ -12,7 +12,6 @@ var storage = require('./../../Common/sources/storage-base');
 var utils = require('./../../Common/sources/utils');
 var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
-var nodeZip = require('./../../Common/node_modules/node-zip');
 var baseConnector = require('./../../CoAuthoring/sources/baseConnector');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/' + config.get('queue.name'));
@@ -228,7 +227,6 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
     var changesHistoryData = [];
     //todo writeable stream
     let changesBuffers = null;
-    let zip = new nodeZip();
     let changes = yield promiseGetChanges(cmd.getDocId());
     for (var i = 0; i < changes.length; ++i) {
       var change = changes[i];
@@ -240,7 +238,6 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
           var fileName = 'changes' + (indexFile++) + '.json';
           var filePath = path.join(changesDir, fileName);
           fs.writeFileSync(filePath, dataZipFile);
-          zip.file(fileName, dataZipFile, {binary: true});
         }
         changesAuthor = change.dc_user_id_original;
         var strDate = baseConnector.getDateTime(change.dc_date);
@@ -259,12 +256,9 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
       var fileName = 'changes' + (indexFile++) + '.json';
       var filePath = path.join(changesDir, fileName);
       fs.writeFileSync(filePath, dataZipFile);
-      zip.file(fileName, dataZipFile, {binary: true});
     }
     cmd.setUserId(changesAuthor);
     fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistoryData), 'utf8');
-    let dataZip = zip.generate({type: 'nodebuffer', compression: 'DEFLATE'});
-    fs.writeFileSync(path.join(tempDirs.result, 'changes.zip'), dataZip, 'binary');
   }
 }
 function* processUploadToStorage(dir, storagePath) {

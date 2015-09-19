@@ -19,7 +19,7 @@ fs.readdir(filesDir, function(err, data) {
         }else {
           try {
             var ext = path.extname(file);
-            var format = formatChecker.getFileFormat(data, ext);
+            var format = formatChecker.getImageFormat(data, ext);
             ext = ext.replace(/[._]/g, '');
             if(constants.AVS_OFFICESTUDIO_FILE_UNKNOWN == format ||
               (formatChecker.getFormatFromString(ext) != format && ext != format))

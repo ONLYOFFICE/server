@@ -3,8 +3,8 @@ var path = require('path');
 var util = require('util');
 var transform = require('stream').Transform;
 var base64 = require('base64-stream');
+var mime = require('mime');
 var utils = require('./../../Common/sources/utils');
-var formatChecker = require('./../../Common/sources/formatchecker');
 var logger = require('./../../Common/sources/logger');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var config = require('config').get('services.CoAuthoring.utils');
@@ -219,7 +219,7 @@ exports.getFont = function(req, res) {
           res.set({
             'Cache-Control': 'public',
             'Expires': expires.toUTCString(),
-            'Content-Type': formatChecker.getMimeType(fontnameDecoded),
+            'Content-Type': mime.lookup(fontnameDecoded),
             'Content-Disposition': utils.getContentDisposition(fontname, req.headers['user-agent']),
             'ETag': eTag,
             'Last-Modified': lastModified.toUTCString()
