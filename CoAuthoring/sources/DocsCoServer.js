@@ -394,8 +394,17 @@ function getParticipantUser(docId, includeUserId) {
   });
 }
 function* hasEditors(docId) {
-  var editorsCount = yield utils.promiseRedis(redisClient, redisClient.hlen, redisKeyEditors + docId);
-  return editorsCount > 0;
+  var elem, hasEditors = false;
+  var hRes = yield utils.promiseRedis(redisClient, redisClient.hvals, redisKeyEditors + docId);
+  for (var i = 0; i < hRes.length; ++i) {
+    elem = JSON.parse(hRes[i]);
+    if(!elem.view) {
+      hasEditors = true;
+      break;
+    }
+  }
+
+  return hasEditors;
 }
 function* publish(data, optDocId, optUserId) {
   var needPublish = true;
@@ -822,12 +831,13 @@ exports.install = function(server, callbackFunction) {
       }
 
       yield utils.promiseRedis(redisClient, redisClient.hdel, redisKeyEditors + docId, tmpUser.id);
-      bHasEditors = yield* hasEditors(docId);
-      var puckerIndex = yield* getChangesIndex(docId);
-      bHasChanges = puckerIndex > 0;
 
       // Только если редактируем
       if (false === conn.isViewer) {
+        bHasEditors = yield* hasEditors(docId);
+        var puckerIndex = yield* getChangesIndex(docId);
+        bHasChanges = puckerIndex > 0;
+
         // Если у нас нет пользователей, то удаляем все сообщения
         if (!bHasEditors) {
           // На всякий случай снимаем lock
@@ -1078,17 +1088,6 @@ exports.install = function(server, callbackFunction) {
       return false;
     }
     return true;
-  }
-
-  // Тип объекта
-  function typeOf(obj) {
-    if (obj === undefined) {
-      return "undefined";
-    }
-    if (obj === null) {
-      return "null";
-    }
-    return Object.prototype.toString.call(obj).slice(8, -1).toLowerCase();
   }
 
   // Сравнение для презентаций
