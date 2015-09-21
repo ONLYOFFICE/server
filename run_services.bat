@@ -1,21 +1,21 @@
 SET RUN_DIR=%CD%
 
-call %RUN_DIR%\install_npm_modules.bat
+call "%RUN_DIR%\install_npm_modules.bat"
 @IF NOT "%ERRORLEVEL%"=="0" goto ERROR
 
 SET NODE_ENV=development-windows
 SET NODE_CONFIG_DIR=%RUN_DIR%\Common\config
 
-cd %RUN_DIR%\CoAuthoring\sources
+cd "%RUN_DIR%\CoAuthoring\sources"
 start node server.js
 
-cd %RUN_DIR%\FileConverter\sources
+cd "%RUN_DIR%\FileConverter\sources"
 start node convertermaster.js
 
-cd %RUN_DIR%\FileStorage\sources
+cd "%RUN_DIR%\FileStorage\sources"
 start node server.js
 
-cd %RUN_DIR%\SpellChecker\sources
+cd "%RUN_DIR%\SpellChecker\sources"
 start node server.js
 
 :ERROR
