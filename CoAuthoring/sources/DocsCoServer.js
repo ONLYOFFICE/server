@@ -1893,7 +1893,7 @@ exports.commandFromServer = function (req, res) {
       if (null == docId) {
         result = c_oAscServerCommandErrors.DocumentIdError;
       } else {
-        logger.info('commandFromServer: docId = %s c = %s', docId, query.c);
+        logger.debug('commandFromServer: docId = %s c = %s', docId, query.c);
         switch (query.c) {
           case 'info':
             yield* bindEvents(docId, query.callback, utils.getBaseUrlByRequest(req));
@@ -1917,7 +1917,7 @@ exports.commandFromServer = function (req, res) {
       }
     } catch (err) {
       result = c_oAscServerCommandErrors.CommandError;
-      logger.debug('commandFromServer error:\r\n%s', err.stack);
+      logger.error('commandFromServer error:\r\n%s', err.stack);
     } finally {
       var output = JSON.stringify({'key': req.query.key, 'error': result});
       var outputBuffer = new Buffer(output, 'utf8');

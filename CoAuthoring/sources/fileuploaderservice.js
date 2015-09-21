@@ -45,7 +45,7 @@ exports.uploadImageFile = function(req, res) {
     var isError = false;
     var form = new multiparty.Form();
     form.on('error', function(err) {
-      logger.debug('Error parsing form: %s', err.toString());
+      logger.error('Error parsing form: %s', err.toString());
       res.sendStatus(400);
     });
     form.on('part', function(part) {
@@ -76,7 +76,7 @@ exports.uploadImageFile = function(req, res) {
         }
       }
       part.on('error', function(err) {
-        logger.debug('Error parsing form part: %s', err.toString());
+        logger.error('Error parsing form part: %s', err.toString());
       });
     });
     form.on('close', function() {
