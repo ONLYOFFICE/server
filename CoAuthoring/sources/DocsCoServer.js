@@ -95,7 +95,8 @@ var PublishType = {
   getLock : 4,
   changes : 5,
   auth : 6,
-  receiveTask : 7
+  receiveTask : 7,
+  warning: 8
 };
 
 var defaultHttpPort = 80, defaultHttpsPort = 443;	// Порты по умолчанию (для http и https)
@@ -365,6 +366,9 @@ CRecalcIndex.prototype = {
 function sendData(conn, data) {
   conn.write(JSON.stringify(data));
 }
+function sendDataWarning(conn, msg) {
+  sendData(conn, {type: "warning", message: msg});
+}
 function sendDataMessage(conn, msg) {
   sendData(conn, {type: "message", messages: msg});
 }
@@ -600,6 +604,26 @@ function* sendStatusDocument(docId, bChangeBase, callback, baseUrl) {
   yield* onReplySendStatusDocument(docId, replyData);
 }
 function* onReplySendStatusDocument(docId, replyData) {
+  var res = false;
+  if (replyData) {
+    var oData;
+    try {
+      oData = JSON.parse(replyData);
+    } catch (e) {
+      logger.error("error reply SendStatusDocument: %s docId = %s", e.stack, docId);
+      oData = null;
+    }
+
+    if (oData && c_oAscServerCommandErrors.NoError == oData.error) {
+      res = true;
+    }
+  }
+  if (!res) {
+    // Ошибка подписки на callback, посылаем warning
+    yield* publish({type: PublishType.warning, docId: docId, description: 'Error on save server subscription!'});
+  }
+}
+function* dropUsersFromDocument(docId, replyData) {
   if (!replyData) {
     return;
   }
@@ -1827,6 +1851,12 @@ exports.install = function(server, callbackFunction) {
               sendData(participant.connection, output);
             }
             break;
+          case PublishType.warning:
+            participants = getParticipants(data.docId);
+            _.each(participants, function(participant) {
+              sendDataWarning(participant.connection, data.description);
+            });
+            break;
         }
       } catch (err) {
         logger.debug('pubsub message error:\r\n%s', err.stack);
@@ -1873,7 +1903,7 @@ exports.commandFromServer = function (req, res) {
               yield* publish({type: PublishType.drop, docId: docId, users: [query.userid], description: query.description});
             }
             else if (query.users) {
-              yield* onReplySendStatusDocument(docId, query.users);
+              yield* dropUsersFromDocument(docId, query.users);
             }
             break;
           case 'saved':
