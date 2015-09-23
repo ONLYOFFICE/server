@@ -109,7 +109,8 @@ if (cluster.isMaster) {
         res.sendStatus(403);
       }
     });
-    app.post('/upload/:docid/:userid/:index/:vkey?', fileUploaderService.uploadImageFile);
+    app.post('/uploadold/:docid/:userid/:index/:vkey?', fileUploaderService.uploadImageFileOld);
+    app.post('/upload/:docid/:userid/:index/:vkey?', rawFileParser, fileUploaderService.uploadImageFile);
 
     app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);
   });

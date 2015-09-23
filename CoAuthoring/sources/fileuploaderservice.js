@@ -3,10 +3,14 @@ var taskResult = require('./taskresult');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 var storageBase = require('./../../Common/sources/storage-base');
+var formatChecker = require('./../../Common/sources/formatchecker');
 var logger = require('./../../Common/sources/logger');
-var config = require('config').get('services.CoAuthoring.server');
+var config = require('config');
+var configServer = config.get('services.CoAuthoring.server');
+var configUtils = config.get('services.CoAuthoring.utils');
 
-var cfgImageSize = config.get('limits_image_size');
+var cfgImageSize = configServer.get('limits_image_size');
+var cfgTypesUpload = configUtils.get('limits_image_types_upload');
 
 exports.uploadTempFile = function(req, res) {
   utils.spawn(function* () {
@@ -32,8 +36,8 @@ exports.uploadTempFile = function(req, res) {
     }
   });
 };
-exports.uploadImageFile = function(req, res) {
-  logger.debug('Start uploadImageFile request');
+exports.uploadImageFileOld = function(req, res) {
+  logger.debug('Start uploadImageFileOld request');
   var key = req.params.docid;
   var userid = req.params.userid;
   var vkey = req.params.vkey;
@@ -91,7 +95,7 @@ exports.uploadImageFile = function(req, res) {
 
             //res.setHeader('Access-Control-Allow-Origin', '*');
             res.send(output);
-            logger.debug('End uploadImageFile request %s', output);
+            logger.debug('End uploadImageFileOld request %s', output);
           }
         ).catch(function(err) {
             res.sendStatus(400);
@@ -103,5 +107,40 @@ exports.uploadImageFile = function(req, res) {
   } else {
     res.sendStatus(400);
   }
-}
-;
+};
+exports.uploadImageFile = function(req, res) {
+  utils.spawn(function* () {
+    var isError = true;
+    try {
+      logger.debug('Start uploadImageFile request');
+      var key = req.params.docid;
+      var userid = req.params.userid;
+      var vkey = req.params.vkey;
+      var index = parseInt(req.params.index);
+      if (key && req.body && Buffer.isBuffer(req.body)) {
+        var buffer = req.body;
+        var format = formatChecker.getImageFormat(buffer);
+        var formatStr = formatChecker.getStringFromFormat(format);
+        var supportedFormats = cfgTypesUpload || 'jpg';
+        if (-1 !== supportedFormats.indexOf(formatStr) && buffer.length <= cfgImageSize) {
+          //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
+          var strImageName = utils.crc32(userid).toString(16) + '_image' + index;
+          var strPathRel = 'media/' + strImageName + '.' + formatStr;
+          var strPath = key + '/' + strPathRel;
+          yield storageBase.putObject(strPath, buffer, buffer.length);
+          var output = {};
+          output[strPathRel] = yield storageBase.getSignedUrl(utils.getBaseUrlByRequest(req), strPath);
+          res.send(JSON.stringify(output));
+          isError = false;
+        }
+      }
+      logger.debug('End uploadImageFile request');
+    } catch (e) {
+      logger.error('error uploadImageFile:\r\n%s', e.stack);
+    } finally {
+      if (isError) {
+        res.sendStatus(400);
+      }
+    }
+  });
+};
