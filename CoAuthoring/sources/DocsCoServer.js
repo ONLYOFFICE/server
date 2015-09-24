@@ -1834,10 +1834,17 @@ exports.install = function(server, callbackFunction) {
             output.fromObject(data.output);
             var outputData = output.getData();
 
-            if (cmd.getUserConnectionId()) {
-              participants = getParticipantUser(cmd.getDocId(), cmd.getUserConnectionId());
+            var docConnectionId = cmd.getDocConnectionId();
+            var docId;
+            if(docConnectionId){
+              docId = docConnectionId;
             } else {
-              participants = getParticipants(cmd.getDocId());
+              docId = cmd.getDocId();
+            }
+            if (cmd.getUserConnectionId()) {
+              participants = getParticipantUser(docId, cmd.getUserConnectionId());
+            } else {
+              participants = getParticipants(docId);
             }
             for (i = 0; i < participants.length; ++i) {
               participant = participants[i];
