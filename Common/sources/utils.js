@@ -170,7 +170,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit) {
         if (response.statusCode == 200 && (!optLimit || body.length < optLimit)) {
           resolve(body);
         } else {
-          reject(new Error('Error statusCode:' + response.statusCode + ' or contentLength:' + body.length));
+          reject(new Error('Error downloadUrl:' + uri + '; statusCode:' + response.statusCode + ' ; contentLength:' + body.length));
         }
       }
     })

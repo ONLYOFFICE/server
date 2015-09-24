@@ -515,6 +515,7 @@ function parseUrl(callbackUrl) {
       'href': parseObject.href
     };
   } catch (e) {
+    logger.error("error parseUrl %s:\r\n%s", callbackUrl, e.stack);
     result = null;
   }
 
@@ -619,7 +620,7 @@ function* onReplySendStatusDocument(docId, replyData) {
     try {
       oData = JSON.parse(replyData);
     } catch (e) {
-      logger.error("error reply SendStatusDocument: %s docId = %s", e.stack, docId);
+      logger.error("error reply SendStatusDocument: docId = %s\r\n%s", docId, e.stack);
       oData = null;
     }
 
@@ -640,7 +641,7 @@ function* dropUsersFromDocument(docId, replyData) {
   try {
     oData = JSON.parse(replyData);
   } catch (e) {
-    logger.error("error reply SendStatusDocument: %s docId = %s", e.stack, docId);
+    logger.error("error reply SendStatusDocument: docId = %s\r\n%s", docId, e.stack);
     oData = null;
   }
   if (!oData) {
@@ -1221,7 +1222,7 @@ exports.install = function(server, callbackFunction) {
             sendFileError(conn, 'Restore error. Document modified.');
           }
         } catch (err) {
-          sendFileError(conn, 'DataBase error');
+          sendFileError(conn, 'DataBase error\r\n' + err.stack);
         }
       } else {
         conn.sessionId = conn.id;
