@@ -79,10 +79,10 @@
   "services": {
     "CoAuthoring": {
       "server": {
-        "license_file_path": "<путь_к_файлу_лицензии"
+        "default_license_file_path": "<путь_к_файлу_лицензии>",
+		"default_license_file_name": "<имя_файла_лицензии>"
       }
     }
   }
 }
-Актуальная версия лицензии лежит: http://buildserver/view/ClosedSource/job/LicenseCreator/lastSuccessfulBuild/artifact/license.lic
-Логин и пароль такие же, как при заходе в систему, имя и фамилию в логине нужно писать с большой буквы.
+Актуальная версия лицензии по запросу.
