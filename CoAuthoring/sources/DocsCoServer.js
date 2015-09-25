@@ -62,6 +62,7 @@ var canvasService = require('./canvasservice');
 var redis = require(config.get('redis.name'));
 var pubsubService = require('./' + config.get('pubsub.name'));
 var queueService = require('./../../Common/sources/' + configCommon.get('queue.name'));
+var cfgSpellcheckerUrl = config.get('server.editor_settings_spellchecker_url');
 
 var cfgPubSubMaxChanges = config.get('pubsub.maxChanges');
 
@@ -768,8 +769,6 @@ exports.install = function(server, callbackFunction) {
             break;
           case 'ping':
             yield utils.promiseRedis(redisClient, redisClient.zadd, redisKeyDocuments, new Date().getTime(), conn.docId);
-            if (0 <= data.ua)
-              yield* canvasService.trackLicense(conn.user.idOriginal, conn.docId, 0 !== data.ua);
             break;
           case 'close':
             yield* closeDocument(conn);
@@ -1306,7 +1305,7 @@ exports.install = function(server, callbackFunction) {
       return JSON.parse(val);
     });
     var sendObject = {
-      type: "auth",
+      type: 'auth',
       result: 1,
       sessionId: conn.sessionId,
       participants: participantsMap,
@@ -1314,7 +1313,8 @@ exports.install = function(server, callbackFunction) {
       locks: docLock,
       changes: objChangesDocument,
       changesIndex: changesIndex,
-      indexUser: conn.user.indexUser
+      indexUser: conn.user.indexUser,
+      g_cAscSpellCheckUrl: cfgSpellcheckerUrl
     };
     sendData(conn, sendObject);//Or 0 if fails
   }
