@@ -75,17 +75,27 @@ function* walkDir(fsPath, results, optNoSubDir) {
     }
   }
 }
-exports.listObjects = function(fsPath, optNoSubDir) {
-  return new Promise(function(resolve, reject) {
+exports.listObjects = function (fsPath, optNoSubDir) {
+  return new Promise(function (resolve, reject) {
     exports.spawn(function* () {
       try {
         var list;
-        var stats = yield fsStat(fsPath);
-        if (stats.isDirectory()) {
-          list = [];
-          yield* walkDir(fsPath, list, optNoSubDir);
+        var stats;
+        try {
+          stats = yield fsStat(fsPath);
+        } catch (e) {
+          //exception if fsPath not exist
+          stats = null;
+        }
+        if (stats) {
+          if (stats.isDirectory()) {
+            list = [];
+            yield* walkDir(fsPath, list, optNoSubDir);
+          } else {
+            list = [fsPath];
+          }
         } else {
-          list = [fsPath];
+          list = [];
         }
         resolve(list);
       } catch (err) {
