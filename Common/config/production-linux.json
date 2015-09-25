@@ -9,8 +9,7 @@
 	"services": {
 		"CoAuthoring": {
 			"server": {
-			"default_license_file_path": "/var/www/onlyoffice/Data/",
-			"default_license_file_name": "./license.lic"
+			"default_license_file_path": "/var/www/onlyoffice/Data/"
 			},
 			"utils": {
 				"utils_common_fontdir": "/usr/share/fonts"
