@@ -1874,10 +1874,12 @@ exports.install = function(server, callbackFunction) {
             for (i = 0; i < participants.length; ++i) {
               participant = participants[i];
               if (data.needUrlKey) {
-                if(0 == data.needUrlMethod){
+                if (0 == data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrls(participant.baseUrl, data.needUrlKey));
-                } else {
+                } else if (1 == data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey));
+                } else {
+                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, null, cmd.getTitle()));
                 }
               }
               sendData(participant, output);

@@ -32,6 +32,7 @@ if (cluster.isMaster) {
   var fontService = require('./fontservice');
   var fileUploaderService = require('./fileuploaderservice');
   var constants = require('./../../Common/sources/constants');
+  var utils = require('./../../Common/sources/utils');
   var configStorage = configCommon.get('storage');
   var app = express();
   var server = null;
@@ -60,7 +61,9 @@ if (cluster.isMaster) {
     var cfgBucketName = configStorage.get('bucketName');
     var cfgStorageFolderName = configStorage.get('storageFolderName');
     app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, function(req, res, next) {
-      res.setHeader("Content-Disposition", 'attachment');
+      var filename = req.query[constants.ONLY_OFFICE_URL_PARAM];
+      var contentDisposition = filename ? utils.getContentDisposition(filename) : 'attachment';
+      res.setHeader("Content-Disposition", contentDisposition);
       next();
     }, express.static(configStorage.get('fs.folderPath')));
   }

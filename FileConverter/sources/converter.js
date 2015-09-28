@@ -304,29 +304,30 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
     logger.debug('processUploadToStorage complete(id=%s)', dataConvert.key);
   }
   cmd.setStatusInfo(error);
-  if (cmd.getSaveKey() && dataConvert.fileTo) {
-    var existFile = false;
-    try {
-      existFile = fs.lstatSync(dataConvert.fileTo).isFile();
-    } catch (err) {
-      existFile = false;
-    }
-    if (existFile) {
-      cmd.setTitle(path.basename(dataConvert.fileTo));
-    } else {
-      //todo пересмотреть. загрулка в случае AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER x2t меняет расширение у файла.
-      var fileToBasename = path.basename(dataConvert.fileTo);
-      var fileToDir = path.dirname(dataConvert.fileTo);
-      var files = fs.readdirSync(fileToDir);
-      for (var i = 0; i < files.length; ++i) {
-        var fileCur = files[i];
-        if (0 == fileCur.indexOf(fileToBasename)) {
-          cmd.setTitle(fileCur);
-          break;
-        }
+  var existFile = false;
+  try {
+    existFile = fs.lstatSync(dataConvert.fileTo).isFile();
+  } catch (err) {
+    existFile = false;
+  }
+  if (!existFile) {
+    //todo пересмотреть. загрулка в случае AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER x2t меняет расширение у файла.
+    var fileToBasename = path.basename(dataConvert.fileTo);
+    var fileToDir = path.dirname(dataConvert.fileTo);
+    var files = fs.readdirSync(fileToDir);
+    for (var i = 0; i < files.length; ++i) {
+      var fileCur = files[i];
+      if (0 == fileCur.indexOf(fileToBasename)) {
+        dataConvert.fileTo = path.join(fileToDir, fileCur);
+        break;
       }
     }
   }
+  cmd.setOutputPath(path.basename(dataConvert.fileTo));
+  if(!cmd.getTitle()){
+    cmd.setTitle(cmd.getOutputPath());
+  }
+
   var res = new commonDefines.TaskQueueData();
   res.setCmd(cmd);
   logger.debug('output (data=%s;id=%s)', JSON.stringify(res), dataConvert.key);

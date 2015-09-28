@@ -12,6 +12,7 @@ function InputCommand(data) {
     this['url'] = data['url'];
     this['title'] = data['title'];
     this['outputformat'] = data['outputformat'];
+    this['outputpath'] = data['outputpath'];
     this['savetype'] = data['savetype'];
     this['saveindex'] = data['saveindex'];
     this['codepage'] = data['codepage'];
@@ -41,6 +42,7 @@ function InputCommand(data) {
     this['title'] = undefined;//string filename
     // to save
     this['outputformat'] = undefined;//int
+    this['outputpath'] = undefined;//int internal
     this['savetype'] = undefined;//int part type
     this['saveindex'] = undefined;//int part index
     //nullable
@@ -117,6 +119,12 @@ InputCommand.prototype = {
   },
   setOutputFormat: function(data) {
     this['outputformat'] = data;
+  },
+  getOutputPath: function() {
+    return this['outputpath'];
+  },
+  setOutputPath: function(data) {
+    this['outputpath'] = data;
   },
   getSaveType: function() {
     return this['savetype'];

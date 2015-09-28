@@ -397,13 +397,19 @@ function stream2Buffer(stream) {
   });
 }
 exports.stream2Buffer = stream2Buffer;
-function changeOnlyOfficeUrl(inputUrl, strPath) {
+function changeOnlyOfficeUrl(inputUrl, strPath, optFilename) {
   //onlyoffice file server expects url end with file extension
   if (-1 == inputUrl.indexOf('?')) {
     inputUrl += '?';
   } else {
     inputUrl += '&';
   }
-  return inputUrl + 'ooname=file' + path.extname(strPath);
+  var ooname;
+  if (optFilename) {
+    ooname = optFilename;
+  } else {
+    ooname = constants.OUTPUT_NAME + path.extname(strPath);
+  }
+  return inputUrl + constants.ONLY_OFFICE_URL_PARAM + '=' + encodeURIComponent(ooname);
 }
 exports.changeOnlyOfficeUrl = changeOnlyOfficeUrl;

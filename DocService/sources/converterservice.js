@@ -20,7 +20,7 @@ function* getConvertStatus(cmd, selectRes, req) {
     var row = selectRes[0];
     switch (row.tr_status) {
       case taskResult.FileStatus.Ok:
-        status.url = yield storage.getSignedUrl(utils.getBaseUrlByRequest(req), cmd.getDocId() + '/' + cmd.getTitle());
+        status.url = yield storage.getSignedUrl(utils.getBaseUrlByRequest(req), cmd.getDocId() + '/' + cmd.getOutputPath());
         break;
       case taskResult.FileStatus.Err:
       case taskResult.FileStatus.ErrToReload:
@@ -52,7 +52,7 @@ exports.convert = function(req, res) {
       cmd.setFormat(req.query['filetype']);
       var outputtype = req.query['outputtype'];
       cmd.setDocId('conv_' + req.query['key'] + '_' + outputtype);
-      cmd.setTitle('output.' + outputtype);
+      cmd.setTitle(constants.OUTPUT_NAME + '.' + outputtype);
       cmd.setOutputFormat(formatChecker.getFormatFromString(outputtype));
       cmd.setCodepage(req.query['codePage']);
       cmd.setCodepage(req.query['delimiter']);
@@ -76,7 +76,7 @@ exports.convert = function(req, res) {
       } else {
         var queueData = new commonDefines.TaskQueueData();
         queueData.setCmd(cmd);
-        queueData.setToFile('output.' + formatChecker.getStringFromFormat(cmd.getOutputFormat()));
+        queueData.setToFile(cmd.getTitle());
         yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
         //wait
         if (!async) {
