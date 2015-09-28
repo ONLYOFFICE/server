@@ -970,7 +970,7 @@ exports.install = function(server, callbackFunction) {
 
   function sendParticipantsState(participants, data) {
     _.each(participants, function(participant) {
-      sendData(participant.connection, {
+      sendData(participant, {
         type: "connectState",
         state: data.state,
         id: data.userId,
@@ -1458,7 +1458,7 @@ exports.install = function(server, callbackFunction) {
 
   function sendGetLock(participants, documentLocks) {
     _.each(participants, function(participant) {
-      sendData(participant.connection, {type: "getLock", locks: documentLocks});
+      sendData(participant, {type: "getLock", locks: documentLocks});
     });
   }
 
@@ -1822,7 +1822,7 @@ exports.install = function(server, callbackFunction) {
           case PublishType.message:
             participants = getParticipants(true, data.docId, data.userId);
             _.each(participants, function(participant) {
-              sendDataMessage(participant.connection, data.messages);
+              sendDataMessage(participant, data.messages);
             });
             break;
           case PublishType.getLock:
@@ -1838,7 +1838,7 @@ exports.install = function(server, callbackFunction) {
                 changes = objChangesDocument.arrChanges;
               }
               _.each(participants, function(participant) {
-                sendData(participant.connection, {type: 'saveChanges', changes: changes,
+                sendData(participant, {type: 'saveChanges', changes: changes,
                   changesIndex: data.changesIndex, locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
               });
             }
@@ -1849,7 +1849,7 @@ exports.install = function(server, callbackFunction) {
               objChangesDocument = yield* getDocumentChanges(data.docId);
               for (i = 0; i < participants.length; ++i) {
                 participant = participants[i];
-                yield* sendAuthInfo(objChangesDocument.arrChanges, objChangesDocument.getLength(), participant.connection, data.participantsMap);
+                yield* sendAuthInfo(objChangesDocument.arrChanges, objChangesDocument.getLength(), participant, data.participantsMap);
               }
             }
             break;
@@ -1886,7 +1886,7 @@ exports.install = function(server, callbackFunction) {
           case PublishType.warning:
             participants = getParticipants(false, data.docId);
             _.each(participants, function(participant) {
-              sendDataWarning(participant.connection, data.description);
+              sendDataWarning(participant, data.description);
             });
             break;
         }
