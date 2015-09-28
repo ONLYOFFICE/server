@@ -6,7 +6,7 @@ call "%RUN_DIR%\install_npm_modules.bat"
 SET NODE_ENV=development-windows
 SET NODE_CONFIG_DIR=%RUN_DIR%\Common\config
 
-cd "%RUN_DIR%\CoAuthoring\sources"
+cd "%RUN_DIR%\DocService\sources"
 start /min /b node server.js
 
 cd "%RUN_DIR%\FileConverter\sources"

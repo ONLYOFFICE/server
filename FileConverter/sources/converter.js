@@ -12,7 +12,7 @@ var storage = require('./../../Common/sources/storage-base');
 var utils = require('./../../Common/sources/utils');
 var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
-var baseConnector = require('./../../CoAuthoring/sources/baseConnector');
+var baseConnector = require('./../../DocService/sources/baseConnector');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/' + config.get('queue.name'));
 

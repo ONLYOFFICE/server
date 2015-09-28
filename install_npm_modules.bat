@@ -5,7 +5,7 @@ ECHO ----------------------------------------
 ECHO Install node.js modules 
 ECHO ----------------------------------------
 
-CD /D %~dp0\CoAuthoring || goto ERROR
+CD /D %~dp0\DocService || goto ERROR
 call npm install
 
 cd /D ..\Common || goto ERROR

@@ -1,7 +1,7 @@
 ﻿'use strict';
 var events = require('events');
 var util = require('util');
-var sqlBase = require('./../../CoAuthoring/sources/baseConnector');
+var sqlBase = require('./../../DocService/sources/baseConnector');
 var utils = require('./utils');
 var commonDefines = require('./commondefines');
 var constants = require('./constants');
