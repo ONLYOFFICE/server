@@ -20,7 +20,7 @@ function* getConvertStatus(cmd, selectRes, req) {
     var row = selectRes[0];
     switch (row.tr_status) {
       case taskResult.FileStatus.Ok:
-        status.url = yield storage.getSignedUrl(utils.getBaseUrlByRequest(req), cmd.getDocId() + '/' + cmd.getOutputPath());
+        status.url = yield storage.getSignedUrl(utils.getBaseUrlByRequest(req), cmd.getDocId() + '/' + cmd.getTitle());
         break;
       case taskResult.FileStatus.Err:
       case taskResult.FileStatus.ErrToReload:
