@@ -288,13 +288,17 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
     } else {
       error = constants.CONVERT;
     }
-    if(childRes) {
-      logger.error(childRes.stderr.toString());
-    }
-    logger.error('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
-    if (cfgErrorFiles) {
-      yield* processUploadToStorage(tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
-      logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
+    if (constants.CONVERT_MS_OFFCRYPTO == error || constants.CONVERT_NEED_PARAMS == error) {
+      logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
+    } else {
+      if(childRes) {
+        logger.error(childRes.stderr.toString());
+      }
+      logger.error('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
+      if (cfgErrorFiles) {
+        yield* processUploadToStorage(tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
+        logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
+      }
     }
   } else{
     logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
