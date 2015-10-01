@@ -393,17 +393,22 @@ function* ExecuteTask(task) {
   }
   var childRes = null;
   if (constants.NO_ERROR === error) {
-    var paramsFile = path.join(tempDirs.temp, 'params.xml');
-    dataConvert.serialize(paramsFile);
-    var childArgs;
-    if (cfgArgs.length > 0) {
-      childArgs = cfgArgs.trim().replace(/  +/g, ' ').split(' ');
+    if(constants.AVS_OFFICESTUDIO_FILE_OTHER_HTMLZIP === dataConvert.formatTo && cmd.getSaveKey() && !dataConvert.mailMergeSend) {
+      //todo заглушка.вся конвертация на клиенте, но нет простого механизма сохранения на клиенте
+      fs.writeFileSync(dataConvert.fileTo, fs.readFileSync(dataConvert.fileFrom));
     } else {
-      childArgs = [];
+      var paramsFile = path.join(tempDirs.temp, 'params.xml');
+      dataConvert.serialize(paramsFile);
+      var childArgs;
+      if (cfgArgs.length > 0) {
+        childArgs = cfgArgs.trim().replace(/  +/g, ' ').split(' ');
+      } else {
+        childArgs = [];
+      }
+      childArgs.push(paramsFile);
+      var waitMS = (task.getVisibilityTimeout() || 600) * 1000 - (new Date().getTime() - getTaskTime.getTime());
+      childRes = childProcess.spawnSync(cfgFilePath, childArgs, {timeout: waitMS});
     }
-    childArgs.push(paramsFile);
-    var waitMS = (task.getVisibilityTimeout() || 600) * 1000 - (new Date().getTime() - getTaskTime.getTime());
-    childRes = childProcess.spawnSync(cfgFilePath, childArgs, {timeout: waitMS});
     if(clientStatsD) {
       clientStatsD.timing('conv.spawnSync', new Date() - curDate);
       curDate = new Date();
