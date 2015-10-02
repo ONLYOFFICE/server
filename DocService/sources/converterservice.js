@@ -43,7 +43,6 @@ exports.convert = function(req, res) {
       if(clientStatsD) {
         startDate = new Date();
       }
-      logger.debug('Start convert request');
       var cmd = new commonDefines.InputCommand();
       cmd.setCommand('conv');
       cmd.setVKey(req.query['vkey']);
@@ -57,6 +56,7 @@ exports.convert = function(req, res) {
       cmd.setCodepage(req.query['codePage']);
       cmd.setCodepage(req.query['delimiter']);
       var async = 'true' == req.query['async'];
+      logger.debug('Start convert request docId = %s', cmd.getDocId());
 
       var task = new taskResult.TaskResultData();
       task.key = cmd.getDocId();
@@ -98,7 +98,7 @@ exports.convert = function(req, res) {
         }
       }
       utils.fillXmlResponse(res, status.url, status.err);
-      logger.debug('End convert request');
+      logger.debug('End convert request url %s status %s docId = %s', status.url, status.err, cmd.getDocId());
       if(clientStatsD) {
         clientStatsD.timing('coauth.convertservice', new Date() - startDate);
       }
