@@ -3,6 +3,8 @@ var logger = require('./../../Common/sources/logger');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 
+var RANDOM_KEY_MAX = 10000;
+
 var FileStatus = {
   None: 0,
   Ok: 1,
@@ -113,7 +115,7 @@ function getInsertString(task) {
 }
 function addRandomKey(task) {
   return new Promise(function(resolve, reject) {
-    task.key = task.key + '_' + Math.round(Math.random() * 10000);
+    task.key = task.key + '_' + Math.round(Math.random() * RANDOM_KEY_MAX);
     var sqlCommand = getInsertString(task);
     sqlBase.baseConnector.sqlQuery(sqlCommand, function(error, result) {
       if (error) {
@@ -128,13 +130,25 @@ function* addRandomKeyTask(key) {
   var task = new TaskResultData();
   task.key = key;
   task.status = FileStatus.WaitQueue;
-  while (true) {
-    var addRes = yield addRandomKey(task);
-    if (addRes.affectedRows > 0) {
+  //nTryCount чтобы не зависнуть если реально будут проблемы с DB
+  var nTryCount = RANDOM_KEY_MAX;
+  var addRes = null;
+  while (nTryCount-- > 0) {
+    try {
+      addRes = yield addRandomKey(task);
+    } catch (e) {
+      addRes = null;
+      //key exist, try again
+    }
+    if (addRes && addRes.affectedRows > 0) {
       break;
     }
   }
-  return task;
+  if (addRes && addRes.affectedRows > 0) {
+    return task;
+  } else {
+    throw new Error('addRandomKeyTask Error');
+  }
 }
 
 function getRemoveString(docId) {
