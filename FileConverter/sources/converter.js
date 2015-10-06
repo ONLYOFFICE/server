@@ -24,6 +24,10 @@ var cfgFilePath = configConverter.get('filePath');
 var cfgArgs = configConverter.get('args');
 var cfgErrorFiles = configConverter.get('errorfiles');
 
+//windows limit 512(2048) https://msdn.microsoft.com/en-us/library/6e3b887c.aspx
+//Ubuntu 14.04 limit 4096 http://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors.html
+//MacOs limit 2048 http://apple.stackexchange.com/questions/33715/too-many-open-files
+var MAX_OPEN_FILES = 200;
 var TEMP_PREFIX = 'ASC_CONVERT';
 var queue = null;
 var clientStatsD = statsDClient.getClient();
@@ -263,7 +267,16 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
 }
 function* processUploadToStorage(dir, storagePath) {
   var list = yield utils.listObjects(dir);
-  yield Promise.all(list.map(function(curValue) {
+  if (list.length < MAX_OPEN_FILES) {
+    yield* processUploadToStorageChunk(list, dir, storagePath);
+  } else {
+    for (var i = 0, j = list.length; i < j; i += MAX_OPEN_FILES) {
+      yield* processUploadToStorageChunk(list.slice(i, i + MAX_OPEN_FILES), dir, storagePath);
+    }
+  }
+}
+function* processUploadToStorageChunk(list, dir, storagePath) {
+  yield Promise.all(list.map(function (curValue) {
     var data = fs.readFileSync(curValue);
     var localValue = storagePath + '/' + curValue.substring(dir.length + 1);
     return storage.putObject(localValue, data, data.length);
