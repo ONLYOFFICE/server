@@ -698,6 +698,7 @@ function* removeChanges(id, isCorrupted, isConvertService) {
   yield* deleteCallback(id);
 
   if (!isCorrupted) {
+    yield utils.promiseRedis(redisClient, redisClient.del, redisKeyChangeIndex + id);
     // Нужно удалить изменения из базы
     sqlBase.deleteChanges(id, null);
   } else {
