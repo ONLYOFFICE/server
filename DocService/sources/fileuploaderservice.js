@@ -134,7 +134,7 @@ exports.uploadImageFile = function(req, res) {
           isError = false;
         }
       }
-      logger.debug('End uploadImageFile request');
+      logger.debug('End uploadImageFile request isError:' + isError);
     } catch (e) {
       logger.error('error uploadImageFile:\r\n%s', e.stack);
     } finally {
