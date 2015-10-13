@@ -104,6 +104,12 @@ var PublishType = {
   warning: 8
 };
 
+var EditorTypes = {
+  document : 0,
+  spreadsheet : 1,
+  presentation : 2
+};
+
 var defaultHttpPort = 80, defaultHttpsPort = 443;	// Порты по умолчанию (для http и https)
 var connections = []; // Активные соединения
 var redisClient;
@@ -1192,6 +1198,7 @@ exports.install = function(server, callbackFunction) {
         indexUser: curIndexUser
       };
       conn.isViewer = data.isViewer;
+      conn.editorType = data['editorType'];
 
       // Ситуация, когда пользователь уже отключен от совместного редактирования
       if (bIsRestore && data.isCloseCoAuthoring) {
@@ -1346,7 +1353,17 @@ exports.install = function(server, callbackFunction) {
 
   function* sendAuthInfo(objChangesDocument, changesIndex, conn, participantsMap) {
     var docId = conn.docId;
-    var docLock = yield* getAllLocks(docId);
+    var docLock;
+    if(EditorTypes.document == conn.editorType){
+      docLock = {};
+      var allLocks = yield* getAllLocks(docId);
+      for(var i = 0 ; i < allLocks.length; ++i) {
+        var elem = allLocks[i];
+        docLock[elem.block] =elem;
+      }
+    } else {
+      docLock = yield* getAllLocks(docId);
+    }
     var allMessages = yield utils.promiseRedis(redisClient, redisClient.lrange, redisKeyMessage + docId, 0, -1);
     var allMessagesParsed = undefined;
     if(allMessages && allMessages.length > 0) {
@@ -1390,16 +1407,16 @@ exports.install = function(server, callbackFunction) {
   function* getLock(conn, data, bIsRestore) {
     logger.info("getLock docid: %s", conn.docId);
     var fLock = null;
-    switch (data['editorType']) {
-      case 0:
+    switch (conn.editorType) {
+      case EditorTypes.document:
         // Word
         fLock = getLockWord;
         break;
-      case 1:
+      case EditorTypes.spreadsheet:
         // Excel
         fLock = getLockExcel;
         break;
-      case 2:
+      case EditorTypes.presentation:
         // PP
         fLock = getLockPresentation;
         break;
