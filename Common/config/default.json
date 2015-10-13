@@ -93,7 +93,11 @@
 			},
 			"expire": {
 				"callback": 3600,
+				"userindex": 604800,
 				"saveLock": 60,
+				"editors": 604800,
+				"locks": 604800,
+				"changeindex": 86400,
 				"lockDoc": 60,
 				"message": 86400,
 				"documents": 300,

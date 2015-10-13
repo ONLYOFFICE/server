@@ -70,13 +70,17 @@ var cfgRedisPrefix = config.get('redis.prefix');
 var cfgRedisHost = config.get('redis.host');
 var cfgRedisPort = config.get('redis.port');
 var cfgExpCallback = config.get('expire.callback');
+var cfgExpUserIndex = config.get('expire.userindex');
 var cfgExpSaveLock = config.get('expire.saveLock');
+var cfgExpEditors = config.get('expire.editors');
+var cfgExpLocks = config.get('expire.locks');
+var cfgExpChangeIndex = config.get('expire.changeindex');
 var cfgExpLockDoc = config.get('expire.lockDoc');
+var cfgExpMessage = config.get('expire.message');
 var cfgExpDocuments = config.get('expire.documents');
 var cfgExpDocumentsCron = config.get('expire.documentsCron');
 var cfgExpFiles = config.get('expire.files');
 var cfgExpFilesCron = config.get('expire.filesCron');
-var cfgExpMessage = config.get('expire.message');
 
 var redisKeyCallback = cfgRedisPrefix + 'callback:';
 var redisKeyUserIndex = cfgRedisPrefix + 'userindex:';
@@ -86,7 +90,7 @@ var redisKeyLocks = cfgRedisPrefix + 'locks:';
 var redisKeyChangeIndex = cfgRedisPrefix + 'changesindex:';
 var redisKeyLockDoc = cfgRedisPrefix + 'lockdocument:';
 var redisKeyMessage = cfgRedisPrefix + 'message:';
-var redisKeyDocuments = cfgRedisPrefix + 'documents';
+var redisKeyDocuments = cfgRedisPrefix + 'documents:';
 
 var PublishType = {
   drop : 0,
@@ -692,13 +696,14 @@ function* bindEvents(docId, callback, baseUrl) {
 // Удаляем изменения из памяти (используется только с основного сервера, для очистки!)
 function* removeChanges(id, isCorrupted, isConvertService) {
   logger.info('removeChanges: %s', id);
-  // remove messages from memory
-  yield utils.promiseRedis(redisClient, redisClient.del, redisKeyMessage + id);
+  // remove locks, editors, messages from memory
+  yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + id, redisKeyEditors + id, redisKeyMessage + id);
 
   yield* deleteCallback(id);
 
   if (!isCorrupted) {
-    yield utils.promiseRedis(redisClient, redisClient.del, redisKeyChangeIndex + id);
+    // remove UserIndex, ChangeIndex from memory
+    yield utils.promiseRedis(redisClient, redisClient.del, redisKeyUserIndex + id, redisKeyChangeIndex + id);
     // Нужно удалить изменения из базы
     sqlBase.deleteChanges(id, null);
   } else {
@@ -910,7 +915,16 @@ exports.install = function(server, callbackFunction) {
     }
     return docLockRes;
   }
-
+  function* addLocks(docId, toCache) {
+    if (toCache && toCache.length > 0) {
+      toCache.unshift('rpush', redisKeyLocks + docId);
+      var multi = redisClient.multi([
+        toCache,
+        ['expire', redisKeyLocks + docId, cfgExpLocks]
+      ]);
+      yield utils.promiseRedis(multi, multi.exec)
+    }
+  }
   function* getUserLocks(docId, sessionId) {
     var userLocks = [], i;
     var toCache = [];
@@ -925,12 +939,8 @@ exports.install = function(server, callbackFunction) {
     }
     //remove all
     yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + docId);
-    if (toCache.length > 0) {
-      //set all
-      toCache.unshift(redisClient, redisClient.rpush, redisKeyLocks + docId);
-      yield utils.promiseRedis.apply(this, toCache);
-    }
-
+    //set all
+    yield* addLocks(docId, toCache);
     return userLocks;
   }
 
@@ -1161,7 +1171,15 @@ exports.install = function(server, callbackFunction) {
       if (bIsRestore) {
         curIndexUser = user.indexUser;
       } else {
-        curIndexUser = yield utils.promiseRedis(redisClient, redisClient.incr, redisKeyUserIndex + docId);
+        curIndexUser = 1;
+        var multi = redisClient.multi([
+          ['incr', redisKeyUserIndex + docId],
+          ['expire', redisKeyUserIndex + docId, cfgExpUserIndex]
+        ]);
+        var replies = yield utils.promiseRedis(multi, multi.exec);
+        if(replies){
+          curIndexUser = replies[0];
+        }
       }
 
       var curUserId = user.id + curIndexUser;
@@ -1262,9 +1280,12 @@ exports.install = function(server, callbackFunction) {
     var docId = conn.docId;
     connections.push(conn);
     var tmpUser = conn.user;
-    yield utils.promiseRedis(redisClient, redisClient.hset, redisKeyEditors + docId, tmpUser.id,
-      JSON.stringify({id: tmpUser.id, idOriginal: tmpUser.idOriginal,
-        username: tmpUser.name, indexUser: tmpUser.indexUser, view: conn.isViewer}));
+    var multi = redisClient.multi([
+      ['hset', redisKeyEditors + docId, tmpUser.id, JSON.stringify({id: tmpUser.id, idOriginal: tmpUser.idOriginal,
+        username: tmpUser.name, indexUser: tmpUser.indexUser, view: conn.isViewer})],
+      ['expire', redisKeyEditors + docId, cfgExpEditors]
+    ]);
+    yield utils.promiseRedis(multi, multi.exec);
     yield utils.promiseRedis(redisClient, redisClient.zadd, redisKeyDocuments, new Date().getTime(), docId);
     var firstParticipantNoView, countNoView = 0;
     var participantsMap = yield* getParticipantMap(docId);
@@ -1327,9 +1348,12 @@ exports.install = function(server, callbackFunction) {
     var docId = conn.docId;
     var docLock = yield* getAllLocks(docId);
     var allMessages = yield utils.promiseRedis(redisClient, redisClient.lrange, redisKeyMessage + docId, 0, -1);
-    var allMessagesParsed = allMessages.map(function(val){
-      return JSON.parse(val);
-    });
+    var allMessagesParsed = undefined;
+    if(allMessages && allMessages.length > 0) {
+      allMessagesParsed = allMessages.map(function (val) {
+        return JSON.parse(val);
+      });
+    }
     var sendObject = {
       type: 'auth',
       result: 1,
@@ -1350,8 +1374,11 @@ exports.install = function(server, callbackFunction) {
     var userId = conn.user.id;
     var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, username: conn.user.name};
 
-    yield utils.promiseRedis(redisClient, redisClient.rpush, redisKeyMessage + docId, JSON.stringify(msg));
-    yield utils.promiseRedis(redisClient, redisClient.expire, redisKeyMessage + docId, cfgExpMessage);
+    var multi = redisClient.multi([
+      ['rpush', redisKeyMessage + docId, JSON.stringify(msg)],
+      ['expire', redisKeyMessage + docId, cfgExpMessage]
+    ]);
+    yield utils.promiseRedis(multi, multi.exec);
     // insert
     logger.info("insert message: %s", JSON.stringify(msg));
 
@@ -1394,8 +1421,7 @@ exports.install = function(server, callbackFunction) {
         documentLocks[block] = elem;
         toCache.push(JSON.stringify(elem));
       }
-      toCache.unshift(redisClient, redisClient.rpush, redisKeyLocks + docId);
-      yield utils.promiseRedis.apply(this, toCache);
+      yield* addLocks(docId, toCache);
     } else if (bIsRestore) {
       return false;
     }
@@ -1420,8 +1446,7 @@ exports.install = function(server, callbackFunction) {
         documentLocks.push(elem);
         toCache.push(JSON.stringify(elem));
       }
-      toCache.unshift(redisClient, redisClient.rpush, redisKeyLocks + docId);
-      yield utils.promiseRedis.apply(this, toCache);
+      yield* addLocks(docId, toCache);
     } else if (bIsRestore) {
       return false;
     }
@@ -1446,8 +1471,7 @@ exports.install = function(server, callbackFunction) {
         documentLocks.push(elem);
         toCache.push(JSON.stringify(elem));
       }
-      toCache.unshift(redisClient, redisClient.rpush, redisKeyLocks + docId);
-      yield utils.promiseRedis.apply(this, toCache);
+      yield* addLocks(docId, toCache);
     } else if (bIsRestore) {
       return false;
     }
@@ -1464,7 +1488,7 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* setChangesIndex(docId, index) {
-    yield utils.promiseRedis(redisClient, redisClient.set, redisKeyChangeIndex + docId, index);
+    yield utils.promiseRedis(redisClient, redisClient.setex, redisKeyChangeIndex + docId, cfgExpChangeIndex, index);
   }
 
   // Для Excel необходимо делать пересчет lock-ов при добавлении/удалении строк/столбцов
