@@ -921,13 +921,14 @@ exports.install = function(server, callbackFunction) {
     }
     return docLockRes;
   }
-  function* addLocks(docId, toCache) {
+  function* addLocks(docId, toCache, isReplace) {
     if (toCache && toCache.length > 0) {
       toCache.unshift('rpush', redisKeyLocks + docId);
-      var multi = redisClient.multi([
-        toCache,
-        ['expire', redisKeyLocks + docId, cfgExpLocks]
-      ]);
+      var multiArgs = [toCache, ['expire', redisKeyLocks + docId, cfgExpLocks]];
+      if (isReplace) {
+        multiArgs.unshift(['del', redisKeyLocks + docId]);
+      }
+      var multi = redisClient.multi(multiArgs);
       yield utils.promiseRedis(multi, multi.exec)
     }
   }
@@ -1010,13 +1011,13 @@ exports.install = function(server, callbackFunction) {
   // Пересчет только для чужих Lock при сохранении на клиенте, который добавлял/удалял строки или столбцы
   function _recalcLockArray(userId, _locks, oRecalcIndexColumns, oRecalcIndexRows) {
     if (null == _locks) {
-      return;
+      return false;
     }
     var count = _locks.length;
     var element = null, oRangeOrObjectId = null;
     var i;
     var sheetId = -1;
-
+    var isModify = false;
     for (i = 0; i < count; ++i) {
       // Для самого себя не пересчитываем
       if (userId === _locks[i].user) {
@@ -1036,13 +1037,16 @@ exports.install = function(server, callbackFunction) {
         // Пересчет колонок
         oRangeOrObjectId["c1"] = oRecalcIndexColumns[sheetId].getLockMe2(oRangeOrObjectId["c1"]);
         oRangeOrObjectId["c2"] = oRecalcIndexColumns[sheetId].getLockMe2(oRangeOrObjectId["c2"]);
+        isModify = true;
       }
       if (oRecalcIndexRows && oRecalcIndexRows.hasOwnProperty(sheetId)) {
         // Пересчет строк
         oRangeOrObjectId["r1"] = oRecalcIndexRows[sheetId].getLockMe2(oRangeOrObjectId["r1"]);
         oRangeOrObjectId["r2"] = oRecalcIndexRows[sheetId].getLockMe2(oRangeOrObjectId["r2"]);
+        isModify = true;
       }
     }
+    return isModify;
   }
 
   function _addRecalcIndex(oRecalcIndex) {
@@ -1559,7 +1563,13 @@ exports.install = function(server, callbackFunction) {
         // Теперь нужно пересчитать индексы для lock-элементов
         if (null !== oRecalcIndexColumns || null !== oRecalcIndexRows) {
           var docLock = yield* getAllLocks(docId);
-          _recalcLockArray(userId, docLock, oRecalcIndexColumns, oRecalcIndexRows);
+          if (_recalcLockArray(userId, docLock, oRecalcIndexColumns, oRecalcIndexRows)) {
+            var toCache = [];
+            for (i = 0; i < docLock.length; ++i) {
+              toCache.push(JSON.stringify(docLock[i]));
+            }
+            yield* addLocks(docId, toCache, true);
+          }
         }
       }
 
