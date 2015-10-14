@@ -61,9 +61,11 @@ if (cluster.isMaster) {
     var cfgBucketName = configStorage.get('bucketName');
     var cfgStorageFolderName = configStorage.get('storageFolderName');
     app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, function(req, res, next) {
-      var filename = req.query[constants.ONLY_OFFICE_URL_PARAM];
-      var contentDisposition = filename ? utils.getContentDisposition(filename) : 'attachment';
-      res.setHeader("Content-Disposition", contentDisposition);
+      var index = req.url.lastIndexOf('/');
+      if (-1 != index) {
+        req.url = req.url.substring(0, index);
+      }
+      res.setHeader("Content-Disposition", 'attachment;');
       next();
     }, express.static(configStorage.get('fs.folderPath')));
   }

@@ -149,7 +149,7 @@ function encodeRFC5987ValueChars(str) {
     //  so we can allow for a little better readability over the wire: |`^
     replace(/%(?:7C|60|5E)/g, unescape);
 }
-exports.getContentDisposition = function(filename, useragent) {
+function getContentDisposition (filename, useragent) {
   //from http://stackoverflow.com/questions/93551/how-to-encode-the-filename-parameter-of-content-disposition-header-in-http
   var contentDisposition = 'attachment; filename="';
   if (useragent != null && -1 != useragent.toLowerCase().indexOf('android')) {
@@ -158,7 +158,8 @@ exports.getContentDisposition = function(filename, useragent) {
     contentDisposition += filename + '"; filename*=UTF-8\'\'' + encodeRFC5987ValueChars(filename);
   }
   return contentDisposition;
-};
+}
+exports.getContentDisposition = getContentDisposition;
 function downloadUrlPromise(uri, optTimeout, optLimit) {
   return new Promise(function (resolve, reject) {
     //todo может стоит делать url.parse, а потом с каждой частью отдельно работать
@@ -404,12 +405,6 @@ function changeOnlyOfficeUrl(inputUrl, strPath, optFilename) {
   } else {
     inputUrl += '&';
   }
-  var ooname;
-  if (optFilename) {
-    ooname = optFilename;
-  } else {
-    ooname = constants.OUTPUT_NAME + path.extname(strPath);
-  }
-  return inputUrl + constants.ONLY_OFFICE_URL_PARAM + '=' + encodeURIComponent(ooname);
+  return inputUrl + constants.ONLY_OFFICE_URL_PARAM + '=' + constants.OUTPUT_NAME + path.extname(strPath);
 }
 exports.changeOnlyOfficeUrl = changeOnlyOfficeUrl;
