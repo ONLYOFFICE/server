@@ -3,6 +3,7 @@ exports.DOC_ID_PATTERN = '0-9-.a-zA-Z_=';
 exports.CHAR_DELIMITER = String.fromCharCode(5);
 exports.OUTPUT_NAME = 'output';
 exports.ONLY_OFFICE_URL_PARAM = 'ooname';
+exports.DISPLAY_PREFIX = 'display';
 
 exports.AVS_OFFICESTUDIO_FILE_UNKNOWN =  0x0000;
 exports.AVS_OFFICESTUDIO_FILE_DOCUMENT = 0x0040;
