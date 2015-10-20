@@ -220,7 +220,7 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
       var dataBinary = data.slice(index + 1, index + 1 + lengthBinary);
       fs.writeFileSync(dataConvert.fileFrom, dataBinary);
     } else {
-      logger.error('mail merge format')
+      logger.error('mail merge format (id=%s)', cmd.getDocId());
     }
   }
   if (task.getFromChanges()) {
@@ -289,7 +289,7 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
   if(childRes) {
     exitCode = childRes.status;
     exitSignal = childRes.signal;
-    logger.debug(childRes.stdout.toString());
+    logger.debug('stdout (id=' + dataConvert.key + '):' + childRes.stdout.toString());
   }
   if (0 !== exitCode || null !== exitSignal) {
     if (-constants.CONVERT_MS_OFFCRYPTO == exitCode) {
@@ -305,7 +305,7 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
       logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
     } else {
       if(childRes) {
-        logger.error(childRes.stderr.toString());
+        logger.error('stderr (id=' + dataConvert.key + '):' + childRes.stderr.toString());
       }
       logger.error('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
       if (cfgErrorFiles) {

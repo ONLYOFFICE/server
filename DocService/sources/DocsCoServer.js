@@ -455,7 +455,7 @@ function* getOriginalParticipantsId(docId) {
   return result;
 }
 
-function sendServerRequest(server, postData, onReplyCallback) {
+function sendServerRequest(docId, server, postData, onReplyCallback) {
   if (!server.host || !server.path) {
     return;
   }
@@ -476,16 +476,16 @@ function sendServerRequest(server, postData, onReplyCallback) {
 
   var requestFunction = server.https ? https.request : http.request;
 
-  logger.info('postData: %s', postData);
+  logger.info('postData: docId = %s %s', docId, postData);
   var req = requestFunction(options, function(res) {
     res.setEncoding('utf8');
     var replyData = '';
     res.on('data', function(chunk) {
-      logger.info('replyData: %s', chunk);
+      logger.info('postData data: docId = %s %s', docId, chunk);
       replyData += chunk;
     });
     res.on('end', function() {
-      logger.info('end');
+      logger.info('postData end: docId = %s', docId);
       if (onReplyCallback) {
         onReplyCallback(replyData);
       }
@@ -493,16 +493,16 @@ function sendServerRequest(server, postData, onReplyCallback) {
   });
 
   req.on('error', function(e) {
-    logger.warn('problem with request on server: %s', e.message);
+    logger.warn('postData error: docId = %s %s', docId, e.message);
   });
 
   // write data to request body
   req.write(postDataBuffer);
   req.end();
 }
-function sendServerRequestPromise(server, postData) {
+function sendServerRequestPromise(docId, server, postData) {
   return new Promise(function(resolve, reject) {
-    sendServerRequest(server, postData, function(data) {
+    sendServerRequest(docId, server, postData, function(data) {
       resolve(data);
     });
   });
@@ -621,7 +621,7 @@ function* sendStatusDocument(docId, bChangeBase, callback, baseUrl) {
   }
 
   var sendData = JSON.stringify({'key': docId, 'status': status, 'url': '', 'users': participants});
-  var replyData = yield sendServerRequestPromise(callback, sendData);
+  var replyData = yield sendServerRequestPromise(docId, callback, sendData);
   yield* onReplySendStatusDocument(docId, replyData);
 }
 function* onReplySendStatusDocument(docId, replyData) {
@@ -747,13 +747,14 @@ exports.install = function(server, callbackFunction) {
 
     conn.on('data', function(message) {
       utils.spawn(function* () {
+      var docId = 'null';
       try {
         var startDate = null;
         if(clientStatsD) {
           startDate = new Date();
         }
         var data = JSON.parse(message);
-        logger.info('data.type = ' + data.type + ' id = ' + conn.docId);
+        docId = conn.docId;
         switch (data.type) {
           case 'auth'          :
             yield* auth(conn, data);
@@ -777,10 +778,10 @@ exports.install = function(server, callbackFunction) {
             yield* getMessages(conn, data);
             break;
           case 'unLockDocument'    :
-            yield* checkEndAuthLock(data.isSave, conn.docId, conn.user.id, null, conn);
+            yield* checkEndAuthLock(data.isSave, docId, conn.user.id, null, conn);
             break;
           case 'ping':
-            yield utils.promiseRedis(redisClient, redisClient.zadd, redisKeyDocuments, new Date().getTime(), conn.docId);
+            yield utils.promiseRedis(redisClient, redisClient.zadd, redisKeyDocuments, new Date().getTime(), docId);
             break;
           case 'close':
             yield* closeDocument(conn, false);
@@ -789,13 +790,15 @@ exports.install = function(server, callbackFunction) {
             canvasService.openDocument(conn, data);
             break;
         }
+        docId = conn.docId;//еще раз приравниваем потому что conn.docId задается в auth
+        logger.info('data.type = ' + data.type + ' id = ' + docId);
         if(clientStatsD) {
           if('openDocument' != data.type) {
             clientStatsD.timing('coauth.data.' + data.type, new Date() - startDate);
           }
         }
       } catch (e) {
-        logger.error("error receiving response: docId = %s type = %s\r\n%s", conn ? conn.docId : 'null', (data && data.type) ? data.type : 'null', e.stack);
+        logger.error("error receiving response: docId = %s type = %s\r\n%s", docId, (data && data.type) ? data.type : 'null', e.stack);
       }
       });
     });
@@ -804,10 +807,12 @@ exports.install = function(server, callbackFunction) {
     });
     conn.on('close', function() {
       utils.spawn(function* () {
+        var docId = 'null';
         try {
+          docId = conn.docId;
           yield* closeDocument(conn, true);
         } catch (err) {
-          logger.error('conn close:\r\n%s', err.stack);
+          logger.error('Error conn close: docId = %s\r\n%s', docId, err.stack);
         }
       });
     });
@@ -824,7 +829,7 @@ exports.install = function(server, callbackFunction) {
       return;
     }
 
-    logger.info("Connection closed or timed out");
+    logger.info("Connection closed or timed out: docId = %s", docId);
     var isCloseCoAuthoringTmp = conn.isCloseCoAuthoring;
     if (isCloseConnection) {
       //Notify that participant has gone
@@ -1000,7 +1005,7 @@ exports.install = function(server, callbackFunction) {
   }
 
   function sendFileError(conn, errorId) {
-    logger.error('error description: %s', errorId);
+    logger.error('error description: docId = %s errorId = %s', conn.docId, errorId);
     sendData(conn, {type: 'error', description: errorId});
   }
 
@@ -1224,7 +1229,7 @@ exports.install = function(server, callbackFunction) {
 
       //Set the unique ID
       if (bIsRestore) {
-        logger.info("restored old session id = %s", data.sessionId);
+        logger.info("restored old session: docId = %s id = %s", docId, data.sessionId);
 
         // Останавливаем сборку (вдруг она началась)
         // Когда переподсоединение, нам нужна проверка на сборку файла
@@ -1394,14 +1399,14 @@ exports.install = function(server, callbackFunction) {
     var docId = conn.docId;
     var userId = conn.user.id;
     var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, username: conn.user.name};
-
+    var msgStr = JSON.stringify(msg);
     var multi = redisClient.multi([
-      ['rpush', redisKeyMessage + docId, JSON.stringify(msg)],
+      ['rpush', redisKeyMessage + docId, msgStr],
       ['expire', redisKeyMessage + docId, cfgExpMessage]
     ]);
     yield utils.promiseRedis(multi, multi.exec);
     // insert
-    logger.info("insert message: %s", JSON.stringify(msg));
+    logger.info("insert message: docId = %s %s", docId, msgStr);
 
     var messages = [msg];
     sendDataMessage(conn, messages);
@@ -1515,7 +1520,7 @@ exports.install = function(server, callbackFunction) {
   // Для Excel необходимо делать пересчет lock-ов при добавлении/удалении строк/столбцов
   function* saveChanges(conn, data) {
     var docId = conn.docId, userId = conn.user.id;
-    logger.info("saveChanges docid: %s", docId);
+    logger.info("Start saveChanges docid: %s", docId);
 
     var puckerIndex = yield* getChangesIndex(docId);
 
@@ -1528,7 +1533,7 @@ exports.install = function(server, callbackFunction) {
           puckerIndex -= deleteCount;
           yield sqlBase.deleteChangesPromise(docId, deleteIndex);
         } else if (0 > deleteCount) {
-          logger.error("saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s ; deleteCount: %s", docId, deleteIndex, puckerIndex, deleteCount);
+          logger.error("Error saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s ; deleteCount: %s", docId, deleteIndex, puckerIndex, deleteCount);
         }
       }
     }
@@ -1655,7 +1660,7 @@ exports.install = function(server, callbackFunction) {
     if (arrayBlocks.length > 0) {
       for (var i = 0; i < arrayBlocks.length; ++i) {
         var block = arrayBlocks[i];
-        logger.info("getLock id: %s", block);
+        logger.info("getLock id: docId = %s %s", docId, block);
         if (documentLocks.hasOwnProperty(block) && documentLocks[block] !== null) {
           isLock = true;
           break;
@@ -1788,10 +1793,10 @@ exports.install = function(server, callbackFunction) {
           if(numDelete > 0) {
             var puckerIndex = yield* getChangesIndex(docId);
             if (puckerIndex > 0) {
-              logger.debug('checkDocumentExpire commit %d changes', puckerIndex);
+              logger.debug('checkDocumentExpire commit %d changes: docId = %s', puckerIndex, docId);
               _createSaveTimer(docId);
             } else {
-              logger.debug('checkDocumentExpire no changes');
+              logger.debug('checkDocumentExpire no changes: docId = %s', docId);
               // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
               yield* sendStatusDocument(docId, c_oAscChangeBase.All);
             }
@@ -1800,7 +1805,7 @@ exports.install = function(server, callbackFunction) {
         logger.debug('checkDocumentExpire end');
       }
       catch(e) {
-        logger.error(e);
+        logger.error('checkDocumentExpire error:\r\n%s', e.stack);
       }
     });
   };
@@ -1824,7 +1829,7 @@ exports.install = function(server, callbackFunction) {
         logger.debug('checkFileExpire end');
       }
       catch(e) {
-        logger.error(e);
+        logger.error('checkFileExpire error:\r\n%s', e.stack);
       }
     });
   };
@@ -1972,14 +1977,15 @@ exports.install = function(server, callbackFunction) {
 exports.commandFromServer = function (req, res) {
   utils.spawn(function* () {
     var result = c_oAscServerCommandErrors.NoError;
+    var docId = 'null';
     try {
       var query = req.query;
       // Ключ id-документа
-      var docId = query.key;
+      docId = query.key;
       if (null == docId) {
         result = c_oAscServerCommandErrors.DocumentIdError;
       } else {
-        logger.debug('commandFromServer: docId = %s c = %s', docId, query.c);
+        logger.debug('Start commandFromServer: docId = %s c = %s', docId, query.c);
         switch (query.c) {
           case 'info':
             yield* bindEvents(docId, query.callback, utils.getBaseUrlByRequest(req));
@@ -2003,9 +2009,10 @@ exports.commandFromServer = function (req, res) {
       }
     } catch (err) {
       result = c_oAscServerCommandErrors.CommandError;
-      logger.error('commandFromServer error:\r\n%s', err.stack);
+      logger.error('Error commandFromServer: docId = %s\r\n%s', docId, err.stack);
     } finally {
       var output = JSON.stringify({'key': req.query.key, 'error': result});
+      logger.debug('End commandFromServer: docId = %s %s', docId, output);
       var outputBuffer = new Buffer(output, 'utf8');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Length', outputBuffer.length);

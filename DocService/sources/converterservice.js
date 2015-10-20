@@ -38,6 +38,7 @@ function* getConvertStatus(cmd, selectRes, req) {
 
 exports.convert = function(req, res) {
   utils.spawn(function* () {
+    var docId = 'null';
     try {
       var startDate = null;
       if(clientStatsD) {
@@ -50,16 +51,17 @@ exports.convert = function(req, res) {
       cmd.setEmbeddedFonts(false);//req.query['embeddedfonts'];
       cmd.setFormat(req.query['filetype']);
       var outputtype = req.query['outputtype'];
-      cmd.setDocId('conv_' + req.query['key'] + '_' + outputtype);
+      docId = 'conv_' + req.query['key'] + '_' + outputtype;
+      cmd.setDocId(docId);
       cmd.setTitle(constants.OUTPUT_NAME + '.' + outputtype);
       cmd.setOutputFormat(formatChecker.getFormatFromString(outputtype));
       cmd.setCodepage(req.query['codePage']);
       cmd.setCodepage(req.query['delimiter']);
       var async = 'true' == req.query['async'];
-      logger.debug('Start convert request docId = %s', cmd.getDocId());
+      logger.debug('Start convert request docId = %s', docId);
 
       var task = new taskResult.TaskResultData();
-      task.key = cmd.getDocId();
+      task.key = docId;
       task.format = cmd.getFormat();
       task.status = taskResult.FileStatus.WaitQueue;
       task.statusInfo = constants.NO_ERROR;
@@ -98,13 +100,13 @@ exports.convert = function(req, res) {
         }
       }
       utils.fillXmlResponse(res, status.url, status.err);
-      logger.debug('End convert request url %s status %s docId = %s', status.url, status.err, cmd.getDocId());
+      logger.debug('End convert request url %s status %s docId = %s', status.url, status.err, docId);
       if(clientStatsD) {
         clientStatsD.timing('coauth.convertservice', new Date() - startDate);
       }
     }
     catch (e) {
-      logger.error('error convert:\r\n%s', e.stack);
+      logger.error('Error convert: docId = %s\r\n%s', docId, e.stack);
       utils.fillXmlResponse(res, undefined, constants.UNKNOWN);
     }
   });
