@@ -755,6 +755,7 @@ exports.install = function(server, callbackFunction) {
         }
         var data = JSON.parse(message);
         docId = conn.docId;
+        logger.info('data.type = ' + data.type + ' id = ' + docId);
         switch (data.type) {
           case 'auth'          :
             yield* auth(conn, data);
@@ -790,8 +791,6 @@ exports.install = function(server, callbackFunction) {
             canvasService.openDocument(conn, data);
             break;
         }
-        docId = conn.docId;//еще раз приравниваем потому что conn.docId задается в auth
-        logger.info('data.type = ' + data.type + ' id = ' + docId);
         if(clientStatsD) {
           if('openDocument' != data.type) {
             clientStatsD.timing('coauth.data.' + data.type, new Date() - startDate);
