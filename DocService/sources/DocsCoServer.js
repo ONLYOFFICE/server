@@ -404,6 +404,9 @@ function getParticipantUser(docId, includeUserId) {
     return el.docId === docId && el.user.id === includeUserId;
   });
 }
+function* getParticipantCount(docId) {
+  return yield utils.promiseRedis(redisClient, redisClient.hlen, redisKeyEditors + docId);
+}
 function* hasEditors(docId) {
   var elem, hasEditors = false;
   var hRes = yield utils.promiseRedis(redisClient, redisClient.hvals, redisKeyEditors + docId);
@@ -933,7 +936,7 @@ exports.install = function(server, callbackFunction) {
         multiArgs.unshift(['del', redisKeyLocks + docId]);
       }
       var multi = redisClient.multi(multiArgs);
-      yield utils.promiseRedis(multi, multi.exec)
+      yield utils.promiseRedis(multi, multi.exec);
     }
   }
   function* getUserLocks(docId, sessionId) {
@@ -1812,22 +1815,27 @@ exports.install = function(server, callbackFunction) {
     utils.spawn(function*() {
       try {
         logger.debug('checkFileExpire start');
+        var removedCount = 0;
+        //если ввести LIMIT, тогда могут всегда отдавать одни и теже данные, которые не удаляются
         var expired = yield taskResult.getExpired(cfgExpFiles);
         for (var i = 0; i < expired.length; ++i) {
           var docId = expired[i].tr_key;
-          //delete if no changes
-          var puckerIndex = yield* getChangesIndex(docId);
-          if (!(puckerIndex > 0)) {
-            var removeRes = yield taskResult.remove(docId);
-            //если ничего не удалилось, значит это сделал другой процесс
-            if(removeRes.affectedRows > 0) {
-              yield storage.deletePath(docId);
+          //delete if no changes, participants
+          var participantCount = yield* getParticipantCount(docId);
+          if (!(participantCount > 0)) {
+            var puckerIndex = yield* getChangesIndex(docId);
+            if (!(puckerIndex > 0)) {
+              var removeRes = yield taskResult.remove(docId);
+              //если ничего не удалилось, значит это сделал другой процесс
+              if (removeRes.affectedRows > 0) {
+                removedCount++;
+                yield storage.deletePath(docId);
+              }
             }
           }
         }
-        logger.debug('checkFileExpire end');
-      }
-      catch(e) {
+        logger.debug('checkFileExpire end: expired = %d removedFiles = %d', expired.length, removedCount);
+      } catch (e) {
         logger.error('checkFileExpire error:\r\n%s', e.stack);
       }
     });
