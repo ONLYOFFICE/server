@@ -18,7 +18,6 @@ var checkFileExpire = function() {
       do {
         currentRemovedCount = 0;
         expired = yield taskResult.getExpired(cfgExpFilesRemovedAtOnce, cfgExpFiles);
-        console.log('expired.length' + expired.length);
         for (var i = 0; i < expired.length; ++i) {
           var docId = expired[i].tr_key;
           //todo drop user
