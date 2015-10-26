@@ -57,8 +57,8 @@ var commonDefines = require('./../../Common/sources/commondefines');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var config = require('config').get('services.CoAuthoring');
 var sqlBase = require('./baseConnector');
-var taskResult = require('./taskresult');
 var canvasService = require('./canvasservice');
+var checkExpire = require('./checkexpire');
 var redis = require(config.get('redis.name'));
 var pubsubService = require('./' + config.get('pubsub.name'));
 var queueService = require('./../../Common/sources/' + configCommon.get('queue.name'));
@@ -1811,39 +1811,10 @@ exports.install = function(server, callbackFunction) {
       }
     });
   };
-  var checkFileExpire = function () {
-    utils.spawn(function*() {
-      try {
-        logger.debug('checkFileExpire start');
-        var removedCount = 0;
-        //если ввести LIMIT, тогда могут всегда отдавать одни и теже данные, которые не удаляются
-        var expired = yield taskResult.getExpired(cfgExpFiles);
-        for (var i = 0; i < expired.length; ++i) {
-          var docId = expired[i].tr_key;
-          //delete if no changes, participants
-          var participantCount = yield* getParticipantCount(docId);
-          if (!(participantCount > 0)) {
-            var puckerIndex = yield* getChangesIndex(docId);
-            if (!(puckerIndex > 0)) {
-              var removeRes = yield taskResult.remove(docId);
-              //если ничего не удалилось, значит это сделал другой процесс
-              if (removeRes.affectedRows > 0) {
-                removedCount++;
-                yield storage.deletePath(docId);
-              }
-            }
-          }
-        }
-        logger.debug('checkFileExpire end: expired = %d removedFiles = %d', expired.length, removedCount);
-      } catch (e) {
-        logger.error('checkFileExpire error:\r\n%s', e.stack);
-      }
-    });
-  };
   //удаление файлов от которых не приходит heartbeat
   var documentExpireJob = new cron.CronJob(cfgExpDocumentsCron, checkDocumentExpire);
   documentExpireJob.start();
-  var fileExpireJob = new cron.CronJob(cfgExpFilesCron, checkFileExpire);
+  var fileExpireJob = new cron.CronJob(cfgExpFilesCron, checkExpire.checkFileExpire);
   fileExpireJob.start();
 
   //cache

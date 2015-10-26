@@ -166,15 +166,16 @@ function remove(docId) {
     });
   });
 }
-function getExpiredString(expireSeconds) {
+function getExpiredString(maxCount, expireSeconds) {
   var expireDate = new Date();
   utils.addSeconds(expireDate, -expireSeconds);
   var expireDateStr = sqlBase.baseConnector.sqlEscape(sqlBase.getDateTime(expireDate));
-  return 'SELECT * FROM task_result WHERE tr_last_open_date <= ' + expireDateStr + ';';
+  return 'SELECT * FROM task_result WHERE tr_last_open_date <= ' + expireDateStr +
+    ' AND NOT EXISTS(SELECT dc_key FROM doc_changes WHERE dc_key = tr_key LIMIT 1) LIMIT ' + maxCount + ';';
 }
-function getExpired(expireSeconds) {
+function getExpired(maxCount, expireSeconds) {
   return new Promise(function(resolve, reject) {
-    var sqlCommand = getExpiredString(expireSeconds);
+    var sqlCommand = getExpiredString(maxCount, expireSeconds);
     sqlBase.baseConnector.sqlQuery(sqlCommand, function(error, result) {
       if (error) {
         reject(error);

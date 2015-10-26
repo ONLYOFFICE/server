@@ -103,7 +103,8 @@
 				"documents": 300,
 				"documentsCron": "0 5 * * * *",
 				"files": 604800,
-				"filesCron": "00 59 23 * * *"
+				"filesCron": "00 00 */1 * * *",
+				"filesremovedatonce": 10
 			}
 		}
 	},
