@@ -101,7 +101,7 @@
 				"lockDoc": 60,
 				"message": 86400,
 				"documents": 300,
-				"documentsCron": "0 5 * * * *",
+				"documentsCron": "0 */5 * * * *",
 				"files": 604800,
 				"filesCron": "00 00 */1 * * *",
 				"filesremovedatonce": 10

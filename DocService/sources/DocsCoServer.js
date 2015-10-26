@@ -721,6 +721,12 @@ function* removeChanges(id, isCorrupted, isConvertService) {
     logger.error('saved corrupted id = %s convert = %s', id, isConvertService);
   }
 }
+function* cleanDocumentOnExitNoChanges(docId) {
+  yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + docId, redisKeyEditors + docId,
+      redisKeyMessage + docId, redisKeyUserIndex + docId, redisKeyChangeIndex + docId);
+  // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
+  yield* sendStatusDocument(docId, c_oAscChangeBase.All);
+}
 
 exports.version = asc_coAuthV;
 exports.c_oAscServerStatus = c_oAscServerStatus;
@@ -882,8 +888,7 @@ exports.install = function(server, callbackFunction) {
           if (bHasChanges) {
             _createSaveTimer(docId);
           } else {
-            // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
-            yield* sendStatusDocument(docId, c_oAscChangeBase.All);
+            yield* cleanDocumentOnExitNoChanges(docId);
           }
         } else {
           yield* sendStatusDocument(docId, c_oAscChangeBase.No);
@@ -1781,32 +1786,32 @@ exports.install = function(server, callbackFunction) {
     logger.info(message);
   }});
 
-  var checkDocumentExpire = function () {
+  var checkDocumentExpire = function() {
     utils.spawn(function*() {
       try {
         logger.debug('checkDocumentExpire start');
+        var removedCount = 0;
         var dateExpire = new Date();
-        utils.addSeconds(dateExpire, - cfgExpDocuments);
+        utils.addSeconds(dateExpire, -cfgExpDocuments);
         var expireDocs = yield utils.promiseRedis(redisClient, redisClient.zrangebyscore, redisKeyDocuments, '-inf', dateExpire.getTime());
-        for(var i = 0; i < expireDocs.length; ++i) {
+        for (var i = 0; i < expireDocs.length; ++i) {
           var docId = expireDocs[i];
           var numDelete = yield utils.promiseRedis(redisClient, redisClient.zrem, redisKeyDocuments, docId);
           //если numDelete == 0, значит этот ключ удалил другой процесс
-          if(numDelete > 0) {
+          if (numDelete > 0) {
+            removedCount++;
             var puckerIndex = yield* getChangesIndex(docId);
             if (puckerIndex > 0) {
               logger.debug('checkDocumentExpire commit %d changes: docId = %s', puckerIndex, docId);
               _createSaveTimer(docId);
             } else {
               logger.debug('checkDocumentExpire no changes: docId = %s', docId);
-              // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
-              yield* sendStatusDocument(docId, c_oAscChangeBase.All);
+              yield* cleanDocumentOnExitNoChanges(docId);
             }
           }
         }
-        logger.debug('checkDocumentExpire end');
-      }
-      catch(e) {
+        logger.debug('checkDocumentExpire end: removedCount = %d', removedCount);
+      } catch (e) {
         logger.error('checkDocumentExpire error:\r\n%s', e.stack);
       }
     });
