@@ -26,6 +26,11 @@ function* getConvertStatus(cmd, selectRes, req) {
       case taskResult.FileStatus.ErrToReload:
         status.err = row.tr_status_info;
         break;
+      case taskResult.FileStatus.NeedParams:
+      case taskResult.FileStatus.SaveVersion:
+      case taskResult.FileStatus.UpdateVersion:
+        status.err = constants.UNKNOWN;
+        break;
     }
     var lastOpenDate = row.tr_last_open_date;
     //todo
@@ -55,8 +60,8 @@ exports.convert = function(req, res) {
       cmd.setDocId(docId);
       cmd.setTitle(constants.OUTPUT_NAME + '.' + outputtype);
       cmd.setOutputFormat(formatChecker.getFormatFromString(outputtype));
-      cmd.setCodepage(req.query['codePage']);
-      cmd.setCodepage(req.query['delimiter']);
+      cmd.setCodepage(commonDefines.c_oAscEncodingsMap[req.query['codePage']] || commonDefines.c_oAscCodePageUtf8);
+      cmd.setDelimiter(req.query['delimiter'] || commonDefines.c_oAscCsvDelimiter.Comma);
       var async = 'true' == req.query['async'];
       logger.debug('Start convert request docId = %s', docId);
 
