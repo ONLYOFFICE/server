@@ -405,6 +405,6 @@ function changeOnlyOfficeUrl(inputUrl, strPath, optFilename) {
   } else {
     inputUrl += '&';
   }
-  return inputUrl + constants.ONLY_OFFICE_URL_PARAM + '=' + constants.OUTPUT_NAME + path.extname(strPath);
+  return inputUrl + constants.ONLY_OFFICE_URL_PARAM + '=' + constants.OUTPUT_NAME + path.extname(optFilename || strPath);
 }
 exports.changeOnlyOfficeUrl = changeOnlyOfficeUrl;

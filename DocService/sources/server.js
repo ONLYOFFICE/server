@@ -25,6 +25,8 @@ if (cluster.isMaster) {
   var http = require('http');
   var https = require('https');
   var fs = require("fs");
+  var urlModule = require('url');
+  var path = require('path');
   var bodyParser = require("body-parser");
   var docsCoServer = require('./DocsCoServer');
   var canvasService = require('./canvasservice');
@@ -62,10 +64,16 @@ if (cluster.isMaster) {
     var cfgStorageFolderName = configStorage.get('storageFolderName');
     app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, function(req, res, next) {
       var index = req.url.lastIndexOf('/');
+      var contentDisposition = 'attachment;';
       if (-1 != index) {
+        var urlParsed = urlModule.parse(req.url);
+        if (urlParsed && urlParsed.pathname) {
+          var filename = decodeURIComponent(path.basename(urlParsed.pathname));
+          contentDisposition = utils.getContentDisposition(filename, req.headers['user-agent']);
+        }
         req.url = req.url.substring(0, index);
       }
-      res.setHeader("Content-Disposition", 'attachment;');
+      res.setHeader("Content-Disposition", contentDisposition);
       next();
     }, express.static(configStorage.get('fs.folderPath')));
   }
