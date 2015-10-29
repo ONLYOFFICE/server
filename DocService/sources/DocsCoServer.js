@@ -404,9 +404,6 @@ function getParticipantUser(docId, includeUserId) {
     return el.docId === docId && el.user.id === includeUserId;
   });
 }
-function* getParticipantCount(docId) {
-  return yield utils.promiseRedis(redisClient, redisClient.hlen, redisKeyEditors + docId);
-}
 function* hasEditors(docId) {
   var elem, hasEditors = false;
   var hRes = yield utils.promiseRedis(redisClient, redisClient.hvals, redisKeyEditors + docId);
@@ -450,7 +447,9 @@ function* getOriginalParticipantsId(docId) {
   var hvalsRes = yield utils.promiseRedis(redisClient, redisClient.hvals, redisKeyEditors + docId);
   for (var i = 0; i < hvalsRes.length; ++i) {
     var elem = JSON.parse(hvalsRes[i]);
-    tmpObject[elem.idOriginal] = 1;
+    if (!elem.view) {
+      tmpObject[elem.idOriginal] = 1;
+    }
   }
   for (var name in tmpObject) if (tmpObject.hasOwnProperty(name)) {
     result.push(name);
@@ -1850,9 +1849,7 @@ exports.install = function(server, callbackFunction) {
           case PublishType.releaseLock:
             participants = getParticipants(true, data.docId, data.userId, true);
             _.each(participants, function(participant) {
-              if (!participant.isViewer) {
-                sendReleaseLock(participant, data.locks);
-              }
+              sendReleaseLock(participant, data.locks);
             });
             break;
           case PublishType.participantsState:
