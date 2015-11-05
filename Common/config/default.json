@@ -29,7 +29,8 @@
 		"accessKeyId": "AKID",
 		"secretAccessKey": "SECRET",
 		"useRequestToGetUrl": false,
-		"useSignedUrl": false
+		"useSignedUrl": false,
+		"externalHost": ""
 	},
 	"rabbitmq": {
 		"url": "amqp://localhost",
