@@ -65,7 +65,7 @@
 				"utils_common_fontdir": "null",
 				"utils_fonts_search_patterns": "*.ttf;*.ttc;*.otf",
 				"resource_expires": 31536000,
-				"limits_image_types_upload": "jpg;png;gif;bmp;ico",
+				"limits_image_types_upload": "jpg;png;gif;bmp",
 				"limits_image_types_copy": "jpg;png;gif;bmp;emf;wmf;svg;txt;bin"
 			},
 			"sql": {
