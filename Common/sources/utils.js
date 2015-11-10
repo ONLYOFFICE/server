@@ -159,7 +159,21 @@ function getContentDisposition (filename, useragent) {
   }
   return contentDisposition;
 }
+function getContentDispositionS3 (filename, useragent) {
+  var contentDisposition = 'attachment;';
+  if (useragent != null && -1 != useragent.toLowerCase().indexOf('android')) {
+    contentDisposition += ' filename=' + makeAndroidSafeFileName(filename);
+  } else {
+    if (containsAllAsciiNP(filename)) {
+      contentDisposition += ' filename=' + filename;
+    } else {
+      contentDisposition += ' filename*=UTF-8\'\'' + encodeRFC5987ValueChars(filename);
+    }
+  }
+  return contentDisposition;
+}
 exports.getContentDisposition = getContentDisposition;
+exports.getContentDispositionS3 = getContentDispositionS3;
 function downloadUrlPromise(uri, optTimeout, optLimit) {
   return new Promise(function (resolve, reject) {
     //todo может стоит делать url.parse, а потом с каждой частью отдельно работать
