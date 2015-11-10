@@ -125,7 +125,7 @@ exports.uploadImageFile = function(req, res) {
         var format = formatChecker.getImageFormat(buffer);
         var formatStr = formatChecker.getStringFromFormat(format);
         var supportedFormats = cfgTypesUpload || 'jpg';
-        if (-1 !== supportedFormats.indexOf(formatStr) && buffer.length <= cfgImageSize) {
+        if (formatStr && -1 !== supportedFormats.indexOf(formatStr) && buffer.length <= cfgImageSize) {
           //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
           var strImageName = utils.crc32(userid).toString(16) + '_image' + index;
           var strPathRel = 'media/' + strImageName + '.' + formatStr;
