@@ -1,4 +1,9 @@
 ﻿{
+	"log": {
+		"levels": {
+			"nodeJS": "ERROR"
+		}
+	},
 	"storage": {
 		"name": "storage-fs",
 		"fs": {
