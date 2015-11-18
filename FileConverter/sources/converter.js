@@ -289,7 +289,9 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
   if(childRes) {
     exitCode = childRes.status;
     exitSignal = childRes.signal;
-    logger.debug('stdout (id=' + dataConvert.key + '):' + childRes.stdout.toString());
+    if (childRes.stdout) {
+      logger.debug('stdout (id=' + dataConvert.key + '):' + childRes.stdout.toString());
+    }
   }
   if (0 !== exitCode || null !== exitSignal) {
     if (-constants.CONVERT_MS_OFFCRYPTO == exitCode) {
@@ -304,7 +306,7 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
     if (constants.CONVERT_MS_OFFCRYPTO == error || constants.CONVERT_NEED_PARAMS == error) {
       logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
     } else {
-      if(childRes) {
+      if (childRes && childRes.stderr) {
         logger.error('stderr (id=' + dataConvert.key + '):' + childRes.stderr.toString());
       }
       logger.error('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);

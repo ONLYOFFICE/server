@@ -622,8 +622,11 @@ function* sendStatusDocument(docId, bChangeBase, callback, baseUrl) {
     }
   }
 
-  var sendData = JSON.stringify({'key': docId, 'status': status, 'url': '', 'users': participants});
-  var replyData = yield sendServerRequestPromise(docId, callback, sendData);
+  var sendData = new commonDefines.OutputSfcData();
+  sendData.setKey(docId);
+  sendData.setStatus(status);
+  sendData.setUsers(participants);
+  var replyData = yield sendServerRequestPromise(docId, callback, JSON.stringify(sendData));
   yield* onReplySendStatusDocument(docId, replyData);
 }
 function* onReplySendStatusDocument(docId, replyData) {

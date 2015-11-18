@@ -388,6 +388,105 @@ function ErrorWithResult() {
   this.data = null;
 }
 
+function OutputSfcData() {
+  this['key'] = undefined;
+  this['status'] = undefined;
+  this['url'] = undefined;
+  this['changesurl'] = undefined;
+  this['changeshistory'] = undefined;
+  this['users'] = [];
+  this['mailMerge'] = undefined;
+}
+OutputSfcData.prototype.getKey = function() {
+  return this['key'];
+};
+OutputSfcData.prototype.setKey = function(data) {
+  return this['key'] = data;
+};
+OutputSfcData.prototype.getStatus = function() {
+  return this['status'];
+};
+OutputSfcData.prototype.setStatus = function(data) {
+  return this['status'] = data;
+};
+OutputSfcData.prototype.getUrl = function() {
+  return this['url'];
+};
+OutputSfcData.prototype.setUrl = function(data) {
+  return this['url'] = data;
+};
+OutputSfcData.prototype.getChangeUrl = function() {
+  return this['changesurl'];
+};
+OutputSfcData.prototype.setChangeUrl = function(data) {
+  return this['changesurl'] = data;
+};
+OutputSfcData.prototype.getChangeHistory = function() {
+  return this['changeshistory'];
+};
+OutputSfcData.prototype.setChangeHistory = function(data) {
+  return this['changeshistory'] = data;
+};
+OutputSfcData.prototype.getUsers = function() {
+  return this['users'];
+};
+OutputSfcData.prototype.setUsers = function(data) {
+  return this['users'] = data;
+};
+OutputSfcData.prototype.getMailMerge = function() {
+  return this['mailMerge'];
+};
+OutputSfcData.prototype.setMailMerge = function(data) {
+  return this['mailMerge'] = data;
+};
+function OutputMailMerge(mailMergeSendData) {
+  if (mailMergeSendData) {
+    this['from'] = mailMergeSendData.getFrom();
+    this['message'] = mailMergeSendData.getMessage();
+    this['subject'] = mailMergeSendData.getSubject();
+    this['title'] = mailMergeSendData.getFileName();
+    var mailFormat = mailMergeSendData.getMailFormat();
+    switch (mailFormat) {
+      case constants.AVS_OFFICESTUDIO_FILE_OTHER_HTMLZIP :
+        this['type'] = 0;
+        break;
+      case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX :
+        this['type'] = 1;
+        break;
+      case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF :
+        this['type'] = 2;
+        break;
+      default :
+        this['type'] = 0;
+        break;
+    }
+    this['recordCount'] = mailMergeSendData.getRecordCount();
+    this['to'] = null;
+    this['recordIndex'] = null;
+  } else {
+    this['from'] = null;
+    this['message'] = null;
+    this['subject'] = null;
+    this['title'] = null;
+    this['to'] = null;
+    this['type'] = null;
+    this['recordCount'] = null;
+    this['recordIndex'] = null;
+  }
+}
+OutputMailMerge.prototype.getRecordIndex = function() {
+  return this['recordIndex'];
+};
+OutputMailMerge.prototype.setRecordIndex = function(data) {
+  return this['recordIndex'] = data;
+};
+OutputMailMerge.prototype.getTo = function() {
+  return this['to'];
+};
+OutputMailMerge.prototype.setTo = function(data) {
+  return this['to'] = data;
+};
+
 var c_oAscCsvDelimiter = {
   None: 0,
   Tab: 1,
@@ -475,6 +574,8 @@ exports.TaskQueueData = TaskQueueData;
 exports.CMailMergeSendData = CMailMergeSendData;
 exports.InputCommand = InputCommand;
 exports.ErrorWithResult = ErrorWithResult;
+exports.OutputSfcData = OutputSfcData;
+exports.OutputMailMerge = OutputMailMerge;
 exports.c_oAscCsvDelimiter = c_oAscCsvDelimiter;
 exports.c_oAscEncodings = c_oAscEncodings;
 exports.c_oAscEncodingsMap = c_oAscEncodingsMap;

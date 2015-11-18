@@ -28,6 +28,7 @@ if (cluster.isMaster) {
   var urlModule = require('url');
   var path = require('path');
   var bodyParser = require("body-parser");
+  var mime = require('mime');
   var docsCoServer = require('./DocsCoServer');
   var canvasService = require('./canvasservice');
   var converterService = require('./converterservice');
@@ -64,18 +65,30 @@ if (cluster.isMaster) {
     var cfgStorageFolderName = configStorage.get('storageFolderName');
     app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, function(req, res, next) {
       var index = req.url.lastIndexOf('/');
-      var contentDisposition = 'attachment;';
       if (-1 != index) {
+        var sendFileOptions = {
+          root: configStorage.get('fs.folderPath'),
+          dotfiles: 'deny',
+          headers: {
+            'Content-Disposition': 'attachment;'
+          }
+        };
         var urlParsed = urlModule.parse(req.url);
         if (urlParsed && urlParsed.pathname) {
           var filename = decodeURIComponent(path.basename(urlParsed.pathname));
-          contentDisposition = utils.getContentDisposition(filename, req.headers['user-agent']);
+          sendFileOptions.headers['Content-Type'] = mime.lookup(filename);
         }
-        req.url = req.url.substring(0, index);
+        var realUrl = req.url.substring(0, index);
+        res.sendFile(realUrl, sendFileOptions, function (err) {
+          if (err) {
+            logger.error(err);
+            res.status(err.status).end();
+          }
+        });
+      } else {
+        req.sendStatus(404)
       }
-      res.setHeader("Content-Disposition", contentDisposition);
-      next();
-    }, express.static(configStorage.get('fs.folderPath')));
+    });
   }
 
   // Если захочется использовать 'development' и 'production',

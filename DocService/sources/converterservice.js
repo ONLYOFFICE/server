@@ -17,14 +17,18 @@ var clientStatsD = statsDClient.getClient();
 function* getConvertStatus(cmd, selectRes, req) {
   var status = {url: undefined, err: constants.NO_ERROR};
   if (selectRes.length > 0) {
+    var docId = cmd.getDocId();
     var row = selectRes[0];
     switch (row.tr_status) {
       case taskResult.FileStatus.Ok:
-        status.url = yield storage.getSignedUrl(utils.getBaseUrlByRequest(req), cmd.getDocId() + '/' + cmd.getTitle());
+        status.url = yield storage.getSignedUrl(utils.getBaseUrlByRequest(req), docId + '/' + cmd.getTitle());
         break;
       case taskResult.FileStatus.Err:
       case taskResult.FileStatus.ErrToReload:
         status.err = row.tr_status_info;
+        if (taskResult.FileStatus.ErrToReload == row.tr_status) {
+          yield taskResult.remove(docId);
+        }
         break;
       case taskResult.FileStatus.NeedParams:
       case taskResult.FileStatus.SaveVersion:

@@ -68,14 +68,14 @@ function select(task) {
 }
 function toUpdateArray(task, updateTime) {
   var res = [];
-  if (task.format) {
+  if (null != task.format) {
     res.push('tr_format=' + sqlBase.baseConnector.sqlEscape(task.format));
   }
-  if (task.status) {
+  if (null != task.status) {
     res.push('tr_status=' + sqlBase.baseConnector.sqlEscape(task.status));
   }
-  if (task.statusInfo) {
-    res.push('tr_status_info=' + sqlBase.baseConnector.sqlEscape(task.status));
+  if (null != task.statusInfo) {
+    res.push('tr_status_info=' + sqlBase.baseConnector.sqlEscape(task.statusInfo));
   }
   if (updateTime) {
     res.push('tr_last_open_date=' + sqlBase.getDateTime(new Date()));
