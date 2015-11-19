@@ -30,7 +30,7 @@
         "converter": {
             "fontDir": "../../../OfficeWeb/Fonts/native",
             "presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
-            "filePath": "../../../AsyncServerComponents/Bin/x2t32.exe"
+            "filePath": "../../FileConverter/Bin/x2t32.exe"
         }
     }
 }

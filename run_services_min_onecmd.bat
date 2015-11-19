@@ -1,5 +1,8 @@
 SET RUN_DIR=%CD%
 
+call "%RUN_DIR%\install_file_converter.bat"
+@IF NOT "%ERRORLEVEL%"=="0" goto ERROR
+
 call "%RUN_DIR%\install_npm_modules.bat"
 @IF NOT "%ERRORLEVEL%"=="0" goto ERROR
 
