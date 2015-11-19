@@ -6,15 +6,15 @@ ECHO ----------------------------------------
 ECHO svn update
 ECHO ----------------------------------------
 
-TortoiseProc.exe /command:update /path:"%~dp0" /closeonend:0
-TortoiseProc.exe /command:update /path:"%~dp0\..\OfficeWeb" /closeonend:0
-TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\SDK\lib\win_32" /closeonend:0
-TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\SDK\lib\DoctRenderer.config" /closeonend:0
-TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\SDK\bin\windows" /closeonend:0
-TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\SDK\bin\AllFontsGen" /closeonend:0
-TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\UnicodeConverter\icubuilds\win32\bin" /closeonend:0
-TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\DesktopEditor\ChromiumBasedEditors\app\cefbuilds\win32" /closeonend:0
-TortoiseProc.exe /command:update /path:"%~dp0\..\AsyncServerComponents\Bin\Windows" /closeonend:0
+TortoiseProc.exe /command:update /path:"%~dp0" /closeonend:1
+TortoiseProc.exe /command:update /path:"%~dp0\..\OfficeWeb" /closeonend:1
+TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\SDK\lib\win_32" /closeonend:1
+TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\SDK\lib\DoctRenderer.config" /closeonend:1
+TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\SDK\bin\windows" /closeonend:1
+TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\SDK\bin\AllFontsGen" /closeonend:1
+TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\UnicodeConverter\icubuilds\win32\bin" /closeonend:1
+TortoiseProc.exe /command:update /path:"%~dp0\..\ServerComponents\DesktopEditor\ChromiumBasedEditors\app\cefbuilds\win32" /closeonend:1
+TortoiseProc.exe /command:update /path:"%~dp0\..\AsyncServerComponents\Bin\Windows" /closeonend:1
 
 ECHO ----------------------------------------
 ECHO copy file to converter
