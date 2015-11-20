@@ -18,15 +18,36 @@ var FileStatus = {
 };
 
 function TaskResultData() {
-  this.key = '';
-  this.format = '';
-  this.status = FileStatus.None;
-  this.statusInfo = constants.NO_ERROR;
-  this.lastOpenDate = new Date();
-  this.title = '';
+  this.key = null;
+  this.format = null;
+  this.status = null;
+  this.statusInfo = null;
+  this.lastOpenDate = null;
+  this.title = null;
 }
+TaskResultData.prototype.completeDefaults = function() {
+  if (null === this.key) {
+    this.key = '';
+  }
+  if (null === this.format) {
+    this.format = '';
+  }
+  if (null === this.status) {
+    this.status = FileStatus.None;
+  }
+  if (null === this.statusInfo) {
+    this.statusInfo = constants.NO_ERROR;
+  }
+  if (null === this.lastOpenDate) {
+    this.lastOpenDate = new Date();
+  }
+  if (null === this.title) {
+    this.title = '';
+  }
+};
 
 function getUpsertString(task) {
+  task.completeDefaults();
   var dateNow = sqlBase.getDateTime(new Date());
   var commandArg = [task.key, task.format, task.status, task.statusInfo, dateNow, task.title];
   var commandArgEsc = commandArg.map(function(curVal) {
@@ -78,15 +99,15 @@ function toUpdateArray(task, updateTime) {
     res.push('tr_status_info=' + sqlBase.baseConnector.sqlEscape(task.statusInfo));
   }
   if (updateTime) {
-    res.push('tr_last_open_date=' + sqlBase.getDateTime(new Date()));
+    res.push('tr_last_open_date=' + sqlBase.baseConnector.sqlEscape(sqlBase.getDateTime(new Date())));
   }
-  if (task.title) {
+  if (null != task.title) {
     res.push('tr_title=' + sqlBase.baseConnector.sqlEscape(task.title));
   }
   return res;
 }
 function getUpdateString(task) {
-  var commandArgEsc = toUpdateArray(task);
+  var commandArgEsc = toUpdateArray(task, true);
   return 'UPDATE task_result SET ' + commandArgEsc.join(', ') +
     ' WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(task.key) + ';';
 }
@@ -103,9 +124,30 @@ function update(task) {
     });
   });
 }
+function getUpdateIfString(task, mask) {
+  var commandArgEsc = toUpdateArray(task, true);
+  var commandArgEscMask = toUpdateArray(mask);
+  commandArgEscMask.push('tr_key=' + sqlBase.baseConnector.sqlEscape(mask.key));
+  return 'UPDATE task_result SET ' + commandArgEsc.join(', ') +
+    ' WHERE ' + commandArgEscMask.join(' AND ') + ';';
+}
+
+function updateIf(task, mask) {
+  return new Promise(function(resolve, reject) {
+    var sqlCommand = getUpdateIfString(task, mask);
+    sqlBase.baseConnector.sqlQuery(sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+}
 
 function getInsertString(task) {
   var dateNow = sqlBase.getDateTime(new Date());
+  task.completeDefaults();
   var commandArg = [task.key, task.format, task.status, task.statusInfo, dateNow, task.title];
   var commandArgEsc = commandArg.map(function(curVal) {
     return sqlBase.baseConnector.sqlEscape(curVal)
@@ -191,6 +233,7 @@ exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
 exports.select = select;
 exports.update = update;
+exports.updateIf = updateIf;
 exports.addRandomKey = addRandomKey;
 exports.addRandomKeyTask = addRandomKeyTask;
 exports.remove = remove;

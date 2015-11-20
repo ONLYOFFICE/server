@@ -29,6 +29,9 @@ exports.spawn = function(generatorFunc) {
 exports.addSeconds = function(date, sec) {
   date.setSeconds(date.getSeconds() + sec);
 };
+exports.getMillisecondsOfHour = function(date) {
+  return (date.getUTCMinutes() * 60 +  date.getUTCSeconds()) * 1000 + date.getUTCMilliseconds();
+};
 exports.encodeXml = function(value) {
   return value.replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
