@@ -404,11 +404,13 @@ function getParticipantUser(docId, includeUserId) {
     return el.docId === docId && el.user.id === includeUserId;
   });
 }
-function* hasEditors(docId) {
+function* hasEditors(docId, optEditors) {
   var elem, hasEditors = false;
-  var hRes = yield utils.promiseRedis(redisClient, redisClient.hvals, redisKeyEditors + docId);
-  for (var i = 0; i < hRes.length; ++i) {
-    elem = JSON.parse(hRes[i]);
+  if (!optEditors) {
+    optEditors = yield utils.promiseRedis(redisClient, redisClient.hvals, redisKeyEditors + docId);
+  }
+  for (var i = 0; i < optEditors.length; ++i) {
+    elem = JSON.parse(optEditors[i]);
     if(!elem.view) {
       hasEditors = true;
       break;
@@ -871,11 +873,14 @@ exports.install = function(server, callbackFunction) {
         yield utils.promiseRedis(redisClient, redisClient.del, redisKeySaveLock + docId);
       }
 
-      yield utils.promiseRedis(redisClient, redisClient.hdel, redisKeyEditors + docId, tmpUser.id);
-
       // Только если редактируем
       if (false === conn.isViewer) {
-        bHasEditors = yield* hasEditors(docId);
+        var multi = redisClient.multi([
+          ['hdel', redisKeyEditors + docId, tmpUser.id],
+          ['hvals', redisKeyEditors + docId]
+        ]);
+        var execRes = yield utils.promiseRedis(multi, multi.exec);
+        bHasEditors = yield* hasEditors(docId, execRes[1]);
         var puckerIndex = yield* getChangesIndex(docId);
         bHasChanges = puckerIndex > 0;
 
@@ -907,6 +912,8 @@ exports.install = function(server, callbackFunction) {
 
         // Для данного пользователя снимаем Lock с документа
         yield* checkEndAuthLock(false, docId, conn.user.id, null);
+      } else {
+        yield utils.promiseRedis(redisClient, redisClient.hdel, redisKeyEditors + docId, tmpUser.id);
       }
     }
   }
