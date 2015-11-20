@@ -26,22 +26,22 @@ function TaskResultData() {
   this.title = null;
 }
 TaskResultData.prototype.completeDefaults = function() {
-  if (null === this.key) {
+  if (!this.key) {
     this.key = '';
   }
-  if (null === this.format) {
+  if (!this.format) {
     this.format = '';
   }
-  if (null === this.status) {
+  if (!this.status) {
     this.status = FileStatus.None;
   }
-  if (null === this.statusInfo) {
+  if (!this.statusInfo) {
     this.statusInfo = constants.NO_ERROR;
   }
-  if (null === this.lastOpenDate) {
+  if (!this.lastOpenDate) {
     this.lastOpenDate = new Date();
   }
-  if (null === this.title) {
+  if (!this.title) {
     this.title = '';
   }
 };
