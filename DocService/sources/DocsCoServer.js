@@ -101,7 +101,8 @@ var PublishType = {
   changes : 5,
   auth : 6,
   receiveTask : 7,
-  warning: 8
+  warning: 8,
+  cursor: 9
 };
 
 var EditorTypes = {
@@ -382,6 +383,9 @@ function sendDataWarning(conn, msg) {
 }
 function sendDataMessage(conn, msg) {
   sendData(conn, {type: "message", messages: msg});
+}
+function sendDataCursor(conn, msg) {
+  sendData(conn, {type: "cursor", messages: msg});
 }
 function sendReleaseLock(conn, userLocks) {
   sendData(conn, {type: "releaseLock", locks: _.map(userLocks, function(e) {
@@ -775,6 +779,9 @@ exports.install = function(server, callbackFunction) {
             break;
           case 'message'        :
             yield* onMessage(conn, data);
+            break;
+          case 'cursor'        :
+            yield* onCursor(conn, data);
             break;
           case 'getLock'        :
             yield* getLock(conn, data, false);
@@ -1429,6 +1436,17 @@ exports.install = function(server, callbackFunction) {
     yield* publish({type: PublishType.message, docId: docId, userId: userId, messages: messages}, docId, userId);
   }
 
+  function* onCursor(conn, data) {
+    var docId = conn.docId;
+    var userId = conn.user.id;
+    var msg = {cursor: data.cursor, time: Date.now(), user: userId, username: conn.user.name};
+
+    logger.info("send cursor: docId = %s %s", docId, msg);
+
+    var messages = [msg];
+    yield* publish({type: PublishType.cursor, docId: docId, userId: userId, messages: messages}, docId, userId);
+  }
+
   function* getLock(conn, data, bIsRestore) {
     logger.info("getLock docid: %s", conn.docId);
     var fLock = null;
@@ -1936,6 +1954,12 @@ exports.install = function(server, callbackFunction) {
             participants = getParticipants(false, data.docId);
             _.each(participants, function(participant) {
               sendDataWarning(participant, data.description);
+            });
+            break;
+          case PublishType.cursor:
+            participants = getParticipants(true, data.docId, data.userId);
+            _.each(participants, function(participant) {
+              sendDataCursor(participant, data.messages);
             });
             break;
         }

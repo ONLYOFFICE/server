@@ -16,7 +16,6 @@
     "pg": "4.4.0",
     "redis": "^0.12.1",
     "sockjs": "http://d2ettrnqo7v976.cloudfront.net/npm/sockjs-node/v0.3.15.14.tar.gz",
-    "underscore": "1.8.3",
-    "xml2js": "^0.4.12"
+    "underscore": "1.8.3"
   }
 }

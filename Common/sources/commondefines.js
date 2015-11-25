@@ -383,11 +383,6 @@ TaskQueueData.prototype = {
   }
 };
 
-function ErrorWithResult() {
-  this.errorCode = constants.NO_ERROR;
-  this.data = null;
-}
-
 function OutputSfcData() {
   this['key'] = undefined;
   this['status'] = undefined;
@@ -573,7 +568,6 @@ var c_oAscCodePageUtf8 = 46;//65001
 exports.TaskQueueData = TaskQueueData;
 exports.CMailMergeSendData = CMailMergeSendData;
 exports.InputCommand = InputCommand;
-exports.ErrorWithResult = ErrorWithResult;
 exports.OutputSfcData = OutputSfcData;
 exports.OutputMailMerge = OutputMailMerge;
 exports.c_oAscCsvDelimiter = c_oAscCsvDelimiter;
