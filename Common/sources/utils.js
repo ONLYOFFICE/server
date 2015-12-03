@@ -198,7 +198,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit) {
         if (response.statusCode == 200 && (!optLimit || body.length < optLimit)) {
           resolve(body);
         } else {
-          reject(new Error('Error downloadUrl:' + uri + '; statusCode:' + response.statusCode + ' ; contentLength:' + body.length));
+          reject(new Error('Error downloadUrl:' + uri + '; statusCode:' + response.statusCode + ' ; contentLength:' + body.length + ' ;body:\r\n' + body));
         }
       }
     })
