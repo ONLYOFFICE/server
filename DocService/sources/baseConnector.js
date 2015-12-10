@@ -145,7 +145,7 @@ function _insertChangesCallback (startIndex, objChanges, docId, index, user, cal
 	for (; i < l; ++i, ++index) {
 		sqlNextRow = "(" + baseConnector.sqlEscape(docId) + "," + baseConnector.sqlEscape(index) + ","
 			+ baseConnector.sqlEscape(user.id) + "," + baseConnector.sqlEscape(user.idOriginal) + ","
-			+ baseConnector.sqlEscape(user.name) + "," + baseConnector.sqlEscape(objChanges[i].change) + ","
+			+ baseConnector.sqlEscape(user.username) + "," + baseConnector.sqlEscape(objChanges[i].change) + ","
 			+ baseConnector.sqlEscape(_getDateTime(objChanges[i].time)) + ")";
 		lengthUtf8Row = _lengthInUtf8Bytes(sqlNextRow) + 1; // 1 - это на символ ',' или ';' в конце команды
 		if (i === startIndex) {

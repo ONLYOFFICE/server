@@ -118,7 +118,7 @@ var pubsub;
 var queue;
 var clientStatsD = statsDClient.getClient();
 
-var asc_coAuthV = '3.0.8';				// Версия сервера совместного редактирования
+var asc_coAuthV = '3.0.9';				// Версия сервера совместного редактирования
 
 function DocumentChanges(docId) {
   this.docId = docId;
@@ -400,7 +400,7 @@ function sendReleaseLock(conn, userLocks) {
 function getParticipants(excludeClosed, docId, excludeUserId, excludeViewer) {
   return _.filter(connections, function(el) {
     return el.isCloseCoAuthoring !== excludeClosed && el.docId === docId &&
-      el.user.id !== excludeUserId && el.isViewer !== excludeViewer;
+      el.user.id !== excludeUserId && el.user.view !== excludeViewer;
   });
 }
 function getParticipantUser(docId, includeUserId) {
@@ -799,7 +799,7 @@ exports.install = function(server, callbackFunction) {
             yield* getMessages(conn, data);
             break;
           case 'unLockDocument'    :
-            yield* checkEndAuthLock(data.isSave, docId, conn.user.id, null, conn);
+            yield* checkEndAuthLock(data.isSave, docId, conn.user.id, conn);
             break;
           case 'ping':
             yield utils.promiseRedis(redisClient, redisClient.zadd, redisKeyDocuments, new Date().getTime(), docId);
@@ -870,8 +870,7 @@ exports.install = function(server, callbackFunction) {
 
     var state = (false == reconnected) ? false : undefined;
     var tmpUser = conn.user;
-    yield* publish({type: PublishType.participantsState, docId: docId, userId: tmpUser.id, state: state,
-      username: tmpUser.name, indexUser: tmpUser.indexUser, view: conn.isViewer}, docId, tmpUser.id);
+    yield* publish({type: PublishType.participantsState, docId: docId, user: tmpUser, state: state}, docId, tmpUser.id);
 
     if (!reconnected) {
       // Для данного пользователя снимаем лок с сохранения
@@ -881,7 +880,7 @@ exports.install = function(server, callbackFunction) {
       }
 
       // Только если редактируем
-      if (false === conn.isViewer) {
+      if (false === tmpUser.view) {
         var multi = redisClient.multi([
           ['hdel', redisKeyEditors + docId, tmpUser.id],
           ['hvals', redisKeyEditors + docId]
@@ -918,7 +917,7 @@ exports.install = function(server, callbackFunction) {
         }
 
         // Для данного пользователя снимаем Lock с документа
-        yield* checkEndAuthLock(false, docId, conn.user.id, null);
+        yield* checkEndAuthLock(false, docId, conn.user.id);
       } else {
         yield utils.promiseRedis(redisClient, redisClient.hdel, redisKeyEditors + docId, tmpUser.id);
       }
@@ -983,20 +982,18 @@ exports.install = function(server, callbackFunction) {
     var participantsMap = [];
     var hvalsRes = yield utils.promiseRedis(redisClient, redisClient.hvals, redisKeyEditors + docId);
     for (var i = 0; i < hvalsRes.length; ++i) {
-      var elem = JSON.parse(hvalsRes[i]);
-      participantsMap.push({id: elem.id, username: elem.username, indexUser: elem.indexUser, view: elem.view});
+      participantsMap.push(JSON.parse(hvalsRes[i]));
     }
     return participantsMap;
   }
 
-  function* checkEndAuthLock(isSave, docId, userId, participants, currentConnection) {
+  function* checkEndAuthLock(isSave, docId, userId, currentConnection) {
     var result = false;
     var lockDocument = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyLockDoc + docId);
     if (lockDocument && userId === JSON.parse(lockDocument).id) {
       yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLockDoc + docId);
 
       var participantsMap = yield* getParticipantMap(docId);
-
       yield* publish({type: PublishType.auth, docId: docId, userId: userId, participantsMap: participantsMap}, docId, userId);
 
       result = true;
@@ -1019,10 +1016,7 @@ exports.install = function(server, callbackFunction) {
       sendData(participant, {
         type: "connectState",
         state: data.state,
-        id: data.userId,
-        username: data.username,
-        indexUser: data.indexUser,
-        view: data.view
+        user: data.user
       });
     });
   }
@@ -1226,10 +1220,10 @@ exports.install = function(server, callbackFunction) {
       conn.user = {
         id: curUserId,
         idOriginal: user.id,
-        name: user.name,
-        indexUser: curIndexUser
+        username: user.username,
+        indexUser: curIndexUser,
+        view: data.view
       };
-      conn.isViewer = data.isViewer;
       conn.editorType = data['editorType'];
 
       // Ситуация, когда пользователь уже отключен от совместного редактирования
@@ -1246,7 +1240,7 @@ exports.install = function(server, callbackFunction) {
       }
 
       // Очищаем таймер сохранения
-      if (false === data.isViewer && saveTimers[docId]) {
+      if (false === data.view && saveTimers[docId]) {
         clearTimeout(saveTimers[docId]);
       }
 
@@ -1320,8 +1314,7 @@ exports.install = function(server, callbackFunction) {
     connections.push(conn);
     var tmpUser = conn.user;
     var multi = redisClient.multi([
-      ['hset', redisKeyEditors + docId, tmpUser.id, JSON.stringify({id: tmpUser.id, idOriginal: tmpUser.idOriginal,
-        username: tmpUser.name, indexUser: tmpUser.indexUser, view: conn.isViewer})],
+      ['hset', redisKeyEditors + docId, tmpUser.id, JSON.stringify(tmpUser)],
       ['expire', redisKeyEditors + docId, cfgExpEditors]
     ]);
     yield utils.promiseRedis(multi, multi.exec);
@@ -1339,7 +1332,7 @@ exports.install = function(server, callbackFunction) {
     }
 
     // Отправляем на внешний callback только для тех, кто редактирует
-    if (!conn.isViewer) {
+    if (!tmpUser.view) {
       // Если пришла информация о ссылке для посылания информации, то добавляем
       if (documentCallbackUrl) {
         yield* bindEvents(docId, documentCallbackUrl, conn.baseUrl);
@@ -1348,7 +1341,7 @@ exports.install = function(server, callbackFunction) {
       }
     }
     var lockDocument = null;
-    if (!bIsRestore && 2 === countNoView && !conn.isViewer) {
+    if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
       // Ставим lock на документ
       var isLock = yield utils.promiseRedis(redisClient, redisClient.setnx,
           redisKeyLockDoc + docId, JSON.stringify(firstParticipantNoView));
@@ -1364,7 +1357,7 @@ exports.install = function(server, callbackFunction) {
       }
     }
 
-    if (lockDocument && !conn.isViewer) {
+    if (lockDocument && !tmpUser.view) {
       // Для view не ждем снятия lock-а
       var sendObject = {
         type: "waitAuth",
@@ -1379,8 +1372,7 @@ exports.install = function(server, callbackFunction) {
         yield* sendAuthInfo(objChangesDocument.arrChanges, objChangesDocument.getLength(), conn, participantsMap);
       }
     }
-    yield* publish({type: PublishType.participantsState, docId: docId, userId: tmpUser.id, state: true,
-      username: tmpUser.name, indexUser: tmpUser.indexUser, view: conn.isViewer}, docId, tmpUser.id);
+    yield* publish({type: PublishType.participantsState, docId: docId, user: tmpUser, state: true}, docId, tmpUser.id);
   }
 
   function* sendAuthInfo(objChangesDocument, changesIndex, conn, participantsMap) {
@@ -1421,7 +1413,7 @@ exports.install = function(server, callbackFunction) {
   function* onMessage(conn, data) {
     var docId = conn.docId;
     var userId = conn.user.id;
-    var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, username: conn.user.name};
+    var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, username: conn.user.username};
     var msgStr = JSON.stringify(msg);
     var multi = redisClient.multi([
       ['rpush', redisKeyMessage + docId, msgStr],
@@ -1439,7 +1431,7 @@ exports.install = function(server, callbackFunction) {
   function* onCursor(conn, data) {
     var docId = conn.docId;
     var userId = conn.user.id;
-    var msg = {cursor: data.cursor, time: Date.now(), user: userId, username: conn.user.name};
+    var msg = {cursor: data.cursor, time: Date.now(), user: userId, username: conn.user.username};
 
     logger.info("send cursor: docId = %s %s", docId, msg);
 
