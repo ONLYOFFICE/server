@@ -1431,7 +1431,7 @@ exports.install = function(server, callbackFunction) {
   function* onCursor(conn, data) {
     var docId = conn.docId;
     var userId = conn.user.id;
-    var msg = {cursor: data.cursor, time: Date.now(), user: userId, username: conn.user.username};
+    var msg = {cursor: data.cursor, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal};
 
     logger.info("send cursor: docId = %s %s", docId, msg);
 
