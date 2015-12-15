@@ -467,6 +467,7 @@ function sendServerRequest(docId, server, postData, onReplyCallback) {
   if (!server.host || !server.path) {
     return;
   }
+  //todo запрос через модуль request
   var postDataBuffer = new Buffer(postData, 'utf8');
   var options = {
     host: server.host,
@@ -496,12 +497,17 @@ function sendServerRequest(docId, server, postData, onReplyCallback) {
       logger.info('postData end: docId = %s', docId);
       if (onReplyCallback) {
         onReplyCallback(replyData);
+        onReplyCallback = null;
       }
     });
   });
 
   req.on('error', function(e) {
     logger.warn('postData error: docId = %s %s', docId, e.message);
+    if (onReplyCallback) {
+      onReplyCallback(null);
+      onReplyCallback = null;
+    }
   });
 
   // write data to request body
