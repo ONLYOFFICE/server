@@ -384,12 +384,13 @@ function* ExecuteTask(task) {
   dataConvert.fileTo = path.join(tempDirs.result, task.getToFile());
   if (cmd.getUrl()) {
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + cmd.getFormat());
+    var uri = cmd.getUrl();
     try {
-      yield* downloadFile(cmd.getUrl(), dataConvert.fileFrom);
+      yield* downloadFile(uri, dataConvert.fileFrom);
       logger.debug('downloadFile(id=%s)', dataConvert.key);
     } catch (err) {
       error = constants.CONVERT_DOWNLOAD;
-      logger.error(err);
+      logger.error('error downloadFile:url=%s(id=%s)\r\n%s', uri, dataConvert.key, err.stack);
     }
     if(clientStatsD) {
       clientStatsD.timing('conv.downloadFile', new Date() - curDate);
