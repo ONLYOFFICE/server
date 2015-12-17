@@ -111,6 +111,8 @@
 		"converter": {
 			"maxDownloadBytes": 100000000,
 			"downloadTimeout": 120,
+			"downloadAttemptMaxCount": 3,
+			"downloadAttemptDelay": 1000,
 			"maxprocesscount": 1,
 			"fontDir": "null",
 			"presentationThemesDir": "null",

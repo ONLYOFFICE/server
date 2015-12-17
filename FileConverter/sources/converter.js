@@ -16,8 +16,10 @@ var baseConnector = require('./../../DocService/sources/baseConnector');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/' + config.get('queue.name'));
 
-var cfgMaxDownloadBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
+var cfgDownloadMaxBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
 var cfgDownloadTimeout = configConverter.has('downloadTimeout') ? configConverter.get('downloadTimeout') : 60;
+var cfgDownloadAttemptMaxCount = configConverter.has('downloadAttemptMaxCount') ? configConverter.get('downloadAttemptMaxCount') : 3;
+var cfgDownloadAttemptDelay = configConverter.has('downloadAttemptDelay') ? configConverter.get('downloadAttemptDelay') : 1000;
 var cfgFontDir = configConverter.get('fontDir');
 var cfgPresentationThemesDir = configConverter.get('presentationThemesDir');
 var cfgFilePath = configConverter.get('filePath');
@@ -118,9 +120,30 @@ function getTempDir() {
   fs.mkdirSync(resultDir);
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
-function* downloadFile(uri, fileFrom) {
-  var data = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout * 1000, cfgMaxDownloadBytes);
-  fs.writeFileSync(fileFrom, data);
+function* downloadFile(docId, uri, fileFrom) {
+  var res = false;
+  var data = null;
+  var downloadAttemptCount = 0;
+  while (downloadAttemptCount++ < cfgDownloadAttemptMaxCount) {
+    try {
+      data = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout * 1000, cfgDownloadMaxBytes);
+      res = true;
+    } catch (err) {
+      res = false;
+      logger.error('error downloadFile:url=%s;attempt=%d;(id=%s)\r\n%s', uri, downloadAttemptCount, docId, err.stack);
+      //not continue attempts if timeout
+      if (err.code === 'ETIMEDOUT') {
+        break;
+      } else {
+        yield utils.sleep(cfgDownloadAttemptDelay);
+      }
+    }
+  }
+  if (res) {
+    logger.debug('downloadFile complete(id=%s)', docId);
+    fs.writeFileSync(fileFrom, data);
+  }
+  return res;
 }
 function promiseGetChanges(key) {
   return new Promise(function(resolve, reject) {
@@ -384,13 +407,9 @@ function* ExecuteTask(task) {
   dataConvert.fileTo = path.join(tempDirs.result, task.getToFile());
   if (cmd.getUrl()) {
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + cmd.getFormat());
-    var uri = cmd.getUrl();
-    try {
-      yield* downloadFile(uri, dataConvert.fileFrom);
-      logger.debug('downloadFile(id=%s)', dataConvert.key);
-    } catch (err) {
+    var isDownload = yield* downloadFile(dataConvert.key, cmd.getUrl(), dataConvert.fileFrom);
+    if (!isDownload) {
       error = constants.CONVERT_DOWNLOAD;
-      logger.error('error downloadFile:url=%s(id=%s)\r\n%s', uri, dataConvert.key, err.stack);
     }
     if(clientStatsD) {
       clientStatsD.timing('conv.downloadFile', new Date() - curDate);
