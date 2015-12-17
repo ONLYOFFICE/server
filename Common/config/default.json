@@ -57,7 +57,8 @@
 				"limits_image_download_timeout": 120,
 				"editor_settings_spellchecker_url": "/spellchecker",
 				"default_license_file_path": "./../../",
-				"default_license_file_name": "./license.lic"
+				"default_license_file_name": "./license.lic",
+				"callbackRequestTimeout": 120
 			},
 			"utils": {
 				"utils_common_fontdir": "null",

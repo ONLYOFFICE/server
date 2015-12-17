@@ -185,6 +185,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit) {
       uri = encodeURI(uri);
     }
     var urlParsed = url.parse(uri);
+    //if you expect binary data, you should set encoding: null
     var options = {uri: urlParsed, encoding: null, timeout: optTimeout};
     if (urlParsed.protocol === 'https:') {
       //TODO: Check how to correct handle a ssl link
@@ -198,12 +199,40 @@ function downloadUrlPromise(uri, optTimeout, optLimit) {
         if (response.statusCode == 200 && (!optLimit || body.length < optLimit)) {
           resolve(body);
         } else {
-          reject(new Error('Error response: statusCode:' + response.statusCode + ' ; contentLength:' + body.length + ' ;body:\r\n' + body));
+          reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
         }
       }
     })
   });
 }
+function postRequestPromise(uri, postData, optTimeout) {
+  return new Promise(function(resolve, reject) {
+    //todo может стоит делать url.parse, а потом с каждой частью отдельно работать
+    //для ссылок с руссикими буквами приходит 404
+    if (!containsAllAsciiNP(uri)) {
+      uri = encodeURI(uri);
+    }
+    var urlParsed = url.parse(uri);
+    var options = {uri: urlParsed, body: postData, encoding: 'utf8', headers: {'Content-Type': 'application/json'}, timeout: optTimeout};
+    if (urlParsed.protocol === 'https:') {
+      //TODO: Check how to correct handle a ssl link
+      urlParsed.rejectUnauthorized = false;
+      options.rejectUnauthorized = false;
+    }
+    request.post(options, function(err, response, body) {
+      if (err) {
+        reject(err);
+      } else {
+        if (200 == response.statusCode || 204 == response.statusCode) {
+          resolve(body);
+        } else {
+          reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
+        }
+      }
+    })
+  });
+}
+exports.postRequestPromise = postRequestPromise;
 exports.downloadUrlPromise = downloadUrlPromise;
 exports.mapAscServerErrorToOldError = function(error) {
   var res = -1;

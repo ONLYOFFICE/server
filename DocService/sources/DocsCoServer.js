@@ -63,6 +63,7 @@ var redis = require(config.get('redis.name'));
 var pubsubService = require('./' + config.get('pubsub.name'));
 var queueService = require('./../../Common/sources/' + configCommon.get('queue.name'));
 var cfgSpellcheckerUrl = config.get('server.editor_settings_spellchecker_url');
+var cfgCallbackRequestTimeout = config.get('server.callbackRequestTimeout');
 
 var cfgPubSubMaxChanges = config.get('pubsub.maxChanges');
 
@@ -463,63 +464,12 @@ function* getOriginalParticipantsId(docId) {
   return result;
 }
 
-function sendServerRequest(docId, server, postData, onReplyCallback) {
-  if (!server.host || !server.path) {
-    return;
-  }
-  //todo запрос через модуль request
-  var postDataBuffer = new Buffer(postData, 'utf8');
-  var options = {
-    host: server.host,
-    path: server.path,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': postDataBuffer.length
-    },
-    rejectUnauthorized: false
-  };
-  if (server.port) {
-    options.port = server.port;
-  }
-
-  var requestFunction = server.https ? https.request : http.request;
-
-  logger.info('postData: docId = %s %s', docId, postData);
-  var req = requestFunction(options, function(res) {
-    res.setEncoding('utf8');
-    var replyData = '';
-    res.on('data', function(chunk) {
-      logger.info('postData data: docId = %s %s', docId, chunk);
-      replyData += chunk;
-    });
-    res.on('end', function() {
-      logger.info('postData end: docId = %s', docId);
-      if (onReplyCallback) {
-        onReplyCallback(replyData);
-        onReplyCallback = null;
-      }
-    });
-  });
-
-  req.on('error', function(e) {
-    logger.warn('postData error: docId = %s %s', docId, e.message);
-    if (onReplyCallback) {
-      onReplyCallback(null);
-      onReplyCallback = null;
-    }
-  });
-
-  // write data to request body
-  req.write(postDataBuffer);
-  req.end();
-}
-function sendServerRequestPromise(docId, server, postData) {
-  return new Promise(function(resolve, reject) {
-    sendServerRequest(docId, server, postData, function(data) {
-      resolve(data);
-    });
-  });
+function* sendServerRequest(docId, uri, postData) {
+  var res = null;
+  logger.debug('postData request: docId = %s;url = %s;data = %s', docId, uri, postData);
+  var res = yield utils.postRequestPromise(uri, postData, cfgCallbackRequestTimeout * 1000);
+  logger.debug('postData response: docId = %s;data = %s', docId, res);
+  return res;
 }
 
 // Парсинг ссылки
@@ -638,7 +588,15 @@ function* sendStatusDocument(docId, bChangeBase, callback, baseUrl) {
   sendData.setKey(docId);
   sendData.setStatus(status);
   sendData.setUsers(participants);
-  var replyData = yield sendServerRequestPromise(docId, callback, JSON.stringify(sendData));
+  var uri = callback.href;
+  var replyData = null;
+  var postData = JSON.stringify(sendData);
+  try {
+    replyData = yield* sendServerRequest(docId, uri, postData);
+  } catch (err) {
+    replyData = null;
+    logger.error('postData error: docId = %s;url = %s;data = %s\r\n%s', docId, uri, postData, err.stack);
+  }
   yield* onReplySendStatusDocument(docId, replyData);
 }
 function* onReplySendStatusDocument(docId, replyData) {
@@ -746,7 +704,7 @@ exports.version = asc_coAuthV;
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.sendData = sendData;
 exports.parseUrl = parseUrl;
-exports.sendServerRequestPromise = sendServerRequestPromise;
+exports.sendServerRequest = sendServerRequest;
 exports.PublishType = PublishType;
 exports.publish = publish;
 exports.addTask = addTask;
