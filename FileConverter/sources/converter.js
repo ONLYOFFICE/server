@@ -124,7 +124,7 @@ function* downloadFile(docId, uri, fileFrom) {
   var res = false;
   var data = null;
   var downloadAttemptCount = 0;
-  while (downloadAttemptCount++ < cfgDownloadAttemptMaxCount) {
+  while (!res && downloadAttemptCount++ < cfgDownloadAttemptMaxCount) {
     try {
       data = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout * 1000, cfgDownloadMaxBytes);
       res = true;
