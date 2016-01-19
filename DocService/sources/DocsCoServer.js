@@ -1837,7 +1837,7 @@ exports.install = function(server, callbackFunction) {
             });
             break;
           case PublishType.participantsState:
-            participants = getParticipants(true, data.docId, data.userId);
+            participants = getParticipants(true, data.docId, data.user.id);
             sendParticipantsState(participants, data);
             break;
           case PublishType.message:
