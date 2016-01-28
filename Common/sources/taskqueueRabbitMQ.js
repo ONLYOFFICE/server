@@ -6,6 +6,7 @@ var utils = require('./utils');
 var constants = require('./constants');
 var rabbitMQCore = require('./rabbitMQCore');
 
+var cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
 var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
 var cfgRabbitQueueConvertTask = config.get('rabbitmq.queueconverttask');
 var cfgRabbitQueueConvertResponse = config.get('rabbitmq.queueconvertresponse');
@@ -135,6 +136,7 @@ TaskQueueRabbitMQ.prototype.addTask = function (task, priority) {
   //todo confirmation mode
   var t = this;
   return new Promise(function (resolve, reject) {
+    task.setVisibilityTimeout(cfgVisibilityTimeout);
     var content = new Buffer(JSON.stringify(task));
     if (null != t.channelConvertTask) {
       addTask(t, content, priority, function (err, ok) {

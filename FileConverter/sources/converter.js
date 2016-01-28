@@ -309,9 +309,13 @@ function* processUploadToStorageChunk(list, dir, storagePath) {
 function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
   var exitCode = 0;
   var exitSignal = null;
+  var errorCode = null;
   if(childRes) {
     exitCode = childRes.status;
     exitSignal = childRes.signal;
+    if (childRes.error) {
+      errorCode = childRes.error.code;
+    }
     if (childRes.stdout) {
       logger.debug('stdout (id=' + dataConvert.key + '):' + childRes.stdout.toString());
     }
@@ -323,6 +327,8 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
       error = constants.CONVERT_NEED_PARAMS;
     } else if (-constants.CONVERT_CORRUPTED == exitCode) {
       error = constants.CONVERT_CORRUPTED;
+    } else if('ETIMEDOUT' === errorCode) {
+      error = constants.CONVERT_TIMEOUT;
     } else {
       error = constants.CONVERT;
     }
@@ -441,7 +447,7 @@ function* ExecuteTask(task) {
         childArgs = [];
       }
       childArgs.push(paramsFile);
-      var waitMS = (task.getVisibilityTimeout() || 600) * 1000 - (new Date().getTime() - getTaskTime.getTime());
+      var waitMS = task.getVisibilityTimeout() * 1000 - (new Date().getTime() - getTaskTime.getTime());
       childRes = childProcess.spawnSync(cfgFilePath, childArgs, {timeout: waitMS});
     }
     if(clientStatsD) {
