@@ -11,6 +11,7 @@
             "server": {
                 "port": 8001,
                 "fonts_route": "office/sdk/Fonts/",
+                "sockjsUrl": "/office/vendor/sockjs/sockjs.min.js",
                 "editor_settings_spellchecker_url": "http://localhost:8080",
 				"static_content": [{
 					"name": "/OfficeWeb",

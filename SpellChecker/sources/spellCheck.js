@@ -2,7 +2,8 @@
 	nodehun = require('nodehun'),
     config = require('config').get('SpellChecker'),
 	logger = require('./../../Common/sources/logger'),
-	fs = require('fs');
+	fs = require('fs'),
+	cfgSockjsUrl = require('config').get('services.CoAuthoring.server.sockjsUrl');
 var arrDictionaries = {};
 
 (function() {
@@ -36,7 +37,7 @@ CheckDictionary(arrDictionaries[0x0409], 'color', 'calor');*/
  
 exports.install = function (server, callbackFunction) {
 	'use strict';
-	var sockjs_opts = {sockjs_url: './../../Common/sources/sockjs-0.3.min.js'},
+	var sockjs_opts = {sockjs_url: cfgSockjsUrl},
 		sockjs_echo = sockjs.createServer(sockjs_opts);
 
 	sockjs_echo.on('connection', function (conn) {

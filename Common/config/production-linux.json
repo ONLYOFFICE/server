@@ -14,7 +14,8 @@
 	"services": {
 		"CoAuthoring": {
 			"server": {
-			"default_license_file_path": "/var/www/onlyoffice/Data/"
+				"sockjsUrl": "/OfficeWeb/vendor/sockjs/sockjs.min.js",
+				"default_license_file_path": "/var/www/onlyoffice/Data/"
 			},
 			"utils": {
 				"utils_common_fontdir": "/usr/share/fonts"

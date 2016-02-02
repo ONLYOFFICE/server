@@ -82,6 +82,7 @@ var cfgExpDocuments = config.get('expire.documents');
 var cfgExpDocumentsCron = config.get('expire.documentsCron');
 var cfgExpFiles = config.get('expire.files');
 var cfgExpFilesCron = config.get('expire.filesCron');
+var cfgSockjsUrl = config.get('server.sockjsUrl');
 
 var redisKeyCallback = cfgRedisPrefix + 'callback:';
 var redisKeyUserIndex = cfgRedisPrefix + 'userindex:';
@@ -714,7 +715,7 @@ exports.getCallback = getCallback;
 exports.deleteCallback= deleteCallback;
 exports.install = function(server, callbackFunction) {
   'use strict';
-  var sockjs_opts = {sockjs_url: './../../Common/sources/sockjs-0.3.min.js'},
+  var sockjs_opts = {sockjs_url: cfgSockjsUrl},
     sockjs_echo = sockjs.createServer(sockjs_opts),
     saveTimers = {},// Таймеры сохранения, после выхода всех пользователей
     urlParse = new RegExp("^/doc/([" + constants.DOC_ID_PATTERN + "]*)/c.+", 'i');
