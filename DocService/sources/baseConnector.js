@@ -8,8 +8,7 @@ var baseConnector = (sqlDataBaseType.mySql === config.get('type')) ? require('./
 
 var tableChanges = config.get('tableChanges'),
 	tableCallbacks = config.get('tableCallbacks'),
-	tableResult = config.get('tableResult'),
-	tablePucker = config.get('tablePucker');
+	tableResult = config.get('tableResult');
 
 var g_oCriticalSection = {};
 var maxPacketSize = config.get('max_allowed_packet'); // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
@@ -27,16 +26,12 @@ function deleteFromTable (tableId, deleteCondition, callback) {
 	baseConnector.sqlQuery(sqlCommand, callback);
 }
 var c_oTableId = {
-	pucker		: 1,
 	callbacks	: 2,
 	changes		: 3
 };
 function getTableById (id) {
 	var res;
 	switch (id) {
-		case c_oTableId.pucker:
-			res = tablePucker;
-			break;
 		case c_oTableId.callbacks:
 			res = tableCallbacks;
 			break;
@@ -125,7 +120,7 @@ function _lengthInUtf8Bytes (s) {
 	return ~-encodeURI(s).split(/%..|./).length;
 }
 function _getDateTime2(oDate) {
-  return oDate.toISOString().slice(0, 23).replace('T', ' ');
+  return oDate.toISOString().slice(0, 19).replace('T', ' ');
 }
 function _getDateTime(nTime) {
 	var oDate = new Date(nTime);
@@ -225,9 +220,6 @@ exports.deleteCallbackPromise = function (docId) {
     });
   });
 };
-exports.deletePucker = function (docId) {
-	deleteFromTable(c_oTableId.pucker, "dp_key='" + docId + "'");
-};
 exports.getChangesIndex = function(docId, callback) {
   var table = getTableById(c_oTableId.changes);
   var sqlCommand = 'SELECT MAX(dc_change_id) as dc_change_id FROM ' + table + ' WHERE dc_key=' + baseConnector.sqlEscape(docId) + ';';
@@ -285,11 +277,6 @@ exports.checkStatusFilePromise = function (docId) {
 exports.updateStatusFile = function (docId) {
 	// Статус OK = 1
 	var sqlCommand = "UPDATE " + tableResult + " SET tr_status=1 WHERE tr_key='" + docId + "';";
-	baseConnector.sqlQuery(sqlCommand);
-};
-
-exports.updateIndexUser = function (docId, indexUser) {
-	var sqlCommand = "UPDATE " + tablePucker + " SET dp_indexUser=" + indexUser + " WHERE dp_key='" + docId + "' AND dp_indexUser<" + indexUser + ";";
 	baseConnector.sqlQuery(sqlCommand);
 };
 

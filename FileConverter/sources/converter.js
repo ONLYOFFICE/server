@@ -14,7 +14,7 @@ var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
 var baseConnector = require('./../../DocService/sources/baseConnector');
 var statsDClient = require('./../../Common/sources/statsdclient');
-var queueService = require('./../../Common/sources/' + config.get('queue.name'));
+var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 
 var cfgDownloadMaxBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
 var cfgDownloadTimeout = configConverter.has('downloadTimeout') ? configConverter.get('downloadTimeout') : 60;

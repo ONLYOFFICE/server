@@ -15,7 +15,6 @@
 		}
 	},
 	"queue": {
-		"name": "taskqueueRabbitMQ",
 		"visibilityTimeout": 300,
 		"retentionPeriod": 900
 	},
@@ -73,7 +72,6 @@
 				"tableChanges": "doc_changes",
 				"tableCallbacks": "doc_callbacks",
 				"tableResult": "task_result",
-				"tablePucker": "doc_pucker",
 				"dbHost": "localhost",
 				"dbPort": 3306,
 				"dbName": "onlyoffice",

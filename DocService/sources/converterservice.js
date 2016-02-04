@@ -77,11 +77,12 @@ exports.convert = function(req, res) {
       task.title = cmd.getTitle();
 
       var upsertRes = yield taskResult.upsert(task);
-      //var bCreate = (upsertRes.affectedRows == 1);
-      var bExist = (upsertRes.affectedRows > 1);
+      //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
+      //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
+      var bCreate = upsertRes.affectedRows == 1;
       var selectRes;
       var status;
-      if (bExist) {
+      if (!bCreate) {
         selectRes = yield taskResult.select(task);
         status = yield* getConvertStatus(cmd, selectRes, req);
       } else {
