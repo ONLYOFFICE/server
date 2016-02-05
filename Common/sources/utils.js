@@ -196,10 +196,17 @@ function downloadUrlPromise(uri, optTimeout, optLimit) {
       if (err) {
         reject(err);
       } else {
-        if (response.statusCode == 200 && (!optLimit || body.length < optLimit)) {
+        var correctSize = (!optLimit || body.length < optLimit);
+        if (response.statusCode == 200 && correctSize) {
           resolve(body);
         } else {
-          reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
+          if (!correctSize) {
+            var err = new Error('Error response: statusCode:' + response.statusCode + ' ;body.length:' + body.length);
+            err.code = 'EMSGSIZE';
+            reject(err);
+          } else {
+            reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
+          }
         }
       }
     })
