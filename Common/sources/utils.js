@@ -201,9 +201,9 @@ function downloadUrlPromise(uri, optTimeout, optLimit) {
           resolve(body);
         } else {
           if (!correctSize) {
-            var err = new Error('Error response: statusCode:' + response.statusCode + ' ;body.length:' + body.length);
-            err.code = 'EMSGSIZE';
-            reject(err);
+            var e = new Error('Error response: statusCode:' + response.statusCode + ' ;body.length:' + body.length);
+            e.code = 'EMSGSIZE';
+            reject(e);
           } else {
             reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
           }
