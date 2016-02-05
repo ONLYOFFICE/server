@@ -6,13 +6,8 @@
 		"prefix": "ds."
 	},
 	"log": {
-		"appenders": [{
-			"type": "console"
-		}],
-		"replaceConsole": "true",
-		"levels": {
-			"nodeJS": "Debug"
-		}
+		"filePath": "",
+		"options": { "reloadSecs": 60 }
 	},
 	"queue": {
 		"visibilityTimeout": 300,

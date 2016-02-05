@@ -1,4 +1,7 @@
 ﻿{
+	"log": {
+		"filePath": "../../Common/config/log4js/development.json"
+	},
   "storage": {
     "name": "storage-fs",
     "fs": {
