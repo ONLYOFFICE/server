@@ -155,6 +155,12 @@ var c_oAscChangeBase = {
   All: 2
 };
 
+var c_oAscUserAction = {
+  AllIn: 0,
+  In: 1,
+  Out: 2
+};
+
 var c_oAscServerCommandErrors = {
   NoError: 0,
   DocumentIdError: 1,
@@ -212,6 +218,11 @@ var c_oAscLockTypeElemPresentation = {
   Slide: 2,
   Presentation: 3
 };
+
+function CUserAction(type, userId){
+  this.type = type;
+  this.userId = userId;
+}
 
 function CRecalcIndexElement(recalcType, position, bIsSaveIndex) {
   if (!(this instanceof CRecalcIndexElement)) {
@@ -462,7 +473,6 @@ function* getOriginalParticipantsId(docId) {
 }
 
 function* sendServerRequest(docId, uri, postData) {
-  var res = null;
   logger.debug('postData request: docId = %s;url = %s;data = %s', docId, uri, postData);
   var res = yield utils.postRequestPromise(uri, postData, cfgCallbackRequestTimeout * 1000);
   logger.debug('postData response: docId = %s;data = %s', docId, res);
@@ -551,7 +561,7 @@ function* getChangesIndex(docId) {
  * @param callback
  * @param baseUrl
  */
-function* sendStatusDocument(docId, bChangeBase, callback, baseUrl) {
+function* sendStatusDocument(docId, bChangeBase, userAction, callback, baseUrl) {
   if (!callback) {
     var getRes = yield* getCallback(docId);
     if(getRes) {
@@ -584,7 +594,18 @@ function* sendStatusDocument(docId, bChangeBase, callback, baseUrl) {
   var sendData = new commonDefines.OutputSfcData();
   sendData.setKey(docId);
   sendData.setStatus(status);
-  sendData.setUsers(participants);
+  if(c_oAscServerStatus.Closed !== status){
+    sendData.setUsers(participants);
+  }
+  if (userAction) {
+    if (c_oAscUserAction.AllIn === userAction.type) {
+      sendData.setUsersIn(participants);
+    } else if (c_oAscUserAction.In === userAction.type) {
+      sendData.setUsersIn([userAction.userId]);
+    } else if (c_oAscUserAction.Out === userAction.type) {
+      sendData.setUsersOut([userAction.userId]);
+    }
+  }
   var uri = callback.href;
   var replyData = null;
   var postData = JSON.stringify(sendData);
@@ -668,7 +689,7 @@ function* bindEvents(docId, callback, baseUrl) {
     }
     bChangeBase = c_oAscChangeBase.All;
   }
-  yield* sendStatusDocument(docId, bChangeBase, oCallbackUrl, baseUrl);
+  yield* sendStatusDocument(docId, bChangeBase, new CUserAction(c_oAscUserAction.AllIn, null), oCallbackUrl, baseUrl);
 }
 
 // Удаляем изменения из памяти (используется только с основного сервера, для очистки!)
@@ -694,7 +715,7 @@ function* cleanDocumentOnExitNoChanges(docId) {
   yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + docId, redisKeyEditors + docId,
       redisKeyMessage + docId, redisKeyUserIndex + docId, redisKeyChangeIndex + docId);
   // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
-  yield* sendStatusDocument(docId, c_oAscChangeBase.All);
+  yield* sendStatusDocument(docId, c_oAscChangeBase.All, null);
 }
 
 exports.version = asc_coAuthV;
@@ -865,7 +886,7 @@ exports.install = function(server, callbackFunction) {
             yield* cleanDocumentOnExitNoChanges(docId);
           }
         } else {
-          yield* sendStatusDocument(docId, c_oAscChangeBase.No);
+          yield* sendStatusDocument(docId, c_oAscChangeBase.No, new CUserAction(c_oAscUserAction.Out, tmpUser.idOriginal));
         }
 
         //Давайдосвиданья!
@@ -1298,7 +1319,7 @@ exports.install = function(server, callbackFunction) {
       if (documentCallbackUrl) {
         yield* bindEvents(docId, documentCallbackUrl, conn.baseUrl);
       } else {
-        yield* sendStatusDocument(docId, c_oAscChangeBase.No);
+        yield* sendStatusDocument(docId, c_oAscChangeBase.No, new CUserAction(c_oAscUserAction.In, tmpUser.idOriginal));
       }
     }
     var lockDocument = null;

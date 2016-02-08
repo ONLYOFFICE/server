@@ -390,6 +390,8 @@ function OutputSfcData() {
   this['changesurl'] = undefined;
   this['changeshistory'] = undefined;
   this['users'] = [];
+  this['usersIn'] = [];
+  this['usersOut'] = [];
   this['mailMerge'] = undefined;
 }
 OutputSfcData.prototype.getKey = function() {
@@ -433,6 +435,18 @@ OutputSfcData.prototype.getMailMerge = function() {
 };
 OutputSfcData.prototype.setMailMerge = function(data) {
   return this['mailMerge'] = data;
+};
+OutputSfcData.prototype.getUsersIn = function() {
+  return this['usersIn'];
+};
+OutputSfcData.prototype.setUsersIn = function(data) {
+  return this['usersIn'] = data;
+};
+OutputSfcData.prototype.getUsersOut = function() {
+  return this['usersOut'];
+};
+OutputSfcData.prototype.setUsersOut = function(data) {
+  return this['usersOut'] = data;
 };
 function OutputMailMerge(mailMergeSendData) {
   if (mailMergeSendData) {
