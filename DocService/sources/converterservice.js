@@ -90,23 +90,22 @@ exports.convert = function(req, res) {
         queueData.setCmd(cmd);
         queueData.setToFile(cmd.getTitle());
         yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
-        //wait
-        if (!async) {
-          var waitTime = 0;
-          while (true) {
-            yield utils.sleep(CONVERT_ASYNC_DELAY);
-            selectRes = yield taskResult.select(task);
-            status = yield* getConvertStatus(cmd, selectRes, req);
-            waitTime += CONVERT_ASYNC_DELAY;
-            if (waitTime > CONVERT_TIMEOUT) {
-              status.err = constants.CONVERT_TIMEOUT;
-            }
-            if (status.url || constants.NO_ERROR != status.err) {
-              break;
-            }
+        status = {url: undefined, err: constants.NO_ERROR};
+      }
+      //wait
+      if (!async) {
+        var waitTime = 0;
+        while (true) {
+          if (status.url || constants.NO_ERROR != status.err) {
+            break;
           }
-        } else {
-          status = {url: undefined, percent: 0, err: constants.NO_ERROR};
+          yield utils.sleep(CONVERT_ASYNC_DELAY);
+          selectRes = yield taskResult.select(task);
+          status = yield* getConvertStatus(cmd, selectRes, req);
+          waitTime += CONVERT_ASYNC_DELAY;
+          if (waitTime > CONVERT_TIMEOUT) {
+            status.err = constants.CONVERT_TIMEOUT;
+          }
         }
       }
       utils.fillXmlResponse(res, status.url, status.err);
