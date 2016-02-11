@@ -54,6 +54,7 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var config = require('config').get('services.CoAuthoring');
 var sqlBase = require('./baseConnector');
 var canvasService = require('./canvasservice');
+var converterService = require('./converterservice');
 var checkExpire = require('./checkexpire');
 var redis = require(config.get('redis.name'));
 var pubsubService = require('./' + config.get('pubsub.name'));
@@ -146,7 +147,9 @@ var c_oAscServerStatus = {
   MustSave: 2,
   Corrupted: 3,
   Closed: 4,
-  MailMerge: 5
+  MailMerge: 5,
+  MustSaveIntermediate: 6,
+  CorruptedIntermediate: 7
 };
 
 var c_oAscChangeBase = {
@@ -1989,6 +1992,12 @@ exports.commandFromServer = function (req, res) {
           case 'saved':
             // Результат от менеджера документов о статусе обработки сохранения файла после сборки
             yield* removeChanges(docId, '1' !== query.status, '1' === query.conv);
+            break;
+          case 'saveintermediate':
+            var status = yield* converterService.convertFromChanges(docId, utils.getBaseUrlByRequest(req));
+            if (constants.NO_ERROR !== status.err) {
+              result = c_oAscServerCommandErrors.CommandError;
+            }
             break;
           default:
             result = c_oAscServerCommandErrors.CommandError;

@@ -301,7 +301,7 @@ exports.mapAscServerErrorToOldError = function(error) {
 };
 exports.fillXmlResponse = function(res, uri, error) {
   var xml = '<?xml version="1.0" encoding="utf-8"?><FileResult>';
-  if (error) {
+  if (constants.NO_ERROR != error) {
     xml += '<Error>' + exports.encodeXml(exports.mapAscServerErrorToOldError(error).toString()) + '</Error>';
   } else {
     if (uri) {
