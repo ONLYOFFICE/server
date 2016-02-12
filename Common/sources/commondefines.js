@@ -29,6 +29,7 @@ function InputCommand(data) {
     this['savekey'] = data['savekey'];
     this['userconnectionid'] = data['userconnectionid'];
     this['docconnectionid'] = data['docconnectionid'];
+    this['doctparams'] = data['doctparams'];
   } else {
     this['c'] = undefined;//string command
     this['id'] = undefined;//string document id
@@ -57,6 +58,7 @@ function InputCommand(data) {
     this['savekey'] = undefined;//int document id to save
     this['userconnectionid'] = undefined;//string internal
     this['docconnectionid'] = undefined;//string internal
+    this['doctparams'] = undefined;//int doctRenderer
   }
 }
 InputCommand.prototype = {
@@ -197,6 +199,12 @@ InputCommand.prototype = {
   },
   setDocConnectionId: function(data) {
     this['docconnectionid'] = data;
+  },
+  getDoctParams: function() {
+    return this['doctparams'];
+  },
+  setDoctParams: function(data) {
+    this['doctparams'] = data;
   }
 };
 

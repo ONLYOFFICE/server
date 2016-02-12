@@ -49,6 +49,7 @@ function TaskQueueDataConvert(task) {
   this.fontDir = path.resolve(cfgFontDir);
   this.themeDir = path.resolve(cfgPresentationThemesDir);
   this.mailMergeSend = cmd.mailmergesend;
+  this.doctParams = cmd.getDoctParams();
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
@@ -70,6 +71,7 @@ TaskQueueDataConvert.prototype = {
     if (this.mailMergeSend) {
       xml += this.serializeMailMerge(this.mailMergeSend);
     }
+    xml += this.serializeXmlProp('m_nDoctParams', this.doctParams);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});

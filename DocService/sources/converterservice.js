@@ -133,6 +133,7 @@ function convertRequest(req, res) {
       cmd.setOutputFormat(formatChecker.getFormatFromString(outputtype));
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[req.query['codePage']] || commonDefines.c_oAscCodePageUtf8);
       cmd.setDelimiter(req.query['delimiter'] || commonDefines.c_oAscCsvDelimiter.Comma);
+      cmd.setDoctParams(req.query['doctparams']);
       var async = 'true' == req.query['async'];
 
       var status = yield* convertByCmd(cmd, async, utils.getBaseUrlByRequest(req));
