@@ -1987,7 +1987,7 @@ exports.commandFromServer = function (req, res) {
             // Результат от менеджера документов о статусе обработки сохранения файла после сборки
             yield* removeChanges(docId, '1' !== query.status, '1' === query.conv);
             break;
-          case 'saveintermediate':
+          case 'forcesave':
             var status = yield* converterService.convertFromChanges(docId, utils.getBaseUrlByRequest(req));
             if (constants.NO_ERROR !== status.err) {
               result = c_oAscServerCommandErrors.CommandError;
