@@ -205,6 +205,12 @@ InputCommand.prototype = {
   },
   setDoctParams: function(data) {
     this['doctparams'] = data;
+  },
+  getUserActionId: function() {
+    return this['useractionid'];
+  },
+  setUserActionId: function(data) {
+    this['useractionid'] = data;
   }
 };
 
@@ -398,8 +404,7 @@ function OutputSfcData() {
   this['changesurl'] = undefined;
   this['changeshistory'] = undefined;
   this['users'] = [];
-  this['usersIn'] = [];
-  this['usersOut'] = [];
+  this['actions'] = [];
   this['mailMerge'] = undefined;
 }
 OutputSfcData.prototype.getKey = function() {
@@ -444,17 +449,11 @@ OutputSfcData.prototype.getMailMerge = function() {
 OutputSfcData.prototype.setMailMerge = function(data) {
   return this['mailMerge'] = data;
 };
-OutputSfcData.prototype.getUsersIn = function() {
-  return this['usersIn'];
+OutputSfcData.prototype.getActions = function() {
+  return this['actions'];
 };
-OutputSfcData.prototype.setUsersIn = function(data) {
-  return this['usersIn'] = data;
-};
-OutputSfcData.prototype.getUsersOut = function() {
-  return this['usersOut'];
-};
-OutputSfcData.prototype.setUsersOut = function(data) {
-  return this['usersOut'] = data;
+OutputSfcData.prototype.setActions = function(data) {
+  return this['actions'] = data;
 };
 function OutputMailMerge(mailMergeSendData) {
   if (mailMergeSendData) {
@@ -503,7 +502,10 @@ OutputMailMerge.prototype.getTo = function() {
 OutputMailMerge.prototype.setTo = function(data) {
   return this['to'] = data;
 };
-
+function OutputAction(type, userid) {
+  this['type'] = type;
+  this['userid'] = userid;
+}
 var c_oAscCsvDelimiter = {
   None: 0,
   Tab: 1,
@@ -586,13 +588,20 @@ var c_oAscEncodings = [
 ];
 var c_oAscEncodingsMap = {"437": 43, "720": 1, "737": 21, "775": 5, "850": 39, "852": 15, "855": 12, "857": 35, "858": 40, "860": 41, "861": 30, "862": 25, "863": 42, "865": 31, "866": 13, "869": 22, "874": 32, "932": 27, "936": 18, "949": 28, "950": 17, "1200": 48, "1201": 49, "1250": 16, "1251": 14, "1252": 44, "1253": 23, "1254": 36, "1255": 26, "1256": 2, "1257": 6, "1258": 45, "10007": 11, "12000": 50, "12001": 51, "20866": 9, "21866": 10, "28591": 37, "28592": 19, "28593": 33, "28594": 3, "28595": 8, "28596": 0, "28597": 20, "28598": 24, "28599": 34, "28603": 4, "28604": 7, "28605": 38, "51949": 29, "65000": 47, "65001": 46}
 var c_oAscCodePageUtf8 = 46;//65001
+var c_oAscUserAction = {
+  Out: 0,
+  In: 1,
+  AllIn: 2
+};
 
 exports.TaskQueueData = TaskQueueData;
 exports.CMailMergeSendData = CMailMergeSendData;
 exports.InputCommand = InputCommand;
 exports.OutputSfcData = OutputSfcData;
 exports.OutputMailMerge = OutputMailMerge;
+exports.OutputAction = OutputAction;
 exports.c_oAscCsvDelimiter = c_oAscCsvDelimiter;
 exports.c_oAscEncodings = c_oAscEncodings;
 exports.c_oAscEncodingsMap = c_oAscEncodingsMap;
 exports.c_oAscCodePageUtf8 = c_oAscCodePageUtf8;
+exports.c_oAscUserAction = c_oAscUserAction;

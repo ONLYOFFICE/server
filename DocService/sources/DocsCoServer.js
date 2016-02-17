@@ -148,20 +148,14 @@ var c_oAscServerStatus = {
   Corrupted: 3,
   Closed: 4,
   MailMerge: 5,
-  MustSaveIntermediate: 6,
-  CorruptedIntermediate: 7
+  MustSaveForce: 6,
+  CorruptedForce: 7
 };
 
 var c_oAscChangeBase = {
   No: 0,
   Delete: 1,
   All: 2
-};
-
-var c_oAscUserAction = {
-  AllIn: 0,
-  In: 1,
-  Out: 2
 };
 
 var c_oAscServerCommandErrors = {
@@ -221,11 +215,6 @@ var c_oAscLockTypeElemPresentation = {
   Slide: 2,
   Presentation: 3
 };
-
-function CUserAction(type, userId){
-  this.type = type;
-  this.userId = userId;
-}
 
 function CRecalcIndexElement(recalcType, position, bIsSaveIndex) {
   if (!(this instanceof CRecalcIndexElement)) {
@@ -597,17 +586,19 @@ function* sendStatusDocument(docId, bChangeBase, userAction, callback, baseUrl) 
   var sendData = new commonDefines.OutputSfcData();
   sendData.setKey(docId);
   sendData.setStatus(status);
-  if(c_oAscServerStatus.Closed !== status){
-    sendData.setUsers(participants);
+  if(c_oAscServerStatus.Closed === status){
+    sendData.setUsers(undefined);
   }
   if (userAction) {
-    if (c_oAscUserAction.AllIn === userAction.type) {
-      sendData.setUsersIn(participants);
-    } else if (c_oAscUserAction.In === userAction.type) {
-      sendData.setUsersIn([userAction.userId]);
-    } else if (c_oAscUserAction.Out === userAction.type) {
-      sendData.setUsersOut([userAction.userId]);
+    var actions = [];
+    if (commonDefines.c_oAscUserAction.AllIn === userAction.type) {
+      for (var i = 0; i < participants.length; ++i) {
+        actions.push(new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, participants[i]));
+      }
+    } else {
+      actions.push(userAction);
     }
+    sendData.setActions(actions);
   }
   var uri = callback.href;
   var replyData = null;
@@ -692,7 +683,7 @@ function* bindEvents(docId, callback, baseUrl) {
     }
     bChangeBase = c_oAscChangeBase.All;
   }
-  yield* sendStatusDocument(docId, bChangeBase, new CUserAction(c_oAscUserAction.AllIn, null), oCallbackUrl, baseUrl);
+  yield* sendStatusDocument(docId, bChangeBase, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.AllIn, null), oCallbackUrl, baseUrl);
 }
 
 // Удаляем изменения из памяти (используется только с основного сервера, для очистки!)
@@ -714,11 +705,12 @@ function* removeChanges(id, isCorrupted, isConvertService) {
     logger.error('saved corrupted id = %s convert = %s', id, isConvertService);
   }
 }
-function* cleanDocumentOnExitNoChanges(docId) {
+function* cleanDocumentOnExitNoChanges(docId, opt_userId) {
   yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + docId, redisKeyEditors + docId,
       redisKeyMessage + docId, redisKeyUserIndex + docId, redisKeyChangeIndex + docId);
+  var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
-  yield* sendStatusDocument(docId, c_oAscChangeBase.All, null);
+  yield* sendStatusDocument(docId, c_oAscChangeBase.All, userAction);
 }
 
 exports.version = asc_coAuthV;
@@ -884,12 +876,12 @@ exports.install = function(server, callbackFunction) {
 
           // Send changes to save server
           if (bHasChanges) {
-            _createSaveTimer(docId);
+            _createSaveTimer(docId, tmpUser.idOriginal);
           } else {
-            yield* cleanDocumentOnExitNoChanges(docId);
+            yield* cleanDocumentOnExitNoChanges(docId, tmpUser.idOriginal);
           }
         } else {
-          yield* sendStatusDocument(docId, c_oAscChangeBase.No, new CUserAction(c_oAscUserAction.Out, tmpUser.idOriginal));
+          yield* sendStatusDocument(docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal));
         }
 
         //Давайдосвиданья!
@@ -1011,8 +1003,8 @@ exports.install = function(server, callbackFunction) {
     sendData(conn, {type: 'error', description: errorId});
   }
 
-  function sendChangesToServer(docId) {
-    canvasService.saveFromChanges(docId);
+  function sendChangesToServer(docId, opt_userId) {
+    canvasService.saveFromChanges(docId, null, opt_userId);
   }
 
   // Пересчет только для чужих Lock при сохранении на клиенте, который добавлял/удалял строки или столбцы
@@ -1322,7 +1314,7 @@ exports.install = function(server, callbackFunction) {
       if (documentCallbackUrl) {
         yield* bindEvents(docId, documentCallbackUrl, conn.baseUrl);
       } else {
-        yield* sendStatusDocument(docId, c_oAscChangeBase.No, new CUserAction(c_oAscUserAction.In, tmpUser.idOriginal));
+        yield* sendStatusDocument(docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal));
       }
     }
     var lockDocument = null;
@@ -1772,14 +1764,14 @@ exports.install = function(server, callbackFunction) {
     return {res: !isLock, documentLocks: documentLocks};
   }
 
-  function _createSaveTimer(docId) {
+  function _createSaveTimer(docId, opt_userId) {
     var oTimeoutFunction = function() {
       if (sqlBase.isLockCriticalSection(docId)) {
         saveTimers[docId] = setTimeout(oTimeoutFunction, c_oAscLockTimeOutDelay);
       }
       else {
         delete saveTimers[docId];
-        sendChangesToServer(docId);
+        sendChangesToServer(docId, opt_userId);
       }
     };
     saveTimers[docId] = setTimeout(oTimeoutFunction, c_oAscSaveTimeOutDelay);
