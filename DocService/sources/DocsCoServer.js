@@ -586,7 +586,9 @@ function* sendStatusDocument(docId, bChangeBase, userAction, callback, baseUrl) 
   var sendData = new commonDefines.OutputSfcData();
   sendData.setKey(docId);
   sendData.setStatus(status);
-  if(c_oAscServerStatus.Closed === status){
+  if(c_oAscServerStatus.Closed !== status){
+    sendData.setUsers(participants);
+  } else {
     sendData.setUsers(undefined);
   }
   if (userAction) {
