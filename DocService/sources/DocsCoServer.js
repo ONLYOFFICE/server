@@ -676,7 +676,7 @@ function dropUserFromDocument(docId, userId, description) {
 }
 
 // Подписка на эвенты:
-function* bindEvents(docId, callback, baseUrl) {
+function* bindEvents(docId, callback, baseUrl, opt_userAction) {
   // Подписка на эвенты:
   // - если пользователей нет и изменений нет, то отсылаем статус "закрыто" и в базу не добавляем
   // - если пользователей нет, а изменения есть, то отсылаем статус "редактируем" без пользователей, но добавляем в базу
@@ -693,7 +693,8 @@ function* bindEvents(docId, callback, baseUrl) {
     }
     bChangeBase = c_oAscChangeBase.All;
   }
-  yield* sendStatusDocument(docId, bChangeBase, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.AllIn, null), oCallbackUrl, baseUrl);
+  var userAction = opt_userAction ? opt_userAction : new commonDefines.OutputAction(commonDefines.c_oAscUserAction.AllIn, null);
+  yield* sendStatusDocument(docId, bChangeBase, userAction, oCallbackUrl, baseUrl);
 }
 
 // Удаляем изменения из памяти (используется только с основного сервера, для очистки!)
@@ -1321,11 +1322,12 @@ exports.install = function(server, callbackFunction) {
 
     // Отправляем на внешний callback только для тех, кто редактирует
     if (!tmpUser.view) {
+      var userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
       // Если пришла информация о ссылке для посылания информации, то добавляем
       if (documentCallbackUrl) {
-        yield* bindEvents(docId, documentCallbackUrl, conn.baseUrl);
+        yield* bindEvents(docId, documentCallbackUrl, conn.baseUrl, userAction);
       } else {
-        yield* sendStatusDocument(docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal));
+        yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction);
       }
     }
     var lockDocument = null;

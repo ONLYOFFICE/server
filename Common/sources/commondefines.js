@@ -30,6 +30,7 @@ function InputCommand(data) {
     this['userconnectionid'] = data['userconnectionid'];
     this['docconnectionid'] = data['docconnectionid'];
     this['doctparams'] = data['doctparams'];
+    this['useractionid'] = data['useractionid'];
     this['lastsave'] = data['lastsave'];
   } else {
     this['c'] = undefined;//string command
@@ -60,6 +61,7 @@ function InputCommand(data) {
     this['userconnectionid'] = undefined;//string internal
     this['docconnectionid'] = undefined;//string internal
     this['doctparams'] = undefined;//int doctRenderer
+    this['useractionid'] = undefined;
     this['lastsave'] = undefined;//string key
   }
 }
