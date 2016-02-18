@@ -75,6 +75,8 @@ var cfgExpLocks = config.get('expire.locks');
 var cfgExpChangeIndex = config.get('expire.changeindex');
 var cfgExpLockDoc = config.get('expire.lockDoc');
 var cfgExpMessage = config.get('expire.message');
+var cfgExpLastSave = config.get('expire.lastsave');
+var cfgExpForceSave = config.get('expire.forcesave');
 var cfgExpDocuments = config.get('expire.documents');
 var cfgExpDocumentsCron = config.get('expire.documentsCron');
 var cfgExpFiles = config.get('expire.files');
@@ -90,6 +92,8 @@ var redisKeyChangeIndex = cfgRedisPrefix + 'changesindex:';
 var redisKeyLockDoc = cfgRedisPrefix + 'lockdocument:';
 var redisKeyMessage = cfgRedisPrefix + 'message:';
 var redisKeyDocuments = cfgRedisPrefix + 'documents:';
+var redisKeyLastSave = cfgRedisPrefix + 'lastsave:';
+var redisKeyForceSave = cfgRedisPrefix + 'forcesave:';
 
 var PublishType = {
   drop : 0,
@@ -162,7 +166,8 @@ var c_oAscServerCommandErrors = {
   NoError: 0,
   DocumentIdError: 1,
   ParseError: 2,
-  CommandError: 3
+  CommandError: 3,
+  NotModify: 4
 };
 
 var c_oAscSaveTimeOutDelay = 5000;	// Время ожидания для сохранения на сервере (для отработки F5 в браузере)
@@ -546,6 +551,9 @@ function* getChangesIndex(docId) {
   }
   return res;
 }
+function* setForceSave(docId, lastSave, savePathDoc) {
+  yield utils.promiseRedis(redisClient, redisClient.hset, redisKeyForceSave + docId, lastSave, savePathDoc);
+}
 /**
  * Отправка статуса, чтобы знать когда документ начал редактироваться, а когда закончился
  * @param docId
@@ -698,7 +706,7 @@ function* removeChanges(id, isCorrupted, isConvertService) {
 
   if (!isCorrupted) {
     // remove UserIndex, ChangeIndex from memory
-    yield utils.promiseRedis(redisClient, redisClient.del, redisKeyUserIndex + id, redisKeyChangeIndex + id);
+    yield utils.promiseRedis(redisClient, redisClient.del, redisKeyUserIndex + id, redisKeyChangeIndex + id, redisKeyForceSave + id, redisKeyLastSave + id);
     // Нужно удалить изменения из базы
     sqlBase.deleteChanges(id, null);
   } else {
@@ -709,7 +717,7 @@ function* removeChanges(id, isCorrupted, isConvertService) {
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId) {
   yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + docId, redisKeyEditors + docId,
-      redisKeyMessage + docId, redisKeyUserIndex + docId, redisKeyChangeIndex + docId);
+      redisKeyMessage + docId, redisKeyUserIndex + docId, redisKeyChangeIndex + docId, redisKeyForceSave + docId, redisKeyLastSave + docId);
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
   yield* sendStatusDocument(docId, c_oAscChangeBase.All, userAction);
@@ -727,6 +735,7 @@ exports.removeResponse = removeResponse;
 exports.hasEditors = hasEditors;
 exports.getCallback = getCallback;
 exports.deleteCallback= deleteCallback;
+exports.setForceSave= setForceSave;
 exports.install = function(server, callbackFunction) {
   'use strict';
   var sockjs_opts = {sockjs_url: cfgSockjsUrl},
@@ -1606,6 +1615,8 @@ exports.install = function(server, callbackFunction) {
       }
       // Автоматически снимаем lock сами и посылаем индекс для сохранения
       yield* unSaveLock(conn, changesIndex);
+      yield utils.promiseRedis(redisClient, redisClient.setex, redisKeyLastSave + docId, cfgExpLastSave, (new Date()).toISOString() + '_' + puckerIndex);
+
     } else {
       var changesToSend = arrNewDocumentChanges;
       if(changesToSend.length > cfgPubSubMaxChanges) {
@@ -1963,6 +1974,7 @@ exports.commandFromServer = function (req, res) {
   utils.spawn(function* () {
     var result = c_oAscServerCommandErrors.NoError;
     var docId = 'null';
+    var saveUrl = undefined;
     try {
       var query = req.query;
       // Ключ id-документа
@@ -1988,9 +2000,28 @@ exports.commandFromServer = function (req, res) {
             yield* removeChanges(docId, '1' !== query.status, '1' === query.conv);
             break;
           case 'forcesave':
-            var status = yield* converterService.convertFromChanges(docId, utils.getBaseUrlByRequest(req));
-            if (constants.NO_ERROR !== status.err) {
-              result = c_oAscServerCommandErrors.CommandError;
+            var lastSave = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyLastSave + docId);
+            if (lastSave) {
+              var baseUrl = utils.getBaseUrlByRequest(req);
+              var multi = redisClient.multi([
+                ['hsetnx', redisKeyForceSave + docId, lastSave, ""],
+                ['expire', redisKeyForceSave + docId, cfgExpForceSave]
+              ]);
+              var execRes = yield utils.promiseRedis(multi, multi.exec);
+              if (0 == execRes[0]) {
+                result = c_oAscServerCommandErrors.NotModify;
+                var hsetGet = yield utils.promiseRedis(redisClient, redisClient.hget, redisKeyForceSave + docId, lastSave);
+                if (hsetGet) {
+                  saveUrl = yield storage.getSignedUrl(baseUrl, hsetGet);
+                }
+              } else {
+                var status = yield* converterService.convertFromChanges(docId, baseUrl, lastSave);
+                if (constants.NO_ERROR !== status.err) {
+                  result = c_oAscServerCommandErrors.CommandError;
+                }
+              }
+            } else {
+              result = c_oAscServerCommandErrors.NotModify;
             }
             break;
           default:
@@ -2002,7 +2033,7 @@ exports.commandFromServer = function (req, res) {
       result = c_oAscServerCommandErrors.CommandError;
       logger.error('Error commandFromServer: docId = %s\r\n%s', docId, err.stack);
     } finally {
-      var output = JSON.stringify({'key': req.query.key, 'error': result});
+      var output = JSON.stringify({'key': req.query.key, 'error': result, 'saveUrl': saveUrl});
       logger.debug('End commandFromServer: docId = %s %s', docId, output);
       var outputBuffer = new Buffer(output, 'utf8');
       res.setHeader('Content-Type', 'application/json');

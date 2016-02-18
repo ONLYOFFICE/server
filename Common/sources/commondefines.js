@@ -30,6 +30,7 @@ function InputCommand(data) {
     this['userconnectionid'] = data['userconnectionid'];
     this['docconnectionid'] = data['docconnectionid'];
     this['doctparams'] = data['doctparams'];
+    this['lastsave'] = data['lastsave'];
   } else {
     this['c'] = undefined;//string command
     this['id'] = undefined;//string document id
@@ -59,6 +60,7 @@ function InputCommand(data) {
     this['userconnectionid'] = undefined;//string internal
     this['docconnectionid'] = undefined;//string internal
     this['doctparams'] = undefined;//int doctRenderer
+    this['lastsave'] = undefined;//string key
   }
 }
 InputCommand.prototype = {
@@ -211,6 +213,12 @@ InputCommand.prototype = {
   },
   setUserActionId: function(data) {
     this['useractionid'] = data;
+  },
+  getLastSave: function() {
+    return this['lastsave'];
+  },
+  setLastSave: function(data) {
+    this['lastsave'] = data;
   }
 };
 

@@ -94,6 +94,8 @@
 				"changeindex": 86400,
 				"lockDoc": 60,
 				"message": 86400,
+				"lastsave": 604800,
+				"forcesave": 604800,
 				"documents": 300,
 				"documentsCron": "0 */5 * * * *",
 				"files": 604800,

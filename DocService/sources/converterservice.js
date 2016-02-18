@@ -103,7 +103,7 @@ function* convertByCmd(cmd, async, baseUrl) {
   return status;
 }
 
-function* convertFromChanges(docId, baseUrl) {
+function* convertFromChanges(docId, baseUrl, lastSave) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
@@ -111,6 +111,7 @@ function* convertFromChanges(docId, baseUrl) {
   cmd.setEmbeddedFonts(false);
   cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
   cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Comma);
+  cmd.setLastSave(lastSave);
 
   yield* canvasService.commandSfctByCmd(cmd);
   return yield* convertByCmd(cmd, true, baseUrl);
