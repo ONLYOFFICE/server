@@ -27,7 +27,7 @@ xcopy /s/h/e/k/c/y/q "..\..\..\ServerComponents\DesktopEditor\ChromiumBasedEdito
 copy "..\..\..\AsyncServerComponents\Bin\Windows\x2t32.exe" "."
 
 powershell -Command "(gc ./DoctRenderer.config) -replace '../../OfficeWeb', '../../../OfficeWeb' | sc ./DoctRenderer.config"
-"..\..\..\ServerComponents\SDK\bin\AllFontsGen\windows_32.exe" "%~dp0\..\OfficeWeb\Fonts\native" "" "" "%~dp0\FileConverter\Bin\font_selection.bin"
+"..\..\..\ServerComponents\SDK\bin\AllFontsGen\windows_32.exe" "%windir%\Fonts" "%~dp0\..\OfficeWeb\Common\AllFonts.js" "%~dp0\..\OfficeWeb\Common\Images" "%~dp0\FileConverter\Bin\font_selection.bin"
 
 :ERROR
 :SUCCESS
