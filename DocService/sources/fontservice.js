@@ -136,23 +136,31 @@ function* initFontMapByFolder(fontDir, patterns) {
 function getJsContent(res, fileStream, fileSize, filename) {
   return new Promise(function(resolve, reject) {
     res.write(new Buffer('window["' + filename + '"] = "' + fileSize + ';', 'utf8'));
-    fileStream.pipe(base64.encode()).pipe(res, {end: false});
-    fileStream.on('end', function() {
+    var tmpStream = fileStream.pipe(base64.encode());
+    fileStream.on('error', function(e) {
+      reject(e);
+    });
+    tmpStream.pipe(res, {end: false});
+    tmpStream.on('end', function() {
       res.write(new Buffer('";', 'utf8'));
       resolve();
     });
-    fileStream.on('error', function(e) {
+    tmpStream.on('error', function(e) {
       reject(e);
     });
   });
 }
 function getObfuscateContent(res, fileStream, fileSize) {
   return new Promise(function(resolve, reject) {
-    fileStream.pipe(new OdttfProtocol(undefined, fileSize)).pipe(res, {end: false});
-    fileStream.on('end', function() {
+    var tmpStream = fileStream.pipe(new OdttfProtocol(undefined, fileSize));
+    fileStream.on('error', function(e) {
+      reject(e);
+    });
+    tmpStream.pipe(res, {end: false});
+    tmpStream.on('end', function() {
       resolve();
     });
-    fileStream.on('error', function(e) {
+    tmpStream.on('error', function(e) {
       reject(e);
     });
   });
