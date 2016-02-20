@@ -24,7 +24,8 @@
 		"converter": {
 			"fontDir": "/usr/share/fonts",
 			"presentationThemesDir": "/var/www/onlyoffice/documentserver/OfficeWeb/sdk/PowerPoint/themes",
-			"filePath": "/var/www/onlyoffice/documentserver/NodeJsProjects/FileConverter/Bin/x2t"
+			"filePath": "/var/www/onlyoffice/documentserver/NodeJsProjects/FileConverter/Bin/x2t",
+			"errorfiles": "error"
 		}
 	},
 	"FileStorage": {
