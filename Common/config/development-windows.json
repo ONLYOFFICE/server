@@ -32,7 +32,7 @@
 	},
     "FileConverter": {
         "converter": {
-            "fontDir": "../../../OfficeWeb/Fonts/native",
+            "fontDir": "",
             "presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
             "filePath": "../../FileConverter/Bin/x2t32.exe"
         }
