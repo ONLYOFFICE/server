@@ -162,14 +162,6 @@ var c_oAscChangeBase = {
   All: 2
 };
 
-var c_oAscServerCommandErrors = {
-  NoError: 0,
-  DocumentIdError: 1,
-  ParseError: 2,
-  CommandError: 3,
-  NotModify: 4
-};
-
 var c_oAscSaveTimeOutDelay = 5000;	// Время ожидания для сохранения на сервере (для отработки F5 в браузере)
 var c_oAscLockTimeOutDelay = 500;	// Время ожидания для сохранения, когда зажата база данных
 
@@ -621,43 +613,32 @@ function* sendStatusDocument(docId, bChangeBase, userAction, callback, baseUrl) 
   }
   yield* onReplySendStatusDocument(docId, replyData);
 }
-function* onReplySendStatusDocument(docId, replyData) {
-  var res = false;
+function parseReplyData(docId, replyData) {
+  var res = null;
   if (replyData) {
-    var oData;
     try {
-      oData = JSON.parse(replyData);
+      res = JSON.parse(replyData);
     } catch (e) {
-      logger.error("error reply SendStatusDocument: docId = %s\r\n%s", docId, e.stack);
-      oData = null;
-    }
-
-    if (oData && c_oAscServerCommandErrors.NoError == oData.error) {
-      res = true;
+      logger.error("error parseReplyData: docId = %s; data = %s\r\n%s", docId, replyData, e.stack);
+      res = null;
     }
   }
-  if (!res) {
+  return res;
+}
+function* onReplySendStatusDocument(docId, replyData) {
+  var oData = parseReplyData(docId, replyData);
+  if (!(oData && commonDefines.c_oAscServerCommandErrors.NoError == oData.error)) {
     // Ошибка подписки на callback, посылаем warning
     yield* publish({type: PublishType.warning, docId: docId, description: 'Error on save server subscription!'});
   }
 }
 function* dropUsersFromDocument(docId, replyData) {
-  if (!replyData) {
-    return;
-  }
-  var oData, users;
-  try {
-    oData = JSON.parse(replyData);
-  } catch (e) {
-    logger.error("error reply SendStatusDocument: docId = %s\r\n%s", docId, e.stack);
-    oData = null;
-  }
-  if (!oData) {
-    return;
-  }
-  users = Array.isArray(oData) ? oData : oData.users;
-  if (Array.isArray(users)) {
-    yield* publish({type: PublishType.drop, docId: docId, users: users, description: ''});
+  var oData = parseReplyData(docId, replyData);
+  if (oData) {
+    users = Array.isArray(oData) ? oData : oData.users;
+    if (Array.isArray(users)) {
+      yield* publish({type: PublishType.drop, docId: docId, users: users, description: ''});
+    }
   }
 }
 
@@ -689,7 +670,7 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction) {
   } else {
     oCallbackUrl = parseUrl(callback);
     if (null === oCallbackUrl) {
-      return c_oAscServerCommandErrors.ParseError;
+      return commonDefines.c_oAscServerCommandErrors.ParseError;
     }
     bChangeBase = c_oAscChangeBase.All;
   }
@@ -697,28 +678,25 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction) {
   yield* sendStatusDocument(docId, bChangeBase, userAction, oCallbackUrl, baseUrl);
 }
 
-// Удаляем изменения из памяти (используется только с основного сервера, для очистки!)
-function* removeChanges(id, isCorrupted, isConvertService) {
-  logger.info('removeChanges: %s', id);
-  // remove locks, editors, messages from memory
-  yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + id, redisKeyEditors + id, redisKeyMessage + id);
-
-  yield* deleteCallback(id);
-
-  if (!isCorrupted) {
-    // remove UserIndex, ChangeIndex from memory
-    yield utils.promiseRedis(redisClient, redisClient.del, redisKeyUserIndex + id, redisKeyChangeIndex + id, redisKeyForceSave + id, redisKeyLastSave + id);
-    // Нужно удалить изменения из базы
-    sqlBase.deleteChanges(id, null);
-  } else {
-    // Обновим статус файла (т.к. ошибка, выставим, что не собиралось)
-    sqlBase.updateStatusFile(id);
-    logger.error('saved corrupted id = %s convert = %s', id, isConvertService);
+function* cleanDocumentOnExit(docId, deleteChanges, deleteUserIndex) {
+  //clean redis
+  var redisArgs = [redisClient, redisClient.del, redisKeyLocks + docId, redisKeyEditors + docId,
+      redisKeyMessage + docId, redisKeyChangeIndex + docId, redisKeyForceSave + docId, redisKeyLastSave + docId];
+  if (deleteUserIndex) {
+    redisArgs.push(redisKeyUserIndex + docId);
+  }
+  utils.promiseRedis.apply(this, redisArgs);
+  //remove callback
+  yield* deleteCallback(docId);
+  //remove changes
+  if (deleteChanges) {
+    sqlBase.deleteChanges(docId, null);
   }
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId) {
-  yield utils.promiseRedis(redisClient, redisClient.del, redisKeyLocks + docId, redisKeyEditors + docId,
-      redisKeyMessage + docId, redisKeyUserIndex + docId, redisKeyChangeIndex + docId, redisKeyForceSave + docId, redisKeyLastSave + docId);
+  //если пользователь зашел в документ, соединение порвалось, на сервере удалилась вся информация,
+  //при восстановлении соединения userIndex сохранится и он совпадет с userIndex следующего пользователя
+  yield* cleanDocumentOnExit(docId, false, false);
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
   yield* sendStatusDocument(docId, c_oAscChangeBase.All, userAction);
@@ -728,6 +706,7 @@ exports.version = asc_coAuthV;
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.sendData = sendData;
 exports.parseUrl = parseUrl;
+exports.parseReplyData = parseReplyData;
 exports.sendServerRequest = sendServerRequest;
 exports.PublishType = PublishType;
 exports.publish = publish;
@@ -735,7 +714,7 @@ exports.addTask = addTask;
 exports.removeResponse = removeResponse;
 exports.hasEditors = hasEditors;
 exports.getCallback = getCallback;
-exports.deleteCallback= deleteCallback;
+exports.cleanDocumentOnExit = cleanDocumentOnExit;
 exports.setForceSave= setForceSave;
 exports.install = function(server, callbackFunction) {
   'use strict';
@@ -1974,7 +1953,7 @@ exports.install = function(server, callbackFunction) {
 // Команда с сервера (в частности teamlab)
 exports.commandFromServer = function (req, res) {
   utils.spawn(function* () {
-    var result = c_oAscServerCommandErrors.NoError;
+    var result = commonDefines.c_oAscServerCommandErrors.NoError;
     var docId = 'null';
     var saveUrl = undefined;
     try {
@@ -1982,7 +1961,7 @@ exports.commandFromServer = function (req, res) {
       // Ключ id-документа
       docId = query.key;
       if (null == docId) {
-        result = c_oAscServerCommandErrors.DocumentIdError;
+        result = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
       } else {
         logger.debug('Start commandFromServer: docId = %s c = %s', docId, query.c);
         switch (query.c) {
@@ -1999,7 +1978,11 @@ exports.commandFromServer = function (req, res) {
             break;
           case 'saved':
             // Результат от менеджера документов о статусе обработки сохранения файла после сборки
-            yield* removeChanges(docId, '1' !== query.status, '1' === query.conv);
+            if ('1' !== query.status) {
+              logger.error('saved corrupted id = %s status = %s conv = %s', docId, query.status, query.conv);
+            } else {
+              logger.info('saved id = %s status = %s conv = %s', docId, query.status, query.conv);
+            }
             break;
           case 'forcesave':
             var lastSave = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyLastSave + docId);
@@ -2011,7 +1994,7 @@ exports.commandFromServer = function (req, res) {
               ]);
               var execRes = yield utils.promiseRedis(multi, multi.exec);
               if (0 == execRes[0]) {
-                result = c_oAscServerCommandErrors.NotModify;
+                result = commonDefines.c_oAscServerCommandErrors.NotModify;
                 var hsetGet = yield utils.promiseRedis(redisClient, redisClient.hget, redisKeyForceSave + docId, lastSave);
                 if (hsetGet) {
                   saveUrl = yield storage.getSignedUrl(baseUrl, hsetGet);
@@ -2019,20 +2002,20 @@ exports.commandFromServer = function (req, res) {
               } else {
                 var status = yield* converterService.convertFromChanges(docId, baseUrl, lastSave);
                 if (constants.NO_ERROR !== status.err) {
-                  result = c_oAscServerCommandErrors.CommandError;
+                  result = commonDefines.c_oAscServerCommandErrors.CommandError;
                 }
               }
             } else {
-              result = c_oAscServerCommandErrors.NotModify;
+              result = commonDefines.c_oAscServerCommandErrors.NotModify;
             }
             break;
           default:
-            result = c_oAscServerCommandErrors.CommandError;
+            result = commonDefines.c_oAscServerCommandErrors.CommandError;
             break;
         }
       }
     } catch (err) {
-      result = c_oAscServerCommandErrors.CommandError;
+      result = commonDefines.c_oAscServerCommandErrors.CommandError;
       logger.error('Error commandFromServer: docId = %s\r\n%s', docId, err.stack);
     } finally {
       var output = JSON.stringify({'key': req.query.key, 'error': result, 'saveUrl': saveUrl});

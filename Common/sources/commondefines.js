@@ -603,6 +603,13 @@ var c_oAscUserAction = {
   In: 1,
   AllIn: 2
 };
+var c_oAscServerCommandErrors = {
+  NoError: 0,
+  DocumentIdError: 1,
+  ParseError: 2,
+  CommandError: 3,
+  NotModify: 4
+};
 
 exports.TaskQueueData = TaskQueueData;
 exports.CMailMergeSendData = CMailMergeSendData;
@@ -615,3 +622,4 @@ exports.c_oAscEncodings = c_oAscEncodings;
 exports.c_oAscEncodingsMap = c_oAscEncodingsMap;
 exports.c_oAscCodePageUtf8 = c_oAscCodePageUtf8;
 exports.c_oAscUserAction = c_oAscUserAction;
+exports.c_oAscServerCommandErrors = c_oAscServerCommandErrors;
