@@ -694,12 +694,12 @@ function* cleanDocumentOnExit(docId, deleteChanges, deleteUserIndex) {
   }
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId) {
-  //если пользователь зашел в документ, соединение порвалось, на сервере удалилась вся информация,
-  //при восстановлении соединения userIndex сохранится и он совпадет с userIndex следующего пользователя
-  yield* cleanDocumentOnExit(docId, false, false);
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
   yield* sendStatusDocument(docId, c_oAscChangeBase.All, userAction);
+  //если пользователь зашел в документ, соединение порвалось, на сервере удалилась вся информация,
+  //при восстановлении соединения userIndex сохранится и он совпадет с userIndex следующего пользователя
+  yield* cleanDocumentOnExit(docId, false, false);
 }
 
 exports.version = asc_coAuthV;
