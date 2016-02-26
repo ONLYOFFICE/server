@@ -1955,7 +1955,6 @@ exports.commandFromServer = function (req, res) {
   utils.spawn(function* () {
     var result = commonDefines.c_oAscServerCommandErrors.NoError;
     var docId = 'null';
-    var saveUrl = undefined;
     try {
       var query = req.query;
       // Ключ id-документа
@@ -1985,6 +1984,7 @@ exports.commandFromServer = function (req, res) {
             }
             break;
           case 'forcesave':
+            //проверяем хеш состоящий из времени и индекса последнего изменения, если мы его не собирали, то запускаем сборку
             var lastSave = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyLastSave + docId);
             if (lastSave) {
               var baseUrl = utils.getBaseUrlByRequest(req);
@@ -1993,14 +1993,12 @@ exports.commandFromServer = function (req, res) {
                 ['expire', redisKeyForceSave + docId, cfgExpForceSave]
               ]);
               var execRes = yield utils.promiseRedis(multi, multi.exec);
+              //hsetnx 0 if field already exists
               if (0 == execRes[0]) {
                 result = commonDefines.c_oAscServerCommandErrors.NotModify;
-                var hsetGet = yield utils.promiseRedis(redisClient, redisClient.hget, redisKeyForceSave + docId, lastSave);
-                if (hsetGet) {
-                  saveUrl = yield storage.getSignedUrl(baseUrl, hsetGet);
-                }
               } else {
-                var status = yield* converterService.convertFromChanges(docId, baseUrl, lastSave);
+                //start new convert
+                var status = yield* converterService.convertFromChanges(docId, baseUrl, lastSave, query.userdata);
                 if (constants.NO_ERROR !== status.err) {
                   result = commonDefines.c_oAscServerCommandErrors.CommandError;
                 }
@@ -2018,7 +2016,7 @@ exports.commandFromServer = function (req, res) {
       result = commonDefines.c_oAscServerCommandErrors.CommandError;
       logger.error('Error commandFromServer: docId = %s\r\n%s', docId, err.stack);
     } finally {
-      var output = JSON.stringify({'key': req.query.key, 'error': result, 'saveUrl': saveUrl});
+      var output = JSON.stringify({'key': req.query.key, 'error': result});
       logger.debug('End commandFromServer: docId = %s %s', docId, output);
       var outputBuffer = new Buffer(output, 'utf8');
       res.setHeader('Content-Type', 'application/json');

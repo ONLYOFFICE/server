@@ -1,4 +1,4 @@
-var constants = require('./constants');
+﻿var constants = require('./constants');
 
 function InputCommand(data) {
   if (data) {
@@ -32,6 +32,7 @@ function InputCommand(data) {
     this['doctparams'] = data['doctparams'];
     this['useractionid'] = data['useractionid'];
     this['lastsave'] = data['lastsave'];
+    this['userdata'] = data['userdata'];
   } else {
     this['c'] = undefined;//string command
     this['id'] = undefined;//string document id
@@ -63,6 +64,7 @@ function InputCommand(data) {
     this['doctparams'] = undefined;//int doctRenderer
     this['useractionid'] = undefined;
     this['lastsave'] = undefined;//string key
+    this['userdata'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -221,6 +223,12 @@ InputCommand.prototype = {
   },
   setLastSave: function(data) {
     this['lastsave'] = data;
+  },
+  getUserData: function() {
+    return this['userdata'];
+  },
+  setUserData: function(data) {
+    this['userdata'] = data;
   }
 };
 
@@ -416,6 +424,7 @@ function OutputSfcData() {
   this['users'] = [];
   this['actions'] = [];
   this['mailMerge'] = undefined;
+  this['userdata'] = undefined;
 }
 OutputSfcData.prototype.getKey = function() {
   return this['key'];
@@ -464,6 +473,12 @@ OutputSfcData.prototype.getActions = function() {
 };
 OutputSfcData.prototype.setActions = function(data) {
   return this['actions'] = data;
+};
+OutputSfcData.prototype.getUserData= function() {
+  return this['userdata'];
+};
+OutputSfcData.prototype.setUserData = function(data) {
+  return this['userdata'] = data;
 };
 function OutputMailMerge(mailMergeSendData) {
   if (mailMergeSendData) {
