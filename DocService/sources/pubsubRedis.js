@@ -39,3 +39,4 @@ PubsubRedis.prototype.publish = function(data) {
 };
 
 module.exports = PubsubRedis;
+module.exports.createClientRedis = createClientRedis;

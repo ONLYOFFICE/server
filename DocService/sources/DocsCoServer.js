@@ -78,6 +78,7 @@ var cfgExpLockDoc = config.get('expire.lockDoc');
 var cfgExpMessage = config.get('expire.message');
 var cfgExpLastSave = config.get('expire.lastsave');
 var cfgExpForceSave = config.get('expire.forcesave');
+var cfgExpSaved = config.get('expire.saved');
 var cfgExpDocuments = config.get('expire.documents');
 var cfgExpDocumentsCron = config.get('expire.documentsCron');
 var cfgExpFiles = config.get('expire.files');
@@ -95,6 +96,7 @@ var redisKeyMessage = cfgRedisPrefix + 'message:';
 var redisKeyDocuments = cfgRedisPrefix + 'documents:';
 var redisKeyLastSave = cfgRedisPrefix + 'lastsave:';
 var redisKeyForceSave = cfgRedisPrefix + 'forcesave:';
+var redisKeySaved = cfgRedisPrefix + 'saved:';
 
 var PublishType = {
   drop : 0,
@@ -1992,6 +1994,8 @@ exports.commandFromServer = function (req, res) {
           case 'saved':
             // Результат от менеджера документов о статусе обработки сохранения файла после сборки
             if ('1' !== query.status) {
+              //запрос saved выполняется синхронно, поэтому заполняем переменную чтобы проверить ее после sendServerRequest
+              yield utils.promiseRedis(redisClient, redisClient.setex, redisKeySaved + docId, cfgExpSaved, query.status);
               logger.error('saved corrupted id = %s status = %s conv = %s', docId, query.status, query.conv);
             } else {
               logger.info('saved id = %s status = %s conv = %s', docId, query.status, query.conv);
