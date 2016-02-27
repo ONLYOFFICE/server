@@ -56,6 +56,7 @@ var sqlBase = require('./baseConnector');
 var canvasService = require('./canvasservice');
 var converterService = require('./converterservice');
 var checkExpire = require('./checkexpire');
+var taskResult = require('./taskresult');
 var redis = require(config.get('redis.name'));
 var pubsubService = require('./' + config.get('pubsub.name'));
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
@@ -720,7 +721,6 @@ exports.install = function(server, callbackFunction) {
   'use strict';
   var sockjs_opts = {sockjs_url: cfgSockjsUrl},
     sockjs_echo = sockjs.createServer(sockjs_opts),
-    saveTimers = {},// Таймеры сохранения, после выхода всех пользователей
     urlParse = new RegExp("^/doc/([" + constants.DOC_ID_PATTERN + "]*)/c.+", 'i');
 
   sockjs_echo.on('connection', function(conn) {
@@ -867,7 +867,7 @@ exports.install = function(server, callbackFunction) {
 
           // Send changes to save server
           if (bHasChanges) {
-            _createSaveTimer(docId, tmpUser.idOriginal);
+            yield* _createSaveTimer(docId, tmpUser.idOriginal);
           } else {
             yield* cleanDocumentOnExitNoChanges(docId, tmpUser.idOriginal);
           }
@@ -992,10 +992,6 @@ exports.install = function(server, callbackFunction) {
   function sendFileError(conn, errorId) {
     logger.error('error description: docId = %s errorId = %s', conn.docId, errorId);
     sendData(conn, {type: 'error', description: errorId});
-  }
-
-  function sendChangesToServer(docId, opt_userId) {
-    canvasService.saveFromChanges(docId, null, opt_userId);
   }
 
   // Пересчет только для чужих Lock при сохранении на клиенте, который добавлял/удалял строки или столбцы
@@ -1207,11 +1203,6 @@ exports.install = function(server, callbackFunction) {
         return;
       }
 
-      // Очищаем таймер сохранения
-      if (false === data.view && saveTimers[docId]) {
-        clearTimeout(saveTimers[docId]);
-      }
-
       //Set the unique ID
       if (bIsRestore) {
         logger.info("restored old session: docId = %s id = %s", docId, data.sessionId);
@@ -1226,7 +1217,19 @@ exports.install = function(server, callbackFunction) {
             // Все хорошо, статус обновлять не нужно
           } else if (FileStatus.SaveVersion === status) {
             // Обновим статус файла (идет сборка, нужно ее остановить)
-            sqlBase.updateStatusFile(docId);
+            var updateMask = new taskResult.TaskResultData();
+            updateMask.key = docId;
+            updateMask.status = status;
+            updateMask.statusInfo = result[0]['tr_status_info'];
+            var updateTask = new taskResult.TaskResultData();
+            updateTask.status = taskResult.FileStatus.Ok;
+            updateTask.statusInfo = constants.NO_ERROR;
+            var updateIfRes = yield taskResult.updateIf(updateTask, updateMask);
+            if (!(updateIfRes.affectedRows > 0)) {
+              // error version
+              sendFileError(conn, 'Update Version error');
+              return;
+            }
           } else if (FileStatus.UpdateVersion === status) {
             // error version
             sendFileError(conn, 'Update Version error');
@@ -1758,17 +1761,28 @@ exports.install = function(server, callbackFunction) {
     return {res: !isLock, documentLocks: documentLocks};
   }
 
-  function _createSaveTimer(docId, opt_userId) {
-    var oTimeoutFunction = function() {
-      if (sqlBase.isLockCriticalSection(docId)) {
-        saveTimers[docId] = setTimeout(oTimeoutFunction, c_oAscLockTimeOutDelay);
+  function* _createSaveTimer(docId, opt_userId) {
+    var updateMask = new taskResult.TaskResultData();
+    updateMask.key = docId;
+    updateMask.status = taskResult.FileStatus.Ok;
+    var updateTask = new taskResult.TaskResultData();
+    updateTask.status = taskResult.FileStatus.SaveVersion;
+    updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
+    var updateIfRes = yield taskResult.updateIf(updateTask, updateMask);
+    if (updateIfRes.affectedRows > 0) {
+      yield utils.sleep(c_oAscSaveTimeOutDelay);
+      while (true) {
+        if (!sqlBase.isLockCriticalSection(docId)) {
+          canvasService.saveFromChanges(docId, updateTask.statusInfo, null, opt_userId);
+          break;
+        }
+        yield utils.sleep(c_oAscLockTimeOutDelay);
       }
-      else {
-        delete saveTimers[docId];
-        sendChangesToServer(docId, opt_userId);
-      }
-    };
-    saveTimers[docId] = setTimeout(oTimeoutFunction, c_oAscSaveTimeOutDelay);
+    } else {
+      //если не получилось - значит FileStatus=SaveVersion(кто-то другой начал сборку) или UpdateVersion(сборка закончена)
+      //в этом случае ничего делать не надо
+      logger.debug('_createSaveTimer updateIf no effect');
+    }
   }
 
   sockjs_echo.installHandlers(server, {prefix: '/doc/['+constants.DOC_ID_PATTERN+']*/c', log: function(severity, message) {
@@ -1793,7 +1807,7 @@ exports.install = function(server, callbackFunction) {
             var puckerIndex = yield* getChangesIndex(docId);
             if (puckerIndex > 0) {
               logger.debug('checkDocumentExpire commit %d changes: docId = %s', puckerIndex, docId);
-              _createSaveTimer(docId);
+              yield* _createSaveTimer(docId);
             } else {
               logger.debug('checkDocumentExpire no changes: docId = %s', docId);
               yield* cleanDocumentOnExitNoChanges(docId);
