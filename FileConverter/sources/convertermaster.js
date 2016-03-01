@@ -1,16 +1,17 @@
-var cluster = require('cluster');
-var numCPUs = require('os').cpus().length;
-var logger = require('./../../Common/sources/logger');
-var config = require('config').get('FileConverter.converter');
-
-var cfgMaxProcessCount = config.get('maxprocesscount');
-
-var workersCount = Math.ceil(numCPUs * cfgMaxProcessCount);
+const cluster = require('cluster');
+const logger = require('./../../Common/sources/logger');
 
 if (cluster.isMaster) {
+  const numCPUs = require('os').cpus().length;
+  const config = require('config').get('FileConverter.converter');
+  const license = require('./../../Common/sources/license');
+
+  const cfgMaxProcessCount = config.get('maxprocesscount');
+  const workersCount = Math.min(license.readLicense(), Math.ceil(numCPUs * cfgMaxProcessCount));
+
   logger.warn('start cluster with %s workers', workersCount);
   for (var nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
-    var worker = cluster.fork().process;
+    const worker = cluster.fork().process;
     logger.warn('worker %s started.', worker.pid);
   }
 
@@ -19,7 +20,7 @@ if (cluster.isMaster) {
     cluster.fork();
   });
 } else {
-  var converter = require('./converter');
+  const converter = require('./converter');
   converter.run();
 }
 

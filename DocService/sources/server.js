@@ -1,18 +1,20 @@
-var cluster = require('cluster');
-var configCommon = require('config');
-var config = configCommon.get('services.CoAuthoring');
-var numCPUs = require('os').cpus().length;
+const cluster = require('cluster');
+const configCommon = require('config');
+const config = configCommon.get('services.CoAuthoring');
 //process.env.NODE_ENV = config.get('server.mode');
 
-var logger = require('./../../Common/sources/logger');
-
-var cfgWorkerPerCpu = config.get('server.workerpercpu');
-var workersCount = Math.ceil(numCPUs * cfgWorkerPerCpu);
+const logger = require('./../../Common/sources/logger');
 
 if (cluster.isMaster) {
+  const numCPUs = require('os').cpus().length;
+  const license = require('./../../Common/sources/license');
+
+  const cfgWorkerPerCpu = config.get('server.workerpercpu');
+  const workersCount = Math.min(license.readLicense(), Math.ceil(numCPUs * cfgWorkerPerCpu));
+
   logger.warn('start cluster with %s workers', workersCount);
   for (var nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
-    var worker = cluster.fork().process;
+    const worker = cluster.fork().process;
     logger.warn('worker %s started.', worker.pid);
   }
 
@@ -21,29 +23,29 @@ if (cluster.isMaster) {
     cluster.fork();
   });
 } else {
-  var express = require('express');
-  var http = require('http');
-  var https = require('https');
-  var fs = require("fs");
-  var urlModule = require('url');
-  var path = require('path');
-  var bodyParser = require("body-parser");
-  var mime = require('mime');
-  var docsCoServer = require('./DocsCoServer');
-  var canvasService = require('./canvasservice');
-  var converterService = require('./converterservice');
-  var fontService = require('./fontservice');
-  var fileUploaderService = require('./fileuploaderservice');
-  var constants = require('./../../Common/sources/constants');
-  var utils = require('./../../Common/sources/utils');
-  var configStorage = configCommon.get('storage');
-  var app = express();
+  const express = require('express');
+  const http = require('http');
+  const https = require('https');
+  const fs = require("fs");
+  const urlModule = require('url');
+  const path = require('path');
+  const bodyParser = require("body-parser");
+  const mime = require('mime');
+  const docsCoServer = require('./DocsCoServer');
+  const canvasService = require('./canvasservice');
+  const converterService = require('./converterservice');
+  const fontService = require('./fontservice');
+  const fileUploaderService = require('./fileuploaderservice');
+  const constants = require('./../../Common/sources/constants');
+  const utils = require('./../../Common/sources/utils');
+  const configStorage = configCommon.get('storage');
+  const app = express();
   var server = null;
 
   logger.warn('Express server starting...');
 
   if (config.has('ssl')) {
-    var configSSL = config.get('ssl');
+    const configSSL = config.get('ssl');
     var privateKey = fs.readFileSync(configSSL.get('key')).toString(), certificateKey = fs.readFileSync(configSSL.get('cert')).toString(), trustedCertificate = fs.readFileSync(configSSL.get('ca')).toString(), //See detailed options format here: http://nodejs.org/api/tls.html#tls_tls_createserver_options_secureconnectionlistener
       options = {key: privateKey, cert: certificateKey, ca: [trustedCertificate]};
 

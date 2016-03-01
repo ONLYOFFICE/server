@@ -105,6 +105,9 @@
 			}
 		}
 	},
+	"license" : {
+		"license_file": "./../../license.lic"
+	},
 	"FileConverter": {
 		"converter": {
 			"maxDownloadBytes": 100000000,
