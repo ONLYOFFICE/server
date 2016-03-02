@@ -1,19 +1,22 @@
 ﻿{
-	"services": {
-		"CoAuthoring": {
-			"utils": {
-				"utils_common_fontdir": "C:\\Windows\\Fonts",
-			}
-		}
-	},
-	"FileConverter": {
-		"converter": {
-			"fontDir": "C:\\Windows\\Fonts",
-			"presentationThemesDir": "../../../OfficeWeb/sdk/PowerPoint/themes",
-			"filePath": "../Bin/x2t.exe",
-		}
-	},
-	"FileStorage": {
-		"directory": "../App_Data"
-	}
+  "services": {
+    "CoAuthoring": {
+      "utils": {
+        "utils_common_fontdir": "C:\\Windows\\Fonts",
+      }
+    }
+  },
+  "FileConverter": {
+    "converter": {
+      "fontDir": "C:\\Windows\\Fonts",
+      "presentationThemesDir": "../../../OfficeWeb/sdk/PowerPoint/themes",
+      "filePath": "../Bin/x2t.exe"
+    }
+  },
+  "license": {
+    "license_file": "./../../license.lic"
+  },
+  "FileStorage": {
+    "directory": "../App_Data"
+  }
 }

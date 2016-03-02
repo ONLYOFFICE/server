@@ -1,34 +1,37 @@
 ﻿{
-	"log": {
-		"filePath": "/etc/onlyoffice/documentserver/log4js/production.json"
-	},
-	"storage": {
-		"name": "storage-fs",
-		"fs": {
-			"folderPath": "/var/lib/onlyoffice/documentserver/App_Data/cache/files",
-			"secretString": "onlyoffice"
-		}
-	},
-	"services": {
-		"CoAuthoring": {
-			"server": {
-				"sockjsUrl": "/OfficeWeb/vendor/sockjs/sockjs.min.js",
-				"default_license_file_path": "/var/www/onlyoffice/Data/"
-			},
-			"utils": {
-				"utils_common_fontdir": "/usr/share/fonts"
-			}
-		}
-	},
-	"FileConverter": {
-		"converter": {
-			"fontDir": "/usr/share/fonts",
-			"presentationThemesDir": "/var/www/onlyoffice/documentserver/OfficeWeb/sdk/PowerPoint/themes",
-			"filePath": "/var/www/onlyoffice/documentserver/NodeJsProjects/FileConverter/Bin/x2t",
-			"errorfiles": "error"
-		}
-	},
-	"FileStorage": {
-		"directory": "/var/lib/onlyoffice/documentserver/App_Data"
-	}
+  "log": {
+    "filePath": "/etc/onlyoffice/documentserver/log4js/production.json"
+  },
+  "storage": {
+    "name": "storage-fs",
+    "fs": {
+      "folderPath": "/var/lib/onlyoffice/documentserver/App_Data/cache/files",
+      "secretString": "onlyoffice"
+    }
+  },
+  "services": {
+    "CoAuthoring": {
+      "server": {
+        "sockjsUrl": "/OfficeWeb/vendor/sockjs/sockjs.min.js",
+        "default_license_file_path": "/var/www/onlyoffice/Data/"
+      },
+      "utils": {
+        "utils_common_fontdir": "/usr/share/fonts"
+      }
+    }
+  },
+  "license": {
+    "license_file": "/var/www/onlyoffice/Data/license.lic"
+  },
+  "FileConverter": {
+    "converter": {
+      "fontDir": "/usr/share/fonts",
+      "presentationThemesDir": "/var/www/onlyoffice/documentserver/OfficeWeb/sdk/PowerPoint/themes",
+      "filePath": "/var/www/onlyoffice/documentserver/NodeJsProjects/FileConverter/Bin/x2t",
+      "errorfiles": "error"
+    }
+  },
+  "FileStorage": {
+    "directory": "/var/lib/onlyoffice/documentserver/App_Data"
+  }
 }

@@ -1,41 +1,46 @@
 ﻿{
-	"log": {
-		"filePath": "../../Common/config/log4js/development.json"
-	},
+  "log": {
+    "filePath": "../../Common/config/log4js/development.json"
+  },
   "storage": {
     "name": "storage-fs",
     "fs": {
       "folderPath": "../../App_Data",
-	  "secretString": "onlyoffice"
+      "secretString": "onlyoffice"
     }
   },
-	"services": {
-		"CoAuthoring": {
-            "server": {
-                "port": 8001,
-                "fonts_route": "office/sdk/Fonts/",
-                "sockjsUrl": "/office/vendor/sockjs/sockjs.min.js",
-                "editor_settings_spellchecker_url": "http://localhost:8080",
-				"static_content": [{
-					"name": "/OfficeWeb",
-					"path": "../../../OfficeWeb"
-				},
-				{
-					"name": "/office",
-					"path": "../../../office"
-				}]
-            },
-            "utils": {
-                "utils_common_fontdir": "C:\\Windows\\Fonts"
-            }
-		}
-	},
-    "FileConverter": {
-        "converter": {
-            "fontDir": "",
-            "presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
-            "filePath": "../../FileConverter/Bin/x2t32.exe",
-            "errorfiles": "error"
-        }
+  "services": {
+    "CoAuthoring": {
+      "server": {
+        "port": 8001,
+        "fonts_route": "office/sdk/Fonts/",
+        "sockjsUrl": "/office/vendor/sockjs/sockjs.min.js",
+        "editor_settings_spellchecker_url": "http://localhost:8080",
+        "static_content": [
+          {
+            "name": "/OfficeWeb",
+            "path": "../../../OfficeWeb"
+          },
+          {
+            "name": "/office",
+            "path": "../../../office"
+          }
+        ]
+      },
+      "utils": {
+        "utils_common_fontdir": "C:\\Windows\\Fonts"
+      }
     }
+  },
+  "license": {
+    "license_file": "./../../license.lic"
+  },
+  "FileConverter": {
+    "converter": {
+      "fontDir": "",
+      "presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
+      "filePath": "../../FileConverter/Bin/x2t32.exe",
+      "errorfiles": "error"
+    }
+  }
 }

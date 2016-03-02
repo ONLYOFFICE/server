@@ -106,7 +106,7 @@
 		}
 	},
 	"license" : {
-		"license_file": "./../../license.lic"
+		"license_file": ""
 	},
 	"FileConverter": {
 		"converter": {
