@@ -2053,24 +2053,3 @@ exports.commandFromServer = function (req, res) {
     }
   });
 };
-exports.getDefaultLicense = function (req, res) {
-  logger.debug('Start getDefaultLicense request');
-
-  var options = {
-    root: config.get('server.default_license_file_path'),
-    dotfiles: 'deny',
-    headers: {
-      'x-timestamp': Date.now(),
-      'x-sent': true
-    }
-  };
-  res.sendFile(config.get('server.default_license_file_name'), options, function(err) {
-    if (err) {
-      logger.error(err);
-      res.status(err.status).end();
-    } else {
-      logger.debug('Sent success: license.lic)');
-    }
-  });
-  logger.debug('Start getDefaultLicense request');
-};

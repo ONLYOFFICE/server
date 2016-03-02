@@ -148,8 +148,6 @@ if (cluster.isMaster) {
       app.get('/' + fontsRoute + 'odttf/:fontname', fontService.getFont);
     }
 
-    app.get('/license', docsCoServer.getDefaultLicense);
-
     app.get('/ConvertService.ashx', converterService.convert);
     app.post('/ConvertService.ashx', converterService.convert);
 
