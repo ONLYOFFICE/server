@@ -5,6 +5,13 @@ exports.OUTPUT_NAME = 'output';
 exports.ONLY_OFFICE_URL_PARAM = 'ooname';
 exports.DISPLAY_PREFIX = 'display';
 
+exports.LICENSE_RESULT = {
+  Error       : 1,
+  Expired     : 2,
+  Success     : 3,
+  UnknownUser : 4
+};
+
 exports.AVS_OFFICESTUDIO_FILE_UNKNOWN =  0x0000;
 exports.AVS_OFFICESTUDIO_FILE_DOCUMENT = 0x0040;
 exports.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX = exports.AVS_OFFICESTUDIO_FILE_DOCUMENT + 0x0001;

@@ -1,9 +1,10 @@
 ﻿const crypto = require('crypto');
 const fs = require('fs');
 const config = require('config').get('license');
+const constants = require('./constants');
 
 exports.readLicense = function() {
-  var res = 1;
+  var res = {count: 2, type: constants.LICENSE_RESULT.Error};
   try {
     var oLicense = JSON.parse(fs.readFileSync(config.get('license_file')).toString());
     const sign = oLicense['signature'];
@@ -15,11 +16,15 @@ exports.readLicense = function() {
     if (verify.verify(publicKey, sign, 'hex')) {
       const endDate = new Date(oLicense['end_date']);
       if (endDate >= new Date()) {
-        res = Math.max(1, oLicense['process'] >> 0);
+        res.count = Math.max(res.count, oLicense['process'] >> 0);
+        res.type = constants.LICENSE_RESULT.Success;
+      } else {
+        res.type = constants.LICENSE_RESULT.Expired;
       }
     }
   } catch(e) {
-    res = 1;
+    res.count = 2;
+    res.type = constants.LICENSE_RESULT.Error;
   }
   return res;
 };

@@ -10,18 +10,51 @@ if (cluster.isMaster) {
   const license = require('./../../Common/sources/license');
 
   const cfgWorkerPerCpu = config.get('server.workerpercpu');
-  const workersCount = Math.min(license.readLicense(), Math.ceil(numCPUs * cfgWorkerPerCpu));
-
+  var licenseInfo, workersCount = 0;
+  const readLicense = () => {
+    licenseInfo = license.readLicense();
+    workersCount = Math.min(licenseInfo.count, Math.ceil(numCPUs * cfgWorkerPerCpu));
+  };
+  const updateLicenseWorker = (worker) => {
+    worker.send({data: licenseInfo.type});
+  };
+  const updateWorkers = () => {
+    var i;
+    const arrKeyWorkers = Object.keys(cluster.workers);
+    if (arrKeyWorkers.length < workersCount) {
+      for (i = arrKeyWorkers.length; i < workersCount; ++i) {
+        const newWorker = cluster.fork();
+        logger.warn('worker %s started.', newWorker.process.pid);
+      }
+    } else {
+      for (i = workersCount; i < arrKeyWorkers.length; ++i) {
+        const killWorker = cluster.workers[arrKeyWorkers[i]];
+        if (killWorker) {
+          killWorker.kill();
+        }
+      }
+    }
+  };
+  readLicense();
   logger.warn('start cluster with %s workers', workersCount);
-  for (var nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
-    const worker = cluster.fork().process;
-    logger.warn('worker %s started.', worker.pid);
-  }
+  updateWorkers();
 
-  cluster.on('exit', function(worker) {
-    logger.warn('worker %s died. restart...', worker.process.pid);
-    cluster.fork();
+  cluster.on('fork', (worker) => {
+    updateLicenseWorker(worker);
   });
+  cluster.on('exit', (worker) => {
+    logger.warn('worker %s died.', worker.process.pid);
+    updateWorkers();
+  });
+
+  setInterval(() => {
+    readLicense();
+
+    for (var i in cluster.workers) {
+      updateLicenseWorker(cluster.workers[i]);
+    }
+    updateWorkers();
+  }, 86400000);
 } else {
   const express = require('express');
   const http = require('http');
@@ -65,7 +98,7 @@ if (cluster.isMaster) {
   if (configStorage.has('fs.folderPath')) {
     var cfgBucketName = configStorage.get('bucketName');
     var cfgStorageFolderName = configStorage.get('storageFolderName');
-    app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, function(req, res, next) {
+    app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, (req, res, next) => {
       var index = req.url.lastIndexOf('/');
       if (-1 != index) {
         var sendFileOptions = {
@@ -81,7 +114,7 @@ if (cluster.isMaster) {
           sendFileOptions.headers['Content-Type'] = mime.lookup(filename);
         }
         var realUrl = req.url.substring(0, index);
-        res.sendFile(realUrl, sendFileOptions, function (err) {
+        res.sendFile(realUrl, sendFileOptions, (err) => {
           if (err) {
             logger.error(err);
             res.status(err.status).end();
@@ -96,12 +129,12 @@ if (cluster.isMaster) {
   // Если захочется использовать 'development' и 'production',
   // то с помощью app.settings.env (https://github.com/strongloop/express/issues/936)
   // Если нужна обработка ошибок, то теперь она такая https://github.com/expressjs/errorhandler
-  docsCoServer.install(server, function() {
-    server.listen(config.get('server.port'), function() {
+  docsCoServer.install(server, () => {
+    server.listen(config.get('server.port'), () => {
       logger.warn("Express server listening on port %d in %s mode", config.get('server.port'), app.settings.env);
     });
 
-    app.get('/index.html', function(req, res) {
+    app.get('/index.html', (req, res) => {
       res.send('Server is functioning normally. Version: ' + docsCoServer.version);
     });
 
@@ -125,14 +158,14 @@ if (cluster.isMaster) {
     app.post('/FileUploader.ashx', rawFileParser, fileUploaderService.uploadTempFile);
 
     var docIdRegExp = new RegExp("^[" + constants.DOC_ID_PATTERN + "]*$", 'i');
-    app.param('docid', function(req, res, next, val) {
+    app.param('docid', (req, res, next, val) => {
       if (docIdRegExp.test(val)) {
         next();
       } else {
         res.sendStatus(403);
       }
     });
-    app.param('index', function(req, res, next, val) {
+    app.param('index', (req, res, next, val) => {
       if (!isNaN(parseInt(val))) {
         next();
       } else {
@@ -144,12 +177,19 @@ if (cluster.isMaster) {
 
     app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);
   });
+
+  process.on('message', (msg) => {
+    if (!docsCoServer) {
+      return;
+    }
+    docsCoServer.setLicenseInfo(msg.data);
+  });
 }
 
-process.on('uncaughtException', function(err) {
+process.on('uncaughtException', (err) => {
   logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
   logger.error(err.stack);
-  logger.shutdown(function() {
+  logger.shutdown(() => {
     process.exit(1);
   });
 });

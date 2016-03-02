@@ -47,7 +47,7 @@ var url = require('url');
 var cron = require('cron');
 var storage = require('./../../Common/sources/storage-base');
 var logger = require('./../../Common/sources/logger');
-var constants = require('./../../Common/sources/constants');
+const constants = require('./../../Common/sources/constants');
 var utils = require('./../../Common/sources/utils');
 var commonDefines = require('./../../Common/sources/commondefines');
 var statsDClient = require('./../../Common/sources/statsdclient');
@@ -123,6 +123,7 @@ var redisClient;
 var pubsub;
 var queue;
 var clientStatsD = statsDClient.getClient();
+var licenseInfo = constants.LICENSE_RESULT.Error;
 
 var asc_coAuthV = '3.0.9';				// Версия сервера совместного редактирования
 
@@ -805,6 +806,8 @@ exports.install = function(server, callbackFunction) {
         }
       });
     });
+
+    _checkLicense(conn);
   });
   /**
    *
@@ -1787,6 +1790,10 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
+  function _checkLicense(conn) {
+    sendData(conn, {type: 'license', license: licenseInfo});
+  }
+
   sockjs_echo.installHandlers(server, {prefix: '/doc/['+constants.DOC_ID_PATTERN+']*/c', log: function(severity, message) {
     //TODO: handle severity
     logger.info(message);
@@ -1965,6 +1972,9 @@ exports.install = function(server, callbackFunction) {
       callbackFunction();
     });
   });
+};
+exports.setLicenseInfo = function(data) {
+  licenseInfo = data;
 };
 // Команда с сервера (в частности teamlab)
 exports.commandFromServer = function (req, res) {
