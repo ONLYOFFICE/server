@@ -4,6 +4,7 @@ const config = require('config').get('license');
 const constants = require('./constants');
 
 exports.readLicense = function() {
+  const resMax = {count: 999999, type: constants.LICENSE_RESULT.Success};
   var res = {count: 2, type: constants.LICENSE_RESULT.Error};
   try {
     var oLicense = JSON.parse(fs.readFileSync(config.get('license_file')).toString());
@@ -16,7 +17,7 @@ exports.readLicense = function() {
     if (verify.verify(publicKey, sign, 'hex')) {
       const endDate = new Date(oLicense['end_date']);
       if (endDate >= new Date()) {
-        res.count = Math.max(res.count, oLicense['process'] >> 0);
+        res.count = Math.min(Math.max(res.count, oLicense['process'] >> 0), resMax.count);
         res.type = constants.LICENSE_RESULT.Success;
       } else {
         res.type = constants.LICENSE_RESULT.Expired;
