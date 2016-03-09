@@ -2,8 +2,10 @@ const cluster = require('cluster');
 const logger = require('./../../Common/sources/logger');
 
 if (cluster.isMaster) {
+  const fs = require('fs');
   const numCPUs = require('os').cpus().length;
-  const config = require('config').get('FileConverter.converter');
+  const configCommon = require('config');
+  const config = configCommon.get('FileConverter.converter');
   const license = require('./../../Common/sources/license');
 
   const cfgMaxProcessCount = config.get('maxprocesscount');
@@ -29,18 +31,21 @@ if (cluster.isMaster) {
       }
     }
   };
-  readLicense();
-  logger.warn('start cluster with %s workers', workersCount);
-  updateWorkers();
+  const updateLicense = () => {
+    readLicense();
+    logger.warn('update cluster with %s workers', workersCount);
+    updateWorkers();
+  };
 
   cluster.on('exit', (worker) => {
     logger.warn('worker %s died.', worker.process.pid);
     updateWorkers();
   });
-  setInterval(() => {
-    readLicense();
-    updateWorkers();
-  }, 86400000);
+
+  updateLicense();
+
+  fs.watchFile(configCommon.get('license').get('license_file'), updateLicense);
+  setInterval(updateLicense, 86400000);
 } else {
   const converter = require('./converter');
   converter.run();

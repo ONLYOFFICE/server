@@ -1,3 +1,4 @@
+const fs = require('fs');
 const cluster = require('cluster');
 const configCommon = require('config');
 const config = configCommon.get('services.CoAuthoring');
@@ -35,9 +36,14 @@ if (cluster.isMaster) {
       }
     }
   };
-  readLicense();
-  logger.warn('start cluster with %s workers', workersCount);
-  updateWorkers();
+  const updateLicense = () => {
+    readLicense();
+    logger.warn('update cluster with %s workers', workersCount);
+    for (var i in cluster.workers) {
+      updateLicenseWorker(cluster.workers[i]);
+    }
+    updateWorkers();
+  };
 
   cluster.on('fork', (worker) => {
     updateLicenseWorker(worker);
@@ -47,19 +53,14 @@ if (cluster.isMaster) {
     updateWorkers();
   });
 
-  setInterval(() => {
-    readLicense();
+  updateLicense();
 
-    for (var i in cluster.workers) {
-      updateLicenseWorker(cluster.workers[i]);
-    }
-    updateWorkers();
-  }, 86400000);
+  fs.watchFile(configCommon.get('license').get('license_file'), updateLicense);
+  setInterval(updateLicense, 86400000);
 } else {
   const express = require('express');
   const http = require('http');
   const https = require('https');
-  const fs = require("fs");
   const urlModule = require('url');
   const path = require('path');
   const bodyParser = require("body-parser");
