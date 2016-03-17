@@ -1,4 +1,5 @@
 var config = require('config');
+var co = require('co');
 var taskResult = require('./taskresult');
 var logger = require('./../../Common/sources/logger');
 var utils = require('./../../Common/sources/utils');
@@ -119,7 +120,7 @@ function* convertFromChanges(docId, baseUrl, lastSave, userdata) {
 }
 
 function convertRequest(req, res) {
-  utils.spawn(function* () {
+  return co(function* () {
     var docId = 'null';
     try {
       var cmd = new commonDefines.InputCommand();

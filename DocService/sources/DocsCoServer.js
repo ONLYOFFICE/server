@@ -45,6 +45,7 @@ var https = require('https');
 var http = require('http');
 var url = require('url');
 var cron = require('cron');
+var co = require('co');
 var storage = require('./../../Common/sources/storage-base');
 var logger = require('./../../Common/sources/logger');
 const constants = require('./../../Common/sources/constants');
@@ -734,7 +735,7 @@ exports.install = function(server, callbackFunction) {
     conn.baseUrl = utils.getBaseUrlByConnection(conn);
 
     conn.on('data', function(message) {
-      utils.spawn(function* () {
+      return co(function* () {
       var docId = 'null';
       try {
         var startDate = null;
@@ -796,7 +797,7 @@ exports.install = function(server, callbackFunction) {
       logger.error("On error");
     });
     conn.on('close', function() {
-      utils.spawn(function* () {
+      return co(function* () {
         var docId = 'null';
         try {
           docId = conn.docId;
@@ -1800,7 +1801,7 @@ exports.install = function(server, callbackFunction) {
   }});
 
   var checkDocumentExpire = function() {
-    utils.spawn(function*() {
+    return co(function*() {
       try {
         logger.debug('checkDocumentExpire start');
         var removedCount = 0;
@@ -1846,7 +1847,7 @@ exports.install = function(server, callbackFunction) {
 
   //publish subscribe message brocker
   function pubsubOnMessage(msg) {
-    utils.spawn(function*() {
+    return co(function* () {
       try {
         logger.debug('pubsub message start:%s', msg);
         var data = JSON.parse(msg);
@@ -1978,7 +1979,7 @@ exports.setLicenseInfo = function(data) {
 };
 // Команда с сервера (в частности teamlab)
 exports.commandFromServer = function (req, res) {
-  utils.spawn(function* () {
+  return co(function* () {
     var result = commonDefines.c_oAscServerCommandErrors.NoError;
     var docId = 'null';
     try {

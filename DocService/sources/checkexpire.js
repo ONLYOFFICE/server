@@ -1,4 +1,5 @@
 var config = require('config').get('services.CoAuthoring');
+var co = require('co');
 var taskResult = require('./taskresult');
 var storage = require('./../../Common/sources/storage-base');
 var utils = require('./../../Common/sources/utils');
@@ -9,7 +10,7 @@ var cfgExpFilesRemovedAtOnce = config.get('expire.filesremovedatonce');
 
 //todo checkDocumentExpire
 var checkFileExpire = function() {
-  utils.spawn(function*() {
+  return co(function* () {
     try {
       logger.debug('checkFileExpire start');
       var expired;

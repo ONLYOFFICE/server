@@ -4,6 +4,7 @@ var util = require('util');
 var transform = require('stream').Transform;
 var base64 = require('base64-stream');
 var mime = require('mime');
+var co = require('co');
 var utils = require('./../../Common/sources/utils');
 var logger = require('./../../Common/sources/logger');
 var statsDClient = require('./../../Common/sources/statsdclient');
@@ -166,7 +167,7 @@ function getObfuscateContent(res, fileStream, fileSize) {
   });
 }
 function init() {
-  utils.spawn(function* () {
+  return co(function* () {
     try {
       if (cfgFontDir) {
         yield* initFontMapByFolder(cfgFontDir, cfgSearchPatterns || '*.ttf;*.ttc;*.otf');
@@ -183,7 +184,7 @@ init();
 var zBase32Encoder = new ZBase32Encoder();
 
 exports.getFont = function(req, res) {
-  utils.spawn(function* () {
+  return co(function* () {
     try {
       var startDate = null;
       if(clientStatsD) {

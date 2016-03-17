@@ -1,4 +1,5 @@
 var multiparty = require('multiparty');
+var co = require('co');
 var taskResult = require('./taskresult');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
@@ -13,7 +14,7 @@ var cfgImageSize = configServer.get('limits_image_size');
 var cfgTypesUpload = configUtils.get('limits_image_types_upload');
 
 exports.uploadTempFile = function(req, res) {
-  utils.spawn(function* () {
+  return co(function* () {
     var docId = 'null';
     try {
       docId = req.query['key'];
@@ -111,7 +112,7 @@ exports.uploadImageFileOld = function(req, res) {
   }
 };
 exports.uploadImageFile = function(req, res) {
-  utils.spawn(function* () {
+  return co(function* () {
     var isError = true;
     var docId = 'null';
     try {

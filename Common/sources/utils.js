@@ -2,30 +2,11 @@
 var path = require('path');
 var url = require('url');
 var request = require('request');
+var co = require('co');
 var constants = require('./constants');
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
-exports.spawn = function(generatorFunc) {
-  function continuer(verb, arg) {
-    var result;
-    try {
-      result = generator[verb](arg);
-    } catch (err) {
-      return Promise.reject(err);
-    }
-    if (result.done) {
-      return result.value;
-    } else {
-      return Promise.resolve(result.value).then(onFulfilled, onRejected);
-    }
-  }
-
-  var generator = generatorFunc();
-  var onFulfilled = continuer.bind(continuer, 'next');
-  var onRejected = continuer.bind(continuer, 'throw');
-  return onFulfilled();
-};
 exports.addSeconds = function(date, sec) {
   date.setSeconds(date.getSeconds() + sec);
 };
@@ -78,33 +59,27 @@ function* walkDir(fsPath, results, optNoSubDir) {
     }
   }
 }
-exports.listObjects = function (fsPath, optNoSubDir) {
-  return new Promise(function (resolve, reject) {
-    exports.spawn(function* () {
-      try {
-        var list;
-        var stats;
-        try {
-          stats = yield fsStat(fsPath);
-        } catch (e) {
-          //exception if fsPath not exist
-          stats = null;
-        }
-        if (stats) {
-          if (stats.isDirectory()) {
-            list = [];
-            yield* walkDir(fsPath, list, optNoSubDir);
-          } else {
-            list = [fsPath];
-          }
-        } else {
-          list = [];
-        }
-        resolve(list);
-      } catch (err) {
-        reject(err);
+exports.listObjects = function(fsPath, optNoSubDir) {
+  return co(function* () {
+    var list;
+    var stats;
+    try {
+      stats = yield fsStat(fsPath);
+    } catch (e) {
+      //exception if fsPath not exist
+      stats = null;
+    }
+    if (stats) {
+      if (stats.isDirectory()) {
+        list = [];
+        yield* walkDir(fsPath, list, optNoSubDir);
+      } else {
+        list = [fsPath];
       }
-    });
+    } else {
+      list = [];
+    }
+    return list;
   });
 };
 exports.sleep = function(ms) {

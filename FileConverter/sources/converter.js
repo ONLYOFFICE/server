@@ -4,6 +4,7 @@ var path = require('path');
 var fs = require('fs');
 var url = require('url');
 var childProcess = require('child_process');
+var co = require('co');
 var config = require('config');
 var configConverter = config.get('FileConverter.converter');
 
@@ -478,7 +479,7 @@ function* ExecuteTask(task) {
 }
 
 function receiveTask(data, dataRaw) {
-  utils.spawn(function* () {
+  return co(function* () {
     var res = null;
     var task = null;
     try {

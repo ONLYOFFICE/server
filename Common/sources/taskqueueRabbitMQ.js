@@ -2,6 +2,7 @@
 var config = require('config');
 var events = require('events');
 var util = require('util');
+var co = require('co');
 var utils = require('./utils');
 var constants = require('./constants');
 var rabbitMQCore = require('./rabbitMQCore');
@@ -12,7 +13,7 @@ var cfgRabbitQueueConvertTask = config.get('rabbitmq.queueconverttask');
 var cfgRabbitQueueConvertResponse = config.get('rabbitmq.queueconvertresponse');
 
 function init(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, callback) {
-  utils.spawn(function* () {
+  return co(function* () {
     var e = null;
     try {
       var conn = yield rabbitMQCore.connetPromise(function () {

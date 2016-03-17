@@ -1,13 +1,14 @@
 'use strict';
 var events = require('events');
 var util = require('util');
+var co = require('co');
 var utils = require('./../../Common/sources/utils');
 var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 
 var cfgRabbitExchangePubSub = require('config').get('rabbitmq.exchangepubsub');
 
 function init(pubsub, callback) {
-  utils.spawn(function* () {
+  return co(function* () {
     var e = null;
     try {
       var conn = yield rabbitMQCore.connetPromise(function () {
