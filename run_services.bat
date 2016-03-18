@@ -11,6 +11,7 @@ SET NODE_CONFIG_DIR=%RUN_DIR%\Common\config
 
 cd "%RUN_DIR%\DocService\sources"
 start node server.js
+start node gc.js
 
 cd "%RUN_DIR%\FileConverter\sources"
 start node convertermaster.js
