@@ -133,6 +133,18 @@ util.inherits(TaskQueueRabbitMQ, events.EventEmitter);
 TaskQueueRabbitMQ.prototype.init = function (isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, callback) {
   init(this, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, callback);
 };
+TaskQueueRabbitMQ.prototype.initPromise = function(isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive) {
+  var t = this;
+  return new Promise(function(resolve, reject) {
+    init(t, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+};
 TaskQueueRabbitMQ.prototype.addTask = function (task, priority) {
   //todo confirmation mode
   var t = this;

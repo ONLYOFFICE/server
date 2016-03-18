@@ -531,6 +531,19 @@ function OutputAction(type, userid) {
   this['type'] = type;
   this['userid'] = userid;
 }
+var c_oPublishType = {
+  drop : 0,
+  releaseLock : 1,
+  participantsState : 2,
+  message : 3,
+  getLock : 4,
+  changes : 5,
+  auth : 6,
+  receiveTask : 7,
+  warning: 8,
+  cursor: 9,
+  expireDoc: 10
+};
 var c_oAscCsvDelimiter = {
   None: 0,
   Tab: 1,
@@ -632,6 +645,7 @@ exports.InputCommand = InputCommand;
 exports.OutputSfcData = OutputSfcData;
 exports.OutputMailMerge = OutputMailMerge;
 exports.OutputAction = OutputAction;
+exports.c_oPublishType = c_oPublishType;
 exports.c_oAscCsvDelimiter = c_oAscCsvDelimiter;
 exports.c_oAscEncodings = c_oAscEncodings;
 exports.c_oAscEncodingsMap = c_oAscEncodingsMap;

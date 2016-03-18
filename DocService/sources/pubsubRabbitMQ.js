@@ -61,6 +61,18 @@ util.inherits(PubsubRabbitMQ, events.EventEmitter);
 PubsubRabbitMQ.prototype.init = function (callback) {
   init(this, callback);
 };
+PubsubRabbitMQ.prototype.initPromise = function() {
+  var t = this;
+  return new Promise(function(resolve, reject) {
+    init(t, function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+};
 PubsubRabbitMQ.prototype.publish = function (message) {
   var data = new Buffer(message);
   if (null != this.channelPublish) {

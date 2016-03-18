@@ -84,10 +84,9 @@
 				"maxChanges": 1000
 			},
 			"expire": {
-				"callback": 3600,
 				"userindex": 604800,
 				"saveLock": 60,
-				"editors": 604800,
+				"presence": 300,
 				"locks": 604800,
 				"changeindex": 86400,
 				"lockDoc": 60,
@@ -95,10 +94,9 @@
 				"lastsave": 604800,
 				"forcesave": 604800,
 				"saved": 3600,
-				"documents": 300,
-				"documentsCron": "0 */5 * * * *",
-				"files": 604800,
-				"filesCron": "00 00 */1 * * *",
+				"documentsCron": "0 */2 * * * *",
+				"files": 300,
+				"filesCron": "00 */5 * * * *",
 				"filesremovedatonce": 10
 			}
 		}
