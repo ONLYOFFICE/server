@@ -95,8 +95,8 @@
 				"forcesave": 604800,
 				"saved": 3600,
 				"documentsCron": "0 */2 * * * *",
-				"files": 300,
-				"filesCron": "00 */5 * * * *",
+				"files": 604800,
+				"filesCron": "00 00 */1 * * *",
 				"filesremovedatonce": 10
 			}
 		}
