@@ -3,3 +3,4 @@ Common\config\local.json
 license.lic
 App_Data\
 */node_modules
+FileConverter\Bin
