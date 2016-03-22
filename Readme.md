@@ -1,4 +1,5 @@
 Настройка сервиса документов
+============================
 
 ВНИМАНИЕ, инструкция описывает разворачивание сервиса документов на Windows-платформе.
 
@@ -26,7 +27,7 @@
 	Запустите скрипт install_npm_modules.bat
 	
 	в) Установка Web Monitor для RabbitMQ подробности(https://www.rabbitmq.com/management.html)
-	открытивает cmd. переходим в папку (cd /d Installation-directory/sbin)
+	открытивает cmd. переходим в папку (`cd /d Installation-directory/sbin`)
 	вызываем(rabbitmq-plugins.bat enable rabbitmq_management)
 	Web Monitor распологается по адресу(http://localhost:15672/). логин/пароль(guest/guest)
 
@@ -61,7 +62,7 @@
 
 3. Запуск сервиса
 
-Запустите скрипт run_services.bat
+Запустите скрипт `run_services.bat`
 
 Замечания
 
