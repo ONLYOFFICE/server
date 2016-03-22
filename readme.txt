@@ -20,7 +20,7 @@
 2. Настройка системы
 
 	а) Настройка БД
-	Выполните скрипт в mysql svn://fileserver/activex/AVS/Sources/TeamlabOffice/trunk/Schema/MySql.CreateDb.sql
+	Выполните скрипт в mysql document-server/schema/createdb.sql
 	
 	б) Установка npm модулей.
 	Запустите скрипт install_npm_modules.bat
