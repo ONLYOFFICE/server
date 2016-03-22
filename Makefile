@@ -1,23 +1,22 @@
 GRUNT = grunt
 GRUNT_FLAGS = --no-color -v
 
-OUTPUT_DIR = deploy
+OUTPUT_DIR = build
 OUTPUT = $(OUTPUT_DIR)
 
-OFFICEWEB_DIR = OfficeWeb
-OFFICEWEB = $(OUTPUT)/$(OFFICEWEB_DIR)
-GRUNT_FILES = OfficeWeb/sdk/build/deploy/Gruntfile.js.out OfficeWeb/build/Gruntfile.js.out
+WEBAPPS_DIR = web-apps
+WEBAPPS = $(OUTPUT)/$(WEBAPPS_DIR)
+GRUNT_FILES = web-apps/sdkjs/build/deploy/Gruntfile.js.out web-apps/build/Gruntfile.js.out
 
-NODE_PROJECTS_DIR = NodeJsProjects
 NODE_MODULES_DIR = node_modules
-NODE_PROJECTS_SRC = $(sort $(dir $(wildcard $(NODE_PROJECTS_DIR)/*/)))
+NODE_PROJECTS_SRC = Common DocService FileConverter Metrics SpellChecker
 NODE_PROJECTS = $(addprefix $(OUTPUT)/, $(NODE_PROJECTS_SRC))
 NODE_PROJECTS_MODULES = $(addsuffix /$(NODE_MODULES_DIR), $(NODE_PROJECTS))
 
 FILE_CONVERTER = $(OUTPUT)/$(NODE_PROJECTS_DIR)/FileConverter/Bin
 FILE_CONVERTER_FILES = ServerComponents/Bin/**
 
-SCHEMA_DIR = Schema
+SCHEMA_DIR = schema
 SCHEMA_FILES = $(SCHEMA_DIR)/**
 SCHEMA = $(OUTPUT)/$(SCHEMA_DIR)/
 
@@ -28,11 +27,11 @@ TOOLS = $(OUTPUT)/$(TOOLS_DIR)/
 LICENSE_FILES = License.txt 3rd-Party.txt
 LICENSE = $(addsuffix $(OUTPUT)/, LICENSE_SRC)
 
-all: $(NODE_PROJECTS_MODULES) $(OFFICEWEB) $(FILE_CONVERTER) $(SCHEMA) $(TOOLS) $(LICENSE)
+all: $(NODE_PROJECTS_MODULES) $(WEBAPPS) $(SCHEMA) $(LICENSE)
 
-$(OFFICEWEB): $(GRUNT_FILES)
-	mkdir -p $(OUTPUT)/$(OFFICEWEB_DIR) && \
-		cp -r -t $(OUTPUT)/$(OFFICEWEB_DIR) $(OFFICEWEB_DIR)/deploy/** 
+$(WEBAPPS): $(GRUNT_FILES)
+	mkdir -p $(OUTPUT)/$(WEBAPPS_DIR) && \
+		cp -r -t $(OUTPUT)/$(WEBAPPS_DIR) $(WEBAPPS_DIR)/deploy/** 
 
 $(GRUNT_FILES):
 	cd $(@D) && \
@@ -45,8 +44,8 @@ $(NODE_PROJECTS_MODULES): $(NODE_PROJECTS)
 		npm install
 		
 $(NODE_PROJECTS):
-	mkdir -p $(OUTPUT)/$(NODE_PROJECTS_DIR) && \
-		cp -r -t $(OUTPUT)/$(NODE_PROJECTS_DIR) $(NODE_PROJECTS_SRC)
+	mkdir -p $(OUTPUT) && \
+		cp -r -t $(OUTPUT) $(NODE_PROJECTS_SRC)
 		
 $(FILE_CONVERTER): $(NODE_PROJECTS)
 	mkdir -p $(FILE_CONVERTER) && \
@@ -78,8 +77,8 @@ install:
 	sudo chown onlyoffice:onlyoffice -R /var/log/onlyoffice
 	sudo chown onlyoffice:onlyoffice -R /var/lib/onlyoffice
 
-	sudo cp -r deploy/. /var/www/onlyoffice/documentserver/
-	sudo cp -r OnlineEditorsExample/. /var/www/onlyoffice/documentserver/OnlineEditorsExample/
+	sudo cp -r $(OUTPUT)/. /var/www/onlyoffice/documentserver/
+	#sudo cp -r OnlineEditorsExample/. /var/www/onlyoffice/documentserver/OnlineEditorsExample/
 
 
 	sudo ln -s /var/www/onlyoffice/documentserver/NodeJsProjects/FileConverter/Bin/libDjVuFile.so /lib/libDjVuFile.so
