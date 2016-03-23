@@ -14,9 +14,6 @@ call npm install
 cd /D ..\FileConverter || goto ERROR
 call npm install
 
-cd /D ..\FileStorage || goto ERROR
-call npm install
-
 cd /D ..\SpellChecker || goto ERROR
 call npm install
 

@@ -16,12 +16,6 @@ start /min /b node gc.js
 cd "%RUN_DIR%\FileConverter\sources"
 start /min /b node convertermaster.js
 
-cd "%RUN_DIR%\FileStorage\sources"
-start /min /b node server.js
-
-cd "%RUN_DIR%\SpellChecker\sources"
-start /min /b node server.js
-
 :ERROR
 :SUCCESS
 pause

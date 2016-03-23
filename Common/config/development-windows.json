@@ -15,15 +15,15 @@
         "port": 8001,
         "fonts_route": "office/sdk/Fonts/",
         "sockjsUrl": "/office/vendor/sockjs/sockjs.min.js",
-        "editor_settings_spellchecker_url": "http://localhost:8080",
+        "editor_settings_spellchecker_url": "",
         "static_content": [
           {
             "name": "/OfficeWeb",
-            "path": "../../../OfficeWeb"
+            "path": "../../../sdkjs"
           },
           {
             "name": "/office",
-            "path": "../../../office"
+            "path": "../../../web-apps"
           }
         ]
       },
