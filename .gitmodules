@@ -1,0 +1,3 @@
+[submodule "web-apps"]
+	path = web-apps
+	url = https://github.com/ONLYOFFICE/web-apps.git
