@@ -22,7 +22,7 @@
  * Pursuant to Section 7 ยง 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
  *
 */
-﻿const crypto = require('crypto');
+const crypto = require('crypto');
 const fs = require('fs');
 const config = require('config').get('license');
 const constants = require('./constants');

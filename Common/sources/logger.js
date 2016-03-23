@@ -22,7 +22,7 @@
  * Pursuant to Section 7 ยง 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
  *
 */
-﻿var config = require('config');
+var config = require('config');
 
 var log4js = require('log4js');
 log4js.configure(config.get('log.filePath'), config.get('log.options'));

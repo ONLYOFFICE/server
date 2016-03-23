@@ -22,7 +22,7 @@
  * Pursuant to Section 7 ยง 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
  *
 */
-﻿var fs = require('fs');
+var fs = require('fs');
 var path = require('path');
 var url = require('url');
 var request = require('request');

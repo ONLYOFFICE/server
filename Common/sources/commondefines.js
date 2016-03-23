@@ -22,7 +22,7 @@
  * Pursuant to Section 7 ยง 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
  *
 */
-﻿var constants = require('./constants');
+var constants = require('./constants');
 
 function InputCommand(data) {
   if (data) {
