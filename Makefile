@@ -1,6 +1,3 @@
-GRUNT = grunt
-GRUNT_FLAGS = --no-color -v
-
 OUTPUT_DIR = build
 OUTPUT = $(OUTPUT_DIR)
 
