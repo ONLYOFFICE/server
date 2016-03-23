@@ -20,8 +20,8 @@ TOOLS_DIR = Tools
 TOOLS_FILES = $(TOOLS_DIR)/Bin/**
 TOOLS = $(OUTPUT)/$(TOOLS_DIR)/
 
-LICENSE_FILES = License.txt 3rd-Party.txt
-LICENSE = $(addsuffix $(OUTPUT)/, LICENSE_SRC)
+LICENSE_FILES = LICENSE.txt 3rd-Party.txt
+LICENSE = $(addsuffix $(OUTPUT)/, LICENSE_FILES)
 
 all: $(NODE_PROJECTS_MODULES) $(SCHEMA) $(LICENSE)
 
