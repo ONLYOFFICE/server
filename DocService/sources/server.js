@@ -199,6 +199,7 @@ if (cluster.isMaster) {
     app.post('/upload/:docid/:userid/:index/:vkey?', rawFileParser, fileUploaderService.uploadImageFile);
 
     app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);
+    app.get('/healthcheck', converterService.convertHealthCheck);
   });
 
   process.on('message', (msg) => {

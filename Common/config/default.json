@@ -51,7 +51,8 @@
 				"limits_image_size": 26214400,
 				"limits_image_download_timeout": 120,
 				"editor_settings_spellchecker_url": "/spellchecker",
-				"callbackRequestTimeout": 120
+				"callbackRequestTimeout": 120,
+				"healthcheckfilepath": "../public/healthcheck.docx"
 			},
 			"utils": {
 				"utils_common_fontdir": "null",

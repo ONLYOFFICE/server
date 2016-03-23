@@ -35,6 +35,7 @@ var storage = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var statsDClient = require('./../../Common/sources/statsdclient');
 
+var cfgHealthCheckFilePath = config.get('services.CoAuthoring.server.healthcheckfilepath');
 var cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
 var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
 
@@ -74,7 +75,7 @@ function* getConvertStatus(cmd, selectRes, baseUrl) {
   return status;
 }
 
-function* convertByCmd(cmd, async, baseUrl) {
+function* convertByCmd(cmd, async, baseUrl, opt_healthcheck) {
   var docId = cmd.getDocId();
   var startDate = null;
   if (clientStatsD) {
@@ -95,13 +96,16 @@ function* convertByCmd(cmd, async, baseUrl) {
   var bCreate = upsertRes.affectedRows == 1;
   var selectRes;
   var status;
-  if (!bCreate) {
+  if (!bCreate && !opt_healthcheck) {
     selectRes = yield taskResult.select(task);
     status = yield* getConvertStatus(cmd, selectRes, baseUrl);
   } else {
     var queueData = new commonDefines.TaskQueueData();
     queueData.setCmd(cmd);
     queueData.setToFile(cmd.getTitle());
+    if (opt_healthcheck) {
+      queueData.setFromOrigin(true);
+    }
     yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
     status = {url: undefined, err: constants.NO_ERROR};
   }
@@ -126,6 +130,43 @@ function* convertByCmd(cmd, async, baseUrl) {
     clientStatsD.timing('coauth.convertservice', new Date() - startDate);
   }
   return status;
+}
+
+function convertHealthCheck(req, res) {
+  return co(function* () {
+    var output = false;
+    try {
+      logger.debug('Start convertHealthCheck');
+      var task = yield* taskResult.addRandomKeyTask('healthcheck');
+      var docId = task.key;
+      //put test file to storage
+      var data = yield utils.readFile(cfgHealthCheckFilePath);
+      yield storage.putObject(docId + '/origin', data, data.length);
+      //convert
+      var cmd = new commonDefines.InputCommand();
+      cmd.setCommand('conv');
+      cmd.setSaveKey(docId);
+      cmd.setFormat('docx');
+      cmd.setDocId(docId);
+      cmd.setTitle('Editor.bin');
+      cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
+
+      var status = yield* convertByCmd(cmd, false, utils.getBaseUrlByRequest(req), true);
+      if (status && constants.NO_ERROR == status.err) {
+        output = true;
+      }
+      //clean up
+      var removeRes = yield taskResult.remove(docId);
+      if (removeRes.affectedRows > 0) {
+        yield storage.deletePath(docId);
+      }
+      logger.debug('End convertHealthCheck');
+    } catch (e) {
+      logger.error('Error convertHealthCheck\r\n%s', e.stack);
+    } finally {
+      res.send(output.toString());
+    }
+  });
 }
 
 function* convertFromChanges(docId, baseUrl, lastSave, userdata) {
@@ -173,5 +214,6 @@ function convertRequest(req, res) {
   });
 }
 
+exports.convertHealthCheck = convertHealthCheck;
 exports.convertFromChanges = convertFromChanges;
 exports.convert = convertRequest;
