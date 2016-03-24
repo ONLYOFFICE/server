@@ -18,7 +18,7 @@
         "editor_settings_spellchecker_url": "",
         "static_content": [
           {
-            "name": "/OfficeWeb",
+            "name": "/sdkjs",
             "path": "../../../sdkjs"
           },
           {
