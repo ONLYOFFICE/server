@@ -27,7 +27,7 @@ xcopy /s/h/e/k/c/y/q "..\..\..\core\build\cef\win32" ".\HtmlFileInternal"
 copy "..\..\..\core\build\bin\windows\x2t32.exe" "."
 
 powershell -Command "(gc ./DoctRenderer.config) -replace '../../OfficeWeb', '../../../sdkjs' | sc ./DoctRenderer.config"
-"..\..\..\core\build\bin\AllFontsGen\windows_32.exe" "%windir%\Fonts" "%~dp0\..\sdkjs\сommon\AllFonts.js" "%~dp0\..\sdkjs\Common\Images" "%~dp0\FileConverter\Bin\font_selection.bin"
+"..\..\..\core\build\bin\AllFontsGen\windows_32.exe" "%windir%\Fonts" "%~dp0\..\sdkjs\common\AllFonts.js" "%~dp0\..\sdkjs\common\Images" "%~dp0\FileConverter\Bin\font_selection.bin"
 
 ECHO.
 ECHO ----------------------------------------
