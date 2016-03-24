@@ -1,0 +1,43 @@
+﻿{
+  "log": {
+    "filePath": "../../Common/config/log4js/development.json"
+  },
+  "storage": {
+    "name": "storage-fs",
+    "fs": {
+      "folderPath": "../../App_Data",
+      "secretString": "onlyoffice"
+    }
+  },
+  "services": {
+    "CoAuthoring": {
+      "server": {
+        "port": 8080,
+        "fonts_route": "office/sdk/Fonts/",
+        "sockjsUrl": "/office/vendor/sockjs/sockjs.min.js",
+        "editor_settings_spellchecker_url": "",
+        "static_content": [
+          {
+            "name": "/OfficeWeb",
+            "path": "../../../sdkjs"
+          },
+          {
+            "name": "/office",
+            "path": "../../../web-apps"
+          }
+        ]
+      },
+      "utils": {
+        "utils_common_fontdir": "/Library/Fonts"
+      }
+    }
+  },
+  "FileConverter": {
+    "converter": {
+      "fontDir": "",
+      "presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
+      "filePath": "../../FileConverter/Bin/x2t",
+      "errorfiles": "error"
+    }
+  }
+}
