@@ -14,7 +14,7 @@
       "server": {
         "port": 8001,
         "fonts_route": "sdkjs/fonts/",
-        "sockjsUrl": "/office/vendor/sockjs/sockjs.min.js",
+        "sockjsUrl": "/web-apps/vendor/sockjs/sockjs.min.js",
         "editor_settings_spellchecker_url": "",
         "static_content": [
           {
@@ -22,7 +22,7 @@
             "path": "../../../sdkjs"
           },
           {
-            "name": "/office",
+            "name": "/web-apps",
             "path": "../../../web-apps"
           }
         ]
