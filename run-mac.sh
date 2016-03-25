@@ -43,13 +43,14 @@ cp -v "../../../core/build/lib/mac_64/libUnicodeConverter.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libXpsFile.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libascdocumentscore.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libdoctrenderer.dylib" "."
-
+chmod +x x2t
 
 SEARCH='..\/..\/OfficeWeb'
 REPLACE='..\/..\/..\/sdkjs'
 sed "s/$SEARCH/$REPLACE/g" "../../../core/build/lib/DoctRenderer.config" > "DoctRenderer.config"
 
 echo $BASEDIR
+chmod +x $BASEDIR/../core/build/bin/AllFontsGen/mac_64
 bash -cv "$BASEDIR/../core/build/bin/AllFontsGen/mac_64 '' '$BASEDIR/../sdkjs/Common/AllFonts.js' '$BASEDIR/../sdkjs/Common/Images' '$BASEDIR/FileConverter/Bin/font_selection.bin'"
 
 
