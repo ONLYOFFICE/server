@@ -13,16 +13,16 @@
     "CoAuthoring": {
       "server": {
         "port": 8001,
-        "fonts_route": "office/sdk/Fonts/",
-        "sockjsUrl": "/office/vendor/sockjs/sockjs.min.js",
+        "fonts_route": "sdkjs/fonts/",
+        "sockjsUrl": "/web-apps/vendor/sockjs/sockjs.min.js",
         "editor_settings_spellchecker_url": "",
         "static_content": [
           {
-            "name": "/OfficeWeb",
+            "name": "/sdkjs",
             "path": "../../../sdkjs"
           },
           {
-            "name": "/office",
+            "name": "/web-apps",
             "path": "../../../web-apps"
           }
         ]
@@ -38,7 +38,7 @@
   "FileConverter": {
     "converter": {
       "fontDir": "",
-      "presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
+      "presentationThemesDir": "../../../sdkjs/slide/themes",
       "filePath": "../../FileConverter/Bin/x2t32.exe",
       "errorfiles": "error"
     }
