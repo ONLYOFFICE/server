@@ -13,7 +13,6 @@
     "CoAuthoring": {
       "server": {
         "port": 8001,
-        "fonts_route": "sdkjs/fonts/",
         "sockjsUrl": "/web-apps/vendor/sockjs/sockjs.min.js",
         "editor_settings_spellchecker_url": "",
         "static_content": [

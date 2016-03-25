@@ -12,7 +12,7 @@
   "services": {
     "CoAuthoring": {
       "server": {
-        "sockjsUrl": "/OfficeWeb/vendor/sockjs/sockjs.min.js"
+        "sockjsUrl": "/web-apps/vendor/sockjs/sockjs.min.js"
       },
       "utils": {
         "utils_common_fontdir": "/usr/share/fonts"
@@ -25,8 +25,8 @@
   "FileConverter": {
     "converter": {
       "fontDir": "/usr/share/fonts",
-      "presentationThemesDir": "/var/www/onlyoffice/documentserver/OfficeWeb/sdk/PowerPoint/themes",
-      "filePath": "/var/www/onlyoffice/documentserver/NodeJsProjects/FileConverter/Bin/x2t",
+      "presentationThemesDir": "/var/www/onlyoffice/documentserver/sdkjs/slides/themes",
+      "filePath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/x2t",
       "errorfiles": "error"
     }
   },
