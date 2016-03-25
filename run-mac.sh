@@ -43,6 +43,9 @@ cp -v "../../../core/build/lib/mac_64/libUnicodeConverter.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libXpsFile.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libascdocumentscore.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libdoctrenderer.dylib" "."
+
+ln -siv libicuuc.55.1.dylib libicuuc.55.dylib
+ln -siv libicudata.55.1.dylib libicudata.55.dylib
 chmod -v +x x2t
 
 SEARCH='..\/..\/OfficeWeb'
