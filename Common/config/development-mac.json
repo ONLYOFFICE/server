@@ -13,7 +13,6 @@
     "CoAuthoring": {
       "server": {
         "port": 8080,
-        "fonts_route": "office/sdk/Fonts/",
         "sockjsUrl": "/office/vendor/sockjs/sockjs.min.js",
         "editor_settings_spellchecker_url": "",
         "static_content": [
@@ -31,6 +30,9 @@
         "utils_common_fontdir": "/Library/Fonts"
       }
     }
+  },
+  "license": {
+    "license_file": "./../../license.lic"
   },
   "FileConverter": {
     "converter": {

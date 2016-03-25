@@ -44,8 +44,8 @@ cp -v "../../../core/build/lib/mac_64/libXpsFile.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libascdocumentscore.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libdoctrenderer.dylib" "."
 
-ln -siv libicuuc.55.1.dylib libicuuc.55.dylib
-ln -siv libicudata.55.1.dylib libicudata.55.dylib
+ln -sifv libicuuc.55.1.dylib libicuuc.55.dylib
+ln -sifv libicudata.55.1.dylib libicudata.55.dylib
 chmod -v +x x2t
 
 SEARCH='..\/..\/OfficeWeb'
@@ -78,6 +78,6 @@ RunCommand "redis-server /usr/local/etc/redis.conf"
 
 RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && cd $BASEDIR/DocService/sources && node server.js"
 RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && cd $BASEDIR/DocService/sources && node gc.js"
-RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && cd $BASEDIR/FileConverter/sources && node convertermaster.js"
+RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && export DYLD_LIBRARY_PATH=../../FileConverter/Bin/ && cd $BASEDIR/FileConverter/sources && node convertermaster.js"
 
 
