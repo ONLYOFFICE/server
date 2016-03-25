@@ -28,7 +28,7 @@ TOOLS = $(OUTPUT)/$(TOOLS_DIR)/
 LICENSE_FILES = LICENSE.txt 3rd-Party.txt
 LICENSE = $(addsuffix $(OUTPUT)/, LICENSE_FILES)
 
-all: $(NODE_PROJECTS_MODULES) $(FILE_CONVERTER) $(SCHEMA) $(LICENSE)
+all: $(NODE_PROJECTS_MODULES) $(FILE_CONVERTER) $(TOOLS) $(SCHEMA) $(LICENSE)
 
 $(NODE_PROJECTS_MODULES): $(NODE_PROJECTS)
 	cd $(@D) && \
@@ -49,7 +49,7 @@ $(SCHEMA):
 		
 $(TOOLS):
 	mkdir -p $(TOOLS) && \
-		cp -r -t $(TOOLS) $(TOOLS_FILES) \
+		cp -r -t $(TOOLS) $(TOOLS_FILES) && \
 		mv $(TOOLS)/linux_64 $(TOOLS)/AllFontsGen
 		
 $(LICENSE):
