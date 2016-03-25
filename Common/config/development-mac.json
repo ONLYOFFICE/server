@@ -22,7 +22,7 @@
             "path": "../../../sdkjs"
           },
           {
-            "name": "/office",
+            "name": "/web-apps",
             "path": "../../../web-apps"
           }
         ]

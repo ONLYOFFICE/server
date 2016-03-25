@@ -43,14 +43,14 @@ cp -v "../../../core/build/lib/mac_64/libUnicodeConverter.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libXpsFile.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libascdocumentscore.dylib" "."
 cp -v "../../../core/build/lib/mac_64/libdoctrenderer.dylib" "."
-chmod +x x2t
+chmod -v +x x2t
 
 SEARCH='..\/..\/OfficeWeb'
 REPLACE='..\/..\/..\/sdkjs'
 sed "s/$SEARCH/$REPLACE/g" "../../../core/build/lib/DoctRenderer.config" > "DoctRenderer.config"
 
 echo $BASEDIR
-chmod +x $BASEDIR/../core/build/bin/AllFontsGen/mac_64
+chmod -v +x $BASEDIR/../core/build/bin/AllFontsGen/mac_64
 bash -cv "$BASEDIR/../core/build/bin/AllFontsGen/mac_64 '' '$BASEDIR/../sdkjs/Common/AllFonts.js' '$BASEDIR/../sdkjs/Common/Images' '$BASEDIR/FileConverter/Bin/font_selection.bin'"
 
 
@@ -61,7 +61,6 @@ echo "----------------------------------------"
 NpmInstall "$BASEDIR/DocService"
 NpmInstall "$BASEDIR/Common"
 NpmInstall "$BASEDIR/FileConverter"
-NpmInstall "$BASEDIR/FileStorage"
 NpmInstall "$BASEDIR/SpellChecker"
 
 
@@ -77,8 +76,5 @@ RunCommand "redis-server /usr/local/etc/redis.conf"
 RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && cd $BASEDIR/DocService/sources && node server.js"
 RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && cd $BASEDIR/DocService/sources && node gc.js"
 RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && cd $BASEDIR/FileConverter/sources && node convertermaster.js"
-# RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && cd $BASEDIR/FileStorage/sources && node server.js"
-# RunCommand "export NODE_CONFIG_DIR=$BASEDIR/Common/config && export NODE_ENV=development-mac && cd $BASEDIR/SpellChecker/sources && node server.js"
-
 
 
