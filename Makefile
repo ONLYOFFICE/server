@@ -9,7 +9,7 @@ NODE_PROJECTS_MODULES = $(addsuffix /$(NODE_MODULES_DIR), $(NODE_PROJECTS))
 FILE_CONVERTER = $(OUTPUT)/FileConverter/bin
 FILE_CONVERTER_FILES += ../core/build/lib/linux_64/*.so
 FILE_CONVERTER_FILES += ../core/build/lib/DoctRenderer.config
-FILE_CONVERTER_FILES += ../core/build/bin/icu/linux_64/*.so
+FILE_CONVERTER_FILES += ../core/build/bin/icu/linux_64/*.so*
 FILE_CONVERTER_FILES += ../core/build/bin/linux/x2t
 FILE_CONVERTER_FILES += ../core/build/bin/linux/icudtl_dat.S
 
