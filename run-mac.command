@@ -4,7 +4,7 @@ echo "----------------------------------------"
 echo "Copy file to converter"
 echo "----------------------------------------"
 
-BASEDIR=$(pwd)
+BASEDIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "$BASEDIR"
 
