@@ -41,7 +41,8 @@ $(NODE_PROJECTS):
 $(FILE_CONVERTER): $(NODE_PROJECTS)
 	mkdir -p $(FILE_CONVERTER) $(HTML_FILE_INTERNAL) && \
 		cp -r -t $(FILE_CONVERTER) $(FILE_CONVERTER_FILES) && \
-		cp -r -t $(HTML_FILE_INTERNAL) $(HTML_FILE_INTERNAL_FILES)
+		cp -r -t $(HTML_FILE_INTERNAL) $(HTML_FILE_INTERNAL_FILES) && \
+		sed 's,../../..,/var/www/onlyoffice/documentserver,' -i $(FILE_CONVERTER)/DoctRenderer.config 
 
 $(SCHEMA):
 	mkdir -p $(SCHEMA) && \
