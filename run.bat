@@ -35,7 +35,7 @@ ECHO ----------------------------------------
 CD /D %~dp0\..\sdkjs\build
 call npm install -g grunt-cli
 call npm install
-call grunt --src="./sdk_configs" --level=WHITESPACE_ONLY --nomap=true --formatting=PRETTY_PRINT --private=true
+call grunt --src="./configs" --level=WHITESPACE_ONLY --nomap=true --formatting=PRETTY_PRINT --private=true
 
 
 ECHO.
