@@ -128,8 +128,13 @@ var pubsub;
 var queue;
 var clientStatsD = statsDClient.getClient();
 var licenseInfo = constants.LICENSE_RESULT.Error;
+var shutdownFlag = false;
 
 var asc_coAuthV = '3.0.9';				// Версия сервера совместного редактирования
+
+function getIsShutdown() {
+  return shutdownFlag;
+}
 
 function DocumentChanges(docId) {
   this.docId = docId;
@@ -787,6 +792,7 @@ exports.addTask = addTask;
 exports.removeResponse = removeResponse;
 exports.hasEditors = hasEditors;
 exports.getCallback = getCallback;
+exports.getIsShutdown = getIsShutdown;
 exports.getChangesIndexPromise = co.wrap(getChangesIndex);
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
@@ -802,6 +808,10 @@ exports.install = function(server, callbackFunction) {
       logger.error("null == conn");
       return;
     }
+    if (getIsShutdown()) {
+      sendFileError(conn, 'Server shutdow');
+      return;
+    }
     conn.baseUrl = utils.getBaseUrlByConnection(conn);
 
     conn.on('data', function(message) {
@@ -815,6 +825,11 @@ exports.install = function(server, callbackFunction) {
         var data = JSON.parse(message);
         docId = conn.docId;
         logger.info('data.type = ' + data.type + ' id = ' + docId);
+        if(getIsShutdown())
+        {
+          logger.debug('Server shutdown receive data');
+          return;
+        }
         switch (data.type) {
           case 'auth'          :
             yield* auth(conn, data);
@@ -1967,6 +1982,22 @@ exports.install = function(server, callbackFunction) {
               var multi = redisClient.multi(commands);
               yield utils.promiseRedis(multi, multi.exec);
             }
+            break;
+          case commonDefines.c_oPublishType.shutdown:
+            logger.debug('start shutdown');
+            //flag prevent new socket connections and receive data from exist connections
+            shutdownFlag = true;
+            logger.debug('active connections: %d', connections.length);
+            //не останавливаем сервер, т.к. будут недоступны сокеты и все запросы
+            //плохо тем, что может понадобится конвертация выходного файла и то что не будут обработаны запросы на CommandService
+            //server.close();
+            //in the cycle we will remove elements so copy array
+            var connectionsTmp = connections.slice();
+            //destroy all open connections
+            for (i = 0; i < connectionsTmp.length; ++i) {
+              connectionsTmp[i].close(constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
+            }
+            logger.debug('end shutdown');
             break;
           default:
             logger.debug('pubsub unknown message type:%s', msg);
