@@ -1954,6 +1954,22 @@ exports.install = function(server, callbackFunction) {
             }
             logger.debug('end shutdown');
             break;
+          case commonDefines.c_oPublishType.shutdown:
+            logger.debug('start shutdown');
+            //flag prevent new socket connections and receive data from exist connections
+            shutdownFlag = true;
+            logger.debug('active connections: %d', connections.length);
+            //не останавливаем сервер, т.к. будут недоступны сокеты и все запросы
+            //плохо тем, что может понадобится конвертация выходного файла и то что не будут обработаны запросы на CommandService
+            //server.close();
+            //in the cycle we will remove elements so copy array
+            var connectionsTmp = connections.slice();
+            //destroy all open connections
+            for (i = 0; i < connectionsTmp.length; ++i) {
+              connectionsTmp[i].close(constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
+            }
+            logger.debug('end shutdown');
+            break;
           default:
             logger.debug('pubsub unknown message type:%s', msg);
         }
