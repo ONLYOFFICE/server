@@ -30,20 +30,15 @@ copy "..\..\..\core\build\bin\windows\x2t32.exe" "."
 
 ECHO.
 ECHO ----------------------------------------
-ECHO build skd-all.js
+ECHO Start build skd-all.js
 ECHO ----------------------------------------
 CD /D %~dp0\..\sdkjs\build\deploy
 SET GRUNT_OLD=grunt@0.3.17
 SET GRUNT_CLI=grunt-cli
 
-echo Check is there old grunt installed.
-call npm list -g %GRUNT_OLD% && call npm uninstall -g grunt
-
-echo Installation grunt-cli
-call npm list -g %GRUNT_CLI% || call npm install -g %GRUNT_CLI%
-
+call npm install -g grunt-cli
 call npm install
-call grunt.cmd --src="./sdk_configs" --level=WHITESPACE_ONLY --nomap=true --formatting=PRETTY_PRINT
+call grunt --src="./sdk_configs" --level=WHITESPACE_ONLY --nomap=true --formatting=PRETTY_PRINT
 
 
 ECHO.
