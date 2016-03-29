@@ -32,10 +32,7 @@ ECHO.
 ECHO ----------------------------------------
 ECHO Start build skd-all.js
 ECHO ----------------------------------------
-CD /D %~dp0\..\sdkjs\build\deploy
-SET GRUNT_OLD=grunt@0.3.17
-SET GRUNT_CLI=grunt-cli
-
+CD /D %~dp0\..\sdkjs\build
 call npm install -g grunt-cli
 call npm install
 call grunt --src="./sdk_configs" --level=WHITESPACE_ONLY --nomap=true --formatting=PRETTY_PRINT
