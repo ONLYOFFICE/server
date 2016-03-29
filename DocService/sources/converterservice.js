@@ -56,9 +56,8 @@ function* getConvertStatus(cmd, selectRes, baseUrl) {
       case taskResult.FileStatus.Err:
       case taskResult.FileStatus.ErrToReload:
         status.err = row.tr_status_info;
-        //todo
         if (taskResult.FileStatus.ErrToReload == row.tr_status) {
-          yield taskResult.remove(docId);
+          yield canvasService.cleanupCache(docId);
         }
         break;
       case taskResult.FileStatus.NeedParams:
@@ -156,10 +155,7 @@ function convertHealthCheck(req, res) {
         output = true;
       }
       //clean up
-      var removeRes = yield taskResult.remove(docId);
-      if (removeRes.affectedRows > 0) {
-        yield storage.deletePath(docId);
-      }
+      yield canvasService.cleanupCache(docId);
       logger.debug('End convertHealthCheck');
     } catch (e) {
       logger.error('Error convertHealthCheck\r\n%s', e.stack);

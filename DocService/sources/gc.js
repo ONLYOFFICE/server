@@ -27,6 +27,7 @@ var co = require('co');
 var cron = require('cron');
 var taskResult = require('./taskresult');
 var docsCoServer = require('./DocsCoServer');
+var canvasService = require('./canvasservice');
 var storage = require('./../../Common/sources/storage-base');
 var utils = require('./../../Common/sources/utils');
 var logger = require('./../../Common/sources/logger');
@@ -59,11 +60,8 @@ var checkFileExpire = function() {
           //проверяем что никто не сидит в документе
           var hvals = yield docsCoServer.getAllPresencePromise(docId);
           if(0 == hvals.length){
-            var removeRes = yield taskResult.remove(docId);
-            //если ничего не удалилось, значит это сделал другой процесс
-            if (removeRes.affectedRows > 0) {
+            if (yield canvasService.cleanupCache(docId)) {
               currentRemovedCount++;
-              yield storage.deletePath(docId);
             }
           } else {
             logger.debug('checkFileExpire expire but presence: hvals = %s; docId = %s', hvals, docId);
