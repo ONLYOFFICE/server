@@ -161,3 +161,6 @@ exports.REDIS_KEY_SHUTDOWN = 'shutdown';
 
 exports.SHUTDOWN_CODE = 4001;
 exports.SHUTDOWN_REASON = 'server shutdown';
+
+exports.CONTENT_DISPOSITION_INLINE = 'inline';
+exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';

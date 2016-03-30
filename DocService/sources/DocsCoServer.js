@@ -1946,7 +1946,8 @@ exports.install = function(server, callbackFunction) {
                 } else if (1 == data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey));
                 } else {
-                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, null, cmd.getTitle()));
+                  var contentDisposition = cmd.getInline() ? constants.CONTENT_DISPOSITION_INLINE : constants.CONTENT_DISPOSITION_ATTACHMENT;
+                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, null, cmd.getTitle(), contentDisposition));
                 }
               }
               sendData(participant, output);

@@ -126,11 +126,12 @@ if (cluster.isMaster) {
     app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, (req, res, next) => {
       var index = req.url.lastIndexOf('/');
       if (-1 != index) {
+        var contentDisposition = req.query['response-content-disposition'] || 'attachment';
         var sendFileOptions = {
           root: configStorage.get('fs.folderPath'),
           dotfiles: 'deny',
           headers: {
-            'Content-Disposition': 'attachment;'
+            'Content-Disposition': contentDisposition
           }
         };
         var urlParsed = urlModule.parse(req.url);

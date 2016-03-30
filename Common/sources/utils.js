@@ -151,25 +151,31 @@ function encodeRFC5987ValueChars(str) {
     //  so we can allow for a little better readability over the wire: |`^
     replace(/%(?:7C|60|5E)/g, unescape);
 }
-function getContentDisposition (filename, useragent) {
+function getContentDisposition (opt_filename, opt_useragent, opt_type) {
   //from http://stackoverflow.com/questions/93551/how-to-encode-the-filename-parameter-of-content-disposition-header-in-http
-  var contentDisposition = 'attachment; filename="';
-  if (useragent != null && -1 != useragent.toLowerCase().indexOf('android')) {
-    contentDisposition += makeAndroidSafeFileName(filename) + '"';
-  } else {
-    contentDisposition += filename + '"; filename*=UTF-8\'\'' + encodeRFC5987ValueChars(filename);
+  var contentDisposition = opt_type ? opt_type : constants.CONTENT_DISPOSITION_ATTACHMENT;
+  if (opt_filename) {
+    contentDisposition += '; filename="';
+    if (opt_useragent != null && -1 != opt_useragent.toLowerCase().indexOf('android')) {
+      contentDisposition += makeAndroidSafeFileName(opt_filename) + '"';
+    } else {
+      contentDisposition += opt_filename + '"; filename*=UTF-8\'\'' + encodeRFC5987ValueChars(opt_filename);
+    }
   }
   return contentDisposition;
 }
-function getContentDispositionS3 (filename, useragent) {
-  var contentDisposition = 'attachment;';
-  if (useragent != null && -1 != useragent.toLowerCase().indexOf('android')) {
-    contentDisposition += ' filename=' + makeAndroidSafeFileName(filename);
-  } else {
-    if (containsAllAsciiNP(filename)) {
-      contentDisposition += ' filename=' + filename;
+function getContentDispositionS3 (opt_filename, opt_useragent, opt_type) {
+  var contentDisposition = opt_type ? opt_type : constants.CONTENT_DISPOSITION_ATTACHMENT;
+  if (opt_filename) {
+    contentDisposition += ';';
+    if (opt_useragent != null && -1 != opt_useragent.toLowerCase().indexOf('android')) {
+      contentDisposition += ' filename=' + makeAndroidSafeFileName(opt_filename);
     } else {
-      contentDisposition += ' filename*=UTF-8\'\'' + encodeRFC5987ValueChars(filename);
+      if (containsAllAsciiNP(opt_filename)) {
+        contentDisposition += ' filename=' + opt_filename;
+      } else {
+        contentDisposition += ' filename*=UTF-8\'\'' + encodeRFC5987ValueChars(opt_filename);
+      }
     }
   }
   return contentDisposition;
