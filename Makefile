@@ -15,7 +15,7 @@ FILE_CONVERTER_FILES += ../core/build/bin/linux/icudtl_dat.S
 
 HTML_FILE_INTERNAL := $(FILE_CONVERTER)/HtmlFileInternal
 HTML_FILE_INTERNAL_FILES += ../core/build/lib/linux_64/HtmlFileInternal
-HTML_FILE_INTERNAL_FILES += ../core/build/cef/linux64/**
+HTML_FILE_INTERNAL_FILES += ../core/build/cef/linux_64/**
 
 SCHEMA_DIR = schema
 SCHEMA_FILES = $(SCHEMA_DIR)/**
