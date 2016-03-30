@@ -397,7 +397,7 @@ exports.getImageFormat = function(buffer, optExt) {
         format = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG;
       } else {
         //пробуем по расширению
-        if (optExt.Length > 0 && '.' == optExt[0]) {
+        if (optExt.length > 0 && '.' == optExt[0]) {
           optExt = optExt.substring(1);
         }
         format = exports.getFormatFromString(optExt);
