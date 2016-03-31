@@ -37,7 +37,7 @@ var arrDictionaries = {};
 	for (var indexDict = 0, lengthDict = arrDictionariesConfig.length; indexDict < lengthDict; ++indexDict) {
 		oDictTmp = arrDictionariesConfig[indexDict];
 		oDictName = oDictTmp.name;
-		pathTmp = __dirname + '/../Dictionaries/' + oDictName + '/' + oDictName + '.';
+		pathTmp = __dirname + '/../dictionaries/' + oDictName + '/' + oDictName + '.';
 		arrDictionaries[oDictTmp.id] = new nodehun(fs.readFileSync(pathTmp + 'aff'), fs.readFileSync(pathTmp + 'dic'));
 	}
 })();
