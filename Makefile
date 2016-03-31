@@ -17,6 +17,9 @@ HTML_FILE_INTERNAL := $(FILE_CONVERTER)/HtmlFileInternal
 HTML_FILE_INTERNAL_FILES += ../core/build/lib/linux_64/HtmlFileInternal
 HTML_FILE_INTERNAL_FILES += ../core/build/cef/linux_64/**
 
+SPELLCHECKER_DICTIONARIES := $(OUTPUT)/SpellChecker/dictionaries
+SPELLCHECKER_DICTIONARY_FILES += ../dictionaries/**
+
 SCHEMA_DIR = schema
 SCHEMA_FILES = $(SCHEMA_DIR)/**
 SCHEMA = $(OUTPUT)/$(SCHEMA_DIR)/
@@ -28,7 +31,7 @@ TOOLS = $(OUTPUT)/$(TOOLS_DIR)/
 LICENSE_FILES = LICENSE.txt 3rd-Party.txt
 LICENSE = $(addsuffix $(OUTPUT)/, LICENSE_FILES)
 
-all: $(NODE_PROJECTS_MODULES) $(FILE_CONVERTER) $(TOOLS) $(SCHEMA) $(LICENSE)
+all: $(NODE_PROJECTS_MODULES) $(FILE_CONVERTER) $(SPELLCHECKER_DICTIONARIES) $(TOOLS) $(SCHEMA) $(LICENSE)
 
 $(NODE_PROJECTS_MODULES): $(NODE_PROJECTS)
 	cd $(@D) && \
@@ -42,7 +45,11 @@ $(FILE_CONVERTER): $(NODE_PROJECTS)
 	mkdir -p $(FILE_CONVERTER) $(HTML_FILE_INTERNAL) && \
 		cp -r -t $(FILE_CONVERTER) $(FILE_CONVERTER_FILES) && \
 		cp -r -t $(HTML_FILE_INTERNAL) $(HTML_FILE_INTERNAL_FILES) && \
-		sed 's,../../..,/var/www/onlyoffice/documentserver,' -i $(FILE_CONVERTER)/DoctRenderer.config 
+		sed 's,../../..,/var/www/onlyoffice/documentserver,' -i $(FILE_CONVERTER)/DoctRenderer.config
+
+$(SPELLCHECKER_DICTIONARIES): $(NODE_PROJECTS)
+	mkdir -p $(SPELLCHECKER_DICTIONARIES) && \
+		cp -r -t $(SPELLCHECKER_DICTIONARIES) $(SPELLCHECKER_DICTIONARY_FILES)
 
 $(SCHEMA):
 	mkdir -p $(SCHEMA) && \
