@@ -580,7 +580,7 @@ function* getCallback(id) {
   }
 }
 function* addCallback(id, href, baseUrl) {
-  yield sqlBase.insertInTablePromise(sqlBase.tableId.callbacks, null, id, href, baseUrl);
+  yield sqlBase.insertCallbackPromise(id, href, baseUrl);
 }
 function* getChangesIndex(docId) {
   var res = 0;

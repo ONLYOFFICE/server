@@ -101,29 +101,21 @@ exports.upsertInTablePromise = function (tableId, toInsert, toUpdate) {
     });
   });
 };
-exports.insertInTable = function (tableId, callbackFunction) {
-	var table = getTableById(tableId);
-	var sqlCommand = "INSERT INTO " + table + " VALUES (";
-	for (var i = 2, l = arguments.length; i < l; ++i) {
-		sqlCommand += baseConnector.sqlEscape(arguments[i]);
-		if (i !== l - 1)
-			sqlCommand += ",";
-	}
-	sqlCommand += ");";
+exports.insertCallback = function(id, href, baseUrl, callbackFunction) {
+  var sqlCommand = "INSERT IGNORE INTO " + tableCallbacks + " VALUES (" + baseConnector.sqlEscape(id) + "," +
+    baseConnector.sqlEscape(href) + "," + baseConnector.sqlEscape(baseUrl) + ");";
 
-	baseConnector.sqlQuery(sqlCommand, callbackFunction);
+  baseConnector.sqlQuery(sqlCommand, callbackFunction);
 };
-exports.insertInTablePromise = function () {
-  var newArguments = Array.prototype.slice.call(arguments);
+exports.insertCallbackPromise = function(id, href, baseUrl) {
   return new Promise(function(resolve, reject) {
-    newArguments[1] = function(error, result) {
+    exports.insertCallback(id, href, baseUrl, function(error, result) {
       if (error) {
         reject(error);
       } else {
         resolve(result);
       }
-    };
-    exports.insertInTable.apply(this, newArguments);
+    });
   });
 };
 exports.insertChanges = function (objChanges, docId, index, user) {
