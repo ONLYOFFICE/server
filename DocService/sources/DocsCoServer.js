@@ -865,6 +865,9 @@ exports.install = function(server, callbackFunction) {
           case 'openDocument'      :
             canvasService.openDocument(conn, data);
             break;
+          case 'changesError':
+            logger.error("changesError %s", data.stack);
+            break;
           default:
             logger.debug("unknown command %s", message);
             break;
