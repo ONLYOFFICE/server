@@ -25,7 +25,7 @@
   "FileConverter": {
     "converter": {
       "fontDir": "/usr/share/fonts",
-      "presentationThemesDir": "/var/www/onlyoffice/documentserver/sdkjs/slides/themes",
+      "presentationThemesDir": "/var/www/onlyoffice/documentserver/sdkjs/slide/themes",
       "filePath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/x2t",
       "errorfiles": "error"
     }
