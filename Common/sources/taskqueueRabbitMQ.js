@@ -40,11 +40,13 @@ function init(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddRespon
   return co(function* () {
     var e = null;
     try {
-      var conn = yield rabbitMQCore.connetPromise(function () {
+      var conn = yield rabbitMQCore.connetPromise(function() {
         clear(taskqueue);
-        init(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, null);
+        if (!taskqueue.isClose) {
+          init(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, null);
+        }
       });
-
+      taskqueue.connection = conn;
       var bAssertTaskQueue = false;
       var optionsTaskQueue = {
         durable: true,
@@ -144,6 +146,8 @@ function removeResponse(taskqueue, data) {
 }
 
 function TaskQueueRabbitMQ() {
+  this.isClose = false;
+  this.connection = null;
   this.channelConvertTask = null;
   this.channelConvertTaskReceive = null;
   this.channelConvertResponse = null;
@@ -227,6 +231,19 @@ TaskQueueRabbitMQ.prototype.removeResponse = function (data) {
       t.removeResponseStore.push(data);
     }
     resolve();
+  });
+};
+TaskQueueRabbitMQ.prototype.close = function () {
+  var t = this;
+  this.isClose = true;
+  return new Promise(function(resolve, reject) {
+    t.connection.close(function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
   });
 };
 

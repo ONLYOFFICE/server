@@ -81,6 +81,14 @@ PubsubRedis.prototype.initPromise = function() {
 PubsubRedis.prototype.publish = function(data) {
   this.clientPublish.publish(channelName, data);
 };
+PubsubRedis.prototype.close = function() {
+  var t = this;
+  return new Promise(function(resolve, reject) {
+    t.clientPublish.quit();
+    t.clientSubscribe.quit();
+    resolve();
+  });
+};
 
 module.exports = PubsubRedis;
 module.exports.getClientRedis = getClientRedis;

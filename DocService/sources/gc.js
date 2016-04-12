@@ -77,13 +77,15 @@ var checkFileExpire = function() {
 };
 var checkDocumentExpire = function() {
   return co(function* () {
+    var pubsub = null;
+    var queue = null;
+    var removedCount = 0;
+    var startSaveCount = 0;
     try {
       logger.debug('checkDocumentExpire start');
-      var removedCount = 0;
-      var startSaveCount = 0;
       var redisClient = pubsubRedis.getClientRedis();
 
-      var pubsub = new pubsubService();
+      pubsub = new pubsubService();
       yield pubsub.initPromise();
       //inner ping to update presence
       pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.expireDoc}));
@@ -96,7 +98,7 @@ var checkDocumentExpire = function() {
       var execRes = yield utils.promiseRedis(multi, multi.exec);
       var expiredKeys = execRes[0];
       if (expiredKeys.length > 0) {
-        var queue = new queueService();
+        queue = new queueService();
         yield queue.initPromise(true, false, false, false);
 
         for (var i = 0; i < expiredKeys.length; ++i) {
@@ -113,10 +115,20 @@ var checkDocumentExpire = function() {
           }
         }
       }
-
-      logger.debug('checkDocumentExpire end: startSaveCount = %d, removedCount = %d', startSaveCount, removedCount);
     } catch (e) {
       logger.error('checkDocumentExpire error:\r\n%s', e.stack);
+    } finally {
+      try {
+        if (pubsub) {
+          yield pubsub.close();
+        }
+        if (queue) {
+          yield queue.close();
+        }
+      } catch (e) {
+        logger.error('checkDocumentExpire error:\r\n%s', e.stack);
+      }
+      logger.debug('checkDocumentExpire end: startSaveCount = %d, removedCount = %d', startSaveCount, removedCount);
     }
   });
 };

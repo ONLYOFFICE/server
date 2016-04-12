@@ -35,10 +35,13 @@ function init(pubsub, callback) {
   return co(function* () {
     var e = null;
     try {
-      var conn = yield rabbitMQCore.connetPromise(function () {
+      var conn = yield rabbitMQCore.connetPromise(function() {
         clear(pubsub);
-        init(pubsub, null);
+        if (!pubsub.isClose) {
+          init(pubsub, null);
+        }
       });
+      pubsub.connection = conn;
       pubsub.channelPublish = yield rabbitMQCore.createChannelPromise(conn);
       pubsub.exchangePublish = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub,
         'fanout', {durable: true});
@@ -77,6 +80,8 @@ function publish(pubsub, data) {
 }
 
 function PubsubRabbitMQ() {
+  this.isClose = false;
+  this.connection = null;
   this.channelPublish = null;
   this.exchangePublish = null;
   this.publishStore = [];
@@ -104,6 +109,19 @@ PubsubRabbitMQ.prototype.publish = function (message) {
   } else {
     this.publishStore.push(data);
   }
+};
+PubsubRabbitMQ.prototype.close = function() {
+  var t = this;
+  this.isClose = true;
+  return new Promise(function(resolve, reject) {
+    t.connection.close(function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
 };
 
 module.exports = PubsubRabbitMQ;
