@@ -84,7 +84,6 @@ const logger = require('./../../Common/sources/logger');
 } else {*/
   const express = require('express');
   const http = require('http');
-  const https = require('https');
   const urlModule = require('url');
   const path = require('path');
   const bodyParser = require("body-parser");
@@ -102,15 +101,7 @@ const logger = require('./../../Common/sources/logger');
 
   logger.warn('Express server starting...');
 
-  if (config.has('ssl')) {
-    const configSSL = config.get('ssl');
-    var privateKey = fs.readFileSync(configSSL.get('key')).toString(), certificateKey = fs.readFileSync(configSSL.get('cert')).toString(), trustedCertificate = fs.readFileSync(configSSL.get('ca')).toString(), //See detailed options format here: http://nodejs.org/api/tls.html#tls_tls_createserver_options_secureconnectionlistener
-      options = {key: privateKey, cert: certificateKey, ca: [trustedCertificate]};
-
-    server = https.createServer(options, app);
-  } else {
-    server = http.createServer(app);
-  }
+  server = http.createServer(app);
 
   if (config.has('server.static_content')) {
     var staticContent = config.get('server.static_content');
