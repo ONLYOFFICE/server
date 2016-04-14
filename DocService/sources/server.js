@@ -30,7 +30,7 @@ const config = configCommon.get('services.CoAuthoring');
 
 const logger = require('./../../Common/sources/logger');
 
-if (cluster.isMaster) {
+/*if (cluster.isMaster) {
   const numCPUs = require('os').cpus().length;
   const license = require('./../../Common/sources/license');
 
@@ -38,7 +38,7 @@ if (cluster.isMaster) {
   var licenseInfo, workersCount = 0;
   const readLicense = () => {
     licenseInfo = license.readLicense();
-    workersCount = Math.min(licenseInfo.count, Math.ceil(numCPUs * cfgWorkerPerCpu));
+    workersCount = 1; //Math.min(licenseInfo.count, Math.ceil(numCPUs * cfgWorkerPerCpu));
   };
   const updateLicenseWorker = (worker) => {
     worker.send({data: licenseInfo.type});
@@ -81,7 +81,7 @@ if (cluster.isMaster) {
 
   fs.watchFile(configCommon.get('license').get('license_file'), updateLicense);
   setInterval(updateLicense, 86400000);
-} else {
+} else {*/
   const express = require('express');
   const http = require('http');
   const https = require('https');
@@ -209,7 +209,7 @@ if (cluster.isMaster) {
     }
     docsCoServer.setLicenseInfo(msg.data);
   });
-}
+//}
 
 process.on('uncaughtException', (err) => {
   logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
