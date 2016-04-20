@@ -284,7 +284,7 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
     let changes = yield promiseGetChanges(cmd.getDocId());
     for (var i = 0; i < changes.length; ++i) {
       var change = changes[i];
-      if (null === changesAuthor || changesAuthor !== change.dc_user_id_original) {
+      if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
           changesBuffers.push(new Buffer(']', 'utf8'));
           let dataZipFile = Buffer.concat(changesBuffers);
@@ -293,15 +293,15 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
           var filePath = path.join(changesDir, fileName);
           fs.writeFileSync(filePath, dataZipFile);
         }
-        changesAuthor = change.dc_user_id_original;
-        var strDate = baseConnector.getDateTime(change.dc_date);
-        changesHistoryData.push({'userid': changesAuthor, 'username': change.dc_user_name, 'date': strDate});
+        changesAuthor = change.user_id_original;
+        var strDate = baseConnector.getDateTime(change.change_date);
+        changesHistoryData.push({'userid': changesAuthor, 'username': change.user_name, 'date': strDate});
         changesBuffers = [];
         changesBuffers.push(new Buffer('[', 'utf8'));
       } else {
         changesBuffers.push(new Buffer(',', 'utf8'));
       }
-      changesBuffers.push(new Buffer(change.dc_data, 'utf8'));
+      changesBuffers.push(new Buffer(change.change_data, 'utf8'));
     }
     if (null !== changesBuffers) {
       changesBuffers.push(new Buffer(']', 'utf8'));

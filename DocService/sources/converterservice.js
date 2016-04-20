@@ -49,14 +49,14 @@ function* getConvertStatus(cmd, selectRes, baseUrl) {
   if (selectRes.length > 0) {
     var docId = cmd.getDocId();
     var row = selectRes[0];
-    switch (row.tr_status) {
+    switch (row.status) {
       case taskResult.FileStatus.Ok:
         status.url = yield storage.getSignedUrl(baseUrl, docId + '/' + cmd.getTitle());
         break;
       case taskResult.FileStatus.Err:
       case taskResult.FileStatus.ErrToReload:
-        status.err = row.tr_status_info;
-        if (taskResult.FileStatus.ErrToReload == row.tr_status) {
+        status.err = row.status_info;
+        if (taskResult.FileStatus.ErrToReload == row.status) {
           yield canvasService.cleanupCache(docId);
         }
         break;
@@ -66,7 +66,7 @@ function* getConvertStatus(cmd, selectRes, baseUrl) {
         status.err = constants.UNKNOWN;
         break;
     }
-    var lastOpenDate = row.tr_last_open_date;
+    var lastOpenDate = row.last_open_date;
     if (new Date().getTime() - lastOpenDate.getTime() > CONVERT_TIMEOUT) {
       status.err = constants.CONVERT_TIMEOUT;
     }
@@ -84,7 +84,6 @@ function* convertByCmd(cmd, async, baseUrl, opt_healthcheck) {
 
   var task = new taskResult.TaskResultData();
   task.key = docId;
-  task.format = cmd.getFormat();
   task.status = taskResult.FileStatus.WaitQueue;
   task.statusInfo = constants.NO_ERROR;
   task.title = cmd.getTitle();

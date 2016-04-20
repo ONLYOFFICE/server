@@ -43,7 +43,6 @@ var FileStatus = {
 
 function TaskResultData() {
   this.key = null;
-  this.format = null;
   this.status = null;
   this.statusInfo = null;
   this.lastOpenDate = null;
@@ -54,9 +53,6 @@ function TaskResultData() {
 TaskResultData.prototype.completeDefaults = function() {
   if (!this.key) {
     this.key = '';
-  }
-  if (!this.format) {
-    this.format = '';
   }
   if (!this.status) {
     this.status = FileStatus.None;
@@ -81,16 +77,16 @@ TaskResultData.prototype.completeDefaults = function() {
 function getUpsertString(task, opt_updateUserIndex) {
   task.completeDefaults();
   var dateNow = sqlBase.getDateTime(new Date());
-  var commandArg = [task.key, task.format, task.status, task.statusInfo, dateNow, task.title, task.userIndex, task.changeId];
+  var commandArg = [task.key, task.status, task.statusInfo, dateNow, task.title, task.userIndex, task.changeId];
   var commandArgEsc = commandArg.map(function(curVal) {
     return sqlBase.baseConnector.sqlEscape(curVal)
   });
-  var sql = 'INSERT INTO task_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title,' +
-    ' tr_user_index, tr_change_id  ) VALUES (' + commandArgEsc.join(', ') + ') ON DUPLICATE KEY UPDATE' +
-    ' tr_last_open_date = ' + sqlBase.baseConnector.sqlEscape(dateNow);
+  var sql = 'INSERT INTO task_result ( id, status, status_info, last_open_date, title,' +
+    ' user_index, change_id  ) VALUES (' + commandArgEsc.join(', ') + ') ON DUPLICATE KEY UPDATE' +
+    ' last_open_date = ' + sqlBase.baseConnector.sqlEscape(dateNow);
   if (opt_updateUserIndex) {
     //todo LAST_INSERT_ID in posgresql - RETURNING
-    sql += ', tr_user_index = LAST_INSERT_ID(tr_user_index + 1);';
+    sql += ', user_index = LAST_INSERT_ID(user_index + 1);';
   } else {
     sql += ';';
   }
@@ -111,7 +107,7 @@ function upsert(task, opt_updateUserIndex) {
 }
 
 function getSelectString(docId) {
-  return 'SELECT * FROM task_result WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(docId) + ';';
+  return 'SELECT * FROM task_result WHERE id=' + sqlBase.baseConnector.sqlEscape(docId) + ';';
 }
 
 function select(docId) {
@@ -128,33 +124,30 @@ function select(docId) {
 }
 function toUpdateArray(task, updateTime) {
   var res = [];
-  if (null != task.format) {
-    res.push('tr_format=' + sqlBase.baseConnector.sqlEscape(task.format));
-  }
   if (null != task.status) {
-    res.push('tr_status=' + sqlBase.baseConnector.sqlEscape(task.status));
+    res.push('status=' + sqlBase.baseConnector.sqlEscape(task.status));
   }
   if (null != task.statusInfo) {
-    res.push('tr_status_info=' + sqlBase.baseConnector.sqlEscape(task.statusInfo));
+    res.push('status_info=' + sqlBase.baseConnector.sqlEscape(task.statusInfo));
   }
   if (updateTime) {
-    res.push('tr_last_open_date=' + sqlBase.baseConnector.sqlEscape(sqlBase.getDateTime(new Date())));
+    res.push('last_open_date=' + sqlBase.baseConnector.sqlEscape(sqlBase.getDateTime(new Date())));
   }
   if (null != task.title) {
-    res.push('tr_title=' + sqlBase.baseConnector.sqlEscape(task.title));
+    res.push('title=' + sqlBase.baseConnector.sqlEscape(task.title));
   }
   if (null != task.indexUser) {
-    res.push('tr_index_user=' + sqlBase.baseConnector.sqlEscape(task.indexUser));
+    res.push('user_index=' + sqlBase.baseConnector.sqlEscape(task.indexUser));
   }
   if (null != task.changeId) {
-    res.push('tr_change_id=' + sqlBase.baseConnector.sqlEscape(task.changeId));
+    res.push('change_id=' + sqlBase.baseConnector.sqlEscape(task.changeId));
   }
   return res;
 }
 function getUpdateString(task) {
   var commandArgEsc = toUpdateArray(task, true);
   return 'UPDATE task_result SET ' + commandArgEsc.join(', ') +
-    ' WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(task.key) + ';';
+    ' WHERE id=' + sqlBase.baseConnector.sqlEscape(task.key) + ';';
 }
 
 function update(task) {
@@ -172,7 +165,7 @@ function update(task) {
 function getUpdateIfString(task, mask) {
   var commandArgEsc = toUpdateArray(task, true);
   var commandArgEscMask = toUpdateArray(mask);
-  commandArgEscMask.push('tr_key=' + sqlBase.baseConnector.sqlEscape(mask.key));
+  commandArgEscMask.push('id=' + sqlBase.baseConnector.sqlEscape(mask.key));
   return 'UPDATE task_result SET ' + commandArgEsc.join(', ') +
     ' WHERE ' + commandArgEscMask.join(' AND ') + ';';
 }
@@ -193,12 +186,12 @@ function updateIf(task, mask) {
 function getInsertString(task) {
   var dateNow = sqlBase.getDateTime(new Date());
   task.completeDefaults();
-  var commandArg = [task.key, task.format, task.status, task.statusInfo, dateNow, task.title, task.userIndex, task.changeId];
+  var commandArg = [task.key, task.status, task.statusInfo, dateNow, task.title, task.userIndex, task.changeId];
   var commandArgEsc = commandArg.map(function(curVal) {
     return sqlBase.baseConnector.sqlEscape(curVal)
   });
-  return 'INSERT INTO task_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title,'+
-    ' tr_user_index, tr_change_id) VALUES (' + commandArgEsc.join(', ') + ');';
+  return 'INSERT INTO task_result ( id, status, status_info, last_open_date, title, user_index, change_id) VALUES (' +
+    commandArgEsc.join(', ') + ');';
 }
 function addRandomKey(task) {
   return new Promise(function(resolve, reject) {
@@ -239,7 +232,7 @@ function* addRandomKeyTask(key) {
 }
 
 function getRemoveString(docId) {
-  return 'DELETE FROM task_result WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(docId) + ';';
+  return 'DELETE FROM task_result WHERE id=' + sqlBase.baseConnector.sqlEscape(docId) + ';';
 }
 function remove(docId) {
   return new Promise(function(resolve, reject) {
@@ -257,8 +250,8 @@ function getExpiredString(maxCount, expireSeconds) {
   var expireDate = new Date();
   utils.addSeconds(expireDate, -expireSeconds);
   var expireDateStr = sqlBase.baseConnector.sqlEscape(sqlBase.getDateTime(expireDate));
-  return 'SELECT * FROM task_result WHERE tr_last_open_date <= ' + expireDateStr +
-    ' AND NOT EXISTS(SELECT dc_key FROM doc_changes WHERE dc_key = tr_key LIMIT 1) LIMIT ' + maxCount + ';';
+  return 'SELECT * FROM task_result WHERE last_open_date <= ' + expireDateStr +
+    ' AND NOT EXISTS(SELECT id FROM doc_changes WHERE doc_changes.id = task_result.id LIMIT 1) LIMIT ' + maxCount + ';';
 }
 function getExpired(maxCount, expireSeconds) {
   return new Promise(function(resolve, reject) {

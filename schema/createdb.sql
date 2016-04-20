@@ -32,10 +32,10 @@ DROP TABLE IF EXISTS `doc_changes`;
 --
 
 CREATE TABLE IF NOT EXISTS `doc_callbacks` (
-  `dc_key` varchar(255) NOT NULL,
-  `dc_callback` text NOT NULL,
-  `dc_baseurl` text NOT NULL,
-  PRIMARY KEY (`dc_key`)
+  `id` varchar(255) NOT NULL,
+  `callback` text NOT NULL,
+  `baseurl` text NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -50,14 +50,14 @@ CREATE TABLE IF NOT EXISTS `doc_callbacks` (
 --
 
 CREATE TABLE IF NOT EXISTS `doc_changes` (
-  `dc_key` varchar(255) NOT NULL,
-  `dc_change_id` int(10) unsigned NOT NULL,
-  `dc_user_id` varchar(255) NOT NULL,
-  `dc_user_id_original` varchar(255) NOT NULL,
-  `dc_user_name` varchar(255) NOT NULL,
-  `dc_data` longtext NOT NULL,
-  `dc_date` datetime NOT NULL,
-  PRIMARY KEY (`dc_key`,`dc_change_id`)
+  `id` varchar(255) NOT NULL,
+  `change_id` int(10) unsigned NOT NULL,
+  `user_id` varchar(255) NOT NULL,
+  `user_id_original` varchar(255) NOT NULL,
+  `user_name` varchar(255) NOT NULL,
+  `change_data` longtext NOT NULL,
+  `change_date` datetime NOT NULL,
+  PRIMARY KEY (`id`,`change_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -72,15 +72,14 @@ CREATE TABLE IF NOT EXISTS `doc_changes` (
 --
 
 CREATE TABLE IF NOT EXISTS `task_result` (
-  `tr_key` varchar(255) NOT NULL,
-  `tr_format` varchar(45) NOT NULL,
-  `tr_status` tinyint(3) NOT NULL,
-  `tr_status_info` int(10) NOT NULL,
-  `tr_last_open_date` datetime NOT NULL,
-  `tr_title` varchar(255) NOT NULL,
-  `tr_user_index` int(10) unsigned NOT NULL DEFAULT 1,
-  `tr_change_id` int(10) unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`tr_key`)
+  `id` varchar(255) NOT NULL,
+  `status` tinyint(3) NOT NULL,
+  `status_info` int(10) NOT NULL,
+  `last_open_date` datetime NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `user_index` int(10) unsigned NOT NULL DEFAULT 1,
+  `change_id` int(10) unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --

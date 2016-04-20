@@ -56,7 +56,7 @@ var checkFileExpire = function() {
         currentRemovedCount = 0;
         expired = yield taskResult.getExpired(cfgExpFilesRemovedAtOnce, cfgExpFiles);
         for (var i = 0; i < expired.length; ++i) {
-          var docId = expired[i].tr_key;
+          var docId = expired[i].id;
           //проверяем что никто не сидит в документе
           var hvals = yield docsCoServer.getAllPresencePromise(docId);
           if(0 == hvals.length){

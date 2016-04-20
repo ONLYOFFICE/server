@@ -185,9 +185,9 @@ function _insertChangesCallback (startIndex, objChanges, docId, index, user, cal
 	baseConnector.sqlQuery(sqlCommand, callback);
 }
 exports.deleteChangesCallback = function (docId, deleteIndex, callback) {
-  var sqlCommand = "DELETE FROM " + tableChanges + " WHERE dc_key='" + docId + "'";
+  var sqlCommand = "DELETE FROM " + tableChanges + " WHERE id='" + docId + "'";
   if (null !== deleteIndex)
-    sqlCommand += " AND dc_change_id >= " + deleteIndex;
+    sqlCommand += " AND change_id >= " + deleteIndex;
   sqlCommand += ";";
   baseConnector.sqlQuery(sqlCommand, callback);
 };
@@ -209,7 +209,7 @@ function _deleteChanges (docId, deleteIndex) {
   exports.deleteChangesCallback(docId, deleteIndex, function () {unLockCriticalSection(docId);});
 }
 exports.getCallback = function(docId, callback) {
-  getDataFromTable(c_oTableId.callbacks, "*", "dc_key='" + docId + "'", callback);
+  getDataFromTable(c_oTableId.callbacks, "*", "id='" + docId + "'", callback);
 };
 exports.getCallbackPromise = function(docId) {
   return new Promise(function(resolve, reject) {
@@ -223,7 +223,7 @@ exports.getCallbackPromise = function(docId) {
   });
 };
 exports.deleteCallback = function (docId, callback) {
-  deleteFromTable(c_oTableId.callbacks, "dc_key='" + docId + "'", callback);
+  deleteFromTable(c_oTableId.callbacks, "id='" + docId + "'", callback);
 };
 exports.deleteCallbackPromise = function (docId) {
   return new Promise(function(resolve, reject) {
@@ -238,7 +238,7 @@ exports.deleteCallbackPromise = function (docId) {
 };
 exports.getChangesIndex = function(docId, callback) {
   var table = getTableById(c_oTableId.changes);
-  var sqlCommand = 'SELECT MAX(dc_change_id) as dc_change_id FROM ' + table + ' WHERE dc_key=' + baseConnector.sqlEscape(docId) + ';';
+  var sqlCommand = 'SELECT MAX(change_id) as change_id FROM ' + table + ' WHERE id=' + baseConnector.sqlEscape(docId) + ';';
   baseConnector.sqlQuery(sqlCommand, callback);
 };
 exports.getChangesIndexPromise = function(docId) {
@@ -254,9 +254,9 @@ exports.getChangesIndexPromise = function(docId) {
 };
 exports.getChangesPromise = function (docId, optStartIndex, optEndIndex) {
   return new Promise(function(resolve, reject) {
-    var getCondition = 'dc_key='+baseConnector.sqlEscape(docId);
+    var getCondition = 'id='+baseConnector.sqlEscape(docId);
     if (null != optStartIndex && null != optEndIndex) {
-      getCondition += ' AND dc_change_id>=' + optStartIndex + ' AND dc_change_id<' + optEndIndex;
+      getCondition += ' AND change_id>=' + optStartIndex + ' AND change_id<' + optEndIndex;
     }
     getDataFromTable(c_oTableId.changes, "*", getCondition, function(error, result) {
       if (error) {
@@ -271,12 +271,12 @@ exports.getChanges = function (docId, callback) {
 	lockCriticalSection(docId, function () {_getChanges(docId, callback);});
 };
 function _getChanges (docId, callback) {
-	getDataFromTable(c_oTableId.changes, "*", "dc_key='" + docId + "'",
+	getDataFromTable(c_oTableId.changes, "*", "id='" + docId + "'",
 		function (error, result) {unLockCriticalSection(docId); if (callback) callback(error, result);});
 }
 
 exports.checkStatusFile = function (docId, callbackFunction) {
-	var sqlCommand = "SELECT tr_status FROM " + tableResult + " WHERE tr_key='" + docId + "';";
+	var sqlCommand = "SELECT status FROM " + tableResult + " WHERE id='" + docId + "';";
 	baseConnector.sqlQuery(sqlCommand, callbackFunction);
 };
 exports.checkStatusFilePromise = function (docId) {
@@ -292,7 +292,7 @@ exports.checkStatusFilePromise = function (docId) {
 };
 exports.updateStatusFile = function (docId) {
 	// Статус OK = 1
-	var sqlCommand = "UPDATE " + tableResult + " SET tr_status=1 WHERE tr_key='" + docId + "';";
+	var sqlCommand = "UPDATE " + tableResult + " SET status=1 WHERE id='" + docId + "';";
 	baseConnector.sqlQuery(sqlCommand);
 };
 
