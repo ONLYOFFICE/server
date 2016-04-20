@@ -2070,7 +2070,10 @@ exports.commandFromServer = function (req, res) {
             break;
           case 'forcesave':
             //проверяем хеш состоящий из времени и индекса последнего изменения, если мы его не собирали, то запускаем сборку
-            var lastSave = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyLastSave + docId);
+            var lastSave = null;
+            if (!shutdownFlag) {
+              lastSave = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyLastSave + docId);
+            }
             if (lastSave) {
               var baseUrl = utils.getBaseUrlByRequest(req);
               var multi = redisClient.multi([

@@ -34,6 +34,7 @@ var utils = require('./../../Common/sources/utils');
 
 var cfgRedisPrefix = config.get('redis.prefix');
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
+var redisKeyDocuments = cfgRedisPrefix + constants.REDIS_KEY_DOCUMENTS;
 
 var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
@@ -44,8 +45,15 @@ var LOOP_TIMEOUT = 1000;
       logger.debug('shutdown start');
 
       var redisClient = pubsubRedis.getClientRedis();
-      //сбрасываем на всякий случай, если предыдущий запуск не дошел до конца
-      yield utils.promiseRedis(redisClient, redisClient.set, redisKeyShutdown, 0);
+      //redisKeyShutdown не простой счетчик, чтобы его не уменьшала сборка, которая началась перед запуском Shutdown
+      //сбрасываем redisKeyShutdown на всякий случай, если предыдущий запуск не дошел до конца
+      var multi = redisClient.multi([
+        ['del', redisKeyShutdown],
+        ['zcard', redisKeyDocuments]
+      ]);
+      var multiRes = yield utils.promiseRedis(multi, multi.exec);
+      logger.debug('number of open documents %d', multiRes[1]);
+
       var pubsub = new pubsubService();
       yield pubsub.initPromise();
       //inner ping to update presence
@@ -53,21 +61,30 @@ var LOOP_TIMEOUT = 1000;
       pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown}));
       //wait while pubsub deliver and start conversion
       logger.debug('shutdown start wait pubsub deliver');
-      yield utils.sleep(WAIT_TIMEOUT);
+      var startTime = new Date().getTime();
+      var isStartWait = true;
       while (true) {
-        var remainingFiles = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyShutdown);
+        if (new Date().getTime() - startTime >= WAIT_TIMEOUT) {
+          isStartWait = false;
+          logger.debug('shutdown stop wait pubsub deliver');
+        }
+        var remainingFiles = yield utils.promiseRedis(redisClient, redisClient.scard, redisKeyShutdown);
         logger.debug('shutdown remaining files:%d', remainingFiles);
-        if (remainingFiles <= 0) {
+        if (!isStartWait && remainingFiles <= 0) {
           break;
         }
         yield utils.sleep(LOOP_TIMEOUT);
       }
+      //todo надо проверять очереди, потому что могут быть долгие конвертации запущенные до Shutdown
       //clean up
       yield utils.promiseRedis(redisClient, redisClient.del, redisKeyShutdown);
+      yield pubsub.close();
 
       logger.debug('shutdown end');
     } catch (e) {
       logger.error('shutdown error:\r\n%s', e.stack);
+    } finally {
+      process.exit(0);
     }
   });
 })();
