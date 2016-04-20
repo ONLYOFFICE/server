@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS `task_result` (
   `tr_status_info` int(10) NOT NULL,
   `tr_last_open_date` datetime NOT NULL,
   `tr_title` varchar(255) NOT NULL,
+  `tr_user_index` int(10) unsigned NOT NULL DEFAULT 1,
+  `tr_change_id` int(10) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`tr_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

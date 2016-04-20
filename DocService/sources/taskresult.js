@@ -48,6 +48,8 @@ function TaskResultData() {
   this.statusInfo = null;
   this.lastOpenDate = null;
   this.title = null;
+  this.userIndex = null;
+  this.changeId = null;
 }
 TaskResultData.prototype.completeDefaults = function() {
   if (!this.key) {
@@ -68,23 +70,36 @@ TaskResultData.prototype.completeDefaults = function() {
   if (!this.title) {
     this.title = '';
   }
+  if (!this.userIndex) {
+    this.userIndex = 1;
+  }
+  if (!this.changeId) {
+    this.changeId = 0;
+  }
 };
 
-function getUpsertString(task) {
+function getUpsertString(task, opt_updateUserIndex) {
   task.completeDefaults();
   var dateNow = sqlBase.getDateTime(new Date());
-  var commandArg = [task.key, task.format, task.status, task.statusInfo, dateNow, task.title];
+  var commandArg = [task.key, task.format, task.status, task.statusInfo, dateNow, task.title, task.userIndex, task.changeId];
   var commandArgEsc = commandArg.map(function(curVal) {
     return sqlBase.baseConnector.sqlEscape(curVal)
   });
-  return 'INSERT INTO task_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title )' +
-    ' VALUES (' + commandArgEsc.join(', ') + ')' +
-    'ON DUPLICATE KEY UPDATE tr_last_open_date = ' + sqlBase.baseConnector.sqlEscape(dateNow) + ';';
+  var sql = 'INSERT INTO task_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title,' +
+    ' tr_user_index, tr_change_id  ) VALUES (' + commandArgEsc.join(', ') + ') ON DUPLICATE KEY UPDATE' +
+    ' tr_last_open_date = ' + sqlBase.baseConnector.sqlEscape(dateNow);
+  if (opt_updateUserIndex) {
+    //todo LAST_INSERT_ID in posgresql - RETURNING
+    sql += ', tr_user_index = LAST_INSERT_ID(tr_user_index + 1);';
+  } else {
+    sql += ';';
+  }
+  return sql;
 }
 
-function upsert(task) {
+function upsert(task, opt_updateUserIndex) {
   return new Promise(function(resolve, reject) {
-    var sqlCommand = getUpsertString(task);
+    var sqlCommand = getUpsertString(task, opt_updateUserIndex);
     sqlBase.baseConnector.sqlQuery(sqlCommand, function(error, result) {
       if (error) {
         reject(error);
@@ -95,13 +110,13 @@ function upsert(task) {
   });
 }
 
-function getSelectString(task) {
-  return 'SELECT * FROM task_result WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(task.key) + ';';
+function getSelectString(docId) {
+  return 'SELECT * FROM task_result WHERE tr_key=' + sqlBase.baseConnector.sqlEscape(docId) + ';';
 }
 
-function select(task) {
+function select(docId) {
   return new Promise(function(resolve, reject) {
-    var sqlCommand = getSelectString(task);
+    var sqlCommand = getSelectString(docId);
     sqlBase.baseConnector.sqlQuery(sqlCommand, function(error, result) {
       if (error) {
         reject(error);
@@ -127,6 +142,12 @@ function toUpdateArray(task, updateTime) {
   }
   if (null != task.title) {
     res.push('tr_title=' + sqlBase.baseConnector.sqlEscape(task.title));
+  }
+  if (null != task.indexUser) {
+    res.push('tr_index_user=' + sqlBase.baseConnector.sqlEscape(task.indexUser));
+  }
+  if (null != task.changeId) {
+    res.push('tr_change_id=' + sqlBase.baseConnector.sqlEscape(task.changeId));
   }
   return res;
 }
@@ -172,12 +193,12 @@ function updateIf(task, mask) {
 function getInsertString(task) {
   var dateNow = sqlBase.getDateTime(new Date());
   task.completeDefaults();
-  var commandArg = [task.key, task.format, task.status, task.statusInfo, dateNow, task.title];
+  var commandArg = [task.key, task.format, task.status, task.statusInfo, dateNow, task.title, task.userIndex, task.changeId];
   var commandArgEsc = commandArg.map(function(curVal) {
     return sqlBase.baseConnector.sqlEscape(curVal)
   });
-  return 'INSERT INTO task_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title )' +
-    ' VALUES (' + commandArgEsc.join(', ') + ');';
+  return 'INSERT INTO task_result ( tr_key, tr_format, tr_status, tr_status_info, tr_last_open_date, tr_title,'+
+    ' tr_user_index, tr_change_id) VALUES (' + commandArgEsc.join(', ') + ');';
 }
 function addRandomKey(task) {
   return new Promise(function(resolve, reject) {

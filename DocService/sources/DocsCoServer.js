@@ -90,7 +90,6 @@ var cfgCallbackRequestTimeout = config.get('server.callbackRequestTimeout');
 var cfgPubSubMaxChanges = config.get('pubsub.maxChanges');
 
 var cfgRedisPrefix = config.get('redis.prefix');
-var cfgExpUserIndex = config.get('expire.userindex');
 var cfgExpSaveLock = config.get('expire.saveLock');
 var cfgExpPresence = config.get('expire.presence');
 var cfgExpLocks = config.get('expire.locks');
@@ -102,7 +101,6 @@ var cfgExpForceSave = config.get('expire.forcesave');
 var cfgExpSaved = config.get('expire.saved');
 var cfgSockjsUrl = config.get('server.sockjsUrl');
 
-var redisKeyUserIndex = cfgRedisPrefix + constants.REDIS_KEY_USER_INDEX;
 var redisKeySaveLock = cfgRedisPrefix + constants.REDIS_KEY_SAVE_LOCK;
 var redisKeyPresenceHash = cfgRedisPrefix + constants.REDIS_KEY_PRESENCE_HASH;
 var redisKeyPresenceSet = cfgRedisPrefix + constants.REDIS_KEY_PRESENCE_SET;
@@ -730,13 +728,10 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction) {
   yield* sendStatusDocument(docId, bChangeBase, userAction, oCallbackUrl, baseUrl);
 }
 
-function* cleanDocumentOnExit(docId, deleteChanges, deleteUserIndex) {
+function* cleanDocumentOnExit(docId, deleteChanges) {
   //clean redis
   var redisArgs = [redisClient, redisClient.del, redisKeyLocks + docId, redisKeyPresenceSet + docId, redisKeyPresenceHash + docId,
       redisKeyMessage + docId, redisKeyChangeIndex + docId, redisKeyForceSave + docId, redisKeyLastSave + docId];
-  if (deleteUserIndex) {
-    redisArgs.push(redisKeyUserIndex + docId);
-  }
   utils.promiseRedis.apply(this, redisArgs);
   //remove callback
   yield* deleteCallback(docId);
@@ -751,7 +746,7 @@ function* cleanDocumentOnExitNoChanges(docId, opt_userId) {
   yield* sendStatusDocument(docId, c_oAscChangeBase.All, userAction);
   //если пользователь зашел в документ, соединение порвалось, на сервере удалилась вся информация,
   //при восстановлении соединения userIndex сохранится и он совпадет с userIndex следующего пользователя
-  yield* cleanDocumentOnExit(docId, false, false);
+  yield* cleanDocumentOnExit(docId, false);
 }
 
 function* _createSaveTimer(docId, opt_userId, opt_queue, opt_noDelay) {
@@ -863,7 +858,8 @@ exports.install = function(server, callbackFunction) {
             yield* closeDocument(conn, false);
             break;
           case 'openDocument'      :
-            canvasService.openDocument(conn, data);
+            var cmd = new commonDefines.InputCommand(data.message);
+            yield canvasService.openDocument(conn, cmd);
             break;
           case 'changesError':
             logger.error("changesError %s", data.stack);
@@ -1259,20 +1255,20 @@ exports.install = function(server, callbackFunction) {
       }
 
       var bIsRestore = null != data.sessionId;
-
+      var upsertRes = null;
+      var cmd = null;
       // Если восстанавливаем, индекс тоже восстанавливаем
       var curIndexUser;
       if (bIsRestore) {
         curIndexUser = user.indexUser;
       } else {
-        curIndexUser = 1;
-        var multi = redisClient.multi([
-          ['incr', redisKeyUserIndex + docId],
-          ['expire', redisKeyUserIndex + docId, cfgExpUserIndex]
-        ]);
-        var replies = yield utils.promiseRedis(multi, multi.exec);
-        if(replies){
-          curIndexUser = replies[0];
+        cmd = new commonDefines.InputCommand(data.openCmd);
+        upsertRes = yield canvasService.commandOpenStartPromise(cmd, true);
+        var bCreate = upsertRes.affectedRows == 1;
+        if (bCreate) {
+          curIndexUser = 1;
+        } else {
+          curIndexUser = upsertRes.insertId;
         }
       }
 
@@ -1374,6 +1370,9 @@ exports.install = function(server, callbackFunction) {
       } else {
         conn.sessionId = conn.id;
         yield* endAuth(conn, false, data.documentCallbackUrl);
+        if (upsertRes && cmd) {
+          yield canvasService.openDocument(conn, cmd, upsertRes);
+        }
       }
     }
   }

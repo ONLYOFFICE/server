@@ -124,12 +124,6 @@ InputCommand.prototype = {
   setData: function(data) {
     this['data'] = data;
   },
-  getEditorId: function() {
-    return this['editorid'];
-  },
-  setEditorId: function(data) {
-    this['editorid'] = data;
-  },
   getFormat: function() {
     return this['format'];
   },

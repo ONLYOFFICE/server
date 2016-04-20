@@ -96,7 +96,7 @@ function* convertByCmd(cmd, async, baseUrl, opt_healthcheck) {
   var selectRes;
   var status;
   if (!bCreate && !opt_healthcheck) {
-    selectRes = yield taskResult.select(task);
+    selectRes = yield taskResult.select(docId);
     status = yield* getConvertStatus(cmd, selectRes, baseUrl);
   } else {
     var queueData = new commonDefines.TaskQueueData();
@@ -116,7 +116,7 @@ function* convertByCmd(cmd, async, baseUrl, opt_healthcheck) {
         break;
       }
       yield utils.sleep(CONVERT_ASYNC_DELAY);
-      selectRes = yield taskResult.select(task);
+      selectRes = yield taskResult.select(docId);
       status = yield* getConvertStatus(cmd, selectRes, baseUrl);
       waitTime += CONVERT_ASYNC_DELAY;
       if (waitTime > CONVERT_TIMEOUT) {

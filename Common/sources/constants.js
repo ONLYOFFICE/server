@@ -145,7 +145,6 @@ exports.EDITOR_TYPE_PRESENTATION = 2;
 exports.EDITOR_TYPE_CONVERTATION = 3;
 
 exports.REDIS_KEY_PUBSUB = 'pubsub';
-exports.REDIS_KEY_USER_INDEX = 'userindex:';
 exports.REDIS_KEY_SAVE_LOCK = 'savelock:';
 exports.REDIS_KEY_PRESENCE_HASH = 'presence:hash:';
 exports.REDIS_KEY_PRESENCE_SET = 'presence:set:';

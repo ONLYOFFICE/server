@@ -85,7 +85,6 @@
 				"maxChanges": 1000
 			},
 			"expire": {
-				"userindex": 604800,
 				"saveLock": 60,
 				"presence": 300,
 				"locks": 604800,
