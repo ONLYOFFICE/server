@@ -23,26 +23,31 @@
  *
  */
 'use strict';
-var config = require('config').get('services.CoAuthoring');
+var config = require('config');
+var configCoAuthoring = config.get('services.CoAuthoring');
 var co = require('co');
 var logger = require('./../../Common/sources/logger');
-var pubsubService = require('./' + config.get('pubsub.name'));
+var pubsubService = require('./' + configCoAuthoring.get('pubsub.name'));
 var pubsubRedis = require('./pubsubRedis.js');
 var commonDefines = require('./../../Common/sources/commondefines');
 var constants = require('./../../Common/sources/constants');
 var utils = require('./../../Common/sources/utils');
 
-var cfgRedisPrefix = config.get('redis.prefix');
+var cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
+var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
+var cfgRedisPrefix = configCoAuthoring.get('redis.prefix');
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 var redisKeyDocuments = cfgRedisPrefix + constants.REDIS_KEY_DOCUMENTS;
 
 var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
+var EXEC_TIMEOUT = WAIT_TIMEOUT + 1.5 * (cfgVisibilityTimeout + cfgQueueRetentionPeriod) * 1000;
 
 (function shutdown() {
   return co(function* () {
+    var exitCode = 0;
     try {
-      logger.debug('shutdown start');
+      logger.debug('shutdown start' + EXEC_TIMEOUT);
 
       var redisClient = pubsubRedis.getClientRedis();
       //redisKeyShutdown не простой счетчик, чтобы его не уменьшала сборка, которая началась перед запуском Shutdown
@@ -64,9 +69,14 @@ var LOOP_TIMEOUT = 1000;
       var startTime = new Date().getTime();
       var isStartWait = true;
       while (true) {
-        if (new Date().getTime() - startTime >= WAIT_TIMEOUT) {
+        var curTime = new Date().getTime() - startTime;
+        if (isStartWait && curTime >= WAIT_TIMEOUT) {
           isStartWait = false;
           logger.debug('shutdown stop wait pubsub deliver');
+        } else if(curTime >= EXEC_TIMEOUT) {
+          exitCode = 1;
+          logger.debug('shutdown timeout');
+          break;
         }
         var remainingFiles = yield utils.promiseRedis(redisClient, redisClient.scard, redisKeyShutdown);
         logger.debug('shutdown remaining files:%d', remainingFiles);
@@ -84,7 +94,7 @@ var LOOP_TIMEOUT = 1000;
     } catch (e) {
       logger.error('shutdown error:\r\n%s', e.stack);
     } finally {
-      process.exit(0);
+      process.exit(exitCode);
     }
   });
 })();
