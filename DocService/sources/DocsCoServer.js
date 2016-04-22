@@ -1256,13 +1256,12 @@ exports.install = function(server, callbackFunction) {
 
       var bIsRestore = null != data.sessionId;
       var upsertRes = null;
-      var cmd = null;
+      var cmd = data.openCmd ? new commonDefines.InputCommand(data.openCmd) : null;
       // Если восстанавливаем, индекс тоже восстанавливаем
       var curIndexUser;
       if (bIsRestore) {
         curIndexUser = user.indexUser;
       } else {
-        cmd = new commonDefines.InputCommand(data.openCmd);
         upsertRes = yield canvasService.commandOpenStartPromise(cmd, true);
         var bCreate = upsertRes.affectedRows == 1;
         if (bCreate) {
@@ -1294,6 +1293,9 @@ exports.install = function(server, callbackFunction) {
         connections.push(conn);
         // Посылаем формальную авторизацию, чтобы подтвердить соединение
         yield* sendAuthInfo(undefined, undefined, conn, undefined);
+        if (cmd) {
+          yield canvasService.openDocument(conn, cmd, upsertRes);
+        }
         return;
       }
 
@@ -1370,7 +1372,7 @@ exports.install = function(server, callbackFunction) {
       } else {
         conn.sessionId = conn.id;
         yield* endAuth(conn, false, data.documentCallbackUrl);
-        if (upsertRes && cmd) {
+        if (cmd) {
           yield canvasService.openDocument(conn, cmd, upsertRes);
         }
       }
