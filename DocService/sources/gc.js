@@ -31,10 +31,8 @@ var canvasService = require('./canvasservice');
 var storage = require('./../../Common/sources/storage-base');
 var utils = require('./../../Common/sources/utils');
 var logger = require('./../../Common/sources/logger');
-var commonDefines = require('./../../Common/sources/commondefines');
 var constants = require('./../../Common/sources/constants');
 var pubsubRedis = require('./pubsubRedis.js');
-var pubsubService = require('./' + config.get('pubsub.name'));
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 
 var cfgRedisPrefix = config.get('redis.prefix');
@@ -77,18 +75,12 @@ var checkFileExpire = function() {
 };
 var checkDocumentExpire = function() {
   return co(function* () {
-    var pubsub = null;
     var queue = null;
     var removedCount = 0;
     var startSaveCount = 0;
     try {
       logger.debug('checkDocumentExpire start');
       var redisClient = pubsubRedis.getClientRedis();
-
-      pubsub = new pubsubService();
-      yield pubsub.initPromise();
-      //inner ping to update presence
-      pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.expireDoc}));
 
       var now = (new Date()).getTime();
       var multi = redisClient.multi([
@@ -119,9 +111,6 @@ var checkDocumentExpire = function() {
       logger.error('checkDocumentExpire error:\r\n%s', e.stack);
     } finally {
       try {
-        if (pubsub) {
-          yield pubsub.close();
-        }
         if (queue) {
           yield queue.close();
         }

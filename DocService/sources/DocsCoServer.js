@@ -68,6 +68,7 @@ var _ = require('underscore');
 var https = require('https');
 var http = require('http');
 var url = require('url');
+var cron = require('cron');
 var co = require('co');
 var storage = require('./../../Common/sources/storage-base');
 var logger = require('./../../Common/sources/logger');
@@ -99,6 +100,7 @@ var cfgExpMessage = config.get('expire.message');
 var cfgExpLastSave = config.get('expire.lastsave');
 var cfgExpForceSave = config.get('expire.forcesave');
 var cfgExpSaved = config.get('expire.saved');
+var cfgExpDocumentsCron = config.get('expire.documentsCron');
 var cfgSockjsUrl = config.get('server.sockjsUrl');
 
 var redisKeySaveLock = cfgRedisPrefix + constants.REDIS_KEY_SAVE_LOCK;
@@ -1969,26 +1971,6 @@ exports.install = function(server, callbackFunction) {
               sendDataCursor(participant, data.messages);
             });
             break;
-          case commonDefines.c_oPublishType.expireDoc:
-            logger.debug('pubsub expireDoc connections.length = %d', connections.length);
-            var commands = [];
-            var idSet = new Set();
-            for (i = 0; i < connections.length; ++i) {
-              var conn = connections[i];
-              if (!conn.isCloseCoAuthoring) {
-                idSet.add(conn.docId);
-                updatePresenceCommandsToArray(commands, conn.docId, conn.user.id, JSON.stringify(conn.user));
-              }
-            }
-            var expireAt = new Date().getTime() + cfgExpPresence * 1000;
-            idSet.forEach(function(value1, value2, set) {
-              commands.push(['zadd', redisKeyDocuments, expireAt, value1]);
-            });
-            if (commands.length > 0) {
-              var multi = redisClient.multi(commands);
-              yield utils.promiseRedis(multi, multi.exec);
-            }
-            break;
           case commonDefines.c_oPublishType.shutdown:
             logger.debug('start shutdown');
             //flag prevent new socket connections and receive data from exist connections
@@ -2013,6 +1995,34 @@ exports.install = function(server, callbackFunction) {
       }
     });
   }
+  function expireDoc() {
+    return co(function* () {
+      try {
+        logger.debug('expireDoc connections.length = %d', connections.length);
+        var commands = [];
+        var idSet = new Set();
+        for (var i = 0; i < connections.length; ++i) {
+          var conn = connections[i];
+          if (!conn.user.view && !conn.isCloseCoAuthoring) {
+            idSet.add(conn.docId);
+            updatePresenceCommandsToArray(commands, conn.docId, conn.user.id, JSON.stringify(conn.user));
+          }
+        }
+        var expireAt = new Date().getTime() + cfgExpPresence * 1000;
+        idSet.forEach(function(value1, value2, set) {
+          commands.push(['zadd', redisKeyDocuments, expireAt, value1]);
+        });
+        if (commands.length > 0) {
+          var multi = redisClient.multi(commands);
+          yield utils.promiseRedis(multi, multi.exec);
+        }
+      } catch (err) {
+        logger.error('expireDoc error:\r\n%s', err.stack);
+      }
+    });
+  }
+  var innerPintJob = new cron.CronJob(cfgExpDocumentsCron, expireDoc);
+  innerPintJob.start();
 
   pubsub = new pubsubService();
   pubsub.on('message', pubsubOnMessage);
