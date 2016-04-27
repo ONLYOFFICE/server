@@ -262,6 +262,12 @@ exports.mapAscServerErrorToOldError = function(error) {
     case constants.CONVERT_TIMEOUT :
       res = -2;
       break;
+    case constants.CONVERT_PASSWORD :
+    case constants.CONVERT_DRM :
+    case constants.CONVERT_NEED_PARAMS :
+    case constants.CONVERT_PARAMS :
+    case constants.CONVERT_LIBREOFFICE :
+    case constants.CONVERT_CORRUPTED :
     case constants.CONVERT_MS_OFFCRYPTO :
     case constants.CONVERT_UNKNOWN_FORMAT :
     case constants.CONVERT_READ_FILE :

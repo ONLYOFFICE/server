@@ -58,6 +58,12 @@ var MAX_OPEN_FILES = 200;
 var TEMP_PREFIX = 'ASC_CONVERT';
 var queue = null;
 var clientStatsD = statsDClient.getClient();
+var exitCodesReturn = [constants.CONVERT_MS_OFFCRYPTO, constants.CONVERT_NEED_PARAMS, constants.CONVERT_CORRUPTED,
+  constants.CONVERT_DRM, constants.CONVERT_PASSWORD];
+var exitCodesMinorError = [constants.CONVERT_MS_OFFCRYPTO, constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM,
+  constants.CONVERT_PASSWORD];
+var exitCodesUpload = [constants.NO_ERROR, constants.CONVERT_CORRUPTED, constants.CONVERT_NEED_PARAMS,
+  constants.CONVERT_DRM];
 
 function TaskQueueDataConvert(task) {
   var cmd = task.getCmd();
@@ -75,6 +81,7 @@ function TaskQueueDataConvert(task) {
   this.themeDir = path.resolve(cfgPresentationThemesDir);
   this.mailMergeSend = cmd.mailmergesend;
   this.doctParams = cmd.getDoctParams();
+  this.password = cmd.getPassword();
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
@@ -97,6 +104,7 @@ TaskQueueDataConvert.prototype = {
       xml += this.serializeMailMerge(this.mailMergeSend);
     }
     xml += this.serializeXmlProp('m_nDoctParams', this.doctParams);
+    xml += this.serializeXmlProp('m_sPassword', this.password);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
@@ -348,18 +356,14 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
     }
   }
   if (0 !== exitCode || null !== exitSignal) {
-    if (-constants.CONVERT_MS_OFFCRYPTO == exitCode) {
-      error = constants.CONVERT_MS_OFFCRYPTO;
-    } else if (-constants.CONVERT_NEED_PARAMS == exitCode) {
-      error = constants.CONVERT_NEED_PARAMS;
-    } else if (-constants.CONVERT_CORRUPTED == exitCode) {
-      error = constants.CONVERT_CORRUPTED;
+    if (-1 !== exitCodesReturn.indexOf(-exitCode)) {
+      error = -exitCode;
     } else if('ETIMEDOUT' === errorCode) {
       error = constants.CONVERT_TIMEOUT;
     } else {
       error = constants.CONVERT;
     }
-    if (constants.CONVERT_MS_OFFCRYPTO == error || constants.CONVERT_NEED_PARAMS == error) {
+    if (-1 !== exitCodesMinorError.indexOf(error)) {
       logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
     } else {
       if (childRes && childRes.stderr) {
@@ -374,7 +378,7 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error) {
   } else{
     logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
   }
-  if (constants.NO_ERROR === error || constants.CONVERT_CORRUPTED === error || constants.CONVERT_NEED_PARAMS === error) {
+  if (-1 !== exitCodesUpload.indexOf(error)) {
     yield* processUploadToStorage(tempDirs.result, dataConvert.key);
     logger.debug('processUploadToStorage complete(id=%s)', dataConvert.key);
   }

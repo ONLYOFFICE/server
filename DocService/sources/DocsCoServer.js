@@ -183,18 +183,6 @@ var c_oAscRecalcIndexTypes = {
   RecalcIndexRemove: 2
 };
 
-var FileStatus = {
-  None: 0,
-  Ok: 1,
-  WaitQueue: 2,
-  NeedParams: 3,
-  Convert: 4,
-  Err: 5,
-  ErrToReload: 6,
-  SaveVersion: 7,
-  UpdateVersion: 8
-};
-
 /**
  * lock types
  * @const
@@ -1311,9 +1299,9 @@ exports.install = function(server, callbackFunction) {
           var result = yield sqlBase.checkStatusFilePromise(docId);
 
           var status = result && result.length > 0 ? result[0]['status'] : null;
-          if (FileStatus.Ok === status) {
+          if (taskResult.FileStatus.Ok === status) {
             // Все хорошо, статус обновлять не нужно
-          } else if (FileStatus.SaveVersion === status) {
+          } else if (taskResult.FileStatus.SaveVersion === status) {
             // Обновим статус файла (идет сборка, нужно ее остановить)
             var updateMask = new taskResult.TaskResultData();
             updateMask.key = docId;
@@ -1328,7 +1316,7 @@ exports.install = function(server, callbackFunction) {
               sendFileError(conn, 'Update Version error');
               return;
             }
-          } else if (FileStatus.UpdateVersion === status) {
+          } else if (taskResult.FileStatus.UpdateVersion === status) {
             // error version
             sendFileError(conn, 'Update Version error');
             return;

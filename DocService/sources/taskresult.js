@@ -38,7 +38,8 @@ var FileStatus = {
   Err: 5,
   ErrToReload: 6,
   SaveVersion: 7,
-  UpdateVersion: 8
+  UpdateVersion: 8,
+  NeedPassword: 9
 };
 
 function TaskResultData() {

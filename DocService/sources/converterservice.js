@@ -65,6 +65,9 @@ function* getConvertStatus(cmd, selectRes, baseUrl) {
       case taskResult.FileStatus.UpdateVersion:
         status.err = constants.UNKNOWN;
         break;
+      case taskResult.FileStatus.NeedPassword:
+        status.err = constants.CONVERT_DRM;
+        break;
     }
     var lastOpenDate = row.last_open_date;
     if (new Date().getTime() - lastOpenDate.getTime() > CONVERT_TIMEOUT) {
@@ -197,6 +200,7 @@ function convertRequest(req, res) {
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[req.query['codePage']] || commonDefines.c_oAscCodePageUtf8);
       cmd.setDelimiter(req.query['delimiter'] || commonDefines.c_oAscCsvDelimiter.Comma);
       cmd.setDoctParams(req.query['doctparams']);
+      cmd.setPassword(req.query['password']);
       var async = 'true' == req.query['async'];
 
       var status = yield* convertByCmd(cmd, async, utils.getBaseUrlByRequest(req));
