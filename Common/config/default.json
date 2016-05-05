@@ -45,7 +45,7 @@
 				"port": 8000,
 				"workerpercpu": 1,
 				"mode": "development",
-				"fonts_route": "sdkjs/fonts/",
+				"fonts_route": "fonts/",
 				"sockjsUrl": "",
 				"limits_tempfile_upload": 104857600,
 				"limits_image_size": 26214400,
