@@ -23,6 +23,10 @@
           {
             "name": "/web-apps",
             "path": "../../../web-apps"
+          },
+          {
+            "name": "/sdkjs-plugins",
+            "path": "../../../sdkjs-plugins"
           }
         ]
       },
