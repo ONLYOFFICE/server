@@ -34,11 +34,12 @@
 
 var sqlDataBaseType = {
 	mySql		: 'mysql',
-	postgreSql	: 'postgres'
+	postgreSql	: 'postgres',
+    oracle      : 'oracle'
 };
 
 var config = require('config').get('services.CoAuthoring.sql');
-var baseConnector = (sqlDataBaseType.mySql === config.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
+var baseConnector = (sqlDataBaseType.oracle === config.get('type')) ? require('./oracleBaseConnector') : (sqlDataBaseType.mySql === config.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
 
 var tableChanges = config.get('tableChanges'),
 	tableResult = config.get('tableResult');
@@ -48,13 +49,13 @@ var maxPacketSize = config.get('max_allowed_packet'); // Размер по ум�
 
 function getDataFromTable (tableId, data, getCondition, callback) {
 	var table = getTableById(tableId);
-	var sqlCommand = "SELECT " + data + " FROM " + table + " WHERE " + getCondition + ";";
+	var sqlCommand = "SELECT " + data + " FROM " + table + " WHERE " + getCondition;
 
 	baseConnector.sqlQuery(sqlCommand, callback);
 }
 function deleteFromTable (tableId, deleteCondition, callback) {
 	var table = getTableById(tableId);
-	var sqlCommand = "DELETE FROM " + table + " WHERE " + deleteCondition + ";";
+	var sqlCommand = "DELETE FROM " + table + " WHERE " + deleteCondition;
 
 	baseConnector.sqlQuery(sqlCommand, callback);
 }
@@ -76,7 +77,7 @@ exports.baseConnector = baseConnector;
 exports.tableId = c_oTableId;
 exports.loadTable = function (tableId, callbackFunction) {
 	var table = getTableById(tableId);
-	var sqlCommand = "SELECT * FROM " + table + ";";
+	var sqlCommand = "SELECT * FROM " + table;
 	baseConnector.sqlQuery(sqlCommand, callbackFunction);
 };
 exports.insertChanges = function (objChanges, docId, index, user) {
@@ -109,6 +110,12 @@ function _insertChanges (startIndex, objChanges, docId, index, user) {
   _insertChangesCallback(startIndex, objChanges, docId, index, user, function () {unLockCriticalSection(docId);});
 }
 function _insertChangesCallback (startIndex, objChanges, docId, index, user, callback) {
+    if (sqlDataBaseType.oracle === config.get('type')) {
+        baseConnector.insertChangesCallback(tableChanges, startIndex, objChanges, docId, index, user, callback);
+        return;
+    }
+
+    // Default implementation. For Mysql and Postgresql
 	var sqlCommand = "INSERT INTO " + tableChanges + " VALUES";
 	var i = startIndex, l = objChanges.length, sqlNextRow = "", lengthUtf8Current = 0, lengthUtf8Row = 0;
 	if (i === l)
@@ -142,14 +149,12 @@ function _insertChangesCallback (startIndex, objChanges, docId, index, user, cal
 		lengthUtf8Current += lengthUtf8Row;
 	}
 
-	sqlCommand += ';';
 	baseConnector.sqlQuery(sqlCommand, callback);
 }
 exports.deleteChangesCallback = function (docId, deleteIndex, callback) {
   var sqlCommand = "DELETE FROM " + tableChanges + " WHERE id='" + docId + "'";
   if (null !== deleteIndex)
     sqlCommand += " AND change_id >= " + deleteIndex;
-  sqlCommand += ";";
   baseConnector.sqlQuery(sqlCommand, callback);
 };
 exports.deleteChangesPromise = function (docId, deleteIndex) {
@@ -171,7 +176,7 @@ function _deleteChanges (docId, deleteIndex) {
 }
 exports.getChangesIndex = function(docId, callback) {
   var table = getTableById(c_oTableId.changes);
-  var sqlCommand = 'SELECT MAX(change_id) as change_id FROM ' + table + ' WHERE id=' + baseConnector.sqlEscape(docId) + ';';
+  var sqlCommand = 'SELECT MAX(change_id) as change_id FROM ' + table + ' WHERE id=' + baseConnector.sqlEscape(docId);
   baseConnector.sqlQuery(sqlCommand, callback);
 };
 exports.getChangesIndexPromise = function(docId) {
@@ -208,7 +213,7 @@ exports.getChangesPromise = function (docId, optStartIndex, optEndIndex, opt_tim
   });
 };
 exports.checkStatusFile = function (docId, callbackFunction) {
-	var sqlCommand = "SELECT status FROM " + tableResult + " WHERE id='" + docId + "';";
+	var sqlCommand = "SELECT status FROM " + tableResult + " WHERE id='" + docId + "'";
 	baseConnector.sqlQuery(sqlCommand, callbackFunction);
 };
 exports.checkStatusFilePromise = function (docId) {
@@ -224,7 +229,7 @@ exports.checkStatusFilePromise = function (docId) {
 };
 exports.updateStatusFile = function (docId) {
 	// Статус OK = 1
-	var sqlCommand = "UPDATE " + tableResult + " SET status=1 WHERE id='" + docId + "';";
+	var sqlCommand = "UPDATE " + tableResult + " SET status=1 WHERE id='" + docId + "'";
 	baseConnector.sqlQuery(sqlCommand);
 };
 
@@ -256,7 +261,10 @@ exports.healthCheck = function () {
   return new Promise(function(resolve, reject) {
   	//SELECT 1; usefull for H2, MySQL, Microsoft SQL Server, PostgreSQL, SQLite
   	//http://stackoverflow.com/questions/3668506/efficient-sql-test-query-or-validation-query-that-will-work-across-all-or-most
-    baseConnector.sqlQuery('SELECT 1;', function(error, result) {
+    //SELECT 1 from DUAL; for Oracle
+    var query = (sqlDataBaseType.oracle === config.get('type')) ? 'SELECT 1 from DUAL' : 'SELECT 1;';
+
+    baseConnector.sqlQuery(query, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -268,7 +276,7 @@ exports.healthCheck = function () {
 
 exports.getEmptyCallbacks = function() {
   return new Promise(function(resolve, reject) {
-    const sqlCommand = "SELECT DISTINCT t1.id FROM doc_changes t1 LEFT JOIN task_result t2 ON t2.id = t1.id WHERE t2.callback = '';";
+    const sqlCommand = "SELECT DISTINCT t1.id FROM doc_changes t1 LEFT JOIN task_result t2 ON t2.id = t1.id WHERE t2.callback = ''";
     baseConnector.sqlQuery(sqlCommand, function(error, result) {
       if (error) {
         reject(error);

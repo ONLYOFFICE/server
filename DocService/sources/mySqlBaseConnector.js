@@ -71,6 +71,9 @@ exports.sqlQuery = function (sqlCommand, callbackFunction) {
 exports.sqlEscape = function (value) {
 	return pool.escape(value);
 };
+exports.getDateTime = function (oDate) {
+    return sqlBase.getDateTime(oDate);
+}
 
 function getUpsertString(task, opt_updateUserIndex) {
 	task.completeDefaults();
@@ -102,3 +105,8 @@ exports.upsert = function(task, opt_updateUserIndex) {
 		});
 	});
 };
+
+exports.getExpiredSqlString = function(expireDateStr, maxCount) {
+    return 'SELECT * FROM task_result WHERE last_open_date <= ' + expireDateStr +
+        ' AND NOT EXISTS(SELECT id FROM doc_changes WHERE doc_changes.id = task_result.id LIMIT 1) LIMIT ' + maxCount;
+}

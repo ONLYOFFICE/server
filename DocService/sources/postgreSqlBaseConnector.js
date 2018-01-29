@@ -98,6 +98,10 @@ exports.sqlEscape = function(value) {
   //todo parameterized queries
   return undefined !== value ? pgEscape.literal(value.toString()) : 'NULL';
 };
+exports.getDateTime = function (oDate) {
+    return sqlBase.getDateTime(oDate);
+}
+
 var isSupportOnConflict = false;
 (function checkIsSupportOnConflict() {
   var sqlCommand = 'INSERT INTO checkIsSupportOnConflict (id) VALUES(1) ON CONFLICT DO NOTHING;';
@@ -155,3 +159,8 @@ exports.upsert = function(task) {
     }, true);
   });
 };
+
+exports.getExpiredSqlString = function(expireDateStr, maxCount) {
+    return 'SELECT * FROM task_result WHERE last_open_date <= ' + expireDateStr +
+        ' AND NOT EXISTS(SELECT id FROM doc_changes WHERE doc_changes.id = task_result.id LIMIT 1) LIMIT ' + maxCount;
+}

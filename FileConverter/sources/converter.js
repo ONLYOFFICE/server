@@ -339,7 +339,7 @@ function* processChanges(tempDirs, cmd) {
           streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++);
         }
         changesAuthor = change.user_id_original;
-        let strDate = baseConnector.getDateTime(change.change_date);
+        let strDate = baseConnector.baseConnector.getDateTime(change.change_date);
         changesHistory.changes.push({'created': strDate, 'user': {'id': changesAuthor, 'name': change.user_name}});
         yield* streamWrite(streamObj, '[');
       } else {
