@@ -9,6 +9,12 @@ GRUNT_FILES = Gruntfile.js.out
 PRODUCT_VERSION ?= 0.0.0
 BUILD_NUMBER ?= 0
 
+DOCUMENT_ROOT = /var/www/onlyoffice/documentserver
+LOG_DIR = /var/log/onlyoffice/documentserver
+DATA_DIR = /var/lib/onlyoffice/documentserver/App_Data
+CONFIG_DIR = /etc/onlyoffice/documentserver
+CREATE_USER = TRUE
+
 ifeq ($(OS),Windows_NT)
     PLATFORM := win
     EXEC_EXT := .exe
@@ -135,51 +141,59 @@ clean:
 	rm -rf $(OUTPUT) $(GRUNT_FILES)
 
 install:
-	sudo adduser --quiet --home /var/www/onlyoffice --system --group onlyoffice
-
-	sudo mkdir -p /var/www/onlyoffice/documentserver
-	sudo mkdir -p /var/log/onlyoffice/documentserver
-	sudo mkdir -p /var/lib/onlyoffice/documentserver/App_Data
+	mkdir -p ${DESTDIR}${DOCUMENT_ROOT}
+	mkdir -p ${DESTDIR}${LOG_DIR}
+	mkdir -p ${DESTDIR}${DATA_DIR}
 	
-	sudo cp -fr -t /var/www/onlyoffice/documentserver build/* ../web-apps/deploy/*
-	sudo mkdir -p /etc/onlyoffice/documentserver
-	sudo mv /var/www/onlyoffice/documentserver/server/Common/config/* /etc/onlyoffice/documentserver
+	cp -fr -t ${DESTDIR}${DOCUMENT_ROOT} build/* ../web-apps/deploy/*
+	mkdir -p ${DESTDIR}${CONFIG_DIR}
+	mv ${DESTDIR}${DOCUMENT_ROOT}/server/Common/config/* ${DESTDIR}${CONFIG_DIR}
 	
-	sudo chown onlyoffice:onlyoffice -R /var/www/onlyoffice
-	sudo chown onlyoffice:onlyoffice -R /var/log/onlyoffice
-	sudo chown onlyoffice:onlyoffice -R /var/lib/onlyoffice
 
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libDjVuFile.so /lib/libDjVuFile.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libdoctrenderer.so /lib/libdoctrenderer.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libHtmlFile.so /lib/libHtmlFile.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libHtmlRenderer.so /lib/libHtmlRenderer.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libPdfReader.so /lib/libPdfReader.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libPdfWriter.so /lib/libPdfWriter.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libXpsFile.so /lib/libXpsFile.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libUnicodeConverter.so /lib/libUnicodeConverter.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libicudata.so.55 /lib/libicudata.so.55
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libicuuc.so.55 /lib/libicuuc.so.55
+ifeq ($(CREATE_USER),TRUE)
+	adduser --quiet --home ${DESTDIR}${DOCUMENT_ROOT} --system --group onlyoffice
+	chown onlyoffice:onlyoffice -R ${DESTDIR}$(dirname {DOCUMENT_ROOT})
+	chown onlyoffice:onlyoffice -R ${DESTDIR}$(dirname {LOG_DIR})
+	chown onlyoffice:onlyoffice -R ${DESTDIR}$(dirname $(dirname {DATA_DIR}))
+endif
 
-	sudo -u onlyoffice "/var/www/onlyoffice/documentserver/server/tools/AllFontsGen"\
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libDjVuFile.so ${DESTDIR}/lib/libDjVuFile.so
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libdoctrenderer.so ${DESTDIR}/lib/libdoctrenderer.so
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libHtmlFile.so ${DESTDIR}/lib/libHtmlFile.so
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libHtmlRenderer.so ${DESTDIR}/lib/libHtmlRenderer.so
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libPdfReader.so ${DESTDIR}/lib/libPdfReader.so
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libPdfWriter.so ${DESTDIR}/lib/libPdfWriter.so
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libXpsFile.so ${DESTDIR}/lib/libXpsFile.so
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libUnicodeConverter.so ${DESTDIR}/lib/libUnicodeConverter.so
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libicudata.so.55 ${DESTDIR}/lib/libicudata.so.55
+	ln -s ${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/libicuuc.so.55 ${DESTDIR}/lib/libicuuc.so.55
+
+ifeq ($(CREATE_USER),TRUE)
+	sudo -u onlyoffice "${DESTDIR}${DOCUMENT_ROOT}/server/tools/AllFontsGen"\
 		"/usr/share/fonts"\
-		"/var/www/onlyoffice/documentserver/sdkjs/common/AllFonts.js"\
-		"/var/www/onlyoffice/documentserver/sdkjs/common/Images"\
-		"/var/www/onlyoffice/documentserver/server/FileConverter/bin/font_selection.bin"
-uninstall:
-	sudo userdel onlyoffice
-	
-	sudo unlink /lib/libDjVuFile.so
-	sudo unlink /lib/libdoctrenderer.so
-	sudo unlink /lib/libHtmlFile.so
-	sudo unlink /lib/libHtmlRenderer.so
-	sudo unlink /lib/libPdfReader.so
-	sudo unlink /lib/libPdfWriter.so
-	sudo unlink /lib/libXpsFile.so
-	sudo unlink /lib/libUnicodeConverter.so
-	sudo unlink /lib/libicudata.so.55
-	sudo unlink /lib/libicuuc.so.55
+		"${DESTDIR}${DOCUMENT_ROOT}/sdkjs/common/AllFonts.js"\
+		"${DESTDIR}${DOCUMENT_ROOT}/sdkjs/common/Images"\
+		"${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/font_selection.bin"
+endif
 
-	sudo rm -rf /var/www/onlyoffice/documentserver
-	sudo rm -rf /var/log/onlyoffice/documentserver
-	sudo rm -rf /var/lib/onlyoffice/documentserver	
-	sudo rm -rf /etc/onlyoffice/documentserver
+uninstall:
+ifeq ($(CREATE_USER),TRUE)
+	sudo -u onlyoffice "${DESTDIR}${DOCUMENT_ROOT}/server/tools/AllFontsGen"\
+	userdel onlyoffice # FIXME
+endif
+	
+	unlink ${DESTDIR}/lib/libDjVuFile.so
+	unlink ${DESTDIR}/lib/libdoctrenderer.so
+	unlink ${DESTDIR}/lib/libHtmlFile.so
+	unlink ${DESTDIR}/lib/libHtmlRenderer.so
+	unlink ${DESTDIR}/lib/libPdfReader.so
+	unlink ${DESTDIR}/lib/libPdfWriter.so
+	unlink ${DESTDIR}/lib/libXpsFile.so
+	unlink ${DESTDIR}/lib/libUnicodeConverter.so
+	unlink ${DESTDIR}/lib/libicudata.so.55
+	unlink ${DESTDIR}/lib/libicuuc.so.55
+
+	rm -rf ${DESTDIR}${DOCUMENT_ROOT}
+	rm -rf ${DESTDIR}${LOG_DIR}
+	rm -rf ${DESTDIR}$(dirname {DATA_DIR})
+	rm -rf ${DESTDIR}${CONFIG_DIR}
