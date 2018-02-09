@@ -9,11 +9,11 @@ GRUNT_FILES = Gruntfile.js.out
 PRODUCT_VERSION ?= 0.0.0
 BUILD_NUMBER ?= 0
 
-DOCUMENT_ROOT = /var/www/onlyoffice/documentserver
-LOG_DIR = /var/log/onlyoffice/documentserver
-DATA_DIR = /var/lib/onlyoffice/documentserver/App_Data
-CONFIG_DIR = /etc/onlyoffice/documentserver
-CREATE_USER = TRUE
+DOCUMENT_ROOT ?= /var/www/onlyoffice/documentserver
+LOG_DIR ?= /var/log/onlyoffice/documentserver
+DATA_DIR ?= /var/lib/onlyoffice/documentserver/App_Data
+CONFIG_DIR ?= /etc/onlyoffice/documentserver
+CREATE_USER ?= TRUE
 
 ifeq ($(OS),Windows_NT)
     PLATFORM := win
@@ -144,6 +144,7 @@ install:
 	mkdir -p ${DESTDIR}${DOCUMENT_ROOT}
 	mkdir -p ${DESTDIR}${LOG_DIR}
 	mkdir -p ${DESTDIR}${DATA_DIR}
+	mkdir -p ${DESTDIR}/lib
 	
 	cp -fr -t ${DESTDIR}${DOCUMENT_ROOT} build/* ../web-apps/deploy/*
 	mkdir -p ${DESTDIR}${CONFIG_DIR}
