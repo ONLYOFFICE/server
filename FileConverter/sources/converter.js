@@ -494,8 +494,18 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
     logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
   }
   if (-1 !== exitCodesUpload.indexOf(error)) {
-    yield* processUploadToStorage(tempDirs.result, dataConvert.key);
-    logger.debug('processUploadToStorage complete(id=%s)', dataConvert.key);
+    let needUpload = true;
+    if (cmd.getViewerWithPassword()) {
+      let list = yield utils.listObjects(tempDirs.result);
+      if (list.length > 0) {
+        let inStorage = yield storage.listObjects(dataConvert.key + '/' + list[0].substring(tempDirs.result.length + 1));
+        needUpload = 0 === inStorage.length;
+      }
+    }
+    if (needUpload) {
+      yield* processUploadToStorage(tempDirs.result, dataConvert.key);
+      logger.debug('processUploadToStorage complete(id=%s)', dataConvert.key);
+    }
   }
   cmd.setStatusInfo(error);
   var existFile = false;
