@@ -363,24 +363,51 @@ function* commandOpenFillOutput(conn, cmd, outputData, opt_bIsRestore) {
   }
   return needAddTask;
 }
-function* commandReopen(cmd) {
-  let updateMask = new taskResult.TaskResultData();
-  updateMask.key = cmd.getDocId();
-  updateMask.status = undefined !== cmd.getPassword() ? taskResult.FileStatus.NeedPassword : taskResult.FileStatus.NeedParams;
+function* commandReopen(conn, cmd) {
+  let viewMode = false;
+  let editMode = false;
+  let isPassword = undefined !== cmd.getPassword();
+  if (isPassword) {
+    if (conn.user.view || conn.isCloseCoAuthoring) {
+      viewMode = true;
+    } else {
+      editMode = true;
+    }
+  } else {
+    editMode = true;
+  }
+  if (editMode) {
+    let updateMask = new taskResult.TaskResultData();
+    updateMask.key = cmd.getDocId();
+    updateMask.status = isPassword ? taskResult.FileStatus.NeedPassword : taskResult.FileStatus.NeedParams;
 
-  var task = new taskResult.TaskResultData();
-  task.key = cmd.getDocId();
-  task.status = taskResult.FileStatus.WaitQueue;
-  task.statusInfo = constants.NO_ERROR;
+    var task = new taskResult.TaskResultData();
+    task.key = cmd.getDocId();
+    task.status = taskResult.FileStatus.WaitQueue;
+    task.statusInfo = constants.NO_ERROR;
 
-  var upsertRes = yield taskResult.updateIf(task, updateMask);
-  if (upsertRes.affectedRows > 0) {
+    var upsertRes = yield taskResult.updateIf(task, updateMask);
+    if (upsertRes.affectedRows > 0) {
+      //add task
+      cmd.setUrl(null);//url may expire
+      cmd.setSaveKey(cmd.getDocId());
+      cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
+      cmd.setEmbeddedFonts(false);
+      var dataQueue = new commonDefines.TaskQueueData();
+      dataQueue.setCmd(cmd);
+      dataQueue.setToFile('Editor.bin');
+      dataQueue.setFromSettings(true);
+      yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
+    }
+  } else if (viewMode) {
     //add task
     cmd.setUrl(null);//url may expire
     cmd.setSaveKey(cmd.getDocId());
     cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
     cmd.setEmbeddedFonts(false);
-    var dataQueue = new commonDefines.TaskQueueData();
+    cmd.setUserConnectionId(conn.user.id);
+    cmd.setViewerWithPassword(true);
+    let dataQueue = new commonDefines.TaskQueueData();
     dataQueue.setCmd(cmd);
     dataQueue.setToFile('Editor.bin');
     dataQueue.setFromSettings(true);
@@ -878,7 +905,7 @@ exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
           yield* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore);
           break;
         case 'reopen':
-          yield* commandReopen(cmd);
+          yield* commandReopen(conn, cmd);
           break;
         case 'imgurl':
         case 'imgurls':
@@ -1038,8 +1065,12 @@ exports.receiveTask = function(data, opt_dataRaw) {
         docId = cmd.getDocId();
         logger.debug('Start receiveTask: docId = %s %s', docId, data);
         var updateTask = getUpdateResponse(cmd);
-        var updateRes = yield taskResult.update(updateTask);
-        if (updateRes.affectedRows > 0) {
+        var res = true;
+        if (!cmd.getViewerWithPassword()) {
+          let updateRes = yield taskResult.update(updateTask);
+          res = updateRes.affectedRows > 0;
+        }
+        if (res) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
           var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null};
