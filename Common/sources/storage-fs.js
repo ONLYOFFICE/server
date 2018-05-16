@@ -166,7 +166,7 @@ exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type
     var expires = Math.ceil(date.getTime() / 1000);
     expires += (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : cfgStorageUrlExpires) || 31536000;
 
-    var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(uri) + cfgStorageSecretString).digest("base64");
+    var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(url) + cfgStorageSecretString).digest("base64");
     md5 = md5.replace(/\+/g, "-");
     md5 = md5.replace(/\//g, "_");
 
