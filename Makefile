@@ -160,16 +160,12 @@ install:
 	sudo chown onlyoffice:onlyoffice -R /var/log/onlyoffice
 	sudo chown onlyoffice:onlyoffice -R /var/lib/onlyoffice
 
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libDjVuFile.so /lib/libDjVuFile.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libdoctrenderer.so /lib/libdoctrenderer.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libHtmlFile.so /lib/libHtmlFile.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libHtmlRenderer.so /lib/libHtmlRenderer.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libPdfReader.so /lib/libPdfReader.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libPdfWriter.so /lib/libPdfWriter.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libXpsFile.so /lib/libXpsFile.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libUnicodeConverter.so /lib/libUnicodeConverter.so
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libicudata.so.60 /lib/libicudata.so.60
-	sudo ln -s /var/www/onlyoffice/documentserver/server/FileConverter/bin/libicuuc.so.60 /lib/libicuuc.so.60
+	# Make symlinks for shared libs
+	find \
+		${DOCUMENT_ROOT}/server/FileConverter/bin \
+		-maxdepth 1 \
+		-name *$(SHARED_EXT) \
+		-exec sh -c 'ln -sf {} /lib/$(basename {})' \;
 
 	sudo -u onlyoffice "${DOCUMENT_ROOT}/server/tools/AllFontsGen"\
 		--input="${DOCUMENT_ROOT}/core-fonts"\
@@ -183,16 +179,8 @@ install:
 uninstall:
 	sudo userdel onlyoffice
 	
-	sudo unlink /lib/libDjVuFile.so
-	sudo unlink /lib/libdoctrenderer.so
-	sudo unlink /lib/libHtmlFile.so
-	sudo unlink /lib/libHtmlRenderer.so
-	sudo unlink /lib/libPdfReader.so
-	sudo unlink /lib/libPdfWriter.so
-	sudo unlink /lib/libXpsFile.so
-	sudo unlink /lib/libUnicodeConverter.so
-	sudo unlink /lib/libicudata.so.60
-	sudo unlink /lib/libicuuc.so.60
+	# Unlink installed shared libs
+	find /lib -type l | while IFS= read -r lnk; do if (readlink "$lnk" | grep -q '^${DOCUMENT_ROOT}/server/FileConverter/bin/'); then rm "$lnk"; fi; done
 
 	sudo rm -rf /var/www/onlyoffice/documentserver
 	sudo rm -rf /var/log/onlyoffice/documentserver
