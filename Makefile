@@ -145,7 +145,8 @@ clean:
 	rm -rf $(CORE_FONTS) $(OUTPUT) $(GRUNT_FILES) 
 
 install:
-	sudo adduser --quiet --home /var/www/onlyoffice --system --group onlyoffice
+	sudo mkdir -pv /var/www/onlyoffice
+	if ! sudo id -u onlyoffice > /dev/null 2>&1; then sudo useradd -m -d /var/www/onlyoffice -r -U onlyoffice; fi
 
 	sudo mkdir -p /var/www/onlyoffice/documentserver
 	sudo mkdir -p /var/www/onlyoffice/documentserver/fonts
