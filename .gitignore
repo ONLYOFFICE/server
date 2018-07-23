@@ -10,6 +10,8 @@ FileConverter/bin/x2t
 FileConverter/bin/*.S
 FileConverter/bin/font_selection.bin
 FileConverter/bin/HtmlFileInternal
+FileConverter/bin/core.zip
+FileConverter/bin/core
 DocService/npm-debug.log
 build
 node_modules

@@ -42,6 +42,8 @@ var constants = require('./../../Common/sources/constants');
 var storageBase = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var logger = require('./../../Common/sources/logger');
+const commonDefines = require('./../../Common/sources/commondefines');
+
 var config = require('config');
 var configServer = config.get('services.CoAuthoring.server');
 var configUtils = config.get('services.CoAuthoring.utils');
@@ -86,7 +88,8 @@ exports.uploadTempFile = function(req, res) {
         var task = yield* taskResult.addRandomKeyTask(docId);
         var strPath = task.key + '/' + docId + '.tmp';
         yield storageBase.putObject(strPath, req.body, req.body.length);
-        var url = yield storageBase.getSignedUrl(utils.getBaseUrlByRequest(req), strPath);
+        var url = yield storageBase.getSignedUrl(utils.getBaseUrlByRequest(req), strPath,
+                                                 commonDefines.c_oAscUrlTypes.Temporary);
         utils.fillResponse(req, res, url, constants.NO_ERROR);
       } else {
         utils.fillResponse(req, res, undefined, constants.UNKNOWN);
@@ -178,8 +181,9 @@ exports.uploadImageFileOld = function(req, res) {
       if (isError) {
         res.sendStatus(400);
       } else {
-        storageBase.getSignedUrlsByArray(utils.getBaseUrlByRequest(req), listImages, docId).then(function(urls) {
-            var outputData = {'type': 0, 'error': constants.NO_ERROR, 'urls': urls, 'input': req.query};
+        storageBase.getSignedUrlsByArray(utils.getBaseUrlByRequest(req), listImages, docId,
+                                         commonDefines.c_oAscUrlTypes.Session).then(function(urls) {
+          var outputData = {'type': 0, 'error': constants.NO_ERROR, 'urls': urls, 'input': req.query};
             var output = '<html><head><script type="text/javascript">function load(){ parent.postMessage("';
             output += JSON.stringify(outputData).replace(/"/g, '\\"');
             output += '", "*"); }</script></head><body onload="load()"></body></html>';
@@ -233,7 +237,8 @@ exports.uploadImageFile = function(req, res) {
           var strPath = docId + '/' + strPathRel;
           yield storageBase.putObject(strPath, buffer, buffer.length);
           var output = {};
-          output[strPathRel] = yield storageBase.getSignedUrl(utils.getBaseUrlByRequest(req), strPath);
+          output[strPathRel] = yield storageBase.getSignedUrl(utils.getBaseUrlByRequest(req), strPath,
+                                                              commonDefines.c_oAscUrlTypes.Session);
           res.send(JSON.stringify(output));
           isError = false;
         }

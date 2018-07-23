@@ -193,9 +193,9 @@ exports.deleteObjects = function(strPaths) {
   }
   return Promise.all(deletePromises);
 };
-exports.getSignedUrl = function(baseUrl, strPath, optUrlExpires, optFilename, opt_type) {
+exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type) {
   return new Promise(function(resolve, reject) {
-    var expires = optUrlExpires || 604800;
+    var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute : cfgStorageUrlExpires) || 31536000;
     var userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
     var contentDisposition = utils.getContentDispositionS3(userFriendlyName, null, opt_type);
     if (cfgUseRequestToGetUrl) {

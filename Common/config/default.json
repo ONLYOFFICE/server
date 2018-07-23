@@ -17,7 +17,7 @@
 		"name": "storage-fs",
 		"fs": {
 			"folderPath": "",
-			"urlExpires": 2592000,
+			"urlExpires": 900,
 			"secretString": "onlyoffice"
 		},
 		"region": "",
@@ -63,6 +63,12 @@
 				"edit_singleton": false,
 				"forgottenfiles": "forgotten",
 				"forgottenfilesname": "output"
+			},
+			"requestDefaults": {
+				"headers": {
+					"userAgent": "Node.js/6.13"
+				},
+				"rejectUnauthorized": true
 			},
 			"autoAssembly": {
 				"enable": false,
@@ -114,10 +120,11 @@
 				"filesCron": "00 00 */1 * * *",
 				"filesremovedatonce": 100,
 				"sessionidle": "0",
-				"sessionabsolute": "0",
+				"sessionabsolute": "30d",
 				"sessionclosecommand": "2m",
 				"pemStdTTL": "1h",
-				"pemCheckPeriod": "10m"
+				"pemCheckPeriod": "10m",
+				"updateVersionStatus": "5m"
 			},
 			"ipfilter": {
 				"rules": [{"address": "*", "allowed": true}],

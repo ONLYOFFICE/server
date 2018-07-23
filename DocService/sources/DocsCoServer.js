@@ -74,10 +74,7 @@
 
 const sockjs = require('sockjs');
 const _ = require('underscore');
-const https = require('https');
-const http = require('http');
 const url = require('url');
-const fs = require('fs');
 const os = require('os');
 const cluster = require('cluster');
 const cron = require('cron');
@@ -124,6 +121,7 @@ const cfgExpDocumentsCron = config.get('expire.documentsCron');
 const cfgExpSessionIdle = ms(config.get('expire.sessionidle'));
 const cfgExpSessionAbsolute = ms(config.get('expire.sessionabsolute'));
 const cfgExpSessionCloseCommand = ms(config.get('expire.sessionclosecommand'));
+const cfgExpUpdateVersionStatus = ms(config.get('expire.updateVersionStatus'));
 const cfgSockjsUrl = config.get('server.sockjsUrl');
 const cfgTokenEnableBrowser = config.get('token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('token.enable.request.inbox');
@@ -1440,15 +1438,15 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* getParticipantMap(docId, opt_userId, opt_connInfo, opt_hvals) {
-    var participantsMap = [];
+    const participantsMap = [];
     let hvals;
     if (opt_hvals) {
       hvals = opt_hvals;
     } else {
       hvals = yield* getAllPresence(docId, opt_userId, opt_connInfo);
     }
-    for (var i = 0; i < hvals.length; ++i) {
-      var elem = JSON.parse(hvals[i]);
+    for (let i = 0; i < hvals.length; ++i) {
+      const elem = JSON.parse(hvals[i]);
       if (!elem.isCloseCoAuthoring) {
         participantsMap.push(elem);
       }
@@ -1936,7 +1934,12 @@ exports.install = function(server, callbackFunction) {
             var status = result && result.length > 0 ? result[0]['status'] : null;
             if (taskResult.FileStatus.Ok === status) {
               // Все хорошо, статус обновлять не нужно
-            } else if (taskResult.FileStatus.SaveVersion === status) {
+            } else if (taskResult.FileStatus.SaveVersion === status ||
+              (taskResult.FileStatus.UpdateVersion === status &&
+              Date.now() - result[0]['status_info'] * 60000 > cfgExpUpdateVersionStatus)) {
+              if (taskResult.FileStatus.UpdateVersion === status) {
+                logger.warn("UpdateVersion expired: docId = %s", docId);
+              }
               // Обновим статус файла (идет сборка, нужно ее остановить)
               var updateMask = new taskResult.TaskResultData();
               updateMask.key = docId;
@@ -2002,32 +2005,32 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* endAuth(conn, bIsRestore, documentCallbackUrl) {
-    var res = true;
-    var docId = conn.docId;
-    var tmpUser = conn.user;
+    let res = true;
+    const docId = conn.docId;
+    const tmpUser = conn.user;
     let hasForgotten;
     if (constants.CONN_CLOSED === conn.readyState) {
       //closing could happen during async action
       return false;
     }
     connections.push(conn);
-    var firstParticipantNoView, countNoView = 0;
-    var participantsMap = yield* getParticipantMap(docId, tmpUser.id, getConnectionInfo(conn));
-    let participantsTimestamp = Date.now();
-    for (var i = 0; i < participantsMap.length; ++i) {
-      var elem = participantsMap[i];
+    let firstParticipantNoView, countNoView = 0;
+    let participantsMap = yield* getParticipantMap(docId, tmpUser.id, getConnectionInfo(conn));
+    const participantsTimestamp = Date.now();
+    for (let i = 0; i < participantsMap.length; ++i) {
+      const elem = participantsMap[i];
       if (!elem.view) {
         ++countNoView;
-        if (!firstParticipantNoView && elem.id != tmpUser.id) {
+        if (!firstParticipantNoView && elem.id !== tmpUser.id) {
           firstParticipantNoView = elem;
         }
       }
     }
 
     // Отправляем на внешний callback только для тех, кто редактирует
-    var bindEventsRes = commonDefines.c_oAscServerCommandErrors.NoError;
+    let bindEventsRes = commonDefines.c_oAscServerCommandErrors.NoError;
     if (!tmpUser.view) {
-      var userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
+      const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
       // Если пришла информация о ссылке для посылания информации, то добавляем
       if (documentCallbackUrl) {
         bindEventsRes = yield* bindEvents(docId, documentCallbackUrl, conn.baseUrl, userAction);
@@ -2043,10 +2046,10 @@ exports.install = function(server, callbackFunction) {
     }
 
     if (commonDefines.c_oAscServerCommandErrors.NoError === bindEventsRes) {
-      var lockDocument = null;
+      let lockDocument = null;
       if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
         // Ставим lock на документ
-        var isLock = yield utils.promiseRedis(redisClient, redisClient.setnx,
+        const isLock = yield utils.promiseRedis(redisClient, redisClient.setnx,
                                               redisKeyLockDoc + docId, JSON.stringify(firstParticipantNoView));
         if (isLock) {
           lockDocument = firstParticipantNoView;
@@ -2054,9 +2057,9 @@ exports.install = function(server, callbackFunction) {
         }
       }
       if (!lockDocument) {
-        var getRes = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyLockDoc + docId);
+        const getRes = yield utils.promiseRedis(redisClient, redisClient.get, redisKeyLockDoc + docId);
         if (getRes) {
-          var getResParsed = JSON.parse(getRes);
+          const getResParsed = JSON.parse(getRes);
           //prevent self locking
           if (tmpUser.id !== getResParsed.id) {
             lockDocument = getResParsed;
@@ -2067,18 +2070,18 @@ exports.install = function(server, callbackFunction) {
       if (lockDocument && !tmpUser.view) {
         waitAuthUserId = lockDocument.id;
         // Для view не ждем снятия lock-а
-        var sendObject = {
+        const sendObject = {
           type: "waitAuth",
           lockDocument: lockDocument
         };
         sendData(conn, sendObject);//Or 0 if fails
       } else {
-        if (bIsRestore) {
-          yield* sendAuthInfo(undefined, undefined, conn, participantsMap, hasForgotten);
-        } else {
-          var objChangesDocument = yield* getDocumentChanges(docId);
-          yield* sendAuthInfo(objChangesDocument.arrChanges, objChangesDocument.getLength(), conn, participantsMap, hasForgotten);
+        let objChangesDocument;
+        if (!bIsRestore) {
+          objChangesDocument = yield* getDocumentChanges(docId);
         }
+        yield* sendAuthInfo(objChangesDocument && objChangesDocument.arrChanges, objChangesDocument &&
+            objChangesDocument.getLength(), conn, participantsMap, hasForgotten);
       }
       yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participantsMap, waitAuthUserId: waitAuthUserId}, docId, tmpUser.id);
     } else {
@@ -2755,12 +2758,12 @@ exports.install = function(server, callbackFunction) {
               participant = participants[i];
               if (data.needUrlKey) {
                 if (0 == data.needUrlMethod) {
-                  outputData.setData(yield storage.getSignedUrls(participant.baseUrl, data.needUrlKey));
+                  outputData.setData(yield storage.getSignedUrls(participant.baseUrl, data.needUrlKey, data.needUrlType));
                 } else if (1 == data.needUrlMethod) {
-                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey));
+                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType));
                 } else {
                   var contentDisposition = cmd.getInline() ? constants.CONTENT_DISPOSITION_INLINE : constants.CONTENT_DISPOSITION_ATTACHMENT;
-                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, null, cmd.getTitle(), contentDisposition));
+                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), contentDisposition));
                 }
               }
               sendData(participant, output);

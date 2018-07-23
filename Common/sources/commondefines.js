@@ -884,6 +884,10 @@ const c_oAscForceSaveTypes = {
   Button: 1,
   Timeout: 2
 };
+const c_oAscUrlTypes = {
+  Session: 0,
+  Temporary: 1
+};
 
 const buildVersion = '4.1.2';
 const buildNumber = 37;
@@ -904,5 +908,6 @@ exports.c_oAscCodePageUtf8 = c_oAscCodePageUtf8;
 exports.c_oAscUserAction = c_oAscUserAction;
 exports.c_oAscServerCommandErrors = c_oAscServerCommandErrors;
 exports.c_oAscForceSaveTypes = c_oAscForceSaveTypes;
+exports.c_oAscUrlTypes = c_oAscUrlTypes;
 exports.buildVersion = buildVersion;
 exports.buildNumber = buildNumber;

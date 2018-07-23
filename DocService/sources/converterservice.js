@@ -61,7 +61,7 @@ function* getConvertStatus(cmd, selectRes, baseUrl, opt_fileTo) {
       case taskResult.FileStatus.Ok:
         status.end = true;
         if (opt_fileTo) {
-          status.url = yield storage.getSignedUrl(baseUrl, docId + '/' + opt_fileTo);
+          status.url = yield storage.getSignedUrl(baseUrl, docId + '/' + opt_fileTo, commonDefines.c_oAscUrlTypes.Temporary);
         }
         break;
       case taskResult.FileStatus.Err:
@@ -329,7 +329,8 @@ function builderRequest(req, res) {
         end = status.end;
         error = status.err;
         if (end) {
-          urls = yield storageBase.getSignedUrls(utils.getBaseUrlByRequest(req), docId + '/output');
+          urls = yield storageBase.getSignedUrls(utils.getBaseUrlByRequest(req), docId + '/output',
+                                                 commonDefines.c_oAscUrlTypes.Temporary);
         }
       } else if (error === constants.NO_ERROR) {
         error = constants.UNKNOWN;

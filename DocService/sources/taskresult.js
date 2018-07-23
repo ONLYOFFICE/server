@@ -45,7 +45,6 @@ var FileStatus = {
   Ok: 1,
   WaitQueue: 2,
   NeedParams: 3,
-  Convert: 4,
   Err: 5,
   ErrToReload: 6,
   SaveVersion: 7,

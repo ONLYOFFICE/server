@@ -109,7 +109,7 @@ function TaskQueueDataConvert(task) {
 }
 TaskQueueDataConvert.prototype = {
   serialize: function(fsPath) {
-    var xml = '\ufeff<?xml version="1.0" encoding="utf-8"?>';
+    let xml = '\ufeff<?xml version="1.0" encoding="utf-8"?>';
     xml += '<TaskQueueDataConvert xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"';
     xml += ' xmlns:xsd="http://www.w3.org/2001/XMLSchema">';
     xml += this.serializeXmlProp('m_sKey', this.key);
@@ -131,11 +131,17 @@ TaskQueueDataConvert.prototype = {
       xml += this.serializeThumbnail(this.thumbnail);
     }
     xml += this.serializeXmlProp('m_nDoctParams', this.doctParams);
-    xml += this.serializeXmlProp('m_sPassword', this.password);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
+    let hiddenXml;
+    if (undefined !== this.password) {
+      hiddenXml = '<TaskQueueDataConvert>';
+      hiddenXml += this.serializeXmlProp('m_sPassword', this.password);
+      hiddenXml += '</TaskQueueDataConvert>';
+    }
+    return hiddenXml;
   },
   serializeMailMerge: function(data) {
     var xml = '<m_oMailMergeSend>';
@@ -220,7 +226,7 @@ function* downloadFile(docId, uri, fileFrom) {
       }
     }
     if (res) {
-      logger.debug('downloadFile complete(id=%s)', docId);
+      logger.debug('downloadFile complete filesize=%d (id=%s)', data.length, docId);
       fs.writeFileSync(fileFrom, data);
     }
   } else {
@@ -572,8 +578,11 @@ function* ExecuteTask(task) {
       if (!isBuilder) {
         processPath = cfgX2tPath;
         let paramsFile = path.join(tempDirs.temp, 'params.xml');
-        dataConvert.serialize(paramsFile);
+        let hiddenXml = dataConvert.serialize(paramsFile);
         childArgs.push(paramsFile);
+        if (hiddenXml) {
+          childArgs.push(hiddenXml);
+        }
       } else {
         fs.mkdirSync(path.join(tempDirs.result, 'output'));
         processPath = cfgDocbuilderPath;
@@ -589,6 +598,10 @@ function* ExecuteTask(task) {
         timeoutId = setTimeout(function() {
           isTimeout = true;
           timeoutId = undefined;
+          //close stdio streams to enable emit 'close' event even if HtmlFileInternal is hung-up
+          childRes.stdin.end();
+          childRes.stdout.destroy();
+          childRes.stderr.destroy();
           childRes.kill();
         }, waitMS);
         childRes = yield spawnAsyncPromise;
