@@ -39,6 +39,7 @@ var childProcess = require('child_process');
 var co = require('co');
 var config = require('config');
 var spawnAsync = require('@expo/spawn-async');
+const bytes = require('bytes');
 var configConverter = config.get('FileConverter.converter');
 
 var commonDefines = require('./../../Common/sources/commondefines');
@@ -61,25 +62,22 @@ var cfgDocbuilderPath = configConverter.get('docbuilderPath');
 var cfgDocbuilderAllFontsPath = configConverter.get('docbuilderAllFontsPath');
 var cfgArgs = configConverter.get('args');
 var cfgErrorFiles = configConverter.get('errorfiles');
+var cfgInputLimits = configConverter.get('inputLimits');
 const cfgStreamWriterBufferSize = configConverter.get('streamWriterBufferSize');
-//cfgMaxRequestChanges was obtained as a result of the test: 84408 changes - 5,16 MB
-const cfgMaxRequestChanges = configConverter.get('maxRequestChanges');
-const cfgMaxRedeliveredCount = configConverter.get('maxRedeliveredCount')
+const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
+const cfgMaxRedeliveredCount = configConverter.get('maxRedeliveredCount');
 var cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
-
-//windows limit 512(2048) https://msdn.microsoft.com/en-us/library/6e3b887c.aspx
-//Ubuntu 14.04 limit 4096 http://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors.html
-//MacOs limit 2048 http://apple.stackexchange.com/questions/33715/too-many-open-files
 var MAX_OPEN_FILES = 200;
 var TEMP_PREFIX = 'ASC_CONVERT';
 var queue = null;
 var clientStatsD = statsDClient.getClient();
 var exitCodesReturn = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_CORRUPTED, constants.CONVERT_DRM,
-  constants.CONVERT_PASSWORD];
+  constants.CONVERT_PASSWORD, constants.CONVERT_LIMITS];
 var exitCodesMinorError = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM, constants.CONVERT_PASSWORD];
 var exitCodesUpload = [constants.NO_ERROR, constants.CONVERT_CORRUPTED, constants.CONVERT_NEED_PARAMS,
   constants.CONVERT_DRM];
+let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(task) {
   var cmd = task.getCmd();
@@ -133,6 +131,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_nDoctParams', this.doctParams);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
+    xml += this.serializeLimit();
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
     let hiddenXml;
@@ -169,6 +168,32 @@ TaskQueueDataConvert.prototype = {
     xml += '</m_oThumbnail>';
     return xml;
   },
+  serializeLimit: function() {
+    if (!inputLimitsXmlCache) {
+      var xml = '<m_oInputLimits>';
+      for (let i = 0; i < cfgInputLimits.length; ++i) {
+        let limit = cfgInputLimits[i];
+        if (limit.type && limit.zip) {
+          xml += '<m_oInputLimit';
+          xml += this.serializeXmlAttr('type', limit.type);
+          xml += '>';
+          xml += '<m_oZip';
+          if (limit.zip.compressed) {
+            xml += this.serializeXmlAttr('compressed', bytes.parse(limit.zip.compressed));
+          }
+          if (limit.zip.uncompressed) {
+            xml += this.serializeXmlAttr('uncompressed', bytes.parse(limit.zip.uncompressed));
+          }
+          xml += this.serializeXmlAttr('template', limit.zip.template);
+          xml += '/>';
+          xml += '</m_oInputLimit>';
+        }
+      }
+      xml += '</m_oInputLimits>';
+      inputLimitsXmlCache = xml;
+    }
+    return inputLimitsXmlCache;
+  },
   serializeXmlProp: function(name, value) {
     var xml = '';
     if (null != value) {
@@ -177,6 +202,15 @@ TaskQueueDataConvert.prototype = {
       xml += '</' + name + '>';
     } else {
       xml += '<' + name + ' xsi:nil="true" />';
+    }
+    return xml;
+  },
+  serializeXmlAttr: function(name, value) {
+    var xml = '';
+    if (null != value) {
+      xml += ' ' + name + '=\"';
+      xml += utils.encodeXml(value.toString());
+      xml += '\"';
     }
     return xml;
   }
@@ -210,14 +244,13 @@ function* downloadFile(docId, uri, fileFrom) {
       try {
         let authorization;
         if (cfgTokenEnableRequestOutbox) {
-          authorization = utils.fillJwtForRequest();
+          authorization = utils.fillJwtForRequest({url: uri});
         }
         data = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout * 1000, cfgDownloadMaxBytes, authorization);
         res = true;
       } catch (err) {
         res = false;
         logger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s;(id=%s)\r\n%s', uri, downloadAttemptCount, err.code, err.connect, docId, err.stack);
-        //not continue attempts if timeout
         if (err.code === 'ETIMEDOUT' || err.code === 'EMSGSIZE') {
           break;
         } else {
@@ -268,6 +301,7 @@ function* downloadFileFromStorage(id, strPath, dir) {
   }
 }
 function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
+  let res = constants.NO_ERROR;
   let needConcatFiles = false;
   if (task.getFromOrigin() || task.getFromSettings()) {
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
@@ -287,8 +321,9 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs) {
     yield* concatFiles(tempDirs.source);
   }
   if (task.getFromChanges()) {
-    yield* processChanges(tempDirs, cmd);
+    res = yield* processChanges(tempDirs, cmd);
   }
+  return res;
 }
 
 function* concatFiles(source) {
@@ -317,6 +352,7 @@ function* concatFiles(source) {
 }
 
 function* processChanges(tempDirs, cmd) {
+  let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, 'changes');
   fs.mkdirSync(changesDir);
   let indexFile = 0;
@@ -339,6 +375,11 @@ function* processChanges(tempDirs, cmd) {
     let changes = yield baseConnector.getChangesPromise(cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
     for (let i = 0; i < changes.length; ++i) {
       let change = changes[i];
+      if (change.change_data.startsWith('ENCRYPTED;')) {
+        logger.warn('processChanges encrypted changes (id=%s)', cmd.getDocId());
+        res = constants.EDITOR_CHANGES;
+        break;
+      }
       if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
           yield* streamEnd(streamObj, ']');
@@ -367,6 +408,7 @@ function* processChanges(tempDirs, cmd) {
   }
   cmd.setUserId(changesAuthor);
   fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
+  return res;
 }
 
 function* streamCreate(docId, changesDir, indexFile, opt_options) {
@@ -537,7 +579,7 @@ function* ExecuteTask(task) {
       clientStatsD.timing('conv.downloadFileFromStorage', new Date() - curDate);
       curDate = new Date();
     }
-    yield* processDownloadFromStorage(dataConvert, cmd, task, tempDirs);
+    error = yield* processDownloadFromStorage(dataConvert, cmd, task, tempDirs);
   } else if (cmd.getForgotten()) {
     yield* downloadFileFromStorage(cmd.getDocId(), cmd.getForgotten(), tempDirs.source);
     logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
@@ -606,7 +648,8 @@ function* ExecuteTask(task) {
         }, waitMS);
         childRes = yield spawnAsyncPromise;
       } catch (err) {
-        logger.error('error spawnAsync(id=%s)\r\n%s', cmd.getDocId(), err.stack);
+        let fLog = null === err.status ? logger.error : logger.debug;
+        fLog.call(logger, 'error spawnAsync(id=%s)\r\n%s', cmd.getDocId(), err.stack);
         childRes = err;
       }
       if (undefined !== timeoutId) {
