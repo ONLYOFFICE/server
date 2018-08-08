@@ -162,7 +162,7 @@ install:
 	chown onlyoffice:onlyoffice -R /var/lib/onlyoffice
 
 	# Make symlinks for shared libs
-	find \
+	sudo find \
 		${DOCUMENT_ROOT}/server/FileConverter/bin \
 		-maxdepth 1 \
 		-name *$(SHARED_EXT) \
