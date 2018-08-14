@@ -82,7 +82,6 @@ exports.sqlQuery = function (sqlCommand, callbackFunction) {
 			} else {
                 connection.commit();
 			}
-			doRelease(connection);
 
 			if (callbackFunction) {
                 var output = result;
@@ -96,6 +95,8 @@ exports.sqlQuery = function (sqlCommand, callbackFunction) {
 
 				callbackFunction(error, output);
             }
+
+            doRelease(connection);
 		});
 	});
 
