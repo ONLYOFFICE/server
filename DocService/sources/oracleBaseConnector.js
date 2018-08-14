@@ -36,7 +36,8 @@ var oracledb = require('oracledb');
 var sqlBase = require('./baseConnector');
 var sqlString = require('./oracleSqlString');
 var configSql = require('config').get('services.CoAuthoring.sql');
-var pool  = oracledb.createPool({
+// Node-oracledb has an internal connection pool cache which can be used to facilitate sharing pools across modules. No need to have a local variable
+oracledb.createPool({
 	connectString	: configSql.get('dbHost'),
 	user			: configSql.get('dbUser'),
 	password		: configSql.get('dbPass'),
@@ -99,11 +100,16 @@ exports.sqlQuery = function (sqlCommand, callbackFunction) {
 	});
 
     function doRelease(connection) {
-        connection.close(
-            function(err) {
-                if (err)
-                    console.error(err.message);
-            });
+        // No need to release it, only when server is killed or shutdown
+        if (connection) {
+            connection.close(
+                function (err) {
+                    if (err)
+                        console.error(err.message);
+                });
+    	} else {
+        	logger.error('ORACLE CONN CANNOT BE CLOSED')
+		}
     }
 };
 
@@ -114,7 +120,7 @@ exports.sqlEscape = function sqlEscape(value) {
 
 exports.getDateTime = function (oDate) {
 	return oDate;
-}
+};
 
 function getUpsertString(task, opt_updateUserIndex) {
 	task.completeDefaults();
@@ -156,7 +162,7 @@ exports.upsert = function(task, opt_updateUserIndex) {
 exports.getExpiredSqlString = function(expireDateStr, maxCount) {
     return 'SELECT * FROM task_result WHERE last_open_date <= ' + expireDateStr +
         ' AND NOT EXISTS(SELECT id FROM doc_changes WHERE doc_changes.id = task_result.id AND ROWNUM <= 1) AND ROWNUM <= ' + maxCount;
-}
+};
 
 exports.insertChangesCallback = function(tableChanges, startIndex, objChanges, docId, index, user, callback) {
 	var sqlCommand = "INSERT INTO " + tableChanges + " WITH temp AS (";
@@ -168,13 +174,13 @@ exports.insertChangesCallback = function(tableChanges, startIndex, objChanges, d
 		if (i > startIndex) {
 			sqlCommand += " UNION ALL ";
 		}
-        sqlCommand += "SELECT " + exports.sqlEscape(docId) + "," + exports.sqlEscape(index) + ","
-            + exports.sqlEscape(user.id) + "," + exports.sqlEscape(user.idOriginal) + ","
-            + exports.sqlEscape(user.username) + "," + exports.sqlEscape(objChanges[i].change) + ","
-            + exports.sqlEscape(new Date(objChanges[i].time)) + " FROM dual";
+        sqlCommand += "SELECT " + exports.sqlEscape(docId) + " ID," + exports.sqlEscape(index) + " CHANGE_ID,"
+            + exports.sqlEscape(user.id) + " USER_ID," + exports.sqlEscape(user.idOriginal) + " USER_ID_ORIGINAL,"
+            + exports.sqlEscape(user.username) + " USER_NAME," + exports.sqlEscape(objChanges[i].change) + " CHANGE_DATA,"
+            + exports.sqlEscape(new Date(objChanges[i].time)) + " CHANGE_DATE FROM dual";
     }
 
-    sqlCommand += ") select * from temp";
+    sqlCommand += ") select ID, CHANGE_ID, USER_ID, USER_ID_ORIGINAL, USER_NAME, CHANGE_DATA, CHANGE_DATE from temp";
 
     exports.sqlQuery(sqlCommand, callback);
-}
+};
