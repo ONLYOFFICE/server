@@ -53,7 +53,6 @@ var pubsubRedis = require('./pubsubRedis');
 
 
 var cfgTypesUpload = config_utils.get('limits_image_types_upload');
-var cfgTypesCopy = config_utils.get('limits_image_types_copy');
 var cfgImageSize = config_server.get('limits_image_size');
 var cfgImageDownloadTimeout = config_server.get('limits_image_download_timeout');
 var cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
@@ -475,20 +474,14 @@ function isDisplayedImage(strName) {
   return res;
 }
 function* commandImgurls(conn, cmd, outputData) {
-  var supportedFormats;
+  var supportedFormats = cfgTypesUpload || 'jpg';
   var urls;
   var docId = cmd.getDocId();
   var errorCode = constants.NO_ERROR;
   var outputUrls = [];
   var isImgUrl = 'imgurl' == cmd.getCommand();
   if (!conn.user.view && !conn.isCloseCoAuthoring) {
-    if (isImgUrl) {
-      urls = [cmd.getData()];
-      supportedFormats = cfgTypesUpload || 'jpg';
-    } else {
-      urls = cmd.getData();
-      supportedFormats = cfgTypesCopy || 'jpg';
-    }
+    urls = isImgUrl ? [cmd.getData()] : cmd.getData();
     //todo Promise.all()
     var displayedImageMap = {};//to make one imageIndex for ole object urls
     var imageCount = 0;
@@ -523,6 +516,10 @@ function* commandImgurls(conn, cmd, outputData) {
         if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== format) {
           formatStr = formatChecker.getStringFromFormat(format);
           if (formatStr && -1 !== supportedFormats.indexOf(formatStr)) {
+            isAllow = true;
+          } else if (!isImgUrl && 'svg' === formatStr && isDisplayedImage(pathModule.basename(urlParsed.pathname)) > 0) {
+            //paste case
+            //todo refactoring
             isAllow = true;
           }
         }
