@@ -2,7 +2,7 @@ OUTPUT_DIR = build/server
 OUTPUT = $(OUTPUT_DIR)
 
 GRUNT = grunt
-GRUNT_FLAGS = --no-color -v 
+GRUNT_FLAGS = --no-color -v
 
 GRUNT_FILES = Gruntfile.js.out
 
@@ -122,7 +122,7 @@ build-date: $(GRUNT_FILES)
 	sed "s|\(const buildVersion = \).*|\1'${PRODUCT_VERSION}';|" -i $(COMMON_DEFINES_JS)
 	sed "s|\(const buildNumber = \).*|\1${BUILD_NUMBER};|" -i $(COMMON_DEFINES_JS)
 	sed "s|\(const buildDate = \).*|\1'$$(date +%F)';|" -i $(LICENSE_JS)
-	
+
 htmlfileinternal: $(FILE_CONVERTER)
 	mkdir -p $(HTML_FILE_INTERNAL) && \
 		cp -r -t $(HTML_FILE_INTERNAL) $(HTML_FILE_INTERNAL_FILES)
@@ -141,16 +141,16 @@ $(SPELLCHECKER_DICTIONARIES): $(GRUNT_FILES)
 $(SCHEMA):
 	mkdir -p $(SCHEMA) && \
 		cp -r -t $(SCHEMA) $(SCHEMA_FILES)
-		
+
 $(TOOLS):
 	mkdir -p $(TOOLS) && \
 		cp -r -t $(TOOLS) $(TOOLS_FILES) && \
 		mv $(TOOLS)/$(TARGET)$(EXEC_EXT) $(TOOLS)/AllFontsGen$(EXEC_EXT)
-		
+
 $(LICENSE):
 	mkdir -p $(OUTPUT) && \
 		cp -r -t $(OUTPUT) $(LICENSE_FILES)
-		
+
 $(GRUNT_FILES):
 	cd $(@D) && \
 		npm install && \
@@ -168,50 +168,49 @@ $(INFO):
 $(CORE_FONTS):
 	mkdir -p $(CORE_FONTS) && \
 		cp -r -t $(CORE_FONTS) $(CORE_FONTS_FILES)
-		
+
 clean:
-	rm -rf $(CORE_FONTS) $(OUTPUT) $(GRUNT_FILES) 
+	rm -rf $(CORE_FONTS) $(OUTPUT) $(GRUNT_FILES)
 
 install:
-	mkdir -pv /var/www/onlyoffice
+	mkdir -pv ${DESTDIR}/var/www/onlyoffice
 	if ! id -u onlyoffice > /dev/null 2>&1; then useradd -m -d /var/www/onlyoffice -r -U onlyoffice; fi
 
-	mkdir -p /var/www/onlyoffice/documentserver
-	mkdir -p /var/www/onlyoffice/documentserver/fonts
-	mkdir -p /var/log/onlyoffice/documentserver
-	mkdir -p /var/lib/onlyoffice/documentserver/App_Data
-	
-	cp -fr -t /var/www/onlyoffice/documentserver build/* ../web-apps/deploy/*
-	mkdir -p /etc/onlyoffice/documentserver
-	mv /var/www/onlyoffice/documentserver/server/Common/config/* /etc/onlyoffice/documentserver
-	
-	chown onlyoffice:onlyoffice -R /var/www/onlyoffice
-	chown onlyoffice:onlyoffice -R /var/log/onlyoffice
-	chown onlyoffice:onlyoffice -R /var/lib/onlyoffice
+	mkdir -p ${DESTDIR}${DOCUMENT_ROOT}/fonts
+	mkdir -p ${DESTDIR}/var/log/onlyoffice/documentserver
+	mkdir -p ${DESTDIR}/var/lib/onlyoffice/documentserver/App_Data
+
+	cp -fr -t ${DESTDIR}${DOCUMENT_ROOT} build/* ../web-apps/deploy/*
+	mkdir -p ${DESTDIR}/etc/onlyoffice/documentserver
+	mv ${DESTDIR}${DOCUMENT_ROOT}/server/Common/config/* ${DESTDIR}/etc/onlyoffice/documentserver
+
+	chown onlyoffice:onlyoffice -R ${DESTDIR}/var/www/onlyoffice
+	chown onlyoffice:onlyoffice -R ${DESTDIR}/var/log/onlyoffice
+	chown onlyoffice:onlyoffice -R ${DESTDIR}/var/lib/onlyoffice
 
 	# Make symlinks for shared libs
 	find \
-		${DOCUMENT_ROOT}/server/FileConverter/bin \
+		${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin \
 		-maxdepth 1 \
 		-name *$(SHARED_EXT) \
-		-exec sh -c 'ln -sf {} /lib/$$(basename {})' \;
+		-exec sh -c 'ln -sf {} ${DESTDIR}/lib/$$(basename {})' \;
 
-	sudo -u onlyoffice "${DOCUMENT_ROOT}/server/tools/AllFontsGen"\
-		--input="${DOCUMENT_ROOT}/core-fonts"\
-		--allfonts-web="${DOCUMENT_ROOT}/sdkjs/common/AllFonts.js"\
-		--allfonts="${DOCUMENT_ROOT}/server/FileConverter/bin/AllFonts.js"\
-		--images="${DOCUMENT_ROOT}/sdkjs/common/Images"\
-		--selection="${DOCUMENT_ROOT}/server/FileConverter/bin/font_selection.bin"\
-		--output-web="${DOCUMENT_ROOT}/fonts"\
+	sudo -u onlyoffice "${DESTDIR}${DOCUMENT_ROOT}/server/tools/AllFontsGen"\
+		--input="${DESTDIR}${DOCUMENT_ROOT}/core-fonts"\
+		--allfonts-web="${DESTDIR}${DOCUMENT_ROOT}/sdkjs/common/AllFonts.js"\
+		--allfonts="${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/AllFonts.js"\
+		--images="${DESTDIR}${DOCUMENT_ROOT}/sdkjs/common/Images"\
+		--selection="${DESTDIR}${DOCUMENT_ROOT}/server/FileConverter/bin/font_selection.bin"\
+		--output-web="${DESTDIR}${DOCUMENT_ROOT}/fonts"\
 		--use-system="true"
 
 uninstall:
 	userdel onlyoffice
-	
+
 	# Unlink installed shared libs
 	find /lib -type l | while IFS= read -r lnk; do if (readlink "$$lnk" | grep -q '^${DOCUMENT_ROOT}/server/FileConverter/bin/'); then rm "$$lnk"; fi; done
 
 	rm -rf /var/www/onlyoffice/documentserver
 	rm -rf /var/log/onlyoffice/documentserver
-	rm -rf /var/lib/onlyoffice/documentserver	
+	rm -rf /var/lib/onlyoffice/documentserver
 	rm -rf /etc/onlyoffice/documentserver
