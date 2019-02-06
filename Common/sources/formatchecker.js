@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2017
+ * (c) Copyright Ascensio System SIA 2010-2018
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -333,6 +333,7 @@ exports.getStringFromFormat = function(format) {
       return 'csv';
 
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF:
+    case constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA:
       return 'pdf';
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SWF:
       return 'swf';

@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2017
+ * (c) Copyright Ascensio System SIA 2010-2018
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -125,7 +125,6 @@ if (cluster.isMaster) {
 	const docsCoServer = require('./DocsCoServer');
 	const canvasService = require('./canvasservice');
 	const converterService = require('./converterservice');
-	const fontService = require('./fontservice');
 	const fileUploaderService = require('./fileuploaderservice');
 	const constants = require('./../../Common/sources/constants');
 	const utils = require('./../../Common/sources/utils');
@@ -158,7 +157,7 @@ if (cluster.isMaster) {
 				const urlParsed = urlModule.parse(req.url);
 				if (urlParsed && urlParsed.pathname) {
 					const filename = decodeURIComponent(path.basename(urlParsed.pathname));
-					sendFileOptions.headers['Content-Type'] = mime.lookup(filename);
+					sendFileOptions.headers['Content-Type'] = mime.getType(filename);
 				}
 				const realUrl = req.url.substring(0, index);
 				res.sendFile(realUrl, sendFileOptions, (err) => {
@@ -192,15 +191,9 @@ if (cluster.isMaster) {
 		app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser,
 			docsCoServer.commandFromServer);
 
-		if (config.has('server.fonts_route')) {
-			const fontsRoute = config.get('server.fonts_route');
-			app.get('/' + fontsRoute + 'native/:fontname', fontService.getFont);
-			app.get('/' + fontsRoute + 'js/:fontname', fontService.getFont);
-			app.get('/' + fontsRoute + 'odttf/:fontname', fontService.getFont);
-		}
-
-		app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convert);
-		app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convert);
+		app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
+		app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
+		app.post('/converter', utils.checkClientIp, rawFileParser, converterService.convertJson);
 
 
 		app.get('/FileUploader.ashx', utils.checkClientIp, rawFileParser, fileUploaderService.uploadTempFile);
@@ -225,7 +218,12 @@ if (cluster.isMaster) {
 		app.post('/upload/:docid/:userid/:index', rawFileParser, fileUploaderService.uploadImageFile);
 
 		app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);
+		app.post('/savefile/:docid', rawFileParser, canvasService.saveFile);
 		app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
+
+		app.get('/baseurl', (req, res) => {
+			res.send(utils.getBaseUrlByRequest(req));
+	  });
 
 		app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
 			const licenseInfo = docsCoServer.getLicenseInfo();
@@ -236,6 +234,7 @@ if (cluster.isMaster) {
 			}
 			converterService.builder(req, res);
 		});
+		app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
 
 		const sendUserPlugins = (res, data) => {
 			res.setHeader('Content-Type', 'application/json');

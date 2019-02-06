@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2017
+ * (c) Copyright Ascensio System SIA 2010-2018
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -53,6 +53,7 @@ const ms = require('ms');
 const constants = require('./constants');
 const logger = require('./logger');
 const forwarded = require('forwarded');
+const mime = require('mime');
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
@@ -64,11 +65,11 @@ var cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header'
 var cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
 var cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 var cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
-var cfgSignatureSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 var cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 var cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
 var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
 var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
+const cfgTokenOutboxInBody = config.get('services.CoAuthoring.token.outbox.inBody');
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
@@ -84,7 +85,6 @@ var g_oIpFilterRules = function() {
   }
   return res;
 }();
-var isEmptySecretTenants = isEmptyObject(cfgSignatureSecretInbox.tenants);
 const pemfileCache = new NodeCache({stdTTL: ms(cfgExpPemStdTtl) / 1000, checkperiod: ms(cfgExpPemCheckPeriod) / 1000, errorOnMissing: false, useClones: true});
 
 exports.CONVERTION_TIMEOUT = 1.5 * (cfgVisibilityTimeout + cfgQueueRetentionPeriod) * 1000;
@@ -259,29 +259,40 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
       options.headers = {};
       options.headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
+    let sizeLimit = optLimit || Number.MAX_VALUE;
+    let bufferLength = 0;
 
-    baseRequest.get(options, function (err, response, body) {
+    function onSizeError(msg){
+      this.abort();
+      let error = new Error(msg);
+      error.code = 'EMSGSIZE';
+      this.emit('error', error);
+    }
+    baseRequest.get(options, function(err, response, body) {
       if (err) {
         reject(err);
       } else {
-        var correctSize = (!optLimit || body.length < optLimit);
-        if (response.statusCode == 200 && correctSize) {
+        if (response.statusCode === 200) {
           var contentLength = response.headers['content-length'];
           if (contentLength && body.length !== (contentLength - 0)) {
             logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
           resolve(body);
         } else {
-          if (!correctSize) {
-            var e = new Error('Error response: statusCode:' + response.statusCode + ' ;body.length:' + body.length);
-            e.code = 'EMSGSIZE';
-            reject(e);
-          } else {
-            reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
-          }
+          reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
         }
       }
-    })
+    }).on('response', function(response) {
+      var contentLength = response.headers['content-length'];
+      if (contentLength && (contentLength - 0) > sizeLimit) {
+        onSizeError.call(this, 'Error response: content-length:' + contentLength);
+      }
+    }).on('data', function(chunk) {
+      bufferLength += chunk.length;
+      if (bufferLength > sizeLimit) {
+        onSizeError.call(this, 'Error response body.length');
+      }
+    });
   });
 }
 function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
@@ -327,6 +338,7 @@ exports.mapAscServerErrorToOldError = function(error) {
     case constants.CONVERT_DEAD_LETTER :
       res = -2;
       break;
+    case constants.CONVERT_LIMITS :
     case constants.CONVERT_PASSWORD :
     case constants.CONVERT_DRM :
     case constants.CONVERT_NEED_PARAMS :
@@ -391,6 +403,12 @@ function fillXmlResponse(val) {
   return xml;
 }
 
+function fillResponseSimple(res, str, contentType) {
+  let body = new Buffer(str, 'utf-8');
+  res.setHeader('Content-Type', contentType + '; charset=UTF-8');
+  res.setHeader('Content-Length', body.length);
+  res.send(body);
+}
 function _fillResponse(res, output, isJSON) {
   let data;
   let contentType;
@@ -401,13 +419,10 @@ function _fillResponse(res, output, isJSON) {
     data = fillXmlResponse(output);
     contentType = 'text/xml';
   }
-  let body = new Buffer(data, 'utf-8');
-  res.setHeader('Content-Type', contentType + '; charset=UTF-8');
-  res.setHeader('Content-Length', body.length);
-  res.send(body);
+  fillResponseSimple(res, data, contentType);
 }
 
-function fillResponse(req, res, uri, error) {
+function fillResponse(req, res, uri, error, isJSON) {
   let output;
   if (constants.NO_ERROR != error) {
     output = {error: exports.mapAscServerErrorToOldError(error)};
@@ -415,10 +430,20 @@ function fillResponse(req, res, uri, error) {
     output = {fileUrl: uri, percent: (uri ? 100 : 0), endConvert: !!uri};
   }
   var accept = req.get('Accept');
-  let isJSON = accept && -1 !== accept.toLowerCase().indexOf('application/json');
+  if (accept) {
+    switch (mime.getExtension(accept)) {
+      case "json":
+        isJSON = true;
+        break;
+      case "xml":
+        isJSON = false;
+        break;
+    }
+  }
   _fillResponse(res, output, isJSON);
 }
 
+exports.fillResponseSimple = fillResponseSimple;
 exports.fillResponse = fillResponse;
 
 function fillResponseBuilder(res, key, urls, end, error) {
@@ -700,9 +725,8 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
-function getSecret(docId, opt_iss, opt_token) {
-  var secretElem = cfgSignatureSecretInbox;
-  if (!isEmptySecretTenants) {
+function getSecret(docId, secretElem, opt_iss, opt_token) {
+  if (!isEmptyObject(secretElem.tenants)) {
     var iss;
     if (opt_token) {
       //look for issuer
@@ -714,7 +738,7 @@ function getSecret(docId, opt_iss, opt_token) {
       iss = opt_iss;
     }
     if (iss) {
-      secretElem = cfgSignatureSecretInbox.tenants[iss];
+      secretElem = secretElem.tenants[iss];
       if (!secretElem) {
         logger.error('getSecret unknown issuer: docId = %s iss = %s', docId, iss);
       }
@@ -724,9 +748,14 @@ function getSecret(docId, opt_iss, opt_token) {
 }
 exports.getSecret = getSecret;
 function fillJwtForRequest(opt_payload) {
-  let data = {};
-  if(opt_payload){
-    data.payload = opt_payload;
+  let data;
+  if (cfgTokenOutboxInBody) {
+    data = opt_payload || {};
+  } else {
+    data = {};
+    if(opt_payload){
+      data.payload = opt_payload;
+    }
   }
 
   let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};

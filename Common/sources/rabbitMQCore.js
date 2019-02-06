@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2017
+ * (c) Copyright Ascensio System SIA 2010-2018
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -40,13 +40,17 @@ var cfgRabbitSocketOptions = config.get('rabbitmq.socketOptions');
 
 var RECONNECT_TIMEOUT = 1000;
 
-function connetPromise(closeCallback) {
+function connetPromise(reconnectOnConnectionError, closeCallback) {
   return new Promise(function(resolve, reject) {
     function startConnect() {
       amqp.connect(cfgRabbitUrl, cfgRabbitSocketOptions, function(err, conn) {
         if (null != err) {
           logger.error('[AMQP] %s', err.stack);
-          setTimeout(startConnect, RECONNECT_TIMEOUT);
+          if (reconnectOnConnectionError) {
+            setTimeout(startConnect, RECONNECT_TIMEOUT);
+          } else {
+            reject(err);
+          }
         } else {
           conn.on('error', function(err) {
             logger.error('[AMQP] conn error', err.stack);

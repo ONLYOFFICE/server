@@ -32,35 +32,46 @@ RunCommand() {
 
 CreateDir "$BASEDIR/App_Data"
 CreateDir "$BASEDIR/FileConverter/bin"
+CreateDir "$BASEDIR/FileConverter/bin/core"
 CreateDir "$BASEDIR/FileConverter/bin/HtmlFileInternal"
 
 cd "$BASEDIR/FileConverter/bin"
 
-cp -v "../../../core/build/bin/mac_64/icudtl_dat.S" "."
-cp -v "../../../core/build/bin/mac_64/x2t" "."
-cp -v "../../../core/build/bin/icu/mac_64/libicudata.55.1.dylib" "."
-cp -v "../../../core/build/bin/icu/mac_64/libicuuc.55.1.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libDjVuFile.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libHtmlFile.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libHtmlRenderer.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libPdfReader.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libPdfWriter.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libUnicodeConverter.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libXpsFile.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libascdocumentscore.dylib" "."
-cp -v "../../../core/build/lib/mac_64/libdoctrenderer.dylib" "."
+wget -N http://repo-doc-onlyoffice-com.s3.amazonaws.com/mac/core/origin/develop/latest/x64/core.tar.gz
+gunzip -c core.tar.gz | tar xopf - -C core
 
-ln -sifv libicuuc.55.1.dylib libicuuc.55.dylib
-ln -sifv libicudata.55.1.dylib libicudata.55.dylib
+cp -v "core/build/bin/mac_64/icudtl_dat.S" "."
+cp -v "core/build/bin/mac_64/x2t" "."
+cp -v "core/Common/3dParty/icu/mac_64/build/libicudata.60.dylib" "."
+cp -v "core/Common/3dParty/icu/mac_64/build/libicuuc.60.dylib" "."
+cp -v "core/Common/3dParty/icu/mac_64/build/libicudata.60.2.dylib" "."
+cp -v "core/Common/3dParty/icu/mac_64/build/libicuuc.60.2.dylib" "."
+cp -v "core/build/lib/mac_64/libDjVuFile.dylib" "."
+cp -v "core/build/lib/mac_64/libHtmlFile.dylib" "."
+cp -v "core/build/lib/mac_64/libHtmlRenderer.dylib" "."
+cp -v "core/build/lib/mac_64/libPdfReader.dylib" "."
+cp -v "core/build/lib/mac_64/libPdfWriter.dylib" "."
+cp -v "core/build/lib/mac_64/libUnicodeConverter.dylib" "."
+cp -v "core/build/lib/mac_64/libXpsFile.dylib" "."
+cp -v "core/build/lib/mac_64/libascdocumentscore.dylib" "."
+cp -v "core/build/lib/mac_64/libdoctrenderer.dylib" "."
+cp -v "core/build/lib/mac_64/libkernel.dylib" "."
+
 chmod -v +x x2t
 
 SEARCH='..\/..\/OfficeWeb'
 REPLACE='..\/..\/..\/sdkjs'
 sed "s/$SEARCH/$REPLACE/g" "../../../core/build/lib/DoctRenderer.config" > "DoctRenderer.config"
 
+echo "----------------------------------------"
+echo "Font generation "
+echo "----------------------------------------"
+
 echo $BASEDIR
-chmod -v +x $BASEDIR/../core/build/bin/AllFontsGen/mac_64
-bash -cv "$BASEDIR/../core/build/bin/AllFontsGen/mac_64 '' '$BASEDIR/../sdkjs/Common/AllFonts.js' '$BASEDIR/../sdkjs/Common/Images' '$BASEDIR/FileConverter/bin/font_selection.bin'"
+cd "$BASEDIR/FileConverter/bin/core/build/bin"
+CreateDir "$BASEDIR/../fonts"
+chmod -v +x $BASEDIR/FileConverter/bin/core/build/bin/AllFontsGen/mac_64
+bash -cv "$BASEDIR/FileConverter/bin/core/build/bin/AllFontsGen/mac_64 '' '$BASEDIR/../sdkjs/Common/AllFonts.js' '$BASEDIR/../sdkjs/Common/Images' '$BASEDIR/FileConverter/bin/font_selection.bin' '$BASEDIR/../fonts'"
 
 
 echo "----------------------------------------"

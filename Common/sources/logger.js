@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2017
+ * (c) Copyright Ascensio System SIA 2010-2018
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -35,9 +35,17 @@
 var config = require('config');
 
 var log4js = require('log4js');
-log4js.configure(config.get('log.filePath'), config.get('log.options'));
+log4js.configure(config.get('log.filePath'));
 
 var logger = log4js.getLogger('nodeJS');
+
+if (config.get('log.options.replaceConsole')) {
+	console.log = logger.info.bind(logger);
+	console.info = logger.info.bind(logger);
+	console.warn = logger.warn.bind(logger);
+	console.error = logger.error.bind(logger);
+	console.debug = logger.debug.bind(logger);
+}
 
 exports.trace = function (){
 	return logger.trace.apply(logger, Array.prototype.slice.call(arguments));

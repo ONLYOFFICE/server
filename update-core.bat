@@ -16,8 +16,10 @@ powershell -executionpolicy remotesigned -file update-core.ps1 "http://repo-doc-
 
 cd /D "%~dp0\FileConverter\bin" || goto ERROR
 copy "core\Common\3dParty\v8\win_%OS%\release\icudt.dll" "."
-copy "core\Common\3dParty\icu\win_%OS%\build\icudt55.dll" "."
-copy "core\Common\3dParty\icu\win_%OS%\build\icuuc55.dll" "."
+copy "core\Common\3dParty\icu\win_%OS%\build\icudt*.dll" "."
+copy "core\Common\3dParty\icu\win_%OS%\build\icuuc*.dll" "."
+copy "core\build\lib\win_%OS%\kernel.dll" "."
+copy "core\build\lib\win_%OS%\graphics.dll" "."
 copy "core\build\lib\win_%OS%\doctrenderer.dll" "."
 copy "core\build\lib\win_%OS%\HtmlRenderer.dll" "."
 copy "core\build\lib\win_%OS%\DjVuFile.dll" "."
@@ -30,6 +32,8 @@ copy "core\build\lib\win_%OS%\HtmlFileInternal.exe" ".\HtmlFileInternal"
 xcopy /s/h/e/k/c/y/q "core\Common\3dParty\cef\win_%OS%\build" ".\HtmlFileInternal"
 copy "core\build\bin\win_%OS%\x2t.exe" "."
 
-"core\build\bin\AllFontsGen\win_%OS%.exe" "%windir%\Fonts" "%~dp0\..\sdkjs\common\AllFonts.js" "%~dp0\..\sdkjs\common\Images" "%~dp0\FileConverter\bin\font_selection.bin"
+if exist "%~dp0\..\fonts" rmdir /S /Q "%~dp0\..\fonts"
+mkdir "%~dp0\..\fonts"
+"core\build\bin\AllFontsGen\win_%OS%.exe" --input="%~dp0\..\core-fonts" --allfonts-web="%~dp0\..\sdkjs\common\AllFonts.js" --allfonts="%~dp0\FileConverter\bin\AllFonts.js" --images="%~dp0\..\sdkjs\common\Images" --selection="%~dp0\FileConverter\bin\font_selection.bin" --output-web="%~dp0\..\fonts" --use-system="true"
 
 :ERROR

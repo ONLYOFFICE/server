@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2017
+ * (c) Copyright Ascensio System SIA 2010-2018
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -37,6 +37,7 @@ exports.CHAR_DELIMITER = String.fromCharCode(5);
 exports.OUTPUT_NAME = 'output';
 exports.ONLY_OFFICE_URL_PARAM = 'ooname';
 exports.DISPLAY_PREFIX = 'display';
+exports.CHANGES_NAME = 'changes';
 
 exports.RIGHTS = {
   None    : 0,
@@ -53,14 +54,16 @@ exports.LICENSE_MODE = {
 };
 
 exports.LICENSE_RESULT = {
-  Error       : 1,
-  Expired     : 2,
-  Success     : 3,
-  UnknownUser : 4,
-  Connections : 5,
-  ExpiredTrial: 6,
-  SuccessLimit: 7,
-  UsersCount  : 8
+  Error         : 1,
+  Expired       : 2,
+  Success       : 3,
+  UnknownUser   : 4,
+  Connections   : 5,
+  ExpiredTrial  : 6,
+  SuccessLimit  : 7,
+  UsersCount    : 8,
+  ConnectionsOS : 9,
+  UsersCountOS  : 10
 };
 
 exports.LICENSE_CONNECTIONS = 20;
@@ -120,6 +123,7 @@ exports.AVS_OFFICESTUDIO_FILE_OTHER_OLD_PRESENTATION = exports.AVS_OFFICESTUDIO_
 exports.AVS_OFFICESTUDIO_FILE_OTHER_OLD_DRAWING = exports.AVS_OFFICESTUDIO_FILE_OTHER + 0x0006;
 exports.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER = exports.AVS_OFFICESTUDIO_FILE_OTHER + 0x0007;
 exports.AVS_OFFICESTUDIO_FILE_OTHER_JSON = exports.AVS_OFFICESTUDIO_FILE_OTHER + 0x0008; // Для mail-merge
+exports.AVS_OFFICESTUDIO_FILE_OTHER_PDFA = exports.AVS_OFFICESTUDIO_FILE_OTHER + 0x0101;
 exports.AVS_OFFICESTUDIO_FILE_TEAMLAB = 0x1000;
 exports.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY = exports.AVS_OFFICESTUDIO_FILE_TEAMLAB + 0x0001;
 exports.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY = exports.AVS_OFFICESTUDIO_FILE_TEAMLAB + 0x0002;
@@ -153,7 +157,9 @@ exports.CONVERT_PARAMS = -88;
 exports.CONVERT_NEED_PARAMS = -89;
 exports.CONVERT_DRM = -90;
 exports.CONVERT_PASSWORD = -91;
-exports.CONVERT_DEAD_LETTER = -92;
+exports.CONVERT_ICU = -92;
+exports.CONVERT_LIMITS = -93;
+exports.CONVERT_DEAD_LETTER = -99;
 exports.UPLOAD = -100;
 exports.UPLOAD_CONTENT_LENGTH = -101;
 exports.UPLOAD_EXTENSION = -102;
@@ -201,6 +207,7 @@ exports.REDIS_KEY_SHUTDOWN = 'shutdown';
 exports.REDIS_KEY_COLLECT_LOST = 'collectlost';
 exports.REDIS_KEY_LICENSE = 'license';
 exports.REDIS_KEY_LICENSE_T = 'licenseT';
+exports.REDIS_KEY_EDITOR_CONNECTIONS = 'editorconnections';
 
 exports.SHUTDOWN_CODE = 4001;
 exports.SHUTDOWN_REASON = 'server shutdown';
@@ -221,3 +228,5 @@ exports.CONTENT_DISPOSITION_INLINE = 'inline';
 exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';
 
 exports.CONN_CLOSED = 3;
+
+exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';

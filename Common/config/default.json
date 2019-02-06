@@ -7,7 +7,9 @@
 	},
 	"log": {
 		"filePath": "",
-		"options": { "reloadSecs": 60 }
+		"options": {
+			"replaceConsole": true
+		}
 	},
 	"queue": {
 		"visibilityTimeout": 300,
@@ -51,18 +53,17 @@
 				"port": 8000,
 				"workerpercpu": 1,
 				"mode": "development",
-				"fonts_route": "fonts/",
-				"sockjsUrl": "",
 				"limits_tempfile_upload": 104857600,
 				"limits_image_size": 26214400,
 				"limits_image_download_timeout": 120,
-				"editor_settings_spellchecker_url": "/spellchecker",
 				"callbackRequestTimeout": 120,
 				"healthcheckfilepath": "../public/healthcheck.docx",
 				"savetimeoutdelay": 5000,
 				"edit_singleton": false,
 				"forgottenfiles": "forgotten",
-				"forgottenfilesname": "output"
+				"forgottenfilesname": "output",
+				"maxRequestChanges": 20000,
+				"openProtectedFile": true
 			},
 			"requestDefaults": {
 				"headers": {
@@ -79,8 +80,7 @@
 				"utils_common_fontdir": "null",
 				"utils_fonts_search_patterns": "*.ttf;*.ttc;*.otf",
 				"resource_expires": 31536000,
-				"limits_image_types_upload": "jpg;png;gif;bmp",
-				"limits_image_types_copy": "jpg;png;gif;bmp;svg"
+				"limits_image_types_upload": "jpg;png;gif;bmp"
 			},
 			"sql": {
 				"type": "postgres",
@@ -132,6 +132,7 @@
 				"errorcode": 401
 			},
 			"secret": {
+				"browser": {"string": "secret", "file": "", "tenants": {}},
 				"inbox": {"string": "secret", "file": "", "tenants": {}},
 				"outbox": {"string": "secret", "file": ""},
 				"session": {"string": "secret", "file": ""}
@@ -144,33 +145,50 @@
 						"outbox": false
 					}
 				},
+				"browser": {
+					"secretFromInbox": true
+				},
 				"inbox": {
 					"header": "Authorization",
-					"prefix": "Bearer "
+					"prefix": "Bearer ",
+					"inBody": false
 				},
 				"outbox": {
 					"header": "Authorization",
 					"prefix": "Bearer ",
 					"algorithm": "HS256",
-					"expires": "5m"
+					"expires": "5m",
+					"inBody": false
 				},
 				"session": {
 					"algorithm": "HS256",
-					"expires": "10m"
+					"expires": "30d"
 				}
 			},
 			"plugins": {
 				"uri": "/sdkjs-plugins",
 				"autostart": []
+			},
+			"editor":{
+				"spellcheckerUrl": "/spellchecker",
+				"reconnection":{
+					"attempts": 50,
+					"delay": "2s"
+				}
+			},
+			"sockjs": {
+				"sockjs_url": "",
+				"websocket": true
 			}
 		}
 	},
 	"license" : {
-		"license_file": ""
+		"license_file": "",
+		"warning_limit_percents": "70"
 	},
 	"FileConverter": {
 		"converter": {
-			"maxDownloadBytes": 100000000,
+			"maxDownloadBytes": 104857600,
 			"downloadTimeout": 120,
 			"downloadAttemptMaxCount": 3,
 			"downloadAttemptDelay": 1000,
@@ -181,10 +199,33 @@
 			"docbuilderPath": "null",
 			"docbuilderAllFontsPath": "null",
 			"args": "",
+			"spawnOptions": {},
 			"errorfiles": "",
 			"streamWriterBufferSize": 8388608,
-			"maxRequestChanges": 50000,
-			"maxRedeliveredCount": 2
+			"maxRedeliveredCount": 2,
+			"inputLimits": [
+				{
+				"type": "docx;dotx;docm;dotm",
+				"zip": {
+					"uncompressed": "50MB",
+					"template": "*.xml"
+				}
+				},
+				{
+				"type": "xlsx;xltx;xlsm;xltm",
+				"zip": {
+					"uncompressed": "300MB",
+					"template": "*.xml"
+				}
+				},
+				{
+				"type": "pptx;ppsx;potx;pptm;ppsm;potm",
+				"zip": {
+					"uncompressed": "50MB",
+					"template": "*.xml"
+				}
+				}
+			]
 		}
 	},
 	"FileStorage": {

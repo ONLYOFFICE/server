@@ -11,9 +11,10 @@
     "CoAuthoring": {
       "server": {
         "port": 8001,
-        "sockjsUrl": "/web-apps/vendor/sockjs/sockjs.min.js",
-        "editor_settings_spellchecker_url": "http://127.0.0.1:8080",
         "static_content": {
+          "/fonts": {
+            "path": "../../../fonts"
+          },
           "/sdkjs": {
             "path": "../../../sdkjs"
           },
@@ -36,11 +37,18 @@
         "dbPort": 3306,
         "dbUser": "root",
         "dbPass": "onlyoffice"
+      },
+      "editor": {
+        "spellcheckerUrl": "http://127.0.0.1:8080"
+      },
+      "sockjs": {
+        "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
       }
     }
   },
   "license": {
-    "license_file": "./../../license.lic"
+    "license_file": "./../../license.lic",
+    "warning_limit_percents": "70"
   },
   "FileConverter": {
     "converter": {

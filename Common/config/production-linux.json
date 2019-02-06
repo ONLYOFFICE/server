@@ -10,8 +10,11 @@
   "services": {
     "CoAuthoring": {
       "server": {
-        "sockjsUrl": "/web-apps/vendor/sockjs/sockjs.min.js",
         "static_content": {
+          "/fonts": {
+            "path": "/var/www/onlyoffice/documentserver/fonts",
+            "options": {"maxAge": "7d"}
+          },
           "/sdkjs": {
             "path": "/var/www/onlyoffice/documentserver/sdkjs",
             "options": {"maxAge": "7d"}
@@ -24,6 +27,10 @@
             "path": "/var/www/onlyoffice/documentserver/server/welcome",
             "options": {"maxAge": "7d"}
           },
+          "/info": {
+            "path": "/var/www/onlyoffice/documentserver/server/info",
+            "options": {"maxAge": "7d"}
+          },
           "/sdkjs-plugins": {
             "path": "/var/www/onlyoffice/documentserver/sdkjs-plugins",
             "options": {"maxAge": "7d"}
@@ -32,11 +39,15 @@
       },
       "utils": {
         "utils_common_fontdir": "/usr/share/fonts"
+      },
+      "sockjs": {
+        "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
       }
     }
   },
   "license": {
-    "license_file": "/var/www/onlyoffice/Data/license.lic"
+    "license_file": "/var/www/onlyoffice/documentserver/../Data/license.lic",
+    "warning_limit_percents": "70"
   },
   "FileConverter": {
     "converter": {
@@ -44,8 +55,7 @@
       "presentationThemesDir": "/var/www/onlyoffice/documentserver/sdkjs/slide/themes",
       "x2tPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/x2t",
       "docbuilderPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/docbuilder",
-      "docbuilderAllFontsPath": "/var/lib/onlyoffice/documentserver/App_Data/docbuilder/AllFonts.js",
-      "errorfiles": "error"
+      "docbuilderAllFontsPath": "/var/lib/onlyoffice/documentserver/App_Data/docbuilder/AllFonts.js"
     }
   },
   "FileStorage": {

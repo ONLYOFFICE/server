@@ -1,13 +1,14 @@
 {
-	"appenders": [{
-		"type": "console",
-		"layout": {
-			"type": "pattern",
-			"pattern": "%[[%d] [%p] %c -%] %.10000m"
+	"appenders": {
+		"default": {
+			"type": "console",
+			"layout": {
+				"type": "pattern",
+				"pattern": "%[[%d] [%p] %c -%] %.10000m"
+			}
 		}
-	}],
-	"replaceConsole": "true",
-	"levels": {
-		"nodeJS": "ALL"
+	},
+	"categories": {
+		"default": { "appenders": [ "default" ], "level": "ALL" }
 	}
 }

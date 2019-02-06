@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ONLYOFFICE™</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=IE8"/>
+    <link href="img/favicon.ico" rel="icon" type="image/x-icon">
+
+    <style type="text/css">
+        html {
+            height: 100%;
+        }
+
+        body {
+            height: 100%;
+            min-width: 600px;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 12px;
+            color: #333333;
+        }
+
+        header {
+            background: #3D4A6B;
+            height: 44px;
+            margin: 0 auto;
+            min-width: 600px;
+            width: auto;
+            padding-top: 4px;
+        }
+
+        header img {
+            margin: 8px 0 0 24px;
+        }
+
+        table {
+            table-layout: fixed;
+            border-spacing: 0;
+            margin-bottom: 40px;
+        }
+
+        td {
+            padding-left: 15px;
+            padding-bottom: 16px;
+            vertical-align: top;
+        }
+
+        .td-caption {
+            font-size: 16px;
+            padding-bottom: 4px;
+        }
+
+        .td-value {
+            font-size: 32px;
+            line-height: 28px;
+            padding-bottom: 8px;
+        }
+
+        .td-separator {
+            padding-left: 0;
+            padding-right: 24px;
+        }
+
+        .main-panel {
+            margin: 80px auto 16px;
+            width: 672px;
+        }
+
+        .header0 {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .header1 {
+            font-size: 20px;
+            padding-bottom: 30px;
+        }
+
+        #doc-server-wait {
+            text-align: center;
+        }
+        #doc-server-err > div {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: left;
+        }
+
+        #status-err-icon {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: left;
+            width:48px;
+            height: 48px;
+            margin-right: 15px;
+            background: url(img/icon-cross.png) center no-repeat;
+        }
+
+        #status-err-help {
+            font-size: 18px;
+            font-weight: normal;
+            margin-top: 5px;
+        }
+        .hidden {
+            display: none !important;
+            visibility: hidden;
+        }
+        .critical {
+            color: #ff0000;
+        }
+
+        .separator {
+            vertical-align: top;
+            width: 100%;
+            height: 0;
+            border-top: 1px solid #dadada;
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        <img src="img/logo.png" alt="ONLYOFFICE">
+    </header>
+    <div class="main-panel">
+        <div class="header0" id="doc-server-wait">Please, wait...</div>
+        <div class="hidden" id="doc-server-ok">
+            <div class="header1">Document Server information</div>
+            <table width="672px">
+                <tr>
+                    <td class="td-caption">Build</td>
+                    <td class="td-caption">License</td>
+                    <td class="td-caption" id="limit-type">Connections limit</td>
+                </tr>
+                <tr>
+                    <td class="td-separator"><div class="separator"></div></td>
+                    <td class="td-separator"><div class="separator"></div></td>
+                    <td class="td-separator"><div class="separator"></div></td>
+                </tr>
+                <tr>
+                    <td id="build-type">Type:</td>
+                    <td><span id="lic-valid-type">Valid: </span><span id="lic-valid"></span></td>
+                    <td rowspan="3" id="lic-limit" class="td-value"></td>
+                </tr>
+                <tr>
+                    <td id="build-version">Version:</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td id="build-date">Release date:</td>
+                    <td></td>
+                </tr>
+            </table>
+            <table>
+                <tr>
+                    <td colspan="4" class="td-caption">Peaks</td>
+                </tr>
+                <tr>
+                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
+                </tr>
+                <tr>
+                    <td id="cell-hour-max" class="td-value" width="150">0</td>
+                    <td id="cell-day-max" class="td-value" width="150">0</td>
+                    <td id="cell-week-max" class="td-value" width="150">0</td>
+                    <td id="cell-month-max" class="td-value" width="224">0</td>
+                </tr>
+                <tr>
+                    <td>Last Hour</td>
+                    <td>24 Hours</td>
+                    <td>Week</td>
+                    <td>Month</td>
+                </tr>
+            </table>
+            <table>
+                <tr>
+                    <td colspan="4" class="td-caption">Average</td>
+                </tr>
+                <tr>
+                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
+                </tr>
+                <tr>
+                    <td id="cell-hour-avr" class="td-value" width="150">0</td>
+                    <td id="cell-day-avr" class="td-value" width="150">0</td>
+                    <td id="cell-week-avr" class="td-value" width="150">0</td>
+                    <td id="cell-month-avr" class="td-value" width="224">0</td>
+                </tr>
+                <tr>
+                    <td>Last Hour</td>
+                    <td>24 Hours</td>
+                    <td>Week</td>
+                    <td>Month</td>
+                </tr>
+            </table>
+        </div>
+        <div class="hidden header0" id="doc-server-err">
+            <div id="status-err-icon"></div>
+            <div>
+                <div>Something went wrong during installation</div>
+                <div id="status-err-help">Make sure that you have followed the <a href="http://helpcenter.onlyoffice.com/server/document.aspx" target="_blank">installation instructions</a></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var _createXMLHTTPObject = function() {
+            var xmlhttp;
+            try {
+                xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
+            }
+            catch (e) {
+                try {
+                    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                catch (E) {
+                    xmlhttp = false;
+                }
+            }
+            if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
+                xmlhttp = new XMLHttpRequest();
+            }
+            return xmlhttp;
+        };
+        function fillInfo(licenseInfo, serverInfo) {
+            var elem = document.getElementById('build-type');
+            elem.innerText = 'Type: ' + ((licenseInfo.packageType == 0) ? 'Open source' : ((licenseInfo.packageType == 1) ? 'Integration Edition' : 'Developer Edition'));
+
+            elem = document.getElementById('build-date');
+            var builddate = new Date(licenseInfo.buildDate);
+            elem.innerText = 'Release date: ' + builddate.toLocaleDateString();
+
+            elem = document.getElementById('build-version');
+            elem.innerText = 'Version: ' + serverInfo.buildVersion + '.' + serverInfo.buildNumber;
+
+            elem = document.getElementById('limit-type');
+            elem.innerText = (licenseInfo.usersCount>0) ? 'Users limit' : 'Connections limit' ;
+
+            elem = document.getElementById('lic-limit');
+			elem.innerText = (licenseInfo.usersCount || licenseInfo.connections);
+
+            elem = document.getElementById('lic-valid-type');
+            elem.innerText = (licenseInfo.mode == 1) ? 'Valid: ' : 'Updates available: ';
+
+            var licdate = new Date(licenseInfo.endDate);
+            elem = document.getElementById('lic-valid');
+            elem.innerText = licdate.toLocaleDateString();
+            if (Date.now() > licdate)
+                elem.classList.add('critical');
+
+			return (licenseInfo.usersCount>0) ? 1000000 : licenseInfo.connections;
+        }
+        function fillConnections(info, limit) {
+            for (var precision in info.connectionsStat) {
+                for (var agregate in info.connectionsStat[precision].edit) {
+                    var value = info.connectionsStat[precision].edit[agregate];
+                    var elem = document.getElementById('cell-' + precision + '-' + agregate);
+                    if (elem) {
+                        elem.innerText = value;
+                        if (value >= limit) {
+                            elem.classList.add("critical");
+                        }
+                    }
+                }
+            }
+        }
+
+        (function(){
+            try {
+                var xhrObj = _createXMLHTTPObject();
+                if (xhrObj) {
+                    var index_html = window["location"]["href"];
+                    var healthcheck_url = index_html.substring(0, index_html.lastIndexOf("/") + 1) + 'info.json';
+                    xhrObj.open('GET', healthcheck_url);
+                    xhrObj.onreadystatechange = function() {
+                        if (xhrObj.readyState == 4) {
+							document.getElementById('doc-server-wait').classList.add("hidden");
+                            if (xhrObj.status == 200) {
+								document.getElementById('doc-server-ok').classList.remove("hidden");
+                                var info = JSON.parse(xhrObj.responseText);
+                                fillConnections(info, fillInfo(info.licenseInfo, info.serverInfo));
+                            } else {
+								document.getElementById('doc-server-err').classList.remove("hidden");
+                            }
+                        }
+                    };
+                    xhrObj.send('');
+                }
+            }
+            catch (e) {}
+        })();
+        
+    </script>
+</body>
+</html>
