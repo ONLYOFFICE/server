@@ -303,6 +303,8 @@ exports.getFormatFromString = function(ext) {
 
     case 'pdf':
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
+    case 'pdfa':
+      return constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA;
     case 'swf':
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SWF;
     case 'djvu':
