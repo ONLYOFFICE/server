@@ -430,16 +430,17 @@ function fillResponse(req, res, uri, error, isJSON) {
     output = {fileUrl: uri, percent: (uri ? 100 : 0), endConvert: !!uri};
   }
   var accept = req.get('Accept');
-  if (accept) {
-    switch (mime.getExtension(accept)) {
-      case "json":
+
+  isJSON = false;
+  if( accept !== null && accept !== undefined ){
+    const acceptArray = accept.split('/');
+    if (acceptArray.length > 1) {
+      if (acceptArray[1] == 'json') {
         isJSON = true;
-        break;
-      case "xml":
-        isJSON = false;
-        break;
+      }
     }
   }
+
   _fillResponse(res, output, isJSON);
 }
 
