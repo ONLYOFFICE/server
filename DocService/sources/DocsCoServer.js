@@ -2154,8 +2154,8 @@ exports.install = function(server, callbackFunction) {
       let lockDocument = null;
       if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
         // Ставим lock на документ
-        const isLock = yield utils.promiseRedis(redisClient, redisClient.setnx,
-                                              redisKeyLockDoc + docId, JSON.stringify(firstParticipantNoView));
+        const isLock = yield utils.promiseRedis(redisClient, redisClient.set,
+                                              redisKeyLockDoc + docId, JSON.stringify(firstParticipantNoView), 'nx');
         if (isLock) {
           lockDocument = firstParticipantNoView;
           yield* setLockDocumentTimer(docId, lockDocument.id);
@@ -2500,12 +2500,8 @@ exports.install = function(server, callbackFunction) {
         ];
         if (cfgForceSaveEnable) {
           let ttl = Math.ceil((cfgForceSaveInterval + cfgForceSaveStep) / 1000);
-          let multi = redisClient.multi([
-                                          ['setnx', redisKeyForceSaveTimerLock + docId, 1],
-                                          ['expire', redisKeyForceSaveTimerLock + docId, ttl]
-                                        ]);
-          let multiRes = yield utils.promiseRedis(multi, multi.exec);
-          if (multiRes[0]) {
+          var timerLock = yield utils.promiseRedis(redisClient, redisClient.set, redisKeyForceSaveTimerLock + docId, 1, 'nx', 'ex', ttl);
+          if (timerLock) {
             let expireAt = newChangesLastTime + cfgForceSaveInterval;
             commands.push(['zadd', redisKeyForceSaveTimer, expireAt, docId]);
           }
@@ -2531,12 +2527,8 @@ exports.install = function(server, callbackFunction) {
 
   // Можем ли мы сохранять ?
   function* isSaveLock(conn) {
-    let isSaveLock = true;
-    const exist = yield utils.promiseRedis(redisClient, redisClient.setnx, redisKeySaveLock + conn.docId, conn.user.id);
-    if (exist) {
-      isSaveLock = false;
-      const saveLock = yield utils.promiseRedis(redisClient, redisClient.expire, redisKeySaveLock + conn.docId, cfgExpSaveLock);
-    }
+    let isSaveLock = yield utils.promiseRedis(redisClient, redisClient.set, redisKeySaveLock + conn.docId, conn.user.id, 'nx', 'ex', cfgExpSaveLock);
+    isSaveLock = !isSaveLock;
     logger.debug("isSaveLock: docId = %s; isSaveLock: %s", conn.docId, isSaveLock);
 
     // Отправляем только тому, кто спрашивал (всем отправлять нельзя)
