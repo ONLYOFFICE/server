@@ -100,6 +100,7 @@ const pubsubRedis = require('./pubsubRedis');
 const pubsubService = require('./' + config.get('pubsub.name'));
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
+const engineDistributed = require('./engineDistributed');
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
 cfgEditor['reconnection']['delay'] = ms(cfgEditor['reconnection']['delay']);
 const cfgCallbackRequestTimeout = config.get('server.callbackRequestTimeout');
@@ -169,6 +170,7 @@ const EditorTypes = {
 
 const defaultHttpPort = 80, defaultHttpsPort = 443;	// Порты по умолчанию (для http и https)
 const redisClient = pubsubRedis.getClientRedis();
+let engine = new engineDistributed();
 const clientStatsD = statsDClient.getClient();
 let connections = []; // Активные соединения
 let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
@@ -1354,10 +1356,7 @@ exports.install = function(server, callbackFunction) {
       tmpUser.view = tmpView;
 
       // Для данного пользователя снимаем лок с сохранения
-      var saveLock = yield utils.promiseRedis(redisClient, redisClient.get, redisKeySaveLock + docId);
-      if (conn.user.id == saveLock) {
-        yield utils.promiseRedis(redisClient, redisClient.del, redisKeySaveLock + docId);
-      }
+      yield engine.unlockSave(docId, conn.user.id);
 
       // Только если редактируем
       if (false === isView) {
@@ -2407,6 +2406,13 @@ exports.install = function(server, callbackFunction) {
     const docId = conn.docId, userId = conn.user.id;
     logger.info("Start saveChanges docid: %s; reSave: %s", docId, data.reSave);
 
+    var prolongRes = yield engine.prolongSave(docId, userId, cfgExpSaveLock);
+    if (commonDefines.c_oAscLockStatus.Ok !== prolongRes) {
+      logger.info("Start saveChanges docid: %s; reSave: %s", docId);
+      sendData(conn, {type: 'savePartChanges', changesIndex: changesIndex});
+      return;
+    }
+
     let puckerIndex = yield* getChangesIndex(docId);
 
     let deleteIndex = -1;
@@ -2527,7 +2533,7 @@ exports.install = function(server, callbackFunction) {
 
   // Можем ли мы сохранять ?
   function* isSaveLock(conn) {
-    let isSaveLock = yield utils.promiseRedis(redisClient, redisClient.set, redisKeySaveLock + conn.docId, conn.user.id, 'nx', 'ex', cfgExpSaveLock);
+    let isSaveLock = yield engine.lockSave(conn.docId, conn.user.id, cfgExpSaveLock);
     isSaveLock = !isSaveLock;
     logger.debug("isSaveLock: docId = %s; isSaveLock: %s", conn.docId, isSaveLock);
 
@@ -2537,12 +2543,10 @@ exports.install = function(server, callbackFunction) {
 
   // Снимаем лок с сохранения
   function* unSaveLock(conn, index, time) {
-    const saveLock = yield utils.promiseRedis(redisClient, redisClient.get, redisKeySaveLock + conn.docId);
-    // ToDo проверка null === saveLock это заглушка на подключение второго пользователя в документ (не делается saveLock в этот момент, но идет сохранение и снять его нужно)
-    if (null === saveLock || conn.user.id == saveLock) {
-      yield utils.promiseRedis(redisClient, redisClient.del, redisKeySaveLock + conn.docId);
+    var unlockRes = yield engine.unlockSave(conn.docId, conn.user.id);
+    if (commonDefines.c_oAscLockStatus.Ok === unlockRes || commonDefines.c_oAscLockStatus.Null === unlockRes) {
       sendData(conn, {type: 'unSaveLock', index: index, time: time});
-    } else {
+    } else if (2 === unlockRes) {
       logger.warn("unSaveLock failure: docId = %s; conn.user.id: %s; saveLock: %s", conn.docId, conn.user.id, saveLock);
     }
   }
@@ -3072,8 +3076,12 @@ exports.install = function(server, callbackFunction) {
       if (null != err) {
         logger.error('createTaskQueue error :\r\n%s', err.stack);
       }
-
-      callbackFunction();
+      engine.init(function(err) {
+        if (null != err) {
+          logger.error('engine init error :\r\n%s', err.stack);
+        }
+        callbackFunction();
+      });
     });
   });
 };

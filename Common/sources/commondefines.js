@@ -901,6 +901,11 @@ const c_oAscSecretType = {
   Outbox: 2,
   Session: 3
 };
+const c_oAscLockStatus = {
+  Ok: 0,
+  Null: 1,
+  Fail: 2
+};
 
 const buildVersion = '4.1.2';
 const buildNumber = 37;
@@ -923,5 +928,6 @@ exports.c_oAscServerCommandErrors = c_oAscServerCommandErrors;
 exports.c_oAscForceSaveTypes = c_oAscForceSaveTypes;
 exports.c_oAscUrlTypes = c_oAscUrlTypes;
 exports.c_oAscSecretType = c_oAscSecretType;
+exports.c_oAscLockStatus = c_oAscLockStatus;
 exports.buildVersion = buildVersion;
 exports.buildNumber = buildNumber;
