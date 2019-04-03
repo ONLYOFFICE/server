@@ -826,8 +826,8 @@ function handleDeadLetter(data) {
             yield* addTask(task, constants.QUEUE_PRIORITY_VERY_LOW, undefined, FORCE_SAVE_EXPIRATION);
             isRequeued = true;
           }
-        } else if(cmd.getDelayed()) {
-          logger.warn('handleDeadLetter addResponse delayed = %d: docId = %s', cmd.getDelayed(), docId);
+        } else if(cmd.getAttempt()) {
+          logger.warn('handleDeadLetter addResponse delayed = %d: docId = %s', cmd.getAttempt(), docId);
           yield* addResponse(task);
         } else {
           //simulate error response

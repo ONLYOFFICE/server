@@ -86,7 +86,7 @@ function InputCommand(data) {
     this['forgotten'] = data['forgotten'];
     this['isbuilder'] = data['isbuilder'];
     this['status_info_in'] = data['status_info_in'];
-    this['delayed'] = data['delayed'];
+    this['attempt'] = data['attempt'];
   } else {
     this['c'] = undefined;//string command
     this['id'] = undefined;//string document id
@@ -130,7 +130,7 @@ function InputCommand(data) {
     this['forgotten'] = undefined;
     this['isbuilder'] = undefined;
     this['status_info_in'] = undefined;
-    this['delayed'] = undefined;
+    this['attempt'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -353,11 +353,11 @@ InputCommand.prototype = {
   setStatusInfoIn: function(data) {
     this['status_info_in'] = data;
   },
-  getDelayed: function() {
-    return this['delayed'];
+  getAttempt: function() {
+    return this['attempt'];
   },
-  setDelayed: function(data) {
-    this['delayed'] = data;
+  setAttempt: function(data) {
+    this['attempt'] = data;
   }
 };
 

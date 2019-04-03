@@ -36,6 +36,7 @@ var pathModule = require('path');
 var urlModule = require('url');
 var co = require('co');
 const ms = require('ms');
+const retry = require('retry');
 var sqlBase = require('./baseConnector');
 var docsCoServer = require('./DocsCoServer');
 var taskResult = require('./taskresult');
@@ -60,7 +61,7 @@ var cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browse
 const cfgForgottenFiles = config_server.get('forgottenfiles');
 const cfgForgottenFilesName = config_server.get('forgottenfilesname');
 const cfgOpenProtectedFile = config_server.get('openProtectedFile');
-const cfgExpUpdateVersionStatus = ms(config.get('services.CoAuthoring.expire.updateVersionStatus'));
+const cfgCallbackBackoffOptions = config.get('services.CoAuthoring.callbackBackoffOptions');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -788,6 +789,9 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             try {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
             } catch (err) {
+              if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT' || (500 <= err.statusCode && err.statusCode < 600)) {
+                needRetry = true;
+              }
               logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
             }
             var requestRes = false;
@@ -801,8 +805,6 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               var execRes = yield utils.promiseRedis(multi, multi.exec);
               var savedVal = execRes[0];
               requestRes = (null == savedVal || '1' === savedVal);
-            } else if (!replyData) {
-              needRetry = true;
             }
             if (requestRes) {
               updateIfTask = undefined;
@@ -845,16 +847,16 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       yield* docsCoServer.setForceSave(docId, forceSave, cmd, isSfcmSuccess && !isError);
     }
     if (needRetry) {
-      let delayed = (cmd.getDelayed() || 0) + 1;
-      //todo constants
-      if (delayed < 1000) {
-        cmd.setDelayed(delayed);
+      let attempt = cmd.getAttempt() || 0;
+      if (attempt < cfgCallbackBackoffOptions.retries) {
+        cmd.setAttempt(attempt + 1);
         let queueData = new commonDefines.TaskQueueData();
         queueData.setCmd(cmd);
-        logger.debug('commandSfcCallback addDelayed: docId = %s', docId);
-        yield* docsCoServer.addDelayed(queueData, 5000);
+        let timeout = retry.createTimeout(attempt, cfgCallbackBackoffOptions);
+        logger.debug('commandSfcCallback backoff timeout = %d : docId = %s', timeout, docId);
+        yield* docsCoServer.addDelayed(queueData, timeout);
       } else {
-        logger.warn('commandSfcCallback addDelayed limit exceeded: docId = %s', docId);
+        logger.debug('commandSfcCallback backoff limit exceeded: docId = %s', docId);
       }
     }
   } else {
