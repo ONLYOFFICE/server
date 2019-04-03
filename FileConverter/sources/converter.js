@@ -754,7 +754,7 @@ function receiveTask(data, dataRaw) {
 function run() {
   queue = new queueService();
   queue.on('task', receiveTask);
-  queue.init(true, true, true, false, function(err) {
+  queue.init(true, true, true, false, false, false, function(err) {
     if (null != err) {
       logger.error('createTaskQueue error :\r\n%s', err.stack);
     }

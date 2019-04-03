@@ -108,7 +108,7 @@ var checkDocumentExpire = function() {
       var expiredKeys = execRes[0];
       if (expiredKeys.length > 0) {
         queue = new queueService();
-        yield queue.initPromise(true, false, false, false);
+        yield queue.initPromise(true, false, false, false, false, false);
 
         for (var i = 0; i < expiredKeys.length; ++i) {
           var docId = expiredKeys[i];
@@ -155,7 +155,7 @@ let forceSaveTimeout = function() {
       let expiredKeys = execRes[0];
       if (expiredKeys.length > 0) {
         queue = new queueService();
-        yield queue.initPromise(true, false, false, false);
+        yield queue.initPromise(true, false, false, false, false, false);
 
         pubsub = new pubsubService();
         yield pubsub.initPromise();

@@ -648,6 +648,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     var forceSaveType = forceSave ? forceSave.getType() : commonDefines.c_oAscForceSaveTypes.Command;
     var isSfcmSuccess = false;
     let storeForgotten = false;
+    let needRetry = false;
     var statusOk;
     var statusErr;
     if (isSfcm) {
@@ -660,25 +661,34 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     let recoverTask = new taskResult.TaskResultData();
     recoverTask.status = taskResult.FileStatus.Ok;
     recoverTask.statusInfo = constants.NO_ERROR;
-    let updateMask = new taskResult.TaskResultData();
-    updateMask.key = docId;
-    if (!isEncrypted) {
-      updateMask.status = taskResult.FileStatus.SaveVersion;
-      updateMask.statusInfo = cmd.getData();
-    } else {
-      let selectRes = yield taskResult.select(docId);
-      let row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row) {
-        recoverTask.status = updateMask.status = row.status;
-        recoverTask.statusInfo = updateMask.statusInfo = row.status_info;
-      } else {
-        isError = true;
-      }
-    }
     let updateIfTask = new taskResult.TaskResultData();
     updateIfTask.status = taskResult.FileStatus.UpdateVersion;
     updateIfTask.statusInfo = Math.floor(Date.now() / 60000);//minutes
     let updateIfRes;
+
+    let updateMask = new taskResult.TaskResultData();
+    updateMask.key = docId;
+    let selectRes = yield taskResult.select(docId);
+    let row = selectRes.length > 0 ? selectRes[0] : null;
+    if (row) {
+      if (isEncrypted) {
+        recoverTask.status = updateMask.status = row.status;
+        recoverTask.statusInfo = updateMask.statusInfo = row.status_info;
+      } else if ((taskResult.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info) ||
+        taskResult.FileStatus.UpdateVersion === row.status) {
+        if (taskResult.FileStatus.UpdateVersion === row.status) {
+          updateIfRes = {affectedRows: 1};
+        }
+        recoverTask.status = taskResult.FileStatus.SaveVersion;
+        recoverTask.statusInfo = cmd.getStatusInfoIn();
+        updateMask.status = row.status;
+        updateMask.statusInfo = row.status_info;
+      } else {
+        updateIfRes = {affectedRows: 0};
+      }
+    } else {
+      isError = true;
+    }
     if (getRes) {
       logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, getRes.server.href);
       var outputSfc = new commonDefines.OutputSfcData();
@@ -743,8 +753,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       }
       var uri = getRes.server.href;
       if (isSfcm) {
-        var selectRes = yield taskResult.select(docId);
-        var row = selectRes.length > 0 ? selectRes[0] : null;
+        let selectRes = yield taskResult.select(docId);
+        let row = selectRes.length > 0 ? selectRes[0] : null;
         //send only if FileStatus.Ok to prevent forcesave after final save
         if (row && row.status == taskResult.FileStatus.Ok) {
           if (forceSave) {
@@ -769,7 +779,9 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           var lastSaveDate = lastSave ? new Date(lastSave.time) : new Date();
           outputSfc.setLastSave(lastSaveDate.toISOString());
           outputSfc.setNotModified(notModified);
-          updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
+          if (!updateIfRes) {
+            updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
+          }
           if (updateIfRes.affectedRows > 0) {
             updateMask.status = updateIfTask.status;
             updateMask.statusInfo = updateIfTask.statusInfo;
@@ -789,6 +801,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               var execRes = yield utils.promiseRedis(multi, multi.exec);
               var savedVal = execRes[0];
               requestRes = (null == savedVal || '1' === savedVal);
+            } else if (!replyData) {
+              needRetry = true;
             }
             if (requestRes) {
               updateIfTask = undefined;
@@ -829,6 +843,19 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     }
     if (forceSave) {
       yield* docsCoServer.setForceSave(docId, forceSave, cmd, isSfcmSuccess && !isError);
+    }
+    if (needRetry) {
+      let delayed = (cmd.getDelayed() || 0) + 1;
+      //todo constants
+      if (delayed < 1000) {
+        cmd.setDelayed(delayed);
+        let queueData = new commonDefines.TaskQueueData();
+        queueData.setCmd(cmd);
+        logger.debug('commandSfcCallback addDelayed: docId = %s', docId);
+        yield* docsCoServer.addDelayed(queueData, 5000);
+      } else {
+        logger.warn('commandSfcCallback addDelayed limit exceeded: docId = %s', docId);
+      }
     }
   } else {
     logger.debug('commandSfcCallback cleanDocumentOnExitNoChangesPromise: docId = %s', docId);
@@ -1102,7 +1129,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         cmd.setCommand('sfc');
         cmd.setDocId(docId);
         cmd.setOutputFormat(optFormat);
-        cmd.setData(statusInfo);
+        cmd.setStatusInfoIn(statusInfo);
         cmd.setUserActionId(opt_userId);
         yield* addRandomKeyTaskCmd(cmd);
         var queueData = getSaveTask(cmd);

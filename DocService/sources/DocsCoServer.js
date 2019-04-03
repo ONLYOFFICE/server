@@ -603,6 +603,14 @@ function* addTask(data, priority, opt_queue, opt_expiration) {
   var realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addTask(data, priority, opt_expiration);
 }
+function* addResponse(data, opt_queue) {
+  var realQueue = opt_queue ? opt_queue : queue;
+  yield realQueue.addResponse(data);
+}
+function* addDelayed(data, ttl, opt_queue) {
+  var realQueue = opt_queue ? opt_queue : queue;
+  yield realQueue.addDelayed(data, ttl);
+}
 function* removeResponse(data) {
   yield queue.removeResponse(data);
 }
@@ -818,6 +826,9 @@ function handleDeadLetter(data) {
             yield* addTask(task, constants.QUEUE_PRIORITY_VERY_LOW, undefined, FORCE_SAVE_EXPIRATION);
             isRequeued = true;
           }
+        } else if(cmd.getDelayed()) {
+          logger.warn('handleDeadLetter addResponse delayed = %d: docId = %s', cmd.getDelayed(), docId);
+          yield* addResponse(task);
         } else {
           //simulate error response
           cmd.setStatusInfo(constants.CONVERT_DEAD_LETTER);
@@ -1145,6 +1156,7 @@ exports.createSaveTimerPromise = co.wrap(_createSaveTimer);
 exports.getAllPresencePromise = co.wrap(getAllPresence);
 exports.publish = publish;
 exports.addTask = addTask;
+exports.addDelayed = addDelayed;
 exports.removeResponse = removeResponse;
 exports.hasEditors = hasEditors;
 exports.getEditorsCountPromise = co.wrap(getEditorsCount);
@@ -3088,7 +3100,7 @@ exports.install = function(server, callbackFunction) {
     queue = new queueService();
     queue.on('dead', handleDeadLetter);
     queue.on('response', canvasService.receiveTask);
-    queue.init(true, false, false, true, function(err){
+    queue.init(true, true, false, true, true, true, function(err){
       if (null != err) {
         logger.error('createTaskQueue error :\r\n%s', err.stack);
       }

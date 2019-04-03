@@ -85,6 +85,8 @@ function InputCommand(data) {
     this['nobase64'] = data['nobase64'];
     this['forgotten'] = data['forgotten'];
     this['isbuilder'] = data['isbuilder'];
+    this['status_info_in'] = data['status_info_in'];
+    this['delayed'] = data['delayed'];
   } else {
     this['c'] = undefined;//string command
     this['id'] = undefined;//string document id
@@ -127,6 +129,8 @@ function InputCommand(data) {
     this['nobase64'] = true;
     this['forgotten'] = undefined;
     this['isbuilder'] = undefined;
+    this['status_info_in'] = undefined;
+    this['delayed'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -342,6 +346,18 @@ InputCommand.prototype = {
   },
   setIsBuilder: function(data) {
     this['isbuilder'] = data;
+  },
+  getStatusInfoIn: function() {
+    return this['status_info_in'];
+  },
+  setStatusInfoIn: function(data) {
+    this['status_info_in'] = data;
+  },
+  getDelayed: function() {
+    return this['delayed'];
+  },
+  setDelayed: function(data) {
+    this['delayed'] = data;
   }
 };
 

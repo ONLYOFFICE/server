@@ -40,7 +40,8 @@
 		"queueconverttask": "ds.converttask",
 		"queueconvertresponse": "ds.convertresponse",
 		"exchangeconvertdead": "ds.exchangeconvertdead",
-		"queueconvertdead": "ds.convertdead"
+		"queueconvertdead": "ds.convertdead",
+		"queuedelayed": "ds.delayed"
 	},
 	"dnscache": {
 		"enable" : true,
