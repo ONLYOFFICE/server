@@ -789,10 +789,17 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             try {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
             } catch (err) {
-              if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT' || (500 <= err.statusCode && err.statusCode < 600)) {
-                needRetry = true;
-              }
               logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
+              if (!isEncrypted && !docsCoServer.getIsShutdown() &&
+                (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT' ||
+                (500 <= err.statusCode && err.statusCode < 600) || 429 === err.statusCode)) {
+                let attempt = cmd.getAttempt() || 0;
+                if (attempt < cfgCallbackBackoffOptions.retries) {
+                  needRetry = true;
+                } else {
+                  logger.debug('commandSfcCallback backoff limit exceeded: docId = %s', docId);
+                }
+              }
             }
             var requestRes = false;
             var replyData = docsCoServer.parseReplyData(docId, replyStr);
@@ -834,7 +841,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         logger.debug('commandSfcCallback restore %d status failed: docId = %s', recoverTask.status, docId);
       }
     }
-    if (storeForgotten && (!isError || isErrorCorrupted)) {
+    if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
       try {
         logger.debug("storeForgotten: docId = %s", docId);
         let forgottenName = cfgForgottenFilesName + pathModule.extname(cmd.getOutputPath());
@@ -848,16 +855,12 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     }
     if (needRetry) {
       let attempt = cmd.getAttempt() || 0;
-      if (attempt < cfgCallbackBackoffOptions.retries) {
-        cmd.setAttempt(attempt + 1);
-        let queueData = new commonDefines.TaskQueueData();
-        queueData.setCmd(cmd);
-        let timeout = retry.createTimeout(attempt, cfgCallbackBackoffOptions);
-        logger.debug('commandSfcCallback backoff timeout = %d : docId = %s', timeout, docId);
-        yield* docsCoServer.addDelayed(queueData, timeout);
-      } else {
-        logger.debug('commandSfcCallback backoff limit exceeded: docId = %s', docId);
-      }
+      cmd.setAttempt(attempt + 1);
+      let queueData = new commonDefines.TaskQueueData();
+      queueData.setCmd(cmd);
+      let timeout = retry.createTimeout(attempt, cfgCallbackBackoffOptions);
+      logger.debug('commandSfcCallback backoff timeout = %d : docId = %s', timeout, docId);
+      yield* docsCoServer.addDelayed(queueData, timeout);
     }
   } else {
     logger.debug('commandSfcCallback cleanDocumentOnExitNoChangesPromise: docId = %s', docId);
