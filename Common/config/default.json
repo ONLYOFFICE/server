@@ -183,10 +183,13 @@
 			},
 			"callbackBackoffOptions": {
 				"retries": 0,
-				"factor": 2,
-				"minTimeout": 10,
-				"maxTimeout": 2147483647,
-				"randomize": false
+				"timeout":{
+					"factor": 2,
+					"minTimeout": 1000,
+					"maxTimeout": 2147483647,
+					"randomize": false
+				},
+				"httpStatus": "429,500-599"
 			}
 		}
 	},

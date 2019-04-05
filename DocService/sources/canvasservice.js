@@ -37,6 +37,7 @@ var urlModule = require('url');
 var co = require('co');
 const ms = require('ms');
 const retry = require('retry');
+const MultiRange = require('multi-integer-range').MultiRange;
 var sqlBase = require('./baseConnector');
 var docsCoServer = require('./DocsCoServer');
 var taskResult = require('./taskresult');
@@ -72,6 +73,8 @@ var clientStatsD = statsDClient.getClient();
 var redisClient = pubsubRedis.getClientRedis();
 var redisKeySaved = cfgRedisPrefix + constants.REDIS_KEY_SAVED;
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
+
+const retryHttpStatus = new MultiRange(cfgCallbackBackoffOptions.httpStatus);
 
 function OutputDataWrap(type, data) {
   this['type'] = type;
@@ -790,9 +793,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
             } catch (err) {
               logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
-              if (!isEncrypted && !docsCoServer.getIsShutdown() &&
-                (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT' ||
-                (500 <= err.statusCode && err.statusCode < 600) || 429 === err.statusCode)) {
+              if (!isEncrypted && !docsCoServer.getIsShutdown() && (!err.statusCode || retryHttpStatus.has(err.statusCode.toString()))) {
                 let attempt = cmd.getAttempt() || 0;
                 if (attempt < cfgCallbackBackoffOptions.retries) {
                   needRetry = true;
@@ -858,7 +859,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       cmd.setAttempt(attempt + 1);
       let queueData = new commonDefines.TaskQueueData();
       queueData.setCmd(cmd);
-      let timeout = retry.createTimeout(attempt, cfgCallbackBackoffOptions);
+      let timeout = retry.createTimeout(attempt, cfgCallbackBackoffOptions.timeout);
       logger.debug('commandSfcCallback backoff timeout = %d : docId = %s', timeout, docId);
       yield* docsCoServer.addDelayed(queueData, timeout);
     }

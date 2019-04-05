@@ -453,6 +453,11 @@
       "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.1.tgz",
       "integrity": "sha512-tgp+dl5cGk28utYktBsrFqA7HKgrhgPsg6Z/EfhWI4gl1Hwq8B/GmY/0oXZ6nF8hDVesS/FpnYaD/kOWhYQvyg=="
     },
+    "multi-integer-range": {
+      "version": "4.0.7",
+      "resolved": "https://registry.npmjs.org/multi-integer-range/-/multi-integer-range-4.0.7.tgz",
+      "integrity": "sha512-THuAnyKxIogrhWvHXHMEWxR90TCFcz/RHsnTcGKAOxdOMaNZSKkujOHMC2LZGMc/j+Jdf31FJcL66au/U0mS1Q=="
+    },
     "multiparty": {
       "version": "4.2.1",
       "resolved": "https://registry.npmjs.org/multiparty/-/multiparty-4.2.1.tgz",
