@@ -55,20 +55,21 @@ exports.readLicense = function*() {
 	const c_LM = constants.LICENSE_MODE;
 	const resMax = {count: 999999, type: c_LR.Success, mode: c_LM.None, connections: 999999999, users: 999999999};
 	const res = {
-		count: 1,
-		type: c_LR.Error,
-		light: false,
+		count: 999999,
+		type: c_LR.Success,
+		light: true,
 		packageType: oPackageType,
 		mode: c_LM.None,
-		branding: false,
-		connections: constants.LICENSE_CONNECTIONS,
-		usersCount: 0,
+		branding: true,
+		connections: 999999999,
+		usersCount: 999999999,
 		usersExpire: constants.LICENSE_EXPIRE_USERS_ONE_DAY,
-		hasLicense: false,
-		plugins: false,
+		hasLicense: true,
+		plugins: true,
 		buildDate: oBuildDate,
-		endDate: null
+		endDate: new Date(8640000000000000)
 	};
+	return res;
 	let checkFile = false;
 	try {
 		const oFile = fs.readFileSync(configL.get('license_file')).toString();
