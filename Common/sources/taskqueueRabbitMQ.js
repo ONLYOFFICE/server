@@ -293,7 +293,7 @@ function addTaskActive(taskqueue, content, priority, callback, opt_expiration, o
 function addTaskString(taskqueue, task, priority, opt_expiration, opt_headers) {
   //todo confirmation mode
   return new Promise(function (resolve, reject) {
-    var content = new Buffer(task);
+    var content = Buffer.from(task);
     if (null != taskqueue.channelConvertTask) {
       addTask(taskqueue, content, priority, function (err, ok) {
         if (null != err) {
@@ -375,7 +375,7 @@ TaskQueueRabbitMQ.prototype.addTask = function (task, priority, opt_expiration, 
 TaskQueueRabbitMQ.prototype.addResponse = function (task) {
   var t = this;
   return new Promise(function (resolve, reject) {
-    var content = new Buffer(JSON.stringify(task));
+    var content = Buffer.from(JSON.stringify(task));
     if (null != t.channelConvertResponse) {
       addResponse(t, content, function (err, ok) {
         if (null != err) {

@@ -428,7 +428,7 @@ function fillXmlResponse(val) {
 }
 
 function fillResponseSimple(res, str, contentType) {
-  let body = new Buffer(str, 'utf-8');
+  let body = Buffer.from(str, 'utf-8');
   res.setHeader('Content-Type', contentType + '; charset=UTF-8');
   res.setHeader('Content-Length', body.length);
   res.send(body);
@@ -612,7 +612,7 @@ exports.getBaseUrlByRequest = getBaseUrlByRequest;
 function stream2Buffer(stream) {
   return new Promise(function(resolve, reject) {
     if (!stream.readable) {
-      resolve(new Buffer());
+      resolve(Buffer.alloc(0));
     }
     var bufs = [];
     stream.on('data', function(data) {

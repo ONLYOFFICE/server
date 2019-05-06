@@ -2207,7 +2207,7 @@ exports.install = function(server, callbackFunction) {
           changesJSON += changes[i].change_data;
         }
         changesJSON += ']\r\n';
-        let buffer = new Buffer(changesJSON, 'utf8');
+        let buffer = Buffer.from(changesJSON, 'utf8');
         yield storage.putObject(changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length);
       }
       index += cfgMaxRequestChanges;
@@ -3116,7 +3116,7 @@ exports.healthCheck = function(req, res) {
       //storage
       const clusterId = cluster.isWorker ? cluster.worker.id : '';
       const tempName = 'hc_' + os.hostname() + '_' + clusterId + '_' + Math.round(Math.random() * HEALTH_CHECK_KEY_MAX);
-      const tempBuffer = new Buffer([1, 2, 3, 4, 5]);
+      const tempBuffer = Buffer.from([1, 2, 3, 4, 5]);
       //It's proper to putObject one tempName
       yield storage.putObject(tempName, tempBuffer, tempBuffer.length);
       try {
@@ -3286,7 +3286,7 @@ exports.commandFromServer = function (req, res) {
       //undefined value are excluded in JSON.stringify
       const output = JSON.stringify({'key': docId, 'error': result, 'version': version});
       logger.debug('End commandFromServer: docId = %s %s', docId, output);
-      const outputBuffer = new Buffer(output, 'utf8');
+      const outputBuffer = Buffer.from(output, 'utf8');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Length', outputBuffer.length);
       res.send(outputBuffer);

@@ -178,7 +178,7 @@ PubsubRabbitMQ.prototype.initPromise = function() {
   });
 };
 PubsubRabbitMQ.prototype.publish = function (message) {
-  var data = new Buffer(message);
+  var data = Buffer.from(message);
   if (null != this.channelPublish) {
     publish(this, data);
   } else {
