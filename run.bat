@@ -2,6 +2,13 @@ ECHO OFF
 
 ECHO.
 ECHO ----------------------------------------
+ECHO restart RabbitMQ node to prevent "Erl.exe high CPU usage every Monday morning on Windows" https://groups.google.com/forum/#!topic/rabbitmq-users/myl74gsYyYg
+ECHO ----------------------------------------
+
+call restart-rabbit.bat
+
+ECHO.
+ECHO ----------------------------------------
 ECHO copy file to converter
 ECHO ----------------------------------------
 
