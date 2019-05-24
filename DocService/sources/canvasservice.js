@@ -63,6 +63,7 @@ const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enabl
 const cfgForgottenFiles = config_server.get('forgottenfiles');
 const cfgForgottenFilesName = config_server.get('forgottenfilesname');
 const cfgOpenProtectedFile = config_server.get('openProtectedFile');
+const cfgExpUpdateVersionStatus = ms(config.get('services.CoAuthoring.expire.updateVersionStatus'));
 const cfgCallbackBackoffOptions = config.get('services.CoAuthoring.callbackBackoffOptions');
 
 var SAVE_TYPE_PART_START = 0;
