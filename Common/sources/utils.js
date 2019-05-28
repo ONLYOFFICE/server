@@ -32,6 +32,9 @@
 
 'use strict';
 
+//Fix EPROTO error in node 8.x at some web sites(https://github.com/nodejs/node/issues/21513)
+require("tls").DEFAULT_ECDH_CURVE = "auto";
+
 var config = require('config');
 var fs = require('fs');
 var path = require('path');
