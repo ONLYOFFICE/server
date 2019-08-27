@@ -2158,7 +2158,10 @@ exports.install = function(server, callbackFunction) {
         }
       }
     }
-
+    if (constants.CONN_CLOSED === conn.readyState) {
+      //closing could happen during async action
+      return false;
+    }
     // Отправляем на внешний callback только для тех, кто редактирует
     let bindEventsRes = commonDefines.c_oAscServerCommandErrors.NoError;
     if (!tmpUser.view) {
@@ -2177,14 +2180,24 @@ exports.install = function(server, callbackFunction) {
       }
     }
 
+    if (constants.CONN_CLOSED === conn.readyState) {
+      //closing could happen during async action
+      return false;
+    }
     if (commonDefines.c_oAscServerCommandErrors.NoError === bindEventsRes) {
       let lockDocument = null;
+      let waitAuthUserId;
       if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
         // Ставим lock на документ
         const isLock = yield utils.promiseRedis(redisClient, redisClient.setnx,
                                               redisKeyLockDoc + docId, JSON.stringify(firstParticipantNoView));
+        if (constants.CONN_CLOSED === conn.readyState) {
+          //closing could happen during async action
+          return false;
+        }
         if (isLock) {
           lockDocument = firstParticipantNoView;
+          waitAuthUserId = lockDocument.id;
           yield* setLockDocumentTimer(docId, lockDocument.id);
         }
       }
@@ -2198,9 +2211,11 @@ exports.install = function(server, callbackFunction) {
           }
         }
       }
-      let waitAuthUserId;
+      if (constants.CONN_CLOSED === conn.readyState) {
+        //closing could happen during async action
+        return false;
+      }
       if (lockDocument && !tmpUser.view) {
-        waitAuthUserId = lockDocument.id;
         // Для view не ждем снятия lock-а
         const sendObject = {
           type: "waitAuth",
@@ -2211,7 +2226,15 @@ exports.install = function(server, callbackFunction) {
         if (!bIsRestore) {
           yield* sendAuthChanges(conn.docId, [conn]);
         }
+        if (constants.CONN_CLOSED === conn.readyState) {
+          //closing could happen during async action
+          return false;
+        }
         yield* sendAuthInfo(conn, bIsRestore, participantsMap, hasForgotten);
+      }
+      if (constants.CONN_CLOSED === conn.readyState) {
+        //closing could happen during async action
+        return false;
       }
       yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participantsMap, waitAuthUserId: waitAuthUserId}, docId, tmpUser.id);
     } else {
