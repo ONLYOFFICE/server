@@ -80,8 +80,7 @@ exports.readLicense = function*() {
 
 		const verify = crypto.createVerify('RSA-SHA1');
 		verify.update(JSON.stringify(oLicense));
-		const publicKey = '-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDRhGF7X4A0ZVlEg594WmODVVUI\niiPQs04aLmvfg8SborHss5gQXu0aIdUT6nb5rTh5hD2yfpF2WIW6M8z0WxRhwicg\nXwi80H1aLPf6lEPPLvN29EhQNjBpkFkAJUbS8uuhJEeKw0cE49g80eBBF4BCqSL6\nPFQbP9/rByxdxEoAIQIDAQAB\n-----END PUBLIC KEY-----\n';
-		if (verify.verify(publicKey, sign, 'hex')) {
+		if (verify.verify(fs.readFileSync('./../../Common/sources/licenseKey.pem'), sign, 'hex')) {
 			const endDate = new Date(oLicense['end_date']);
 			res.endDate = endDate;
 			const isTrial = (true === oLicense['trial'] || 'true' === oLicense['trial']); // Someone who likes to put json string instead of bool
