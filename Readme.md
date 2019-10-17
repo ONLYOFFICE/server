@@ -24,7 +24,7 @@ For the document service to work correctly it is necessary to install the follow
 
 4. [Erlang](https://www.erlang.org/download.html)
 
-5. [RabbitMQ](https://www.rabbitmq.com/releases/rabbitmq-server/v3.5.4/rabbitmq-server-3.5.4.exe)
+5. [RabbitMQ](https://www.rabbitmq.com/download.html)
 
 6. [Redis](https://github.com/microsoftarchive/redis/releases/latest)
 
