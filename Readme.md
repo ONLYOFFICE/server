@@ -13,25 +13,27 @@ This instruction describes document service deployment for Windows based platfor
 
 For the document service to work correctly it is necessary to install the following components for your Windows system (if not specified additionally, the latest version for 32 or 64 bit Windows can be installed with default settings):
 
-1. [Node.js](https://nodejs.org/en/download/) version 8.0.0 or later
+1. [Git](https://git-scm.com/download/win)
 
-2. [Java](https://java.com/en/download/). Necessary for the sdk build.
+2. [Node.js](https://nodejs.org/en/download/) version 8.0.0 or later
 
-3. Database (MySQL or PostgreSQL). When installing use the `onlyoffice` password for the `root` user.
+3. [Java](https://java.com/en/download/). Necessary for the sdk build.
+
+4. Database (MySQL or PostgreSQL). When installing use the `onlyoffice` password for the `root` user.
     * [MySQL Server](http://dev.mysql.com/downloads/windows/installer/) version 5.5 or later
 
     * [PostgreSQL Server](https://www.postgresql.org/download/) version 9.1 or later
 
-4. [Erlang](https://www.erlang.org/download.html)
+5. [Erlang](https://www.erlang.org/download.html)
 
-5. [RabbitMQ](https://www.rabbitmq.com/download.html)
+6. [RabbitMQ](https://www.rabbitmq.com/download.html)
 
-6. [Redis](https://github.com/microsoftarchive/redis/releases/latest)  
+7. [Redis](https://github.com/microsoftarchive/redis/releases/latest)  
    *microsoftarchive version, official version is only for \*nix systems*
 
-7. [Python 3.x](https://www.python.org/downloads/)
+8. [Python 3.x](https://www.python.org/downloads/)
 
-8. Microsoft Visual C++ Express 2010 (necessary for the spellchecker modules build)
+9. Microsoft Visual C++ Express 2010 (necessary for the spellchecker modules build)
 
 ### Setting up the system
 
