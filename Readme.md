@@ -61,19 +61,12 @@ For the document service to work correctly it is necessary to install the follow
 
         2. Delete from `server\Common\config\development-windows.json` option `sql`.
 
-3. Install the Web Monitor for RabbitMQ (see the details for the installation [here](https://www.rabbitmq.com/management.html))
-4. Open the command line `cmd` executable.
-5. Switch to the installation directory using the `cd /d Installation-directory/sbin` command.
-6. Run the following command:
-
-    ```powershell
-    rabbitmq-plugins.bat enable rabbitmq_management
-    ```
-
-7. The Web Monitor is located at the [http://localhost:15672/](http://localhost:15672/) address.
+3. Start RabbitMQ management plugin (Replace 3.8.0 with version of your RabbitMQ)  
+    `"C:\Program Files\RabbitMQ Server\rabbitmq_server-3.8.0\sbin\rabbitmq-plugins.bat" enable rabbitmq_management`  
+   The Web Monitor is located at the [http://localhost:15672/](http://localhost:15672/) address.
    Use the `guest:guest` for the login:password combination.
 
-8. If Redis does not start or crashes after the start for some reason,
+4. If Redis does not start or crashes after the start for some reason,
    try to change the `maxheap` parameter in the config settings.
    For 64 bit version of Windows 7 the config file can be found here:
    `C:\Program Files\Redis\redis.windows-service.conf`.
