@@ -80,7 +80,7 @@ For the document service to work correctly it is necessary to install the follow
 
 ### Running the service
 
-Run the `DocumentServer\server\run.bat` script to start the service.
+Run the `cd DocumentServer\server\ && run.bat` script to start the service.
 
 Notes
 
