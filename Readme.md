@@ -26,7 +26,8 @@ For the document service to work correctly it is necessary to install the follow
 
 5. [RabbitMQ](https://www.rabbitmq.com/download.html)
 
-6. [Redis](https://github.com/microsoftarchive/redis/releases/latest)
+6. [Redis](https://github.com/microsoftarchive/redis/releases/latest)  
+   *microsoftarchive version, official version is only for \*nix systems*
 
 7. [Python 2.7](https://www.python.org/downloads/release/python-2716/)
 
