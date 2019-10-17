@@ -17,7 +17,8 @@ For the document service to work correctly it is necessary to install the follow
 
 2. [Node.js](https://nodejs.org/en/download/) version 8.0.0 or later
 
-3. [Java](https://java.com/en/download/). Necessary for the sdk build.
+3. [Java](https://java.com/en/download/manual.jsp). Necessary for the sdk build.
+   Please note, that you should use 64-bit version.
 
 4. Database (MySQL or PostgreSQL). When installing use the `onlyoffice` password for the `root` user.
     * [MySQL Server](http://dev.mysql.com/downloads/windows/installer/) version 5.5 or later
