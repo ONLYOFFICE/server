@@ -37,7 +37,10 @@ For the document service to work correctly it is necessary to install the follow
 
 ### Setting up the system
 
-1. Database setup:
+1. Clone DocumentServer Project  
+   `git clone --recursive https://github.com/ONLYOFFICE/DocumentServer/`
+
+2. Database setup:
 
     * Database setup for MySQL  
       Run the `schema/mysql/createdb.sql` script for MySQL
@@ -57,19 +60,19 @@ For the document service to work correctly it is necessary to install the follow
 
         2. Delete from `server\Common\config\development-windows.json` option `sql`.
 
-2. Install the Web Monitor for RabbitMQ (see the details for the installation [here](https://www.rabbitmq.com/management.html))
-3. Open the command line `cmd` executable.
-4. Switch to the installation directory using the `cd /d Installation-directory/sbin` command.
-5. Run the following command:
+3. Install the Web Monitor for RabbitMQ (see the details for the installation [here](https://www.rabbitmq.com/management.html))
+4. Open the command line `cmd` executable.
+5. Switch to the installation directory using the `cd /d Installation-directory/sbin` command.
+6. Run the following command:
 
     ```powershell
     rabbitmq-plugins.bat enable rabbitmq_management
     ```
 
-6. The Web Monitor is located at the [http://localhost:15672/](http://localhost:15672/) address.
+7. The Web Monitor is located at the [http://localhost:15672/](http://localhost:15672/) address.
    Use the `guest:guest` for the login:password combination.
 
-7. If Redis does not start or crashes after the start for some reason,
+8. If Redis does not start or crashes after the start for some reason,
    try to change the `maxheap` parameter in the config settings.
    For 64 bit version of Windows 7 the config file can be found here:
    `C:\Program Files\Redis\redis.windows-service.conf`.
