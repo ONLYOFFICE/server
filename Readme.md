@@ -29,7 +29,7 @@ For the document service to work correctly it is necessary to install the follow
 6. [Redis](https://github.com/microsoftarchive/redis/releases/latest)  
    *microsoftarchive version, official version is only for \*nix systems*
 
-7. [Python 2.7](https://www.python.org/downloads/release/python-2716/)
+7. [Python 3.x](https://www.python.org/downloads/)
 
 8. Microsoft Visual C++ Express 2010 (necessary for the spellchecker modules build)
 
