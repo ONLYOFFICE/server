@@ -43,7 +43,8 @@ For the document service to work correctly it is necessary to install the follow
 2. Database setup:
 
     * Database setup for MySQL  
-      Run the `schema/mysql/createdb.sql` script for MySQL
+      Run the `DocumentServer/server/schema/mysql/createdb.sql` script for MySQL
+      `"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -ponlyoffice < DocumentServer/server/schema/mysql/createdb.sql`
 
     * Database setup for PostgreSQL  
         1. Enter in `psql` (PostgreSQL interactive terminal) with
