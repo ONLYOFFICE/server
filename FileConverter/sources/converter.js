@@ -257,7 +257,7 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization) {
     while (constants.NO_ERROR !== res && downloadAttemptCount++ < cfgDownloadAttemptMaxCount) {
       try {
         let authorization;
-        if (cfgTokenEnableRequestOutbox && withAuthorization) {
+        if (cfgTokenEnableRequestOutbox && withAuthorization && config.get('storage.name') !== 'storage-s3') {
           authorization = utils.fillJwtForRequest({url: uri});
         }
         data = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization);
