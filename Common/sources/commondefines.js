@@ -149,6 +149,9 @@ function InputCommand(data, copyExplicit) {
   }
 }
 InputCommand.prototype = {
+  fillFromConnection: function(conn) {
+    this['id'] = conn.docId;
+  },
   getCommand: function() {
     return this['c'];
   },

@@ -292,7 +292,7 @@ var cleanupCache = co.wrap(function* (docId) {
   return res;
 });
 
-function commandOpenStartPromise(docId, cmd, opt_updateUserIndex, opt_documentCallbackUrl, opt_baseUrl) {
+function commandOpenStartPromise(docId, opt_updateUserIndex, opt_documentCallbackUrl, opt_baseUrl) {
   var task = new taskResult.TaskResultData();
   task.key = docId;
   //None instead WaitQueue to prevent: conversion task is lost when entering and leaving the editor quickly(that leads to an endless opening)
@@ -302,9 +302,6 @@ function commandOpenStartPromise(docId, cmd, opt_updateUserIndex, opt_documentCa
     task.callback = opt_documentCallbackUrl;
     task.baseurl = opt_baseUrl;
   }
-  if (!cmd) {
-    logger.warn("commandOpenStartPromise empty cmd: docId = %s", docId);
-  }
 
   return taskResult.upsert(task, opt_updateUserIndex);
 }
@@ -313,7 +310,7 @@ function* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
   if (opt_upsertRes) {
     upsertRes = opt_upsertRes;
   } else {
-    upsertRes = yield commandOpenStartPromise(cmd.getDocId(), cmd);
+    upsertRes = yield commandOpenStartPromise(cmd.getDocId());
   }
   //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
   //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
@@ -503,8 +500,7 @@ function* commandImgurls(conn, cmd, outputData) {
   var outputUrls = [];
   if (constants.NO_ERROR === errorCode && !conn.user.view && !conn.isCloseCoAuthoring) {
     //todo Promise.all()
-    var displayedImageMap = {};//to make one imageIndex for ole object urls
-    var imageCount = 0;
+    let displayedImageMap = {};//to make one prefix for ole object urls
     for (var i = 0; i < urls.length; ++i) {
       var urlSource = urls[i];
       var urlParsed;
@@ -568,26 +564,21 @@ function* commandImgurls(conn, cmd, outputData) {
           }
         }
         if (isAllow) {
-          var userid = cmd.getUserId();
-          var imageIndex = cmd.getSaveIndex() + imageCount;
-          imageCount++;
-          var strLocalPath = 'media/' + crypto.randomBytes(16).toString("hex") + '_';
+          let strLocalPath = 'media/' + crypto.randomBytes(16).toString("hex") + '_';
           if (urlParsed) {
             var urlBasename = pathModule.basename(urlParsed.pathname);
             var displayN = isDisplayedImage(urlBasename);
             if (displayN > 0) {
               var displayedImageName = urlBasename.substring(0, urlBasename.length - formatStr.length - 1);
-              var tempIndex = displayedImageMap[displayedImageName];
-              if (null != tempIndex) {
-                imageIndex = tempIndex;
-                imageCount--;
+              if (displayedImageMap[displayedImageName]) {
+                strLocalPath = displayedImageMap[displayedImageName];
               } else {
-                displayedImageMap[displayedImageName] = imageIndex;
+                displayedImageMap[displayedImageName] = strLocalPath;
               }
               strLocalPath += constants.DISPLAY_PREFIX + displayN;
             }
           }
-          strLocalPath += 'image' + imageIndex + '.' + formatStr;
+          strLocalPath += 'image1' + '.' + formatStr;
           var strPath = cmd.getDocId() + '/' + strLocalPath;
           yield storage.putObject(strPath, data, data.length);
           var imgUrl = yield storage.getSignedUrl(conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Session);

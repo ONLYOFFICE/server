@@ -1249,13 +1249,18 @@ exports.install = function(server, callbackFunction) {
           case 'close':
             yield* closeDocument(conn, false);
             break;
-          case 'versionHistory'          :
-            yield* versionHistory(conn, new commonDefines.InputCommand(data.cmd));
+          case 'versionHistory'          : {
+            let cmd = new commonDefines.InputCommand(data.cmd);
+            cmd.fillFromConnection(conn);
+            yield* versionHistory(conn, cmd);
             break;
-          case 'openDocument'      :
+          }
+          case 'openDocument'      : {
             var cmd = new commonDefines.InputCommand(data.message);
+            cmd.fillFromConnection(conn);
             yield canvasService.openDocument(conn, cmd);
             break;
+          }
           case 'changesError':
             logger.error("changesError: docId = %s %s", docId, data.stack);
             if (cfgErrorFiles && docId) {
@@ -1983,11 +1988,6 @@ exports.install = function(server, callbackFunction) {
 
       //get user index
       const bIsRestore = null != data.sessionId;
-      let cmd = null;
-      if (data.openCmd) {
-        cmd = new commonDefines.InputCommand(data.openCmd);
-        cmd.setWithAuthorization(true);
-      }
       let upsertRes = null;
       let curIndexUser, documentCallback;
       if (bIsRestore) {
@@ -2003,7 +2003,7 @@ exports.install = function(server, callbackFunction) {
             return;
           }
         }
-        upsertRes = yield canvasService.commandOpenStartPromise(docId, cmd, true, data.documentCallbackUrl, utils.getBaseUrlByConnection(conn));
+        upsertRes = yield canvasService.commandOpenStartPromise(docId, true, data.documentCallbackUrl, utils.getBaseUrlByConnection(conn));
 		  curIndexUser = upsertRes.affectedRows == 1 ? 1 : upsertRes.insertId;
       }
       if (constants.CONN_CLOSED === conn.readyState) {
@@ -2040,6 +2040,13 @@ exports.install = function(server, callbackFunction) {
         } else {
           yield* updateEditUsers(conn.user.idOriginal);
         }
+      }
+
+      let cmd = null;
+      if (data.openCmd) {
+        cmd = new commonDefines.InputCommand(data.openCmd);
+        cmd.fillFromConnection(conn);
+        cmd.setWithAuthorization(true);
       }
 
       // Ситуация, когда пользователь уже отключен от совместного редактирования
