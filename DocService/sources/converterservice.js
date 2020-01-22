@@ -203,12 +203,8 @@ function convertRequest(req, res, isJson) {
       cmd.setOutputFormat(outputFormat);
       let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
       var fileTo = constants.OUTPUT_NAME + '.' + outputExt;
-      if (undefined != params.codePage) {
-        cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage]);
-      }
-      if (undefined != params.delimiter) {
-        cmd.setCodepage(parseIntParam(params.delimiter));
-      }
+      cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage] || commonDefines.c_oAscCodePageUtf8);
+      cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
       if(undefined != params.delimiterChar)
         cmd.setDelimiterChar(params.delimiterChar);
       if (params.region && locale[params.region.toLowerCase()]) {
