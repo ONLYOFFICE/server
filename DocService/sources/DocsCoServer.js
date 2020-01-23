@@ -1450,11 +1450,7 @@ exports.install = function(server, callbackFunction) {
         docIdNew = cmd.getDocId();
         cmd.setWithAuthorization(true);
       } else {
-        if (constants.JWT_EXPIRED_CODE == checkJwtRes.code && !cmd.getCloseOnError()) {
-          sendData(conn, {type: "expiredToken"});
-        } else {
-          conn.close(checkJwtRes.code, checkJwtRes.description);
-        }
+        sendData(conn, {type: "expiredToken", code: checkJwtRes.code, description: checkJwtRes.description});
         return;
       }
     }
