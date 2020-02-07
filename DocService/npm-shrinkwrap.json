@@ -43,6 +43,13 @@
         "qs": "6.5.2",
         "raw-body": "2.3.3",
         "type-is": "~1.6.16"
+      },
+      "dependencies": {
+        "bytes": {
+          "version": "3.0.0",
+          "resolved": "https://registry.npmjs.org/bytes/-/bytes-3.0.0.tgz",
+          "integrity": "sha1-0ygVQE1olpn4Wk6k+odV3ROpYEg="
+        }
       }
     },
     "buffer-equal-constant-time": {
@@ -636,6 +643,13 @@
         "http-errors": "1.6.3",
         "iconv-lite": "0.4.23",
         "unpipe": "1.0.0"
+      },
+      "dependencies": {
+        "bytes": {
+          "version": "3.0.0",
+          "resolved": "https://registry.npmjs.org/bytes/-/bytes-3.0.0.tgz",
+          "integrity": "sha1-0ygVQE1olpn4Wk6k+odV3ROpYEg="
+        }
       }
     },
     "readable-stream": {

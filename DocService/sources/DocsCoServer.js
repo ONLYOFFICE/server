@@ -83,6 +83,7 @@ const jwt = require('jsonwebtoken');
 const jwa = require('jwa');
 const ms = require('ms');
 const deepEqual  = require('deep-equal');
+const bytes = require('bytes');
 const storage = require('./../../Common/sources/storage-base');
 const logger = require('./../../Common/sources/logger');
 const constants = require('./../../Common/sources/constants');
@@ -103,6 +104,11 @@ const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
 cfgEditor['reconnection']['delay'] = ms(cfgEditor['reconnection']['delay']);
+cfgEditor['websocketMaxPayloadSize'] = bytes.parse(cfgEditor['websocketMaxPayloadSize']);
+//websocket payload size is limited by https://github.com/faye/faye-websocket-node#initialization-options (64 MiB)
+//xhr payload size is limited by nginx param client_max_body_size (current 100MB)
+//"1.5MB" is choosen to avoid disconnect(after 25s) while downloading/uploading oversized changes with 0.5Mbps connection
+const cfgWebsocketMaxPayloadSize = cfgEditor['websocketMaxPayloadSize'];
 const cfgCallbackRequestTimeout = config.get('server.callbackRequestTimeout');
 //The waiting time to document assembly when all out(not 0 in case of F5 in the browser)
 const cfgAscSaveTimeOutDelay = config.get('server.savetimeoutdelay');
@@ -2280,19 +2286,32 @@ exports.install = function(server, callbackFunction) {
     } while (changes && cfgMaxRequestChanges === changes.length);
   }
 
+  function sendAuthChangesByChunks(changes, connections) {
+    let startIndex = 0;
+    let endIndex = 0;
+    while (endIndex < changes.length) {
+      startIndex = endIndex;
+      let curBytes = 0;
+      for (; endIndex < changes.length && curBytes < cfgWebsocketMaxPayloadSize; ++endIndex) {
+        curBytes += JSON.stringify(changes[endIndex]).length + 24;//24 - for JSON overhead
+      }
+      //todo simplify 'authChanges' format to reduce message size and JSON overhead
+      const sendObject = {
+        type: 'authChanges',
+        changes: changes.slice(startIndex, endIndex)
+      };
+      for (let i = 0; i < connections.length; ++i) {
+        sendData(connections[i], sendObject);//Or 0 if fails
+      }
+    }
+  }
   function* sendAuthChanges(docId, connections) {
     let index = 0;
     let changes;
     do {
       let objChangesDocument = yield getDocumentChanges(docId, index, index + cfgMaxRequestChanges);
       changes = objChangesDocument.arrChanges;
-      const sendObject = {
-        type: 'authChanges',
-        changes: changes
-      };
-      for (let i = 0; i < connections.length; ++i) {
-        sendData(connections[i], sendObject);//Or 0 if fails
-      }
+      sendAuthChangesByChunks(changes, connections);
       index += cfgMaxRequestChanges;
     } while (changes && cfgMaxRequestChanges === changes.length);
   }

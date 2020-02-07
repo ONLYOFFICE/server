@@ -11,6 +11,7 @@
   "dependencies": {
     "base64-stream": "^1.0.0",
     "body-parser": "^1.18.3",
+    "bytes": "^3.0.0",
     "co": "^4.6.0",
     "config": "^2.0.1",
     "cron": "^1.5.0",

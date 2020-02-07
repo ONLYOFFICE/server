@@ -195,7 +195,8 @@
 				"reconnection":{
 					"attempts": 50,
 					"delay": "2s"
-				}
+				},
+				"websocketMaxPayloadSize": "1.5MB"
 			},
 			"sockjs": {
 				"sockjs_url": "",
