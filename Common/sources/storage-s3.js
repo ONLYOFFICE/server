@@ -31,6 +31,8 @@
  */
 
 'use strict';
+var fs = require('fs');
+const ms = require('ms');
 var url = require('url');
 var path = require('path');
 var AWS = require('aws-sdk');
@@ -38,7 +40,9 @@ var mime = require('mime');
 var s3urlSigner = require('amazon-s3-url-signer');
 var utils = require('./utils');
 
-var configStorage = require('config').get('storage');
+const commonDefines = require('./../../Common/sources/commondefines');
+var config = require('config');
+var configStorage = config.get('storage');
 var cfgRegion = configStorage.get('region');
 var cfgEndpoint = configStorage.get('endpoint');
 var cfgBucketName = configStorage.get('bucketName');
@@ -48,6 +52,8 @@ var cfgSecretAccessKey = configStorage.get('secretAccessKey');
 var cfgUseRequestToGetUrl = configStorage.get('useRequestToGetUrl');
 var cfgUseSignedUrl = configStorage.get('useSignedUrl');
 var cfgExternalHost = configStorage.get('externalHost');
+var cfgStorageUrlExpires = configStorage.get('urlExpires');
+const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 /**
  * Don't hard-code your credentials!
  * Export the following environment variables instead:
