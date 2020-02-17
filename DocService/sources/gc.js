@@ -32,7 +32,8 @@
 
 'use strict';
 
-var config = require('config').get('services.CoAuthoring');
+const configCommon = require('config');
+var config = configCommon.get('services.CoAuthoring');
 var co = require('co');
 var cron = require('cron');
 var ms = require('ms');
@@ -44,21 +45,16 @@ var utils = require('./../../Common/sources/utils');
 var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
 var commondefines = require('./../../Common/sources/commondefines');
-var pubsubRedis = require('./pubsubRedis.js');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var pubsubService = require('./' + config.get('pubsub.name'));
+const editorDataStorage = require('./editorDataMemory');
 
-var cfgRedisPrefix = config.get('redis.prefix');
 var cfgExpFilesCron = config.get('expire.filesCron');
 var cfgExpDocumentsCron = config.get('expire.documentsCron');
 var cfgExpFiles = config.get('expire.files');
 var cfgExpFilesRemovedAtOnce = config.get('expire.filesremovedatonce');
 var cfgForceSaveEnable = config.get('autoAssembly.enable');
 var cfgForceSaveStep = ms(config.get('autoAssembly.step'));
-
-var redisKeyDocuments = cfgRedisPrefix + constants.REDIS_KEY_DOCUMENTS;
-var redisKeyForceSaveTimer = cfgRedisPrefix + constants.REDIS_KEY_FORCE_SAVE_TIMER;
-var redisKeyForceSaveTimerLock = cfgRedisPrefix + constants.REDIS_KEY_FORCE_SAVE_TIMER_LOCK;
 
 var checkFileExpire = function() {
   return co(function* () {
@@ -73,13 +69,13 @@ var checkFileExpire = function() {
         for (var i = 0; i < expired.length; ++i) {
           var docId = expired[i].id;
           //проверяем что никто не сидит в документе
-          var hvals = yield docsCoServer.getAllPresencePromise(docId);
-          if(0 == hvals.length){
+          let editorsCount = yield docsCoServer.getEditorsCountPromise(docId);
+          if(0 === editorsCount){
             if (yield canvasService.cleanupCache(docId)) {
               currentRemovedCount++;
             }
           } else {
-            logger.debug('checkFileExpire expire but presence: hvals = %s; docId = %s', hvals, docId);
+            logger.debug('checkFileExpire expire but presence: editorsCount = %d; docId = %s', editorsCount, docId);
           }
         }
         removedCount += currentRemovedCount;
@@ -97,15 +93,8 @@ var checkDocumentExpire = function() {
     var startSaveCount = 0;
     try {
       logger.debug('checkDocumentExpire start');
-      var redisClient = pubsubRedis.getClientRedis();
-
       var now = (new Date()).getTime();
-      var multi = redisClient.multi([
-        ['zrangebyscore', redisKeyDocuments, 0, now],
-        ['zremrangebyscore', redisKeyDocuments, 0, now]
-      ]);
-      var execRes = yield utils.promiseRedis(multi, multi.exec);
-      var expiredKeys = execRes[0];
+      let expiredKeys = yield docsCoServer.editorData.getDocumentPresenceExpired(now);
       if (expiredKeys.length > 0) {
         queue = new queueService();
         yield queue.initPromise(true, false, false, false, false, false);
@@ -144,15 +133,8 @@ let forceSaveTimeout = function() {
     let pubsub = null;
     try {
       logger.debug('forceSaveTimeout start');
-      let redisClient = pubsubRedis.getClientRedis();
-
       let now = (new Date()).getTime();
-      let multi = redisClient.multi([
-        ['zrangebyscore', redisKeyForceSaveTimer, 0, now],
-        ['zremrangebyscore', redisKeyForceSaveTimer, 0, now]
-      ]);
-      let execRes = yield utils.promiseRedis(multi, multi.exec);
-      let expiredKeys = execRes[0];
+      let expiredKeys = yield docsCoServer.editorData.getForceSaveTimer(now);
       if (expiredKeys.length > 0) {
         queue = new queueService();
         yield queue.initPromise(true, false, false, false, false, false);
@@ -164,7 +146,7 @@ let forceSaveTimeout = function() {
         for (let i = 0; i < expiredKeys.length; ++i) {
           let docId = expiredKeys[i];
           if (docId) {
-            actions.push(utils.promiseRedis(redisClient, redisClient.del, redisKeyForceSaveTimerLock + docId));
+            actions.push(docsCoServer.editorData.unlockForceSaveTimer(docId));
             actions.push(docsCoServer.startForceSavePromise(docId, commondefines.c_oAscForceSaveTypes.Timeout,
                                                             undefined, undefined, undefined, queue, pubsub));
           }
@@ -197,7 +179,6 @@ var documentExpireJob = function(opt_isStart) {
   }
   new cron.CronJob(cfgExpDocumentsCron, checkDocumentExpire, documentExpireJob, true);
 };
-documentExpireJob(true);
 
 var fileExpireJob = function(opt_isStart) {
   if (!opt_isStart) {
@@ -205,8 +186,11 @@ var fileExpireJob = function(opt_isStart) {
   }
   new cron.CronJob(cfgExpFilesCron, checkFileExpire, fileExpireJob, true);
 };
-fileExpireJob(true);
 
-if (cfgForceSaveEnable) {
-  setTimeout(forceSaveTimeout, cfgForceSaveStep);
-}
+exports.startGC = function() {
+  documentExpireJob(true);
+  fileExpireJob(true);
+  if (cfgForceSaveEnable) {
+    setTimeout(forceSaveTimeout, cfgForceSaveStep);
+  }
+};

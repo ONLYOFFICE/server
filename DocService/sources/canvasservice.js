@@ -51,7 +51,6 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var config = require('config');
 var config_server = config.get('services.CoAuthoring.server');
 var config_utils = config.get('services.CoAuthoring.utils');
-var pubsubRedis = require('./pubsubRedis');
 
 
 var cfgTypesUpload = config_utils.get('limits_image_types_upload');
@@ -72,8 +71,6 @@ var SAVE_TYPE_COMPLETE = 2;
 var SAVE_TYPE_COMPLETE_ALL = 3;
 
 var clientStatsD = statsDClient.getClient();
-var redisClient = pubsubRedis.getClientRedis();
-var redisKeySaved = cfgRedisPrefix + constants.REDIS_KEY_SAVED;
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 
 const retryHttpStatus = new MultiRange(cfgCallbackBackoffOptions.httpStatus);
@@ -820,12 +817,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             var replyData = docsCoServer.parseReplyData(docId, replyStr);
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error) {
               //в случае comunity server придет запрос в CommandService проверяем результат
-              var multi = redisClient.multi([
-                                              ['get', redisKeySaved + docId],
-                                              ['del', redisKeySaved + docId]
-                                            ]);
-              var execRes = yield utils.promiseRedis(multi, multi.exec);
-              var savedVal = execRes[0];
+              var savedVal = yield docsCoServer.editorData.getdelSaved(docId);
               requestRes = (null == savedVal || '1' === savedVal);
             }
             if (requestRes) {
@@ -884,7 +876,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
 
   if ((docsCoServer.getIsShutdown() && !isSfcm) || cmd.getRedisKey()) {
     let keyRedis = cmd.getRedisKey() ? cmd.getRedisKey() : redisKeyShutdown;
-    yield utils.promiseRedis(redisClient, redisClient.srem, keyRedis, docId);
+    yield docsCoServer.editorData.removeShutdown(keyRedis, docId);
   }
   logger.debug('End commandSfcCallback: docId = %s', docId);
   return replyStr;
@@ -1170,7 +1162,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         queueData.setFromChanges(true);
         yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_NORMAL, opt_queue);
         if (docsCoServer.getIsShutdown()) {
-          yield utils.promiseRedis(redisClient, redisClient.sadd, redisKeyShutdown, docId);
+          yield docsCoServer.editorData.addShutdown(redisKeyShutdown, docId);
         }
         logger.debug('AddTask saveFromChanges: docId = %s', docId);
       } else {

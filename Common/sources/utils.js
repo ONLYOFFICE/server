@@ -775,3 +775,19 @@ exports.forwarded = forwarded;
 exports.getIndexFromUserId = function(userId, userIdOriginal){
   return parseInt(userId.substring(userIdOriginal.length));
 };
+exports.getConnectionInfo = function(conn){
+    var user = conn.user;
+    var data = {
+      id: user.id,
+      idOriginal: user.idOriginal,
+      username: user.username,
+      indexUser: user.indexUser,
+      view: user.view,
+      connectionId: conn.id,
+      isCloseCoAuthoring: conn.isCloseCoAuthoring
+    };
+    return data;
+};
+exports.getConnectionInfoStr = function(conn){
+  return JSON.stringify(exports.getConnectionInfo(conn));
+};

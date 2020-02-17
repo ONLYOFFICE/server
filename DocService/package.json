@@ -36,7 +36,6 @@
   "pkg": {
     "scripts": [
       "./sources/pubsubRabbitMQ.js",
-      "./sources/pubsubRedis.js",
       "../Common/sources/storage-fs.js",
       "../Common/sources/storage-s3.js"
     ],
