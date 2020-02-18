@@ -40,7 +40,7 @@ const constants = require('./constants');
 const logger = require('./logger');
 const utils = require('./utils');
 const path = require('path');
-const editorDataStorage = require('./../../DocService/sources/' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
+const editorDataStorage = require('./../../DocService/sources/' + config.get('services.CoAuthoring.server.editorDataStorage'));
 
 const buildDate = '6/29/2016';
 const oBuildDate = new Date(buildDate);
