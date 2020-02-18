@@ -98,12 +98,12 @@ const converterService = require('./converterservice');
 const taskResult = require('./taskresult');
 const gc = require('./gc');
 const shutdown = require('./shutdown');
-const pubsubService = require('./' + config.get('pubsub.name'));
+const pubsubService = require('./pubsubRabbitMQ');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
 
-const editorDataStorage = require('./editorDataMemory');
+const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
 cfgEditor['reconnection']['delay'] = ms(cfgEditor['reconnection']['delay']);
 cfgEditor['websocketMaxPayloadSize'] = bytes.parse(cfgEditor['websocketMaxPayloadSize']);
@@ -2463,8 +2463,8 @@ exports.install = function(server, callbackFunction) {
         yield editorData.setLastSave(docId, newChangesLastTime, puckerIndex);
         if (cfgForceSaveEnable) {
           let ttl = Math.ceil((cfgForceSaveInterval + cfgForceSaveStep) / 1000);
-          let multiRes = yield editorData.lockForceSaveTimer(docId, ttl);
-          if (multiRes) {
+          let lockRes = yield editorData.lockForceSaveTimer(docId, ttl);
+          if (lockRes) {
             let expireAt = newChangesLastTime + cfgForceSaveInterval;
             yield editorData.addForceSaveTimer(docId, expireAt);
           }
@@ -3087,7 +3087,6 @@ exports.licenseInfo = function(req, res) {
           view: {min: 0, avr: 0, max: 0}
         };
       }
-      yield editorData.setEditorConnections(countEdit, countView, now, PRECISION);
       var redisRes = yield editorData.getEditorConnections();
       const now = Date.now();
       var precisionIndex = 0;
@@ -3224,6 +3223,16 @@ exports.commandFromServer = function (req, res) {
   });
 };
 
-exports.shutdown = function (req, res) {
-  return shutdown.shutdown(editorData);
+exports.shutdown = function(req, res) {
+  return co(function*() {
+    let output = false;
+    try {
+      output = yield shutdown.shutdown(editorData);
+    } catch (err) {
+      logger.error('shutdown error\r\n%s', err.stack);
+    } finally {
+      res.setHeader('Content-Type', 'text/plain');
+      res.send(output.toString());
+    }
+  });
 };

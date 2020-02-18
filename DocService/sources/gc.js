@@ -46,8 +46,8 @@ var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
 var commondefines = require('./../../Common/sources/commondefines');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
-var pubsubService = require('./' + config.get('pubsub.name'));
-const editorDataStorage = require('./editorDataMemory');
+var pubsubService = require('./pubsubRabbitMQ');
+const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
 
 var cfgExpFilesCron = config.get('expire.filesCron');
 var cfgExpDocumentsCron = config.get('expire.documentsCron');

@@ -108,9 +108,6 @@ EditorData.prototype.unlockForceSaveTimer = function(docId) {
 EditorData.prototype.getDocumentPresenceExpired = function(now) {
   return Promise.resolve([]);
 };
-EditorData.prototype.getDocumentPresence = function(now) {
-  return Promise.resolve([]);
-};
 EditorData.prototype.removePresenceDocument = function(docId) {
   return Promise.resolve();
 };
@@ -263,8 +260,9 @@ EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
   let res = [];
   for (let userId in this.data.uniqueUser) {
     if (this.data.uniqueUser.hasOwnProperty(userId)) {
-      if (this.data.uniqueUser[userId] < nowUTC) {
+      if (this.data.uniqueUser[userId] > nowUTC) {
         res.push(userId);
+      } else {
         delete this.data.uniqueUser[userId];
       }
     }
@@ -282,7 +280,7 @@ EditorData.prototype.setEditorConnections = function(countEdit, countView, now, 
   return Promise.resolve();
 };
 EditorData.prototype.getEditorConnections = function() {
-  return Promise.resolve(this.stat);
+  return Promise.resolve(this.stat.map(JSON.stringify));
 };
 
 EditorData.prototype.addShutdown = function(key, docId) {

@@ -35,7 +35,7 @@ var config = require('config');
 var configCoAuthoring = config.get('services.CoAuthoring');
 var co = require('co');
 var logger = require('./../../Common/sources/logger');
-var pubsubService = require('./' + configCoAuthoring.get('pubsub.name'));
+var pubsubService = require('./pubsubRabbitMQ');
 var commonDefines = require('./../../Common/sources/commondefines');
 var constants = require('./../../Common/sources/constants');
 var utils = require('./../../Common/sources/utils');
@@ -49,16 +49,13 @@ var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.CONVERTION_TIMEOUT;
 
 exports.shutdown = function(editorData) {
   return co(function*() {
-    var exitCode = 0;
+    var res = true;
     try {
-      logger.debug('shutdown start' + EXEC_TIMEOUT);
+      logger.debug('shutdown start:' + EXEC_TIMEOUT);
 
       //redisKeyShutdown не простой счетчик, чтобы его не уменьшала сборка, которая началась перед запуском Shutdown
       //сбрасываем redisKeyShutdown на всякий случай, если предыдущий запуск не дошел до конца
       yield editorData.cleanupShutdown(redisKeyShutdown);
-      var now = (new Date()).getTime();
-      let documentPresence = yield editorData.getDocumentPresence(now);
-      logger.debug('number of open documents %d', documentPresence.length);
 
       var pubsub = new pubsubService();
       yield pubsub.initPromise();
@@ -75,7 +72,7 @@ exports.shutdown = function(editorData) {
           isStartWait = false;
           logger.debug('shutdown stop wait pubsub deliver');
         } else if (curTime >= EXEC_TIMEOUT) {
-          exitCode = 1;
+          res = false;
           logger.debug('shutdown timeout');
           break;
         }
@@ -93,11 +90,9 @@ exports.shutdown = function(editorData) {
 
       logger.debug('shutdown end');
     } catch (e) {
+      res = false;
       logger.error('shutdown error:\r\n%s', e.stack);
-    } finally {
-      if (0 !== exitCode) {
-        throw 1;
-      }
     }
+    return res;
   });
 };

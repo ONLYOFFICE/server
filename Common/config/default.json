@@ -83,7 +83,8 @@
 				"forgottenfiles": "forgotten",
 				"forgottenfilesname": "output",
 				"maxRequestChanges": 20000,
-				"openProtectedFile": true
+				"openProtectedFile": true,
+				"editorDataStorage": "editorDataMemory"
 			},
 			"requestDefaults": {
 				"headers": {
@@ -123,7 +124,6 @@
 				"options": {}
 			},
 			"pubsub": {
-				"name": "pubsubRabbitMQ",
 				"maxChanges": 1000
 			},
 			"expire": {
