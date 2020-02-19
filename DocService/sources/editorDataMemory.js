@@ -135,8 +135,7 @@ EditorData.prototype.addMessage = function(docId, msg) {
   if (!data.messages) {
     data.messages = [];
   }
-  let msgStr = JSON.stringify(msg);
-  data.messages.push(msgStr);
+  data.messages.push(msg);
   return Promise.resolve();
 };
 EditorData.prototype.removeMessages = function(docId) {
@@ -280,7 +279,7 @@ EditorData.prototype.setEditorConnections = function(countEdit, countView, now, 
   return Promise.resolve();
 };
 EditorData.prototype.getEditorConnections = function() {
-  return Promise.resolve(this.stat.map(JSON.stringify));
+  return Promise.resolve(this.stat);
 };
 
 EditorData.prototype.addShutdown = function(key, docId) {

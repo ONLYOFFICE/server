@@ -1267,7 +1267,7 @@ exports.install = function(server, callbackFunction) {
       if (!conn.isCloseCoAuthoring) {
         tmpUser.view = true;
         conn.isCloseCoAuthoring = true;
-        yield editorData.updatePresence(docId, tmpUser.id, utils.getConnectionInfoStr(conn));
+        yield editorData.addPresence(docId, tmpUser.id, utils.getConnectionInfoStr(conn));
         if (cfgTokenEnableBrowser) {
           sendDataRefreshToken(conn, fillJwtByConnection(conn));
         }
@@ -1376,7 +1376,7 @@ exports.install = function(server, callbackFunction) {
 
       //apply new
       conn.docId = docIdNew;
-      yield editorData.updatePresence(docIdNew, tmpUser.id, utils.getConnectionInfoStr(conn));
+      yield editorData.addPresence(docIdNew, tmpUser.id, utils.getConnectionInfoStr(conn));
       if (cfgTokenEnableBrowser) {
         sendDataRefreshToken(conn, fillJwtByConnection(conn));
       }
@@ -1405,7 +1405,7 @@ exports.install = function(server, callbackFunction) {
     var docLockRes = [];
     var docLock = yield editorData.getLocks(docId);
     for (var i = 0; i < docLock.length; ++i) {
-      docLockRes.push(JSON.parse(docLock[i]));
+      docLockRes.push(docLock[i]);
     }
     return docLockRes;
   }
@@ -1418,7 +1418,7 @@ exports.install = function(server, callbackFunction) {
       if (elem.user === userId) {
         userLocks.push(elem);
       } else {
-        toCache.push(JSON.stringify(elem));
+        toCache.push(elem);
       }
     }
     //remove all
@@ -1546,7 +1546,7 @@ exports.install = function(server, callbackFunction) {
     if (constants.CONN_CLOSED !== conn.readyState) {
       // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
       connections.push(conn);
-      yield editorData.updatePresence(conn.docId, conn.user.id, utils.getConnectionInfoStr(conn));
+      yield editorData.addPresence(conn.docId, conn.user.id, utils.getConnectionInfoStr(conn));
 
       sendFileError(conn, errorId, code);
     }
@@ -1949,7 +1949,7 @@ exports.install = function(server, callbackFunction) {
         if (constants.CONN_CLOSED !== conn.readyState) {
           // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
           connections.push(conn);
-          yield editorData.updatePresence(docId, conn.user.id, utils.getConnectionInfoStr(conn));
+          yield editorData.addPresence(docId, conn.user.id, utils.getConnectionInfoStr(conn));
           // Посылаем формальную авторизацию, чтобы подтвердить соединение
           yield* sendAuthInfo(conn, bIsRestore, undefined);
           if (cmd) {
@@ -1988,7 +1988,7 @@ exports.install = function(server, callbackFunction) {
             yield* sendFileErrorAuth(conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
             return;
           }
-        } else if (taskResult.FileStatus.UpdateVersion === status) {
+        } else if (bIsRestore && taskResult.FileStatus.UpdateVersion === status) {
           // error version
           yield* sendFileErrorAuth(conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
           return;
@@ -2210,20 +2210,15 @@ exports.install = function(server, callbackFunction) {
     } else {
       docLock = yield* getAllLocks(docId);
     }
-    const allMessages = yield editorData.getMessages(docId);
-    let allMessagesParsed = undefined;
-    if(allMessages && allMessages.length > 0) {
-      allMessagesParsed = allMessages.map(function (val) {
-        return JSON.parse(val);
-      });
-    }
+    let allMessages = yield editorData.getMessages(docId);
+    allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
     const sendObject = {
       type: 'auth',
       result: 1,
       sessionId: conn.sessionId,
       sessionTimeConnect: conn.sessionTimeConnect,
       participants: participantsMap,
-      messages: allMessagesParsed,
+      messages: allMessages,
       locks: docLock,
       indexUser: conn.user.indexUser,
       hasForgotten: opt_hasForgotten,
@@ -2293,7 +2288,7 @@ exports.install = function(server, callbackFunction) {
         var block = arrayBlocks[i];
         var elem = {time: Date.now(), user: userId, block: block};
         documentLocks[block] = elem;
-        toCache.push(JSON.stringify(elem));
+        toCache.push(elem);
       }
       yield editorData.addLocks(docId, toCache);
     } else if (bIsRestore) {
@@ -2318,7 +2313,7 @@ exports.install = function(server, callbackFunction) {
         var block = arrayBlocks[i];
         var elem = {time: Date.now(), user: userId, block: block};
         documentLocks.push(elem);
-        toCache.push(JSON.stringify(elem));
+        toCache.push(elem);
       }
       yield editorData.addLocks(docId, toCache);
     } else if (bIsRestore) {
@@ -2343,7 +2338,7 @@ exports.install = function(server, callbackFunction) {
         var block = arrayBlocks[i];
         var elem = {time: Date.now(), user: userId, block: block};
         documentLocks.push(elem);
-        toCache.push(JSON.stringify(elem));
+        toCache.push(elem);
       }
       yield editorData.addLocks(docId, toCache);
     } else if (bIsRestore) {
@@ -2423,7 +2418,7 @@ exports.install = function(server, callbackFunction) {
           if (_recalcLockArray(userId, docLock, oRecalcIndexColumns, oRecalcIndexRows)) {
             let toCache = [];
             for (let i = 0; i < docLock.length; ++i) {
-              toCache.push(JSON.stringify(docLock[i]));
+              toCache.push(docLock[i]);
             }
             yield editorData.removeLocks(docId);
             yield editorData.addLocks(docId, toCache);
@@ -2507,14 +2502,9 @@ exports.install = function(server, callbackFunction) {
 
   // Возвращаем все сообщения для документа
   function* getMessages(conn) {
-    const allMessages = yield editorData.getMessages(conn.docId);
-    let allMessagesParsed = undefined;
-    if(allMessages && allMessages.length > 0) {
-      allMessagesParsed = allMessages.map(function (val) {
-        return JSON.parse(val);
-      });
-    }
-    sendData(conn, {type: "message", messages: allMessagesParsed});
+    let allMessages = yield editorData.getMessages(conn.docId);
+    allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
+    sendData(conn, {type: "message", messages: allMessages});
   }
 
   function* _checkLock(docId, arrayBlocks) {
@@ -3092,7 +3082,7 @@ exports.licenseInfo = function(req, res) {
       var precisionIndex = 0;
       for (let i = redisRes.length - 1; i >= 1; i -= 2) {
         for (let j = precisionIndex; j < PRECISION.length; ++j) {
-          let elem = JSON.parse(redisRes[i]);
+          let elem = redisRes[i];
           if (now - elem.time < PRECISION[j].val) {
             let precision = precisionSum[PRECISION[j].name];
             precision.edit.min = Math.min(precision.edit.min, elem.edit);
