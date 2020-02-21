@@ -234,7 +234,8 @@ if (cluster.isMaster) {
 			converterService.builder(req, res);
 		});
 		app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
-		app.post('/shutdown', utils.checkClientIp, docsCoServer.shutdown);
+		app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+		app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 
 		const sendUserPlugins = (res, data) => {
 			res.setHeader('Content-Type', 'application/json');

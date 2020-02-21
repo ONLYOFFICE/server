@@ -146,7 +146,6 @@ let forceSaveTimeout = function() {
         for (let i = 0; i < expiredKeys.length; ++i) {
           let docId = expiredKeys[i];
           if (docId) {
-            actions.push(docsCoServer.editorData.unlockForceSaveTimer(docId));
             actions.push(docsCoServer.startForceSavePromise(docId, commondefines.c_oAscForceSaveTypes.Timeout,
                                                             undefined, undefined, undefined, queue, pubsub));
           }

@@ -35,6 +35,8 @@ const utils = require('./../../Common/sources/utils');
 
 function EditorData() {
   this.data = {};
+  this.forceSaveTimer = {};
+  this.uniqueUser = {};
   this.shutdown = {};
   this.stat = [];
 }
@@ -98,12 +100,6 @@ EditorData.prototype.lockAuth = function(docId, userId, ttl) {
 EditorData.prototype.unlockAuth = function(docId, userId) {
   return this._checkAndUnlock('lockAuth', docId, userId);
 };
-EditorData.prototype.lockForceSaveTimer = function(docId, ttl) {
-  return this._checkAndLock('lockForceSaveTimer', docId, 1, ttl);
-};
-EditorData.prototype.unlockForceSaveTimer = function(docId) {
-  return this._checkAndUnlock('lockForceSaveTimer', docId, 1);
-};
 
 EditorData.prototype.getDocumentPresenceExpired = function(now) {
   return Promise.resolve([]);
@@ -148,20 +144,6 @@ EditorData.prototype.getMessages = function(docId) {
   return Promise.resolve(data.messages || []);
 };
 
-EditorData.prototype.setLastSave = function(docId, time, index) {
-  let data = this._getDocumentData(docId);
-  data.lastSave = {time: time, index: index};
-  return Promise.resolve();
-};
-EditorData.prototype.getLastSave = function(docId) {
-  let data = this._getDocumentData(docId);
-  return Promise.resolve(data.lastSave);
-};
-EditorData.prototype.removeLastSave = function(docId) {
-  let data = this._getDocumentData(docId);
-  data.lastSave = undefined;
-  return Promise.resolve();
-};
 EditorData.prototype.setSaved = function(docId, status) {
   let data = this._getDocumentData(docId);
   data.saved = status;
@@ -173,72 +155,60 @@ EditorData.prototype.getdelSaved = function(docId) {
   data.saved = undefined;
   return Promise.resolve(res);
 };
-EditorData.prototype.setForceSave = function(docId, key, val) {
+EditorData.prototype.setForceSave = function(docId, time, index, baseUrl) {
   let data = this._getDocumentData(docId);
-  if (!data.forceSave) {
-    data.forceSave = {};
-  }
-  data.forceSave[key] = val;
+  data.forceSave = {time: time, index: index, baseUrl: baseUrl, started: false, ended: false};
   return Promise.resolve();
 };
-EditorData.prototype.setForceSaveNX = function(docId, key, val) {
-  let res = false;
+EditorData.prototype.getForceSave = function(docId) {
   let data = this._getDocumentData(docId);
-  if (!data.forceSave) {
-    data.forceSave = {};
-  }
-  if (!data.forceSave[key]) {
-    data.forceSave[key] = val;
-    res = true;
+  return Promise.resolve(data.forceSave || null);
+};
+EditorData.prototype.checkAndStartForceSave = function(docId) {
+  let data = this._getDocumentData(docId);
+  let res;
+  if (data.forceSave && !data.forceSave.started) {
+    data.forceSave.started = true;
+    data.forceSave.ended = false;
+    res = data.forceSave;
   }
   return Promise.resolve(res);
 };
-EditorData.prototype.getForceSave = function(docId, key) {
+EditorData.prototype.checkAndSetForceSave = function(docId, time, index, started, ended) {
   let data = this._getDocumentData(docId);
-  if (!data.forceSave) {
-    data.forceSave = {};
+  let res;
+  if (data.forceSave && time === data.forceSave.time && index === data.forceSave.index) {
+    data.forceSave.started = started;
+    data.forceSave.ended = ended;
+    res = data.forceSave;
   }
-  return Promise.resolve(data.forceSave[key]);
-};
-EditorData.prototype.removeForceSaveKey = function(docId, key) {
-  let data = this._getDocumentData(docId);
-  if (!data.forceSave) {
-    data.forceSave = {};
-  }
-  delete data.forceSave[key];
-  return Promise.resolve();
+  return Promise.resolve(res);
 };
 EditorData.prototype.removeForceSave = function(docId) {
   let data = this._getDocumentData(docId);
-  if (!data.forceSave) {
-    data.forceSave = {};
-  }
   data.forceSave = undefined;
   return Promise.resolve();
 };
 
 EditorData.prototype.cleanDocumentOnExit = function(docId) {
   delete this.data[docId];
+  delete this.forceSaveTimer[docId];
   return Promise.resolve();
 };
 
-EditorData.prototype.addForceSaveTimer = function(docId, expireAt) {
-  if (!this.data.forceSaveTimer) {
-    this.data.forceSaveTimer = {};
+EditorData.prototype.addForceSaveTimerNX = function(docId, expireAt) {
+  if (!this.forceSaveTimer[docId]) {
+    this.forceSaveTimer[docId] = expireAt;
   }
-  this.data.forceSaveTimer[docId] = expireAt;
   return Promise.resolve();
 };
 EditorData.prototype.getForceSaveTimer = function(now) {
-  if (!this.data.forceSaveTimer) {
-    this.data.forceSaveTimer = {};
-  }
   let res = [];
-  for (let docId in this.data.forceSaveTimer) {
-    if (this.data.forceSaveTimer.hasOwnProperty(docId)) {
-      if (this.data.forceSaveTimer[docId] < now) {
+  for (let docId in this.forceSaveTimer) {
+    if (this.forceSaveTimer.hasOwnProperty(docId)) {
+      if (this.forceSaveTimer[docId] < now) {
         res.push(docId);
-        delete this.data.forceSaveTimer[docId];
+        delete this.forceSaveTimer[docId];
       }
     }
   }
@@ -246,23 +216,17 @@ EditorData.prototype.getForceSaveTimer = function(now) {
 };
 
 EditorData.prototype.addPresenceUniqueUser = function(userId, expireAt) {
-  if (!this.data.uniqueUser) {
-    this.data.uniqueUser = {};
-  }
-  this.data.uniqueUser[userId] = expireAt;
+  this.uniqueUser[userId] = expireAt;
   return Promise.resolve();
 };
 EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
-  if (!this.data.uniqueUser) {
-    this.data.uniqueUser = {};
-  }
   let res = [];
-  for (let userId in this.data.uniqueUser) {
-    if (this.data.uniqueUser.hasOwnProperty(userId)) {
-      if (this.data.uniqueUser[userId] > nowUTC) {
+  for (let userId in this.uniqueUser) {
+    if (this.uniqueUser.hasOwnProperty(userId)) {
+      if (this.uniqueUser[userId] > nowUTC) {
         res.push(userId);
       } else {
-        delete this.data.uniqueUser[userId];
+        delete this.uniqueUser[userId];
       }
     }
   }

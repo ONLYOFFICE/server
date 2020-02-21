@@ -773,8 +773,9 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         //send only if FileStatus.Ok to prevent forcesave after final save
         if (row && row.status == taskResult.FileStatus.Ok) {
           if (forceSave) {
+            let forceSaveDate = forceSave.getTime() ? new Date(forceSave.getTime()): new Date();
             outputSfc.setForceSaveType(forceSaveType);
-            outputSfc.setLastSave(new Date(forceSave.getTime()).toISOString());
+            outputSfc.setLastSave(forceSaveDate.toISOString());
           }
           try {
             replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
@@ -789,15 +790,16 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         let editorsCount = yield docsCoServer.getEditorsCountPromise(docId);
         logger.debug('commandSfcCallback presence: docId = %s count = %d', docId, editorsCount);
         if (0 === editorsCount || (isEncrypted && 1 === editorsCount)) {
-          let lastSave = yield* docsCoServer.getLastSave(docId);
-          let notModified = yield* docsCoServer.getLastForceSave(docId, lastSave);
-          var lastSaveDate = lastSave ? new Date(lastSave.time) : new Date();
-          outputSfc.setLastSave(lastSaveDate.toISOString());
-          outputSfc.setNotModified(notModified);
           if (!updateIfRes) {
             updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
           }
           if (updateIfRes.affectedRows > 0) {
+            let actualForceSave = yield docsCoServer.editorData.getForceSave(docId);
+            let forceSaveDate = (actualForceSave && actualForceSave.time) ? new Date(actualForceSave.time) : new Date();
+            let notModified = actualForceSave && true === actualForceSave.ended;
+            outputSfc.setLastSave(forceSaveDate.toISOString());
+            outputSfc.setNotModified(notModified);
+
             updateMask.status = updateIfTask.status;
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {

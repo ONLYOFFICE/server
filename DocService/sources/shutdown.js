@@ -47,7 +47,7 @@ var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.CONVERTION_TIMEOUT;
 
-exports.shutdown = function(editorData) {
+exports.shutdown = function(editorData, status) {
   return co(function*() {
     var res = true;
     try {
@@ -61,7 +61,7 @@ exports.shutdown = function(editorData) {
       yield pubsub.initPromise();
       //inner ping to update presence
       logger.debug('shutdown pubsub shutdown message');
-      pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown}));
+      pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, status: status}));
       //wait while pubsub deliver and start conversion
       logger.debug('shutdown start wait pubsub deliver');
       var startTime = new Date().getTime();

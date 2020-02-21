@@ -627,27 +627,11 @@ function* getChangesIndex(docId) {
   }
   return res;
 }
-function* getLastSave(docId) {
-  var res = yield editorData.getLastSave(docId);
-  if (res) {
-    if (res.time) {
-      res.time = parseInt(res.time);
-    }
-    if (res.index) {
-      res.index = parseInt(res.index);
-    }
-  }
-  return res;
-}
-function getForceSaveIndex(time, index) {
-  return time + '_' + index;
-}
 function* setForceSave(docId, forceSave, cmd, success) {
-  let forceSaveIndex = getForceSaveIndex(forceSave.getTime(), forceSave.getIndex());
   if (success) {
-    yield editorData.setForceSave(docId, forceSaveIndex, true);
+    yield editorData.checkAndSetForceSave(docId, forceSave.getTime(), forceSave.getIndex(), true, true);
   } else {
-    yield editorData.removeForceSaveKey(docId, forceSaveIndex);
+    yield editorData.checkAndSetForceSave(docId, forceSave.getTime(), forceSave.getIndex(), false, false);
   }
   let forceSaveType = forceSave.getType();
   if (commonDefines.c_oAscForceSaveTypes.Command !== forceSaveType) {
@@ -657,37 +641,17 @@ function* setForceSave(docId, forceSave, cmd, success) {
                    }, cmd.getUserConnectionId());
   }
 }
-function* getLastForceSave(docId, lastSave) {
-  let res = false;
-  if (lastSave) {
-    let forceSaveIndex = getForceSaveIndex(lastSave.time, lastSave.index);
-    let forceSave = yield editorData.getForceSave(docId, forceSaveIndex);
-    if (forceSave) {
-      res = true;
-    }
-  }
-  return res;
-}
 function* startForceSave(docId, type, opt_userdata, opt_userConnectionId, opt_baseUrl, opt_queue, opt_pubsub) {
   logger.debug('startForceSave start:docId = %s', docId);
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null};
-  let lastSave = null;
+  let startedForceSave;
   if (!shutdownFlag) {
-    lastSave = yield* getLastSave(docId);
-    if (lastSave && undefined !== lastSave.time && undefined !== lastSave.index) {
-      let forceSaveIndex = getForceSaveIndex(lastSave.time, lastSave.index);
-      let execRes = yield editorData.setForceSaveNX(docId, forceSaveIndex, false);
-      if (!execRes) {
-        lastSave = null;
-      }
-    } else {
-      lastSave = null;
-    }
+    startedForceSave = yield editorData.checkAndStartForceSave(docId);
   }
-  if (lastSave) {
-    logger.debug('startForceSave lastSave:docId = %s; lastSave = %j', docId, lastSave);
-    let baseUrl = opt_baseUrl || lastSave.baseUrl;
-    let forceSave = new commonDefines.CForceSaveData(lastSave);
+  logger.debug('startForceSave canStart:docId = %s; startedForceSave = %j', docId, startedForceSave);
+  if (startedForceSave) {
+    let baseUrl = opt_baseUrl || startedForceSave.baseUrl;
+    let forceSave = new commonDefines.CForceSaveData(startedForceSave);
     forceSave.setType(type);
 
     if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
@@ -716,7 +680,6 @@ function* startForceSave(docId, type, opt_userdata, opt_userConnectionId, opt_ba
     logger.debug('startForceSave convertFromChanges:docId = %s; status = %d', docId, status.err);
   } else {
     res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
-    logger.debug('startForceSave NotModified no changes:docId = %s', docId);
   }
   logger.debug('startForceSave end:docId = %s', docId);
   return res;
@@ -733,9 +696,9 @@ function handleDeadLetter(data, ack) {
         logger.warn('handleDeadLetter start: docId = %s %s', docId, data);
         let forceSave = cmd.getForceSave();
         if (forceSave && commonDefines.c_oAscForceSaveTypes.Timeout == forceSave.getType()) {
-          let lastSave = yield* getLastSave(docId);
+          let actualForceSave = yield editorData.getForceSave(docId);
           //check that there are no new changes
-          if (lastSave && forceSave.getTime() === lastSave.time && forceSave.getIndex() === lastSave.index) {
+          if (actualForceSave && forceSave.getTime() === actualForceSave.time && forceSave.getIndex() === actualForceSave.index) {
             //requeue task
             yield* addTask(task, constants.QUEUE_PRIORITY_VERY_LOW, undefined, FORCE_SAVE_EXPIRATION);
             isRequeued = true;
@@ -1082,8 +1045,6 @@ exports.getChangesIndexPromise = co.wrap(getChangesIndex);
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
 exports.setForceSave = setForceSave;
-exports.getLastSave = getLastSave;
-exports.getLastForceSave = getLastForceSave;
 exports.startForceSavePromise = co.wrap(startForceSave);
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
@@ -2454,15 +2415,10 @@ exports.install = function(server, callbackFunction) {
       yield* unSaveLock(conn, changesIndex, newChangesLastTime);
       //last save
       if (newChangesLastTime) {
-        yield editorData.removeForceSave(docId);
-        yield editorData.setLastSave(docId, newChangesLastTime, puckerIndex);
+        yield editorData.setForceSave(docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn));
         if (cfgForceSaveEnable) {
-          let ttl = Math.ceil((cfgForceSaveInterval + cfgForceSaveStep) / 1000);
-          let lockRes = yield editorData.lockForceSaveTimer(docId, ttl);
-          if (lockRes) {
-            let expireAt = newChangesLastTime + cfgForceSaveInterval;
-            yield editorData.addForceSaveTimer(docId, expireAt);
-          }
+          let expireAt = newChangesLastTime + cfgForceSaveInterval;
+          yield editorData.addForceSaveTimerNX(docId, expireAt);
         }
       }
     } else {
@@ -2879,18 +2835,20 @@ exports.install = function(server, callbackFunction) {
             });
             break;
           case commonDefines.c_oPublishType.shutdown:
-            logger.debug('start shutdown');
             //flag prevent new socket connections and receive data from exist connections
-            shutdownFlag = true;
-            logger.debug('active connections: %d', connections.length);
-            //не останавливаем сервер, т.к. будут недоступны сокеты и все запросы
-            //плохо тем, что может понадобится конвертация выходного файла и то что не будут обработаны запросы на CommandService
-            //server.close();
-            //in the cycle we will remove elements so copy array
-            var connectionsTmp = connections.slice();
-            //destroy all open connections
-            for (i = 0; i < connectionsTmp.length; ++i) {
-              connectionsTmp[i].close(constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
+            shutdownFlag = data.status;
+            logger.debug('start shutdown:%b', shutdownFlag);
+            if (shutdownFlag) {
+              logger.debug('active connections: %d', connections.length);
+              //не останавливаем сервер, т.к. будут недоступны сокеты и все запросы
+              //плохо тем, что может понадобится конвертация выходного файла и то что не будут обработаны запросы на CommandService
+              //server.close();
+              //in the cycle we will remove elements so copy array
+              var connectionsTmp = connections.slice();
+              //destroy all open connections
+              for (i = 0; i < connectionsTmp.length; ++i) {
+                connectionsTmp[i].close(constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
+              }
             }
             logger.debug('end shutdown');
             break;
@@ -3217,7 +3175,7 @@ exports.shutdown = function(req, res) {
   return co(function*() {
     let output = false;
     try {
-      output = yield shutdown.shutdown(editorData);
+      output = yield shutdown.shutdown(editorData, req.method === 'PUT');
     } catch (err) {
       logger.error('shutdown error\r\n%s', err.stack);
     } finally {
