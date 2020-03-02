@@ -59,27 +59,18 @@ types.setTypeParser(1184, function(stringValue) {
 
 var logger = require('./../../Common/sources/logger');
 
-exports.sqlQuery = function(sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog) {
+exports.sqlQuery = function(sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
   co(function *() {
-    var client = null;
     var result = null;
     var error = null;
     try {
-      client = yield pool.connect();
-      result = yield client.query(sqlCommand);
+      result = yield pool.query(sqlCommand, opt_values);
     } catch (err) {
       error = err;
       if (!opt_noLog) {
-        if (client) {
-          logger.error('sqlQuery error sqlCommand: %s:\r\n%s', sqlCommand.slice(0, 50), err.stack);
-        } else {
-          logger.error('pool.getConnection error: %s', err);
-        }
+        logger.warn('sqlQuery error sqlCommand: %s:\r\n%s', sqlCommand.slice(0, 50), err.stack);
       }
     } finally {
-      if (client) {
-        client.release();
-      }
       if (callbackFunction) {
         var output = result;
         if (result && !opt_noModifyRes) {
