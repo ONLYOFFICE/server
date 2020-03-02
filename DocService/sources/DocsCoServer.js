@@ -1128,7 +1128,6 @@ exports.install = function(server, callbackFunction) {
             break;
           case 'versionHistory'          : {
             let cmd = new commonDefines.InputCommand(data.cmd);
-            cmd.fillFromConnection(conn);
             yield* versionHistory(conn, cmd);
             break;
           }
