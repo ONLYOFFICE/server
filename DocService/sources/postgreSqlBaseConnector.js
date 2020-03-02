@@ -118,11 +118,10 @@ function getUpsertString(task) {
   if (isSupportOnConflict) {
     //http://stackoverflow.com/questions/34762732/how-to-find-out-if-an-upsert-was-an-update-with-postgresql-9-5-upsert
     return "INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback," +
-      " baseurl) SELECT " + commandArgEsc.join(', ') + " WHERE 'false' = set_config('myapp.isupdate', 'false', true) " +
-      "ON CONFLICT (id) DO UPDATE SET  last_open_date = " +
+      " baseurl) VALUES (" + commandArgEsc.join(', ') + ") " +
+      "ON CONFLICT (id) DO UPDATE SET last_open_date = " +
       sqlBase.baseConnector.sqlEscape(dateNow) + cbUpdate +
-      ", user_index = task_result.user_index + 1 WHERE 'true' = set_config('myapp.isupdate', 'true', true) RETURNING" +
-      " current_setting('myapp.isupdate') as isupdate, user_index as userindex;";
+      ", user_index = task_result.user_index + 1 RETURNING user_index as userindex;";
   } else {
     return "SELECT * FROM merge_db(" + commandArgEsc.join(', ') + ");";
   }
@@ -144,7 +143,7 @@ exports.upsert = function(task) {
         if (result && result.rows.length > 0) {
           var first = result.rows[0];
           result = {affectedRows: 0, insertId: 0};
-          result.affectedRows = 'true' == first.isupdate ? 2 : 1;
+          result.affectedRows = task.userIndex !== first.userindex ? 2 : 1;
           result.insertId = first.userindex;
         }
         resolve(result);
