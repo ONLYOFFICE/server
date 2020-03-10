@@ -45,6 +45,7 @@ var tableChanges = config.get('tableChanges'),
 	tableResult = config.get('tableResult');
 
 var g_oCriticalSection = {};
+let isSupportFastInsert = !!baseConnector.insertChanges;
 var maxPacketSize = config.get('max_allowed_packet'); // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
 
 function getDataFromTable (tableId, data, getCondition, callback) {
@@ -83,9 +84,9 @@ exports.loadTable = function (tableId, callbackFunction) {
 exports.insertChanges = function (objChanges, docId, index, user) {
 	lockCriticalSection(docId, function () {_insertChanges(0, objChanges, docId, index, user);});
 };
-exports.insertChangesPromise = function (objChanges, docId, index, user) {
+exports.insertChangesPromiseCompatibility = function (objChanges, docId, index, user) {
   return new Promise(function(resolve, reject) {
-    _fastInsertChangesCallback(0, objChanges, docId, index, user, function(error, result) {
+    _insertChangesCallback(0, objChanges, docId, index, user, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -93,6 +94,30 @@ exports.insertChangesPromise = function (objChanges, docId, index, user) {
       }
     });
   });
+};
+exports.insertChangesPromiseFast = function (objChanges, docId, index, user) {
+  return new Promise(function(resolve, reject) {
+    baseConnector.insertChanges(tableChanges, 0, objChanges, docId, index, user, function(error, result, isSupported) {
+      isSupportFastInsert = isSupported;
+      if (error) {
+        if (!isSupportFastInsert) {
+          resolve(exports.insertChangesPromiseCompatibility(objChanges, docId, index, user));
+        } else {
+          reject(error);
+        }
+      } else {
+        resolve(result);
+      }
+    });
+  });
+};
+exports.insertChangesPromise = function (objChanges, docId, index, user) {
+  if (isSupportFastInsert) {
+    return exports.insertChangesPromiseFast(objChanges, docId, index, user);
+  } else {
+    return exports.insertChangesPromiseCompatibility(objChanges, docId, index, user);
+  }
+
 };
 function _lengthInUtf8Bytes (s) {
 	return ~-encodeURI(s).split(/%..|./).length;
@@ -110,42 +135,6 @@ function _insertChanges (startIndex, objChanges, docId, index, user) {
   _insertChangesCallback(startIndex, objChanges, docId, index, user, function () {unLockCriticalSection(docId);});
 }
 
-function _fastInsertChangesCallback(startIndex, objChanges, docId, index, user, callback) {
-  let i = startIndex;
-  if (i >= objChanges.length) {
-    return;
-  }
-  let id = [];
-  let changeId = [];
-  let userId = [];
-  let userIdOriginal = [];
-  let username = [];
-  let change = [];
-  let time = [];
-  //Postgres 9.4 multi-argument unnest
-  let sqlCommand = `INSERT INTO ${tableChanges} (id, change_id, user_id, user_id_original, user_name, change_data, change_date) `;
-  sqlCommand += "SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::timestamp[]);";
-  let values = [id, changeId, userId, userIdOriginal, username, change, time];
-  let curLength = sqlCommand.length;
-  for (; i < objChanges.length; ++i) {
-    //4 is max utf8 bytes per symbol
-    curLength += 4 * (docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + 4 + 8;
-    if (curLength >= maxPacketSize && i > startIndex) {
-      baseConnector.sqlQuery(sqlCommand, function() {
-        _fastInsertChangesCallback(i, objChanges, docId, index, user, callback);
-      }, undefined, undefined, values);
-      return;
-    }
-    id.push(docId);
-    changeId.push(index++);
-    userId.push(user.id);
-    userIdOriginal.push(user.idOriginal);
-    username.push(user.username);
-    change.push(objChanges[i].change);
-    time.push(objChanges[i].time);
-  }
-  baseConnector.sqlQuery(sqlCommand, callback, undefined, undefined, values);
-}
 function _insertChangesCallback (startIndex, objChanges, docId, index, user, callback) {
 	var sqlCommand = "INSERT INTO " + tableChanges + " VALUES";
 	var i = startIndex, l = objChanges.length, sqlNextRow = "", lengthUtf8Current = 0, lengthUtf8Row = 0;

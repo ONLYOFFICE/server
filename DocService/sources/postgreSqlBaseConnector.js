@@ -59,6 +59,8 @@ types.setTypeParser(1184, function(stringValue) {
 
 var logger = require('./../../Common/sources/logger');
 
+var maxPacketSize = configSql.get('max_allowed_packet');
+
 exports.sqlQuery = function(sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
   co(function *() {
     var result = null;
@@ -126,7 +128,7 @@ exports.upsert = function(task) {
         if (isSupportOnConflict && '42601' == error.code) {
           //SYNTAX ERROR
           isSupportOnConflict = false;
-          logger.debug('checkIsSupportOnConflict false');
+          logger.warn('checkIsSupportOnConflict false');
           resolve(exports.upsert(task));
         } else {
           reject(error);
@@ -142,4 +144,55 @@ exports.upsert = function(task) {
       }
     }, true);
   });
+};
+exports.insertChanges = function(tableChanges, startIndex, objChanges, docId, index, user, callback) {
+  let i = startIndex;
+  if (i >= objChanges.length) {
+    return;
+  }
+  let isSupported = true;
+  let id = [];
+  let changeId = [];
+  let userId = [];
+  let userIdOriginal = [];
+  let username = [];
+  let change = [];
+  let time = [];
+  //Postgres 9.4 multi-argument unnest
+  let sqlCommand = `INSERT INTO ${tableChanges} (id, change_id, user_id, user_id_original, user_name, change_data, change_date) `;
+  sqlCommand += "SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::timestamp[]);";
+  let values = [id, changeId, userId, userIdOriginal, username, change, time];
+  let curLength = sqlCommand.length;
+  for (; i < objChanges.length; ++i) {
+    //4 is max utf8 bytes per symbol
+    curLength += 4 * (docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + 4 + 8;
+    if (curLength >= maxPacketSize && i > startIndex) {
+      exports.sqlQuery(sqlCommand, function(error, output) {
+        if (error && '42883' == error.code) {
+          isSupported = false;
+          logger.warn('postgresql does not support UNNEST');
+        }
+        if (error) {
+          callback(error, output, isSupported);
+        } else {
+          exports.insertChanges(tableChanges, i, objChanges, docId, index, user, callback);
+        }
+      }, undefined, undefined, values);
+      return;
+    }
+    id.push(docId);
+    changeId.push(index++);
+    userId.push(user.id);
+    userIdOriginal.push(user.idOriginal);
+    username.push(user.username);
+    change.push(objChanges[i].change);
+    time.push(objChanges[i].time);
+  }
+  exports.sqlQuery(sqlCommand, function(error, output) {
+    if (error && '42883' == error.code) {
+      isSupported = false;
+      logger.warn('postgresql does not support UNNEST');
+    }
+    callback(error, output, isSupported);
+  }, undefined, undefined, values);
 };
