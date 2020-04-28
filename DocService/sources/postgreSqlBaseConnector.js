@@ -45,7 +45,7 @@ var pool = new pg.Pool({
   database: configSql.get('dbName'),
   max: configSql.get('connectionlimit'),
   min: 0,
-  ssl: false,
+  ssl: configSql.get('ssl'),
   idleTimeoutMillis: 30000
 });
 //todo datetime timezone

@@ -114,6 +114,7 @@
 				"dbPass": "onlyoffice",
 				"charset": "utf8",
 				"connectionlimit": 10,
+				"ssl": false,
 				"max_allowed_packet": 1048575
 			},
 			"redis": {
