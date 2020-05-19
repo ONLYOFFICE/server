@@ -289,17 +289,16 @@ var cleanupCache = co.wrap(function* (docId) {
   return res;
 });
 
-function commandOpenStartPromise(docId, opt_updateUserIndex, opt_documentCallbackUrl, opt_baseUrl) {
+function commandOpenStartPromise(docId, baseUrl, opt_updateUserIndex, opt_documentCallbackUrl) {
   var task = new taskResult.TaskResultData();
   task.key = docId;
   //None instead WaitQueue to prevent: conversion task is lost when entering and leaving the editor quickly(that leads to an endless opening)
   task.status = taskResult.FileStatus.None;
   task.statusInfo = constants.NO_ERROR;
-  if (opt_documentCallbackUrl && opt_baseUrl) {
+  task.baseurl = baseUrl;
+  if (opt_documentCallbackUrl) {
     task.callback = opt_documentCallbackUrl;
-    task.baseurl = opt_baseUrl;
   }
-
   return taskResult.upsert(task, opt_updateUserIndex);
 }
 function* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
@@ -307,7 +306,7 @@ function* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
   if (opt_upsertRes) {
     upsertRes = opt_upsertRes;
   } else {
-    upsertRes = yield commandOpenStartPromise(cmd.getDocId());
+    upsertRes = yield commandOpenStartPromise(cmd.getDocId(), utils.getBaseUrlByConnection(conn));
   }
   //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
   //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html

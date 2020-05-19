@@ -1855,7 +1855,7 @@ exports.install = function(server, callbackFunction) {
             return;
           }
         }
-        upsertRes = yield canvasService.commandOpenStartPromise(docId, true, data.documentCallbackUrl, utils.getBaseUrlByConnection(conn));
+        upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl);
 		  curIndexUser = upsertRes.affectedRows == 1 ? 1 : upsertRes.insertId;
       }
       if (constants.CONN_CLOSED === conn.readyState) {
