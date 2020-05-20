@@ -87,8 +87,11 @@ exports.uploadTempFile = function(req, res) {
   });
 };
 function checkJwtUpload(docId, errorName, token){
+  let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Session);
+  return checkJwtUploadTransformRes(docId, errorName, checkJwtRes);
+}
+function checkJwtUploadTransformRes(docId, errorName, checkJwtRes){
   var res = {err: true, docId: null, userid: null, encrypted: null};
-  var checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Session);
   if (checkJwtRes.decoded) {
     var doc = checkJwtRes.decoded.document;
     var edit = checkJwtRes.decoded.editorConfig;
@@ -204,12 +207,12 @@ exports.uploadImageFile = function(req, res) {
         let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
         if (!checkJwtRes) {
           //todo remove compatibility with previous versions
-          checkJwtRes = checkJwtUpload(docId, 'uploadImageFile', req.query['token']);
+          checkJwtRes = docsCoServer.checkJwt(docId, req.query['token'], commonDefines.c_oAscSecretType.Session);
         }
-
-        if (!checkJwtRes.err) {
-          docId = checkJwtRes.docId || docId;
-          encrypted = checkJwtRes.encrypted;
+        let transformedRes = checkJwtUploadTransformRes(docId, 'uploadImageFile', checkJwtRes);
+        if (!transformedRes.err) {
+          docId = transformedRes.docId || docId;
+          encrypted = transformedRes.encrypted;
         } else {
           isValidJwt = false;
         }
