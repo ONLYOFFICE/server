@@ -780,6 +780,9 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
             let replyData = docsCoServer.parseReplyData(docId, replyStr);
             isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
+            if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
+              logger.warn('sendServerRequest returned an error: docId = %s; data = %s', docId, replyStr);
+            }
           } catch (err) {
             logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
           }
@@ -810,7 +813,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
                 if (attempt < cfgCallbackBackoffOptions.retries) {
                   needRetry = true;
                 } else {
-                  logger.debug('commandSfcCallback backoff limit exceeded: docId = %s', docId);
+                  logger.warn('commandSfcCallback backoff limit exceeded: docId = %s', docId);
                 }
               }
             }
@@ -820,6 +823,9 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               //в случае comunity server придет запрос в CommandService проверяем результат
               var savedVal = yield docsCoServer.editorData.getdelSaved(docId);
               requestRes = (null == savedVal || '1' === savedVal);
+            }
+            if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
+              logger.warn('sendServerRequest returned an error: docId = %s; data = %s', docId, replyStr);
             }
             if (requestRes) {
               updateIfTask = undefined;
@@ -851,7 +857,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     }
     if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
       try {
-        logger.debug("storeForgotten: docId = %s", docId);
+        logger.warn("storeForgotten: docId = %s", docId);
         let forgottenName = cfgForgottenFilesName + pathModule.extname(cmd.getOutputPath());
         yield storage.copyObject(savePathDoc, cfgForgottenFiles + '/' + docId + '/' + forgottenName);
       } catch (err) {
@@ -926,6 +932,9 @@ function* commandSendMMCallback(cmd) {
       recordErrorCount++;
       outputMailMerge.setRecordErrorCount(recordErrorCount);
       mailMergeSendData.setRecordErrorCount(recordErrorCount);
+    }
+    if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
+      logger.warn('sendServerRequest returned an error: docId = %s; data = %s', docId, replyStr);
     }
   }
   var newRecordFrom = mailMergeSendData.getRecordFrom() + Math.max(files.length, 1);
