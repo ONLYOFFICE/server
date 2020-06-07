@@ -125,6 +125,10 @@ function getUpsertString(task, values) {
       sqlCommand += `, callback = task_result.callback || '${sqlBase.UserCallback.prototype.delimiter}{"userIndex":' `;
       sqlCommand += ` || (task_result.user_index + 1)::text || ',"callback":' || ${p10}::text || '}'`;
     }
+    if (task.baseurl) {
+      let p11 = addSqlParam(task.baseurl, values);
+      sqlCommand += `, baseurl = ${p11}`;
+    }
     sqlCommand += ", user_index = task_result.user_index + 1 RETURNING user_index as userindex;";
     return sqlCommand;
   } else {

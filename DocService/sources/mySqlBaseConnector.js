@@ -105,6 +105,10 @@ exports.upsert = function(task, opt_updateUserIndex) {
 			let p10 = addSqlParam(JSON.stringify(task.callback), values);
 			sqlCommand += `, callback = CONCAT(callback , '${sqlBase.UserCallback.prototype.delimiter}{"userIndex":' , (user_index + 1) , ',"callback":', ${p10}, '}')`;
 		}
+		if (task.baseurl) {
+			let p11 = addSqlParam(task.baseurl, values);
+			sqlCommand += `, baseurl = ${p11}`;
+		}
 		if (opt_updateUserIndex) {
 			sqlCommand += ', user_index = LAST_INSERT_ID(user_index + 1)';
 		}
