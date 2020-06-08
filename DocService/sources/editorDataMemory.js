@@ -32,6 +32,7 @@
 
 'use strict';
 const utils = require('./../../Common/sources/utils');
+const commonDefines = require('./../../Common/sources/commondefines');
 
 function EditorData() {
   this.data = {};
@@ -63,10 +64,16 @@ EditorData.prototype._checkAndLock = function(name, docId, fencingToken, ttl) {
 EditorData.prototype._checkAndUnlock = function(name, docId, fencingToken) {
   let data = this._getDocumentData(docId);
   const now = Date.now();
-  let res = true;
-  if (data[name] && now < data[name].expireAt && fencingToken !== data[name].fencingToken) {
-    res = false;
+  let res;
+  if (data[name] && now < data[name].expireAt) {
+    if (fencingToken === data[name].fencingToken) {
+      res = commonDefines.c_oAscUnlockRes.Unlocked;
+      delete data[name];
+    } else {
+      res = commonDefines.c_oAscUnlockRes.Locked;
+    }
   } else {
+    res = commonDefines.c_oAscUnlockRes.Empty;
     delete data[name];
   }
   return Promise.resolve(res);

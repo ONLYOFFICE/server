@@ -969,6 +969,11 @@ const c_oAscQueueType = {
   rabbitmq: 'rabbitmq',
   activemq: 'activemq'
 };
+const c_oAscUnlockRes = {
+  Locked: 0,
+  Unlocked: 1,
+  Empty: 2
+};
 
 const buildVersion = '4.1.2';
 const buildNumber = 37;
@@ -992,5 +997,6 @@ exports.c_oAscForceSaveTypes = c_oAscForceSaveTypes;
 exports.c_oAscUrlTypes = c_oAscUrlTypes;
 exports.c_oAscSecretType = c_oAscSecretType;
 exports.c_oAscQueueType = c_oAscQueueType;
+exports.c_oAscUnlockRes = c_oAscUnlockRes;
 exports.buildVersion = buildVersion;
 exports.buildNumber = buildNumber;
