@@ -758,6 +758,17 @@ exports.forwarded = forwarded;
 exports.getIndexFromUserId = function(userId, userIdOriginal){
   return parseInt(userId.substring(userIdOriginal.length));
 };
+exports.checkPathTraversal = function(docId, rootDirectory, filename) {
+  if (filename.indexOf('\0') !== -1) {
+    logger.warn('checkPathTraversal Poison Null Bytes docId=%s filename=%s', docId, filename);
+    return false;
+  }
+  if (!filename.startsWith(rootDirectory)) {
+    logger.warn('checkPathTraversal Path Traversal docId=%s filename=%s', docId, filename);
+    return false;
+  }
+  return true;
+};
 exports.getConnectionInfo = function(conn){
     var user = conn.user;
     var data = {

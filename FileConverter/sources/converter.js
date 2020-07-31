@@ -331,6 +331,9 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorPro
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.bin');
     needConcatFiles = true;
   }
+  if (!utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
+    return constants.CONVERT_PARAMS;
+  }
   //mail merge
   let mailMergeSend = cmd.getMailMergeSend();
   if (mailMergeSend) {
@@ -591,10 +594,14 @@ function* ExecuteTask(task) {
   let authorProps = {lastModifiedBy: null, modified: null};
   if (cmd.getUrl()) {
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + cmd.getFormat());
-    error = yield* downloadFile(dataConvert.key, cmd.getUrl(), dataConvert.fileFrom, cmd.getWithAuthorization());
-    if(clientStatsD) {
-      clientStatsD.timing('conv.downloadFile', new Date() - curDate);
-      curDate = new Date();
+    if (utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
+      error = yield* downloadFile(dataConvert.key, cmd.getUrl(), dataConvert.fileFrom, cmd.getWithAuthorization());
+      if(clientStatsD) {
+        clientStatsD.timing('conv.downloadFile', new Date() - curDate);
+        curDate = new Date();
+      }
+    } else {
+      error = constants.CONVERT_PARAMS;
     }
   } else if (cmd.getSaveKey()) {
     yield* downloadFileFromStorage(cmd.getDocId(), cmd.getDocId(), tempDirs.source);

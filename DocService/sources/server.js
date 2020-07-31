@@ -161,9 +161,8 @@ docsCoServer.install(server, () => {
 	app.get('/FileUploader.ashx', utils.checkClientIp, rawFileParser, fileUploaderService.uploadTempFile);
 	app.post('/FileUploader.ashx', utils.checkClientIp, rawFileParser, fileUploaderService.uploadTempFile);
 
-	const docIdRegExp = new RegExp("^[" + constants.DOC_ID_PATTERN + "]*$", 'i');
 	app.param('docid', (req, res, next, val) => {
-		if (docIdRegExp.test(val)) {
+		if (constants.DOC_ID_REGEX.test(val)) {
 			next();
 		} else {
 			res.sendStatus(403);

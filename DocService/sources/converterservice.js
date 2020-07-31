@@ -187,9 +187,20 @@ function convertRequest(req, res, isJson) {
         utils.fillResponse(req, res, undefined, authRes.code, isJson);
         return;
       }
+      if (params.key && !constants.DOC_ID_REGEX.test(params.key)) {
+        logger.warn('convertRequest unexpected key = %s: docId = %s', params.key, docId);
+        utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
+        return;
+      }
+      if (params.filetype && !constants.EXTENTION_REGEX.test(params.filetype)) {
+        logger.warn('convertRequest unexpected filetype = %s: docId = %s', params.filetype, docId);
+        utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
+        return;
+      }
       let outputtype = params.outputtype || '';
       let outputFormat = formatChecker.getFormatFromString(outputtype);
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
+        logger.warn('convertRequest unexpected outputtype = %s: docId = %s', outputtype, docId);
         utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
         return;
       }
