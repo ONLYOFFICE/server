@@ -322,7 +322,9 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
         if (200 == response.statusCode || 204 == response.statusCode) {
           resolve(body);
         } else {
-          let error = new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body);
+          let code = response.statusCode;
+          let responseHeaders = JSON.stringify(response.headers);
+          let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
           reject(error);
         }
