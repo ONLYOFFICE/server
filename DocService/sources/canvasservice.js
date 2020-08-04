@@ -1125,6 +1125,7 @@ exports.saveFile = function(req, res) {
       }
       cmd.setStatusInfo(constants.NO_ERROR);
       yield* addRandomKeyTaskCmd(cmd);
+      cmd.setOutputPath(constants.OUTPUT_NAME + pathModule.extname(cmd.getOutputPath()));
       yield storage.putObject(cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
       let replyStr = yield* commandSfcCallback(cmd, false, true);
       if (replyStr) {
