@@ -252,6 +252,38 @@ EditorData.prototype.setEditorConnections = function(countEdit, countView, now, 
 EditorData.prototype.getEditorConnections = function() {
   return Promise.resolve(this.stat);
 };
+EditorData.prototype.setEditorConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.incrEditorConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.getEditorConnectionsCount = function(connections) {
+  let count = 0;
+  for (let i = 0; i < connections.length; ++i) {
+    let conn = connections[i];
+    if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view))) {
+      count++;
+    }
+  }
+  return Promise.resolve(count);
+};
+EditorData.prototype.setViewerConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.incrViewerConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.getViewerConnectionsCount = function(connections) {
+  let count = 0;
+  for (let i = 0; i < connections.length; ++i) {
+    let conn = connections[i];
+    if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+      count++;
+    }
+  }
+  return Promise.resolve(count);
+};
 
 EditorData.prototype.addShutdown = function(key, docId) {
   if (!this.shutdown[key]) {
