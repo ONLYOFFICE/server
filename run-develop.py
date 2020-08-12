@@ -77,9 +77,6 @@ try:
   
   base.create_dir('App_Data')
 
-  base.create_dir('SpellChecker/dictionaries')
-  base.copy_dir_content('../dictionaries', 'SpellChecker/dictionaries', '', '.git')
-
   install_module('DocService')
   install_module('Common')
   install_module('FileConverter')

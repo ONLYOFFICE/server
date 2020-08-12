@@ -49,7 +49,7 @@
   },
   "SpellChecker": {
     "server": {
-      "dictDir": "./dictionaries"
+      "dictDir": "../../../dictionaries"
     }
   }
 }
