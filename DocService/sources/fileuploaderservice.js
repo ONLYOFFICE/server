@@ -223,12 +223,11 @@ exports.uploadImageFile = function(req, res) {
         if (buffer.length <= cfgImageSize) {
           var format = formatChecker.getImageFormat(buffer, undefined);
           var formatStr = formatChecker.getStringFromFormat(format);
-          var supportedFormats = cfgTypesUpload || 'jpg';
-          let formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
-          if (!formatLimit && encrypted && PATTERN_ENCRYPTED == buffer.toString('utf8', 0, PATTERN_ENCRYPTED.length)) {
-            formatLimit = true;
+          if (encrypted && PATTERN_ENCRYPTED === buffer.toString('utf8', 0, PATTERN_ENCRYPTED.length)) {
             formatStr = buffer.toString('utf8', PATTERN_ENCRYPTED.length, buffer.indexOf(';', PATTERN_ENCRYPTED.length));
           }
+          var supportedFormats = cfgTypesUpload || 'jpg';
+          let formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
           if (formatLimit) {
             //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
             var strImageName = crypto.randomBytes(16).toString("hex");
