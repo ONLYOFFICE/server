@@ -70,7 +70,7 @@ try:
     start_mac_services()
 
   base.print_info('Build modules')
-  base.cmd_in_dir('../build_tools', 'python', ['configure.py', '--branch', 'develop', '--module', 'develop', '--update', '1', '--update-light', '1', '--clean', '0', '--sdkjs-addon', 'comparison', '--sdkjs-addon', 'content-controls', '--sdkjs-addon', 'pivot-tables', '--web-apps-addon', 'mobile', '--sdkjs-addon', 'sheet-views'])
+  base.cmd_in_dir('../build_tools', 'python', ['configure.py', '--branch', 'develop', '--module', 'develop', '--update', '1', '--update-light', '1', '--clean', '0', '--sdkjs-addon', 'comparison', '--sdkjs-addon', 'content-controls', '--web-apps-addon', 'mobile', '--sdkjs-addon', 'sheet-views'])
   base.cmd_in_dir('../build_tools', 'python', ['make.py'])
   
   run_integration_example()
