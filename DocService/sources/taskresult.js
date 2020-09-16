@@ -39,6 +39,7 @@ var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
+let concatParams = sqlBase.baseConnector.concatParams;
 
 var RANDOM_KEY_MAX = 10000;
 
@@ -139,7 +140,7 @@ function toUpdateArray(task, updateTime, isMask, values) {
     var userCallback = new sqlBase.UserCallback();
     userCallback.fromValues(task.indexUser, task.callback);
     let sqlParam = addSqlParam(userCallback.toSQLInsert(), values);
-    res.push(`callback=callback || ${sqlParam}`);
+    res.push(`callback=${concatParams('callback', sqlParam)}`);
   }
   if (null != task.baseurl) {
     let sqlParam = addSqlParam(task.baseurl, values);
