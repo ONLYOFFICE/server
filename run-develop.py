@@ -40,7 +40,7 @@ try:
   if base.get_env('PATH').find(sys.exec_prefix) == -1:
     base.set_env('PATH', sys.exec_prefix + os.pathsep + base.get_env('PATH'))
     
-  #base.cmd_in_dir('./', 'python', ['install_develop.py'])
+  base.cmd_in_dir('./', 'python', ['install_develop.py'])
   
   platform = base.host_platform()
   if ("windows" == platform):
@@ -78,3 +78,4 @@ try:
   run_module('SpellChecker/sources', ['server.js'])
 except SystemExit:
   input("Ignoring SystemExit. Press Enter to continue...")
+  
