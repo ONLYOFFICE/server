@@ -679,10 +679,17 @@ function* startForceSave(docId, type, opt_userdata, opt_userConnectionId, opt_ba
   logger.debug('startForceSave start:docId = %s', docId);
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null};
   let startedForceSave;
+  let hasEncrypted = false;
   if (!shutdownFlag) {
-    startedForceSave = yield editorData.checkAndStartForceSave(docId);
+    let hvals = yield editorData.getPresence(docId, connections);
+    hasEncrypted = hvals.some((currentValue) => {
+      return !!JSON.parse(currentValue).encrypted;
+    });
+    if (!hasEncrypted) {
+      startedForceSave = yield editorData.checkAndStartForceSave(docId);
+    }
   }
-  logger.debug('startForceSave canStart:docId = %s; startedForceSave = %j', docId, startedForceSave);
+  logger.debug('startForceSave canStart:docId = %s; hasEncrypted = %s; startedForceSave = %j', docId, hasEncrypted, startedForceSave);
   if (startedForceSave) {
     let baseUrl = opt_baseUrl || startedForceSave.baseUrl;
     let forceSave = new commonDefines.CForceSaveData(startedForceSave);

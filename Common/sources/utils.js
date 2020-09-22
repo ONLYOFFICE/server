@@ -786,7 +786,8 @@ exports.getConnectionInfo = function(conn){
       indexUser: user.indexUser,
       view: user.view,
       connectionId: conn.id,
-      isCloseCoAuthoring: conn.isCloseCoAuthoring
+      isCloseCoAuthoring: conn.isCloseCoAuthoring,
+      encrypted: conn.encrypted
     };
     return data;
 };
