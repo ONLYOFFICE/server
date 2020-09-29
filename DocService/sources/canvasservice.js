@@ -221,7 +221,8 @@ function* saveParts(cmd, filename) {
   var saveType = cmd.getSaveType();
   if (SAVE_TYPE_COMPLETE_ALL !== saveType) {
     let ext = pathModule.extname(filename);
-    filename = pathModule.basename(filename, ext) + (cmd.getSaveIndex() || '') + ext;
+    let saveIndex = parseInt(cmd.getSaveIndex()) || 1;//prevent path traversal
+    filename = pathModule.basename(filename, ext) + saveIndex + ext;
   }
   if ((SAVE_TYPE_PART_START === saveType || SAVE_TYPE_COMPLETE_ALL === saveType) && !cmd.getSaveKey()) {
     yield* addRandomKeyTaskCmd(cmd);
