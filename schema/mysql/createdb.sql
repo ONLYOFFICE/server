@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS `task_result` (
   `last_open_date` datetime NOT NULL,
   `user_index` int(10) unsigned NOT NULL DEFAULT 1,
   `change_id` int(10) unsigned NOT NULL DEFAULT 0,
-  `callback` text NOT NULL,
+  `callback` longtext NOT NULL,
   `baseurl` text NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
