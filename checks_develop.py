@@ -106,13 +106,14 @@ def check_erlang():
   if (erlangPath != ""):
     erlangBitness = run_command('cd ' + erlangPath + '/bin && erl -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
     if (erlangBitness == '8'):
-      if (os.getenv("ERLANG_HOME") != get_erlangPath()):
-        dependence.progsToInstall.append('ERLANG_HOME')
       print("Installed Erlang bitness is valid")
-      return dependence
-    print('Installed Erlang must be x64') 
-    dependence.progsToUninstall.append('Erlang')
-  
+    else:
+      print('Installed Erlang must be x64')
+      dependence.progsToInstall.append('Erlang')  
+    if (os.getenv("ERLANG_HOME") != get_erlangPath()):
+        dependence.progsToInstall.append('ERLANG_HOME')
+    return dependence
+          
   print('Erlang not found')
   dependence.progsToInstall.append('Erlang')
   dependence.progsToInstall.append('RabbitMQ')

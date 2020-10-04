@@ -113,14 +113,14 @@ def installingProgram(sProgram, sParam = ''):
   elif (sProgram == "BuildTools"):
     print('Installing Build Tools...')
     base.download("https://download.visualstudio.microsoft.com/download/pr/11503713/e64d79b40219aea618ce2fe10ebd5f0d/vs_BuildTools.exe", './vs_BuildTools.exe')
-    code = subprocess.call('vs_buildtools.exe --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    code = os.system('vs_BuildTools.exe --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait')
     if (code == 0):
       print("Install success!")
-      base.delete_file('./vs_buildtools.exe')
+      base.delete_file('./vs_BuildTools.exe')
       return True
     else:
       print("Error!")
-      base.delete_file('./vs_buildtools.exe')
+      base.delete_file('./vs_BuildTools.exe')
       return False
 
 def deleteProgram(sName):
@@ -164,12 +164,12 @@ try:
           installMySQLServer()
         else:
           installingProgram(checkResults.progsToInstall[i])
-      input('Done')
+      base.print_info('All installations completed!')
     else:
       ctypes.windll.shell32.ShellExecuteW(None, unicode("runas"), unicode(sys.executable), unicode(''.join(sys.argv)), None, 1)
       sys.exit(0)
   else:
-    base.print_info('All checks complite')
+    base.print_info('All checks complited!')
 except SystemExit:
   input("Ignoring SystemExit. Press Enter to continue...")
 
