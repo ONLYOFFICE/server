@@ -18,16 +18,17 @@ class CDependencies:
     self.paramsForUninstallers = []
     self.pathsToRemove = []
     self.pathToValidMySQLServer = ''
-    
+    self.pathToValidErlang = ''
   
   def append(self, oCdependencies):
-    self.progsToInstall        += oCdependencies.progsToInstall
-    self.progsToUninstall      += oCdependencies.progsToUninstall
-    self.pathsToUninstallers   += oCdependencies.pathsToUninstallers
-    self.namesOfUninstallers   += oCdependencies.namesOfUninstallers 
-    self.paramsForUninstallers += oCdependencies.paramsForUninstallers     
-    self.pathsToRemove         += oCdependencies.pathsToRemove
-    self.pathToValidMySQLServer = oCdependencies.pathToValidMySQLServer   
+    self.progsToInstall         += oCdependencies.progsToInstall
+    self.progsToUninstall       += oCdependencies.progsToUninstall
+    self.pathsToUninstallers    += oCdependencies.pathsToUninstallers
+    self.namesOfUninstallers    += oCdependencies.namesOfUninstallers 
+    self.paramsForUninstallers  += oCdependencies.paramsForUninstallers     
+    self.pathsToRemove          += oCdependencies.pathsToRemove
+    self.pathToValidMySQLServer += oCdependencies.pathToValidMySQLServer   
+    self.pathToValidErlang      += oCdependencies.pathToValidErlang   
 
 def check_pythonPath():
   path = base.get_env('PATH')
@@ -109,28 +110,38 @@ def check_erlang():
   dependence = CDependencies()
   
   base.print_info('Check installed Erlang')
-  bReinstallRabbit = False
+  bReinstallRabbit = True
+  bInstallErlang = True
   erlangPaths = get_erlangPaths()
   
   for i in range(len(erlangPaths)):
     erlangBitness = run_command('cd ' + erlangPaths[i] + '/bin && erl -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
+    erlangVersion = run_command('cd ' + erlangPaths[i] + '/bin && erl -eval "erlang:display(erlang:system_info(otp_release)), halt()." -noshell')['stdout'][1:3]
+    
+    if (int(erlangVersion) < 23):
+      dependence.pathsToUninstallers.append(erlangPaths[i])
+      dependence.namesOfUninstallers.append('Uninstall')
+      dependence.paramsForUninstallers.append(r'/S')
+      continue
+        
     if (erlangBitness == '8'):
-      print("Installed Erlang bitness is valid")
+      if (os.getenv("ERLANG_HOME") == erlangPaths[i]):
+        print("Erlang is valid")
+        return dependence
+      else:
+        print("ERLANG_HOME isn't valid")
+        bReinstallRabbit == True
     else:
-      erlangVersion = run_command('cd ' + erlangPaths[i] + '/bin && erl -eval "erlang:display(erlang:system_info(otp_release)), halt()." -noshell')['stdout'][1:3]
-      if (int(erlangVersion) >= 23):
-        bReinstallRabbit = True
-        dependence.pathsToUninstallers.append(erlangPaths[i])
-        dependence.namesOfUninstallers.append('Uninstall')
-        dependence.paramsForUninstallers.append(r'/S')
-        continue
-      break
-    if (os.getenv("ERLANG_HOME") != erlangPaths[i]):
       bReinstallRabbit = True
-    else:
-      return dependence
+      dependence.pathsToUninstallers.append(erlangPaths[i])
+      dependence.namesOfUninstallers.append('Uninstall')
+      dependence.paramsForUninstallers.append(r'/S')
+      continue
+      
     if (bReinstallRabbit == True):
       dependence.progsToInstall.append('RabbitMQ')
+      dependence.progsToInstall.append('ERLANG_HOME')
+      dependence.pathToValidErlang = erlangPaths[i]
       return dependence
     
   print('Erlang x64 not found')
@@ -184,7 +195,7 @@ def check_mysqlInstaller():
     aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
     
     count_subkey = winreg.QueryInfoKey(aKey)[0]
-    print(count_subkey)
+    
     for i in range(count_subkey):
       asubkey_name = winreg.EnumKey(aKey, i)
       if (asubkey_name.find('MySQL Installer') != - 1):
@@ -268,7 +279,7 @@ def check_buildTools():
     dependence.progsToInstall.append('BuildTools')
     return dependence
   
-  print('Build tools in installed')
+  print('Build tools is installed')
   
   return dependence
   
@@ -292,7 +303,7 @@ def check_dependencies():
   final_dependence.append(check_nodejs())
   final_dependence.append(check_java())
   final_dependence.append(check_erlang())
-  #final_dependence.append(check_rabbitmq())
+  final_dependence.append(check_rabbitmq())
   final_dependence.append(check_gruntcli())
   final_dependence.append(check_buildTools())
   final_dependence.append(check_mysqlInstaller())
@@ -306,5 +317,3 @@ def check_dependencies():
   
   return final_dependence
   
-
-

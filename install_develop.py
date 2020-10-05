@@ -43,7 +43,7 @@ def installingProgram(sProgram, sParam = ''):
       return False
   elif (sProgram == 'RabbitMQ'):
     print("Installing RabbitMQ...")
-    base.download("https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.8/rabbitmq-server-3.8.8.exe", './rabbitmq.exe')
+    base.download("https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.9/rabbitmq-server-3.8.9.exe", './rabbitmq.exe')
     code = subprocess.call('rabbitmq.exe /S',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     if (code == 0):
       print("Install success!")
@@ -64,6 +64,13 @@ def installingProgram(sProgram, sParam = ''):
     else:
       print("Error!")
       base.delete_file('./erlang.exe')
+      return False
+  elif (sProgram == 'ERLANG_HOME'):
+    print('Setting ERLANG_HOME')
+    code = subprocess.call('SETX /M ERLANG_HOME "' + sParam + '"')
+    if (code == 0):
+      return True
+    else:
       return False
   elif (sProgram == 'GruntCli'):
     print('Installing Grunt-Cli...')
@@ -169,9 +176,12 @@ try:
           installingProgram(checkResults.progsToInstall[i], checkResults.pathToValidMySQLServer)
         elif (checkResults.progsToInstall[i] == 'MySQLServer'):
           installMySQLServer()
+        elif (checkResults.progsToInstall[i] == 'ERLANG_HOME'):
+          installingProgram(checkResults.progsToInstall[i], checkResults.pathToValidErlang)
         else:
           installingProgram(checkResults.progsToInstall[i])
       base.print_info('All installations completed!')
+      input()
     else:
       ctypes.windll.shell32.ShellExecuteW(None, unicode("runas"), unicode(sys.executable), unicode(''.join(sys.argv)), None, 1)
       sys.exit(0)
