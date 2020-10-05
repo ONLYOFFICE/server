@@ -21,9 +21,12 @@ class CDependencies:
     
   
   def append(self, oCdependencies):
-    self.progsToInstall   += oCdependencies.progsToInstall
-    self.progsToUninstall += oCdependencies.progsToUninstall
-    self.pathsToRemove    += oCdependencies.pathsToRemove
+    self.progsToInstall        += oCdependencies.progsToInstall
+    self.progsToUninstall      += oCdependencies.progsToUninstall
+    self.pathsToUninstallers   += oCdependencies.pathsToUninstallers
+    self.namesOfUninstallers   += oCdependencies.namesOfUninstallers 
+    self.paramsForUninstallers += oCdependencies.paramsForUninstallers     
+    self.pathsToRemove         += oCdependencies.pathsToRemove
     self.pathToValidMySQLServer = oCdependencies.pathToValidMySQLServer   
 
 def check_pythonPath():
@@ -90,11 +93,11 @@ def get_erlangPaths():
     aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
     count_subkey = winreg.QueryInfoKey(aKey)[0]
     
-    for i in range(count_subkey, 0, -1):
+    for i in range(count_subkey):
       asubkey_name = winreg.EnumKey(aKey, i)
       if (asubkey_name.split(".")[0].isdigit()):
         asubkey = winreg.OpenKey(aKey, asubkey_name)
-        Paths.append(winreg.QueryValueEx(asubkey, None)[0])
+        Paths.insert(0, winreg.QueryValueEx(asubkey, None)[0])
       else:
         continue
     return Paths
@@ -113,21 +116,23 @@ def check_erlang():
     if (erlangBitness == '8'):
       print("Installed Erlang bitness is valid")
     else:
-      if (os.getenv("ERLANG_HOME") == erlangPaths):
-        bReinstallRabbit = True
+      bReinstallRabbit = True
       dependence.pathsToUninstallers.append(erlangPaths[i])
       dependence.namesOfUninstallers.append('Uninstall')
       dependence.paramsForUninstallers.append(r'/S')
       continue
     if (os.getenv("ERLANG_HOME") != erlangPaths[i]):
-        bReinstallRabbit = True
+      bReinstallRabbit = True
+    else:
+      return dependence
     if (bReinstallRabbit == True):
       dependence.progsToInstall.append('RabbitMQ')
-    return dependence
-          
+      break
+    
   print('Erlang x64 not found')
   dependence.progsToInstall.append('Erlang')
-  dependence.progsToInstall.append('RabbitMQ')
+  if (bReinstallRabbit == True):
+    dependence.progsToInstall.append('RabbitMQ')
   return dependence
 
 def check_gruntcli():
@@ -175,6 +180,7 @@ def check_mysqlInstaller():
     aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
     
     count_subkey = winreg.QueryInfoKey(aKey)[0]
+    print(count_subkey)
     for i in range(count_subkey):
       asubkey_name = winreg.EnumKey(aKey, i)
       if (asubkey_name.find('MySQL Installer') != - 1):
@@ -250,6 +256,7 @@ def check_buildTools():
   base.print_info('Check installed Build Tools')
   result = run_command(os.path.split(os.getcwd())[0] + r'\build_tools\tools\win\vswhere\vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property DisplayName')['stdout']
   if (result == ''):
+    print('Build tools not found')
     dependence.progsToInstall.append('BuildTools')
     return dependence
   
@@ -288,6 +295,4 @@ def check_dependencies():
   final_dependence.append(check_mysqlServer(mySQLServersBitness, mySQLServersVersions, mySQLServersPaths, mySQLServersDataPaths))
   
   return final_dependence
-
-print(get_erlangPaths())
-input()
+  

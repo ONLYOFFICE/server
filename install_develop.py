@@ -56,7 +56,7 @@ def installingProgram(sProgram, sParam = ''):
   elif (sProgram == 'Erlang'):
     print("Installing Erlang...")
     base.download("http://erlang.org/download/otp_win64_23.0.exe", './erlang.exe')
-    code = subprocess.call('erlang.exe /S',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    code = os.system('erlang.exe /S')
     if (code == 0):
       print("Install success!")
       base.delete_file('./erlang.exe')
@@ -134,7 +134,7 @@ def deleteProgram(sName):
     return False
   
 def delPrgrmByUninstaller(sPath, sName, sParam):
-  print("Deleting " + sName + "...")
+  print("Deleting invalid program...")
   code = subprocess.call('cd ' + sPath + ' && ' + sName + ' ' + sParam,  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
   
   if (code == 0):
@@ -164,7 +164,7 @@ try:
     if is_admin():
       for i in range(len(checkResults.progsToUninstall)):
         deleteProgram(checkResults.progsToUninstall[i])
-        
+      
       for i in range(len(checkResults.pathsToUninstallers)):
         delPrgrmByUninstaller(checkResults.pathsToUninstallers[i], checkResults.namesOfUninstallers[i], checkResults.paramsForUninstallers[i])
         
