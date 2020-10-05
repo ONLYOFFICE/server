@@ -133,6 +133,17 @@ def deleteProgram(sName):
     print("Error!")
     return False
   
+def delPrgrmByUninstaller(sPath, sName, sParam):
+  print("Deleting " + sName + "...")
+  code = subprocess.call('cd ' + sPath + ' && ' + sName + ' ' + sParam,  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+  
+  if (code == 0):
+    print("Delete success!")
+    return True
+  else:
+    print("Error!")
+    return False
+  
 def installMySQLServer():
   installingProgram('MySQLServer')
   mysqlPaths    = check.get_mysqlServersInfo('Location')
@@ -153,6 +164,9 @@ try:
     if is_admin():
       for i in range(len(checkResults.progsToUninstall)):
         deleteProgram(checkResults.progsToUninstall[i])
+        
+      for i in range(len(checkResults.pathsToUninstallers)):
+        delPrgrmByUninstaller(checkResults.pathsToUninstallers[i], checkResults.namesOfUninstallers[i], checkResults.paramsForUninstallers[i])
         
       for i in range(len(checkResults.pathsToRemove)):
         shutil.rmtree(checkResults.pathsToRemove[i])

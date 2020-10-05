@@ -13,8 +13,12 @@ class CDependencies:
   def __init__(self):
     self.progsToInstall = []
     self.progsToUninstall = []
+    self.pathsToUninstallers = []
+    self.namesOfUninstallers = []
+    self.paramsForUninstallers = []
     self.pathsToRemove = []
     self.pathToValidMySQLServer = ''
+    
   
   def append(self, oCdependencies):
     self.progsToInstall   += oCdependencies.progsToInstall
@@ -79,42 +83,49 @@ def check_rabbitmq():
   print('Installed RabbitMQ is valid')
   return dependence
 
-def get_erlangPath():
-  Path = ""
+def get_erlangPaths():
+  Paths = []
   try:
     keyValue = r"SOFTWARE\WOW6432Node\Ericsson\Erlang"
     aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
     count_subkey = winreg.QueryInfoKey(aKey)[0]
     
-    for i in range(count_subkey):
+    for i in range(count_subkey, 0, -1):
       asubkey_name = winreg.EnumKey(aKey, i)
       if (asubkey_name.split(".")[0].isdigit()):
         asubkey = winreg.OpenKey(aKey, asubkey_name)
-        Path = winreg.QueryValueEx(asubkey, None)[0]
+        Paths.append(winreg.QueryValueEx(asubkey, None)[0])
       else:
         continue
-    return Path
+    return Paths
   except:
-    return Path
+    return Paths
     
 def check_erlang():
   dependence = CDependencies()
   
   base.print_info('Check installed Erlang')
-  erlangPath = get_erlangPath()
+  bReinstallRabbit = False
+  erlangPaths = get_erlangPaths()
   
-  if (erlangPath != ""):
-    erlangBitness = run_command('cd ' + erlangPath + '/bin && erl -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
+  for i in range(len(erlangPaths)):
+    erlangBitness = run_command('cd ' + erlangPaths[i] + '/bin && erl -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
     if (erlangBitness == '8'):
       print("Installed Erlang bitness is valid")
     else:
-      print('Installed Erlang must be x64')
-      dependence.progsToInstall.append('Erlang')  
-    if (os.getenv("ERLANG_HOME") != get_erlangPath()):
-        dependence.progsToInstall.append('ERLANG_HOME')
+      if (os.getenv("ERLANG_HOME") == erlangPaths):
+        bReinstallRabbit = True
+      dependence.pathsToUninstallers.append(erlangPaths[i])
+      dependence.namesOfUninstallers.append('Uninstall')
+      dependence.paramsForUninstallers.append(r'/S')
+      continue
+    if (os.getenv("ERLANG_HOME") != erlangPaths[i]):
+        bReinstallRabbit = True
+    if (bReinstallRabbit == True):
+      dependence.progsToInstall.append('RabbitMQ')
     return dependence
           
-  print('Erlang not found')
+  print('Erlang x64 not found')
   dependence.progsToInstall.append('Erlang')
   dependence.progsToInstall.append('RabbitMQ')
   return dependence
@@ -278,3 +289,5 @@ def check_dependencies():
   
   return final_dependence
 
+print(get_erlangPaths())
+input()
