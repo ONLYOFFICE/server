@@ -81,6 +81,7 @@ def check_rabbitmq():
   base.print_info('Check installed RabbitMQ')
   result = run_command('sc query RabbitMQ')['stdout']
   if (result.find('RabbitMQ') == -1):
+    print('RabbitMQ service not found')
     dependence.progsToInstall.append('RabbitMQ')
     return dependence
   print('Installed RabbitMQ is valid')
@@ -116,18 +117,21 @@ def check_erlang():
     if (erlangBitness == '8'):
       print("Installed Erlang bitness is valid")
     else:
-      bReinstallRabbit = True
-      dependence.pathsToUninstallers.append(erlangPaths[i])
-      dependence.namesOfUninstallers.append('Uninstall')
-      dependence.paramsForUninstallers.append(r'/S')
-      continue
+      erlangVersion = run_command('cd ' + erlangPaths[i] + '/bin && erl -eval "erlang:display(erlang:system_info(otp_release)), halt()." -noshell')['stdout'][1:3]
+      if (int(erlangVersion) >= 23):
+        bReinstallRabbit = True
+        dependence.pathsToUninstallers.append(erlangPaths[i])
+        dependence.namesOfUninstallers.append('Uninstall')
+        dependence.paramsForUninstallers.append(r'/S')
+        continue
+      break
     if (os.getenv("ERLANG_HOME") != erlangPaths[i]):
       bReinstallRabbit = True
     else:
       return dependence
     if (bReinstallRabbit == True):
       dependence.progsToInstall.append('RabbitMQ')
-      break
+      return dependence
     
   print('Erlang x64 not found')
   dependence.progsToInstall.append('Erlang')
@@ -214,6 +218,12 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
   dependence = CDependencies()
   
   base.print_info('Check MySQL Server')
+  
+  if (len(serversBitness) == 0):
+    print('MySQL Server not found')
+    dependence.progsToInstall.append('MySQLServer')
+    return dependence
+    
   for i in range(len(serversBitness)):
     if serversBitness[i] != '':
       break
@@ -224,9 +234,7 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
     
   for i in range(len(serversBitness)):
     result = serversBitness[i]
-    if (result == ""):
-      continue 
-    elif (result == 'x32'):
+    if (result == 'x32'):
       print('MySQL Server ' + serversVersions[i][0:3] + ' bitness is x32, is not valid')
       dependence.progsToUninstall.append('MySQL Server ' + serversVersions[i][0:3])
       continue
@@ -260,6 +268,8 @@ def check_buildTools():
     dependence.progsToInstall.append('BuildTools')
     return dependence
   
+  print('Build tools in installed')
+  
   return dependence
   
 def run_command(sCommand):
@@ -268,8 +278,8 @@ def run_command(sCommand):
   try:
     stdout, stderr = popen.communicate()
     popen.wait()
-    result['stdout'] = stdout.strip().decode("utf-8") 
-    result['stderr'] = stderr.strip().decode("utf-8")
+    result['stdout'] = stdout.strip().decode("ANSI") 
+    result['stderr'] = stderr.strip().decode("ANSI")
   finally:
     popen.stdout.close()
     popen.stderr.close()
@@ -282,7 +292,7 @@ def check_dependencies():
   final_dependence.append(check_nodejs())
   final_dependence.append(check_java())
   final_dependence.append(check_erlang())
-  final_dependence.append(check_rabbitmq())
+  #final_dependence.append(check_rabbitmq())
   final_dependence.append(check_gruntcli())
   final_dependence.append(check_buildTools())
   final_dependence.append(check_mysqlInstaller())
@@ -296,3 +306,5 @@ def check_dependencies():
   
   return final_dependence
   
+
+

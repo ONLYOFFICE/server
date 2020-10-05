@@ -65,12 +65,6 @@ def installingProgram(sProgram, sParam = ''):
       print("Error!")
       base.delete_file('./erlang.exe')
       return False
-  elif (sProgram == 'ERLANG_HOME'):
-    code = subprocess.call('SETX /M ERLANG_HOME "' + check.get_erlangPath() + '"')
-    if (code == 0):
-      return True
-    else:
-      return False
   elif (sProgram == 'GruntCli'):
     print('Installing Grunt-Cli...')
     code = subprocess.call('npm install -g grunt-cli',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
@@ -94,8 +88,7 @@ def installingProgram(sProgram, sParam = ''):
       return False
   elif (sProgram == 'MySQLServer'):
     print('Installing MySQL Server...')
-    code = subprocess.call('cd ' + os.path.abspath(os.sep) + 'Program Files (x86)\MySQL\MySQL Installer for Windows && MySQLInstallerConsole.exe community install server;8.0.21;x64:*:type=config;openfirewall=true;generallog=true;binlog=true;serverid=3306;enable_tcpip=true;port=3306;rootpasswd=onlyoffice -silent',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    print(code)
+    code = os.system('cd ' + os.path.abspath(os.sep) + 'Program Files (x86)\MySQL\MySQL Installer for Windows && MySQLInstallerConsole.exe community install server;8.0.21;x64:*:type=config;openfirewall=true;generallog=true;binlog=true;serverid=3306;enable_tcpip=true;port=3306;rootpasswd=onlyoffice -silent')
     if (code == 0):
       print("Install success!")
       return True
