@@ -85,7 +85,7 @@ def check_erlang():
   erlangHome = os.getenv("ERLANG_HOME")
   
   if (erlangHome != ""):
-    erlangBitness = base.run_command('"' + erlangHome + r'\bin\erl" -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
+    erlangBitness = base.run_command('"' + erlangHome + '\\bin\\erl" -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
     if (erlangBitness == '8'):
       print("Installed Erlang is valid")
       return dependence
@@ -115,7 +115,7 @@ def get_mysqlServersInfo(sParam):
   arrInfo = []
   
   try:
-    keyValue = r"SOFTWARE\WOW6432Node\MySQL AB"
+    keyValue = "SOFTWARE\\WOW6432Node\\MySQL AB"
     aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
     
     count_subkey = winreg.QueryInfoKey(aKey)[0]
@@ -132,7 +132,7 @@ def check_mysqlInstaller():
   dependence = CDependencies()
   
   try:
-    keyValue = r"SOFTWARE\WOW6432Node\MySQL"    
+    keyValue = "SOFTWARE\\WOW6432Node\\MySQL"    
     aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
     
     count_subkey = winreg.QueryInfoKey(aKey)[0]
@@ -155,7 +155,7 @@ def check_mysqlServersBitness(MySQLPaths):
     if (mysqlServerPath == ""):
       serversBitness.append("")
     else:
-      result = base.run_command('"' + mysqlServerPath + 'bin\mysql" --version')['stdout']
+      result = base.run_command('"' + mysqlServerPath + 'bin\\mysql" --version')['stdout']
       if (result.find('for Win32') != -1):
         serversBitness.append('x32')
       elif (result.find('for Win64') != -1):
@@ -186,12 +186,12 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
       continue
     elif (result == 'x64'):
       print('MySQL Server bitness is valid')
-      connectionResult = base.run_command('"' + serversPaths[i] + 'bin\mysql" -u root -ponlyoffice -e "SHOW GLOBAL VARIABLES LIKE ' + r"'PORT';" + '"')['stdout']
+      connectionResult = base.run_command('"' + serversPaths[i] + 'bin\\mysql" -u root -ponlyoffice -e "SHOW GLOBAL VARIABLES LIKE ' + r"'PORT';" + '"')['stdout']
       if (connectionResult.find('port') != -1 and connectionResult.find('3306') != -1):
-        if (base.run_command('"' + serversPaths[i] + 'bin\mysql" -u root -ponlyoffice -e "SHOW DATABASES;"')['stdout'].find('onlyoffice') == -1):
+        if (base.run_command('"' + serversPaths[i] + 'bin\\mysql" -u root -ponlyoffice -e "SHOW DATABASES;"')['stdout'].find('onlyoffice') == -1):
           print('Database onlyoffice not found')
           dependence.progsToInstall.append('MySQLDatabase')
-        if (base.run_command('"' + serversPaths[i] + 'bin\mysql" -u root -ponlyoffice -e "SELECT plugin from mysql.user where User=' + "'root';")['stdout'].find('mysql_native_password') == -1):
+        if (base.run_command('"' + serversPaths[i] + 'bin\\mysql" -u root -ponlyoffice -e "SELECT plugin from mysql.user where User=' + "'root';")['stdout'].find('mysql_native_password') == -1):
           print('Password encryption is not valid')
           dependence.progsToInstall.append('MySQLEncrypt') 
         dependence.pathToValidMySQLServer = serversPaths[i]
@@ -208,7 +208,7 @@ def check_buildTools():
   dependence = CDependencies()
   
   base.print_info('Check installed Build Tools')
-  result = base.run_command(os.path.split(os.getcwd())[0] + r'\build_tools\tools\win\vswhere\vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property DisplayName')['stdout']
+  result = base.run_command(os.path.split(os.getcwd())[0] + '\\build_tools\\tools\\win\\vswhere\\vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property DisplayName')['stdout']
   if (result == ''):
     print('Build Tools not found')
     dependence.progsToInstall.append('BuildTools')
@@ -220,7 +220,7 @@ def check_buildTools():
 def get_programDelInfoByFlag(sName, flag):
   info = []
   aReg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
-  aKey= winreg.OpenKey(aReg, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", 0, winreg.KEY_READ | flag)
+  aKey= winreg.OpenKey(aReg, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", 0, winreg.KEY_READ | flag)
   count_subkey = winreg.QueryInfoKey(aKey)[0]
 
   for i in range(count_subkey):
