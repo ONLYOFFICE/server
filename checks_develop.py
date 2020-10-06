@@ -65,54 +65,34 @@ def check_java():
     
 def check_rabbitmq():
   dependence = CDependencies()
-  
   base.print_info('Check installed RabbitMQ')
-  result = base.run_command('sc query RabbitMQ')['stdout']
-  if (result.find('RabbitMQ') == -1):
-    print('RabbitMQ not found')
-    dependence.progsToInstall.append('RabbitMQ')
+  result = run_command('sc query RabbitMQ')['stdout']
+  
+  if (result.find('RabbitMQ') != -1):
+    print('Installed RabbitMQ is valid')
     return dependence
-  print('Installed RabbitMQ is valid')
+  
+  print('RabbitMQ not found')
+  dependence.progsToUninstall.append('RabbitMQ')
+  dependence.progsToUninstall.append('Erlang')
+  dependence.progsToInstall.append('Erlang')
+  dependence.progsToInstall.append('RabbitMQ')
   return dependence
-
-def get_erlangPath():
-  Path = ""
-  try:
-    keyValue = r"SOFTWARE\WOW6432Node\Ericsson\Erlang"
-    aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
-    count_subkey = winreg.QueryInfoKey(aKey)[0]
-    
-    for i in range(count_subkey):
-      keyValue = winreg.EnumKey(aKey, i)
-      if (keyValue.split(".")[0].isdigit()):
-        asubkey = winreg.OpenKey(aKey, keyValue)
-        Path = winreg.QueryValueEx(asubkey, None)[0]
-        break
-  except:
-    pass
-  return Path
-    
+  
 def check_erlang():
   dependence = CDependencies()
-  
   base.print_info('Check installed Erlang')
-  erlangPath = get_erlangPath()
+  erlangHome = os.getenv("ERLANG_HOME")
   
-  if (erlangPath != ""):
-    erlangBitness = base.run_command('cd ' + erlangPath + '/bin && erl -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
+  if (erlangHome != ""):
+    erlangBitness = run_command('cd ' + erlangHome + '/bin && erl -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
     if (erlangBitness == '8'):
-      if (os.getenv("ERLANG_HOME") != get_erlangPath()):
-        print("ERLANG_HOME not valid")
-        dependence.progsToInstall.append('ERLANG_HOME')
-      else:
-         print("ERLANG_HOME is valid")
       print("Installed Erlang is valid")
       return dependence
-    print('Installed Erlang must be x64')
-    dependence.progsToUninstall.append('Erlang')
-  else:
-    print('Erlang not found')
   
+  print('Need Erlang with bitness x64')
+  dependence.progsToUninstall.append('Erlang')
+  dependence.progsToUninstall.append('RabbitMQ')
   dependence.progsToInstall.append('Erlang')
   dependence.progsToInstall.append('RabbitMQ')
   return dependence
