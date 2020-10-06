@@ -66,7 +66,7 @@ def check_java():
 def check_rabbitmq():
   dependence = CDependencies()
   base.print_info('Check installed RabbitMQ')
-  result = run_command('sc query RabbitMQ')['stdout']
+  result = base.run_command('sc query RabbitMQ')['stdout']
   
   if (result.find('RabbitMQ') == -1):
     print('Installed RabbitMQ is valid')
@@ -85,7 +85,7 @@ def check_erlang():
   erlangHome = os.getenv("ERLANG_HOME")
   
   if (erlangHome != ""):
-    erlangBitness = run_command('cd ' + erlangHome + '/bin && erl -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
+    erlangBitness = base.run_command('cd ' + erlangHome + '/bin && erl -eval "erlang:display(erlang:system_info(wordsize)), halt()." -noshell')['stdout']
     if (erlangBitness == '8'):
       print("Installed Erlang is valid")
       return dependence
