@@ -94,7 +94,7 @@ def installingProgram(sProgram, sParam = ''):
       return False
   elif (sProgram == 'MySQLServer'):
     print('Installing MySQL Server...')
-    code = subprocess.call('cd ' + os.path.abspath(os.sep) + 'Program Files (x86)\MySQL\MySQL Installer for Windows && MySQLInstallerConsole.exe community install server;8.0.21;x64:*:type=config;openfirewall=true;generallog=true;binlog=true;serverid=3306;enable_tcpip=true;port=3306;rootpasswd=onlyoffice -silent',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    code = subprocess.call('"' + os.path.abspath(os.sep) + 'Program Files (x86)\MySQL\MySQL Installer for Windows\MySQLInstallerConsole" community install server;8.0.21;x64:*:type=config;openfirewall=true;generallog=true;binlog=true;serverid=3306;enable_tcpip=true;port=3306;rootpasswd=onlyoffice -silent',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     print(code)
     if (code == 0):
       print("Install success!")
@@ -104,11 +104,11 @@ def installingProgram(sProgram, sParam = ''):
       return False
   elif (sProgram == 'MySQLDatabase'):
     print('Setting database...')
-    subprocess.call('cd ' + sParam + 'bin && mysql -u root -ponlyoffice -e "source ' + os.getcwd() + '\schema\mysql\createdb.sql"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    subprocess.call('"' + sParam + 'bin\mysql" -u root -ponlyoffice -e "source ' + os.getcwd() + '\schema\mysql\createdb.sql"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     return True
   elif (sProgram == 'MySQLEncrypt'):
     print('Setting MySQL password encrypting...')
-    subprocess.call('cd ' + sParam + 'bin && mysql -u root -ponlyoffice -e "' + "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'onlyoffice';" + '"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    subprocess.call('"' + sParam + 'bin\mysql" -u root -ponlyoffice -e "' + "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'onlyoffice';" + '"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     return True   
   elif (sProgram == "BuildTools"):
     print('Installing Build Tools...')
@@ -149,8 +149,8 @@ def installMySQLServer():
   for i in range(len(mysqlVersions)):
     if (mysqlVersions[i] == '8.0.21'):
       print('Setting MySQL database...')
-      subprocess.call('cd ' + mysqlPaths[i] + 'bin && mysql -u root -ponlyoffice -e "source ' + os.getcwd() + '\schema\mysql\createdb.sql"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-      subprocess.call('cd ' + mysqlPaths[i] + 'bin && mysql -u root -ponlyoffice -e "' + "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'onlyoffice';" + '"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+      subprocess.call('"' + mysqlPaths[i] + 'bin\mysql" -u root -ponlyoffice -e "source ' + os.getcwd() + '\schema\mysql\createdb.sql"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+      subprocess.call('"' + mysqlPaths[i] + 'bin\mysql" -u root -ponlyoffice -e "' + "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'onlyoffice';" + '"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
       print('MySQL Server ' + mysqlVersions[i][0:3] + ' is valid')
       return True
   return False
