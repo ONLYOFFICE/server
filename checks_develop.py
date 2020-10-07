@@ -17,9 +17,9 @@ class CDependencies:
     self.pathToValidMySQLServer = ''
   
   def append(self, oCdependencies):
-    self.progsToInstall.union(oCdependencies.progsToInstall)
-    self.progsToUninstall.union(oCdependencies.progsToUninstall)
-    self.pathsToRemove.union(oCdependencies.pathsToRemove)
+    self.progsToInstall =  self.progsToInstall.update(oCdependencies.progsToInstall)
+    self.progsToUninstall = self.progsToUninstall.update(oCdependencies.progsToUninstall)
+    self.pathsToRemove = self.pathsToRemove.update(oCdependencies.pathsToRemove)
     self.pathToValidMySQLServer = oCdependencies.pathToValidMySQLServer
 
 def check_nodejs():
