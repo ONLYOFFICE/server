@@ -11,15 +11,15 @@ else:
     
 class CDependencies:
   def __init__(self):
-    self.progsToInstall = []
-    self.progsToUninstall = []
-    self.pathsToRemove = []
+    self.progsToInstall = set()
+    self.progsToUninstall = set()
+    self.pathsToRemove = set()
     self.pathToValidMySQLServer = ''
   
   def append(self, oCdependencies):
-    self.progsToInstall   += oCdependencies.progsToInstall
-    self.progsToUninstall += oCdependencies.progsToUninstall
-    self.pathsToRemove    += oCdependencies.pathsToRemove
+    self.progsToInstall.union(oCdependencies.progsToInstall)
+    self.progsToUninstall.union(oCdependencies.progsToUninstall)
+    self.pathsToRemove.union(oCdependencies.pathsToRemove)
     self.pathToValidMySQLServer = oCdependencies.pathToValidMySQLServer
 
 def check_nodejs():
@@ -29,7 +29,7 @@ def check_nodejs():
   nodejs_version = base.run_command('node -v')['stdout']
   if (nodejs_version == ''):
     print('Node.js not found')
-    dependence.progsToInstall.append('Node.js')
+    dependence.progsToInstall.add('Node.js')
     return dependence
   
   nodejs_cur_version = int(nodejs_version.split('.')[0][1:])
@@ -38,8 +38,8 @@ def check_nodejs():
   nodejs_max_version = 10
   if (nodejs_min_version > nodejs_cur_version or nodejs_cur_version > nodejs_max_version):
     print('Installed Node.js version must be 8.x to 10.x')
-    dependence.progsToUninstall.append('Node.js')
-    dependence.progsToInstall.append('Node.js')
+    dependence.progsToUninstall.add('Node.js')
+    dependence.progsToInstall.add('Node.js')
     return dependence
   
   print('Installed Node.js is valid')
@@ -60,7 +60,7 @@ def check_java():
   else:
     print('Java not found')
   
-  dependence.progsToInstall.append('Java')
+  dependence.progsToInstall.add('Java')
   return dependence
     
 def check_rabbitmq():
@@ -73,10 +73,10 @@ def check_rabbitmq():
     return dependence
   
   print('RabbitMQ not found')
-  dependence.progsToUninstall.append('RabbitMQ')
-  dependence.progsToUninstall.append('Erlang')
-  dependence.progsToInstall.append('Erlang')
-  dependence.progsToInstall.append('RabbitMQ')
+  dependence.progsToUninstall.add('RabbitMQ')
+  dependence.progsToUninstall.add('Erlang')
+  dependence.progsToInstall.add('Erlang')
+  dependence.progsToInstall.add('RabbitMQ')
   return dependence
   
 def check_erlang():
@@ -91,10 +91,10 @@ def check_erlang():
       return dependence
   
   print('Need Erlang with bitness x64')
-  dependence.progsToUninstall.append('Erlang')
-  dependence.progsToUninstall.append('RabbitMQ')
-  dependence.progsToInstall.append('Erlang')
-  dependence.progsToInstall.append('RabbitMQ')
+  dependence.progsToUninstall.add('Erlang')
+  dependence.progsToUninstall.add('RabbitMQ')
+  dependence.progsToInstall.add('Erlang')
+  dependence.progsToInstall.add('RabbitMQ')
   return dependence
 
 def check_gruntcli():
@@ -105,7 +105,7 @@ def check_gruntcli():
   
   if (result.find('grunt-cli') == -1):
     print('Grunt-Cli not found')
-    dependence.progsToInstall.append('GruntCli')
+    dependence.progsToInstall.add('GruntCli')
     return dependence
   
   print('Installed Grunt-Cli is valid')
@@ -145,7 +145,7 @@ def check_mysqlInstaller():
         return dependence
   except:
     pass
-  dependence.progsToInstall.append('MySQLInstaller')
+  dependence.progsToInstall.add('MySQLInstaller')
   return dependence
 
 def check_mysqlServersBitness(MySQLPaths):
@@ -175,7 +175,7 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
       break
     if (i == len(serversBitness) - 1): 
       print('MySQL Server not found')
-      dependence.progsToInstall.append('MySQLServer')
+      dependence.progsToInstall.add('MySQLServer')
       return dependence
     
   for i in range(len(serversBitness)):
@@ -184,7 +184,7 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
       continue 
     elif (result == 'x32'):
       print('MySQL Server ' + serversVersions[i][0:3] + ' bitness is x32, is not valid')
-      dependence.progsToUninstall.append('MySQL Server ' + serversVersions[i][0:3])
+      dependence.progsToUninstall.add('MySQL Server ' + serversVersions[i][0:3])
       continue
     elif (result == 'x64'):
       print('MySQL Server bitness is valid')
@@ -192,17 +192,17 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
       if (connectionResult.find('port') != -1 and connectionResult.find('3306') != -1):
         if (base.run_command('"' + serversPaths[i] + 'bin\\mysql" -u root -ponlyoffice -e "SHOW DATABASES;"')['stdout'].find('onlyoffice') == -1):
           print('Database onlyoffice not found')
-          dependence.progsToInstall.append('MySQLDatabase')
+          dependence.progsToInstall.add('MySQLDatabase')
         if (base.run_command('"' + serversPaths[i] + 'bin\\mysql" -u root -ponlyoffice -e "SELECT plugin from mysql.user where User=' + "'root';")['stdout'].find('mysql_native_password') == -1):
           print('Password encryption is not valid')
-          dependence.progsToInstall.append('MySQLEncrypt') 
+          dependence.progsToInstall.add('MySQLEncrypt') 
         dependence.pathToValidMySQLServer = serversPaths[i]
         return dependence
       else:
         print('MySQL Server configuration is not valid')
-        dependence.progsToUninstall.append('MySQL Server ' + serversVersions[i][0:3])
-        dependence.pathsToRemove.append(serversPaths[i])
-        dependence.progsToInstall.append('MySQLServer')
+        dependence.progsToUninstall.add('MySQL Server ' + serversVersions[i][0:3])
+        dependence.pathsToRemove.add(serversPaths[i])
+        dependence.progsToInstall.add('MySQLServer')
         continue
   return dependence
   
@@ -213,7 +213,7 @@ def check_buildTools():
   result = base.run_command(os.path.split(os.getcwd())[0] + '\\build_tools\\tools\\win\\vswhere\\vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property DisplayName')['stdout']
   if (result == ''):
     print('Build Tools not found')
-    dependence.progsToInstall.append('BuildTools')
+    dependence.progsToInstall.add('BuildTools')
   else:
     print('Installed Build Tools is valid')
   
