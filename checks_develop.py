@@ -113,34 +113,36 @@ def check_gruntcli():
     
 def get_mysqlServersInfo(sParam):
   arrInfo = []
+  aReg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
+  aKey= winreg.OpenKey(aReg, "SOFTWARE\\", 0, winreg.KEY_READ | winreg.KEY_WOW64_32KEY)
   
   try:
-    keyValue = "SOFTWARE\\WOW6432Node\\MySQL AB"
-    aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
+    asubkey = winreg.OpenKey(aKey, 'MySQL AB')
+    count_subkey = winreg.QueryInfoKey(asubkey)[0]
     
-    count_subkey = winreg.QueryInfoKey(aKey)[0]
     for i in range(count_subkey):
-      keyValue = winreg.EnumKey(aKey, i)
-      if (keyValue.find('MySQL Server') != - 1):
-        asubkey = winreg.OpenKey(aKey, keyValue)
-        arrInfo.append(winreg.QueryValueEx(asubkey, sParam)[0])
+      MySQLsubkey_name = winreg.EnumKey(asubkey, i)
+      if (MySQLsubkey_name.find('MySQL Server') != - 1):
+        MySQLsubkey = winreg.OpenKey(asubkey, MySQLsubkey_name)
+        arrInfo.append(winreg.QueryValueEx(MySQLsubkey, sParam)[0])
   except:
     pass
-  return arrInfo
-    
+      
+  return arrInfo 
+
 def check_mysqlInstaller():
   dependence = CDependencies()
+  aReg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
+  aKey= winreg.OpenKey(aReg, "SOFTWARE\\", 0, winreg.KEY_READ | winreg.KEY_WOW64_32KEY)
   
   try:
-    keyValue = "SOFTWARE\\WOW6432Node\\MySQL"    
-    aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, keyValue)
+    asubkey = winreg.OpenKey(aKey, 'MySQL')
+    count_subkey = winreg.QueryInfoKey(asubkey)[0]
     
-    count_subkey = winreg.QueryInfoKey(aKey)[0]
     for i in range(count_subkey):
-      keyValue = winreg.EnumKey(aKey, i)
-      if (keyValue.find('MySQL Installer') != - 1):
+      MySQLsubkey_name = winreg.EnumKey(asubkey, i)
+      if (MySQLsubkey_name.find('MySQL Installer') != - 1):
         return dependence
-    
   except:
     pass
   dependence.progsToInstall.append('MySQLInstaller')
