@@ -10,13 +10,13 @@ import shutil
 
 if (sys.version_info[0] >= 3):
   unicode = str
-
+  
 def is_admin():
   try:
     return ctypes.windll.shell32.IsUserAnAdmin()
   except:
     return False
-
+        
 def installingProgram(sProgram, sParam = ''):
   if (sProgram == 'Node.js'):
     print("Installing Node.js...")
@@ -133,29 +133,24 @@ def installMySQLServer():
   return False
 
 try:
-  base.configure_common_apps()
-  checkResults = check.check_dependencies()
-  if (len(checkResults.progsToInstall) > 0):
-    if is_admin():
-      for program in checkResults.progsToUninstall:
-        dependence.uninstallProgram(program)
-        
-      for path in checkResults.pathsToRemove:
-        shutil.rmtree(path)
-        
-      for program in checkResults.progsToInstall:
-        if (program == 'MySQLDatabase' or program == 'MySQLEncrypt'):
-          installingProgram(program, checkResults.pathToValidMySQLServer)
-        elif (program == 'MySQLServer'):
-          installMySQLServer()
-        else:
-          installingProgram(program)
-      print('All installations completed!')
+  pathToValidMySQLServer = sys.argv[sys.argv.index('valid-path') + 1]
+  
+  delTo = sys.argv.index('rem-paths')
+  remPathsTo = sys.argv.index('install')
+  installTo = sys.argv.index('valid-path')
+  
+  for i in range(1, delTo):
+    dependence.uninstallProgram(sys.argv[i])
+  for i in range(delTo + 1, remPathsTo):
+    shutil.rmtree(sys.argv[i])
+  for i in range(remPathsTo + 1, installTo):
+    if (sys.argv[i] == 'MySQLDatabase' or sys.argv[i] == 'MySQLEncrypt'):
+      installingProgram(sys.argv[i], pathToValidMySQLServer)
+    elif (sys.argv[i] == 'MySQLServer'):
+      installMySQLServer()
     else:
-      ctypes.windll.shell32.ShellExecuteW(None, unicode("runas"), unicode(sys.executable), unicode(''.join(sys.argv)), None, 1)
-      sys.exit(0)
-  else:
-    base.print_info('All checks complite')
+      installingProgram(sys.argv[i])
+  
 except SystemExit:
   input("Ignoring SystemExit. Press Enter to continue...")
 

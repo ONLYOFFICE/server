@@ -2,11 +2,15 @@ import sys
 sys.path.append('../build_tools/scripts')
 import os
 import base
-import ctypes
+import libwindows
 import dependence
-import checks_develop as checks
+import checks_develop as check
 import subprocess
+import json
 
+if (sys.version_info[0] >= 3):
+  unicode = str
+  
 def install_module(path):
   base.print_info('Install: ' + path)
   base.cmd_in_dir(path, 'npm', ['install'])
@@ -40,8 +44,16 @@ def run_integration_example():
 try:
   base.configure_common_apps()
   dependence.check_pythonPath()
-  base.cmd_in_dir('./', 'python', ['install_develop.py'])
   
+  checksResult = check.check_dependencies()
+  
+  if (len(checksResult.progsToInstall) > 0):
+    progsToUninstall = ' '.join(list(checksResult.progsToUninstall))
+    progsToInstall = ' '.join(list(checksResult.progsToInstall))
+    pathsToRemove = ' '.join(list(checksResult.pathsToRemove))
+    pathToValidMySQLServer = json.dumps(checksResult.pathToValidMySQLServer)
+    libwindows.sudo(unicode(sys.executable), unicode(os.getcwd() + '\\install_develop.py' + ' ' + progsToUninstall + ' rem-paths ' + pathsToRemove + ' install ' + progsToInstall + ' valid-path ' + pathToValidMySQLServer))
+
   platform = base.host_platform()
   if ("windows" == platform):
     restart_win_rabbit()
