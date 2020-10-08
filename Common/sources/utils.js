@@ -557,7 +557,7 @@ function containsAllAsciiNP(str) {
   return /^[\040-\176]*$/.test(str);//non-printing characters
 }
 exports.containsAllAsciiNP = containsAllAsciiNP;
-function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader) {
+function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
   if (forwardedProtoHeader) {
     url += forwardedProtoHeader;
@@ -574,13 +574,16 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
   } else {
     url += 'localhost';
   }
+  if (forwardedPrefixHeader) {
+    url += forwardedPrefixHeader;
+  }
   return url;
 }
 function getBaseUrlByConnection(conn) {
-  return getBaseUrl('', conn.headers['host'], conn.headers['x-forwarded-proto'], conn.headers['x-forwarded-host']);
+  return getBaseUrl('', conn.headers['host'], conn.headers['x-forwarded-proto'], conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
 }
 function getBaseUrlByRequest(req) {
-  return getBaseUrl(req.protocol, req.get('host'), req.get('x-forwarded-proto'), req.get('x-forwarded-host'));
+  return getBaseUrl(req.protocol, req.get('host'), req.get('x-forwarded-proto'), req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
