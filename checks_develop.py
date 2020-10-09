@@ -2,8 +2,6 @@ import sys
 sys.path.append('../build_tools/scripts')
 import base
 import dependence as _dependence
-import shutil
-import os
 
 if (sys.version_info[0] >= 3):
   import winreg
@@ -14,7 +12,7 @@ def get_mysqlServersInfo():
   arrInfo = []
   
   aReg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
-  aKey= winreg.OpenKey(aReg, "SOFTWARE\\", 0, winreg.KEY_READ | winreg.KEY_WOW64_32KEY)
+  aKey = winreg.OpenKey(aReg, "SOFTWARE\\", 0, winreg.KEY_READ | winreg.KEY_WOW64_32KEY)
   
   try:
     asubkey = winreg.OpenKey(aKey, 'MySQL AB')
