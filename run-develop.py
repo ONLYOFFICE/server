@@ -1,5 +1,6 @@
 import sys
 sys.path.append('../build_tools/scripts')
+sys.path.append('../build_tools/scripts/vendor')
 import os
 import base
 import libwindows
@@ -47,12 +48,13 @@ try:
   
   checksResult = check.check_dependencies()
   
-  if (len(checksResult.progsToInstall) > 0):
-    progsToUninstall = ' '.join(list(checksResult.progsToUninstall))
-    progsToInstall = ' '.join(list(checksResult.progsToInstall))
-    pathsToRemove = ' '.join(list(checksResult.pathsToRemove))
-    pathToValidMySQLServer = json.dumps(checksResult.pathToValidMySQLServer)
-    libwindows.sudo(unicode(sys.executable), unicode(os.getcwd() + '\\install_develop.py' + ' ' + progsToUninstall + ' rem-paths ' + pathsToRemove + ' install ' + progsToInstall + ' valid-path ' + pathToValidMySQLServer))
+  if (len(checksResult.install) > 0):
+    install_args = ['install_develop.py']
+    install_args += checksResult.get_uninstall()
+    install_args += checksResult.get_removepath()
+    install_args += checksResult.get_install()
+    install_args += ['--mysql-path', unicode(checksResult.mysqlPath)]
+    code = libwindows.sudo(unicode(sys.executable), install_args)
 
   platform = base.host_platform()
   if ("windows" == platform):

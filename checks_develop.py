@@ -54,7 +54,7 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
       break
     if (i == len(serversBitness) - 1): 
       print('MySQL Server not found')
-      dependence.progsToInstall.add('MySQLServer')
+      dependence.install.append('MySQLServer')
       return dependence
     
   for i in range(len(serversBitness)):
@@ -63,7 +63,7 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
       continue 
     elif (result == 'x32'):
       print('MySQL Server ' + serversVersions[i][0:3] + ' bitness is x32, is not valid')
-      dependence.progsToUninstall.add('MySQL Server ' + serversVersions[i][0:3])
+      dependence.uninstall.append('MySQL Server ' + serversVersions[i][0:3])
       continue
     elif (result == 'x64'):
       print('MySQL Server bitness is valid')
@@ -71,17 +71,17 @@ def check_mysqlServer(serversBitness, serversVersions, serversPaths, dataPaths):
       if (connectionResult.find('port') != -1 and connectionResult.find('3306') != -1):
         if (base.run_command('"' + serversPaths[i] + 'bin\\mysql" -u root -ponlyoffice -e "SHOW DATABASES;"')['stdout'].find('onlyoffice') == -1):
           print('Database onlyoffice not found')
-          dependence.progsToInstall.add('MySQLDatabase')
+          dependence.install.append('MySQLDatabase')
         if (base.run_command('"' + serversPaths[i] + 'bin\\mysql" -u root -ponlyoffice -e "SELECT plugin from mysql.user where User=' + "'root';")['stdout'].find('mysql_native_password') == -1):
           print('Password encryption is not valid')
-          dependence.progsToInstall.add('MySQLEncrypt') 
+          dependence.install.append('MySQLEncrypt') 
         dependence.pathToValidMySQLServer = serversPaths[i]
         return dependence
       else:
         print('MySQL Server configuration is not valid')
-        dependence.progsToUninstall.add('MySQL Server ' + serversVersions[i][0:3])
-        dependence.pathsToRemove.add(serversPaths[i])
-        dependence.progsToInstall.add('MySQLServer')
+        dependence.uninstall.append('MySQL Server ' + serversVersions[i][0:3])
+        dependence.removePath.append(serversPaths[i])
+        dependence.install.append('MySQLServer')
         continue
   return dependence
 

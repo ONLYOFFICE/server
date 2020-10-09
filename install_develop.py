@@ -4,18 +4,9 @@ import os
 import base
 import dependence
 import subprocess
-import ctypes
 import checks_develop as check
 import shutil
-
-if (sys.version_info[0] >= 3):
-  unicode = str
-  
-def is_admin():
-  try:
-    return ctypes.windll.shell32.IsUserAnAdmin()
-  except:
-    return False
+import optparse
         
 def installingProgram(sProgram, sParam = ''):
   if (sProgram == 'Node.js'):
@@ -132,25 +123,25 @@ def installMySQLServer():
       return True
   return False
 
-try:
-  pathToValidMySQLServer = sys.argv[sys.argv.index('valid-path') + 1]
-  
-  delTo = sys.argv.index('rem-paths')
-  remPathsTo = sys.argv.index('install')
-  installTo = sys.argv.index('valid-path')
-  
-  for i in range(1, delTo):
-    dependence.uninstallProgram(sys.argv[i])
-  for i in range(delTo + 1, remPathsTo):
-    shutil.rmtree(sys.argv[i])
-  for i in range(remPathsTo + 1, installTo):
-    if (sys.argv[i] == 'MySQLDatabase' or sys.argv[i] == 'MySQLEncrypt'):
-      installingProgram(sys.argv[i], pathToValidMySQLServer)
-    elif (sys.argv[i] == 'MySQLServer'):
-      installMySQLServer()
-    else:
-      installingProgram(sys.argv[i])
-  
-except SystemExit:
-  input("Ignoring SystemExit. Press Enter to continue...")
+arguments = sys.argv[1:]
 
+parser = optparse.OptionParser()
+parser.add_option("--install", action="append", type="string", dest="install", default=[], help="provides install dependencies")
+parser.add_option("--uninstall", action="append", type="string", dest="uninstall", default=[], help="provides uninstall dependencies")
+parser.add_option("--remove-path", action="append", type="string", dest="remove-path", default=[], help="provides path dependencies to remove")
+parser.add_option("--mysql-path", action="store", type="string", dest="mysql-path", default="", help="provides path to mysql")
+
+(options, args) = parser.parse_args(arguments)
+configOptions = vars(options)
+  
+for item in configOptions["uninstall"]:
+  dependence.uninstallProgram(item)
+for item in configOptions["remove-path"]:
+  shutil.rmtree(item)
+for item in configOptions["install"]:
+  if (item == 'MySQLDatabase' or item == 'MySQLEncrypt'):
+    installingProgram(item, configOptions["mysql-path"])
+  elif (item == 'MySQLServer'):
+    installMySQLServer()
+  else:
+    installingProgram(item)
