@@ -70,6 +70,12 @@ def check_mysqlServer():
   
   return dependence
 
+def check_npmPath():
+  path = base.get_env('PATH')
+  npmPath = os.environ['AppData'] + '\\npm'
+  if (path.find(npmPath) == -1):
+    base.set_env('PATH', npmPath + os.pathsep + path)
+
 def check_dependencies():
   final_dependence = _dependence.CDependencies()
   

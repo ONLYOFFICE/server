@@ -23,6 +23,7 @@ def installingProgram(sProgram, sParam = ''):
     return True
   elif (sProgram == 'GruntCli'):
     print('Installing Grunt-Cli...')
+    check.check_npmPath()
     code = subprocess.call('npm install -g grunt-cli',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     if (code == 0):
       print("Install success!")
