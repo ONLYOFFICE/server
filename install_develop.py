@@ -7,43 +7,14 @@ import subprocess
 import shutil
 import optparse
         
-def installingProgram(sProgram, sParam = ''):
-  if (sProgram == 'Node.js'):
-    dependence.installProgram(sProgram)
-    return True
-  elif (sProgram == 'Java'):
-    dependence.installProgram(sProgram)
-    return True
-  elif (sProgram == 'RabbitMQ'):
-    dependence.installProgram(sProgram)
-    return True
-  elif (sProgram == 'Erlang'):
-    dependence.installProgram(sProgram)
-    return True
-  elif (sProgram == 'GruntCli'):
-    print('Installing Grunt-Cli...')
-    dependence.check_npmPath()
-    code = subprocess.call('npm install -g grunt-cli',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    if (code == 0):
-      print("Install success!")
-      return True
-    else:
-      print("Error!")
-      return False
-  elif (sProgram == 'MySQLInstaller'):
-    dependence.installProgram(sProgram)
-    return True
+def installingProgram(sProgram):
+  if (sProgram == 'GruntCli'):
+    dependence.install_gruntcli()
+    return False
   elif (sProgram == 'MySQLServer'):
-    print('Installing MySQL Server...')
-    code = subprocess.call('"' + os.environ['ProgramFiles(x86)'] + '\\MySQL\\MySQL Installer for Windows\\MySQLInstallerConsole" community install server;8.0.21;x64:*:type=config;openfirewall=true;generallog=true;binlog=true;serverid=3306;enable_tcpip=true;port=3306;rootpasswd=onlyoffice -silent',  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    print(code)
-    if (code == 0):
-      print("Install success!")
-      return True
-    else:
-      print("Error!")
-      return False
-  elif (sProgram == "BuildTools"):
+    dependence.install_mysqlserver()
+    return True
+  else:
     dependence.installProgram(sProgram)
     return True
 
@@ -64,4 +35,4 @@ for item in configOptions["remove-path"]:
   if (base.is_dir(item) == True):
     shutil.rmtree(item)
 for item in configOptions["install"]:
-  dependence.installProgram(item)
+  dependence.installingProgram(item)
