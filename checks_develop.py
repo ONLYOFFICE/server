@@ -8,22 +8,21 @@ import subprocess
 mysqlParams = _dependence.install_params['MySQLServer']
 
 def check_MySQLConfig(mysqlPath = ''):
-  mysql_path_to_bin = _dependence.get_mysql_path_to_bin(mysqlPath)
-  mysqlLoginSrt = _dependence.get_mysqlLoginSrting(mysql_path_to_bin)
+  mysqlLoginSrt = _dependence.get_mysqlLoginSrting(mysqlPath)
   
   if (base.run_command(mysqlLoginSrt + ' -e "SHOW DATABASES;"')['stdout'].find('onlyoffice') == -1):
     print('Database onlyoffice not found')
-    result1 = execMySQLScript(mysql_path_to_bin, os.getcwd() + '\\schema\\mysql\\createdb.sql')
+    result1 = execMySQLScript(mysqlPath, os.getcwd() + '\\schema\\mysql\\createdb.sql')
   if (base.run_command(mysqlLoginSrt + ' -e "SELECT plugin from mysql.user where User=' + "'" + mysqlParams['user'] + "';")['stdout'].find('mysql_native_password') == -1):
     print('Password encryption is not valid')
-    result2 = set_MySQLEncrypt(mysql_path_to_bin, 'mysql_native_password')
+    result2 = set_MySQLEncrypt(mysqlPath, 'mysql_native_password')
   if (result1 == False or result2 == False):
     return False
   return True
 
-def execMySQLScript(mysql_path_to_bin, scriptPath):
+def execMySQLScript(mysqlPath, scriptPath):
    print('Execution ' + scriptPath)
-   mysqlLoginSrt = _dependence.get_mysqlLoginSrting(mysql_path_to_bin)
+   mysqlLoginSrt = _dependence.get_mysqlLoginSrting(mysqlPath)
    
    code = subprocess.call(mysqlLoginSrt + ' -e "source ' + scriptPath + '"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
    if (code != 0):
@@ -31,9 +30,9 @@ def execMySQLScript(mysql_path_to_bin, scriptPath):
     return False
    print('Completed!')
 
-def set_MySQLEncrypt(mysql_path_to_bin, sEncrypt):
+def set_MySQLEncrypt(mysqlPath, sEncrypt):
   print('Setting MySQL password encrypting...')
-  mysqlLoginSrt = _dependence.get_mysqlLoginSrting(mysql_path_to_bin)
+  mysqlLoginSrt = _dependence.get_mysqlLoginSrting(mysqlPath)
   
   code = subprocess.call(mysqlLoginSrt + ' -e "' + "ALTER USER '" + mysqlParams['user'] + "'@'localhost' IDENTIFIED WITH " + sEncrypt + " BY '" + mysqlParams['pass'] + "';" + '"', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
   if (code != 0):
