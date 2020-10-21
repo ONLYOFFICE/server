@@ -43,7 +43,11 @@ BEGIN
 	LOOP
 		-- first try to update the key
 		-- note that "a" must be unique
-		UPDATE "public"."task_result" SET last_open_date=_last_open_date, user_index=user_index+1 WHERE id = _id RETURNING user_index into userindex;
+		IF ((_callback <> '') IS TRUE) AND ((_baseurl <> '') IS TRUE) THEN
+			UPDATE "public"."task_result" SET last_open_date=_last_open_date, user_index=user_index+1,callback=_callback,baseurl=_baseurl WHERE id = _id RETURNING user_index into userindex;
+		ELSE
+			UPDATE "public"."task_result" SET last_open_date=_last_open_date, user_index=user_index+1 WHERE id = _id RETURNING user_index into userindex;
+		END IF;
 		IF found THEN
 			isupdate := 'true';
 			RETURN;
