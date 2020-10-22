@@ -121,6 +121,16 @@ module.exports = function (grunt) {
     },
     checkDependencies: checkDependencies
   });
+  
+  grunt.registerTask('build-develop', 'Build develop scripts', function () {
+    if (packageFile.grunt["develop-copy"]) {
+        grunt.initConfig({
+          copy: packageFile.grunt["develop-copy"]
+        });
+    } else {
+        grunt.registerTask('copy', 'No copy', function () {});
+    }
+  });
 
   grunt.loadNpmTasks('grunt-contrib-clean');
   grunt.loadNpmTasks('grunt-contrib-copy');
@@ -130,5 +140,5 @@ module.exports = function (grunt) {
   grunt.loadNpmTasks('grunt-check-dependencies');
   
   grunt.registerTask('default', ['clean', 'mkdir', 'copy', 'comments', 'usebanner', 'checkDependencies']);
-
+  grunt.registerTask('develop', ['build-develop', 'copy']);
 };
