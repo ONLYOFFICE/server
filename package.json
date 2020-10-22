@@ -23,6 +23,9 @@
         "dest": "./build/server"
       }
     },
+    "develop-copy": {
+      "server": {}
+    },
     "clean": {
       "options": {
         "force": true

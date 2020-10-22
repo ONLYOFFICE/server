@@ -123,13 +123,9 @@ module.exports = function (grunt) {
   });
   
   grunt.registerTask('build-develop', 'Build develop scripts', function () {
-    if (packageFile.grunt["develop-copy"]) {
-        grunt.initConfig({
-          copy: packageFile.grunt["develop-copy"]
-        });
-    } else {
-        grunt.registerTask('copy', 'No copy', function () {});
-    }
+    grunt.initConfig({
+      copy: packageFile.grunt["develop-copy"]
+    });
   });
 
   grunt.loadNpmTasks('grunt-contrib-clean');
