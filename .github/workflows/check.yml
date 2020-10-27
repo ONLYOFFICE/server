@@ -1,0 +1,9 @@
+name: check
+on: [push]
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: run make command
+        run: make
