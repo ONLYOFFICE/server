@@ -2690,7 +2690,7 @@ exports.install = function(server, callbackFunction) {
 			let connectionsCount = 0;
 			if (constants.PACKAGE_TYPE_OS === licenseInfo.packageType && c_LR.Error === licenseType) {
 				connectionsCount = constants.LICENSE_CONNECTIONS;
-				licenseType = c_LR.SuccessLimit;
+				licenseType = c_LR.Success;
 			} else if (c_LR.Success === licenseType) {
 				connectionsCount = licenseInfo.connections;
 			}
