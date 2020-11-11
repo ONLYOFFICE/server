@@ -16,10 +16,10 @@
             "path": "../../../fonts"
           },
           "/sdkjs": {
-            "path": "../../../sdkjs"
+            "path": "../../../plug-in folders/sdkjs"
           },
           "/web-apps": {
-            "path": "../../../web-apps"
+            "path": "../../../plug-in folders/web-apps"
           },
           "/sdkjs-plugins": {
             "path": "../../../sdkjs-plugins"
@@ -31,12 +31,6 @@
       },
       "utils": {
         "utils_common_fontdir": "/usr/share/fonts"
-      },
-      "sql": {
-        "type": "mysql",
-        "dbPort": 3306,
-        "dbUser": "root",
-        "dbPass": "onlyoffice"
       },
       "sockjs": {
         "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
@@ -51,7 +45,7 @@
   "FileConverter": {
     "converter": {
       "fontDir": "/usr/share/fonts",
-      "presentationThemesDir": "../../../sdkjs/slide/themes",
+      "presentationThemesDir": "../../../plug-in folders/sdkjs/slide/themes",
       "x2tPath": "../../FileConverter/bin/x2t",
       "docbuilderPath": "../../FileConverter/bin/docbuilder",
       "docbuilderAllFontsPath": "../../App_Data/docbuilder/AllFonts.js"
