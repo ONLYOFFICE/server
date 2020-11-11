@@ -16,11 +16,11 @@
             "options": {"maxAge": "7d"}
           },
           "/sdkjs": {
-            "path": "/var/www/onlyoffice/documentserver/sdkjs",
+            "path": "/var/www/onlyoffice/documentserver/plug-in folders/sdkjs",
             "options": {"maxAge": "7d"}
           },
           "/web-apps": {
-            "path": "/var/www/onlyoffice/documentserver/web-apps",
+            "path": "/var/www/onlyoffice/documentserver/plug-in folders/web-apps",
             "options": {"maxAge": "7d"}
           },
           "/welcome": {
