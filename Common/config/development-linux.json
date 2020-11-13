@@ -16,16 +16,16 @@
             "path": "../../../fonts"
           },
           "/sdkjs": {
-            "path": "../../../plug-in folders/sdkjs"
+            "path": "../../../sdkjs"
           },
           "/web-apps": {
-            "path": "../../../plug-in folders/web-apps"
+            "path": "../../../web-apps"
           },
           "/sdkjs-plugins": {
             "path": "../../../sdkjs-plugins"
           },
           "/info": {
-            "path": "../branding/info"
+            "path": "../../branding/info"
           }
         }
       },
