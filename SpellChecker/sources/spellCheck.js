@@ -55,32 +55,18 @@ function spell(type, word, id) {
 			if (arrExistDictionaries[id]) {
 				let pathTmp = path.join(pathDictionaries, allLanguages[id], allLanguages[id] + '.');
 				
-				//const affix = fs.readFileSync(pathTmp + 'aff');
-				//const dictionary  = fs.readFileSync(pathTmp + 'dic');
-
-				//62 строка - старый код, не работало без строк 58-59 (не выяснил, почему)
 				dict = arrDictionaries[id] = new nodehun(pathTmp + 'aff', pathTmp + 'dic');
-				//dict = arrDictionaries[id] = new nodehun(affix, dictionary);
 			}
 		}
 
 		if (dict) {
 			if ("spell" === type) {
 				// use setImmediate because https://github.com/nodejs/node/issues/5691
-				//71-73 строки - старый код
-				/*dict.isCorrect(word, function (err, correct, origWord) {
-					return setImmediate(resolve, !err && correct);
-				});*/
 				dict.spell(word)
 				    .then(isCorrect => {
-						//console.log(word, isCorrect);
 				        return setImmediate(resolve, isCorrect);
 				    });
 			} else if ("suggest" === type) {
-				//80-82 строки - старый код
-				/*dict.spellSuggestions(word, function (err, correct, suggestions, origWord) {
-					return setImmediate(resolve, suggestions);
-				});*/
 				dict.suggest(word)
 				    .then(suggestions => {
 				        return setImmediate(resolve, suggestions);
