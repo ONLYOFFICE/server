@@ -32,12 +32,6 @@
       "utils": {
         "utils_common_fontdir": "/usr/share/fonts"
       },
-      "sql": {
-        "type": "mysql",
-        "dbPort": 3306,
-        "dbUser": "root",
-        "dbPass": "onlyoffice"
-      },
       "sockjs": {
         "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
       }
