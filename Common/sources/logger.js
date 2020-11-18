@@ -74,6 +74,8 @@ if (config.get('log.options.replaceConsole')) {
 	console.debug = logger.debug.bind(logger);
 }
 
+logger.addContext('docId', 'docId')
+
 exports.trace = function (){
 	return logger.trace.apply(logger, Array.prototype.slice.call(arguments));
 };
@@ -91,6 +93,9 @@ exports.error = function (){
 };
 exports.fatal = function (){
 	return logger.fatal.apply(logger, Array.prototype.slice.call(arguments));
+};
+exports.getLogger = function (){
+	return log4js.getLogger.apply(log4js, Array.prototype.slice.call(arguments));
 };
 exports.shutdown = function (callback) {
 	return log4js.shutdown(callback);
