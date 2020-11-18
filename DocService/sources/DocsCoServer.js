@@ -1122,6 +1122,8 @@ exports.install = function(server, callbackFunction) {
     conn.on('data', function(message) {
       return co(function* () {
       var docId = 'null';
+      let docLogger = logger.getLogger('nodeJS');
+      docLogger.addContext('docId', conn.docId);
       try {
         var startDate = null;
         if(clientStatsD) {
@@ -1129,27 +1131,27 @@ exports.install = function(server, callbackFunction) {
         }
         var data = JSON.parse(message);
         docId = conn.docId;
-        logger.info('data.type = ' + data.type + ' id = ' + docId);
+        docLogger.info('data.type = ' + data.type);
         if(getIsShutdown())
         {
-          logger.debug('Server shutdown receive data');
+          docLogger.debug('Server shutdown receive data');
           return;
         }
         if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
             'isSaveLock' == data.type)) {
-          logger.warn("conn.isCiriticalError send command: docId = %s type = %s", docId, data.type);
+          docLogger.warn("conn.isCiriticalError send command: type = %s", data.type);
           conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
           return;
         }
         if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
             ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
-          logger.warn("conn.user.view||isCloseCoAuthoring access deny: docId = %s type = %s", docId, data.type);
+          docLogger.warn("conn.user.view||isCloseCoAuthoring access deny: type = %s", data.type);
           conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
           return;
         }
         switch (data.type) {
           case 'auth'          :
-            yield* auth(conn, data);
+            yield* auth(docLogger, conn, data);
             break;
           case 'message'        :
             yield* onMessage(conn, data);
@@ -1190,7 +1192,7 @@ exports.install = function(server, callbackFunction) {
             break;
           }
           case 'changesError':
-            logger.error("changesError: docId = %s %s", docId, data.stack);
+            docLogger.error("changesError: %s", data.stack);
             if (cfgErrorFiles && docId) {
               let destDir = cfgErrorFiles + '/browser/' + docId;
               yield storage.copyPath(docId, destDir);
@@ -1211,7 +1213,7 @@ exports.install = function(server, callbackFunction) {
             sendData(conn, {type: "forceSaveStart", messages: forceSaveRes});
             break;
           default:
-            logger.debug("unknown command %s", message);
+            docLogger.debug("unknown command %s", message);
             break;
         }
         if(clientStatsD) {
@@ -1220,7 +1222,7 @@ exports.install = function(server, callbackFunction) {
           }
         }
       } catch (e) {
-        logger.error("error receiving response: docId = %s type = %s\r\n%s", docId, (data && data.type) ? data.type : 'null', e.stack);
+        docLogger.error("error receiving response: type = %s\r\n%s", (data && data.type) ? data.type : 'null', e.stack);
       }
       });
     });
@@ -1862,10 +1864,11 @@ exports.install = function(server, callbackFunction) {
     return jwt.sign(payload, secret, options);
   }
 
-  function* auth(conn, data) {
+  function* auth(docLogger, conn, data) {
     //TODO: Do authorization etc. check md5 or query db
     if (data.token && data.user) {
       let docId = data.docid;
+      docLogger.addContext('docId', docId);
       //check jwt
       if (cfgTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session :
@@ -1873,7 +1876,7 @@ exports.install = function(server, callbackFunction) {
         const checkJwtRes = checkJwt(docId, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
           if (!fillDataFromJwt(checkJwtRes.decoded, data)) {
-            logger.warn("fillDataFromJwt return false: docId = %s", docId);
+            docLogger.warn("fillDataFromJwt return false");
             conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
             return;
           }
@@ -1884,6 +1887,7 @@ exports.install = function(server, callbackFunction) {
       }
 
       docId = data.docid;
+      docLogger.addContext('docId', docId);
       const user = data.user;
 
       //get user index
@@ -1898,7 +1902,7 @@ exports.install = function(server, callbackFunction) {
           documentCallback = url.parse(data.documentCallbackUrl);
           let filterStatus = yield* utils.checkHostFilter(documentCallback.hostname);
           if (0 !== filterStatus) {
-            logger.warn('checkIpFilter error: docId = %s;url = %s', docId, data.documentCallbackUrl);
+            docLogger.warn('checkIpFilter error: url = %s', data.documentCallbackUrl);
             conn.close(constants.DROP_CODE, constants.DROP_REASON);
             return;
           }
@@ -1981,7 +1985,7 @@ exports.install = function(server, callbackFunction) {
           Date.now() - result[0]['status_info'] * 60000 > cfgExpUpdateVersionStatus)) {
           let newStatus = taskResult.FileStatus.Ok;
           if (taskResult.FileStatus.UpdateVersion === status) {
-            logger.warn("UpdateVersion expired: docId = %s", docId);
+            docLogger.warn("UpdateVersion expired");
             //FileStatus.None to open file again from new url
             newStatus = taskResult.FileStatus.None;
           }
@@ -2013,7 +2017,7 @@ exports.install = function(server, callbackFunction) {
       }
       //Set the unique ID
       if (bIsRestore) {
-        logger.info("restored old session: docId = %s id = %s", docId, data.sessionId);
+        docLogger.info("restored old session: id = %s", data.sessionId);
 
         if (!conn.user.view) {
           // Останавливаем сборку (вдруг она началась)
@@ -2048,7 +2052,7 @@ exports.install = function(server, callbackFunction) {
               yield* sendFileErrorAuth(conn, data.sessionId, 'Restore error. Document modified.');
             }
           } catch (err) {
-            logger.error("DataBase error: docId = %s %s", docId, err.stack);
+            docLogger.error("DataBase error: %s", err.stack);
             yield* sendFileErrorAuth(conn, data.sessionId, 'DataBase error');
           }
         } else {
