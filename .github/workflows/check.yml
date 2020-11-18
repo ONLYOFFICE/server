@@ -8,5 +8,7 @@ jobs:
       - uses: actions/setup-node@v1
       - name: Setup grunt
         run: npm install -g grunt-cli
+      - name: Clone dictonaries
+        run: git clone --depth=1 https://github.com/ONLYOFFICE/dictionaries.git ../dictionaries
       - name: run make command
         run: make
