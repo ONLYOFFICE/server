@@ -5,5 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+      - name: Setup grunt
+        run: npm install -g grunt-cli
       - name: run make command
         run: make
