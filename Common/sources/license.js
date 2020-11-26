@@ -41,7 +41,7 @@ exports.readLicense = function*() {
 	const c_LR = constants.LICENSE_RESULT;
 	return {
 		count: 1,
-		type: c_LR.Error,
+		type: c_LR.Success,
 		light: false,
 		packageType: constants.PACKAGE_TYPE_OS,
 		mode: constants.LICENSE_MODE.None,
