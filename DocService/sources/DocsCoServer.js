@@ -2629,11 +2629,6 @@ exports.install = function(server, callbackFunction) {
 	function _checkLicense(conn) {
 		return co(function* () {
 			try {
-				const c_LR = constants.LICENSE_RESULT;
-				let licenseType = licenseInfo.type;
-				if (constants.PACKAGE_TYPE_OS === licenseInfo.packageType && c_LR.Error === licenseType) {
-					licenseType = c_LR.Success;
-				}
 				let rights = constants.RIGHTS.Edit;
 				if (config.get('server.edit_singleton')) {
 					// ToDo docId from url ?
@@ -2652,7 +2647,7 @@ exports.install = function(server, callbackFunction) {
 
 				sendData(conn, {
 					type: 'license', license: {
-						type: licenseType,
+						type: licenseInfo.type,
 						light: licenseInfo.light,
 						mode: licenseInfo.mode,
 						rights: rights,
@@ -2673,30 +2668,22 @@ exports.install = function(server, callbackFunction) {
 		let licenseWarningLimit = false;
 		const c_LR = constants.LICENSE_RESULT;
 		let licenseType = licenseInfo.type;
-		if (licenseInfo.usersCount) {
-			if (c_LR.Success === licenseType) {
+		if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
+			if (licenseInfo.usersCount) {
 				const now = new Date();
 				const nowUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(),
 					now.getUTCMinutes(), now.getUTCSeconds()) / 1000;
-				let execRes = yield editorData.getPresenceUniqueUser(nowUTC);
-				if (licenseInfo.usersCount > execRes.length) {
-					licenseType = c_LR.Success;
-				} else {
-					licenseType = -1 === execRes.indexOf(userId) ? c_LR.UsersCount : c_LR.Success;
+				const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
+				if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.indexOf(userId))) {
+					licenseType = c_LR.UsersCount;
 				}
-				licenseWarningLimit = licenseInfo.usersCount * cfgWarningLimitPercents <= execRes.length;
-			}
-		} else {
-			let connectionsCount = 0;
-			if (constants.PACKAGE_TYPE_OS === licenseInfo.packageType && c_LR.Error === licenseType) {
-				connectionsCount = constants.LICENSE_CONNECTIONS;
-				licenseType = c_LR.Success;
-			} else if (c_LR.Success === licenseType) {
-				connectionsCount = licenseInfo.connections;
-			}
-			if (connectionsCount) {
+				licenseWarningLimit = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
+			} else {
+				const connectionsCount = licenseInfo.connections;
 				const editConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
-				licenseType = (connectionsCount > editConnectionsCount) ? licenseType : c_LR.Connections;
+				if (editConnectionsCount >= connectionsCount) {
+					licenseType = c_LR.Connections;
+				}
 				licenseWarningLimit = connectionsCount * cfgWarningLimitPercents <= editConnectionsCount;
 			}
 		}
