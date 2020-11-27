@@ -448,31 +448,32 @@ function removePresence(conn) {
   });
 }
 
-function sendData(conn, data) {
+function sendData(docLogger, conn, data) {
   conn.write(JSON.stringify(data));
   const type = data ? data.type : null;
-  logger.debug('sendData: docId = %s;type = %s', conn.docId, type);
+  docLogger.addContext('docId', conn.docId);
+  docLogger.debug('sendData: type = %s', type);
 }
-function sendDataWarning(conn, msg) {
-  sendData(conn, {type: "warning", message: msg});
+function sendDataWarning(docLogger, conn, msg) {
+  sendData(docLogger, conn, {type: "warning", message: msg});
 }
-function sendDataMessage(conn, msg) {
-  sendData(conn, {type: "message", messages: msg});
+function sendDataMessage(docLogger, conn, msg) {
+  sendData(docLogger, conn, {type: "message", messages: msg});
 }
-function sendDataCursor(conn, msg) {
-  sendData(conn, {type: "cursor", messages: msg});
+function sendDataCursor(docLogger, conn, msg) {
+  sendData(docLogger, conn, {type: "cursor", messages: msg});
 }
-function sendDataMeta(conn, msg) {
-  sendData(conn, {type: "meta", messages: msg});
+function sendDataMeta(docLogger, conn, msg) {
+  sendData(docLogger, conn, {type: "meta", messages: msg});
 }
-function sendDataSession(conn, msg) {
-  sendData(conn, {type: "session", messages: msg});
+function sendDataSession(docLogger, conn, msg) {
+  sendData(docLogger, conn, {type: "session", messages: msg});
 }
-function sendDataRefreshToken(conn, msg) {
-  sendData(conn, {type: "refreshToken", messages: msg});
+function sendDataRefreshToken(docLogger, conn, msg) {
+  sendData(docLogger, conn, {type: "refreshToken", messages: msg});
 }
-function sendReleaseLock(conn, userLocks) {
-  sendData(conn, {type: "releaseLock", locks: _.map(userLocks, function(e) {
+function sendReleaseLock(docLogger, conn, userLocks) {
+  sendData(docLogger, conn, {type: "releaseLock", locks: _.map(userLocks, function(e) {
     return {
       block: e.block,
       user: e.user,
@@ -588,8 +589,9 @@ function* getOriginalParticipantsId(docId) {
   return result;
 }
 
-function* sendServerRequest(docId, uri, dataObject, opt_checkAuthorization) {
-  logger.debug('postData request: docId = %s;url = %s;data = %j', docId, uri, dataObject);
+function* sendServerRequest(docLogger, docId, uri, dataObject, opt_checkAuthorization) {
+  docLogger.addContext('docId', docId);
+  docLogger.debug('postData request: url = %s;data = %j', uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(uri)) {
     auth = utils.fillJwtForRequest(dataObject);
@@ -598,16 +600,16 @@ function* sendServerRequest(docId, uri, dataObject, opt_checkAuthorization) {
       auth = undefined;
     } else if (opt_checkAuthorization && !opt_checkAuthorization(auth, dataObject)) {
       auth = utils.fillJwtForRequest(dataObject);
-      logger.warn('authorization reduced to: docId = %s; length=%d', docId, auth.length);
+      docLogger.warn('authorization reduced to: length=%d', auth.length);
     }
   }
   let res = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), cfgCallbackRequestTimeout, auth);
-  logger.debug('postData response: docId = %s;data = %s', docId, res);
+  docLogger.debug('postData response: data = %s', res);
   return res;
 }
 
 // Парсинг ссылки
-function parseUrl(callbackUrl) {
+function parseUrl(docLogger, callbackUrl) {
   var result = null;
   try {
     //делать decodeURIComponent не нужно http://expressjs.com/en/4x/api.html#app.settings.table
@@ -627,14 +629,14 @@ function parseUrl(callbackUrl) {
       'href': parseObject.href
     };
   } catch (e) {
-    logger.error("error parseUrl %s:\r\n%s", callbackUrl, e.stack);
+    docLogger.error("error parseUrl %s:\r\n%s", callbackUrl, e.stack);
     result = null;
   }
 
   return result;
 }
 
-function* getCallback(id, opt_userIndex) {
+function* getCallback(docLogger, id, opt_userIndex) {
   var callbackUrl = null;
   var baseUrl = null;
   var selectRes = yield taskResult.select(id);
@@ -648,7 +650,7 @@ function* getCallback(id, opt_userIndex) {
     }
   }
   if (null != callbackUrl && null != baseUrl) {
-    return {server: parseUrl(callbackUrl), baseUrl: baseUrl};
+    return {server: parseUrl(docLogger, callbackUrl), baseUrl: baseUrl};
   } else {
     return null;
   }
@@ -675,8 +677,9 @@ function* setForceSave(docId, forceSave, cmd, success) {
                    }, cmd.getUserConnectionId());
   }
 }
-function* startForceSave(docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userIndex, opt_baseUrl, opt_queue, opt_pubsub) {
-  logger.debug('startForceSave start:docId = %s', docId);
+function* startForceSave(docLogger, docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userIndex, opt_baseUrl, opt_queue, opt_pubsub) {
+  docLogger.addContext('docId', docId);
+  docLogger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null};
   let startedForceSave;
   let hasEncrypted = false;
@@ -689,7 +692,7 @@ function* startForceSave(docId, type, opt_userdata, opt_userId, opt_userConnecti
       startedForceSave = yield editorData.checkAndStartForceSave(docId);
     }
   }
-  logger.debug('startForceSave canStart:docId = %s; hasEncrypted = %s; startedForceSave = %j', docId, hasEncrypted, startedForceSave);
+  docLogger.debug('startForceSave canStart:hasEncrypted = %s; startedForceSave = %j', hasEncrypted, startedForceSave);
   if (startedForceSave) {
     let baseUrl = opt_baseUrl || startedForceSave.baseUrl;
     let forceSave = new commonDefines.CForceSaveData(startedForceSave);
@@ -720,23 +723,25 @@ function* startForceSave(docId, type, opt_userdata, opt_userId, opt_userConnecti
     } else {
       res.code = commonDefines.c_oAscServerCommandErrors.UnknownError;
     }
-    logger.debug('startForceSave convertFromChanges:docId = %s; status = %d', docId, status.err);
+    docLogger.debug('startForceSave convertFromChanges:status = %d', status.err);
   } else {
     res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
   }
-  logger.debug('startForceSave end:docId = %s', docId);
+  docLogger.debug('startForceSave end');
   return res;
 }
 function handleDeadLetter(data, ack) {
   return co(function*() {
     let docId = 'null';
+    let docLogger = logger.getLogger('nodeJS');
     try {
       var isRequeued = false;
       let task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
         let cmd = task.getCmd();
         docId = cmd.getDocId();
-        logger.warn('handleDeadLetter start: docId = %s %s', docId, data);
+        docLogger.addContext('docId', docId);
+        docLogger.warn('handleDeadLetter start: %s', data);
         let forceSave = cmd.getForceSave();
         if (forceSave && commonDefines.c_oAscForceSaveTypes.Timeout == forceSave.getType()) {
           let actualForceSave = yield editorData.getForceSave(docId);
@@ -747,7 +752,7 @@ function handleDeadLetter(data, ack) {
             isRequeued = true;
           }
         } else if(cmd.getAttempt()) {
-          logger.warn('handleDeadLetter addResponse delayed = %d: docId = %s', cmd.getAttempt(), docId);
+          docLogger.warn('handleDeadLetter addResponse delayed = %d', cmd.getAttempt());
           yield* addResponse(task);
         } else {
           //simulate error response
@@ -755,9 +760,9 @@ function handleDeadLetter(data, ack) {
           canvasService.receiveTask(JSON.stringify(task), function(){});
         }
       }
-      logger.warn('handleDeadLetter end: docId = %s; requeue = %s', docId, isRequeued);
+      docLogger.warn('handleDeadLetter end: requeue = %s', isRequeued);
     } catch (err) {
-      logger.error('handleDeadLetter error: docId = %s\r\n%s', docId, err.stack);
+      docLogger.error('handleDeadLetter error: \r\n%s', err.stack);
     } finally {
       ack();
     }
@@ -770,9 +775,9 @@ function handleDeadLetter(data, ack) {
  * @param callback
  * @param baseUrl
  */
-function* sendStatusDocument(docId, bChangeBase, opt_userAction, opt_userIndex, opt_callback, opt_baseUrl, opt_userData, opt_forceClose) {
+function* sendStatusDocument(docLogger, docId, bChangeBase, opt_userAction, opt_userIndex, opt_callback, opt_baseUrl, opt_userData, opt_forceClose) {
   if (!opt_callback) {
-    var getRes = yield* getCallback(docId, opt_userIndex);
+    var getRes = yield* getCallback(docLogger, docId, opt_userIndex);
     if (getRes) {
       opt_callback = getRes.server;
       if (!opt_baseUrl) {
@@ -803,10 +808,11 @@ function* sendStatusDocument(docId, bChangeBase, opt_userAction, opt_userIndex, 
       updateTask.callback = opt_callback.href;
       updateTask.baseurl = opt_baseUrl;
       var updateIfRes = yield taskResult.update(updateTask);
+      docLogger.addContext('docId', docId);
       if (updateIfRes.affectedRows > 0) {
-        logger.debug('sendStatusDocument updateIf: docId = %s', docId);
+        docLogger.debug('sendStatusDocument updateIf');
       } else {
-        logger.debug('sendStatusDocument updateIf no effect: docId = %s', docId);
+        docLogger.debug('sendStatusDocument updateIf no effect');
       }
     }
   }
@@ -826,28 +832,29 @@ function* sendStatusDocument(docId, bChangeBase, opt_userAction, opt_userIndex, 
   var uri = opt_callback.href;
   var replyData = null;
   try {
-    replyData = yield* sendServerRequest(docId, uri, sendData);
+    replyData = yield* sendServerRequest(docLogger, docId, uri, sendData);
   } catch (err) {
     replyData = null;
-    logger.error('postData error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, sendData, err.stack);
+    docLogger.error('postData error: url = %s;data = %j\r\n%s', uri, sendData, err.stack);
   }
-  yield* onReplySendStatusDocument(docId, replyData);
+  yield* onReplySendStatusDocument(docLogger, docId, replyData);
   return opt_callback;
 }
-function parseReplyData(docId, replyData) {
+function parseReplyData(docLogger, docId, replyData) {
   var res = null;
+  docLogger.addContext('docId', docId);
   if (replyData) {
     try {
       res = JSON.parse(replyData);
     } catch (e) {
-      logger.error("error parseReplyData: docId = %s; data = %s\r\n%s", docId, replyData, e.stack);
+      docLogger.error("error parseReplyData: data = %s\r\n%s", replyData, e.stack);
       res = null;
     }
   }
   return res;
 }
-function* onReplySendStatusDocument(docId, replyData) {
-  var oData = parseReplyData(docId, replyData);
+function* onReplySendStatusDocument(docLogger, docId, replyData) {
+  var oData = parseReplyData(docLogger, docId, replyData);
   if (!(oData && commonDefines.c_oAscServerCommandErrors.NoError == oData.error)) {
     // Ошибка подписки на callback, посылаем warning
     yield* publish({type: commonDefines.c_oPublishType.warning, docId: docId, description: 'Error on save server subscription!'});
@@ -882,12 +889,13 @@ function* dropUsersFromDocument(docId, users) {
   }
 }
 
-function dropUserFromDocument(docId, userId, description) {
+function dropUserFromDocument(docLogger, docId, userId, description) {
   var elConnection;
+  docLogger.addContext('docId', docId);
   for (var i = 0, length = connections.length; i < length; ++i) {
     elConnection = connections[i];
     if (elConnection.docId === docId && userId === elConnection.user.idOriginal && !elConnection.isCloseCoAuthoring) {
-      sendData(elConnection,
+      sendData(docLogger, elConnection,
         {
           type: "drop",
           description: description
@@ -897,7 +905,7 @@ function dropUserFromDocument(docId, userId, description) {
 }
 
 // Подписка на эвенты:
-function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
+function* bindEvents(docLogger, docId, callback, baseUrl, opt_userAction, opt_userData) {
   // Подписка на эвенты:
   // - если пользователей нет и изменений нет, то отсылаем статус "закрыто" и в базу не добавляем
   // - если пользователей нет, а изменения есть, то отсылаем статус "редактируем" без пользователей, но добавляем в базу
@@ -905,18 +913,19 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
   var bChangeBase;
   var oCallbackUrl;
   if (!callback) {
-    var getRes = yield* getCallback(docId);
+    var getRes = yield* getCallback(docLogger, docId);
     if (getRes) {
       oCallbackUrl = getRes.server;
       bChangeBase = c_oAscChangeBase.Delete;
     }
   } else {
-    oCallbackUrl = parseUrl(callback);
+    docLogger.addContext('docId', docId);
+    oCallbackUrl = parseUrl(docLogger, callback);
     bChangeBase = c_oAscChangeBase.All;
     if (null !== oCallbackUrl) {
       let filterStatus = yield* utils.checkHostFilter(oCallbackUrl.host);
       if (filterStatus > 0) {
-        logger.warn('checkIpFilter error: docId = %s;url = %s', docId, callback);
+        docLogger.warn('checkIpFilter error: url = %s', callback);
         //todo add new error type
         oCallbackUrl = null;
       }
@@ -925,7 +934,7 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
   if (null === oCallbackUrl) {
     return commonDefines.c_oAscServerCommandErrors.ParseError;
   } else {
-    yield* sendStatusDocument(docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
+    yield* sendStatusDocument(docLogger, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
     return commonDefines.c_oAscServerCommandErrors.NoError;
   }
 }
@@ -940,16 +949,16 @@ function* cleanDocumentOnExit(docId, deleteChanges) {
     yield storage.deletePath(cfgForgottenFiles + '/' + docId);
   }
 }
-function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_forceClose) {
+function* cleanDocumentOnExitNoChanges(docLogger, docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
-  yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
+  yield* sendStatusDocument(docLogger, docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
   //если пользователь зашел в документ, соединение порвалось, на сервере удалилась вся информация,
   //при восстановлении соединения userIndex сохранится и он совпадет с userIndex следующего пользователя
   yield* cleanDocumentOnExit(docId, false);
 }
 
-function* _createSaveTimer(docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay) {
+function* _createSaveTimer(docLogger, docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay) {
   var updateMask = new taskResult.TaskResultData();
   updateMask.key = docId;
   updateMask.status = taskResult.FileStatus.Ok;
@@ -957,6 +966,7 @@ function* _createSaveTimer(docId, opt_userId, opt_userIndex, opt_queue, opt_noDe
   updateTask.status = taskResult.FileStatus.SaveVersion;
   updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
   var updateIfRes = yield taskResult.updateIf(updateTask, updateMask);
+  docLogger.addContext('docId', docId);
   if (updateIfRes.affectedRows > 0) {
     if(!opt_noDelay){
       yield utils.sleep(cfgAscSaveTimeOutDelay);
@@ -971,11 +981,11 @@ function* _createSaveTimer(docId, opt_userId, opt_userIndex, opt_queue, opt_noDe
   } else {
     //если не получилось - значит FileStatus=SaveVersion(кто-то другой начал сборку) или UpdateVersion(сборка закончена)
     //в этом случае ничего делать не надо
-    logger.debug('_createSaveTimer updateIf no effect');
+    docLogger.debug('_createSaveTimer updateIf no effect');
   }
 }
 
-function checkJwt(docId, token, type) {
+function checkJwt(docLogger, docId, token, type) {
   var res = {decoded: null, description: null, code: null, token: token};
   var secret;
   switch (type) {
@@ -989,14 +999,15 @@ function checkJwt(docId, token, type) {
       secret = utils.getSecretByElem(cfgSecretSession);
       break;
   }
+  docLogger.addContext('docId', docId);
   if (undefined == secret) {
-    logger.warn('empty secret: docId = %s token = %s', docId, token);
+    docLogger.warn('empty secret: token = %s', token);
   }
   try {
     res.decoded = jwt.verify(token, secret, cfgTokenVerifyOptions);
-    logger.debug('checkJwt success: docId = %s decoded = %j', docId, res.decoded);
+    docLogger.debug('checkJwt success: decoded = %j', res.decoded);
   } catch (err) {
-    logger.warn('checkJwt error: docId = %s name = %s message = %s token = %s', docId, err.name, err.message, token);
+    docLogger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
     if ('TokenExpiredError' === err.name) {
       res.code = constants.JWT_EXPIRED_CODE;
       res.description = constants.JWT_EXPIRED_REASON + err.message;
@@ -1007,14 +1018,15 @@ function checkJwt(docId, token, type) {
   }
   return res;
 }
-function checkJwtHeader(docId, req, opt_header, opt_prefix, opt_secretType) {
+function checkJwtHeader(docLogger, docId, req, opt_header, opt_prefix, opt_secretType) {
   let header = opt_header || cfgTokenInboxHeader;
   let prefix = opt_prefix || cfgTokenInboxPrefix;
   let secretType = opt_secretType || commonDefines.c_oAscSecretType.Inbox;
   let authorization = req.get(header);
+  docLogger.addContext('docId', docId);
   if (authorization && authorization.startsWith(prefix)) {
     var token = authorization.substring(prefix.length);
-    return checkJwt(docId, token, secretType);
+    return checkJwt(docLogger, docId, token, secretType);
   }
   return null;
 }
@@ -1029,8 +1041,9 @@ function checkJwtPayloadHash(docId, hash, body, token) {
   }
   return res;
 }
-function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
+function getRequestParams(docLogger, docId, req, opt_isNotInBody, opt_tokenAssign) {
   let res = {code: constants.NO_ERROR, params: undefined};
+  docLogger.addContext('docId', docId);
   if (req.body && Buffer.isBuffer(req.body) && !opt_isNotInBody) {
     res.params = JSON.parse(req.body.toString('utf8'));
   } else {
@@ -1040,10 +1053,10 @@ function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
     res.code = constants.VKEY;
     let checkJwtRes;
     if (cfgTokenInboxInBody && !opt_isNotInBody) {
-      checkJwtRes = checkJwt(docId, res.params.token, commonDefines.c_oAscSecretType.Inbox);
+      checkJwtRes = checkJwt(docLogger, docId, res.params.token, commonDefines.c_oAscSecretType.Inbox);
     } else {
       //for compatibility
-      checkJwtRes = checkJwtHeader(docId, req);
+      checkJwtRes = checkJwtHeader(docLogger, docId, req);
     }
     if (checkJwtRes) {
       if (checkJwtRes.decoded) {
@@ -1112,7 +1125,9 @@ exports.install = function(server, callbackFunction) {
       return;
     }
     if (getIsShutdown()) {
-      sendFileError(conn, 'Server shutdow');
+      let docLogger = logger.getLogger('nodeJS');
+      docLogger.addContext('docId', conn.docId);
+      sendFileError(docLogger, conn, 'Server shutdow');
       return;
     }
     conn.baseUrl = utils.getBaseUrlByConnection(conn);
@@ -1154,35 +1169,35 @@ exports.install = function(server, callbackFunction) {
             yield* auth(docLogger, conn, data);
             break;
           case 'message'        :
-            yield* onMessage(conn, data);
+            yield* onMessage(docLogger, conn, data);
             break;
           case 'cursor'        :
-            yield* onCursor(conn, data);
+            yield* onCursor(docLogger, conn, data);
             break;
           case 'getLock'        :
-            yield* getLock(conn, data, false);
+            yield* getLock(docLogger, conn, data, false);
             break;
           case 'saveChanges'      :
-            yield* saveChanges(conn, data);
+            yield* saveChanges(docLogger, conn, data);
             break;
           case 'isSaveLock'      :
-            yield* isSaveLock(conn, data);
+            yield* isSaveLock(docLogger, conn, data);
             break;
           case 'unSaveLock'      :
-            yield* unSaveLock(conn, -1, -1);
+            yield* unSaveLock(docLogger, conn, -1, -1);
             break;	// Индекс отправляем -1, т.к. это экстренное снятие без сохранения
           case 'getMessages'      :
-            yield* getMessages(conn, data);
+            yield* getMessages(docLogger, conn, data);
             break;
           case 'unLockDocument'    :
-            yield* checkEndAuthLock(data.unlock, data.isSave, docId, conn.user.id, data.releaseLocks, data.deleteIndex, conn);
+            yield* checkEndAuthLock(docLogger, data.unlock, data.isSave, docId, conn.user.id, data.releaseLocks, data.deleteIndex, conn);
             break;
           case 'close':
-            yield* closeDocument(conn, false);
+            yield* closeDocument(docLogger, conn, false);
             break;
           case 'versionHistory'          : {
             let cmd = new commonDefines.InputCommand(data.cmd);
-            yield* versionHistory(conn, cmd);
+            yield* versionHistory(docLogger, conn, cmd);
             break;
           }
           case 'openDocument'      : {
@@ -1206,11 +1221,11 @@ exports.install = function(server, callbackFunction) {
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
-              forceSaveRes = yield* startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser);
+              forceSaveRes = yield* startForceSave(docLogger, docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser);
             } else {
               forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
             }
-            sendData(conn, {type: "forceSaveStart", messages: forceSaveRes});
+            sendData(docLogger, conn, {type: "forceSaveStart", messages: forceSaveRes});
             break;
           default:
             docLogger.debug("unknown command %s", message);
@@ -1227,16 +1242,20 @@ exports.install = function(server, callbackFunction) {
       });
     });
     conn.on('error', function() {
-      logger.error("On error");
+      let docLogger = logger.getLogger('nodeJS');
+      docLogger.addContext('docId', conn.docId);
+      docLogger.error("On error");
     });
     conn.on('close', function() {
       return co(function* () {
         var docId = 'null';
+        let docLogger = logger.getLogger('nodeJS');
         try {
           docId = conn.docId;
-          yield* closeDocument(conn, true);
+          docLogger.addContext('docId', docId);
+          yield* closeDocument(docLogger, conn, true);
         } catch (err) {
-          logger.error('Error conn close: docId = %s\r\n%s', docId, err.stack);
+          docLogger.error('Error conn close\r\n%s', err.stack);
         }
       });
     });
@@ -1248,9 +1267,10 @@ exports.install = function(server, callbackFunction) {
    * @param conn
    * @param isCloseConnection - закрываем ли мы окончательно соединение
    */
-  function* closeDocument(conn, isCloseConnection) {
+  function* closeDocument(docLogger, conn, isCloseConnection) {
     var userLocks, reconnected = false, bHasEditors, bHasChanges;
     var docId = conn.docId;
+    docLogger.addContext('docId', docId);
     if (null == docId) {
       return;
     }
@@ -1258,7 +1278,7 @@ exports.install = function(server, callbackFunction) {
     let participantsTimestamp;
     var tmpUser = conn.user;
     var isView = tmpUser.view;
-    logger.info("Connection closed or timed out: userId = %s isCloseConnection = %s docId = %s", tmpUser.id, isCloseConnection, docId);
+    docLogger.info("Connection closed or timed out: userId = %s isCloseConnection = %s", tmpUser.id, isCloseConnection);
     var isCloseCoAuthoringTmp = conn.isCloseCoAuthoring;
     if (isCloseConnection) {
       //Notify that participant has gone
@@ -1268,7 +1288,7 @@ exports.install = function(server, callbackFunction) {
       //Check if it's not already reconnected
       reconnected = yield* isUserReconnect(docId, tmpUser.id, conn.id);
       if (reconnected) {
-        logger.info("reconnected: userId = %s docId = %s", tmpUser.id, docId);
+        docLogger.info("reconnected: userId = %s", tmpUser.id);
       } else {
         yield removePresence(conn);
         hvals = yield editorData.getPresence(docId, connections);
@@ -1283,7 +1303,7 @@ exports.install = function(server, callbackFunction) {
         conn.isCloseCoAuthoring = true;
         yield addPresence(conn, true);
         if (cfgTokenEnableBrowser) {
-          sendDataRefreshToken(conn, fillJwtByConnection(conn));
+          sendDataRefreshToken(docLogger, conn, fillJwtByConnection(conn));
         }
       }
     }
@@ -1333,7 +1353,7 @@ exports.install = function(server, callbackFunction) {
         }
 
         // Для данного пользователя снимаем Lock с документа
-        yield* checkEndAuthLock(true, false, docId, conn.user.id);
+        yield* checkEndAuthLock(docLogger, true, false, docId, conn.user.id);
 
         let userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
         // Если у нас нет пользователей, то удаляем все сообщения
@@ -1347,35 +1367,35 @@ exports.install = function(server, callbackFunction) {
             //more effective to send file without sfc, but this method is simpler by code
             let forgotten = yield storage.listObjects(cfgForgottenFiles + '/' + docId);
             needSaveChanges = forgotten.length > 0;
-            logger.debug('closeDocument hasForgotten %s: docId = %s', needSaveChanges, docId);
+            docLogger.debug('closeDocument hasForgotten %s', needSaveChanges);
           }
           if (needSaveChanges && !conn.encrypted) {
             // Send changes to save server
-            yield* _createSaveTimer(docId, tmpUser.idOriginal, userIndex);
+            yield* _createSaveTimer(docLogger, docId, tmpUser.idOriginal, userIndex);
           } else if (needSendStatus) {
-            yield* cleanDocumentOnExitNoChanges(docId, tmpUser.idOriginal, userIndex);
+            yield* cleanDocumentOnExitNoChanges(docLogger, docId, tmpUser.idOriginal, userIndex);
           } else {
             yield* cleanDocumentOnExit(docId);
           }
         } else if (needSendStatus) {
-          yield* sendStatusDocument(docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
+          yield* sendStatusDocument(docLogger, docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
         }
       }
     }
   }
 
-  function* versionHistory(conn, cmd) {
+  function* versionHistory(docLogger, conn, cmd) {
     var docIdOld = conn.docId;
     var docIdNew = cmd.getDocId();
     //check jwt
     if (cfgTokenEnableBrowser) {
-      var checkJwtRes = checkJwt(docIdNew, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
+      var checkJwtRes = checkJwt(docLogger, docIdNew, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
       if (checkJwtRes.decoded) {
         fillVersionHistoryFromJwt(checkJwtRes.decoded, cmd);
         docIdNew = cmd.getDocId();
         cmd.setWithAuthorization(true);
       } else {
-        sendData(conn, {type: "expiredToken", code: checkJwtRes.code, description: checkJwtRes.description});
+        sendData(docLogger, conn, {type: "expiredToken", code: checkJwtRes.code, description: checkJwtRes.description});
         return;
       }
     }
@@ -1391,7 +1411,7 @@ exports.install = function(server, callbackFunction) {
       conn.docId = docIdNew;
       yield addPresence(conn, true);
       if (cfgTokenEnableBrowser) {
-        sendDataRefreshToken(conn, fillJwtByConnection(conn));
+        sendDataRefreshToken(docLogger, conn, fillJwtByConnection(conn));
       }
     }
     //open
@@ -1458,8 +1478,10 @@ exports.install = function(server, callbackFunction) {
     return participantsMap;
   }
 
-	function* checkEndAuthLock(unlock, isSave, docId, userId, releaseLocks, deleteIndex, conn) {
+	function* checkEndAuthLock(docLogger, unlock, isSave, docId, userId, releaseLocks, deleteIndex, conn) {
 		let result = false;
+
+    docLogger.addContext('docId', docId);
 
     if (null != deleteIndex && -1 !== deleteIndex) {
       let puckerIndex = yield* getChangesIndex(docId);
@@ -1468,7 +1490,7 @@ exports.install = function(server, callbackFunction) {
         puckerIndex -= deleteCount;
         yield sqlBase.deleteChangesPromise(docId, deleteIndex);
       } else if (0 > deleteCount) {
-        logger.error("Error checkEndAuthLock docid: %s ; deleteIndex: %s ; startIndex: %s ; deleteCount: %s", docId,
+        docLogger.error("Error checkEndAuthLock deleteIndex: %s ; startIndex: %s ; deleteCount: %s", 
                      deleteIndex, puckerIndex, deleteCount);
       }
     }
@@ -1492,7 +1514,7 @@ exports.install = function(server, callbackFunction) {
 		if (releaseLocks && conn) {
 			const userLocks = yield* removeUserLocks(docId, userId);
 			if (0 < userLocks.length) {
-				sendReleaseLock(conn, userLocks);
+				sendReleaseLock(docLogger, conn, userLocks);
 				yield* publish({
 					type: commonDefines.c_oPublishType.releaseLock,
 					docId: docId,
@@ -1503,37 +1525,39 @@ exports.install = function(server, callbackFunction) {
 		}
 		if (isSave && conn) {
 			// Автоматически снимаем lock сами
-			yield* unSaveLock(conn, -1, -1);
+			yield* unSaveLock(docLogger, conn, -1, -1);
 		}
 
 		return result;
 	}
 
-  function* setLockDocumentTimer(docId, userId) {
+  function* setLockDocumentTimer(docLogger, docId, userId) {
+    docLogger.addContext('docId', docId);
     let timerId = setTimeout(function() {
       return co(function*() {
         try {
-          logger.warn("lockDocumentsTimerId timeout: docId = %s", docId);
+          docLogger.warn("lockDocumentsTimerId timeout");
           delete lockDocumentsTimerId[docId];
           //todo remove checkEndAuthLock(only needed for lost connections in redis)
-          yield* checkEndAuthLock(true, false, docId, userId);
+          yield* checkEndAuthLock(docLogger, true, false, docId, userId);
           yield* publishCloseUsersConnection(docId, [userId], false, constants.DROP_CODE, constants.DROP_REASON);
         } catch (e) {
-          logger.error("lockDocumentsTimerId error:\r\n%s", e.stack);
+          docLogger.error("lockDocumentsTimerId error:\r\n%s", e.stack);
         }
       });
     }, 1000 * cfgExpLockDoc);
     lockDocumentsTimerId[docId] = {timerId: timerId, userId: userId};
-    logger.debug("lockDocumentsTimerId set userId = %s: docId = %s", userId, docId);
+    docLogger.debug("lockDocumentsTimerId set userId = %s", userId);
   }
   function cleanLockDocumentTimer(docId, lockDocumentTimer) {
     clearTimeout(lockDocumentTimer.timerId);
     delete lockDocumentsTimerId[docId];
   }
 
-  function sendParticipantsState(participants, data) {
+  function sendParticipantsState(docLogger, participants, data) {
     _.each(participants, function(participant) {
-      sendData(participant, {
+      docLogger.addContext('docId', docId);
+      sendData(docLogger, participant, {
         type: "connectState",
         participantsTimestamp: data.participantsTimestamp,
         participants: data.participants,
@@ -1542,13 +1566,14 @@ exports.install = function(server, callbackFunction) {
     });
   }
 
-  function sendFileError(conn, errorId, code) {
-    logger.warn('error description: docId = %s errorId = %s', conn.docId, errorId);
+  function sendFileError(docLogger, conn, errorId, code) {
+    docLogger.addContext('docId', conn.docId);
+    docLogger.warn('error description: errorId = %s', errorId);
     conn.isCiriticalError = true;
-    sendData(conn, {type: 'error', description: errorId, code: code});
+    sendData(docLogger, conn, {type: 'error', description: errorId, code: code});
   }
 
-  function* sendFileErrorAuth(conn, sessionId, errorId, code) {
+  function* sendFileErrorAuth(docLogger, conn, sessionId, errorId, code) {
     conn.isCloseCoAuthoring = true;
     conn.sessionId = sessionId;//restore old
     //Kill previous connections
@@ -1561,7 +1586,7 @@ exports.install = function(server, callbackFunction) {
       connections.push(conn);
       yield addPresence(conn, true);
 
-      sendFileError(conn, errorId, code);
+      sendFileError(docLogger, conn, errorId, code);
     }
   }
 
@@ -1712,14 +1737,14 @@ exports.install = function(server, callbackFunction) {
     return resultLock;
   }
 
-  function* authRestore(conn, sessionId) {
+  function* authRestore(docLogger, conn, sessionId) {
     conn.sessionId = sessionId;//restore old
     //Kill previous connections
     connections = _.reject(connections, function(el) {
       return el.sessionId === sessionId;//Delete this connection
     });
 
-    yield* endAuth(conn, true);
+    yield* endAuth(docLogger, conn, true);
   }
 
   function fillUsername(data) {
@@ -1873,7 +1898,7 @@ exports.install = function(server, callbackFunction) {
       if (cfgTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session :
           commonDefines.c_oAscSecretType.Browser;
-        const checkJwtRes = checkJwt(docId, data.jwtSession || data.jwtOpen, secretType);
+        const checkJwtRes = checkJwt(docLogger, docId, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
           if (!fillDataFromJwt(checkJwtRes.decoded, data)) {
             docLogger.warn("fillDataFromJwt return false");
@@ -1966,7 +1991,7 @@ exports.install = function(server, callbackFunction) {
           connections.push(conn);
           yield addPresence(conn, true);
           // Посылаем формальную авторизацию, чтобы подтвердить соединение
-          yield* sendAuthInfo(conn, bIsRestore, undefined);
+          yield* sendAuthInfo(docLogger, conn, bIsRestore, undefined);
           if (cmd) {
             yield canvasService.openDocument(conn, cmd, upsertRes, bIsRestore);
           }
@@ -1976,6 +2001,8 @@ exports.install = function(server, callbackFunction) {
 
       if (!conn.user.view) {
         var result = yield sqlBase.checkStatusFilePromise(docId);
+
+        docLogger.addContext('docId', conn.docId);
 
         var status = result && result.length > 0 ? result[0]['status'] : null;
         if (taskResult.FileStatus.Ok === status) {
@@ -2000,18 +2027,18 @@ exports.install = function(server, callbackFunction) {
           var updateIfRes = yield taskResult.updateIf(updateTask, updateMask);
           if (!(updateIfRes.affectedRows > 0)) {
             // error version
-            yield* sendFileErrorAuth(conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
+            yield* sendFileErrorAuth(docLogger, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
             return;
           }
         } else if (bIsRestore && taskResult.FileStatus.UpdateVersion === status) {
           // error version
-          yield* sendFileErrorAuth(conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
+          yield* sendFileErrorAuth(docLogger, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
           return;
         } else if (taskResult.FileStatus.None === status && conn.encrypted) {
           //ok
         } else if (bIsRestore) {
           // Other error
-          yield* sendFileErrorAuth(conn, data.sessionId, 'Other error');
+          yield* sendFileErrorAuth(docLogger, conn, data.sessionId, 'Other error');
           return;
         }
       }
@@ -2042,25 +2069,25 @@ exports.install = function(server, callbackFunction) {
             if (bIsSuccessRestore) {
               // Проверяем lock-и
               var arrayBlocks = data['block'];
-              var getLockRes = yield* getLock(conn, data, true);
+              var getLockRes = yield* getLock(docLogger, conn, data, true);
               if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
-                yield* authRestore(conn, data.sessionId);
+                yield* authRestore(docLogger, conn, data.sessionId);
               } else {
-                yield* sendFileErrorAuth(conn, data.sessionId, 'Restore error. Locks not checked.');
+                yield* sendFileErrorAuth(docLogger, conn, data.sessionId, 'Restore error. Locks not checked.');
               }
             } else {
-              yield* sendFileErrorAuth(conn, data.sessionId, 'Restore error. Document modified.');
+              yield* sendFileErrorAuth(docLogger, conn, data.sessionId, 'Restore error. Document modified.');
             }
           } catch (err) {
             docLogger.error("DataBase error: %s", err.stack);
-            yield* sendFileErrorAuth(conn, data.sessionId, 'DataBase error');
+            yield* sendFileErrorAuth(docLogger, conn, data.sessionId, 'DataBase error');
           }
         } else {
-          yield* authRestore(conn, data.sessionId);
+          yield* authRestore(docLogger, conn, data.sessionId);
         }
       } else {
         conn.sessionId = conn.id;
-        const endAuthRes = yield* endAuth(conn, false, documentCallback);
+        const endAuthRes = yield* endAuth(docLogger, conn, false, documentCallback);
         if (endAuthRes && cmd) {
           yield canvasService.openDocument(conn, cmd, upsertRes, bIsRestore);
         }
@@ -2068,9 +2095,10 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  function* endAuth(conn, bIsRestore, documentCallback) {
+  function* endAuth(docLogger, conn, bIsRestore, documentCallback) {
     let res = true;
     const docId = conn.docId;
+    docLogger.addContext('docId', docId);
     const tmpUser = conn.user;
     let hasForgotten;
     if (constants.CONN_CLOSED === conn.readyState) {
@@ -2099,12 +2127,12 @@ exports.install = function(server, callbackFunction) {
     if (!tmpUser.view) {
       const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
       const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
-      let callback = yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
+      let callback = yield* sendStatusDocument(docLogger, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
       if (!callback && !bIsRestore) {
         //check forgotten file
         let forgotten = yield storage.listObjects(cfgForgottenFiles + '/' + docId);
         hasForgotten = forgotten.length > 0;
-        logger.debug('endAuth hasForgotten %s: docId = %s', hasForgotten, docId);
+        docLogger.debug('endAuth hasForgotten %s', hasForgotten);
       }
     }
 
@@ -2128,7 +2156,7 @@ exports.install = function(server, callbackFunction) {
         if (lockDocumentTimer) {
           cleanLockDocumentTimer(docId, lockDocumentTimer);
         }
-        yield* setLockDocumentTimer(docId, lockDocument.id);
+        yield* setLockDocumentTimer(docLogger, docId, lockDocument.id);
       }
     }
     if (constants.CONN_CLOSED === conn.readyState) {
@@ -2141,16 +2169,16 @@ exports.install = function(server, callbackFunction) {
         type: "waitAuth",
         lockDocument: lockDocument
       };
-      sendData(conn, sendObject);//Or 0 if fails
+      sendData(docLogger, conn, sendObject);//Or 0 if fails
     } else {
       if (!bIsRestore) {
-        yield* sendAuthChanges(conn.docId, [conn]);
+        yield* sendAuthChanges(docLogger, conn.docId, [conn]);
       }
       if (constants.CONN_CLOSED === conn.readyState) {
         //closing could happen during async action
         return false;
       }
-      yield* sendAuthInfo(conn, bIsRestore, participantsMap, hasForgotten);
+      yield* sendAuthInfo(docLogger, conn, bIsRestore, participantsMap, hasForgotten);
     }
     if (constants.CONN_CLOSED === conn.readyState) {
       //closing could happen during async action
@@ -2182,7 +2210,7 @@ exports.install = function(server, callbackFunction) {
     } while (changes && cfgMaxRequestChanges === changes.length);
   }
 
-  function sendAuthChangesByChunks(changes, connections) {
+  function sendAuthChangesByChunks(docLogger, changes, connections) {
     let startIndex = 0;
     let endIndex = 0;
     while (endIndex < changes.length) {
@@ -2197,22 +2225,23 @@ exports.install = function(server, callbackFunction) {
         changes: changes.slice(startIndex, endIndex)
       };
       for (let i = 0; i < connections.length; ++i) {
-        sendData(connections[i], sendObject);//Or 0 if fails
+        sendData(docLogger, connections[i], sendObject);//Or 0 if fails
       }
     }
   }
-  function* sendAuthChanges(docId, connections) {
+  function* sendAuthChanges(docLogger, docId, connections) {
     let index = 0;
     let changes;
     do {
       let objChangesDocument = yield getDocumentChanges(docId, index, index + cfgMaxRequestChanges);
       changes = objChangesDocument.arrChanges;
-      sendAuthChangesByChunks(changes, connections);
+      sendAuthChangesByChunks(docLogger, changes, connections);
       index += cfgMaxRequestChanges;
     } while (changes && cfgMaxRequestChanges === changes.length);
   }
-  function* sendAuthInfo(conn, bIsRestore, participantsMap, opt_hasForgotten) {
+  function* sendAuthInfo(docLogger, conn, bIsRestore, participantsMap, opt_hasForgotten) {
     const docId = conn.docId;
+    docLogger.addContext('docId', docId);
     let docLock;
     if(EditorTypes.document == conn.editorType){
       docLock = {};
@@ -2244,35 +2273,38 @@ exports.install = function(server, callbackFunction) {
       licenseType: conn.licenseType,
       settings: cfgEditor
     };
-    sendData(conn, sendObject);//Or 0 if fails
+    sendData(docLogger, conn, sendObject);//Or 0 if fails
   }
 
-  function* onMessage(conn, data) {
+  function* onMessage(docLogger, conn, data) {
     var docId = conn.docId;
     var userId = conn.user.id;
+    docLogger.addContext('docId', docId);
     var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal, username: conn.user.username};
     yield editorData.addMessage(docId, msg);
     // insert
-    logger.info("insert message: docId = %s %j", docId, msg);
+    docLogger.info("insert message %j", msg);
 
     var messages = [msg];
-    sendDataMessage(conn, messages);
+    sendDataMessage(docLogger, conn, messages);
     yield* publish({type: commonDefines.c_oPublishType.message, docId: docId, userId: userId, messages: messages}, docId, userId);
   }
 
-  function* onCursor(conn, data) {
+  function* onCursor(docLogger, conn, data) {
     var docId = conn.docId;
     var userId = conn.user.id;
+    docLogger.addContext('docId', docId);
     var msg = {cursor: data.cursor, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal};
 
-    logger.info("send cursor: docId = %s %s", docId, msg);
+    docLogger.info("send cursor %s", msg);
 
     var messages = [msg];
     yield* publish({type: commonDefines.c_oPublishType.cursor, docId: docId, userId: userId, messages: messages}, docId, userId);
   }
 
-  function* getLock(conn, data, bIsRestore) {
-    logger.info("getLock docid: %s", conn.docId);
+  function* getLock(docLogger, conn, data, bIsRestore) {
+    docLogger.addContext('docId', conn.docId);
+    docLogger.info("getLock");
     var fLock = null;
     switch (conn.editorType) {
       case EditorTypes.document:
@@ -2294,7 +2326,9 @@ exports.install = function(server, callbackFunction) {
   function* getLockWord(conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
-    var checkRes = yield* _checkLock(docId, arrayBlocks);
+    let docLogger = logger.getLogger('nodeJS');
+    docLogger.addContext('docId', docId);
+    var checkRes = yield* _checkLock(docLogger, docId, arrayBlocks);
     var documentLocks = checkRes.documentLocks;
     if (checkRes.res) {
       //Ok. take lock
@@ -2310,7 +2344,7 @@ exports.install = function(server, callbackFunction) {
       return false;
     }
     //тому кто зделал запрос возвращаем максимально быстро
-    sendData(conn, {type: "getLock", locks: documentLocks});
+    sendData(docLogger, conn, {type: "getLock", locks: documentLocks});
     yield* publish({type: commonDefines.c_oPublishType.getLock, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
@@ -2319,6 +2353,8 @@ exports.install = function(server, callbackFunction) {
   function* getLockExcel(conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
+    let docLogger = logger.getLogger('nodeJS');
+    docLogger.addContext('docId', docId);
     var checkRes = yield* _checkLockExcel(docId, arrayBlocks, userId);
     var documentLocks = checkRes.documentLocks;
     if (checkRes.res) {
@@ -2335,7 +2371,7 @@ exports.install = function(server, callbackFunction) {
       return false;
     }
     //тому кто зделал запрос возвращаем максимально быстро
-    sendData(conn, {type: "getLock", locks: documentLocks});
+    sendData(docLogger, conn, {type: "getLock", locks: documentLocks});
     yield* publish({type: commonDefines.c_oPublishType.getLock, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
@@ -2344,6 +2380,8 @@ exports.install = function(server, callbackFunction) {
   function* getLockPresentation(conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
+    let docLogger = logger.getLogger('nodeJS');
+    docLogger.addContext('docId', docId);
     var checkRes = yield* _checkLockPresentation(docId, arrayBlocks, userId);
     var documentLocks = checkRes.documentLocks;
     if (checkRes.res) {
@@ -2360,26 +2398,27 @@ exports.install = function(server, callbackFunction) {
       return false;
     }
     //тому кто зделал запрос возвращаем максимально быстро
-    sendData(conn, {type: "getLock", locks: documentLocks});
+    sendData(docLogger, conn, {type: "getLock", locks: documentLocks});
     yield* publish({type: commonDefines.c_oPublishType.getLock, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
 
-  function sendGetLock(participants, documentLocks) {
+  function sendGetLock(docLogger, participants, documentLocks) {
     _.each(participants, function(participant) {
-      sendData(participant, {type: "getLock", locks: documentLocks});
+      sendData(docLogger, participant, {type: "getLock", locks: documentLocks});
     });
   }
 
   // Для Excel необходимо делать пересчет lock-ов при добавлении/удалении строк/столбцов
-  function* saveChanges(conn, data) {
+  function* saveChanges(docLogger, conn, data) {
     const docId = conn.docId, userId = conn.user.id;
-    logger.info("Start saveChanges docid: %s; reSave: %s", docId, data.reSave);
+    docLogger.addContext('docId', docId);
+    docLogger.info("Start saveChanges reSave: %s", data.reSave);
 
     let lockRes = yield editorData.lockSave(docId, userId, cfgExpSaveLock);
     if (!lockRes) {
       //should not be here. cfgExpSaveLock - 60sec, sockjs disconnects after 25sec
-      logger.warn("saveChanges lockSave error docid: %s", docId);
+      docLogger.warn("saveChanges lockSave error");
       return;
     }
 
@@ -2394,7 +2433,7 @@ exports.install = function(server, callbackFunction) {
           puckerIndex -= deleteCount;
           yield sqlBase.deleteChangesPromise(docId, deleteIndex);
         } else if (0 > deleteCount) {
-          logger.error("Error saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s ; deleteCount: %s", docId, deleteIndex, puckerIndex, deleteCount);
+          docLogger.error("Error saveChanges deleteIndex: %s ; startIndex: %s ; deleteCount: %s", deleteIndex, puckerIndex, deleteCount);
         }
       }
     }
@@ -2407,7 +2446,7 @@ exports.install = function(server, callbackFunction) {
     newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
     let newChangesLastTime = newChangesLastDate.getTime();
     let arrNewDocumentChanges = [];
-    logger.info("saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s ; length: %s", docId, deleteIndex, startIndex, newChanges.length);
+    docLogger.info("saveChanges deleteIndex: %s ; startIndex: %s ; length: %s", deleteIndex, startIndex, newChanges.length);
     if (0 < newChanges.length) {
       let oElement = null;
 
@@ -2448,7 +2487,7 @@ exports.install = function(server, callbackFunction) {
 		  userLocks = yield* removeUserLocks(docId, userId);
       }
       // Для данного пользователя снимаем Lock с документа, если пришел флаг unlock
-      const checkEndAuthLockRes = yield* checkEndAuthLock(data.unlock, false, docId, userId);
+      const checkEndAuthLockRes = yield* checkEndAuthLock(docLogger, data.unlock, false, docId, userId);
       if (!checkEndAuthLockRes) {
         const arrLocks = _.map(userLocks, function(e) {
           return {
@@ -2471,7 +2510,7 @@ exports.install = function(server, callbackFunction) {
           locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo}, docId, userId);
       }
       // Автоматически снимаем lock сами и посылаем индекс для сохранения
-      yield* unSaveLock(conn, changesIndex, newChangesLastTime);
+      yield* unSaveLock(docLogger, conn, changesIndex, newChangesLastTime);
       //last save
       if (newChangesLastTime) {
         yield editorData.setForceSave(docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn));
@@ -2492,7 +2531,7 @@ exports.install = function(server, callbackFunction) {
       let isPublished = yield* publish({type: commonDefines.c_oPublishType.changes, docId: docId, userId: userId,
         changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
         locks: [], excelAdditionalInfo: undefined}, docId, userId);
-      sendData(conn, {type: 'savePartChanges', changesIndex: changesIndex});
+      sendData(docLogger, conn, {type: 'savePartChanges', changesIndex: changesIndex});
       if (!isPublished) {
         //stub for lockDocumentsTimerId
         yield* publish({type: commonDefines.c_oPublishType.changesNotify, docId: docId});
@@ -2501,32 +2540,35 @@ exports.install = function(server, callbackFunction) {
   }
 
   // Можем ли мы сохранять ?
-  function* isSaveLock(conn) {
+  function* isSaveLock(docLogger, conn) {
     let lockRes = yield editorData.lockSave(conn.docId, conn.user.id, cfgExpSaveLock);
-    logger.debug("isSaveLock: docId = %s; lockRes: %s", conn.docId, lockRes);
+    docLogger.addContext('docId', conn.docId);
+    docLogger.debug("isSaveLock: lockRes: %s", lockRes);
 
     // Отправляем только тому, кто спрашивал (всем отправлять нельзя)
-    sendData(conn, {type: "saveLock", saveLock: !lockRes});
+    sendData(docLogger, conn, {type: "saveLock", saveLock: !lockRes});
   }
 
   // Снимаем лок с сохранения
-  function* unSaveLock(conn, index, time) {
+  function* unSaveLock(docLogger, conn, index, time) {
     var unlockRes = yield editorData.unlockSave(conn.docId, conn.user.id);
+    docLogger.addContext('docId', conn.docId);
     if (commonDefines.c_oAscUnlockRes.Locked !== unlockRes) {
-      sendData(conn, {type: 'unSaveLock', index: index, time: time});
+      sendData(docLogger, conn, {type: 'unSaveLock', index: index, time: time});
     } else {
-      logger.warn("unSaveLock failure: docId = %s; conn.user.id: %s", conn.docId, conn.user.id);
+      docLogger.warn("unSaveLock failure: conn.user.id: %s", conn.user.id);
     }
   }
 
   // Возвращаем все сообщения для документа
-  function* getMessages(conn) {
+  function* getMessages(docLogger, conn) {
     let allMessages = yield editorData.getMessages(conn.docId);
+    docLogger.addContext('docId', conn.docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
-    sendData(conn, {type: "message", messages: allMessages});
+    sendData(docLogger, conn, {type: "message", messages: allMessages});
   }
 
-  function* _checkLock(docId, arrayBlocks) {
+  function* _checkLock(docLogger, docId, arrayBlocks) {
     // Data is array now
     var isLock = false;
     var allLocks = yield* getAllLocks(docId);
@@ -2538,7 +2580,7 @@ exports.install = function(server, callbackFunction) {
     if (arrayBlocks.length > 0) {
       for (var i = 0; i < arrayBlocks.length; ++i) {
         var block = arrayBlocks[i];
-        logger.info("getLock id: docId = %s %s", docId, block);
+        docLogger.info("getLock id: %s", block);
         if (documentLocks.hasOwnProperty(block) && documentLocks[block] !== null) {
           isLock = true;
           break;
@@ -2641,6 +2683,8 @@ exports.install = function(server, callbackFunction) {
 
 	function _checkLicense(conn) {
 		return co(function* () {
+      let docLogger = logger.getLogger('nodeJS');
+      docLogger.addContext('docId', conn.docId);
 			try {
 				const c_LR = constants.LICENSE_RESULT;
 				let licenseType = licenseInfo.type;
@@ -2663,7 +2707,7 @@ exports.install = function(server, callbackFunction) {
 					}
 				}
 
-				sendData(conn, {
+				sendData(docLogger, conn, {
 					type: 'license', license: {
 						type: licenseType,
 						light: licenseInfo.light,
@@ -2677,7 +2721,7 @@ exports.install = function(server, callbackFunction) {
 					}
 				});
 			} catch (err) {
-				logger.error('_checkLicense error:\r\n%s', err.stack);
+				docLogger.error('_checkLicense error:\r\n%s', err.stack);
 			}
 		});
 	}
@@ -2767,8 +2811,9 @@ exports.install = function(server, callbackFunction) {
   //publish subscribe message brocker
   function pubsubOnMessage(msg) {
     return co(function* () {
+      let docLogger = logger.getLogger('nodeJS');
       try {
-        logger.debug('pubsub message start:%s', msg);
+        docLogger.debug('pubsub message start:%s', msg);
         var data = JSON.parse(msg);
         var participants;
         var participant;
@@ -2778,7 +2823,7 @@ exports.install = function(server, callbackFunction) {
         switch (data.type) {
           case commonDefines.c_oPublishType.drop:
             for (i = 0; i < data.users.length; ++i) {
-              dropUserFromDocument(data.docId, data.users[i], data.description);
+              dropUserFromDocument(docLogger, data.docId, data.users[i], data.description);
             }
             break;
           case commonDefines.c_oPublishType.closeConnection:
@@ -2787,29 +2832,30 @@ exports.install = function(server, callbackFunction) {
           case commonDefines.c_oPublishType.releaseLock:
             participants = getParticipants(data.docId, true, data.userId, true);
             _.each(participants, function(participant) {
-              sendReleaseLock(participant, data.locks);
+              sendReleaseLock(docLogger, participant, data.locks);
             });
             break;
           case commonDefines.c_oPublishType.participantsState:
             participants = getParticipants(data.docId, true, data.userId);
-            sendParticipantsState(participants, data);
+            sendParticipantsState(docLogger, participants, data);
             break;
           case commonDefines.c_oPublishType.message:
             participants = getParticipants(data.docId, true, data.userId);
             _.each(participants, function(participant) {
-              sendDataMessage(participant, data.messages);
+              sendDataMessage(docLogger, participant, data.messages);
             });
             break;
           case commonDefines.c_oPublishType.getLock:
             participants = getParticipants(data.docId, true, data.userId, true);
-            sendGetLock(participants, data.documentLocks);
+            sendGetLock(docLogger, participants, data.documentLocks);
             break;
           case commonDefines.c_oPublishType.changes:
             lockDocumentTimer = lockDocumentsTimerId[data.docId];
+            docLogger.addContext('docId', data.docId);
             if (lockDocumentTimer) {
-              logger.debug("lockDocumentsTimerId update c_oPublishType.changes: docId = %s", data.docId);
+              docLogger.debug("lockDocumentsTimerId update c_oPublishType.changes");
               cleanLockDocumentTimer(data.docId, lockDocumentTimer);
-              yield* setLockDocumentTimer(data.docId, lockDocumentTimer.userId);
+              yield* setLockDocumentTimer(docLogger, data.docId, lockDocumentTimer.userId);
             }
             participants = getParticipants(data.docId, true, data.userId, true);
             if(participants.length > 0) {
@@ -2819,7 +2865,7 @@ exports.install = function(server, callbackFunction) {
                 changes = objChangesDocument.arrChanges;
               }
               _.each(participants, function(participant) {
-                sendData(participant, {type: 'saveChanges', changes: changes,
+                sendData(docLogger, participant, {type: 'saveChanges', changes: changes,
                   changesIndex: data.changesIndex, locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
               });
             }
@@ -2827,23 +2873,23 @@ exports.install = function(server, callbackFunction) {
           case commonDefines.c_oPublishType.changesNotify:
             lockDocumentTimer = lockDocumentsTimerId[data.docId];
             if (lockDocumentTimer) {
-              logger.debug("lockDocumentsTimerId update c_oPublishType.changesNotify: docId = %s", data.docId);
+              docLogger.debug("lockDocumentsTimerId update c_oPublishType.changesNotify");
               cleanLockDocumentTimer(data.docId, lockDocumentTimer);
-              yield* setLockDocumentTimer(data.docId, lockDocumentTimer.userId);
+              yield* setLockDocumentTimer(docLogger, data.docId, lockDocumentTimer.userId);
             }
             break;
           case commonDefines.c_oPublishType.auth:
             lockDocumentTimer = lockDocumentsTimerId[data.docId];
             if (lockDocumentTimer) {
-              logger.debug("lockDocumentsTimerId clear: docId = %s", data.docId);
+              docLogger.debug("lockDocumentsTimerId clear");
               cleanLockDocumentTimer(data.docId, lockDocumentTimer);
             }
             participants = getParticipants(data.docId, true, data.userId, true);
             if(participants.length > 0) {
-              yield* sendAuthChanges(data.docId, participants);
+              yield* sendAuthChanges(docLogger, data.docId, participants);
               for (i = 0; i < participants.length; ++i) {
                 participant = participants[i];
-                yield* sendAuthInfo(participant, false, data.participantsMap);
+                yield* sendAuthInfo(docLogger, participant, false, data.participantsMap);
               }
             }
             break;
@@ -2877,27 +2923,27 @@ exports.install = function(server, callbackFunction) {
                   outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), contentDisposition));
                 }
               }
-              sendData(participant, output);
+              sendData(docLogger, participant, output);
             }
             break;
           case commonDefines.c_oPublishType.warning:
             participants = getParticipants(data.docId);
             _.each(participants, function(participant) {
-              sendDataWarning(participant, data.description);
+              sendDataWarning(docLogger, participant, data.description);
             });
             break;
           case commonDefines.c_oPublishType.cursor:
             participants = getParticipants(data.docId, true, data.userId);
             _.each(participants, function(participant) {
-              sendDataCursor(participant, data.messages);
+              sendDataCursor(docLogger, participant, data.messages);
             });
             break;
           case commonDefines.c_oPublishType.shutdown:
             //flag prevent new socket connections and receive data from exist connections
             shutdownFlag = data.status;
-            logger.debug('start shutdown:%b', shutdownFlag);
+            docLogger.debug('start shutdown:%b', shutdownFlag);
             if (shutdownFlag) {
-              logger.debug('active connections: %d', connections.length);
+              docLogger.debug('active connections: %d', connections.length);
               //не останавливаем сервер, т.к. будут недоступны сокеты и все запросы
               //плохо тем, что может понадобится конвертация выходного файла и то что не будут обработаны запросы на CommandService
               //server.close();
@@ -2908,25 +2954,25 @@ exports.install = function(server, callbackFunction) {
                 connectionsTmp[i].close(constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
               }
             }
-            logger.debug('end shutdown');
+            docLogger.debug('end shutdown');
             break;
           case commonDefines.c_oPublishType.meta:
             participants = getParticipants(data.docId);
             _.each(participants, function(participant) {
-              sendDataMeta(participant, data.meta);
+              sendDataMeta(docLogger, participant, data.meta);
             });
             break;
           case commonDefines.c_oPublishType.forceSave:
             participants = getParticipants(data.docId, true, data.userId, true);
             _.each(participants, function(participant) {
-              sendData(participant, {type: "forceSave", messages: data.data});
+              sendData(docLogger, participant, {type: "forceSave", messages: data.data});
             });
             break;
           default:
-            logger.debug('pubsub unknown message type:%s', msg);
+            docLogger.debug('pubsub unknown message type:%s', msg);
         }
       } catch (err) {
-        logger.error('pubsub message error:\r\n%s', err.stack);
+        docLogger.error('pubsub message error:\r\n%s', err.stack);
       }
     });
   }
@@ -2937,11 +2983,12 @@ exports.install = function(server, callbackFunction) {
   }
   function expireDoc() {
     var cronJob = this;
+    let docLogger = logger.getLogger('nodeJS');
     return co(function* () {
       try {
         var countEditByShard = 0;
         var countViewByShard = 0;
-        logger.debug('expireDoc connections.length = %d', connections.length);
+        docLogger.debug('expireDoc connections.length = %d', connections.length);
         var nowMs = new Date().getTime();
         var nextMs = cronJob.nextDate();
         var maxMs = Math.max(nowMs + cfgExpSessionCloseCommand, nextMs);
@@ -2950,7 +2997,7 @@ exports.install = function(server, callbackFunction) {
           if (cfgExpSessionAbsolute > 0) {
             if (maxMs - conn.sessionTimeConnect > cfgExpSessionAbsolute && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
-              sendDataSession(conn, {
+              sendDataSession(docLogger, conn, {
                 code: constants.SESSION_ABSOLUTE_CODE,
                 reason: constants.SESSION_ABSOLUTE_REASON
               });
@@ -2962,7 +3009,7 @@ exports.install = function(server, callbackFunction) {
           if (cfgExpSessionIdle > 0) {
             if (maxMs - conn.sessionTimeLastAction > cfgExpSessionIdle && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
-              sendDataSession(conn, {
+              sendDataSession(docLogger, conn, {
                 code: constants.SESSION_IDLE_CODE,
                 reason: constants.SESSION_IDLE_REASON,
                 interval: cfgExpSessionIdle
@@ -2972,8 +3019,9 @@ exports.install = function(server, callbackFunction) {
               continue;
             }
           }
+          docLogger.addContext('docId', conn.docId);
           if (constants.CONN_CLOSED === conn.readyState) {
-            logger.error('expireDoc connection closed docId = %s', conn.docId);
+            docLogger.error('expireDoc connection closed');
           }
           yield addPresence(conn, false);
           if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
@@ -2992,7 +3040,7 @@ exports.install = function(server, callbackFunction) {
           clientStatsD.gauge('expireDoc.connections.view', countView);
         }
       } catch (err) {
-        logger.error('expireDoc error:\r\n%s', err.stack);
+        docLogger.error('expireDoc error:\r\n%s', err.stack);
       }
     });
   }
@@ -3160,8 +3208,9 @@ exports.commandFromServer = function (req, res) {
     let result = commonDefines.c_oAscServerCommandErrors.NoError;
     let docId = 'commandFromServer';
     let version = undefined;
+    let docLogger = logger.getLogger('nodeJS');
     try {
-      let authRes = getRequestParams(docId, req);
+      let authRes = getRequestParams(docLogger, docId, req);
       let params = authRes.params;
       if(authRes.code === constants.VKEY_KEY_EXPIRE){
         result = commonDefines.c_oAscServerCommandErrors.TokenExpire;
@@ -3170,16 +3219,17 @@ exports.commandFromServer = function (req, res) {
       }
       // Ключ id-документа
       docId = params.key;
+      docLogger.addContext('docId', docId);
       if (commonDefines.c_oAscServerCommandErrors.NoError === result && null == docId && 'version' != params.c) {
         result = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
       } else if(commonDefines.c_oAscServerCommandErrors.NoError === result) {
-        logger.debug('Start commandFromServer: docId = %s c = %s', docId, params.c);
+        docLogger.debug('Start commandFromServer: c = %s', params.c);
         switch (params.c) {
           case 'info':
             //If no files in the database means they have not been edited.
             const selectRes = yield taskResult.select(docId);
             if (selectRes.length > 0) {
-              result = yield* bindEvents(docId, params.callback, utils.getBaseUrlByRequest(req), undefined, params.userdata);
+              result = yield* bindEvents(docLogger, docId, params.callback, utils.getBaseUrlByRequest(req), undefined, params.userdata);
             } else {
               result = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
             }
@@ -3199,9 +3249,9 @@ exports.commandFromServer = function (req, res) {
             if ('1' !== params.status) {
               //запрос saved выполняется синхронно, поэтому заполняем переменную чтобы проверить ее после sendServerRequest
               yield editorData.setSaved(docId, params.status);
-              logger.warn('saved corrupted id = %s status = %s conv = %s', docId, params.status, params.conv);
+              docLogger.warn('saved corrupted status = %s conv = %s', params.status, params.conv);
             } else {
-              logger.info('saved id = %s status = %s conv = %s', docId, params.status, params.conv);
+              docLogger.info('saved status = %s conv = %s', params.status, params.conv);
             }
             break;
           case 'forcesave':
@@ -3225,11 +3275,11 @@ exports.commandFromServer = function (req, res) {
       }
     } catch (err) {
       result = commonDefines.c_oAscServerCommandErrors.UnknownError;
-      logger.error('Error commandFromServer: docId = %s\r\n%s', docId, err.stack);
+      docLogger.error('Error commandFromServer: \r\n%s', err.stack);
     } finally {
       //undefined value are excluded in JSON.stringify
       const output = JSON.stringify({'key': docId, 'error': result, 'version': version});
-      logger.debug('End commandFromServer: docId = %s %s', docId, output);
+      docLogger.debug('End commandFromServer: %s', output);
       const outputBuffer = Buffer.from(output, 'utf8');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Length', outputBuffer.length);
