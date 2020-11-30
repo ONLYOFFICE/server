@@ -101,17 +101,18 @@ exports.upsert = function(task, opt_updateUserIndex) {
 		let p6 = addSqlParam(task.changeId, values);
 		let p7 = addSqlParam(cbInsert, values);
 		let p8 = addSqlParam(task.baseurl, values);
-		let p9 = addSqlParam(dateNow, values);
-		var sqlCommand = 'INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)'+
-			` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}) ON DUPLICATE KEY UPDATE` +
-			` last_open_date = ${p9}`;
+		let p9 = addSqlParam(task.password, values);
+		let pDate = addSqlParam(dateNow, values);
+		var sqlCommand = 'INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback, baseurl, password)'+
+			` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}, ${p9}) ON DUPLICATE KEY UPDATE` +
+			` last_open_date = ${pDate}`;
 		if (task.callback) {
-			let p10 = addSqlParam(JSON.stringify(task.callback), values);
-			sqlCommand += `, callback = CONCAT(callback , '${sqlBase.UserCallback.prototype.delimiter}{"userIndex":' , (user_index + 1) , ',"callback":', ${p10}, '}')`;
+			let pCallback = addSqlParam(JSON.stringify(task.callback), values);
+			sqlCommand += `, callback = CONCAT(callback , '${sqlBase.UserCallback.prototype.delimiter}{"userIndex":' , (user_index + 1) , ',"callback":', ${pCallback}, '}')`;
 		}
 		if (task.baseurl) {
-			let p11 = addSqlParam(task.baseurl, values);
-			sqlCommand += `, baseurl = ${p11}`;
+			let pBaseurl = addSqlParam(task.baseurl, values);
+			sqlCommand += `, baseurl = ${pBaseurl}`;
 		}
 		if (opt_updateUserIndex) {
 			sqlCommand += ', user_index = LAST_INSERT_ID(user_index + 1)';

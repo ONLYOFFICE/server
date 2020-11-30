@@ -127,8 +127,19 @@ OutputData.prototype = {
     this['data'] = data;
   }
 };
-
-function* getOutputData(cmd, outputData, key, status, statusInfo, optConn, optAdditionalOutput, opt_bIsRestore) {
+let encryptPassword = co.wrap(function* (password) {
+  console.log(`encryptPassword:${password}:${new Error().stack}`);
+  const openpgp = require('openpgp');
+  const { data: encrypted } = yield openpgp.encrypt({message: openpgp.message.fromText(password), passwords: ['secret stuff']});
+  return encrypted;
+});
+let decryptPassword = co.wrap(function* (password) {
+  const openpgp = require('openpgp');
+  const message = yield openpgp.message.readArmored(password);
+  const { data: decrypted } = yield openpgp.decrypt({message: message, passwords: ['secret stuff']});
+  return decrypted;
+});
+function* getOutputData(cmd, outputData, key, status, statusInfo, password, optConn, optAdditionalOutput, opt_bIsRestore) {
   var docId = cmd.getDocId();
   switch (status) {
     case taskResult.FileStatus.SaveVersion:
@@ -177,7 +188,23 @@ function* getOutputData(cmd, outputData, key, status, statusInfo, optConn, optAd
           optAdditionalOutput.needUrlType = commonDefines.c_oAscUrlTypes.Temporary;
         }
       } else {
-        if (optConn) {
+        let encryptedUserPassword = cmd.getPassword();
+        let userPassword;
+        let decryptedPassword;
+        if (encryptedUserPassword) {
+          decryptedPassword = yield decryptPassword(password);
+          userPassword = yield decryptPassword(encryptedUserPassword);
+        }
+        logger.debug("checkPassword password: %s===%s docId = %s", decryptedPassword, userPassword, docId);
+        if(password && !(encryptedUserPassword && decryptedPassword === userPassword)) {
+          if(encryptedUserPassword) {
+            outputData.setStatus('needpassword');
+            outputData.setData(constants.CONVERT_PASSWORD);
+          } else {
+            outputData.setStatus('needpassword');
+            outputData.setData(constants.CONVERT_DRM);
+          }
+        } else if (optConn) {
           outputData.setData(yield storage.getSignedUrls(optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session));
         } else if (optAdditionalOutput) {
           optAdditionalOutput.needUrlKey = key;
@@ -238,6 +265,7 @@ function* saveParts(cmd, filename) {
   }
   return result;
 }
+
 function getSaveTask(cmd) {
   cmd.setData(null);
   var queueData = new commonDefines.TaskQueueData();
@@ -258,18 +286,20 @@ function getUpdateResponse(cmd) {
   var statusInfo = cmd.getStatusInfo();
   if (constants.NO_ERROR == statusInfo) {
     updateTask.status = taskResult.FileStatus.Ok;
+    let password = cmd.getPassword();
+    if (password) {
+      updateTask.password = password;
+    }
   } else if (constants.CONVERT_DOWNLOAD == statusInfo) {
     updateTask.status = taskResult.FileStatus.ErrToReload;
   } else if (constants.CONVERT_NEED_PARAMS == statusInfo) {
     updateTask.status = taskResult.FileStatus.NeedParams;
-  } else if (constants.CONVERT_DRM == statusInfo) {
+  } else if (constants.CONVERT_DRM == statusInfo || constants.CONVERT_PASSWORD == statusInfo) {
     if (cfgOpenProtectedFile) {
-    updateTask.status = taskResult.FileStatus.NeedPassword;
+      updateTask.status = taskResult.FileStatus.NeedPassword;
     } else {
       updateTask.status = taskResult.FileStatus.Err;
     }
-  } else if (constants.CONVERT_PASSWORD == statusInfo) {
-    updateTask.status = taskResult.FileStatus.NeedPassword;
   } else if (constants.CONVERT_DEAD_LETTER == statusInfo) {
     updateTask.status = taskResult.FileStatus.ErrToReload;
   } else {
@@ -369,40 +399,53 @@ function* commandOpenFillOutput(conn, cmd, outputData, opt_bIsRestore) {
     if (taskResult.FileStatus.None === row.status) {
       needAddTask = true;
     } else {
-      yield* getOutputData(cmd, outputData, cmd.getDocId(), row.status, row.status_info, conn, undefined, opt_bIsRestore);
+      yield* getOutputData(cmd, outputData, cmd.getDocId(), row.status, row.status_info, row.password, conn, undefined, opt_bIsRestore);
     }
   }
   return needAddTask;
 }
-function* commandReopen(cmd) {
+function* commandReopen(conn, cmd, outputData) {
   let res = true;
   let isPassword = undefined !== cmd.getPassword();
+  if(isPassword) {
+    let selectRes = yield taskResult.select(cmd.getDocId());
+    if (selectRes.length > 0) {
+      let row = selectRes[0];
+      if (row.password) {
+        yield* commandOpenFillOutput(conn, cmd, outputData, false);
+        return res;
+      }
+    }
+  }
   if (!isPassword || cfgOpenProtectedFile) {
-  let updateMask = new taskResult.TaskResultData();
-  updateMask.key = cmd.getDocId();
+    let updateMask = new taskResult.TaskResultData();
+    updateMask.key = cmd.getDocId();
     updateMask.status = isPassword ? taskResult.FileStatus.NeedPassword : taskResult.FileStatus.NeedParams;
 
-  var task = new taskResult.TaskResultData();
-  task.key = cmd.getDocId();
-  task.status = taskResult.FileStatus.WaitQueue;
-  task.statusInfo = constants.NO_ERROR;
+    var task = new taskResult.TaskResultData();
+    task.key = cmd.getDocId();
+    task.status = taskResult.FileStatus.WaitQueue;
+    task.statusInfo = constants.NO_ERROR;
 
-  var upsertRes = yield taskResult.updateIf(task, updateMask);
-  if (upsertRes.affectedRows > 0) {
-    //add task
-    cmd.setUrl(null);//url may expire
-    cmd.setSaveKey(cmd.getDocId());
-    cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
-    cmd.setEmbeddedFonts(false);
-    var dataQueue = new commonDefines.TaskQueueData();
-    dataQueue.setCmd(cmd);
-    dataQueue.setToFile('Editor.bin');
-    dataQueue.setFromSettings(true);
-    yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
-  }
+    var upsertRes = yield taskResult.updateIf(task, updateMask);
+    if (upsertRes.affectedRows > 0) {
+      //add task
+      cmd.setUrl(null);//url may expire
+      cmd.setSaveKey(cmd.getDocId());
+      cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
+      cmd.setEmbeddedFonts(false);
+      // if (isPassword) {
+      //   cmd.setUserConnectionId(opt_userConnectionId);
+      // }
+      var dataQueue = new commonDefines.TaskQueueData();
+      dataQueue.setCmd(cmd);
+      dataQueue.setToFile('Editor.bin');
+      dataQueue.setFromSettings(true);
+      yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
+    }
   } else {
     res = false;
-}
+  }
   return res;
 }
 function* commandSave(cmd, outputData) {
@@ -953,6 +996,12 @@ function* commandSendMMCallback(cmd) {
   }
   logger.debug('End commandSendMMCallback: docId = %s', docId);
 }
+function* commandOpenReopenCallback(cmd, updateTask, outputData, additionalOutput) {
+  let password = cmd.getPassword();
+  if (password) {
+    updateTask.password = password;
+  }
+}
 
 exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
   return co(function* () {
@@ -971,7 +1020,7 @@ exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
           yield* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore);
           break;
         case 'reopen':
-          res = yield* commandReopen(cmd);
+          res = yield* commandReopen(conn, cmd, outputData);
           break;
         case 'imgurls':
           yield* commandImgurls(conn, cmd, outputData);
@@ -1210,13 +1259,15 @@ exports.receiveTask = function(data, ack) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
           var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null};
-          if ('open' == command || 'reopen' == command) {
-            //yield utils.sleep(5000);
+          if ('open' == command) {
             yield* getOutputData(cmd, outputData, cmd.getDocId(), updateTask.status,
-              updateTask.statusInfo, null, additionalOutput);
+                                 updateTask.statusInfo, updateTask.password, null, additionalOutput);
+          } else if ('reopen' == command) {
+            yield* getOutputData(cmd, outputData, cmd.getDocId(), updateTask.status,
+                                 updateTask.statusInfo, updateTask.password, null, additionalOutput);
           } else if ('save' == command || 'savefromorigin' == command || 'sfct' == command) {
             yield* getOutputData(cmd, outputData, cmd.getSaveKey(), updateTask.status,
-              updateTask.statusInfo, null, additionalOutput);
+              updateTask.statusInfo, updateTask.password, null, additionalOutput);
           } else if ('sfcm' == command) {
             yield* commandSfcCallback(cmd, true);
           } else if ('sfc' == command) {
@@ -1247,6 +1298,7 @@ exports.receiveTask = function(data, ack) {
   });
 };
 
+exports.encryptPassword = encryptPassword;
 exports.cleanupCache = cleanupCache;
 exports.commandSfctByCmd = commandSfctByCmd;
 exports.commandOpenStartPromise = commandOpenStartPromise;

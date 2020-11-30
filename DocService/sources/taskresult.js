@@ -64,6 +64,7 @@ function TaskResultData() {
   this.changeId = null;
   this.callback = null;
   this.baseurl = null;
+  this.password = null;
 }
 TaskResultData.prototype.completeDefaults = function() {
   if (!this.key) {
@@ -89,6 +90,9 @@ TaskResultData.prototype.completeDefaults = function() {
   }
   if (!this.baseurl) {
     this.baseurl = '';
+  }
+  if (!this.password) {
+    this.password = '';
   }
 };
 
@@ -146,6 +150,10 @@ function toUpdateArray(task, updateTime, isMask, values) {
     let sqlParam = addSqlParam(task.baseurl, values);
     res.push(`baseurl=${sqlParam}`);
   }
+  if (null != task.password) {
+    let sqlParam = addSqlParam(task.password, values);
+    res.push(`password=${sqlParam}`);
+  }
   return res;
 }
 
@@ -202,8 +210,9 @@ function addRandomKey(task, opt_prefix, opt_size) {
     let p6 = addSqlParam(task.changeId, values);
     let p7 = addSqlParam(task.callback, values);
     let p8 = addSqlParam(task.baseurl, values);
-    let sqlCommand = 'INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)' +
-      ` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8});`;
+    let p9 = addSqlParam(task.password, values);
+    let sqlCommand = 'INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback, baseurl, password)' +
+      ` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}, ${p9});`;
     sqlBase.baseConnector.sqlQuery(sqlCommand, function(error, result) {
       if (error) {
         reject(error);
