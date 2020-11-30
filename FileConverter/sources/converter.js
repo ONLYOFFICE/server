@@ -86,6 +86,13 @@ var exitCodesUpload = [constants.NO_ERROR, constants.CONVERT_CORRUPTED, constant
   constants.CONVERT_DRM];
 let inputLimitsXmlCache;
 
+function* decryptPassword(password){
+  const openpgp = require('openpgp');
+  const message = yield openpgp.message.readArmored(password);
+  const { data: decrypted } = yield openpgp.decrypt({message: message, passwords: ['secret stuff']});
+  return decrypted
+}
+
 function TaskQueueDataConvert(task) {
   var cmd = task.getCmd();
   this.key = cmd.savekey ? cmd.savekey : cmd.id;
@@ -149,13 +156,20 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeLimit();
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
-    let hiddenXml;
-    if (undefined !== this.password) {
-      hiddenXml = '<TaskQueueDataConvert>';
-      hiddenXml += this.serializeXmlProp('m_sPassword', this.password);
-      hiddenXml += '</TaskQueueDataConvert>';
-    }
-    return hiddenXml;
+  },
+  serializeHidden: function() {
+    var t = this;
+    return co(function* () {
+      let xml;
+      if (undefined !== t.password) {
+        let password = yield* decryptPassword(t.password);
+        console.log(`password:${password}`);
+        xml = '<TaskQueueDataConvert>';
+        xml += t.serializeXmlProp('m_sPassword', password);
+        xml += '</TaskQueueDataConvert>';
+      }
+      return xml;
+    });
   },
   serializeMailMerge: function(data) {
     var xml = '<m_oMailMergeSend>';
@@ -650,8 +664,10 @@ function* ExecuteTask(task) {
       if (!isBuilder) {
         processPath = cfgX2tPath;
         let paramsFile = path.join(tempDirs.temp, 'params.xml');
-        let hiddenXml = dataConvert.serialize(paramsFile);
+        dataConvert.serialize(paramsFile);
         childArgs.push(paramsFile);
+        let hiddenXml = yield dataConvert.serializeHidden();
+        console.log(`hiddenXml:${hiddenXml}`);
         if (hiddenXml) {
           childArgs.push(hiddenXml);
         }

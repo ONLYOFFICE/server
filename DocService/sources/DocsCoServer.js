@@ -1147,6 +1147,7 @@ exports.install = function(server, callbackFunction) {
           conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
           return;
         }
+        yield* encryptPasswordParams(data);
         switch (data.type) {
           case 'auth'          :
             yield* auth(conn, data);
@@ -1860,6 +1861,18 @@ exports.install = function(server, callbackFunction) {
     var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
     var secret = utils.getSecretByElem(cfgSecretSession);
     return jwt.sign(payload, secret, options);
+  }
+
+  function* encryptPasswordParams(data) {
+    let dataWithPassword;
+    if (data.type === 'openDocument' && data.message) {
+      dataWithPassword = data.message;
+    } else if (data.type === 'auth' && data.openCmd) {
+      dataWithPassword = data.openCmd;
+    }
+    if (dataWithPassword && dataWithPassword.password) {
+      dataWithPassword.password = yield canvasService.encryptPassword(dataWithPassword.password);
+    }
   }
 
   function* auth(conn, data) {

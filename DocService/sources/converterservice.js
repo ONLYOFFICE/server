@@ -224,7 +224,10 @@ function convertRequest(req, res, isJson) {
       if (params.spreadsheetLayout) {
         cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
       }
-      cmd.setPassword(params.password);
+      if (params.password) {
+        let encryptedPassword = yield canvasService.encryptPassword(params.password);
+        cmd.setPassword(encryptedPassword);
+      }
       cmd.setWithAuthorization(true);
       var thumbnail = params.thumbnail;
       if (thumbnail) {
