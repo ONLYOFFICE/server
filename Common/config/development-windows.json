@@ -23,6 +23,9 @@
           },
           "/sdkjs-plugins": {
             "path": "../../../sdkjs-plugins"
+          },
+          "/info": {
+            "path": "../../branding/info"
           }
         }
       },

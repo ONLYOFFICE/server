@@ -21,11 +21,14 @@
           "./Metrics/config/config.js"
         ],
         "dest": "./build/server"
-      }     
+      }
+    },
+    "develop-copy": {
+      "server": {}
     },
     "clean": {
       "options": {
-        "force": true        
+        "force": true
       },
       "server": "./build/server"
     },
@@ -39,7 +42,6 @@
       }
     }
   },
-
   "postprocess": {
     "src": [
       "./build/server/**/sources/*.js"

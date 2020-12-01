@@ -235,15 +235,19 @@
 
             elem = document.getElementById('lic-limit');
 			elem.innerText = (licenseInfo.usersCount || licenseInfo.connections);
+            if (licenseInfo.endDate===null) {
+                elem = document.getElementById('lic-valid-type');
+                elem.innerText = 'No license';
+            } else {
+                elem = document.getElementById('lic-valid-type');
+                elem.innerText = ((licenseInfo.mode & 1) || (licenseInfo.mode & 4)) ? 'Valid: ' : 'Updates available: ';
 
-            elem = document.getElementById('lic-valid-type');
-            elem.innerText = (licenseInfo.mode == 1) ? 'Valid: ' : 'Updates available: ';
-
-            var licdate = new Date(licenseInfo.endDate);
-            elem = document.getElementById('lic-valid');
-            elem.innerText = licdate.toLocaleDateString();
-            if (Date.now() > licdate)
-                elem.classList.add('critical');
+                var licdate = new Date(licenseInfo.endDate);
+                elem = document.getElementById('lic-valid');
+                elem.innerText = licdate.toLocaleDateString();
+                if (Date.now() > licdate)
+                    elem.classList.add('critical');
+            }
 
 			return (licenseInfo.usersCount>0) ? 1000000 : licenseInfo.connections;
         }
