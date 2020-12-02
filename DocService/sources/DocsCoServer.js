@@ -1871,7 +1871,7 @@ exports.install = function(server, callbackFunction) {
       dataWithPassword = data.openCmd;
     }
     if (dataWithPassword && dataWithPassword.password) {
-      dataWithPassword.password = yield canvasService.encryptPassword(dataWithPassword.password);
+      dataWithPassword.password = yield utils.encryptPassword(dataWithPassword.password);
     }
   }
 
