@@ -86,13 +86,6 @@ var exitCodesUpload = [constants.NO_ERROR, constants.CONVERT_CORRUPTED, constant
   constants.CONVERT_DRM];
 let inputLimitsXmlCache;
 
-function* decryptPassword(password){
-  const openpgp = require('openpgp');
-  const message = yield openpgp.message.readArmored(password);
-  const { data: decrypted } = yield openpgp.decrypt({message: message, passwords: ['secret stuff']});
-  return decrypted
-}
-
 function TaskQueueDataConvert(task) {
   var cmd = task.getCmd();
   this.key = cmd.savekey ? cmd.savekey : cmd.id;
@@ -122,6 +115,7 @@ function TaskQueueDataConvert(task) {
   this.jsonParams = cmd.getJsonParams();
   this.lcid = cmd.getLCID();
   this.password = cmd.getPassword();
+  this.savePassword = cmd.getSavePassword();
   this.noBase64 = cmd.getNoBase64();
   this.timestamp = new Date();
 }
@@ -161,11 +155,16 @@ TaskQueueDataConvert.prototype = {
     var t = this;
     return co(function* () {
       let xml;
-      if (undefined !== t.password) {
-        let password = yield* decryptPassword(t.password);
-        console.log(`password:${password}`);
+      if (t.password || t.savePassword) {
         xml = '<TaskQueueDataConvert>';
-        xml += t.serializeXmlProp('m_sPassword', password);
+        if(t.password) {
+          let password = yield utils.decryptPassword(t.password);
+          xml += t.serializeXmlProp('m_sPassword', password);
+        }
+        if(t.savePassword) {
+          let savePassword = yield utils.decryptPassword(t.savePassword);
+          xml += t.serializeXmlProp('m_sSavePassword', savePassword);
+        }
         xml += '</TaskQueueDataConvert>';
       }
       return xml;
@@ -667,7 +666,6 @@ function* ExecuteTask(task) {
         dataConvert.serialize(paramsFile);
         childArgs.push(paramsFile);
         let hiddenXml = yield dataConvert.serializeHidden();
-        console.log(`hiddenXml:${hiddenXml}`);
         if (hiddenXml) {
           childArgs.push(hiddenXml);
         }

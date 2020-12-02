@@ -25,7 +25,6 @@
     "multi-integer-range": "^4.0.7",
     "multiparty": "^4.2.1",
     "mysql": "^2.16.0",
-    "openpgp": "^4.10.8",
     "pg": "^7.6.0",
     "redis": "^2.8.0",
     "retry": "^0.12.0",

@@ -161,7 +161,8 @@
 				"browser": {"string": "secret", "file": "", "tenants": {}},
 				"inbox": {"string": "secret", "file": "", "tenants": {}},
 				"outbox": {"string": "secret", "file": ""},
-				"session": {"string": "secret", "file": ""}
+				"session": {"string": "secret", "file": ""},
+				"password": "verysecretstring"
 			},
 			"token": {
 				"enable": {

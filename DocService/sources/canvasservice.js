@@ -127,18 +127,7 @@ OutputData.prototype = {
     this['data'] = data;
   }
 };
-let encryptPassword = co.wrap(function* (password) {
-  console.log(`encryptPassword:${password}:${new Error().stack}`);
-  const openpgp = require('openpgp');
-  const { data: encrypted } = yield openpgp.encrypt({message: openpgp.message.fromText(password), passwords: ['secret stuff']});
-  return encrypted;
-});
-let decryptPassword = co.wrap(function* (password) {
-  const openpgp = require('openpgp');
-  const message = yield openpgp.message.readArmored(password);
-  const { data: decrypted } = yield openpgp.decrypt({message: message, passwords: ['secret stuff']});
-  return decrypted;
-});
+
 function* getOutputData(cmd, outputData, key, status, statusInfo, password, optConn, optAdditionalOutput, opt_bIsRestore) {
   var docId = cmd.getDocId();
   switch (status) {
@@ -192,11 +181,11 @@ function* getOutputData(cmd, outputData, key, status, statusInfo, password, optC
         let userPassword;
         let decryptedPassword;
         if (encryptedUserPassword) {
-          decryptedPassword = yield decryptPassword(password);
-          userPassword = yield decryptPassword(encryptedUserPassword);
+          decryptedPassword = yield utils.decryptPassword(password);
+          userPassword = yield utils.decryptPassword(encryptedUserPassword);
         }
-        logger.debug("checkPassword password: %s===%s docId = %s", decryptedPassword, userPassword, docId);
         if(password && !(encryptedUserPassword && decryptedPassword === userPassword)) {
+          logger.debug("getOutputData password mismatch: docId = %s", docId);
           if(encryptedUserPassword) {
             outputData.setStatus('needpassword');
             outputData.setData(constants.CONVERT_PASSWORD);
@@ -265,7 +254,6 @@ function* saveParts(cmd, filename) {
   }
   return result;
 }
-
 function getSaveTask(cmd) {
   cmd.setData(null);
   var queueData = new commonDefines.TaskQueueData();
@@ -411,7 +399,7 @@ function* commandReopen(conn, cmd, outputData) {
     let selectRes = yield taskResult.select(cmd.getDocId());
     if (selectRes.length > 0) {
       let row = selectRes[0];
-      if (row.password) {
+      if (taskResult.FileStatus.Ok === row.status &&  row.password) {
         yield* commandOpenFillOutput(conn, cmd, outputData, false);
         return res;
       }
@@ -434,14 +422,17 @@ function* commandReopen(conn, cmd, outputData) {
       cmd.setSaveKey(cmd.getDocId());
       cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
       cmd.setEmbeddedFonts(false);
-      // if (isPassword) {
-      //   cmd.setUserConnectionId(opt_userConnectionId);
-      // }
+      if (isPassword) {
+        cmd.setUserConnectionId(conn.user.id);
+      }
       var dataQueue = new commonDefines.TaskQueueData();
       dataQueue.setCmd(cmd);
       dataQueue.setToFile('Editor.bin');
       dataQueue.setFromSettings(true);
       yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
+    } else {
+      outputData.setStatus('needpassword');
+      outputData.setData(constants.CONVERT_PASSWORD);
     }
   } else {
     res = false;
@@ -487,6 +478,11 @@ function* commandSendMailMerge(cmd, outputData) {
 }
 function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   yield* addRandomKeyTaskCmd(cmd);
+  var selectRes = yield taskResult.select(cmd.getDocId());
+  var row = selectRes.length > 0 ? selectRes[0] : null;
+  if (row && row.password) {
+    cmd.setSavePassword(row.password);
+  }
   var queueData = getSaveTask(cmd);
   queueData.setFromChanges(true);
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
@@ -996,12 +992,6 @@ function* commandSendMMCallback(cmd) {
   }
   logger.debug('End commandSendMMCallback: docId = %s', docId);
 }
-function* commandOpenReopenCallback(cmd, updateTask, outputData, additionalOutput) {
-  let password = cmd.getPassword();
-  if (password) {
-    updateTask.password = password;
-  }
-}
 
 exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
   return co(function* () {
@@ -1107,7 +1097,11 @@ exports.downloadAs = function(req, res) {
           return;
         }
       }
-
+      var selectRes = yield taskResult.select(docId);
+      var row = selectRes.length > 0 ? selectRes[0] : null;
+      if (row && row.password) {
+        cmd.setSavePassword(row.password);
+      }
       cmd.setData(req.body);
       var outputData = new OutputData(cmd.getCommand());
       switch (cmd.getCommand()) {
@@ -1222,6 +1216,9 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         cmd.setStatusInfoIn(statusInfo);
         cmd.setUserActionId(opt_userId);
         cmd.setUserActionIndex(opt_userIndex);
+        if (row.password) {
+          cmd.setSavePassword(row.password);
+        }
         yield* addRandomKeyTaskCmd(cmd);
         var queueData = getSaveTask(cmd);
         queueData.setFromChanges(true);
@@ -1259,12 +1256,9 @@ exports.receiveTask = function(data, ack) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
           var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null};
-          if ('open' == command) {
+          if ('open' == command || 'reopen' == command) {
             yield* getOutputData(cmd, outputData, cmd.getDocId(), updateTask.status,
-                                 updateTask.statusInfo, updateTask.password, null, additionalOutput);
-          } else if ('reopen' == command) {
-            yield* getOutputData(cmd, outputData, cmd.getDocId(), updateTask.status,
-                                 updateTask.statusInfo, updateTask.password, null, additionalOutput);
+              updateTask.statusInfo, updateTask.password, null, additionalOutput);
           } else if ('save' == command || 'savefromorigin' == command || 'sfct' == command) {
             yield* getOutputData(cmd, outputData, cmd.getSaveKey(), updateTask.status,
               updateTask.statusInfo, updateTask.password, null, additionalOutput);
@@ -1298,7 +1292,6 @@ exports.receiveTask = function(data, ack) {
   });
 };
 
-exports.encryptPassword = encryptPassword;
 exports.cleanupCache = cleanupCache;
 exports.commandSfctByCmd = commandSfctByCmd;
 exports.commandOpenStartPromise = commandOpenStartPromise;

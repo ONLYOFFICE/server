@@ -225,7 +225,7 @@ function convertRequest(req, res, isJson) {
         cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
       }
       if (params.password) {
-        let encryptedPassword = yield canvasService.encryptPassword(params.password);
+        let encryptedPassword = yield utils.encryptPassword(params.password);
         cmd.setPassword(encryptedPassword);
       }
       cmd.setWithAuthorization(true);
