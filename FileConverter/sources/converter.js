@@ -248,7 +248,7 @@ function getTempDir() {
   fs.mkdirSync(resultDir);
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
-function* downloadFile(docId, uri, fileFrom, withAuthorization) {
+function* downloadFile(docLogger, uri, fileFrom, withAuthorization) {
   var res = constants.CONVERT_DOWNLOAD;
   var data = null;
   var downloadAttemptCount = 0;
@@ -265,7 +265,7 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization) {
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
-        logger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s;(id=%s)\r\n%s', uri, downloadAttemptCount, err.code, err.connect, docId, err.stack);
+        docLogger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s;\r\n%s', uri, downloadAttemptCount, err.code, err.connect, err.stack);
         //not continue attempts if timeout
         if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
           break;
@@ -278,18 +278,18 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization) {
       }
     }
     if (constants.NO_ERROR === res) {
-      logger.debug('downloadFile complete filesize=%d (id=%s)', data.length, docId);
+      docLogger.debug('downloadFile complete filesize=%d', data.length);
       fs.writeFileSync(fileFrom, data);
     }
   } else {
-    logger.error('checkIpFilter error:url=%s;code:%s;(id=%s)', uri, filterStatus, docId);
+    docLogger.error('checkIpFilter error:url=%s;code:%s', uri, filterStatus);
     res = constants.CONVERT_DOWNLOAD;
   }
   return res;
 }
-function* downloadFileFromStorage(id, strPath, dir) {
+function* downloadFileFromStorage(docLogger, strPath, dir) {
   var list = yield storage.listObjects(strPath);
-  logger.debug('downloadFileFromStorage list %s (id=%s)', list.toString(), id);
+  docLogger.debug('downloadFileFromStorage list %s', list.toString());
   //create dirs
   var dirsToCreate = [];
   var dirStruct = {};
@@ -319,31 +319,31 @@ function* downloadFileFromStorage(id, strPath, dir) {
     fs.writeFileSync(path.join(dir, fileRel), data);
   }
 }
-function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorProps) {
+function* processDownloadFromStorage(docLogger, dataConvert, cmd, task, tempDirs, authorProps) {
   let res = constants.NO_ERROR;
   let needConcatFiles = false;
   if (task.getFromOrigin() || task.getFromSettings()) {
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
     //перезаписываем некоторые файлы из m_sKey(например Editor.bin или changes)
-    yield* downloadFileFromStorage(cmd.getSaveKey(), cmd.getSaveKey(), tempDirs.source);
+    yield* downloadFileFromStorage(docLogger, cmd.getSaveKey(), tempDirs.source);
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.bin');
     needConcatFiles = true;
   }
-  if (!utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
+  if (!utils.checkPathTraversal(docLogger, tempDirs.source, dataConvert.fileFrom)) {
     return constants.CONVERT_PARAMS;
   }
   //mail merge
   let mailMergeSend = cmd.getMailMergeSend();
   if (mailMergeSend) {
-    yield* downloadFileFromStorage(mailMergeSend.getJsonKey(), mailMergeSend.getJsonKey(), tempDirs.source);
+    yield* downloadFileFromStorage(docLogger, mailMergeSend.getJsonKey(), tempDirs.source);
     needConcatFiles = true;
   }
   if (needConcatFiles) {
     yield* concatFiles(tempDirs.source);
   }
   if (task.getFromChanges()) {
-    res = yield* processChanges(tempDirs, cmd, authorProps);
+    res = yield* processChanges(docLogger, tempDirs, cmd, authorProps);
   }
   return res;
 }
@@ -373,7 +373,7 @@ function* concatFiles(source) {
   }
 }
 
-function* processChanges(tempDirs, cmd, authorProps) {
+function* processChanges(docLogger, tempDirs, cmd, authorProps) {
   let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
@@ -391,7 +391,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
     forceSaveTime = forceSave.getTime();
     forceSaveIndex = forceSave.getIndex();
   }
-  let streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
+  let streamObj = yield* streamCreate(docLogger, changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
   let curIndexStart = 0;
   let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
   while (curIndexStart < curIndexEnd) {
@@ -399,7 +399,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
     for (let i = 0; i < changes.length; ++i) {
       let change = changes[i];
       if (change.change_data.startsWith('ENCRYPTED;')) {
-        logger.warn('processChanges encrypted changes (id=%s)', cmd.getDocId());
+        docLogger.warn('processChanges encrypted changes');
         //todo sql request instead?
         res = constants.EDITOR_CHANGES;
         break;
@@ -407,7 +407,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
       if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
           yield* streamEnd(streamObj, ']');
-          streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++);
+          streamObj = yield* streamCreate(docLogger, changesDir, indexFile++);
         }
         changesAuthor = change.user_id_original;
         changesIndex = utils.getIndexFromUserId(change.user_id, change.user_id_original);
@@ -439,13 +439,13 @@ function* processChanges(tempDirs, cmd, authorProps) {
   return res;
 }
 
-function* streamCreate(docId, changesDir, indexFile, opt_options) {
+function* streamCreate(docLogger, changesDir, indexFile, opt_options) {
   let fileName = constants.CHANGES_NAME + indexFile + '.json';
   let filePath = path.join(changesDir, fileName);
   let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
   writeStream.on('error', function(err) {
     //todo integrate error handle in main thread (probable: set flag here and check it in main thread)
-    logger.error('WriteStreamError (id=%s)\r\n%s', docId, err.stack);
+    docLogger.error('WriteStreamError \r\n%s', err.stack);
   });
   return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
 }
@@ -476,25 +476,25 @@ function* processUploadToStorageChunk(list, dir, storagePath) {
     return storage.uploadObject(localValue, curValue);
   }));
 }
-function writeProcessOutputToLog(docId, childRes, isDebug) {
+function writeProcessOutputToLog(docLogger, childRes, isDebug) {
   if (childRes) {
     if (undefined !== childRes.stdout) {
       if (isDebug) {
-        logger.debug('stdout (id=%s):%s', docId, childRes.stdout);
+        docLogger.debug('stdout:%s', childRes.stdout);
       } else {
-        logger.error('stdout (id=%s):%s', docId, childRes.stdout);
+        docLogger.error('stdout:%s', childRes.stdout);
       }
     }
     if (undefined !== childRes.stderr) {
       if (isDebug) {
-        logger.debug('stderr (id=%s):%s', docId, childRes.stderr);
+        docLogger.debug('stderr:%s', childRes.stderr);
       } else {
-        logger.error('stderr (id=%s):%s', docId, childRes.stderr);
+        docLogger.error('stderr:%s', childRes.stderr);
       }
     }
   }
 }
-function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
+function* postProcess(docLogger, cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
   var exitCode = 0;
   var exitSignal = null;
   if(childRes) {
@@ -510,23 +510,23 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
       error = constants.CONVERT;
     }
     if (-1 !== exitCodesMinorError.indexOf(error)) {
-      writeProcessOutputToLog(dataConvert.key, childRes, true);
-      logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
+      writeProcessOutputToLog(docLogger, childRes, true);
+      docLogger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
     } else {
-      writeProcessOutputToLog(dataConvert.key, childRes, false);
-      logger.error('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
+      writeProcessOutputToLog(docLogger, childRes, false);
+      docLogger.error('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
       if (cfgErrorFiles) {
         yield* processUploadToStorage(tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
-        logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
+        docLogger.debug('processUploadToStorage error complete');
       }
     }
   } else {
-    writeProcessOutputToLog(dataConvert.key, childRes, true);
-    logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
+    writeProcessOutputToLog(docLogger, childRes, true);
+    docLogger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
   }
   if (-1 !== exitCodesUpload.indexOf(error)) {
     yield* processUploadToStorage(tempDirs.result, dataConvert.key);
-    logger.debug('processUploadToStorage complete(id=%s)', dataConvert.key);
+    docLogger.debug('processUploadToStorage complete');
   }
   cmd.setStatusInfo(error);
   var existFile = false;
@@ -555,7 +555,7 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
 
   var res = new commonDefines.TaskQueueData();
   res.setCmd(cmd);
-  logger.debug('output (data=%s;id=%s)', JSON.stringify(res), dataConvert.key);
+  docLogger.debug('output (data=%s)', JSON.stringify(res));
   return res;
 }
 function deleteFolderRecursive(strPath) {
@@ -573,7 +573,7 @@ function deleteFolderRecursive(strPath) {
   }
 }
 
-function* ExecuteTask(task) {
+function* ExecuteTask(docLogger, task) {
   var startDate = null;
   var curDate = null;
   if(clientStatsD) {
@@ -584,7 +584,8 @@ function* ExecuteTask(task) {
   var getTaskTime = new Date();
   var cmd = task.getCmd();
   var dataConvert = new TaskQueueDataConvert(task);
-  logger.debug('Start Task(id=%s)', dataConvert.key);
+  docLogger.addContext('docId', dataConvert.key);
+  docLogger.debug('Start Task');
   var error = constants.NO_ERROR;
   tempDirs = getTempDir();
   let fileTo = task.getToFile();
@@ -593,8 +594,8 @@ function* ExecuteTask(task) {
   let authorProps = {lastModifiedBy: null, modified: null};
   if (cmd.getUrl()) {
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + cmd.getFormat());
-    if (utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
-      error = yield* downloadFile(dataConvert.key, cmd.getUrl(), dataConvert.fileFrom, cmd.getWithAuthorization());
+    if (utils.checkPathTraversal(docLogger, tempDirs.source, dataConvert.fileFrom)) {
+      error = yield* downloadFile(docLogger, cmd.getUrl(), dataConvert.fileFrom, cmd.getWithAuthorization());
       if(clientStatsD) {
         clientStatsD.timing('conv.downloadFile', new Date() - curDate);
         curDate = new Date();
@@ -603,16 +604,16 @@ function* ExecuteTask(task) {
       error = constants.CONVERT_PARAMS;
     }
   } else if (cmd.getSaveKey()) {
-    yield* downloadFileFromStorage(cmd.getDocId(), cmd.getDocId(), tempDirs.source);
-    logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
+    yield* downloadFileFromStorage(docLogger, cmd.getDocId(), tempDirs.source);
+    docLogger.debug('downloadFileFromStorage complete');
     if(clientStatsD) {
       clientStatsD.timing('conv.downloadFileFromStorage', new Date() - curDate);
       curDate = new Date();
     }
-    error = yield* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorProps);
+    error = yield* processDownloadFromStorage(docLogger, dataConvert, cmd, task, tempDirs, authorProps);
   } else if (cmd.getForgotten()) {
-    yield* downloadFileFromStorage(cmd.getDocId(), cmd.getForgotten(), tempDirs.source);
-    logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
+    yield* downloadFileFromStorage(docLogger, cmd.getForgotten(), tempDirs.source);
+    docLogger.debug('downloadFileFromStorage complete');
     let list = yield utils.listObjects(tempDirs.source, false);
     if (list.length > 0) {
       dataConvert.fileFrom = list[0];
@@ -624,8 +625,8 @@ function* ExecuteTask(task) {
     }
   } else if (isBuilder) {
     //in cause script in POST body
-    yield* downloadFileFromStorage(cmd.getDocId(), cmd.getDocId(), tempDirs.source);
-    logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
+    yield* downloadFileFromStorage(docLogger, cmd.getDocId(), tempDirs.source);
+    docLogger.debug('downloadFileFromStorage complete');
     let list = yield utils.listObjects(tempDirs.source, false);
     if (list.length > 0) {
       dataConvert.fileFrom = list[0];
@@ -687,8 +688,8 @@ function* ExecuteTask(task) {
         }, waitMS);
         childRes = yield spawnAsyncPromise;
       } catch (err) {
-        let fLog = null === err.status ? logger.error : logger.debug;
-        fLog.call(logger, 'error spawnAsync(id=%s)\r\n%s', cmd.getDocId(), err.stack);
+        let fLog = null === err.status ? docLogger.error : docLogger.debug;
+        fLog.call(docLogger, 'error spawnAsync\r\n%s', err.stack);
         childRes = err;
       }
       if (undefined !== timeoutId) {
@@ -700,15 +701,15 @@ function* ExecuteTask(task) {
       curDate = new Date();
     }
   }
-  resData = yield* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout);
-  logger.debug('postProcess (id=%s)', dataConvert.key);
+  resData = yield* postProcess(docLogger, cmd, dataConvert, tempDirs, childRes, error, isTimeout);
+  docLogger.debug('postProcess');
   if(clientStatsD) {
     clientStatsD.timing('conv.postProcess', new Date() - curDate);
     curDate = new Date();
   }
   if (tempDirs) {
     deleteFolderRecursive(tempDirs.temp);
-    logger.debug('deleteFolderRecursive (id=%s)', dataConvert.key);
+    docLogger.debug('deleteFolderRecursive');
     if(clientStatsD) {
       clientStatsD.timing('conv.deleteFolderRecursive', new Date() - curDate);
       curDate = new Date();
@@ -724,13 +725,14 @@ function receiveTask(data, ack) {
   return co(function* () {
     var res = null;
     var task = null;
+    let docLogger = logger.getLogger('nodeJS');
     try {
       task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
-        res = yield* ExecuteTask(task);
+        res = yield* ExecuteTask(docLogger, task);
       }
     } catch (err) {
-      logger.error(err);
+      docLogger.error(err);
     } finally {
       try {
         if (!res && task) {
@@ -744,7 +746,7 @@ function receiveTask(data, ack) {
           yield queue.addResponse(res);
         }
       } catch (err) {
-        logger.error(err);
+        docLogger.error(err);
       } finally {
         ack();
       }

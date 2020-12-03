@@ -57,9 +57,11 @@ const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 exports.uploadTempFile = function(req, res) {
   return co(function* () {
     var docId = 'uploadTempFile';
+    let docLogger = logger.getLogger('nodeJS');
+    docLogger.addContext('docId', docId);
     try {
       let params;
-      let authRes = docsCoServer.getRequestParams(docId, req, true);
+      let authRes = docsCoServer.getRequestParams(docLogger, req, true);
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {
@@ -67,7 +69,8 @@ exports.uploadTempFile = function(req, res) {
         return;
       }
       docId = params.key;
-      logger.debug('Start uploadTempFile: docId = %s', docId);
+      docLogger.addContext('docId', docId);
+      docLogger.debug('Start uploadTempFile');
       if (docId && req.body && Buffer.isBuffer(req.body)) {
         var task = yield* taskResult.addRandomKeyTask(docId);
         var strPath = task.key + '/' + docId + '.tmp';
@@ -78,19 +81,19 @@ exports.uploadTempFile = function(req, res) {
       } else {
         utils.fillResponse(req, res, undefined, constants.UNKNOWN, false);
       }
-      logger.debug('End uploadTempFile: docId = %s', docId);
+      docLogger.debug('End uploadTempFile');
     }
     catch (e) {
-      logger.error('Error uploadTempFile: docId = %s\r\n%s', docId, e.stack);
+      docLogger.error('Error uploadTempFile: \r\n%s', e.stack);
       utils.fillResponse(req, res, undefined, constants.UNKNOWN, false);
     }
   });
 };
-function checkJwtUpload(docId, errorName, token){
-  let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Session);
-  return checkJwtUploadTransformRes(docId, errorName, checkJwtRes);
+function checkJwtUpload(docLogger, errorName, token){
+  let checkJwtRes = docsCoServer.checkJwt(docLogger, token, commonDefines.c_oAscSecretType.Session);
+  return checkJwtUploadTransformRes(docLogger, errorName, checkJwtRes);
 }
-function checkJwtUploadTransformRes(docId, errorName, checkJwtRes){
+function checkJwtUploadTransformRes(docLogger, errorName, checkJwtRes){
   var res = {err: true, docId: null, userid: null, encrypted: null};
   if (checkJwtRes.decoded) {
     var doc = checkJwtRes.decoded.document;
@@ -103,21 +106,24 @@ function checkJwtUploadTransformRes(docId, errorName, checkJwtRes){
         res.userid = edit.user.id;
       }
     } else {
-      logger.warn('Error %s jwt: docId = %s\r\n%s', errorName, docId, 'access deny');
+      docLogger.warn('Error %s jwt: \r\n%s', errorName, 'access deny');
     }
   } else {
-    logger.warn('Error %s jwt: docId = %s\r\n%s', errorName, docId, checkJwtRes.description);
+    docLogger.warn('Error %s jwt: \r\n%s', errorName, checkJwtRes.description);
   }
   return res;
 }
 exports.uploadImageFileOld = function(req, res) {
   var docId = req.params.docid;
-  logger.debug('Start uploadImageFileOld: docId = %s', docId);
+  let docLogger = logger.getLogger('nodeJS');
+  docLogger.addContext('docId', docId);
+  docLogger.debug('Start uploadImageFileOld');
   var userid = req.params.userid;
   if (cfgTokenEnableBrowser) {
-    var checkJwtRes = checkJwtUpload(docId, 'uploadImageFileOld', req.query['token']);
+    var checkJwtRes = checkJwtUpload(docLogger, 'uploadImageFileOld', req.query['token']);
     if(!checkJwtRes.err){
       docId = checkJwtRes.docId || docId;
+      docLogger.addContext('docId', docId);
       userid = checkJwtRes.userid || userid;
     } else {
       res.sendStatus(403);
@@ -130,7 +136,7 @@ exports.uploadImageFileOld = function(req, res) {
     var isError = false;
     var form = new multiparty.Form();
     form.on('error', function(err) {
-      logger.error('Error parsing form: docId = %s\r\n%s', docId, err.toString());
+      docLogger.error('Error parsing form: \r\n%s', err.toString());
       res.sendStatus(400);
     });
     form.on('part', function(part) {
@@ -154,14 +160,14 @@ exports.uploadImageFileOld = function(req, res) {
           }).then(function() {
             part.resume();
           }).catch(function(err) {
-            logger.error('Upload putObject: docId = %s\r\n%s', docId, err.stack);
+            docLogger.error('Upload putObject: \r\n%s', err.stack);
             isError = true;
             part.resume();
           });
         }
       }
       part.on('error', function(err) {
-        logger.error('Error parsing form part: docId = %s\r\n%s', docId, err.toString());
+        docLogger.error('Error parsing form part: \r\n%s', err.toString());
       });
     });
     form.on('close', function() {
@@ -178,17 +184,17 @@ exports.uploadImageFileOld = function(req, res) {
             //res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Content-Type', 'text/html');
             res.send(output);
-            logger.debug('End uploadImageFileOld: docId = %s %s', docId, output);
+            docLogger.debug('End uploadImageFileOld: %s', output);
           }
         ).catch(function(err) {
             res.sendStatus(400);
-            logger.error('upload getSignedUrlsByArray: docId = %s\r\n%s', docId, err.stack);
+            docLogger.error('upload getSignedUrlsByArray: \r\n%s', err.stack);
           });
       }
     });
     form.parse(req);
   } else {
-    logger.debug('Error params uploadImageFileOld: docId = %s', docId);
+    docLogger.debug('Error params uploadImageFileOld');
     res.sendStatus(400);
   }
 };
@@ -196,22 +202,26 @@ exports.uploadImageFile = function(req, res) {
   return co(function* () {
     var isError = true;
     var docId = 'null';
+    let docLogger = logger.getLogger('nodeJS');
+    docLogger.addContext('docId', docId);
     let output = {};
     let isValidJwt = true;
     try {
       docId = req.params.docid;
+      docLogger.addContext('docId', docId);
       let encrypted = false;
-      logger.debug('Start uploadImageFile: docId = %s', docId);
+      docLogger.debug('Start uploadImageFile');
 
       if (cfgTokenEnableBrowser) {
-        let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+        let checkJwtRes = docsCoServer.checkJwtHeader(docLogger, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
         if (!checkJwtRes) {
           //todo remove compatibility with previous versions
-          checkJwtRes = docsCoServer.checkJwt(docId, req.query['token'], commonDefines.c_oAscSecretType.Session);
+          checkJwtRes = docsCoServer.checkJwt(docLogger, req.query['token'], commonDefines.c_oAscSecretType.Session);
         }
-        let transformedRes = checkJwtUploadTransformRes(docId, 'uploadImageFile', checkJwtRes);
+        let transformedRes = checkJwtUploadTransformRes(docLogger, 'uploadImageFile', checkJwtRes);
         if (!transformedRes.err) {
           docId = transformedRes.docId || docId;
+          docLogger.addContext('docId', docId);
           encrypted = transformedRes.encrypted;
         } else {
           isValidJwt = false;
@@ -238,15 +248,15 @@ exports.uploadImageFile = function(req, res) {
                                                                 commonDefines.c_oAscUrlTypes.Session);
             isError = false;
           } else {
-            logger.debug('uploadImageFile format is not supported: docId = %s', docId);
+            docLogger.debug('uploadImageFile format is not supported');
           }
         } else {
-          logger.debug('uploadImageFile size limit exceeded: buffer.length = %d docId = %s', buffer.length, docId);
+          docLogger.debug('uploadImageFile size limit exceeded: buffer.length = %d', buffer.length);
         }
       }
     } catch (e) {
       isError = true;
-      logger.error('Error uploadImageFile: docId = %s\r\n%s', docId, e.stack);
+      docLogger.error('Error uploadImageFile: \r\n%s', e.stack);
     } finally {
       try {
         if (!isError) {
@@ -255,9 +265,9 @@ exports.uploadImageFile = function(req, res) {
         } else {
           res.sendStatus(isValidJwt ? 400 : 403);
         }
-        logger.debug('End uploadImageFile: isError = %s docId = %s', isError, docId);
+        docLogger.debug('End uploadImageFile: isError = %s', isError);
       } catch (e) {
-        logger.error('Error uploadImageFile: docId = %s\r\n%s', docId, e.stack);
+        docLogger.error('Error uploadImageFile: \r\n%s', e.stack);
       }
     }
   });

@@ -290,8 +290,8 @@ UserCallback.prototype.delimiter = String.fromCharCode(5);
 UserCallback.prototype.toSQLInsert = function(){
   return this.delimiter + JSON.stringify(this);
 };
-UserCallback.prototype.getCallbackByUserIndex = function(docId, callbacksStr, opt_userIndex) {
-  logger.debug("getCallbackByUserIndex: docId = %s userIndex = %s callbacks = %s", docId, opt_userIndex, callbacksStr);
+UserCallback.prototype.getCallbackByUserIndex = function(docLogger, callbacksStr, opt_userIndex) {
+  docLogger.debug("getCallbackByUserIndex: userIndex = %s callbacks = %s", opt_userIndex, callbacksStr);
   if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
     let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
     if (-1 === index) {

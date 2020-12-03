@@ -58,8 +58,9 @@ var cfgForceSaveStep = ms(config.get('autoAssembly.step'));
 
 var checkFileExpire = function() {
   return co(function* () {
+    let docLogger = logger.getLogger('nodeJS');
     try {
-      logger.debug('checkFileExpire start');
+      docLogger.debug('checkFileExpire start');
       var expired;
       var removedCount = 0;
       var currentRemovedCount;
@@ -68,6 +69,7 @@ var checkFileExpire = function() {
         expired = yield taskResult.getExpired(cfgExpFilesRemovedAtOnce, cfgExpFiles);
         for (var i = 0; i < expired.length; ++i) {
           var docId = expired[i].id;
+          docLogger.addContext('docId', docId);
           //проверяем что никто не сидит в документе
           let editorsCount = yield docsCoServer.getEditorsCountPromise(docId);
           if(0 === editorsCount){
@@ -75,14 +77,14 @@ var checkFileExpire = function() {
               currentRemovedCount++;
             }
           } else {
-            logger.debug('checkFileExpire expire but presence: editorsCount = %d; docId = %s', editorsCount, docId);
+            docLogger.debug('checkFileExpire expire but presence: editorsCount = %d', editorsCount);
           }
         }
         removedCount += currentRemovedCount;
       } while (currentRemovedCount > 0);
-      logger.debug('checkFileExpire end: removedCount = %d', removedCount);
+      docLogger.debug('checkFileExpire end: removedCount = %d', removedCount);
     } catch (e) {
-      logger.error('checkFileExpire error:\r\n%s', e.stack);
+      docLogger.error('checkFileExpire error:\r\n%s', e.stack);
     }
   });
 };
