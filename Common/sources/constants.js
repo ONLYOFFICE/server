@@ -194,6 +194,7 @@ exports.VKEY_USER_COUNT_EXCEED = -123;
 exports.VKEY_TIME_EXPIRE = -124;
 exports.VKEY_TIME_INCORRECT = -125;
 exports.EDITOR_CHANGES = -160;
+exports.PASSWORD = -180;
 
 exports.QUEUE_PRIORITY_VERY_LOW = 0;
 exports.QUEUE_PRIORITY_LOW = 1;
@@ -256,6 +257,7 @@ exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';
 
 exports.CONN_CLOSED = 3;
 
+exports.FILE_STATUS_OK = 'ok';
 exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';
 
 exports.ACTIVEMQ_QUEUE_PREFIX = 'queue://';

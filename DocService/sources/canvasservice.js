@@ -180,11 +180,13 @@ function* getOutputData(cmd, outputData, key, status, statusInfo, password, optC
         let encryptedUserPassword = cmd.getPassword();
         let userPassword;
         let decryptedPassword;
+        let isCorrectPassword;
         if (encryptedUserPassword) {
           decryptedPassword = yield utils.decryptPassword(password);
           userPassword = yield utils.decryptPassword(encryptedUserPassword);
+          isCorrectPassword = decryptedPassword === userPassword;
         }
-        if(password && !(encryptedUserPassword && decryptedPassword === userPassword)) {
+        if(password && !isCorrectPassword) {
           logger.debug("getOutputData password mismatch: docId = %s", docId);
           if(encryptedUserPassword) {
             outputData.setStatus('needpassword');
@@ -199,6 +201,7 @@ function* getOutputData(cmd, outputData, key, status, statusInfo, password, optC
           optAdditionalOutput.needUrlKey = key;
           optAdditionalOutput.needUrlMethod = 0;
           optAdditionalOutput.needUrlType = commonDefines.c_oAscUrlTypes.Session;
+          optAdditionalOutput.needUrlIsCorrectPassword = isCorrectPassword;
         }
       }
       break;
@@ -395,12 +398,13 @@ function* commandOpenFillOutput(conn, cmd, outputData, opt_bIsRestore) {
 function* commandReopen(conn, cmd, outputData) {
   let res = true;
   let isPassword = undefined !== cmd.getPassword();
-  if(isPassword) {
+  if (isPassword) {
     let selectRes = yield taskResult.select(cmd.getDocId());
     if (selectRes.length > 0) {
       let row = selectRes[0];
-      if (taskResult.FileStatus.Ok === row.status &&  row.password) {
+      if (taskResult.FileStatus.Ok === row.status && row.password) {
         yield* commandOpenFillOutput(conn, cmd, outputData, false);
+        docsCoServer.modifyConnectionForPassword(conn, constants.FILE_STATUS_OK === outputData.getStatus());
         return res;
       }
     }
@@ -670,6 +674,38 @@ function* commandSaveFromOrigin(cmd, outputData) {
   yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
   outputData.setStatus('ok');
   outputData.setData(cmd.getSaveKey());
+}
+function* commandSetPassword(conn, cmd, outputData) {
+  let hasDocumentPassword = false;
+  let selectRes = yield taskResult.select(cmd.getDocId());
+  if (selectRes.length > 0) {
+    let row = selectRes[0];
+    if (taskResult.FileStatus.Ok === row.status && row.password) {
+      hasDocumentPassword = true;
+    }
+  }
+  if (conn.isEnterCorrectPassword || !hasDocumentPassword) {
+    let updateMask = new taskResult.TaskResultData();
+    updateMask.key = cmd.getDocId();
+    updateMask.status = taskResult.FileStatus.Ok;
+
+    var task = new taskResult.TaskResultData();
+    task.key = cmd.getDocId();
+    task.password = cmd.getPassword() || "";
+
+    var upsertRes = yield taskResult.updateIf(task, updateMask);
+    if (upsertRes.affectedRows > 0) {
+      outputData.setStatus('ok');
+    } else {
+      logger.debug('commandSetPassword sql update error: docId = %s', cmd.getDocId());
+      outputData.setStatus('err');
+      outputData.setData(constants.PASSWORD);
+    }
+  } else {
+    logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s: docId = %s', conn.isEnterCorrectPassword, hasDocumentPassword, cmd.getDocId());
+    outputData.setStatus('err');
+    outputData.setData(constants.PASSWORD);
+  }
 }
 function checkAuthorizationLength(authorization, data){
   //todo it is stub (remove in future versions)
@@ -1021,6 +1057,9 @@ exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
         case 'pathurls':
           yield* commandPathUrls(conn, cmd, outputData);
           break;
+        case 'setpassword':
+          yield* commandSetPassword(conn, cmd, outputData);
+          break;
         default:
           res = false;
           break;
@@ -1255,7 +1294,7 @@ exports.receiveTask = function(data, ack) {
         if (updateRes.affectedRows > 0) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
-          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null};
+          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined};
           if ('open' == command || 'reopen' == command) {
             yield* getOutputData(cmd, outputData, cmd.getDocId(), updateTask.status,
               updateTask.statusInfo, updateTask.password, null, additionalOutput);
@@ -1278,7 +1317,8 @@ exports.receiveTask = function(data, ack) {
                                           type: commonDefines.c_oPublishType.receiveTask, cmd: cmd, output: output,
                                           needUrlKey: additionalOutput.needUrlKey,
                                           needUrlMethod: additionalOutput.needUrlMethod,
-                                          needUrlType: additionalOutput.needUrlType
+                                          needUrlType: additionalOutput.needUrlType,
+                                          needUrlIsCorrectPassword: additionalOutput.needUrlIsCorrectPassword
                                         });
           }
         }

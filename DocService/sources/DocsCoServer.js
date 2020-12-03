@@ -448,6 +448,32 @@ function removePresence(conn) {
   });
 }
 
+function fillJwtByConnection(conn) {
+  var docId = conn.docId;
+  var payload = {document: {}, editorConfig: {user: {}}};
+  var doc = payload.document;
+  doc.key = conn.docId;
+  doc.permissions = conn.permissions;
+  doc.ds_encrypted = conn.encrypted;
+  var edit = payload.editorConfig;
+  //todo
+  //edit.callbackUrl = callbackUrl;
+  //edit.lang = conn.lang;
+  //edit.mode = conn.mode;
+  var user = edit.user;
+  user.id = conn.user.idOriginal;
+  user.name = conn.user.username;
+  user.index = conn.user.indexUser;
+  //no standart
+  edit.ds_view = conn.user.view;
+  edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
+  edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
+
+  var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
+  var secret = utils.getSecretByElem(cfgSecretSession);
+  return jwt.sign(payload, secret, options);
+}
+
 function sendData(conn, data) {
   conn.write(JSON.stringify(data));
   const type = data ? data.type : null;
@@ -468,8 +494,8 @@ function sendDataMeta(conn, msg) {
 function sendDataSession(conn, msg) {
   sendData(conn, {type: "session", messages: msg});
 }
-function sendDataRefreshToken(conn, msg) {
-  sendData(conn, {type: "refreshToken", messages: msg});
+function sendDataRefreshToken(conn) {
+  sendData(conn, {type: "refreshToken", messages: fillJwtByConnection(conn)});
 }
 function sendReleaseLock(conn, userLocks) {
   sendData(conn, {type: "releaseLock", locks: _.map(userLocks, function(e) {
@@ -480,6 +506,14 @@ function sendReleaseLock(conn, userLocks) {
       changes: null
     };
   })});
+}
+function modifyConnectionForPassword(conn, isEnterCorrectPassword) {
+  if (isEnterCorrectPassword) {
+    conn.isEnterCorrectPassword = true;
+    if (cfgTokenEnableBrowser) {
+      sendDataRefreshToken(conn);
+    }
+  }
 }
 function getParticipants(docId, excludeClosed, excludeUserId, excludeViewer) {
   return _.filter(connections, function(el) {
@@ -1081,6 +1115,7 @@ function getLicenseNowUtc() {
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
 exports.sendData = sendData;
+exports.modifyConnectionForPassword = modifyConnectionForPassword;
 exports.parseUrl = parseUrl;
 exports.parseReplyData = parseReplyData;
 exports.sendServerRequest = sendServerRequest;
@@ -1282,7 +1317,7 @@ exports.install = function(server, callbackFunction) {
         conn.isCloseCoAuthoring = true;
         yield addPresence(conn, true);
         if (cfgTokenEnableBrowser) {
-          sendDataRefreshToken(conn, fillJwtByConnection(conn));
+          sendDataRefreshToken(conn);
         }
       }
     }
@@ -1390,7 +1425,7 @@ exports.install = function(server, callbackFunction) {
       conn.docId = docIdNew;
       yield addPresence(conn, true);
       if (cfgTokenEnableBrowser) {
-        sendDataRefreshToken(conn, fillJwtByConnection(conn));
+        sendDataRefreshToken(conn);
       }
     }
     //open
@@ -1791,6 +1826,9 @@ exports.install = function(server, callbackFunction) {
       if (null != edit.ds_isCloseCoAuthoring) {
         data.isCloseCoAuthoring = edit.ds_isCloseCoAuthoring;
       }
+      if (null != edit.ds_isEnterCorrectPassword) {
+        data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
+      }
       if (edit.user) {
         var dataUser = data.user;
         var user = edit.user;
@@ -1837,30 +1875,6 @@ exports.install = function(server, callbackFunction) {
         cmd.setDocId(decoded.key);
       }
     }
-  }
-  function fillJwtByConnection(conn) {
-    var docId = conn.docId;
-    var payload = {document: {}, editorConfig: {user: {}}};
-    var doc = payload.document;
-    doc.key = conn.docId;
-    doc.permissions = conn.permissions;
-    doc.ds_encrypted = conn.encrypted;
-    var edit = payload.editorConfig;
-    //todo
-    //edit.callbackUrl = callbackUrl;
-    //edit.lang = conn.lang;
-    //edit.mode = conn.mode;
-    var user = edit.user;
-    user.id = conn.user.idOriginal;
-    user.name = conn.user.username;
-    user.index = conn.user.indexUser;
-    //no standart
-    edit.ds_view = conn.user.view;
-    edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
-
-    var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
-    var secret = utils.getSecretByElem(cfgSecretSession);
-    return jwt.sign(payload, secret, options);
   }
 
   function* encryptPasswordParams(data) {
@@ -1935,6 +1949,7 @@ exports.install = function(server, callbackFunction) {
         view: !isEditMode(data.permissions, data.mode, !data.view)
       };
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
+      conn.isEnterCorrectPassword = data.isEnterCorrectPassword;
       conn.editorType = data['editorType'];
       if (data.sessionTimeConnect) {
         conn.sessionTimeConnect = data.sessionTimeConnect;
@@ -2841,6 +2856,7 @@ exports.install = function(server, callbackFunction) {
                   var contentDisposition = cmd.getInline() ? constants.CONTENT_DISPOSITION_INLINE : constants.CONTENT_DISPOSITION_ATTACHMENT;
                   outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), contentDisposition));
                 }
+                modifyConnectionForPassword(participant, data.needUrlIsCorrectPassword);
               }
               sendData(participant, output);
             }
