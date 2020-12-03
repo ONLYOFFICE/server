@@ -812,7 +812,6 @@ exports.canIncludeOutboxAuthorization = function (url) {
   return false;
 };
 exports.encryptPassword = co.wrap(function* (password) {
-  console.log(`encryptPassword:${password}:${new Error().stack}`);
   const { data: encrypted } = yield openpgp.encrypt({message: openpgp.message.fromText(password), passwords: [cfgSecretPassword]});
   return encrypted;
 });
