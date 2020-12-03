@@ -89,13 +89,14 @@ function* getConvertStatus(cmd, selectRes, baseUrl, opt_fileTo) {
   return status;
 }
 
-function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue) {
+function* convertByCmd(docLogger, cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue) {
   var docId = cmd.getDocId();
+  docLogger.addContext('docId', docId);
   var startDate = null;
   if (clientStatsD) {
     startDate = new Date();
   }
-  logger.debug('Start convert request docId = %s', docId);
+  docLogger.debug('Start convert request');
 
   let bCreate = false;
   if (!opt_taskExist) {
@@ -141,14 +142,14 @@ function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_prior
       }
     }
   }
-  logger.debug('End convert request end %s url %s status %s docId = %s', status.end, status.url, status.err, docId);
+  docLogger.debug('End convert request end %s url %s status %s', status.end, status.url, status.err);
   if (clientStatsD) {
     clientStatsD.timing('coauth.convertservice', new Date() - startDate);
   }
   return status;
 }
 
-function* convertFromChanges(docId, baseUrl, forceSave, opt_userdata, opt_userConnectionId, opt_priority,
+function* convertFromChanges(docLogger, docId, baseUrl, forceSave, opt_userdata, opt_userConnectionId, opt_priority,
                              opt_expiration, opt_queue, opt_redisKey) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
@@ -169,7 +170,7 @@ function* convertFromChanges(docId, baseUrl, forceSave, opt_userdata, opt_userCo
   }
 
   yield* canvasService.commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue);
-  return yield* convertByCmd(cmd, true, baseUrl, constants.OUTPUT_NAME, undefined, opt_priority, opt_expiration, opt_queue);
+  return yield* convertByCmd(docLogger, cmd, true, baseUrl, constants.OUTPUT_NAME, undefined, opt_priority, opt_expiration, opt_queue);
 }
 function parseIntParam(val){
   return (typeof val === 'string') ? parseInt(val) : val;
@@ -178,9 +179,11 @@ function parseIntParam(val){
 function convertRequest(req, res, isJson) {
   return co(function* () {
     var docId = 'convertRequest';
+    let docLogger = logger.getLogger('nodeJS');
+    docLogger.addContext('docId', docId);
     try {
       let params;
-      let authRes = docsCoServer.getRequestParams(docId, req);
+      let authRes = docsCoServer.getRequestParams(docLogger, req);
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {
@@ -188,19 +191,19 @@ function convertRequest(req, res, isJson) {
         return;
       }
       if (params.key && !constants.DOC_ID_REGEX.test(params.key)) {
-        logger.warn('convertRequest unexpected key = %s: docId = %s', params.key, docId);
+        docLogger.warn('convertRequest unexpected key = %s', params.key);
         utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
         return;
       }
       if (params.filetype && !constants.EXTENTION_REGEX.test(params.filetype)) {
-        logger.warn('convertRequest unexpected filetype = %s: docId = %s', params.filetype, docId);
+        docLogger.warn('convertRequest unexpected filetype = %s', params.filetype);
         utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
         return;
       }
       let outputtype = params.outputtype || '';
       let outputFormat = formatChecker.getFormatFromString(outputtype);
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
-        logger.warn('convertRequest unexpected outputtype = %s: docId = %s', outputtype, docId);
+        docLogger.warn('convertRequest unexpected outputtype = %s', outputtype);
         utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
         return;
       }
@@ -210,6 +213,7 @@ function convertRequest(req, res, isJson) {
       cmd.setEmbeddedFonts(false);//params.embeddedfonts'];
       cmd.setFormat(params.filetype);
       docId = 'conv_' + params.key + '_' + outputtype;
+      docLogger.addContext('docId', docId);
       cmd.setDocId(docId);
       cmd.setOutputFormat(outputFormat);
       let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
@@ -259,16 +263,16 @@ function convertRequest(req, res, isJson) {
       var async = (typeof params.async === 'string') ? 'true' == params.async : params.async;
 
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== cmd.getOutputFormat()) {
-        var status = yield* convertByCmd(cmd, async, utils.getBaseUrlByRequest(req), fileTo);
+        var status = yield* convertByCmd(docLogger, cmd, async, utils.getBaseUrlByRequest(req), fileTo);
         utils.fillResponse(req, res, status.url, status.err, isJson);
       } else {
         var addresses = utils.forwarded(req);
-        logger.warn('Error convert unknown outputtype: query = %j from = %s docId = %s', params, addresses, docId);
+        docLogger.warn('Error convert unknown outputtype: query = %j from = %s', params, addresses);
         utils.fillResponse(req, res, undefined, constants.UNKNOWN, isJson);
       }
     }
     catch (e) {
-      logger.error('Error convert: docId = %s\r\n%s', docId, e.stack);
+      docLogger.error('Error convert: \r\n%s', e.stack);
       utils.fillResponse(req, res, undefined, constants.UNKNOWN, isJson);
     }
   });
@@ -283,13 +287,15 @@ function convertRequestXml(req, res) {
 function builderRequest(req, res) {
   return co(function* () {
     let docId = 'builderRequest';
+    let docLogger = logger.getLogger('nodeJS');
+    docLogger.addContext('docId', docId);
     try {
       let authRes;
       if (!utils.isEmptyObject(req.query)) {
         //todo this is a stub for compatibility. remove in future version
-        authRes = docsCoServer.getRequestParams(docId, req, true, true);
+        authRes = docsCoServer.getRequestParams(docLogger, req, true, true);
       } else {
-        authRes = docsCoServer.getRequestParams(docId, req);
+        authRes = docsCoServer.getRequestParams(docLogger, req);
       }
 
       let params = authRes.params;
@@ -299,6 +305,7 @@ function builderRequest(req, res) {
       if (error === constants.NO_ERROR &&
         (params.key || params.url || (req.body && Buffer.isBuffer(req.body) && req.body.length > 0))) {
         docId = params.key;
+        docLogger.addContext('docId', docId);
         let cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
         cmd.setIsBuilder(true);
@@ -307,6 +314,7 @@ function builderRequest(req, res) {
         if (!docId) {
           let task = yield* taskResult.addRandomKeyTask(undefined, 'bld_', 8);
           docId = task.key;
+          docLogger.addContext('docId', docId);
           cmd.setDocId(docId);
           if (params.url) {
             cmd.setUrl(params.url);
@@ -319,7 +327,7 @@ function builderRequest(req, res) {
           yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
         }
         let async = (typeof params.async === 'string') ? 'true' === params.async : params.async;
-        let status = yield* convertByCmd(cmd, async, utils.getBaseUrlByRequest(req), undefined, true);
+        let status = yield* convertByCmd(docLogger, cmd, async, utils.getBaseUrlByRequest(req), undefined, true);
         end = status.end;
         error = status.err;
         if (end) {
@@ -329,11 +337,11 @@ function builderRequest(req, res) {
       } else if (error === constants.NO_ERROR) {
         error = constants.UNKNOWN;
       }
-      logger.debug('End builderRequest request: docId = %s urls = %j end = %s error = %s', docId, urls, end, error);
+      docLogger.debug('End builderRequest request: urls = %j end = %s error = %s', urls, end, error);
       utils.fillResponseBuilder(res, docId, urls, end, error);
     }
     catch (e) {
-      logger.error('Error builderRequest: docId = %s\r\n%s', docId, e.stack);
+      docLogger.error('Error builderRequest: \r\n%s', e.stack);
       utils.fillResponseBuilder(res, undefined, undefined, undefined, constants.UNKNOWN);
     }
   });

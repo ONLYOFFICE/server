@@ -722,7 +722,7 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
-function getSecret(docId, secretElem, opt_iss, opt_token) {
+function getSecret(docLogger, secretElem, opt_iss, opt_token) {
   if (!isEmptyObject(secretElem.tenants)) {
     var iss;
     if (opt_token) {
@@ -737,7 +737,7 @@ function getSecret(docId, secretElem, opt_iss, opt_token) {
     if (iss) {
       secretElem = secretElem.tenants[iss];
       if (!secretElem) {
-        logger.error('getSecret unknown issuer: docId = %s iss = %s', docId, iss);
+        docLogger.error('getSecret unknown issuer: iss = %s', iss);
       }
     }
   }
@@ -766,13 +766,13 @@ exports.forwarded = forwarded;
 exports.getIndexFromUserId = function(userId, userIdOriginal){
   return parseInt(userId.substring(userIdOriginal.length));
 };
-exports.checkPathTraversal = function(docId, rootDirectory, filename) {
+exports.checkPathTraversal = function(docLogger, rootDirectory, filename) {
   if (filename.indexOf('\0') !== -1) {
-    logger.warn('checkPathTraversal Poison Null Bytes docId=%s filename=%s', docId, filename);
+    docLogger.warn('checkPathTraversal Poison Null Bytes filename=%s', filename);
     return false;
   }
   if (!filename.startsWith(rootDirectory)) {
-    logger.warn('checkPathTraversal Path Traversal docId=%s filename=%s', docId, filename);
+    docLogger.warn('checkPathTraversal Path Traversal filename=%s', filename);
     return false;
   }
   return true;
