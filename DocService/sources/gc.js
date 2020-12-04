@@ -82,6 +82,7 @@ var checkFileExpire = function() {
         }
         removedCount += currentRemovedCount;
       } while (currentRemovedCount > 0);
+      docLogger.removeContext('docId');
       docLogger.debug('checkFileExpire end: removedCount = %d', removedCount);
     } catch (e) {
       docLogger.error('checkFileExpire error:\r\n%s', e.stack);

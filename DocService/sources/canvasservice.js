@@ -130,7 +130,6 @@ OutputData.prototype = {
 
 function* getOutputData(docLogger, cmd, outputData, key, status, statusInfo, optConn, optAdditionalOutput, opt_bIsRestore) {
   var docId = cmd.getDocId();
-  docLogger.addContext('docId', docId);
   switch (status) {
     case taskResult.FileStatus.SaveVersion:
     case taskResult.FileStatus.UpdateVersion:
@@ -633,14 +632,10 @@ function* commandSaveFromOrigin(cmd, outputData) {
   outputData.setStatus('ok');
   outputData.setData(cmd.getSaveKey());
 }
-function checkAuthorizationLength(authorization, data){
+function checkAuthorizationLength(docLogger, authorization, data){
   //todo it is stub (remove in future versions)
   //8kb(https://stackoverflow.com/questions/686217/maximum-on-http-header-values) - 1kb(for other header)
   let res = authorization.length < 7168;
-
-  let docLogger = logger.getLogger('nodeJS');
-  docLogger.addContext('docId', data.getKey());
-
   if (!res) {
     docLogger.warn('authorization too long: length=%d', authorization.length);
     data.setChangeUrl(undefined);
@@ -651,7 +646,6 @@ function checkAuthorizationLength(authorization, data){
 }
 function* commandSfcCallback(docLogger, cmd, isSfcm, isEncrypted) {
   var docId = cmd.getDocId();
-  docLogger.addContext('docId', docId);
   docLogger.debug('Start commandSfcCallback');
   var statusInfo = cmd.getStatusInfo();
   //setUserId - set from changes in convert
@@ -964,7 +958,6 @@ exports.openDocument = function(docLogger, conn, cmd, opt_upsertRes, opt_bIsRest
   return co(function* () {
     var outputData;
     var docId = conn ? conn.docId : 'null';
-    docLogger.addContext('docId', docId);
     try {
       var startDate = null;
       if(clientStatsD) {

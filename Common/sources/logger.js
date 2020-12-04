@@ -75,6 +75,7 @@ if (config.get('log.options.replaceConsole')) {
 }
 
 logger.addContext('docId', 'docId')
+logger.removeContext('docId')
 
 exports.trace = function (){
 	return logger.trace.apply(logger, Array.prototype.slice.call(arguments));
