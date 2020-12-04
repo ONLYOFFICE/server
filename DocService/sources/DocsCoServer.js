@@ -596,7 +596,7 @@ function* sendServerRequest(docLogger, uri, dataObject, opt_checkAuthorization) 
     if (cfgTokenOutboxInBody) {
       dataObject = {token: auth};
       auth = undefined;
-    } else if (opt_checkAuthorization && !opt_checkAuthorization(auth, dataObject)) {
+    } else if (opt_checkAuthorization && !opt_checkAuthorization(docLogger, auth, dataObject)) {
       auth = utils.fillJwtForRequest(dataObject);
       docLogger.warn('authorization reduced to: length=%d', auth.length);
     }
@@ -2302,14 +2302,12 @@ exports.install = function(server, callbackFunction) {
         fLock = getLockPresentation;
         break;
     }
-    return fLock ? yield* fLock(conn, data, bIsRestore) : false;
+    return fLock ? yield* fLock(docLogger, conn, data, bIsRestore) : false;
   }
 
-  function* getLockWord(conn, data, bIsRestore) {
+  function* getLockWord(docLogger, conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
-    let docLogger = logger.getLogger('nodeJS');
-    docLogger.addContext('docId', docId);
     var checkRes = yield* _checkLock(docLogger, docId, arrayBlocks);
     var documentLocks = checkRes.documentLocks;
     if (checkRes.res) {
@@ -2332,11 +2330,9 @@ exports.install = function(server, callbackFunction) {
   }
 
   // Для Excel block теперь это объект { sheetId, type, rangeOrObjectId, guid }
-  function* getLockExcel(conn, data, bIsRestore) {
+  function* getLockExcel(docLogger, conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
-    let docLogger = logger.getLogger('nodeJS');
-    docLogger.addContext('docId', docId);
     var checkRes = yield* _checkLockExcel(docId, arrayBlocks, userId);
     var documentLocks = checkRes.documentLocks;
     if (checkRes.res) {
@@ -2359,11 +2355,9 @@ exports.install = function(server, callbackFunction) {
   }
 
   // Для презентаций это объект { type, val } или { type, slideId, objId }
-  function* getLockPresentation(conn, data, bIsRestore) {
+  function* getLockPresentation(docLogger, conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
-    let docLogger = logger.getLogger('nodeJS');
-    docLogger.addContext('docId', docId);
     var checkRes = yield* _checkLockPresentation(docId, arrayBlocks, userId);
     var documentLocks = checkRes.documentLocks;
     if (checkRes.res) {

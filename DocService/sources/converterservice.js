@@ -91,7 +91,6 @@ function* getConvertStatus(cmd, selectRes, baseUrl, opt_fileTo) {
 
 function* convertByCmd(docLogger, cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue) {
   var docId = cmd.getDocId();
-  docLogger.addContext('docId', docId);
   var startDate = null;
   if (clientStatsD) {
     startDate = new Date();
