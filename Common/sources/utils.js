@@ -76,7 +76,7 @@ var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 const cfgTokenOutboxInBody = config.get('services.CoAuthoring.token.outbox.inBody');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
-const cfgSecretPassword = config.get('services.CoAuthoring.secret.password');
+const cfgSecretPassword = config.get('services.CoAuthoring.server.secretPassword');
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
