@@ -402,7 +402,8 @@ function* commandReopen(conn, cmd, outputData) {
     let selectRes = yield taskResult.select(cmd.getDocId());
     if (selectRes.length > 0) {
       let row = selectRes[0];
-      if (taskResult.FileStatus.Ok === row.status && row.password) {
+      if (row.password) {
+        logger.debug('commandReopen has password: docId = %s', cmd.getDocId());
         yield* commandOpenFillOutput(conn, cmd, outputData, false);
         docsCoServer.modifyConnectionForPassword(conn, constants.FILE_STATUS_OK === outputData.getStatus());
         return res;
@@ -684,6 +685,7 @@ function* commandSetPassword(conn, cmd, outputData) {
       hasDocumentPassword = true;
     }
   }
+  logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s: docId = %s', conn.isEnterCorrectPassword, hasDocumentPassword, cmd.getDocId());
   if (conn.isEnterCorrectPassword || !hasDocumentPassword) {
     let updateMask = new taskResult.TaskResultData();
     updateMask.key = cmd.getDocId();
@@ -702,7 +704,6 @@ function* commandSetPassword(conn, cmd, outputData) {
       outputData.setData(constants.PASSWORD);
     }
   } else {
-    logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s: docId = %s', conn.isEnterCorrectPassword, hasDocumentPassword, cmd.getDocId());
     outputData.setStatus('err');
     outputData.setData(constants.PASSWORD);
   }
