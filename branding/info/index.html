@@ -240,7 +240,7 @@
                 elem.innerText = 'No license';
             } else {
                 elem = document.getElementById('lic-valid-type');
-                elem.innerText = (licenseInfo.mode == 1) ? 'Valid: ' : 'Updates available: ';
+                elem.innerText = ((licenseInfo.mode & 1) || (licenseInfo.mode & 4)) ? 'Valid: ' : 'Updates available: ';
 
                 var licdate = new Date(licenseInfo.endDate);
                 elem = document.getElementById('lic-valid');
