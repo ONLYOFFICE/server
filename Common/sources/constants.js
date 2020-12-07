@@ -52,7 +52,8 @@ exports.RIGHTS = {
 exports.LICENSE_MODE = {
   None: 0,
   Trial: 1,
-  Developer: 2
+  Developer: 2,
+  Limited: 4
 };
 
 exports.LICENSE_RESULT = {
@@ -65,7 +66,8 @@ exports.LICENSE_RESULT = {
   SuccessLimit  : 7,
   UsersCount    : 8,
   ConnectionsOS : 9,
-  UsersCountOS  : 10
+  UsersCountOS  : 10,
+  ExpiredLimited: 11
 };
 
 exports.LICENSE_CONNECTIONS = 20;

@@ -235,7 +235,6 @@
 
             elem = document.getElementById('lic-limit');
 			elem.innerText = (licenseInfo.usersCount || licenseInfo.connections);
-
             if (licenseInfo.endDate===null) {
                 elem = document.getElementById('lic-valid-type');
                 elem.innerText = 'No license';
