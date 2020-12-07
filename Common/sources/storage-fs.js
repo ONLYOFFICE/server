@@ -155,16 +155,19 @@ exports.deleteObject = function(strPath) {
 exports.deleteObjects = function(strPaths) {
   return Promise.all(strPaths.map(exports.deleteObject));
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type) {
+exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type, opt_creationDate) {
   return new Promise(function(resolve, reject) {
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
     var userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, "%2f")) : path.basename(strPath);
     var uri = '/' + cfgBucketName + '/' + cfgStorageFolderName + '/' + strPath + '/' + userFriendlyName;
     var url = (cfgStorageExternalHost ? cfgStorageExternalHost : baseUrl) + uri;
 
-    var date = new Date();
-    var expires = Math.ceil(date.getTime() / 1000);
-    expires += (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : cfgStorageUrlExpires) || 31536000;
+    var date = Date.now();
+    let creationDate = opt_creationDate || date;
+    let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : cfgStorageUrlExpires) || 31536000;
+    var expires = creationDate + Math.ceil((date - creationDate)/expiredAfter) * expiredAfter;
+    expires /= 1000;
+    expires += expiredAfter;
 
     var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(uri) + cfgStorageSecretString).digest("base64");
     md5 = md5.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");

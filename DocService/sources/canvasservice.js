@@ -128,8 +128,16 @@ OutputData.prototype = {
   }
 };
 
-function* getOutputData(cmd, outputData, key, status, statusInfo, password, optConn, optAdditionalOutput, opt_bIsRestore) {
-  var docId = cmd.getDocId();
+function* getOutputData(cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
+  let status, statusInfo, password, creationDate;
+  let selectRes = yield taskResult.select(key);
+  if (selectRes.length > 0) {
+    let row = selectRes[0];
+    status = row.status;
+    statusInfo = row.status_info;
+    password = row.password;
+    creationDate = row.creation_date.getTime();
+  }
   switch (status) {
     case taskResult.FileStatus.SaveVersion:
     case taskResult.FileStatus.UpdateVersion:
@@ -143,10 +151,10 @@ function* getOutputData(cmd, outputData, key, status, statusInfo, password, optC
           outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
         } else {
           if (taskResult.FileStatus.UpdateVersion === status) {
-            logger.warn("UpdateVersion expired: docId = %s", docId);
+            logger.warn("UpdateVersion expired: docId = %s", key);
           }
           var updateMask = new taskResult.TaskResultData();
-          updateMask.key = docId;
+          updateMask.key = key;
           updateMask.status = status;
           updateMask.statusInfo = statusInfo;
           var updateTask = new taskResult.TaskResultData();
@@ -187,7 +195,7 @@ function* getOutputData(cmd, outputData, key, status, statusInfo, password, optC
           isCorrectPassword = decryptedPassword === userPassword;
         }
         if(password && !isCorrectPassword) {
-          logger.debug("getOutputData password mismatch: docId = %s", docId);
+          logger.debug("getOutputData password mismatch: docId = %s", key);
           if(encryptedUserPassword) {
             outputData.setStatus('needpassword');
             outputData.setData(constants.CONVERT_PASSWORD);
@@ -196,12 +204,13 @@ function* getOutputData(cmd, outputData, key, status, statusInfo, password, optC
             outputData.setData(constants.CONVERT_DRM);
           }
         } else if (optConn) {
-          outputData.setData(yield storage.getSignedUrls(optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session));
+          outputData.setData(yield storage.getSignedUrls(optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session, creationDate));
         } else if (optAdditionalOutput) {
           optAdditionalOutput.needUrlKey = key;
           optAdditionalOutput.needUrlMethod = 0;
           optAdditionalOutput.needUrlType = commonDefines.c_oAscUrlTypes.Session;
           optAdditionalOutput.needUrlIsCorrectPassword = isCorrectPassword;
+          optAdditionalOutput.creationDate = creationDate;
         }
       }
       break;
@@ -228,6 +237,13 @@ function* getOutputData(cmd, outputData, key, status, statusInfo, password, optC
       if (taskResult.FileStatus.ErrToReload == status) {
         yield cleanupCache(key);
       }
+      break;
+    case taskResult.FileStatus.None:
+      outputData.setStatus('none');
+      break;
+    default:
+      outputData.setStatus('err');
+      outputData.setData(constants.UNKNOWN);
       break;
   }
 }
@@ -383,17 +399,8 @@ function* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
     }
   }
 function* commandOpenFillOutput(conn, cmd, outputData, opt_bIsRestore) {
-  let needAddTask = false;
-  let selectRes = yield taskResult.select(cmd.getDocId());
-  if (selectRes.length > 0) {
-    let row = selectRes[0];
-    if (taskResult.FileStatus.None === row.status) {
-      needAddTask = true;
-    } else {
-      yield* getOutputData(cmd, outputData, cmd.getDocId(), row.status, row.status_info, row.password, conn, undefined, opt_bIsRestore);
-    }
-  }
-  return needAddTask;
+  yield* getOutputData(cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
+  return 'none' === outputData.getStatus();
 }
 function* commandReopen(conn, cmd, outputData) {
   let res = true;
@@ -1295,13 +1302,11 @@ exports.receiveTask = function(data, ack) {
         if (updateRes.affectedRows > 0) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
-          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined};
+          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined, creationDate: undefined};
           if ('open' == command || 'reopen' == command) {
-            yield* getOutputData(cmd, outputData, cmd.getDocId(), updateTask.status,
-              updateTask.statusInfo, updateTask.password, null, additionalOutput);
+            yield* getOutputData(cmd, outputData, cmd.getDocId(), null, additionalOutput);
           } else if ('save' == command || 'savefromorigin' == command || 'sfct' == command) {
-            yield* getOutputData(cmd, outputData, cmd.getSaveKey(), updateTask.status,
-              updateTask.statusInfo, updateTask.password, null, additionalOutput);
+            yield* getOutputData(cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
           } else if ('sfcm' == command) {
             yield* commandSfcCallback(cmd, true);
           } else if ('sfc' == command) {
@@ -1319,7 +1324,8 @@ exports.receiveTask = function(data, ack) {
                                           needUrlKey: additionalOutput.needUrlKey,
                                           needUrlMethod: additionalOutput.needUrlMethod,
                                           needUrlType: additionalOutput.needUrlType,
-                                          needUrlIsCorrectPassword: additionalOutput.needUrlIsCorrectPassword
+                                          needUrlIsCorrectPassword: additionalOutput.needUrlIsCorrectPassword,
+                                          creationDate: additionalOutput.creationDate
                                         });
           }
         }

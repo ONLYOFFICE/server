@@ -78,13 +78,13 @@ exports.deletePath = function(strPath) {
     return exports.deleteObjects(list);
   });
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type) {
-  return storage.getSignedUrl(baseUrl, getStoragePath(strPath), urlType, optFilename, opt_type);
+exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type, opt_creationDate) {
+  return storage.getSignedUrl(baseUrl, getStoragePath(strPath), urlType, optFilename, opt_type, opt_creationDate);
 };
-exports.getSignedUrls = function(baseUrl, strPath, urlType) {
+exports.getSignedUrls = function(baseUrl, strPath, urlType, opt_creationDate) {
   return exports.listObjects(getStoragePath(strPath)).then(function(list) {
     return Promise.all(list.map(function(curValue) {
-      return exports.getSignedUrl(baseUrl, curValue, urlType);
+      return exports.getSignedUrl(baseUrl, curValue, urlType, undefined, undefined, opt_creationDate);
     })).then(function(urls) {
       var outputMap = {};
       for (var i = 0; i < list.length && i < urls.length; ++i) {
