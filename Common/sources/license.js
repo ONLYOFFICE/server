@@ -32,28 +32,18 @@
 
 'use strict';
 
-const config = require('config');
-const configL = config.get('license');
 const constants = require('./constants');
-const logger = require('./logger');
-const editorDataStorage = require('./../../DocService/sources/' + config.get('services.CoAuthoring.server.editorDataStorage'));
 
 const buildDate = '6/29/2016';
 const oBuildDate = new Date(buildDate);
-const oPackageType = configL.get('packageType');
-
-const cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
-const redisKeyLicense = cfgRedisPrefix + constants.REDIS_KEY_LICENSE;
-
-let editorData = new editorDataStorage();
 
 exports.readLicense = function*() {
 	const c_LR = constants.LICENSE_RESULT;
-	const res = {
+	return {
 		count: 1,
-		type: c_LR.Error,
+		type: c_LR.Success,
 		light: false,
-		packageType: oPackageType,
+		packageType: constants.PACKAGE_TYPE_OS,
 		mode: constants.LICENSE_MODE.None,
 		branding: false,
 		connections: constants.LICENSE_CONNECTIONS,
@@ -65,20 +55,5 @@ exports.readLicense = function*() {
 		buildDate: oBuildDate,
 		endDate: null
 	};
-
-	if (yield* _getFileState()) {
-		res.type = c_LR.ExpiredTrial;
-	}
-
-	if (res.type === c_LR.Expired || res.type === c_LR.ExpiredTrial) {
-		res.count = 1;
-		logger.error('License: License Expired!!!');
-	}
-
-	return res;
 };
-exports.packageType = oPackageType;
-
-function* _getFileState() {
-	return yield editorData.getLicense(redisKeyLicense);
-}
+exports.packageType = constants.PACKAGE_TYPE_OS;

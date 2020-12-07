@@ -68,7 +68,7 @@ exports.uploadTempFile = function(req, res) {
       }
       docId = params.key;
       logger.debug('Start uploadTempFile: docId = %s', docId);
-      if (docId && req.body && Buffer.isBuffer(req.body)) {
+      if (docId && constants.DOC_ID_REGEX.test(docId) && req.body && Buffer.isBuffer(req.body)) {
         var task = yield* taskResult.addRandomKeyTask(docId);
         var strPath = task.key + '/' + docId + '.tmp';
         yield storageBase.putObject(strPath, req.body, req.body.length);
@@ -76,6 +76,9 @@ exports.uploadTempFile = function(req, res) {
                                                  commonDefines.c_oAscUrlTypes.Temporary);
         utils.fillResponse(req, res, url, constants.NO_ERROR, false);
       } else {
+        if (!constants.DOC_ID_REGEX.test(docId)) {
+          logger.warn('Error uploadTempFile unexpected key: docId = %s', docId);
+        }
         utils.fillResponse(req, res, undefined, constants.UNKNOWN, false);
       }
       logger.debug('End uploadTempFile: docId = %s', docId);
