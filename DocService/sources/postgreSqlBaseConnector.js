@@ -114,27 +114,24 @@ function getUpsertString(task, values) {
   let p2 = addSqlParam(task.status, values);
   let p3 = addSqlParam(task.statusInfo, values);
   let p4 = addSqlParam(dateNow, values);
-  let p5 = addSqlParam(dateNow, values);
-  let p6 = addSqlParam(task.userIndex, values);
-  let p7 = addSqlParam(task.changeId, values);
-  let p8 = addSqlParam(cbInsert, values);
-  let p9 = addSqlParam(task.baseurl, values);
-  let p10 = addSqlParam(task.password, values);
-  let p11 = addSqlParam(task.additionalParams, values);
+  let p5 = addSqlParam(task.userIndex, values);
+  let p6 = addSqlParam(task.changeId, values);
+  let p7 = addSqlParam(cbInsert, values);
+  let p8 = addSqlParam(task.baseurl, values);
   if (isSupportOnConflict) {
-    let pDate = addSqlParam(dateNow, values);
+    let p9 = addSqlParam(dateNow, values);
     //http://stackoverflow.com/questions/34762732/how-to-find-out-if-an-upsert-was-an-update-with-postgresql-9-5-upsert
-    let sqlCommand = "INSERT INTO task_result (id, status, status_info, creation_date, last_open_date, user_index, change_id, callback, baseurl, password, additional_params)";
-    sqlCommand += ` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}, ${p9}, ${p10}, ${p11})`;
-    sqlCommand += ` ON CONFLICT (id) DO UPDATE SET last_open_date = ${pDate}`;
+    let sqlCommand = "INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)";
+    sqlCommand += ` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8})`;
+    sqlCommand += ` ON CONFLICT (id) DO UPDATE SET last_open_date = ${p9}`;
     if (task.callback) {
-      let pCallback = addSqlParam(JSON.stringify(task.callback), values);
+      let p10 = addSqlParam(JSON.stringify(task.callback), values);
       sqlCommand += `, callback = task_result.callback || '${sqlBase.UserCallback.prototype.delimiter}{"userIndex":' `;
-      sqlCommand += ` || (task_result.user_index + 1)::text || ',"callback":' || ${pCallback}::text || '}'`;
+      sqlCommand += ` || (task_result.user_index + 1)::text || ',"callback":' || ${p10}::text || '}'`;
     }
     if (task.baseurl) {
-      let pBaseurl = addSqlParam(task.baseurl, values);
-      sqlCommand += `, baseurl = ${pBaseurl}`;
+      let p11 = addSqlParam(task.baseurl, values);
+      sqlCommand += `, baseurl = ${p11}`;
     }
     sqlCommand += ", user_index = task_result.user_index + 1 RETURNING user_index as userindex;";
     return sqlCommand;

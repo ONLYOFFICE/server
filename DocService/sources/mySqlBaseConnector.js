@@ -97,24 +97,21 @@ exports.upsert = function(task, opt_updateUserIndex) {
 		let p2 = addSqlParam(task.status, values);
 		let p3 = addSqlParam(task.statusInfo, values);
 		let p4 = addSqlParam(dateNow, values);
-		let p5 = addSqlParam(dateNow, values);
-		let p6 = addSqlParam(task.userIndex, values);
-		let p7 = addSqlParam(task.changeId, values);
-		let p8 = addSqlParam(cbInsert, values);
-		let p9 = addSqlParam(task.baseurl, values);
-		let p10 = addSqlParam(task.password, values);
-		let p11 = addSqlParam(task.additionalParams, values);
-		let pDate = addSqlParam(dateNow, values);
-		var sqlCommand = 'INSERT INTO task_result (id, status, status_info, creation_date, last_open_date, user_index, change_id, callback, baseurl, password, additional_params)'+
-			` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}, ${p9}, ${p10}, ${p11}) ON DUPLICATE KEY UPDATE` +
-			` last_open_date = ${pDate}`;
+		let p5 = addSqlParam(task.userIndex, values);
+		let p6 = addSqlParam(task.changeId, values);
+		let p7 = addSqlParam(cbInsert, values);
+		let p8 = addSqlParam(task.baseurl, values);
+		let p9 = addSqlParam(dateNow, values);
+		var sqlCommand = 'INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)'+
+			` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}) ON DUPLICATE KEY UPDATE` +
+			` last_open_date = ${p9}`;
 		if (task.callback) {
-			let pCallback = addSqlParam(JSON.stringify(task.callback), values);
-			sqlCommand += `, callback = CONCAT(callback , '${sqlBase.UserCallback.prototype.delimiter}{"userIndex":' , (user_index + 1) , ',"callback":', ${pCallback}, '}')`;
+			let p10 = addSqlParam(JSON.stringify(task.callback), values);
+			sqlCommand += `, callback = CONCAT(callback , '${sqlBase.UserCallback.prototype.delimiter}{"userIndex":' , (user_index + 1) , ',"callback":', ${p10}, '}')`;
 		}
 		if (task.baseurl) {
-			let pBaseurl = addSqlParam(task.baseurl, values);
-			sqlCommand += `, baseurl = ${pBaseurl}`;
+			let p11 = addSqlParam(task.baseurl, values);
+			sqlCommand += `, baseurl = ${p11}`;
 		}
 		if (opt_updateUserIndex) {
 			sqlCommand += ', user_index = LAST_INSERT_ID(user_index + 1)';

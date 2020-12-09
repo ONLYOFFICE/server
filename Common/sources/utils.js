@@ -76,7 +76,8 @@ var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 const cfgTokenOutboxInBody = config.get('services.CoAuthoring.token.outbox.inBody');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
-const cfgSecretPassword = config.get('services.CoAuthoring.server.secretPassword');
+const cfgPasswordEncrypt = config.get('services.CoAuthoring.password.encrypt');
+const cfgPasswordDecrypt = config.get('services.CoAuthoring.password.decrypt');
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
@@ -812,11 +813,15 @@ exports.canIncludeOutboxAuthorization = function (url) {
   return false;
 };
 exports.encryptPassword = co.wrap(function* (password) {
-  const { data: encrypted } = yield openpgp.encrypt({message: openpgp.message.fromText(password), passwords: [cfgSecretPassword]});
+  let params = {message: openpgp.message.fromText(password)};
+  Object.assign(params, cfgPasswordEncrypt);
+  const { data: encrypted } = yield openpgp.encrypt(params);
   return encrypted;
 });
 exports.decryptPassword = co.wrap(function* (password) {
   const message = yield openpgp.message.readArmored(password);
-  const { data: decrypted } = yield openpgp.decrypt({message: message, passwords: [cfgSecretPassword]});
+  let params = {message: message};
+  Object.assign(params, cfgPasswordDecrypt);
+  const { data: decrypted } = yield openpgp.decrypt(params);
   return decrypted;
 });

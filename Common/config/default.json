@@ -86,8 +86,7 @@
 				"forgottenfilesname": "output",
 				"maxRequestChanges": 20000,
 				"openProtectedFile": true,
-				"editorDataStorage": "editorDataMemory",
-				"secretPassword": "verysecretstring"
+				"editorDataStorage": "editorDataMemory"
 			},
 			"requestDefaults": {
 				"headers": {
@@ -221,6 +220,14 @@
 					"randomize": false
 				},
 				"httpStatus": "429,500-599"
+			},
+			"password": {
+				"encrypt": {
+					"passwords": ["verysecretstring"]
+				},
+				"decrypt": {
+					"passwords": ["verysecretstring"]
+				}
 			}
 		}
 	},
