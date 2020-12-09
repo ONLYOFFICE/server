@@ -119,12 +119,14 @@ exports.uploadImageFileOld = function(req, res) {
   docLogger.addContext('docId', docId);
   docLogger.debug('Start uploadImageFileOld');
   var userid = req.params.userid;
+  docLogger.addContext('userId', userid);
   if (cfgTokenEnableBrowser) {
     var checkJwtRes = checkJwtUpload(docLogger, 'uploadImageFileOld', req.query['token']);
     if(!checkJwtRes.err){
       docId = checkJwtRes.docId || docId;
       docLogger.addContext('docId', docId);
       userid = checkJwtRes.userid || userid;
+      docLogger.addContext('userId', userid);
     } else {
       res.sendStatus(403);
       return;

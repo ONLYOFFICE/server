@@ -738,6 +738,7 @@ function handleDeadLetter(data, ack) {
         let cmd = task.getCmd();
         docId = cmd.getDocId();
         docLogger.addContext('docId', docId);
+        docLogger.addContext('userId', cmd.getUserId());
         docLogger.warn('handleDeadLetter start: %s', data);
         let forceSave = cmd.getForceSave();
         if (forceSave && commonDefines.c_oAscForceSaveTypes.Timeout == forceSave.getType()) {
@@ -1128,6 +1129,7 @@ exports.install = function(server, callbackFunction) {
       var docId = 'null';
       let docLogger = logger.getLogger('nodeJS');
       docLogger.addContext('docId', conn.docId);
+      docLogger.addContext('userId', conn.user.id);
       try {
         var startDate = null;
         if(clientStatsD) {
@@ -1233,6 +1235,7 @@ exports.install = function(server, callbackFunction) {
     conn.on('error', function() {
       let docLogger = logger.getLogger('nodeJS');
       docLogger.addContext('docId', conn.docId);
+      docLogger.addContext('userId', conn.user.id);
       docLogger.error("On error");
     });
     conn.on('close', function() {
@@ -1242,6 +1245,7 @@ exports.install = function(server, callbackFunction) {
         try {
           docId = conn.docId;
           docLogger.addContext('docId', docId);
+          docLogger.addContext('userId', conn.user.id);
           yield* closeDocument(docLogger, conn, true);
         } catch (err) {
           docLogger.error('Error conn close\r\n%s', err.stack);
@@ -1266,8 +1270,9 @@ exports.install = function(server, callbackFunction) {
     var hvals;
     let participantsTimestamp;
     var tmpUser = conn.user;
+    docLogger.addContext('userId', tmpUser.id);
     var isView = tmpUser.view;
-    docLogger.info("Connection closed or timed out: userId = %s isCloseConnection = %s", tmpUser.id, isCloseConnection);
+    docLogger.info("Connection closed or timed out: isCloseConnection = %s", isCloseConnection);
     var isCloseCoAuthoringTmp = conn.isCloseCoAuthoring;
     if (isCloseConnection) {
       //Notify that participant has gone
@@ -1277,7 +1282,7 @@ exports.install = function(server, callbackFunction) {
       //Check if it's not already reconnected
       reconnected = yield* isUserReconnect(docId, tmpUser.id, conn.id);
       if (reconnected) {
-        docLogger.info("reconnected: userId = %s", tmpUser.id);
+        docLogger.info("reconnected");
       } else {
         yield removePresence(conn);
         hvals = yield editorData.getPresence(docId, connections);
@@ -1405,6 +1410,7 @@ exports.install = function(server, callbackFunction) {
     }
     //open
     docLogger.addContext('docId', conn.docId);
+    docLogger.addContext('userId', conn.user.id);
     yield canvasService.openDocument(docLogger, conn, cmd, null);
   }
   // Получение изменений для документа (либо из кэша, либо обращаемся к базе, но только если были сохранения)
@@ -1534,7 +1540,8 @@ exports.install = function(server, callbackFunction) {
       });
     }, 1000 * cfgExpLockDoc);
     lockDocumentsTimerId[docId] = {timerId: timerId, userId: userId};
-    docLogger.debug("lockDocumentsTimerId set userId = %s", userId);
+    docLogger.addContext('userId', userId);
+    docLogger.debug("lockDocumentsTimerId set");
   }
   function cleanLockDocumentTimer(docId, lockDocumentTimer) {
     clearTimeout(lockDocumentTimer.timerId);
@@ -1926,6 +1933,7 @@ exports.install = function(server, callbackFunction) {
       }
 
       const curUserId = String(user.id) + curIndexUser;
+      docLogger.addContext('userId', curUserId);
       conn.docId = data.docid;
       conn.permissions = data.permissions;
       conn.user = {
@@ -2083,6 +2091,7 @@ exports.install = function(server, callbackFunction) {
     const docId = conn.docId;
     docLogger.addContext('docId', docId);
     const tmpUser = conn.user;
+    docLogger.addContext('userId', tmpUser.id);
     let hasForgotten;
     if (constants.CONN_CLOSED === conn.readyState) {
       //closing could happen during async action
@@ -2225,6 +2234,7 @@ exports.install = function(server, callbackFunction) {
   function* sendAuthInfo(docLogger, conn, bIsRestore, participantsMap, opt_hasForgotten) {
     const docId = conn.docId;
     docLogger.addContext('docId', docId);
+    docLogger.addContext('userId', conn.user.id);
     let docLock;
     if(EditorTypes.document == conn.editorType){
       docLock = {};
@@ -2263,6 +2273,7 @@ exports.install = function(server, callbackFunction) {
     var docId = conn.docId;
     var userId = conn.user.id;
     docLogger.addContext('docId', docId);
+    docLogger.addContext('userId', userId);
     var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal, username: conn.user.username};
     yield editorData.addMessage(docId, msg);
     // insert
@@ -2277,6 +2288,7 @@ exports.install = function(server, callbackFunction) {
     var docId = conn.docId;
     var userId = conn.user.id;
     docLogger.addContext('docId', docId);
+    docLogger.addContext('userId', userId);
     var msg = {cursor: data.cursor, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal};
 
     docLogger.info("send cursor %s", msg);
@@ -2389,6 +2401,7 @@ exports.install = function(server, callbackFunction) {
   function* saveChanges(docLogger, conn, data) {
     const docId = conn.docId, userId = conn.user.id;
     docLogger.addContext('docId', docId);
+    docLogger.addContext('userId', userId);
     docLogger.info("Start saveChanges reSave: %s", data.reSave);
 
     let lockRes = yield editorData.lockSave(docId, userId, cfgExpSaveLock);
@@ -2530,7 +2543,8 @@ exports.install = function(server, callbackFunction) {
     if (commonDefines.c_oAscUnlockRes.Locked !== unlockRes) {
       sendData(docLogger, conn, {type: 'unSaveLock', index: index, time: time});
     } else {
-      docLogger.warn("unSaveLock failure: conn.user.id: %s", conn.user.id);
+      docLogger.addContext('userId', conn.user.id);
+      docLogger.warn("unSaveLock failure");
     }
   }
 
@@ -2658,6 +2672,7 @@ exports.install = function(server, callbackFunction) {
 		return co(function* () {
       let docLogger = logger.getLogger('nodeJS');
       docLogger.addContext('docId', conn.docId);
+      docLogger.addContext('userId', conn.user.id);
 			try {
 				const c_LR = constants.LICENSE_RESULT;
 				let licenseType = licenseInfo.type;

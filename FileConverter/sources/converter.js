@@ -585,6 +585,7 @@ function* ExecuteTask(docLogger, task) {
   var cmd = task.getCmd();
   var dataConvert = new TaskQueueDataConvert(task);
   docLogger.addContext('docId', dataConvert.key);
+  docLogger.addContext('userId', cmd.getUserId());
   docLogger.debug('Start Task');
   var error = constants.NO_ERROR;
   tempDirs = getTempDir();
