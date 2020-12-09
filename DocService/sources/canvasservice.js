@@ -71,6 +71,7 @@ var SAVE_TYPE_COMPLETE_ALL = 3;
 
 var clientStatsD = statsDClient.getClient();
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
+let hasPasswordCol = false;//stub on upgradev630.sql update failure
 
 const retryHttpStatus = new MultiRange(cfgCallbackBackoffOptions.httpStatus);
 
@@ -136,7 +137,7 @@ function* getOutputData(cmd, outputData, key, optConn, optAdditionalOutput, opt_
     status = row.status;
     statusInfo = row.status_info;
     password = row.password;
-    creationDate = row.creation_date.getTime();
+    creationDate = row.created_at && row.created_at.getTime();
   }
   switch (status) {
     case taskResult.FileStatus.SaveVersion:
@@ -189,7 +190,7 @@ function* getOutputData(cmd, outputData, key, optConn, optAdditionalOutput, opt_
         let userPassword;
         let decryptedPassword;
         let isCorrectPassword;
-        if (encryptedUserPassword) {
+        if (password && encryptedUserPassword) {
           decryptedPassword = yield utils.decryptPassword(password);
           userPassword = yield utils.decryptPassword(encryptedUserPassword);
           isCorrectPassword = decryptedPassword === userPassword;
@@ -287,7 +288,7 @@ function getSaveTask(cmd) {
   //}
   return queueData;
 }
-function getUpdateResponse(cmd) {
+function* getUpdateResponse(cmd) {
   var updateTask = new taskResult.TaskResultData();
   updateTask.key = cmd.getSaveKey() ? cmd.getSaveKey() : cmd.getDocId();
   var statusInfo = cmd.getStatusInfo();
@@ -295,7 +296,13 @@ function getUpdateResponse(cmd) {
     updateTask.status = taskResult.FileStatus.Ok;
     let password = cmd.getPassword();
     if (password) {
-      updateTask.password = password;
+      if (false === hasPasswordCol) {
+        let selectRes = yield taskResult.select(updateTask.key);
+        hasPasswordCol = selectRes.length > 0 && undefined !== selectRes[0].password;
+      }
+      if(hasPasswordCol) {
+        updateTask.password = password;
+      }
     }
   } else if (constants.CONVERT_DOWNLOAD == statusInfo) {
     updateTask.status = taskResult.FileStatus.ErrToReload;
@@ -688,12 +695,13 @@ function* commandSetPassword(conn, cmd, outputData) {
   let selectRes = yield taskResult.select(cmd.getDocId());
   if (selectRes.length > 0) {
     let row = selectRes[0];
+    hasPasswordCol = undefined !== row.password;
     if (taskResult.FileStatus.Ok === row.status && row.password) {
       hasDocumentPassword = true;
     }
   }
-  logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s: docId = %s', conn.isEnterCorrectPassword, hasDocumentPassword, cmd.getDocId());
-  if (conn.isEnterCorrectPassword || !hasDocumentPassword) {
+  logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s, hasPasswordCol=%s: docId = %s', conn.isEnterCorrectPassword, hasDocumentPassword, hasPasswordCol, cmd.getDocId());
+  if ((conn.isEnterCorrectPassword || !hasDocumentPassword) && hasPasswordCol) {
     let updateMask = new taskResult.TaskResultData();
     updateMask.key = cmd.getDocId();
     updateMask.status = taskResult.FileStatus.Ok;
@@ -1297,7 +1305,7 @@ exports.receiveTask = function(data, ack) {
         var cmd = task.getCmd();
         docId = cmd.getDocId();
         logger.debug('Start receiveTask: docId = %s %s', docId, data);
-        var updateTask = getUpdateResponse(cmd);
+        var updateTask = yield* getUpdateResponse(cmd);
         var updateRes = yield taskResult.update(updateTask);
         if (updateRes.affectedRows > 0) {
           var outputData = new OutputData(cmd.getCommand());
