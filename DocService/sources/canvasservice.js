@@ -1025,6 +1025,7 @@ exports.downloadAs = function(req, res) {
       var cmd = new commonDefines.InputCommand(JSON.parse(strCmd));
       docId = cmd.getDocId();
       docLogger.addContext('docId', docId);
+      docLogger.addContext('userId', cmd.getUserId());
       docLogger.debug('Start downloadAs: %s', strCmd);
 
       if (cfgTokenEnableBrowser) {
@@ -1111,6 +1112,7 @@ exports.saveFile = function(req, res) {
       let cmd = new commonDefines.InputCommand(JSON.parse(strCmd));
       docId = cmd.getDocId();
       docLogger.addContext('docId', docId);
+      docLogger.addContext('userId', cmd.getUserId());
       docLogger.debug('Start saveFile');
 
       if (cfgTokenEnableBrowser) {
@@ -1212,6 +1214,7 @@ exports.receiveTask = function(data, ack) {
         var cmd = task.getCmd();
         docId = cmd.getDocId();
         docLogger.addContext('docId', docId);
+        docLogger.addContext('userId', cmd.getUserId());
         docLogger.debug('Start receiveTask: %s', data);
         var updateTask = getUpdateResponse(cmd);
         var updateRes = yield taskResult.update(updateTask);
