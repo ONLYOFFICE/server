@@ -76,8 +76,11 @@ var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 const cfgTokenOutboxInBody = config.get('services.CoAuthoring.token.outbox.inBody');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
-const cfgPasswordEncrypt = config.get('services.CoAuthoring.password.encrypt');
-const cfgPasswordDecrypt = config.get('services.CoAuthoring.password.decrypt');
+const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
+const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
+const cfgPasswordConfig = config.get('openpgpjs.config');
+
+Object.assign(openpgp.config, cfgPasswordConfig);
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 

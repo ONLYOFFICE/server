@@ -64,6 +64,16 @@
 		"ttl" : 300,
 		"cachesize" : 1000
 	},
+	"openpgpjs": {
+		"config": {
+		},
+		"encrypt": {
+			"passwords": ["verysecretstring"]
+		},
+		"decrypt": {
+			"passwords": ["verysecretstring"]
+		}
+	},
 	"services": {
 		"CoAuthoring": {
 			"server": {
@@ -220,14 +230,6 @@
 					"randomize": false
 				},
 				"httpStatus": "429,500-599"
-			},
-			"password": {
-				"encrypt": {
-					"passwords": ["verysecretstring"]
-				},
-				"decrypt": {
-					"passwords": ["verysecretstring"]
-				}
 			}
 		}
 	},
