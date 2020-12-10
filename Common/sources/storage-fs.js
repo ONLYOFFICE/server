@@ -165,8 +165,9 @@ exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type
     var date = Date.now();
     let creationDate = opt_creationDate || date;
     let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : cfgStorageUrlExpires) || 31536000;
-    var expires = creationDate + Math.ceil((date - creationDate)/expiredAfter) * expiredAfter;
-    expires /= 1000;
+    //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
+    var expires = creationDate + Math.ceil(Math.abs(date - creationDate)/expiredAfter) * expiredAfter;
+    expires = Math.ceil(expires / 1000);
     expires += expiredAfter;
 
     var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(uri) + cfgStorageSecretString).digest("base64");
