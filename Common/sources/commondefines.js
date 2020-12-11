@@ -42,6 +42,7 @@ function InputCommand(data, copyExplicit) {
     this['id'] = data['id'];
     this['userid'] = data['userid'];
     this['userindex'] = data['userindex'];
+    this['username'] = data['username'];
     this['tokenSession'] = data['tokenSession'];
     this['tokenDownload'] = data['tokenDownload'];
     this['tokenHistory'] = data['tokenHistory'];
@@ -103,6 +104,7 @@ function InputCommand(data, copyExplicit) {
     this['id'] = undefined;//string document id
     this['userid'] = undefined;//string
     this['userindex'] = undefined;
+    this['username'] = undefined;
     this['tokenSession'] = undefined;//string validate
     this['tokenDownload'] = undefined;//string validate
     this['tokenHistory'] = undefined;//string validate
@@ -177,6 +179,12 @@ InputCommand.prototype = {
   },
   setUserIndex: function(data) {
     this['userindex'] = data;
+  },
+  getUserName: function() {
+    return this['username'];
+  },
+  setUserName: function(data) {
+    this['username'] = data;
   },
   getTokenSession: function() {
     return this['tokenSession'];

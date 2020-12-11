@@ -1111,15 +1111,33 @@ function getLicenseNowUtc() {
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(),
                   now.getUTCMinutes(), now.getUTCSeconds()) / 1000;
 }
+let getParticipantMap = co.wrap(function*(docId, opt_hvals) {
+  const participantsMap = [];
+  let hvals;
+  if (opt_hvals) {
+    hvals = opt_hvals;
+  } else {
+    hvals = yield editorData.getPresence(docId, connections);
+  }
+  for (let i = 0; i < hvals.length; ++i) {
+    const elem = JSON.parse(hvals[i]);
+    if (!elem.isCloseCoAuthoring) {
+      participantsMap.push(elem);
+    }
+  }
+  return participantsMap;
+});
 
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
 exports.sendData = sendData;
+exports.sendDataRefreshToken = sendDataRefreshToken;
 exports.modifyConnectionForPassword = modifyConnectionForPassword;
 exports.parseUrl = parseUrl;
 exports.parseReplyData = parseReplyData;
 exports.sendServerRequest = sendServerRequest;
 exports.createSaveTimerPromise = co.wrap(_createSaveTimer);
+exports.getParticipantMap = getParticipantMap;
 exports.publish = publish;
 exports.addTask = addTask;
 exports.addDelayed = addDelayed;
@@ -1331,7 +1349,7 @@ exports.install = function(server, callbackFunction) {
       //revert old view to send event
       var tmpView = tmpUser.view;
       tmpUser.view = isView;
-      let participants = yield* getParticipantMap(docId, hvals);
+      let participants = yield getParticipantMap(docId, hvals);
       if (!participantsTimestamp) {
         participantsTimestamp = Date.now();
       }
@@ -1475,23 +1493,6 @@ exports.install = function(server, callbackFunction) {
     return userLocks;
   }
 
-  function* getParticipantMap(docId, opt_hvals) {
-    const participantsMap = [];
-    let hvals;
-    if (opt_hvals) {
-      hvals = opt_hvals;
-    } else {
-      hvals = yield editorData.getPresence(docId, connections);
-    }
-    for (let i = 0; i < hvals.length; ++i) {
-      const elem = JSON.parse(hvals[i]);
-      if (!elem.isCloseCoAuthoring) {
-        participantsMap.push(elem);
-      }
-    }
-    return participantsMap;
-  }
-
 	function* checkEndAuthLock(unlock, isSave, docId, userId, releaseLocks, deleteIndex, conn) {
 		let result = false;
 
@@ -1510,7 +1511,7 @@ exports.install = function(server, callbackFunction) {
 		if (unlock) {
 			var unlockRes = yield editorData.unlockAuth(docId, userId);
 			if (commonDefines.c_oAscUnlockRes.Unlocked === unlockRes) {
-				const participantsMap = yield* getParticipantMap(docId);
+				const participantsMap = yield getParticipantMap(docId);
 				yield* publish({
 					type: commonDefines.c_oPublishType.auth,
 					docId: docId,
@@ -2104,7 +2105,7 @@ exports.install = function(server, callbackFunction) {
     connections.push(conn);
     let firstParticipantNoView, countNoView = 0;
     yield addPresence(conn, true);
-    let participantsMap = yield* getParticipantMap(docId);
+    let participantsMap = yield getParticipantMap(docId);
     const participantsTimestamp = Date.now();
     for (let i = 0; i < participantsMap.length; ++i) {
       const elem = participantsMap[i];
@@ -2671,7 +2672,7 @@ exports.install = function(server, callbackFunction) {
 					// ToDo docId from url ?
 					const docIdParsed = urlParse.exec(conn.url);
 					if (docIdParsed && 1 < docIdParsed.length) {
-						const participantsMap = yield* getParticipantMap(docIdParsed[1]);
+						const participantsMap = yield getParticipantMap(docIdParsed[1]);
 						for (let i = 0; i < participantsMap.length; ++i) {
 							const elem = participantsMap[i];
 							if (!elem.view) {
