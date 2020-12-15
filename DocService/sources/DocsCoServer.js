@@ -1129,7 +1129,6 @@ exports.install = function(server, callbackFunction) {
       var docId = 'null';
       let docLogger = logger.getLogger('nodeJS');
       docLogger.addContext('docId', conn.docId);
-      docLogger.addContext('userId', conn.user.id);
       try {
         var startDate = null;
         if(clientStatsD) {
@@ -1245,7 +1244,6 @@ exports.install = function(server, callbackFunction) {
         try {
           docId = conn.docId;
           docLogger.addContext('docId', docId);
-          docLogger.addContext('userId', conn.user.id);
           yield* closeDocument(docLogger, conn, true);
         } catch (err) {
           docLogger.error('Error conn close\r\n%s', err.stack);
@@ -2672,7 +2670,6 @@ exports.install = function(server, callbackFunction) {
 		return co(function* () {
       let docLogger = logger.getLogger('nodeJS');
       docLogger.addContext('docId', conn.docId);
-      docLogger.addContext('userId', conn.user.id);
 			try {
 				const c_LR = constants.LICENSE_RESULT;
 				let licenseType = licenseInfo.type;
