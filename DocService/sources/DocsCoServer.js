@@ -448,6 +448,23 @@ function removePresence(conn) {
   });
 }
 
+let changeConnectionInfo = co.wrap(function*(conn, cmd) {
+  if (conn.canChangeName && conn.user) {
+    logger.debug('changeConnectionInfo: docId = %s', conn.docId);
+    conn.user.username = cmd.getUserName();
+    yield addPresence(conn, false);
+    if (cfgTokenEnableBrowser) {
+      sendDataRefreshToken(conn);
+    }
+    let docId = conn.docId;
+    let userId = conn.user.id;
+    let participants = yield getParticipantMap(docId);
+    let participantsTimestamp = Date.now();
+    yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: docId, userId: userId, participantsTimestamp: participantsTimestamp, participants: participants}, docId, userId);
+    return true;
+  }
+  return false;
+});
 function fillJwtByConnection(conn) {
   var docId = conn.docId;
   var payload = {document: {}, editorConfig: {user: {}}};
@@ -468,6 +485,7 @@ function fillJwtByConnection(conn) {
   edit.ds_view = conn.user.view;
   edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
   edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
+  edit.ds_canChangeName = conn.canChangeName;
 
   var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
   var secret = utils.getSecretByElem(cfgSecretSession);
@@ -1111,6 +1129,22 @@ function getLicenseNowUtc() {
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(),
                   now.getUTCMinutes(), now.getUTCSeconds()) / 1000;
 }
+let getParticipantMap = co.wrap(function*(docId, opt_hvals) {
+  const participantsMap = [];
+  let hvals;
+  if (opt_hvals) {
+    hvals = opt_hvals;
+  } else {
+    hvals = yield editorData.getPresence(docId, connections);
+  }
+  for (let i = 0; i < hvals.length; ++i) {
+    const elem = JSON.parse(hvals[i]);
+    if (!elem.isCloseCoAuthoring) {
+      participantsMap.push(elem);
+    }
+  }
+  return participantsMap;
+});
 
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
@@ -1120,6 +1154,7 @@ exports.parseUrl = parseUrl;
 exports.parseReplyData = parseReplyData;
 exports.sendServerRequest = sendServerRequest;
 exports.createSaveTimerPromise = co.wrap(_createSaveTimer);
+exports.changeConnectionInfo = changeConnectionInfo;
 exports.publish = publish;
 exports.addTask = addTask;
 exports.addDelayed = addDelayed;
@@ -1331,7 +1366,7 @@ exports.install = function(server, callbackFunction) {
       //revert old view to send event
       var tmpView = tmpUser.view;
       tmpUser.view = isView;
-      let participants = yield* getParticipantMap(docId, hvals);
+      let participants = yield getParticipantMap(docId, hvals);
       if (!participantsTimestamp) {
         participantsTimestamp = Date.now();
       }
@@ -1475,23 +1510,6 @@ exports.install = function(server, callbackFunction) {
     return userLocks;
   }
 
-  function* getParticipantMap(docId, opt_hvals) {
-    const participantsMap = [];
-    let hvals;
-    if (opt_hvals) {
-      hvals = opt_hvals;
-    } else {
-      hvals = yield editorData.getPresence(docId, connections);
-    }
-    for (let i = 0; i < hvals.length; ++i) {
-      const elem = JSON.parse(hvals[i]);
-      if (!elem.isCloseCoAuthoring) {
-        participantsMap.push(elem);
-      }
-    }
-    return participantsMap;
-  }
-
 	function* checkEndAuthLock(unlock, isSave, docId, userId, releaseLocks, deleteIndex, conn) {
 		let result = false;
 
@@ -1510,7 +1528,7 @@ exports.install = function(server, callbackFunction) {
 		if (unlock) {
 			var unlockRes = yield editorData.unlockAuth(docId, userId);
 			if (commonDefines.c_oAscUnlockRes.Unlocked === unlockRes) {
-				const participantsMap = yield* getParticipantMap(docId);
+				const participantsMap = yield getParticipantMap(docId);
 				yield* publish({
 					type: commonDefines.c_oPublishType.auth,
 					docId: docId,
@@ -1826,9 +1844,8 @@ exports.install = function(server, callbackFunction) {
       if (null != edit.ds_isCloseCoAuthoring) {
         data.isCloseCoAuthoring = edit.ds_isCloseCoAuthoring;
       }
-      if (null != edit.ds_isEnterCorrectPassword) {
-        data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
-      }
+      data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
+      data.canChangeName = edit.ds_canChangeName;
       if (edit.user) {
         var dataUser = data.user;
         var user = edit.user;
@@ -1850,6 +1867,9 @@ exports.install = function(server, callbackFunction) {
         if (null != user.name) {
           dataUser.username = user.name;
         }
+      }
+      if (!(edit.user && null != user.name)) {
+        data.canChangeName = true;
       }
     }
 
@@ -1950,6 +1970,7 @@ exports.install = function(server, callbackFunction) {
       };
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
       conn.isEnterCorrectPassword = data.isEnterCorrectPassword;
+      conn.canChangeName = data.canChangeName;
       conn.editorType = data['editorType'];
       if (data.sessionTimeConnect) {
         conn.sessionTimeConnect = data.sessionTimeConnect;
@@ -2104,7 +2125,7 @@ exports.install = function(server, callbackFunction) {
     connections.push(conn);
     let firstParticipantNoView, countNoView = 0;
     yield addPresence(conn, true);
-    let participantsMap = yield* getParticipantMap(docId);
+    let participantsMap = yield getParticipantMap(docId);
     const participantsTimestamp = Date.now();
     for (let i = 0; i < participantsMap.length; ++i) {
       const elem = participantsMap[i];
@@ -2671,7 +2692,7 @@ exports.install = function(server, callbackFunction) {
 					// ToDo docId from url ?
 					const docIdParsed = urlParse.exec(conn.url);
 					if (docIdParsed && 1 < docIdParsed.length) {
-						const participantsMap = yield* getParticipantMap(docIdParsed[1]);
+						const participantsMap = yield getParticipantMap(docIdParsed[1]);
 						for (let i = 0; i < participantsMap.length; ++i) {
 							const elem = participantsMap[i];
 							if (!elem.view) {
