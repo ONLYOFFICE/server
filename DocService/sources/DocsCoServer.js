@@ -449,7 +449,7 @@ function removePresence(conn) {
 }
 
 let changeConnectionInfo = co.wrap(function*(conn, cmd) {
-  if (conn.permissions && conn.permissions.ds_changeName && conn.user) {
+  if (conn.canChangeName && conn.user) {
     logger.debug('changeConnectionInfo: docId = %s', conn.docId);
     conn.user.username = cmd.getUserName();
     yield addPresence(conn, false);
@@ -485,6 +485,7 @@ function fillJwtByConnection(conn) {
   edit.ds_view = conn.user.view;
   edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
   edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
+  edit.ds_canChangeName = conn.canChangeName;
 
   var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
   var secret = utils.getSecretByElem(cfgSecretSession);
@@ -1843,9 +1844,8 @@ exports.install = function(server, callbackFunction) {
       if (null != edit.ds_isCloseCoAuthoring) {
         data.isCloseCoAuthoring = edit.ds_isCloseCoAuthoring;
       }
-      if (null != edit.ds_isEnterCorrectPassword) {
-        data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
-      }
+      data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
+      data.canChangeName = edit.ds_canChangeName;
       if (edit.user) {
         var dataUser = data.user;
         var user = edit.user;
@@ -1869,10 +1869,7 @@ exports.install = function(server, callbackFunction) {
         }
       }
       if (!(edit.user && null != user.name)) {
-        if(!data.permissions){
-          data.permissions = {};
-        }
-        data.permissions.ds_changeName = true;
+        data.canChangeName = true;
       }
     }
 
@@ -1973,6 +1970,7 @@ exports.install = function(server, callbackFunction) {
       };
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
       conn.isEnterCorrectPassword = data.isEnterCorrectPassword;
+      conn.canChangeName = data.canChangeName;
       conn.editorType = data['editorType'];
       if (data.sessionTimeConnect) {
         conn.sessionTimeConnect = data.sessionTimeConnect;
