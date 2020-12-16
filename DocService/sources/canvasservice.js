@@ -724,21 +724,12 @@ function* commandSetPassword(conn, cmd, outputData) {
   }
 }
 function* commandChangeDocInfo(conn, cmd, outputData) {
-  if (conn.permissions && conn.user) {
-    logger.debug('commandChangeDocInfo: docId = %s', conn.docId);
-    conn.user.name = cmd.getUserName();
-    if (cfgTokenEnableBrowser) {
-      docsCoServer.sendDataRefreshToken(conn);
-    }
-    let docId = conn.docId;
-    let userId = conn.user.id;
-    let participants = yield docsCoServer.getParticipantMap(docId);
-    let participantsTimestamp = Date.now();
-    yield* docsCoServer.publish({type: commonDefines.c_oPublishType.participantsState, docId: docId, userId: userId, participantsTimestamp: participantsTimestamp, participants: participants}, docId, userId);
+  let res = yield docsCoServer.changeConnectionInfo(conn, cmd);
+  if(res) {
     outputData.setStatus('ok');
   } else {
     outputData.setStatus('err');
-    outputData.setData(constants.PASSWORD);
+    outputData.setData(constants.CHANGE_DOC_INFO);
   }
 }
 function checkAuthorizationLength(authorization, data){

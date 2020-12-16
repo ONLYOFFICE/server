@@ -159,6 +159,7 @@ exports.NO_ERROR = 0;
 exports.UNKNOWN = -1;
 exports.READ_REQUEST_STREAM = -3;
 exports.WEB_REQUEST = -4;
+exports.CHANGE_DOC_INFO = -5;
 exports.TASK_QUEUE = -20;
 exports.TASK_RESULT = -40;
 exports.STORAGE = -60;

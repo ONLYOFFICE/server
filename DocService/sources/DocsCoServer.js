@@ -448,6 +448,23 @@ function removePresence(conn) {
   });
 }
 
+let changeConnectionInfo = co.wrap(function*(conn, cmd) {
+  if (conn.permissions && conn.permissions.ds_changeName && conn.user) {
+    logger.debug('changeConnectionInfo: docId = %s', conn.docId);
+    conn.user.username = cmd.getUserName();
+    yield addPresence(conn, false);
+    if (cfgTokenEnableBrowser) {
+      sendDataRefreshToken(conn);
+    }
+    let docId = conn.docId;
+    let userId = conn.user.id;
+    let participants = yield getParticipantMap(docId);
+    let participantsTimestamp = Date.now();
+    yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: docId, userId: userId, participantsTimestamp: participantsTimestamp, participants: participants}, docId, userId);
+    return true;
+  }
+  return false;
+});
 function fillJwtByConnection(conn) {
   var docId = conn.docId;
   var payload = {document: {}, editorConfig: {user: {}}};
@@ -1131,13 +1148,12 @@ let getParticipantMap = co.wrap(function*(docId, opt_hvals) {
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
 exports.sendData = sendData;
-exports.sendDataRefreshToken = sendDataRefreshToken;
 exports.modifyConnectionForPassword = modifyConnectionForPassword;
 exports.parseUrl = parseUrl;
 exports.parseReplyData = parseReplyData;
 exports.sendServerRequest = sendServerRequest;
 exports.createSaveTimerPromise = co.wrap(_createSaveTimer);
-exports.getParticipantMap = getParticipantMap;
+exports.changeConnectionInfo = changeConnectionInfo;
 exports.publish = publish;
 exports.addTask = addTask;
 exports.addDelayed = addDelayed;
@@ -1851,6 +1867,12 @@ exports.install = function(server, callbackFunction) {
         if (null != user.name) {
           dataUser.username = user.name;
         }
+      }
+      if (!(edit.user && null != user.name)) {
+        if(!data.permissions){
+          data.permissions = {};
+        }
+        data.permissions.ds_changeName = true;
       }
     }
 
