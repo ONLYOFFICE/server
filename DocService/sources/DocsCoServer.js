@@ -460,7 +460,7 @@ let changeConnectionInfo = co.wrap(function*(conn, cmd) {
     let userId = conn.user.id;
     let participants = yield getParticipantMap(docId);
     let participantsTimestamp = Date.now();
-    yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: docId, userId: userId, participantsTimestamp: participantsTimestamp, participants: participants}, docId, userId);
+    yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: docId, userId: null, participantsTimestamp: participantsTimestamp, participants: participants});
     return true;
   }
   return false;
