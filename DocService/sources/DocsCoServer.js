@@ -148,6 +148,7 @@ const cfgForgottenFiles = config.get('server.forgottenfiles');
 const cfgMaxRequestChanges = config.get('server.maxRequestChanges');
 const cfgWarningLimitPercents = configCommon.get('license.warning_limit_percents') / 100;
 const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
+const cfgOpenProtectedFile = config.get('server.openProtectedFile');
 
 const EditorTypes = {
   document : 0,
@@ -2711,6 +2712,7 @@ exports.install = function(server, callbackFunction) {
 						rights: rights,
 						buildVersion: commonDefines.buildVersion,
 						buildNumber: commonDefines.buildNumber,
+						protectionSupport: cfgOpenProtectedFile, //todo find a better place
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
 						plugins: licenseInfo.plugins
