@@ -884,7 +884,8 @@ const c_oPublishType = {
   meta: 11,
   forceSave: 12,
   closeConnection: 13,
-  changesNotify: 14
+  changesNotify: 14,
+  changeConnecitonInfo: 15
 };
 const c_oAscCsvDelimiter = {
   None: 0,

@@ -451,17 +451,7 @@ function removePresence(conn) {
 
 let changeConnectionInfo = co.wrap(function*(conn, cmd) {
   if (conn.canChangeName && conn.user) {
-    logger.debug('changeConnectionInfo: docId = %s', conn.docId);
-    conn.user.username = cmd.getUserName();
-    yield addPresence(conn, false);
-    if (cfgTokenEnableBrowser) {
-      sendDataRefreshToken(conn);
-    }
-    let docId = conn.docId;
-    let userId = conn.user.id;
-    let participants = yield getParticipantMap(docId);
-    let participantsTimestamp = Date.now();
-    yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: docId, userId: null, participantsTimestamp: participantsTimestamp, participants: participants});
+    yield* publish({type: commonDefines.c_oPublishType.changeConnecitonInfo, docId: conn.docId, useridoriginal: conn.user.idOriginal, cmd: cmd});
     return true;
   }
   return false;
@@ -2777,7 +2767,7 @@ exports.install = function(server, callbackFunction) {
         var participant;
         var objChangesDocument;
         var i;
-        let lockDocumentTimer;
+        let lockDocumentTimer, cmd;
         switch (data.type) {
           case commonDefines.c_oPublishType.drop:
             for (i = 0; i < data.users.length; ++i) {
@@ -2851,7 +2841,7 @@ exports.install = function(server, callbackFunction) {
             }
             break;
           case commonDefines.c_oPublishType.receiveTask:
-            var cmd = new commonDefines.InputCommand(data.cmd, true);
+            cmd = new commonDefines.InputCommand(data.cmd, true);
             var output = new canvasService.OutputDataWrap();
             output.fromObject(data.output);
             var outputData = output.getData();
@@ -2925,6 +2915,28 @@ exports.install = function(server, callbackFunction) {
             _.each(participants, function(participant) {
               sendData(participant, {type: "forceSave", messages: data.data});
             });
+            break;
+          case commonDefines.c_oPublishType.changeConnecitonInfo:
+            let hasChanges = false;
+            cmd = new commonDefines.InputCommand(data.cmd, true);
+            participants = getParticipants(data.docId);
+            for (i = 0; i < participants.length; ++i) {
+              participant = participants[i];
+              if (participant.canChangeName && participant.user.idOriginal === data.useridoriginal) {
+                hasChanges = true;
+                logger.debug('changeConnectionInfo: docId = %s, userId = %s', data.docId, data.useridoriginal);
+                participant.user.username = cmd.getUserName();
+                yield addPresence(participant, false);
+                if (cfgTokenEnableBrowser) {
+                  sendDataRefreshToken(participant);
+                }
+              }
+            }
+            if (hasChanges) {
+              let participants = yield getParticipantMap(data.docId);
+              let participantsTimestamp = Date.now();
+              yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: data.docId, userId: null, participantsTimestamp: participantsTimestamp, participants: participants});
+            }
             break;
           default:
             logger.debug('pubsub unknown message type:%s', msg);
