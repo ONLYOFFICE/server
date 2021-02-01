@@ -713,6 +713,9 @@ function* commandSetPassword(conn, cmd, outputData) {
     var upsertRes = yield taskResult.updateIf(task, updateMask);
     if (upsertRes.affectedRows > 0) {
       outputData.setStatus('ok');
+      if (!conn.isEnterCorrectPassword) {
+        docsCoServer.modifyConnectionForPassword(conn, true);
+      }
     } else {
       logger.debug('commandSetPassword sql update error: docId = %s', cmd.getDocId());
       outputData.setStatus('err');
