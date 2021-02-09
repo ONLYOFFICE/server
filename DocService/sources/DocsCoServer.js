@@ -1888,7 +1888,7 @@ exports.install = function(server, callbackFunction) {
           dataUser.username = user.name;
         }
       }
-      if (!(edit.user && null != user.name)) {
+      if (!(edit.user && edit.user.name)) {
         data.canChangeName = true;
       }
     }
