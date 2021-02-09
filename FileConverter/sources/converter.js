@@ -400,7 +400,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
   let forceSave = cmd.getForceSave();
   let forceSaveTime;
   let forceSaveIndex = Number.MAX_VALUE;
-  if (forceSave) {
+  if (forceSave && undefined !== forceSave.getTime() && undefined !== forceSave.getIndex()) {
     forceSaveTime = forceSave.getTime();
     forceSaveIndex = forceSave.getIndex();
   }
@@ -445,6 +445,11 @@ function* processChanges(tempDirs, cmd, authorProps) {
   yield* streamEnd(streamObj, ']');
   if (streamObj.isNoChangesInFile) {
     fs.unlinkSync(streamObj.filePath);
+  }
+  if (null == changesAuthor && null == changesIndex && forceSave && undefined !== forceSave.getAuthorUserId() &&
+    undefined !== forceSave.getAuthorUserIndex()) {
+    changesAuthor = forceSave.getAuthorUserId();
+    changesIndex = forceSave.getAuthorUserIndex();
   }
   cmd.setUserId(changesAuthor);
   cmd.setUserIndex(changesIndex);

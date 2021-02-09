@@ -506,6 +506,9 @@ function sendDataSession(conn, msg) {
 function sendDataRefreshToken(conn) {
   sendData(conn, {type: "refreshToken", messages: fillJwtByConnection(conn)});
 }
+function sendDataRpc(conn, responseKey, data) {
+  sendData(conn, {type: "rpc", responseKey: responseKey, data: data});
+}
 function sendReleaseLock(conn, userLocks) {
   sendData(conn, {type: "releaseLock", locks: _.map(userLocks, function(e) {
     return {
@@ -705,20 +708,25 @@ function* getChangesIndex(docId) {
   return res;
 }
 function* setForceSave(docId, forceSave, cmd, success) {
-  if (success) {
-    yield editorData.checkAndSetForceSave(docId, forceSave.getTime(), forceSave.getIndex(), true, true);
-  } else {
-    yield editorData.checkAndSetForceSave(docId, forceSave.getTime(), forceSave.getIndex(), false, false);
-  }
   let forceSaveType = forceSave.getType();
+  if (commonDefines.c_oAscForceSaveTypes.Form !== forceSaveType) {
+    if (success) {
+      yield editorData.checkAndSetForceSave(docId, forceSave.getTime(), forceSave.getIndex(), true, true);
+    } else {
+      yield editorData.checkAndSetForceSave(docId, forceSave.getTime(), forceSave.getIndex(), false, false);
+    }
+  }
+
   if (commonDefines.c_oAscForceSaveTypes.Command !== forceSaveType) {
-    yield* publish({
-                     type: commonDefines.c_oPublishType.forceSave, docId: docId,
-                     data: {type: forceSaveType, time: forceSave.getTime(), success: success}
-                   }, cmd.getUserConnectionId());
+    let data = {type: forceSaveType, time: forceSave.getTime(), success: success};
+    if(commonDefines.c_oAscForceSaveTypes.Form === forceSaveType) {
+      yield* publish({type: commonDefines.c_oPublishType.rpc, docId: docId, data: data, responseKey: cmd.getResponseKey()}, cmd.getUserConnectionId());
+    } else {
+      yield* publish({type: commonDefines.c_oPublishType.forceSave, docId: docId, data: data}, cmd.getUserConnectionId());
+    }
   }
 }
-function* startForceSave(docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userIndex, opt_baseUrl, opt_queue, opt_pubsub) {
+let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
   logger.debug('startForceSave start:docId = %s', docId);
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null};
   let startedForceSave;
@@ -729,7 +737,10 @@ function* startForceSave(docId, type, opt_userdata, opt_userId, opt_userConnecti
       return !!JSON.parse(currentValue).encrypted;
     });
     if (!hasEncrypted) {
-      startedForceSave = yield editorData.checkAndStartForceSave(docId);
+      startedForceSave = commonDefines.c_oAscForceSaveTypes.Form === type;
+      if (!startedForceSave) {
+        startedForceSave = yield editorData.checkAndStartForceSave(docId);
+      }
     }
   }
   logger.debug('startForceSave canStart:docId = %s; hasEncrypted = %s; startedForceSave = %j', docId, hasEncrypted, startedForceSave);
@@ -757,7 +768,7 @@ function* startForceSave(docId, type, opt_userdata, opt_userId, opt_userConnecti
     }
     //start new convert
     let status = yield* converterService.convertFromChanges(docId, baseUrl, forceSave, opt_userdata,
-                                                            opt_userConnectionId, priority, expiration, opt_queue);
+                                                            opt_userConnectionId, opt_responseKey, priority, expiration, opt_queue);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
     } else {
@@ -769,6 +780,21 @@ function* startForceSave(docId, type, opt_userdata, opt_userId, opt_userConnecti
   }
   logger.debug('startForceSave end:docId = %s', docId);
   return res;
+});
+function* startRPC(conn, responseKey, data) {
+  let docId = conn.docId;
+  logger.debug('startRPC start responseKey:%s , %j:docId = %s', responseKey, data, docId);
+  switch (data.type) {
+    case 'sendForm':
+      var forceSaveRes;
+      if (conn.user) {
+        forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Form, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser, responseKey);
+      } else {
+        sendDataRpc(conn, responseKey);
+      }
+      break;
+  }
+  logger.debug('startRPC end:docId = %s', docId);
 }
 function handleDeadLetter(data, ack) {
   return co(function*() {
@@ -1158,7 +1184,7 @@ exports.getChangesIndexPromise = co.wrap(getChangesIndex);
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
 exports.setForceSave = setForceSave;
-exports.startForceSavePromise = co.wrap(startForceSave);
+exports.startForceSave = startForceSave;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
@@ -1266,11 +1292,14 @@ exports.install = function(server, callbackFunction) {
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
-              forceSaveRes = yield* startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser);
+              forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser);
             } else {
               forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
             }
             sendData(conn, {type: "forceSaveStart", messages: forceSaveRes});
+            break;
+          case 'rpc' :
+            yield* startRPC(conn, data.responseKey, data.data);
             break;
           default:
             logger.debug("unknown command %s", message);
@@ -2938,6 +2967,12 @@ exports.install = function(server, callbackFunction) {
               yield* publish({type: commonDefines.c_oPublishType.participantsState, docId: data.docId, userId: null, participantsTimestamp: participantsTimestamp, participants: participants});
             }
             break;
+          case commonDefines.c_oPublishType.rpc:
+            participants = getParticipants(data.docId, true, data.userId, true);
+            _.each(participants, function(participant) {
+                sendDataRpc(participant, data.responseKey, data.data);
+            });
+            break;
           default:
             logger.debug('pubsub unknown message type:%s', msg);
         }
@@ -3221,7 +3256,7 @@ exports.commandFromServer = function (req, res) {
             }
             break;
           case 'forcesave':
-            let forceSaveRes = yield* startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, utils.getBaseUrlByRequest(req));
+            let forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(req));
             result = forceSaveRes.code;
             break;
           case 'meta':

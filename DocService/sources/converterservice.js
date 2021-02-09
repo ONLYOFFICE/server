@@ -148,7 +148,7 @@ function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_prior
   return status;
 }
 
-function* convertFromChanges(docId, baseUrl, forceSave, opt_userdata, opt_userConnectionId, opt_priority,
+function* convertFromChanges(docId, baseUrl, forceSave, opt_userdata, opt_userConnectionId, opt_responseKey, opt_priority,
                              opt_expiration, opt_queue, opt_redisKey) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
@@ -163,6 +163,9 @@ function* convertFromChanges(docId, baseUrl, forceSave, opt_userdata, opt_userCo
   }
   if (opt_userConnectionId) {
     cmd.setUserConnectionId(opt_userConnectionId);
+  }
+  if (opt_responseKey) {
+    cmd.setResponseKey(opt_responseKey);
   }
   if (opt_redisKey) {
     cmd.setRedisKey(opt_redisKey);

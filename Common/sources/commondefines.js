@@ -73,6 +73,7 @@ function InputCommand(data, copyExplicit) {
     this['status_info'] = data['status_info'];
     this['savekey'] = data['savekey'];
     this['userconnectionid'] = data['userconnectionid'];
+    this['responsekey'] = data['responsekey'];
     this['docconnectionid'] = data['docconnectionid'];
     this['jsonparams'] = data['jsonparams'];
     this['lcid'] = data['lcid'];
@@ -131,6 +132,7 @@ function InputCommand(data, copyExplicit) {
     this['status_info'] = undefined;//int
     this['savekey'] = undefined;//int document id to save
     this['userconnectionid'] = undefined;//string internal
+    this['responsekey'] = undefined;
     this['docconnectionid'] = undefined;//string internal
     this['jsonparams'] = undefined;//string
     this['lcid'] = undefined;
@@ -308,6 +310,12 @@ InputCommand.prototype = {
   },
   setUserConnectionId: function(data) {
     this['userconnectionid'] = data;
+  },
+  getResponseKey: function() {
+    return this['responsekey'];
+  },
+  setResponseKey: function(data) {
+    this['responsekey'] = data;
   },
   getDocConnectionId: function() {
     return this['docconnectionid'];
@@ -885,7 +893,8 @@ const c_oPublishType = {
   forceSave: 12,
   closeConnection: 13,
   changesNotify: 14,
-  changeConnecitonInfo: 15
+  changeConnecitonInfo: 15,
+  rpc: 16
 };
 const c_oAscCsvDelimiter = {
   None: 0,
@@ -987,7 +996,8 @@ const c_oAscServerCommandErrors = {
 const c_oAscForceSaveTypes = {
   Command: 0,
   Button: 1,
-  Timeout: 2
+  Timeout: 2,
+  Form: 3
 };
 const c_oAscUrlTypes = {
   Session: 0,
