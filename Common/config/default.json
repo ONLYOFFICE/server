@@ -87,6 +87,7 @@
 					"wholeCycle": "2m"
 				},
 				"callbackRequestTimeout": {
+					"connectionAndInactivity": "10s",
 					"wholeCycle": "2m"
 				},
 				"healthcheckfilepath": "../public/healthcheck.docx",
