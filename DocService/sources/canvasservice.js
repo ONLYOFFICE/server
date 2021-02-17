@@ -242,6 +242,9 @@ function* getOutputData(cmd, outputData, key, optConn, optAdditionalOutput, opt_
     case taskResult.FileStatus.None:
       outputData.setStatus('none');
       break;
+    case taskResult.FileStatus.WaitQueue:
+      //task in the queue. response will be after convertion
+      break;
     default:
       outputData.setStatus('err');
       outputData.setData(constants.UNKNOWN);
