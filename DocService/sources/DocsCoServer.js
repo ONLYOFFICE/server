@@ -1978,12 +1978,13 @@ exports.install = function(server, callbackFunction) {
         return;
       }
 
-      const curUserId = String(user.id) + curIndexUser;
+      const curUserIdOriginal = String(user.id);
+      const curUserId = curUserIdOriginal + curIndexUser;
       conn.docId = data.docid;
       conn.permissions = data.permissions;
       conn.user = {
         id: curUserId,
-        idOriginal: user.id,
+        idOriginal: curUserIdOriginal,
         username: fillUsername(data),
         indexUser: curIndexUser,
         view: !isEditMode(data.permissions, data.mode, !data.view)
