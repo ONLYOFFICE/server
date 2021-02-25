@@ -1,7 +1,7 @@
 {
   "name": "spellchecker",
   "version": "1.0.1",
-  "homepage": "http://www.onlyoffice.com",
+  "homepage": "https://www.onlyoffice.com",
   "private": true,
   "bin": "sources/server.js",
   "dependencies": {

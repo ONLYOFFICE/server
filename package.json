@@ -1,7 +1,7 @@
 {
   "name": "builder",
-  "version": "0.0.0",
-  "homepage": "http://www.teamlab.com",
+  "version": "1.0.1",
+  "homepage": "https://www.onlyoffice.com",
   "private": true,
   "grunt": {
     "copy": {
