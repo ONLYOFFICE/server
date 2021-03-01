@@ -91,7 +91,7 @@ module.exports = function (grunt) {
   grunt.initConfig({
     clean: packageFile.grunt.clean,
     mkdir: packageFile.grunt.mkdir,
-    copy: packageFile.grunt.copy,    
+    copy: packageFile.grunt.copy,
     comments: {
       js: {
         options: {

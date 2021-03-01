@@ -675,7 +675,7 @@ function* setForceSave(docId, forceSave, cmd, success) {
                    }, cmd.getUserConnectionId());
   }
 }
-function* startForceSave(docId, type, opt_userdata, opt_userConnectionId, opt_baseUrl, opt_queue, opt_pubsub) {
+function* startForceSave(docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userIndex, opt_baseUrl, opt_queue, opt_pubsub) {
   logger.debug('startForceSave start:docId = %s', docId);
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null};
   let startedForceSave;
@@ -694,6 +694,8 @@ function* startForceSave(docId, type, opt_userdata, opt_userConnectionId, opt_ba
     let baseUrl = opt_baseUrl || startedForceSave.baseUrl;
     let forceSave = new commonDefines.CForceSaveData(startedForceSave);
     forceSave.setType(type);
+    forceSave.setAuthorUserId(opt_userId);
+    forceSave.setAuthorUserIndex(opt_userIndex);
 
     if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
       yield* publish({
@@ -1070,6 +1072,12 @@ function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
   return res;
 }
 
+function getLicenseNowUtc() {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(),
+                  now.getUTCMinutes(), now.getUTCSeconds()) / 1000;
+}
+
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
 exports.sendData = sendData;
@@ -1196,7 +1204,7 @@ exports.install = function(server, callbackFunction) {
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
-              forceSaveRes = yield* startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.id);
+              forceSaveRes = yield* startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser);
             } else {
               forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
             }
@@ -2392,7 +2400,8 @@ exports.install = function(server, callbackFunction) {
 
     const newChanges = JSON.parse(data.changes);
     let newChangesLastDate = new Date();
-    let newChangesLastTime = Date.now();
+    newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
+    let newChangesLastTime = newChangesLastDate.getTime();
     let arrNewDocumentChanges = [];
     logger.info("saveChanges docid: %s ; deleteIndex: %s ; startIndex: %s ; length: %s", docId, deleteIndex, startIndex, newChanges.length);
     if (0 < newChanges.length) {
@@ -2669,24 +2678,22 @@ exports.install = function(server, callbackFunction) {
 		const c_LR = constants.LICENSE_RESULT;
 		let licenseType = licenseInfo.type;
 		if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
-			if (licenseInfo.usersCount) {
-				const now = new Date();
-				const nowUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(),
-					now.getUTCMinutes(), now.getUTCSeconds()) / 1000;
+		if (licenseInfo.usersCount) {
+				const nowUTC = getLicenseNowUtc();
 				const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
 				if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.indexOf(userId))) {
 					licenseType = c_LR.UsersCount;
 				}
 				licenseWarningLimit = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
-			} else {
+		} else {
 				const connectionsCount = licenseInfo.connections;
 				const editConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
 				if (editConnectionsCount >= connectionsCount) {
-					licenseType = c_LR.Connections;
+				  licenseType = c_LR.Connections;
 				}
 				licenseWarningLimit = connectionsCount * cfgWarningLimitPercents <= editConnectionsCount;
-			}
-		}
+			  }
+			  }
 
 		if (c_LR.UsersCount === licenseType) {
 		  if (!licenseInfo.hasLicense) {
@@ -3026,6 +3033,8 @@ exports.licenseInfo = function(req, res) {
     let output = {
 		connectionsStat: {}, licenseInfo: {}, serverInfo: {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
+		}, usersInfo: {
+			uniqueUserCount: 0
 		}
 	};
     Object.assign(output.licenseInfo, licenseInfo);
@@ -3080,6 +3089,9 @@ exports.licenseInfo = function(req, res) {
           precisionOut.view.max = precision.view.max;
         }
       }
+      const nowUTC = getLicenseNowUtc();
+      let execRes = yield editorData.getPresenceUniqueUser(nowUTC);
+      output.usersInfo.uniqueUserCount = execRes.length;
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;
@@ -3145,7 +3157,7 @@ exports.commandFromServer = function (req, res) {
             }
             break;
           case 'forcesave':
-            let forceSaveRes = yield* startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, utils.getBaseUrlByRequest(req));
+            let forceSaveRes = yield* startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, utils.getBaseUrlByRequest(req));
             result = forceSaveRes.code;
             break;
           case 'meta':

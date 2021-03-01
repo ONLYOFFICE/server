@@ -660,9 +660,12 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     var savePathDoc = saveKey + '/' + cmd.getOutputPath();
     var savePathChanges = saveKey + '/changes.zip';
     var savePathHistory = saveKey + '/changesHistory.json';
-    var getRes = yield* docsCoServer.getCallback(docId, userLastChangeIndex);
     var forceSave = cmd.getForceSave();
     var forceSaveType = forceSave ? forceSave.getType() : commonDefines.c_oAscForceSaveTypes.Command;
+    let forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
+    let forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
+    let callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
+    var getRes = yield* docsCoServer.getCallback(docId, callbackUserIndex);
     var isSfcmSuccess = false;
     let storeForgotten = false;
     let needRetry = false;
@@ -725,6 +728,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           actions.push(new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, userActionId));
         }
         outputSfc.setActions(actions);
+      } else if(forceSaveUserId) {
+        outputSfc.setActions([new commonDefines.OutputAction(commonDefines.c_oAscUserAction.ForceSaveButton, forceSaveUserId)]);
       }
       outputSfc.setUserData(cmd.getUserData());
       if (!isError || isErrorCorrupted) {

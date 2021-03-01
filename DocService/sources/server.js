@@ -139,7 +139,7 @@ docsCoServer.install(server, () => {
 	console.log('Start callbackFunction');
 
 	server.listen(config.get('server.port'), () => {
-		logger.warn("Express server listening on port %d in %s mode", config.get('server.port'), app.settings.env);
+		logger.warn("Express server listening on port %d in %s mode. Version: %s. Build: %s", config.get('server.port'), app.settings.env, commonDefines.buildVersion, commonDefines.buildNumber);
 	});
 
 	app.get('/index.html', (req, res) => {

@@ -100,7 +100,7 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
           function (message) {
             co(function* () {
               let ack = function() {
-                taskqueue.channelConvertTaskReceive.ack(message);
+                taskqueue.channelConvertTaskReceive && taskqueue.channelConvertTaskReceive.ack(message);
               };
               let redelivered = yield* pushBackRedeliveredRabbit(taskqueue, message, ack);
               if (!redelivered) {

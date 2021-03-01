@@ -414,10 +414,14 @@ function CForceSaveData(obj) {
     this['type'] = obj['type'];
     this['time'] = obj['time'];
     this['index'] = obj['index'];
+    this['authoruserid'] = obj['authoruserid'];
+    this['authoruserindex'] = obj['authoruserindex'];
   } else {
     this['type'] = null;
     this['time'] = null;
     this['index'] = null;
+    this['authoruserid'] = null;
+    this['authoruserindex'] = null;
   }
 }
 CForceSaveData.prototype.getType = function() {
@@ -437,6 +441,18 @@ CForceSaveData.prototype.getIndex = function() {
 };
 CForceSaveData.prototype.setIndex = function(v) {
   this['index'] = v;
+};
+CForceSaveData.prototype.getAuthorUserId = function() {
+  return this['authoruserid'];
+};
+CForceSaveData.prototype.setAuthorUserId = function(v) {
+  this['authoruserid'] = v;
+};
+CForceSaveData.prototype.getAuthorUserIndex = function() {
+  return this['authoruserindex'];
+};
+CForceSaveData.prototype.setAuthorUserIndex = function(v) {
+  this['authoruserindex'] = v;
 };
 
 function CThumbnailData(obj) {
@@ -938,7 +954,8 @@ const c_oAscEncodingsMap = {"437": 43, "720": 1, "737": 21, "775": 5, "850": 39,
 const c_oAscCodePageUtf8 = 46;//65001
 const c_oAscUserAction = {
   Out: 0,
-  In: 1
+  In: 1,
+  ForceSaveButton: 2
 };
 const c_oAscServerCommandErrors = {
   NoError: 0,
