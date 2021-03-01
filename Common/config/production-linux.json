@@ -34,6 +34,10 @@
           "/sdkjs-plugins": {
             "path": "/var/www/onlyoffice/documentserver/sdkjs-plugins",
             "options": {"maxAge": "7d"}
+          },
+          "/dictionaries": {
+            "path": "/var/www/onlyoffice/documentserver/server/SpellChecker/dictionaries",
+            "options": {"maxAge": "7d"}
           }
         }
       },

@@ -27,6 +27,10 @@
             "path": "../../sdkjs-plugins",
             "options": {"maxAge": "7d"}
           },
+          "/dictionaries": {
+            "path": "../SpellChecker/dictionaries",
+            "options": {"maxAge": "7d"}
+          },
           "/welcome": {
             "path": "../welcome",
             "options": {"maxAge": "7d"}

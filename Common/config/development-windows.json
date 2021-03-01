@@ -24,6 +24,9 @@
           "/sdkjs-plugins": {
             "path": "../../../sdkjs-plugins"
           },
+          "/dictionaries": {
+            "path": "../../../dictionaries"
+          },
           "/info": {
             "path": "../../branding/info"
           }
@@ -37,9 +40,6 @@
         "dbPort": 3306,
         "dbUser": "root",
         "dbPass": "onlyoffice"
-      },
-      "editor": {
-        "spellcheckerUrl": "http://127.0.0.1:8080"
       },
       "sockjs": {
         "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"

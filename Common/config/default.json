@@ -211,7 +211,7 @@
 				"autostart": []
 			},
 			"editor":{
-				"spellcheckerUrl": "/spellchecker",
+				"spellcheckerUrl": "",
 				"reconnection":{
 					"attempts": 50,
 					"delay": "2s"
