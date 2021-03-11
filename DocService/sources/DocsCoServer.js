@@ -1884,7 +1884,7 @@ exports.install = function(server, callbackFunction) {
         if (null != user.lastname) {
           dataUser.lastname = user.lastname;
         }
-        if (null != user.name) {
+        if (user.name) {
           dataUser.username = user.name;
         }
       }
