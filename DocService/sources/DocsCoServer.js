@@ -450,7 +450,7 @@ function removePresence(conn) {
 }
 
 let changeConnectionInfo = co.wrap(function*(conn, cmd) {
-  if (conn.canChangeName && conn.user) {
+  if (!conn.denyChangeName && conn.user) {
     yield* publish({type: commonDefines.c_oPublishType.changeConnecitonInfo, docId: conn.docId, useridoriginal: conn.user.idOriginal, cmd: cmd});
     return true;
   }
@@ -476,7 +476,7 @@ function fillJwtByConnection(conn) {
   edit.ds_view = conn.user.view;
   edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
   edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
-  edit.ds_canChangeName = conn.canChangeName;
+  edit.ds_denyChangeName = conn.denyChangeName;
 
   var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
   var secret = utils.getSecretByElem(cfgSecretSession);
@@ -1865,7 +1865,7 @@ exports.install = function(server, callbackFunction) {
         data.isCloseCoAuthoring = edit.ds_isCloseCoAuthoring;
       }
       data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
-      data.canChangeName = edit.ds_canChangeName;
+      data.denyChangeName = edit.ds_denyChangeName;
       if (edit.user) {
         var dataUser = data.user;
         var user = edit.user;
@@ -1888,8 +1888,8 @@ exports.install = function(server, callbackFunction) {
           dataUser.username = user.name;
         }
       }
-      if (!(edit.user && edit.user.name)) {
-        data.canChangeName = true;
+      if (edit.user && edit.user.name) {
+        data.denyChangeName = true;
       }
     }
 
@@ -1991,7 +1991,7 @@ exports.install = function(server, callbackFunction) {
       };
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
       conn.isEnterCorrectPassword = data.isEnterCorrectPassword;
-      conn.canChangeName = data.canChangeName;
+      conn.denyChangeName = data.denyChangeName;
       conn.editorType = data['editorType'];
       if (data.sessionTimeConnect) {
         conn.sessionTimeConnect = data.sessionTimeConnect;
@@ -2952,7 +2952,7 @@ exports.install = function(server, callbackFunction) {
             participants = getParticipants(data.docId);
             for (i = 0; i < participants.length; ++i) {
               participant = participants[i];
-              if (participant.canChangeName && participant.user.idOriginal === data.useridoriginal) {
+              if (!participant.denyChangeName && participant.user.idOriginal === data.useridoriginal) {
                 hasChanges = true;
                 logger.debug('changeConnectionInfo: docId = %s, userId = %s', data.docId, data.useridoriginal);
                 participant.user.username = cmd.getUserName();
