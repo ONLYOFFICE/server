@@ -424,8 +424,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
         }
         changesAuthor = change.user_id_original;
         changesIndex = utils.getIndexFromUserId(change.user_id, change.user_id_original);
-        authorProps.lastModifiedBy = change.user_name;
-        authorProps.modified = change.change_date.toISOString().slice(0, 19) + 'Z';
+
         let strDate = baseConnector.getDateTime(change.change_date);
         changesHistory.changes.push({'created': strDate, 'user': {'id': changesAuthor, 'name': change.user_name}});
         yield* streamWrite(streamObj, '[');
@@ -434,6 +433,10 @@ function* processChanges(tempDirs, cmd, authorProps) {
       }
       yield* streamWrite(streamObj, change.change_data);
       streamObj.isNoChangesInFile = false;
+    }
+    if (changes.length > 0) {
+      authorProps.lastModifiedBy = changes[changes.length - 1].user_name;
+      authorProps.modified = changes[changes.length - 1].change_date.toISOString().slice(0, 19) + 'Z';
     }
     if (changes.length === curIndexEnd - curIndexStart) {
       curIndexStart += cfgMaxRequestChanges;
