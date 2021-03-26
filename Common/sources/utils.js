@@ -58,6 +58,7 @@ const logger = require('./logger');
 const forwarded = require('forwarded');
 const mime = require('mime');
 const openpgp = require('openpgp');
+require('win-ca');
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
