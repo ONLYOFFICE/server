@@ -91,6 +91,7 @@ function TaskQueueDataConvert(task) {
   this.key = cmd.savekey ? cmd.savekey : cmd.id;
   this.fileFrom = null;
   this.fileTo = null;
+  this.title = cmd.getTitle();
   if(constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA !== cmd.outputformat){
     this.formatTo = cmd.outputformat;
   } else {
@@ -127,6 +128,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_sKey', this.key);
     xml += this.serializeXmlProp('m_sFileFrom', this.fileFrom);
     xml += this.serializeXmlProp('m_sFileTo', this.fileTo);
+    xml += this.serializeXmlProp('m_sTitle', this.title);
     xml += this.serializeXmlProp('m_nFormatTo', this.formatTo);
     xml += this.serializeXmlProp('m_bIsPDFA', this.isPDFA);
     xml += this.serializeXmlProp('m_nCsvTxtEncoding', this.csvTxtEncoding);
