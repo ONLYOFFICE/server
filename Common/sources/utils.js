@@ -57,6 +57,7 @@ const constants = require('./constants');
 const logger = require('./logger');
 const forwarded = require('forwarded');
 const mime = require('mime');
+const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
@@ -75,6 +76,7 @@ var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 const cfgTokenOutboxInBody = config.get('services.CoAuthoring.token.outbox.inBody');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
+const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
@@ -95,6 +97,10 @@ var g_oIpFilterRules = function() {
   return res;
 }();
 const pemfileCache = new NodeCache({stdTTL: ms(cfgExpPemStdTtl) / 1000, checkperiod: ms(cfgExpPemCheckPeriod) / 1000, errorOnMissing: false, useClones: true});
+
+function getRequestFilterAgent(url, options) {
+  return url.startsWith("https") ? new RequestFilteringHttpsAgent(options) : new RequestFilteringHttpAgent(options);
+}
 
 exports.CONVERTION_TIMEOUT = 1.5 * (cfgVisibilityTimeout + cfgQueueRetentionPeriod) * 1000;
 
@@ -247,13 +253,39 @@ function raiseError(ro, code, msg) {
   ro.emit('error', error);
 }
 function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
+  //todo replace deprecated request module
+  let filterPrivate = opt_Authorization ? false : true;
+  const maxRedirects = (undefined !== cfgRequestDefaults.maxRedirects) ? cfgRequestDefaults.maxRedirects : 10;
+  const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
+  var redirectsFollowed = 0;
+  let doRequest = function(curUrl) {
+    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, filterPrivate)
+      .catch(function(err) {
+        let response = err.response;
+        if (response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location')) {
+          let newUrl = response.caseless.get('location');
+          if (followRedirect && redirectsFollowed < maxRedirects) {
+            redirectsFollowed++;
+            logger.debug('downloadUrlPromise %d redirect: %s', redirectsFollowed, newUrl);
+            return doRequest(newUrl);
+          }
+        }
+        throw err;
+      });
+  };
+  return doRequest(uri);
+}
+function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
     var urlParsed = url.parse(uri);
     //if you expect binary data, you should set encoding: null
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity};
+    var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false};
+    if (opt_filterPrivate) {
+      options.agent = getRequestFilterAgent(uri, cfgRequesFilteringAgent);
+    }
     if (opt_Authorization) {
       options.headers = {};
       options.headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
@@ -277,7 +309,10 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
           }
           resolve(body);
         } else {
-          reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
+          let error = new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body);
+          error.statusCode = response.statusCode;
+          error.response = response;
+          reject(error);
         }
       }
     }).on('response', function(response) {
