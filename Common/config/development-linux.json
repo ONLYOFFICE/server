@@ -51,7 +51,8 @@
       "presentationThemesDir": "../../../sdkjs/slide/themes",
       "x2tPath": "../../FileConverter/bin/x2t",
       "docbuilderPath": "../../FileConverter/bin/docbuilder",
-      "docbuilderAllFontsPath": "../../App_Data/docbuilder/AllFonts.js"
+      "docbuilderAllFontsPath": "../../App_Data/docbuilder/AllFonts.js",
+      "docbuilderCoreFontsPath": "../../../core-fonts"
     }
   },
   "SpellChecker": {
