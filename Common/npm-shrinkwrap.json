@@ -642,6 +642,21 @@
         }
       }
     },
+    "request-filtering-agent": {
+      "version": "1.0.5",
+      "resolved": "https://registry.npmjs.org/request-filtering-agent/-/request-filtering-agent-1.0.5.tgz",
+      "integrity": "sha512-zkO5wg1VhoPqz5FIIXLY+iEveiX+p6A/i++SS4ZXd0UDms6VtHLLYLw9hQnIbMsKbYwHgzhNeIis7jMncoG9ag==",
+      "requires": {
+        "ipaddr.js": "^1.9.1"
+      },
+      "dependencies": {
+        "ipaddr.js": {
+          "version": "1.9.1",
+          "resolved": "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.9.1.tgz",
+          "integrity": "sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g=="
+        }
+      }
+    },
     "rfdc": {
       "version": "1.1.2",
       "resolved": "https://registry.npmjs.org/rfdc/-/rfdc-1.1.2.tgz",

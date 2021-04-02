@@ -157,6 +157,8 @@
 				"useforrequest": false,
 				"errorcode": 403
 			},
+			"request-filtering-agent" : {
+			},
 			"secret": {
 				"browser": {"string": "secret", "file": "", "tenants": {}},
 				"inbox": {"string": "secret", "file": "", "tenants": {}},
