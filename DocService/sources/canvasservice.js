@@ -63,6 +63,7 @@ const cfgForgottenFilesName = config_server.get('forgottenfilesname');
 const cfgOpenProtectedFile = config_server.get('openProtectedFile');
 const cfgExpUpdateVersionStatus = ms(config.get('services.CoAuthoring.expire.updateVersionStatus'));
 const cfgCallbackBackoffOptions = config.get('services.CoAuthoring.callbackBackoffOptions');
+const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -583,7 +584,8 @@ function* commandImgurls(conn, cmd, outputData) {
       } else if (urlSource) {
         try {
           //todo stream
-          data = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorization);
+          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorization);
+          data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
           data = undefined;
@@ -772,6 +774,15 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     let forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
     let callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
     var getRes = yield* docsCoServer.getCallback(docId, callbackUserIndex);
+    console.log(`userLastChangeId:${userLastChangeId}`);
+    let wopiurl;
+    try {
+      let addition = JSON.parse(userLastChangeId);
+      wopiurl = `${addition.wopisrc}/contents?access_token=${addition.access_token}`;
+      getRes = {"baseUrl": "http://127.0.0.1:8001", "server": {"href": wopiurl}};
+    } catch {
+
+    }
     var isSfcmSuccess = false;
     let storeForgotten = false;
     let needRetry = false;
@@ -888,7 +899,16 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             outputSfc.setLastSave(forceSaveDate.toISOString());
           }
           try {
-            replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+            if(wopiurl) {
+              let data = yield storage.getObject(savePathDoc);
+              let headers = {"X-WOPI-Override": "headers", "X-WOPI-Lock": "X-WOPI-Lock"};
+              let postRes = yield utils.postRequestPromise(wopiurl, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
+              replyStr = postRes.body;
+              console.log(`replyStr=${replyStr}`);
+              replyStr = '{"error": 0}';
+            } else {
+              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+            }
             let replyData = docsCoServer.parseReplyData(docId, replyStr);
             isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
@@ -916,7 +936,16 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.status = updateIfTask.status;
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
-              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+              if(wopiurl) {
+                let data = yield storage.getObject(savePathDoc);
+                let headers = {"X-WOPI-Override": "headers", "X-WOPI-Lock": "X-WOPI-Lock"};
+                let postRes = yield utils.postRequestPromise(wopiurl, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
+                replyStr = postRes.body;
+                console.log(`replyStr=${replyStr}`);
+                replyStr = "{'error':0}";
+              } else {
+                replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+              }
             } catch (err) {
               logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
               if (!isEncrypted && !docsCoServer.getIsShutdown() && (!err.statusCode || retryHttpStatus.has(err.statusCode.toString()))) {

@@ -253,7 +253,7 @@ function raiseError(ro, code, msg) {
   error.code = code;
   ro.emit('error', error);
 }
-function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
+function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_headers) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -265,6 +265,10 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
       options.headers = {};
       options.headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
+    if (opt_headers) {
+      options.headers = opt_headers;
+    }
+
     let sizeLimit = optLimit || Number.MAX_VALUE;
     let bufferLength = 0;
 
@@ -282,9 +286,12 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
           if (contentLength && body.length !== (contentLength - 0)) {
             logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
-          resolve(body);
+          resolve({response: response, body: body});
         } else {
-          reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
+          let error = new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body);
+          error.statusCode = response.statusCode;
+          error.response = response.response;
+          reject(error);
         }
       }
     }).on('response', function(response) {
@@ -305,7 +312,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
     }
   });
 }
-function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
+function postRequestPromise(uri, postData, optTimeout, opt_Authorization, opt_header) {
   return new Promise(function(resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -314,6 +321,7 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
     if (opt_Authorization) {
       headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
+    headers = opt_header || headers;
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     var options = {uri: urlParsed, body: postData, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
 
@@ -326,13 +334,14 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
       if (err) {
         reject(err);
       } else {
-        if (200 == response.statusCode || 204 == response.statusCode) {
-          resolve(body);
+        if (200 === response.statusCode || 204 === response.statusCode) {
+          resolve({response: response, body: body});
         } else {
           let code = response.statusCode;
           let responseHeaders = JSON.stringify(response.headers);
           let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
+          error.response = response.response;
           reject(error);
         }
       }

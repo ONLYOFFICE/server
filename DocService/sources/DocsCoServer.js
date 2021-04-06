@@ -100,6 +100,7 @@ const taskResult = require('./taskresult');
 const gc = require('./gc');
 const shutdown = require('./shutdown');
 const pubsubService = require('./pubsubRabbitMQ');
+const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
@@ -2163,9 +2164,14 @@ exports.install = function(server, callbackFunction) {
     }
     // Отправляем на внешний callback только для тех, кто редактирует
     if (!tmpUser.view) {
-      const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
-      const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
-      let callback = yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
+      let callback;
+      if (wopiClient.isWopiCallback(documentCallback.href)) {
+        callback = true;
+      } else {
+        const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
+        const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
+        callback = yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
+      }
       if (!callback && !bIsRestore) {
         //check forgotten file
         let forgotten = yield storage.listObjects(cfgForgottenFiles + '/' + docId);

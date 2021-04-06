@@ -274,7 +274,8 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization) {
         if (utils.canIncludeOutboxAuthorization(uri) && withAuthorization) {
           authorization = utils.fillJwtForRequest({url: uri});
         }
-        data = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization);
+        let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization);
+        data = getRes.body;
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
@@ -612,7 +613,15 @@ function* ExecuteTask(task) {
   if (cmd.getUrl()) {
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + cmd.getFormat());
     if (utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
-      error = yield* downloadFile(dataConvert.key, cmd.getUrl(), dataConvert.fileFrom, cmd.getWithAuthorization());
+      let url = cmd.getUrl()
+      let userId = cmd.getUserId();
+      try {
+        let addition = JSON.parse(userId);
+        url = `${url}?access_token=${addition.access_token}`;
+        console.log(`url=${url}`);
+      } catch {
+      }
+      error = yield* downloadFile(dataConvert.key, url, dataConvert.fileFrom, cmd.getWithAuthorization());
       if(clientStatsD) {
         clientStatsD.timing('conv.downloadFile', new Date() - curDate);
         curDate = new Date();
