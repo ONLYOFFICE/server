@@ -263,11 +263,15 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
       .catch(function(err) {
         let response = err.response;
         if (response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location')) {
-          let newUrl = response.caseless.get('location');
+          let redirectTo = response.caseless.get('location');
           if (followRedirect && redirectsFollowed < maxRedirects) {
+            if (!/^https?:/.test(redirectTo) && err.request) {
+              redirectTo = url.resolve(err.request.uri.href, redirectTo)
+            }
+
+            logger.debug('downloadUrlPromise redirectsFollowed:%d redirectTo: %s', redirectsFollowed, redirectTo);
             redirectsFollowed++;
-            logger.debug('downloadUrlPromise %d redirect: %s', redirectsFollowed, newUrl);
-            return doRequest(newUrl);
+            return doRequest(redirectTo);
           }
         }
         throw err;
@@ -311,6 +315,7 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
         } else {
           let error = new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body);
           error.statusCode = response.statusCode;
+          error.request = ro;
           error.response = response;
           reject(error);
         }
