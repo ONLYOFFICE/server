@@ -60,7 +60,8 @@
       "presentationThemesDir": "/var/www/onlyoffice/documentserver/sdkjs/slide/themes",
       "x2tPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/x2t",
       "docbuilderPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/docbuilder",
-      "docbuilderAllFontsPath": "/var/lib/onlyoffice/documentserver/App_Data/docbuilder/AllFonts.js"
+      "docbuilderAllFontsPath": "/var/lib/onlyoffice/documentserver/App_Data/docbuilder/AllFonts.js",
+      "docbuilderCoreFontsPath": "/var/www/onlyoffice/documentserver/core-fonts"
     }
   },
   "FileStorage": {
