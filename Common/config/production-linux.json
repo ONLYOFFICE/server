@@ -61,7 +61,7 @@
       "x2tPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/x2t",
       "docbuilderPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/docbuilder",
       "docbuilderAllFontsPath": "/var/lib/onlyoffice/documentserver/App_Data/docbuilder/AllFonts.js",
-      "docbuilderCoreFontsPath": "/var/lib/onlyoffice/documentserver/core-fonts"
+      "docbuilderCoreFontsPath": "/var/www/onlyoffice/documentserver/core-fonts"
     }
   },
   "FileStorage": {
