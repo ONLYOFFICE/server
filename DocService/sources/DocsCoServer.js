@@ -648,9 +648,9 @@ function* sendServerRequest(docId, uri, dataObject, opt_checkAuthorization) {
       logger.warn('authorization reduced to: docId = %s; length=%d', docId, auth.length);
     }
   }
-  let res = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), cfgCallbackRequestTimeout, auth);
-  logger.debug('postData response: docId = %s;data = %s', docId, res);
-  return res;
+  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), cfgCallbackRequestTimeout, auth);
+  logger.debug('postData response: docId = %s;data = %s', docId, postRes.body);
+  return postRes.body;
 }
 
 // Парсинг ссылки
@@ -2165,7 +2165,7 @@ exports.install = function(server, callbackFunction) {
     // Отправляем на внешний callback только для тех, кто редактирует
     if (!tmpUser.view) {
       let callback;
-      if (wopiClient.isWopiCallback(documentCallback.href)) {
+      if (documentCallback && wopiClient.isWopiCallback(documentCallback.href)) {
         callback = true;
       } else {
         const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);

@@ -70,13 +70,11 @@ exports.isWopiCallback = function(url) {
 };
 exports.editor = function(req, res) {
   return co(function*() {
-    let output = '';
     try {
       logger.info('wopiEditor start');
       logger.debug(`wopiEditor req.query:${JSON.stringify(req.query)}`);
       logger.debug(`wopiEditor req.body:${JSON.stringify(req.body)}`);
       let wopiSrc = req.query['WOPISrc'];
-
       let access_token = req.body['access_token'];
       let access_token_ttl = req.body['access_token_ttl'];
 
@@ -91,9 +89,8 @@ exports.editor = function(req, res) {
       } catch (err) {
         if (err.response) {
           logger.error('wopiEditor error checkFileInfo statusCode=%s headers=%j', err.response.statusCode, err.response.headers);
-        } else {
-          logger.error('wopiEditor error checkFileInfo');
         }
+        logger.error('wopiEditor error checkFileInfo:%s', err.stack);
       }
 
       //docId
@@ -122,16 +119,16 @@ exports.editor = function(req, res) {
           lockId = undefined;
           if(err.response) {
             logger.error('wopiEditor error Lock statusCode=%s headers=%j', err.response.statusCode, err.response.headers);
-          } else {
-            logger.error('wopiEditor error Lock', err.response.headers);
           }
+          logger.error('wopiEditor error Lock:%s', err.stack);
         }
       }
 
-      if(checkFileInfo && (lockId || !checkFileInfo.SupportsLocks)) {
-        let docProperties = JSON.stringify({wopiSrc: wopiSrc, lockId: lockId, fileUrl: checkFileInfo.FileUrl});
-        let upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), true, docProperties);
-        let callback = JSON.stringify({access_token: access_token, access_token_ttl: access_token_ttl});
+      if (checkFileInfo && (lockId || !checkFileInfo.SupportsLocks)) {
+        // let docProperties = JSON.stringify({wopiSrc: wopiSrc, lockId: lockId, fileUrl: checkFileInfo.FileUrl});
+        // let upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), true, docProperties);
+        // let callback = JSON.stringify({access_token: access_token, access_token_ttl: access_token_ttl});
+        let callback = JSON.stringify({wopiSrc: wopiSrc, lockId: lockId, fileUrl: checkFileInfo.FileUrl, access_token: access_token, access_token_ttl: access_token_ttl});
         let argss = {
           "apiUrl": "http://127.0.0.1:8001/web-apps/apps/api/documents/api.js",
           "file": {
@@ -194,11 +191,14 @@ exports.editor = function(req, res) {
           }
         };
         res.render("editor", argss);
+      } else {
+        logger.error('wopiEditor can not open');
+        res.sendStatus(400);
       }
-      logger.debug('wopiEditor end');
     } catch (err) {
       logger.error('wopiEditor error\r\n%s', err.stack);
     } finally {
+      logger.info('wopiEditor end');
     }
   });
 };
