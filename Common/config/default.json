@@ -97,7 +97,8 @@
 				"forgottenfilesname": "output",
 				"maxRequestChanges": 20000,
 				"openProtectedFile": true,
-				"editorDataStorage": "editorDataMemory"
+				"editorDataStorage": "editorDataMemory",
+				"assemblyFormatAsOrigin": false
 			},
 			"requestDefaults": {
 				"headers": {

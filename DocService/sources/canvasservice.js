@@ -63,6 +63,7 @@ const cfgForgottenFilesName = config_server.get('forgottenfilesname');
 const cfgOpenProtectedFile = config_server.get('openProtectedFile');
 const cfgExpUpdateVersionStatus = ms(config.get('services.CoAuthoring.expire.updateVersionStatus'));
 const cfgCallbackBackoffOptions = config.get('services.CoAuthoring.callbackBackoffOptions');
+const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemblyFormatAsOrigin');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -336,7 +337,7 @@ var cleanupCache = co.wrap(function* (docId) {
   return res;
 });
 
-function commandOpenStartPromise(docId, baseUrl, opt_updateUserIndex, opt_documentCallbackUrl) {
+function commandOpenStartPromise(docId, baseUrl, opt_updateUserIndex, opt_documentCallbackUrl, opt_format) {
   var task = new taskResult.TaskResultData();
   task.key = docId;
   //None instead WaitQueue to prevent: conversion task is lost when entering and leaving the editor quickly(that leads to an endless opening)
@@ -345,6 +346,9 @@ function commandOpenStartPromise(docId, baseUrl, opt_updateUserIndex, opt_docume
   task.baseurl = baseUrl;
   if (opt_documentCallbackUrl) {
     task.callback = opt_documentCallbackUrl;
+  }
+  if (opt_format) {
+    task.changeId = formatChecker.getFormatFromString(opt_format);
   }
   return taskResult.upsert(task, opt_updateUserIndex);
 }
@@ -504,6 +508,9 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   var row = selectRes.length > 0 ? selectRes[0] : null;
   if (row && row.password) {
     cmd.setSavePassword(row.password);
+  }
+  if (cfgAssemblyFormatAsOrigin && row && row.change_id && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== row.change_id) {
+    cmd.setOutputFormat(row.change_id);
   }
   var queueData = getSaveTask(cmd);
   queueData.setFromChanges(true);
@@ -1280,7 +1287,11 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
       var row = selectRes.length > 0 ? selectRes[0] : null;
       if (row && row.status == taskResult.FileStatus.SaveVersion && row.status_info == statusInfo) {
         if (null == optFormat) {
-          optFormat = constants.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER;
+          if (cfgAssemblyFormatAsOrigin && row.change_id && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== row.change_id) {
+            optFormat = row.change_id;
+          } else {
+            optFormat = constants.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER;
+          }
         }
         var cmd = new commonDefines.InputCommand();
         cmd.setCommand('sfc');
