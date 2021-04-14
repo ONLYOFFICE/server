@@ -158,6 +158,8 @@
 				"errorcode": 403
 			},
 			"request-filtering-agent" : {
+				"allowPrivateIPAddress": true,
+				"allowMetaIPAddress": true
 			},
 			"secret": {
 				"browser": {"string": "secret", "file": "", "tenants": {}},
