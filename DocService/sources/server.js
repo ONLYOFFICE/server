@@ -54,6 +54,11 @@ const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const configStorage = configCommon.get('storage');
+
+const cfgTokenEnableBrowser = configCommon.get('services.CoAuthoring.token.enable.browser');
+const cfgTokenEnableRequestInbox = configCommon.get('services.CoAuthoring.token.enable.request.inbox');
+const cfgTokenEnableRequestOutbox = configCommon.get('services.CoAuthoring.token.enable.request.outbox');
+
 const app = express();
 const server = http.createServer(app);
 
@@ -84,7 +89,9 @@ const updateLicense = () => {
 };
 
 logger.warn('Express server starting...');
-
+if (!cfgTokenEnableBrowser || !cfgTokenEnableRequestInbox || !cfgTokenEnableRequestOutbox) {
+	logger.warn('Turn on JWT token to prevent the substitution of important parameters.');
+}
 updateLicense();
 
 if (config.has('server.static_content')) {
