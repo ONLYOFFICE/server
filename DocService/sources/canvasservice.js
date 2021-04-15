@@ -41,6 +41,7 @@ const MultiRange = require('multi-integer-range').MultiRange;
 var sqlBase = require('./baseConnector');
 var docsCoServer = require('./DocsCoServer');
 var taskResult = require('./taskresult');
+var wopiClient = require('./wopiClient');
 var logger = require('./../../Common/sources/logger');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
@@ -773,14 +774,29 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     let forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
     let forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
     let callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
-    var getRes = yield* docsCoServer.getCallback(docId, callbackUserIndex);
-    console.log(`userLastChangeId:${userLastChangeId}`);
-    let wopiurl;
-    try {
-      let addition = JSON.parse(userLastChangeId);
-      wopiurl = `${addition.wopisrc}/contents?access_token=${addition.access_token}`;
-      getRes = {"baseUrl": "http://127.0.0.1:8001", "server": {"href": wopiurl}};
-    } catch {
+    let uri, baseUrl, headers;
+    let selectRes = yield taskResult.select(docId);
+    let row = selectRes.length > 0 ? selectRes[0] : null;
+    if (row) {
+      if (row.callback) {
+        uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, callbackUserIndex);
+      }
+      if (row.baseurl) {
+        baseUrl = row.baseurl;
+      }
+    }
+    let isWopi = false;
+    if (wopiClient.isWopiCallback(uri)) {
+      let userAuth = JSON.parse(uri);
+      let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, 1);
+      if(wopiClient.isWopiCallback(commonInfoStr)) {
+        isWopi = true;
+        let commonInfo = JSON.parse(commonInfoStr);
+        uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+        //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
+        headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
+        wopiClient.fillStandardHeaders(headers, uri, userAuth.access_token);
+      }
 
     }
     var isSfcmSuccess = false;
@@ -805,8 +821,6 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
 
     let updateMask = new taskResult.TaskResultData();
     updateMask.key = docId;
-    let selectRes = yield taskResult.select(docId);
-    let row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
       if (isEncrypted) {
         recoverTask.status = updateMask.status = row.status;
@@ -826,8 +840,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     } else {
       isError = true;
     }
-    if (getRes) {
-      logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, getRes.server.href);
+    if (uri && baseUrl) {
+      logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, uri);
       var outputSfc = new commonDefines.OutputSfcData();
       outputSfc.setKey(docId);
       outputSfc.setEncrypted(isEncrypted);
@@ -866,14 +880,14 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             //don't send history info because changes isn't from file in storage
             var data = yield storage.getObject(savePathHistory);
             outputSfc.setChangeHistory(JSON.parse(data.toString('utf-8')));
-            let changeUrl = yield storage.getSignedUrl(getRes.baseUrl, savePathChanges,
+            let changeUrl = yield storage.getSignedUrl(baseUrl, savePathChanges,
                                                        commonDefines.c_oAscUrlTypes.Temporary);
             outputSfc.setChangeUrl(changeUrl);
           } else {
             //for backward compatibility. remove this when Community is ready
             outputSfc.setChangeHistory({});
           }
-          let url = yield storage.getSignedUrl(getRes.baseUrl, savePathDoc, commonDefines.c_oAscUrlTypes.Temporary);
+          let url = yield storage.getSignedUrl(baseUrl, savePathDoc, commonDefines.c_oAscUrlTypes.Temporary);
           outputSfc.setUrl(url);
         } catch (e) {
           logger.error('Error commandSfcCallback: docId = %s\r\n%s', docId, e.stack);
@@ -887,7 +901,6 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       if (isError) {
         outputSfc.setStatus(statusErr);
       }
-      var uri = getRes.server.href;
       if (isSfcm) {
         let selectRes = yield taskResult.select(docId);
         let row = selectRes.length > 0 ? selectRes[0] : null;
@@ -899,12 +912,9 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             outputSfc.setLastSave(forceSaveDate.toISOString());
           }
           try {
-            if(wopiurl) {
+            if (isWopi) {
               let data = yield storage.getObject(savePathDoc);
-              let headers = {"X-WOPI-Override": "headers", "X-WOPI-Lock": "X-WOPI-Lock"};
-              let postRes = yield utils.postRequestPromise(wopiurl, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
-              replyStr = postRes.body;
-              console.log(`replyStr=${replyStr}`);
+              yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
               replyStr = '{"error": 0}';
             } else {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
@@ -936,13 +946,10 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.status = updateIfTask.status;
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
-              if(wopiurl) {
+              if (isWopi) {
                 let data = yield storage.getObject(savePathDoc);
-                let headers = {"X-WOPI-Override": "headers", "X-WOPI-Lock": "X-WOPI-Lock"};
-                let postRes = yield utils.postRequestPromise(wopiurl, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
-                replyStr = postRes.body;
-                console.log(`replyStr=${replyStr}`);
-                replyStr = "{'error':0}";
+                yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
+                replyStr = '{"error": 0}';
               } else {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
               }

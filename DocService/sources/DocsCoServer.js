@@ -2040,10 +2040,18 @@ exports.install = function(server, callbackFunction) {
         }
         return;
       }
+      let result = yield taskResult.select(docId);
+      if (cmd && result && result.length > 0 && result[0].callback) {
+        let fileInfo = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, 1);
+        let userAuth = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
+        if (wopiClient.isWopiCallback(fileInfo) && wopiClient.isWopiCallback(userAuth)) {
+          let wopiParams = JSON.parse(fileInfo);
+          wopiParams.userAuth = JSON.parse(userAuth);
+          cmd.setWopiParams(wopiParams);
+        }
+      }
 
       if (!conn.user.view) {
-        var result = yield sqlBase.checkStatusFilePromise(docId);
-
         var status = result && result.length > 0 ? result[0]['status'] : null;
         if (taskResult.FileStatus.Ok === status) {
           // Все хорошо, статус обновлять не нужно

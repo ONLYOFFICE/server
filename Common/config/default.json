@@ -74,6 +74,13 @@
 			"passwords": ["verysecretstring"]
 		}
 	},
+	"wopi": {
+		"htmlTemplate" : "C:\\sergey\\subversion\\git\\document-server-integration\\web\\documentserver-example\\nodejs\\views",
+		"fileInfoBlockList" : [],
+		"publicKey": "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDPGf3R9W8DYgP845eO+h9NoUxxx4vYBnITaI1PUyWSaDgJVmXCqlCHTNFCp87SL5aJM00ztGrHwfSgPTqBrtWto3VAQKfvoV9DCrb9/p7hMsWVvBZuIdlGAC72/lCRL69OjrBLh4RPzwj9uqGWKjFSqZPOHJ+qje6RnRyLpSM/RwIDAQAB\n-----END PUBLIC KEY-----",
+		"privateKey": "-----BEGIN PRIVATE KEY-----\nMIICdQIBADANBgkqhkiG9w0BAQEFAASCAl8wggJbAgEAAoGBAM8Z/dH1bwNiA/zjl476H02hTHHHi9gGchNojU9TJZJoOAlWZcKqUIdM0UKnztIvlokzTTO0asfB9KA9OoGu1a2jdUBAp++hX0MKtv3+nuEyxZW8Fm4h2UYALvb+UJEvr06OsEuHhE/PCP26oZYqMVKpk84cn6qN7pGdHIulIz9HAgMBAAECgYBTUyHMV/NSaR0xomBYJkpx8XPQU3jwcad0J5yzTcDQJx5ko15N9DhyN3X6W4nbB0qJ6Roms3BC7sZ9siTYCH/voxbiLwYLleHJl9TT0anTXEpqoSbUNLTKr9+x28Aj6FAE8pxH9CJVFOkS9xitDulp9hCzeD7zq6Izigfxe7HYAQJBAPb+0GKyvKrwpegiuU28px4pVRDg81U96yATafxvsbQRBYnnv/yyBOOz0479yENiS/2C7t0axS4DQUyKQkODuAUCQQDWptoP5bepkHukxO6R1q7WL3KTbYFd6uUVIg7qZxcDMRuiSTge6m+qG5zPQUdNvHRY2wgrxHg5Lr0+mIs1yPfbAkB4P0HwaxgTGKmMxCr2v5uUwYaaewm8PDLWIN1+elpHUeoiY2NCgOCEgq3Cdacjtx1LxIzJtBi+9/K4cq8j82KJAkBsm6/qK0lqunhVPm+XyxBbv1Yx0k6Kvrd6oej6IX87VjWtP27t9aDaaW5GT7lMU/ZqnyjbPGW4STXn3jdR14XRAkB4QZAW9vIgc60dBz6gm4bn5xzKeBiaxiIAUYVPSH4qYjxTEMoRdmEhLss63KooUA+H3+yOqg6676TaJs5g5eB7\n-----END PRIVATE KEY-----",
+		"privateKeyOld": "-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAJikLOTOhoygKLRwfA0PKSz1ocvzxJAkQWZxhQiB/c9ZzrDaWqYt384cZvcNodqE6FgrV8jY+Fuc2qTUCbW3YJ0t3Ym+GFQ2eU3TuRJzecVupx7FgnNCUG30yPJa1L5NTz1DWLJrHToGPut134x5vvoPggQHEw6GjBFyKN5Fs6nVAgMBAAECgYBJRxeeSF9jh0fDR/TluA+GW+1uofoNULps2baJ3Q3hyzVkxY6bFI7KvevYUp0O8JsyKKyd6Tthj62PT5PRvtUMIjpA57vxRaUkirkNlRlKXfYMOYEetLS7OlUYwnHDsTiRu1EjItqlTHvHCr9t7GUfnzSZqiHyuVlRcLGt+bJpQQJBAMXcMnelcGsg/0N3BPB4HZoxfJQY6T42Tg02GdMYhipOehcBGyPJmCiUsEfN1okO9kGO5iFF953Epig6pyti5mkCQQDFfnFxeCNUbi1VeyeEBkxDs9Rqv95tuOgcKtDq+9C+FpgEPKeJOGOYCanWDsank/mt/IxjsmTRFZMkinw0oHKNAkEAtwMtHyRErqKv2exeAjtoTjaV37qHC8dZPLkc+/gEKV+7aEnam6ideHPH9jK7zLytJQiTbpV0K1c4xZ8y/1uUeQJAMxl1RtO76HOdfTmhTtLGVtonwvskFSW7wNX/Ol2vdA+qg6Yh/yo88rDFZeJq2h86gh8PQBh/Z236pYDDhGZjXQJAHLi+9ZH10h8vxY9/IskH1IX1/4lvxf5xj1UhnzK99yUQcnk9S3GQdLoxdX4IMDw/lxS+1MFHthc6NAebxwBoQQ==\n-----END PRIVATE KEY-----"
+	},
 	"services": {
 		"CoAuthoring": {
 			"server": {

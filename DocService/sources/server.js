@@ -55,8 +55,11 @@ const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const configStorage = configCommon.get('storage');
+
+const cfgHtmlTemplate = configCommon.get('wopi.htmlTemplate');
+
 const app = express();
-app.set("views", "C:\\sergey\\subversion\\git\\document-server-integration\\web\\documentserver-example\\nodejs\\views");
+app.set("views", cfgHtmlTemplate);
 app.set("view engine", "ejs");
 const server = http.createServer(app);
 

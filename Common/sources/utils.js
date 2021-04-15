@@ -838,3 +838,6 @@ exports.decryptPassword = co.wrap(function* (password) {
   const { data: decrypted } = yield openpgp.decrypt(params);
   return decrypted;
 });
+exports.getDateTimeTicks = function(date) {
+  return BigInt(date.getTime() * 10000) + 621355968000000000n;
+};

@@ -35,16 +35,54 @@
 const path = require('path');
 const crypto = require('crypto');
 const co = require('co');
-const canvasService = require('./canvasservice');
+const jwt = require('jsonwebtoken');
+const config = require('config');
 const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
+const sqlBase = require('./baseConnector');
+const taskResult = require('./taskresult');
+const canvasService = require('./canvasservice');
 
+const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
+const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
+const cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
+const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
+const cfgWopiPrivateKey = config.get('wopi.privateKey');
+const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
+
+let fileInfoBlockList = cfgWopiFileInfoBlockList.keys();
+
+function generateProofBuffer(url, accessToken, timeStamp) {
+  const accessTokenBytes = Buffer.from(accessToken, 'utf8');
+  const urlBytes = Buffer.from(url.toUpperCase(), 'utf8');
+
+  let offset = 0;
+  let buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
+  buffer.writeUInt32LE(accessTokenBytes.length, offset);
+  offset += 4;
+  buffer.copy(accessTokenBytes, offset, 0, accessTokenBytes.length);
+  offset += accessTokenBytes.length;
+  buffer.writeUInt32LE(urlBytes.length, offset);
+  offset += 4;
+  buffer.copy(urlBytes, offset, 0, urlBytes.length);
+  offset += urlBytes.length;
+  buffer.writeUInt32LE(8, offset);
+  offset += 4;
+  buffer.writeBigUInt64BE(timeStamp, offset);
+  return buffer;
+};
+function generateProofSign(url, accessToken, timeStamp, privateKey) {
+  let signer = crypto.createSign('RSA-SHA256');
+  signer.update(generateProofBuffer(url, accessToken, timeStamp));
+  return signer.sign({key:privateKey}, "base64");
+}
 
 exports.discovery = function(req, res) {
   return co(function*() {
     let output = '';
     try {
-      logger.debug('wopiDiscovery start');
+      logger.info('wopiDiscovery start');
       let baseUrl = utils.getBaseUrlByRequest(req);
       output = `<?xml version="1.0" encoding="utf-8"?>
 <wopi-discovery>
@@ -56,17 +94,18 @@ exports.discovery = function(req, res) {
 	</net-zone>
 	<proof-key oldvalue="B2" value="B8Q1"/>
 </wopi-discovery>`;
-      logger.debug('wopiDiscovery end');
+
     } catch (err) {
       logger.error('wopiDiscovery error\r\n%s', err.stack);
     } finally {
       res.setHeader('Content-Type', 'text/xml');
       res.send(output);
+      logger.info('wopiDiscovery end');
     }
   });
 };
 exports.isWopiCallback = function(url) {
-  return url.startsWith("{");
+  return url && url.startsWith("{");
 };
 exports.editor = function(req, res) {
   return co(function*() {
@@ -102,7 +141,7 @@ exports.editor = function(req, res) {
           docId = checkFileInfo.UniqueContentId;
         } else {
           let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
-          docId = fileId + checkFileInfo.Version;
+          docId = `${fileId}.${checkFileInfo.Version}`;
         }
       }
       logger.debug(`wopiEditor docId=%s`, docId);
@@ -110,95 +149,96 @@ exports.editor = function(req, res) {
       //Lock
       let lockId = undefined;
       if (checkFileInfo && checkFileInfo.SupportsLocks) {
-        lockId = crypto.randomBytes(16).toString('base64');
+        let isNewLock = true;
+        let selectRes = yield taskResult.select(docId);
+        if (selectRes.length > 0) {
+          var row = selectRes[0];
+          if (row.callback) {
+            let callback = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, 1);
+            if (callback) {
+              lockId = JSON.parse(callback).lockId;
+              isNewLock = false;
+            }
+          }
+        }
+
+        if (isNewLock) {
+          lockId = crypto.randomBytes(16).toString('base64');
+        }
         try {
           let headers = {"X-WOPI-Override": "LOCK", "X-WOPI-Lock": lockId};
+          exports.fillStandardHeaders(headers, uri, access_token);
           let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, headers);
-          logger.error('wopiEditor Lock headers=%j', postRes.response.headers);
+          logger.debug('wopiEditor Lock headers=%j', postRes.response.headers);
         } catch (err) {
           lockId = undefined;
-          if(err.response) {
+          if (err.response) {
             logger.error('wopiEditor error Lock statusCode=%s headers=%j', err.response.statusCode, err.response.headers);
           }
           logger.error('wopiEditor error Lock:%s', err.stack);
         }
+        if (lockId && isNewLock) {
+          let docProperties = JSON.stringify({lockId: lockId, fileInfo: checkFileInfo});
+          yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), true, docProperties);
+        }
       }
 
       if (checkFileInfo && (lockId || !checkFileInfo.SupportsLocks)) {
-        // let docProperties = JSON.stringify({wopiSrc: wopiSrc, lockId: lockId, fileUrl: checkFileInfo.FileUrl});
-        // let upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), true, docProperties);
-        // let callback = JSON.stringify({access_token: access_token, access_token_ttl: access_token_ttl});
-        let callback = JSON.stringify({wopiSrc: wopiSrc, lockId: lockId, fileUrl: checkFileInfo.FileUrl, access_token: access_token, access_token_ttl: access_token_ttl});
-        let argss = {
-          "apiUrl": "http://127.0.0.1:8001/web-apps/apps/api/documents/api.js",
-          "file": {
-            "name": checkFileInfo.BaseFileName,
-            "ext": path.extname(checkFileInfo.BaseFileName).substr(1),
-            "uri": "",
-            "version": checkFileInfo.Version,
-            "created": "Thu Nov 05 2020",
-            "favorite": "null"
-          },
-          "editor": {
-            "type": "desktop",
-            "documentType": "text",
-            "key": docId,
-            "token": "",
-            "callbackUrl": callback.replace(/"/g, '\\"'),
-            "isEdit": true,
-            "review": true,
-            "comment": true,
-            "fillForms": true,
-            "modifyFilter": true,
-            "modifyContentControl": true,
-            "mode": "edit",
-            "canBackToFolder": true,
-            "backUrl": "http://localhost/",
-            "curUserHostAddress": "__1",
-            "lang": "en",
-            "userid": checkFileInfo.UserId,
-            "name": checkFileInfo.UserFriendlyName,
-            "reviewGroups": JSON.stringify([]),
-            "fileChoiceUrl": "",
-            "submitForm": false,
-            "plugins": "{\"pluginsData\":[]}",
-            "actionData": "null"
-          },
-          "history": [
-            {
-              "changes": null,
-              "key": "__1http___localhost_files___1_new_20_133_.docx1604574058324",
-              "version": 1,
-              "created": "2020-11-5 14:00:58",
-              "user": {
-                "id": "uid-1",
-                "name": "John Smith"
-              }
-            }
-          ],
-          "historyData": [
-            {
-              "version": 1,
-              "key": "__1http___localhost_files___1_new_20_133_.docx1604574058324",
-              "url": "http://localhost/files/__1/new%20(133).docx"
-            }
-          ],
-          "dataInsertImage": {
-          },
-          "dataCompareFile": {
-          },
-          "dataMailMergeRecipients": {
+        for (let i in fileInfoBlockList) {
+          if (fileInfoBlockList.hasOwnProperty(i)) {
+            delete checkFileInfo[i];
           }
-        };
-        res.render("editor", argss);
+        }
+        let userAuth = {wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl};
+        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth};
+        if (cfgTokenEnableBrowser) {
+          let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
+          let secret = utils.getSecretByElem(cfgSignatureSecretOutbox);
+          params.token = jwt.sign(params, secret, options);
+        }
+        res.render("editor2", params);
+        logger.debug('wopiEditor render params=%j', params);
       } else {
         logger.error('wopiEditor can not open');
         res.sendStatus(400);
       }
     } catch (err) {
       logger.error('wopiEditor error\r\n%s', err.stack);
+      res.sendStatus(400);
     } finally {
       logger.info('wopiEditor end');
     }
   });
+};
+exports.unlock = function(headers, url, access_token) {
+  return co(function* () {
+    try {
+      logger.info('wopi Unlock start');
+      let uri = 0;
+      let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
+      exports.fillStandardHeaders(headers, uri, access_token);
+      let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, headers);
+      logger.debug('wopi Unlock headers=%j', postRes.response.headers);
+    } catch (err) {
+      lockId = undefined;
+      if (err.response) {
+        logger.error('wopi error Unlock statusCode=%s headers=%j', err.response.statusCode, err.response.headers);
+      }
+      logger.error('wopi error Unlock:%s', err.stack);
+    } finally {
+      logger.info('wopi Unlock end');
+    }
+  });
+};
+exports.generateProof = function(url, accessToken, timeStamp) {
+  return generateProofSign(url, accessToken, timeStamp, cfgWopiPrivateKey);
+};
+exports.generateProofOld = function(url, accessToken, timeStamp) {
+  return generateProofSign(url, accessToken, timeStamp, cfgWopiPrivateKeyOld);
+};
+exports.fillStandardHeaders = function(headers, url, access_token) {
+  let timeStamp = utils.getDateTimeTicks(new Date());
+  headers['X-WOPI-Proof'] = exports.generateProof(url, access_token, timeStamp);
+  headers['X-WOPI-ProofOld'] = exports.generateProof(url, access_token, timeStamp);
+  headers['X-WOPI-TimeStamp'] = timeStamp;
 };
