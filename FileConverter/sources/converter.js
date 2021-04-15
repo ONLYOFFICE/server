@@ -620,12 +620,14 @@ function* ExecuteTask(task) {
       let wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
-        headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes,'X-WOPI-ItemVersion': wopiParams.fileInfo.Version};
-        if(wopiParams.fileInfo.FileUrl) {
-          url = wopiParams.fileInfo.FileUrl;
+        let fileInfo = wopiParams.commonInfo.fileInfo;
+        let userAuth = wopiParams.userAuth;
+        if (fileInfo.FileUrl) {
+          url = fileInfo.FileUrl;
         } else {
-          url = `${wopiParams.userAuth.wopiSrc}/contents?access_token=${wopiParams.userAuth.access_token}`;
-          wopiClient.fillStandardHeaders(headers, url, wopiParams.userAuth.access_token);
+          url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+          headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes, 'X-WOPI-ItemVersion': fileInfo.Version};
+          wopiClient.fillStandardHeaders(headers, url, userAuth.access_token);
         }
         logger.debug('wopi url=%s; headers=%j(id=%s)', url, headers, dataConvert.key);
       }

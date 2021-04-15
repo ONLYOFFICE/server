@@ -205,8 +205,8 @@ docsCoServer.install(server, () => {
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 
-	app.get('/wopi/discovery', utils.checkClientIp, wopiClient.discovery);
-	app.post('/wopi', utils.checkClientIp, urleEcodedParser, wopiClient.editor);
+	app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
+	app.post('/wopi', utils.checkClientIp, urleEcodedParser, wopiClient.getEditorHtml);
 
 	const sendUserPlugins = (res, data) => {
 		pluginsLoaded = true;

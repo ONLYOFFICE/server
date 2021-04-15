@@ -684,18 +684,20 @@ function parseUrl(callbackUrl) {
 function* getCallback(id, opt_userIndex) {
   var callbackUrl = null;
   var baseUrl = null;
+  let wopiParams = null;
   var selectRes = yield taskResult.select(id);
   if (selectRes.length > 0) {
     var row = selectRes[0];
     if (row.callback) {
       callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(id, row.callback, opt_userIndex);
+      wopiParams = wopiClient.parseWopiCallback(id, callbackUrl, row.callback);
     }
     if (row.baseurl) {
       baseUrl = row.baseurl;
     }
   }
   if (null != callbackUrl && null != baseUrl) {
-    return {server: parseUrl(callbackUrl), baseUrl: baseUrl};
+    return {server: parseUrl(callbackUrl), baseUrl: baseUrl, wopiParams: wopiParams};
   } else {
     return null;
   }
@@ -848,6 +850,10 @@ function* sendStatusDocument(docId, bChangeBase, opt_userAction, opt_userIndex, 
       if (!opt_baseUrl) {
         opt_baseUrl = getRes.baseUrl;
       }
+      if (getRes.wopiParams) {
+        logger.debug('sendStatusDocument wopi stub: docId = %s', docId);
+        return opt_callback;
+      }
     }
   }
   if (null == opt_callback) {
@@ -976,7 +982,7 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
   var oCallbackUrl;
   if (!callback) {
     var getRes = yield* getCallback(docId);
-    if (getRes) {
+    if (getRes && !getRes.wopiParams) {
       oCallbackUrl = getRes.server;
       bChangeBase = c_oAscChangeBase.Delete;
     }
@@ -1000,7 +1006,7 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
   }
 }
 
-function* cleanDocumentOnExit(docId, deleteChanges) {
+function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
   yield editorData.cleanDocumentOnExit(docId);
   //remove changes
@@ -1009,6 +1015,11 @@ function* cleanDocumentOnExit(docId, deleteChanges) {
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(cfgForgottenFiles + '/' + docId);
   }
+  //unlock
+  var getRes = yield* getCallback(docId, opt_userIndex);
+  if(getRes && getRes.wopiParams) {
+    yield wopiClient.unlock(getRes.wopiParams);
+  }
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
@@ -1016,7 +1027,7 @@ function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_for
   yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
   //если пользователь зашел в документ, соединение порвалось, на сервере удалилась вся информация,
   //при восстановлении соединения userIndex сохранится и он совпадет с userIndex следующего пользователя
-  yield* cleanDocumentOnExit(docId, false);
+  yield* cleanDocumentOnExit(docId, false, opt_userIndex);
 }
 
 function* _createSaveTimer(docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay) {
@@ -1445,7 +1456,7 @@ exports.install = function(server, callbackFunction) {
           } else if (needSendStatus) {
             yield* cleanDocumentOnExitNoChanges(docId, tmpUser.idOriginal, userIndex);
           } else {
-            yield* cleanDocumentOnExit(docId);
+            yield* cleanDocumentOnExit(docId, false, userIndex);
           }
         } else if (needSendStatus) {
           yield* sendStatusDocument(docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
@@ -2042,12 +2053,11 @@ exports.install = function(server, callbackFunction) {
       }
       let result = yield taskResult.select(docId);
       if (cmd && result && result.length > 0 && result[0].callback) {
-        let fileInfo = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, 1);
-        let userAuth = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
-        if (wopiClient.isWopiCallback(fileInfo) && wopiClient.isWopiCallback(userAuth)) {
-          let wopiParams = JSON.parse(fileInfo);
-          wopiParams.userAuth = JSON.parse(userAuth);
-          cmd.setWopiParams(wopiParams);
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
+        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, result[0].callback);
+        cmd.setWopiParams(wopiParams);
+        if (wopiParams) {
+          documentCallback = null;
         }
       }
 
@@ -2172,14 +2182,9 @@ exports.install = function(server, callbackFunction) {
     }
     // Отправляем на внешний callback только для тех, кто редактирует
     if (!tmpUser.view) {
-      let callback;
-      if (documentCallback && wopiClient.isWopiCallback(documentCallback.href)) {
-        callback = true;
-      } else {
-        const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
-        const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
-        callback = yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
-      }
+      const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
+      const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
+      let callback = yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
       if (!callback && !bIsRestore) {
         //check forgotten file
         let forgotten = yield storage.listObjects(cfgForgottenFiles + '/' + docId);

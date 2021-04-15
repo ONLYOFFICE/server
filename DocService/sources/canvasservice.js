@@ -480,7 +480,7 @@ function* commandSendMailMerge(cmd, outputData) {
   if (completeParts && !isJson) {
     isErr = true;
     var getRes = yield* docsCoServer.getCallback(cmd.getDocId(), cmd.getUserIndex());
-    if (getRes) {
+    if (getRes && !getRes.wopiParams) {
       mailMergeSend.setUrl(getRes.server.href);
       mailMergeSend.setBaseUrl(getRes.baseUrl);
       //меняем JsonKey и SaveKey, новый key нужет потому что за одну конвертацию делается часть, а json нужен всегда
@@ -490,6 +490,8 @@ function* commandSendMailMerge(cmd, outputData) {
       var queueData = getSaveTask(cmd);
       yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
       isErr = false;
+    } else if (getRes.wopiParams) {
+      logger.warn('commandSendMailMerge unexpected with wopi: docId = %s', cmd.getDocId());
     }
   }
   if (isErr) {
@@ -774,30 +776,25 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     let forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
     let forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
     let callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
-    let uri, baseUrl, headers;
+    let uri, baseUrl, headers, wopiParams;
     let selectRes = yield taskResult.select(docId);
     let row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
       if (row.callback) {
         uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, callbackUserIndex);
+        wopiParams = wopiClient.parseWopiCallback(docId, uri, row.callback);
       }
       if (row.baseurl) {
         baseUrl = row.baseurl;
       }
     }
-    let isWopi = false;
-    if (wopiClient.isWopiCallback(uri)) {
-      let userAuth = JSON.parse(uri);
-      let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, 1);
-      if(wopiClient.isWopiCallback(commonInfoStr)) {
-        isWopi = true;
-        let commonInfo = JSON.parse(commonInfoStr);
-        uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
-        //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
-        headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
-        wopiClient.fillStandardHeaders(headers, uri, userAuth.access_token);
-      }
-
+    if (wopiParams) {
+      let commonInfo = wopiParams.commonInfo;
+      let userAuth = wopiParams.userAuth;
+      uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+      //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
+      headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
+      wopiClient.fillStandardHeaders(headers, uri, userAuth.access_token);
     }
     var isSfcmSuccess = false;
     let storeForgotten = false;
@@ -912,7 +909,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             outputSfc.setLastSave(forceSaveDate.toISOString());
           }
           try {
-            if (isWopi) {
+            if (wopiParams) {
               let data = yield storage.getObject(savePathDoc);
               yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
               replyStr = '{"error": 0}';
@@ -946,7 +943,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.status = updateIfTask.status;
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
-              if (isWopi) {
+              if (wopiParams) {
                 let data = yield storage.getObject(savePathDoc);
                 yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
                 replyStr = '{"error": 0}';
@@ -976,7 +973,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             }
             if (requestRes) {
               updateIfTask = undefined;
-              yield docsCoServer.cleanDocumentOnExitPromise(docId, true);
+              yield docsCoServer.cleanDocumentOnExitPromise(docId, true, callbackUserIndex);
               if (isOpenFromForgotten) {
                 //remove forgotten file in cache
                 yield cleanupCache(docId);

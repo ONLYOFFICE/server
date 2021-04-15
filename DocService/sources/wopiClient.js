@@ -48,53 +48,39 @@ const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expi
 const cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
+const cfgWopiFavIconUrlWord = config.get('wopi.favIconUrlWord');
+const cfgWopiFavIconUrlCell = config.get('wopi.favIconUrlCell');
+const cfgWopiFavIconUrlSlide = config.get('wopi.favIconUrlSlide');
+const cfgWopiPublicKey = config.get('wopi.publicKey');
 const cfgWopiPrivateKey = config.get('wopi.privateKey');
+const cfgWopiPublicKeyOld = config.get('wopi.publicKeyOld');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 
 let fileInfoBlockList = cfgWopiFileInfoBlockList.keys();
 
-function generateProofBuffer(url, accessToken, timeStamp) {
-  const accessTokenBytes = Buffer.from(accessToken, 'utf8');
-  const urlBytes = Buffer.from(url.toUpperCase(), 'utf8');
-
-  let offset = 0;
-  let buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
-  buffer.writeUInt32LE(accessTokenBytes.length, offset);
-  offset += 4;
-  buffer.copy(accessTokenBytes, offset, 0, accessTokenBytes.length);
-  offset += accessTokenBytes.length;
-  buffer.writeUInt32LE(urlBytes.length, offset);
-  offset += 4;
-  buffer.copy(urlBytes, offset, 0, urlBytes.length);
-  offset += urlBytes.length;
-  buffer.writeUInt32LE(8, offset);
-  offset += 4;
-  buffer.writeBigUInt64BE(timeStamp, offset);
-  return buffer;
-};
-function generateProofSign(url, accessToken, timeStamp, privateKey) {
-  let signer = crypto.createSign('RSA-SHA256');
-  signer.update(generateProofBuffer(url, accessToken, timeStamp));
-  return signer.sign({key:privateKey}, "base64");
-}
-
-exports.discovery = function(req, res) {
+function discovery(req, res) {
   return co(function*() {
     let output = '';
     try {
       logger.info('wopiDiscovery start');
       let baseUrl = utils.getBaseUrlByRequest(req);
-      output = `<?xml version="1.0" encoding="utf-8"?>
-<wopi-discovery>
-	<net-zone name="external-https">
-		<app name="Word" favIconUrl="https://c5-word-view-15.cdn.office.net/wv/resources/1033/FavIcon_Word.ico" bootstrapperUrl="https://c5-word-view-15.cdn.office.net/wv/s/App_Scripts/word.boot.js" applicationBaseUrl="https://FFC-word-view.officeapps.live.com" staticResourceOrigin="https://c5-word-view-15.cdn.office.net" checkLicense="true">
-			<action name="view" ext="docx" default="true" urlsrc="${baseUrl}/wopi?&lt;wopiSrc=WOPI_SOURCE&amp;&gt;" />
-			<action name="edit" ext="docx" requires="locks,update" urlsrc="${baseUrl}/wopi?&lt;wopiSrc=WOPI_SOURCE&amp;&gt;" />
-		</app>
-	</net-zone>
-	<proof-key oldvalue="B2" value="B8Q1"/>
-</wopi-discovery>`;
-
+      let names = ['Word','Excel','PowerPoint'];
+      let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
+      let exts = ['docx', 'xlsx', 'pptx'];
+      let template = `${baseUrl}/wopi?&lt;wopiSrc=WOPI_SOURCE&amp;&gt;&amp;documentType=`;
+      let documentTypes = [`word`, `cell`, `slide`];
+      output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="external-https">`;
+      for(let i = 0; i < names.length; ++i) {
+        let name = names[i];
+        let favIconUrl = favIconUrls[i];
+        let ext = exts[i];
+        let urlTemplate = template + documentTypes[i];
+        output +=`<app name="${name}" favIconUrl="${favIconUrl}">
+        	<action name="view" ext="${ext}" urlsrc="${urlTemplate}" />
+        	<action name="edit" ext="${ext}" default="true" requires="locks,update" urlsrc="${urlTemplate}" />
+        </app>`;
+      }
+      output += `</net-zone><proof-key oldvalue="${cfgWopiPublicKeyOld}" value="${cfgWopiPublicKey}"/></wopi-discovery>`;
     } catch (err) {
       logger.error('wopiDiscovery error\r\n%s', err.stack);
     } finally {
@@ -103,17 +89,30 @@ exports.discovery = function(req, res) {
       logger.info('wopiDiscovery end');
     }
   });
-};
-exports.isWopiCallback = function(url) {
+}
+function isWopiCallback(url) {
   return url && url.startsWith("{");
-};
-exports.editor = function(req, res) {
+}
+function parseWopiCallback(docId, userAuthStr, url) {
+  let wopiParams = null;
+  if (isWopiCallback(userAuthStr)){
+    let userAuth = JSON.parse(userAuthStr);
+    let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, url, 1);
+    if (isWopiCallback(commonInfoStr)){
+      let commonInfo = JSON.parse(commonInfoStr);
+      wopiParams = {commonInfo: commonInfo, userAuth: userAuth};
+    }
+  }
+  return wopiParams;
+}
+function getEditorHtml(req, res) {
   return co(function*() {
     try {
       logger.info('wopiEditor start');
       logger.debug(`wopiEditor req.query:${JSON.stringify(req.query)}`);
       logger.debug(`wopiEditor req.body:${JSON.stringify(req.body)}`);
       let wopiSrc = req.query['WOPISrc'];
+      let documentType = req.query['documentType'];
       let access_token = req.body['access_token'];
       let access_token_ttl = req.body['access_token_ttl'];
 
@@ -158,6 +157,7 @@ exports.editor = function(req, res) {
             if (callback) {
               lockId = JSON.parse(callback).lockId;
               isNewLock = false;
+              logger.debug('wopiEditor lockId from DB lockId=%s', lockId);
             }
           }
         }
@@ -167,9 +167,10 @@ exports.editor = function(req, res) {
         }
         try {
           let headers = {"X-WOPI-Override": "LOCK", "X-WOPI-Lock": lockId};
-          exports.fillStandardHeaders(headers, uri, access_token);
+          fillStandardHeaders(headers, uri, access_token);
+          logger.debug('wopi Lock request uri=%s headers=%j', uri, headers);
           let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, headers);
-          logger.debug('wopiEditor Lock headers=%j', postRes.response.headers);
+          logger.debug('wopiEditor Lock response headers=%j', postRes.response.headers);
         } catch (err) {
           lockId = undefined;
           if (err.response) {
@@ -181,6 +182,8 @@ exports.editor = function(req, res) {
           let docProperties = JSON.stringify({lockId: lockId, fileInfo: checkFileInfo});
           yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), true, docProperties);
         }
+      } else {
+        logger.info('wopi SupportsLocks = false');
       }
 
       if (checkFileInfo && (lockId || !checkFileInfo.SupportsLocks)) {
@@ -190,13 +193,13 @@ exports.editor = function(req, res) {
           }
         }
         let userAuth = {wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl};
-        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth};
+        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth, documentType: documentType};
         if (cfgTokenEnableBrowser) {
           let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
           let secret = utils.getSecretByElem(cfgSignatureSecretOutbox);
           params.token = jwt.sign(params, secret, options);
         }
-        res.render("editor2", params);
+        res.render("editor-wopi", params);
         logger.debug('wopiEditor render params=%j', params);
       } else {
         logger.error('wopiEditor can not open');
@@ -209,18 +212,27 @@ exports.editor = function(req, res) {
       logger.info('wopiEditor end');
     }
   });
-};
-exports.unlock = function(headers, url, access_token) {
+}
+function unlock(wopiParams) {
   return co(function* () {
     try {
       logger.info('wopi Unlock start');
-      let uri = 0;
-      let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
-      exports.fillStandardHeaders(headers, uri, access_token);
-      let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, headers);
-      logger.debug('wopi Unlock headers=%j', postRes.response.headers);
+      let fileInfo = wopiParams.commonInfo.fileInfo;
+      let wopiSrc = wopiParams.userAuth.wopiSrc;
+      let lockId = wopiParams.commonInfo.lockId;
+      let access_token = wopiParams.userAuth.access_token;
+      let uri = `${wopiSrc}?access_token=${access_token}`;
+
+      if (fileInfo && fileInfo.SupportsLocks) {
+        let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
+        fillStandardHeaders(headers, uri, access_token);
+        logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, headers);
+        logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
+      } else {
+        logger.info('wopi SupportsLocks = false');
+      }
     } catch (err) {
-      lockId = undefined;
       if (err.response) {
         logger.error('wopi error Unlock statusCode=%s headers=%j', err.response.statusCode, err.response.headers);
       }
@@ -229,16 +241,51 @@ exports.unlock = function(headers, url, access_token) {
       logger.info('wopi Unlock end');
     }
   });
-};
-exports.generateProof = function(url, accessToken, timeStamp) {
-  return generateProofSign(url, accessToken, timeStamp, cfgWopiPrivateKey);
-};
-exports.generateProofOld = function(url, accessToken, timeStamp) {
-  return generateProofSign(url, accessToken, timeStamp, cfgWopiPrivateKeyOld);
-};
-exports.fillStandardHeaders = function(headers, url, access_token) {
+}
+function generateProofBuffer(url, accessToken, timeStamp) {
+  const accessTokenBytes = Buffer.from(accessToken, 'utf8');
+  const urlBytes = Buffer.from(url.toUpperCase(), 'utf8');
+
+  let offset = 0;
+  let buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
+  buffer.writeUInt32LE(accessTokenBytes.length, offset);
+  offset += 4;
+  buffer.copy(accessTokenBytes, offset, 0, accessTokenBytes.length);
+  offset += accessTokenBytes.length;
+  buffer.writeUInt32LE(urlBytes.length, offset);
+  offset += 4;
+  buffer.copy(urlBytes, offset, 0, urlBytes.length);
+  offset += urlBytes.length;
+  buffer.writeUInt32LE(8, offset);
+  offset += 4;
+  buffer.writeBigUInt64BE(timeStamp, offset);
+  return buffer;
+}
+function generateProofSign(url, accessToken, timeStamp, privateKey) {
+  let signer = crypto.createSign('RSA-SHA256');
+  signer.update(generateProofBuffer(url, accessToken, timeStamp));
+  return signer.sign({key:privateKey}, "base64");
+}
+function generateProof(url, accessToken, timeStamp) {
+  let privateKey = `-----BEGIN PRIVATE KEY-----\n${cfgWopiPrivateKey}\n-----END PRIVATE KEY-----`;
+  return generateProofSign(url, accessToken, timeStamp, privateKey);
+}
+function generateProofOld(url, accessToken, timeStamp) {
+  let privateKey = `-----BEGIN PRIVATE KEY-----\n${cfgWopiPrivateKeyOld}\n-----END PRIVATE KEY-----`;
+  return generateProofSign(url, accessToken, timeStamp, privateKey);
+}
+function fillStandardHeaders(headers, url, access_token) {
   let timeStamp = utils.getDateTimeTicks(new Date());
-  headers['X-WOPI-Proof'] = exports.generateProof(url, access_token, timeStamp);
-  headers['X-WOPI-ProofOld'] = exports.generateProof(url, access_token, timeStamp);
+  headers['X-WOPI-Proof'] = generateProof(url, access_token, timeStamp);
+  headers['X-WOPI-ProofOld'] = generateProof(url, access_token, timeStamp);
   headers['X-WOPI-TimeStamp'] = timeStamp;
-};
+}
+
+exports.discovery = discovery;
+exports.parseWopiCallback = parseWopiCallback;
+exports.getEditorHtml = getEditorHtml;
+exports.unlock = unlock;
+exports.generateProof = generateProof;
+exports.generateProofOld = generateProofOld;
+exports.fillStandardHeaders = fillStandardHeaders;
+

@@ -85,6 +85,9 @@ Object.assign(openpgp.config, cfgPasswordConfig);
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
+//https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
+BigInt.prototype.toJSON = function() { return this.toString() };
+
 var baseRequest = request.defaults(cfgRequestDefaults);
 let outboxUrlExclusionRegex = null;
 if ("" !== cfgTokenOutboxUrlExclusionRegex) {
