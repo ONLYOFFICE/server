@@ -910,6 +910,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           try {
             if (wopiParams) {
+              logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
               let data = yield storage.getObject(savePathDoc);
               yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
               replyStr = '{"error": 0}';
@@ -944,6 +945,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
               if (wopiParams) {
+                logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
                 let data = yield storage.getObject(savePathDoc);
                 yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
                 replyStr = '{"error": 0}';

@@ -67,14 +67,15 @@ function discovery(req, res) {
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
       let exts = ['docx', 'xlsx', 'pptx'];
-      let template = `${baseUrl}/wopi?&lt;wopiSrc=WOPI_SOURCE&amp;&gt;&amp;documentType=`;
+      let templateStart = `${baseUrl}/wopi?documentType=`;
+      let templateEnd = `&amp;&lt;wopiSrc=WOPI_SOURCE&amp;&gt;`;
       let documentTypes = [`word`, `cell`, `slide`];
       output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="external-https">`;
       for(let i = 0; i < names.length; ++i) {
         let name = names[i];
         let favIconUrl = favIconUrls[i];
         let ext = exts[i];
-        let urlTemplate = template + documentTypes[i];
+        let urlTemplate = `${templateStart}${documentTypes[i]}${templateEnd}`;
         output +=`<app name="${name}" favIconUrl="${favIconUrl}">
         	<action name="view" ext="${ext}" urlsrc="${urlTemplate}" />
         	<action name="edit" ext="${ext}" default="true" requires="locks,update" urlsrc="${urlTemplate}" />
@@ -95,12 +96,13 @@ function isWopiCallback(url) {
 }
 function parseWopiCallback(docId, userAuthStr, url) {
   let wopiParams = null;
-  if (isWopiCallback(userAuthStr)){
+  if (isWopiCallback(userAuthStr)) {
     let userAuth = JSON.parse(userAuthStr);
     let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, url, 1);
-    if (isWopiCallback(commonInfoStr)){
+    if (isWopiCallback(commonInfoStr)) {
       let commonInfo = JSON.parse(commonInfoStr);
       wopiParams = {commonInfo: commonInfo, userAuth: userAuth};
+      logger.debug('parseWopiCallback wopiParams:%j', wopiParams);
     }
   }
   return wopiParams;
@@ -109,6 +111,7 @@ function getEditorHtml(req, res) {
   return co(function*() {
     try {
       logger.info('wopiEditor start');
+      logger.debug(`wopiEditor req.url:${req.url}`);
       logger.debug(`wopiEditor req.query:${JSON.stringify(req.query)}`);
       logger.debug(`wopiEditor req.body:${JSON.stringify(req.body)}`);
       let wopiSrc = req.query['WOPISrc'];
