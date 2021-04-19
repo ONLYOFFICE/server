@@ -32,6 +32,10 @@
       "utils": {
         "utils_common_fontdir": "/usr/share/fonts"
       },
+      "request-filtering-agent" : {
+        "allowPrivateIPAddress": true,
+        "allowMetaIPAddress": true
+      },
       "sockjs": {
         "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
       }
