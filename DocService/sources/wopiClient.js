@@ -70,7 +70,7 @@ function discovery(req, res) {
       let templateStart = `${baseUrl}/wopi?documentType=`;
       let templateEnd = `&amp;&lt;wopiSrc=WOPI_SOURCE&amp;&gt;`;
       let documentTypes = [`word`, `cell`, `slide`];
-      output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="external-https">`;
+      output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="external-http">`;
       for(let i = 0; i < names.length; ++i) {
         let name = names[i];
         let favIconUrl = favIconUrls[i];
@@ -116,15 +116,22 @@ function getEditorHtml(req, res) {
       logger.debug(`wopiEditor req.body:${JSON.stringify(req.body)}`);
       let wopiSrc = req.query['WOPISrc'];
       let documentType = req.query['documentType'];
+      let sc = req.query['sc'];
       let access_token = req.body['access_token'];
       let access_token_ttl = req.body['access_token_ttl'];
 
-      let uri = `${wopiSrc}?access_token=${access_token}`;
+      let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
 
       //checkFileInfo
       let checkFileInfo = undefined;
       try {
-        let getRes = yield utils.downloadUrlPromise(uri);
+        let headers = {};
+        if (sc) {
+          headers['X-WOPI-SessionContext'] = sc;
+        }
+        fillStandardHeaders(headers, uri, access_token);
+        logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
+        let getRes = yield utils.downloadUrlPromise(uri, undefined, undefined, undefined, undefined);
         checkFileInfo = JSON.parse(getRes.body);
         logger.debug(`wopiEditor checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
       } catch (err) {
@@ -282,6 +289,8 @@ function fillStandardHeaders(headers, url, access_token) {
   headers['X-WOPI-Proof'] = generateProof(url, access_token, timeStamp);
   headers['X-WOPI-ProofOld'] = generateProof(url, access_token, timeStamp);
   headers['X-WOPI-TimeStamp'] = timeStamp;
+  headers['Authorization'] = `Bearer ${access_token}`;
+
 }
 
 exports.discovery = discovery;

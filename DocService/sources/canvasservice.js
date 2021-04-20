@@ -912,7 +912,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             if (wopiParams) {
               logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
               let data = yield storage.getObject(savePathDoc);
-              yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
+              yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, headers);
               replyStr = '{"error": 0}';
             } else {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
@@ -947,7 +947,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               if (wopiParams) {
                 logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
                 let data = yield storage.getObject(savePathDoc);
-                yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, undefined, headers);
+                yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, headers);
                 replyStr = '{"error": 0}';
               } else {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
