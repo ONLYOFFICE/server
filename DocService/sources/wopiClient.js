@@ -39,6 +39,7 @@ const jwt = require('jsonwebtoken');
 const config = require('config');
 const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
+const constants = require('./../../Common/sources/constants');
 const sqlBase = require('./baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
@@ -67,7 +68,7 @@ function discovery(req, res) {
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
       let exts = ['docx', 'xlsx', 'pptx'];
-      let templateStart = `${baseUrl}/wopi?documentType=`;
+      let templateStart = `${baseUrl}/hosting/wopi?documentType=`;
       let templateEnd = `&amp;&lt;wopiSrc=WOPI_SOURCE&amp;&gt;`;
       let documentTypes = [`word`, `cell`, `slide`];
       output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="external-http">`;
@@ -131,7 +132,7 @@ function getEditorHtml(req, res) {
         }
         fillStandardHeaders(headers, uri, access_token);
         logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-        let getRes = yield utils.downloadUrlPromise(uri, undefined, undefined, undefined, undefined);
+        let getRes = yield utils.downloadUrlPromise(uri, undefined, undefined, undefined, headers);
         checkFileInfo = JSON.parse(getRes.body);
         logger.debug(`wopiEditor checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
       } catch (err) {
@@ -152,6 +153,7 @@ function getEditorHtml(req, res) {
           let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
           docId = `${fileId}.${checkFileInfo.Version}`;
         }
+        docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
       }
       logger.debug(`wopiEditor docId=%s`, docId);
 
@@ -258,15 +260,15 @@ function generateProofBuffer(url, accessToken, timeStamp) {
 
   let offset = 0;
   let buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
-  buffer.writeUInt32LE(accessTokenBytes.length, offset);
+  buffer.writeUInt32BE(accessTokenBytes.length, offset);
   offset += 4;
-  buffer.copy(accessTokenBytes, offset, 0, accessTokenBytes.length);
+  accessTokenBytes.copy(buffer, offset, 0, accessTokenBytes.length);
   offset += accessTokenBytes.length;
-  buffer.writeUInt32LE(urlBytes.length, offset);
+  buffer.writeUInt32BE(urlBytes.length, offset);
   offset += 4;
-  buffer.copy(urlBytes, offset, 0, urlBytes.length);
+  urlBytes.copy(buffer, offset, 0, urlBytes.length);
   offset += urlBytes.length;
-  buffer.writeUInt32LE(8, offset);
+  buffer.writeUInt32BE(8, offset);
   offset += 4;
   buffer.writeBigUInt64BE(timeStamp, offset);
   return buffer;
@@ -277,11 +279,11 @@ function generateProofSign(url, accessToken, timeStamp, privateKey) {
   return signer.sign({key:privateKey}, "base64");
 }
 function generateProof(url, accessToken, timeStamp) {
-  let privateKey = `-----BEGIN PRIVATE KEY-----\n${cfgWopiPrivateKey}\n-----END PRIVATE KEY-----`;
+  let privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${cfgWopiPrivateKey}\n-----END RSA PRIVATE KEY-----`;
   return generateProofSign(url, accessToken, timeStamp, privateKey);
 }
 function generateProofOld(url, accessToken, timeStamp) {
-  let privateKey = `-----BEGIN PRIVATE KEY-----\n${cfgWopiPrivateKeyOld}\n-----END PRIVATE KEY-----`;
+  let privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${cfgWopiPrivateKeyOld}\n-----END RSA PRIVATE KEY-----`;
   return generateProofSign(url, accessToken, timeStamp, privateKey);
 }
 function fillStandardHeaders(headers, url, access_token) {
@@ -290,7 +292,6 @@ function fillStandardHeaders(headers, url, access_token) {
   headers['X-WOPI-ProofOld'] = generateProof(url, access_token, timeStamp);
   headers['X-WOPI-TimeStamp'] = timeStamp;
   headers['Authorization'] = `Bearer ${access_token}`;
-
 }
 
 exports.discovery = discovery;

@@ -291,7 +291,9 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_he
           }
           resolve({response: response, body: body});
         } else {
-          let error = new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body);
+          let code = response.statusCode;
+          let responseHeaders = JSON.stringify(response.headers);
+          let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
           error.response = response.response;
           reject(error);
