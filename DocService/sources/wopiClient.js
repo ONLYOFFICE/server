@@ -76,10 +76,11 @@ function discovery(req, res) {
         let name = names[i];
         let favIconUrl = favIconUrls[i];
         let ext = exts[i];
-        let urlTemplate = `${templateStart}${documentTypes[i]}${templateEnd}`;
+        let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
+        let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
         output +=`<app name="${name}" favIconUrl="${favIconUrl}">
-        	<action name="view" ext="${ext}" urlsrc="${urlTemplate}" />
-        	<action name="edit" ext="${ext}" default="true" requires="locks,update" urlsrc="${urlTemplate}" />
+        	<action name="view" ext="${ext}" urlsrc="${urlTemplateView}" />
+        	<action name="edit" ext="${ext}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />
         </app>`;
       }
       output += `</net-zone><proof-key oldvalue="${cfgWopiPublicKeyOld}" value="${cfgWopiPublicKey}"/></wopi-discovery>`;
@@ -117,6 +118,7 @@ function getEditorHtml(req, res) {
       logger.debug(`wopiEditor req.body:${JSON.stringify(req.body)}`);
       let wopiSrc = req.query['WOPISrc'];
       let documentType = req.query['documentType'];
+      let mode = req.query['mode'];
       let sc = req.query['sc'];
       let access_token = req.body['access_token'];
       let access_token_ttl = req.body['access_token_ttl'];
@@ -157,26 +159,28 @@ function getEditorHtml(req, res) {
       }
       logger.debug(`wopiEditor docId=%s`, docId);
 
-      //Lock
+      //check current lock info
       let lockId = undefined;
-      if (checkFileInfo && checkFileInfo.SupportsLocks) {
-        let isNewLock = true;
-        let selectRes = yield taskResult.select(docId);
-        if (selectRes.length > 0) {
-          var row = selectRes[0];
-          if (row.callback) {
-            let callback = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, 1);
-            if (callback) {
-              lockId = JSON.parse(callback).lockId;
-              isNewLock = false;
-              logger.debug('wopiEditor lockId from DB lockId=%s', lockId);
-            }
+      let selectRes = yield taskResult.select(docId);
+      if (selectRes.length > 0) {
+        var row = selectRes[0];
+        if (row.callback) {
+          let callback = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, 1);
+          if (callback) {
+            lockId = JSON.parse(callback).lockId;
+            logger.debug('wopiEditor lockId from DB lockId=%s', lockId);
           }
         }
+      }
+      //save common info
+      if (undefined === lockId) {
+        lockId = crypto.randomBytes(16).toString('base64');
+        let commonInfo = JSON.stringify({lockId: lockId, fileInfo: checkFileInfo});
+        yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), true, commonInfo);
+      }
 
-        if (isNewLock) {
-          lockId = crypto.randomBytes(16).toString('base64');
-        }
+      //Lock
+      if ('edit' === mode && checkFileInfo && checkFileInfo.SupportsLocks) {
         try {
           let headers = {"X-WOPI-Override": "LOCK", "X-WOPI-Lock": lockId};
           fillStandardHeaders(headers, uri, access_token);
@@ -190,22 +194,18 @@ function getEditorHtml(req, res) {
           }
           logger.error('wopiEditor error Lock:%s', err.stack);
         }
-        if (lockId && isNewLock) {
-          let docProperties = JSON.stringify({lockId: lockId, fileInfo: checkFileInfo});
-          yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), true, docProperties);
-        }
       } else {
         logger.info('wopi SupportsLocks = false');
       }
 
-      if (checkFileInfo && (lockId || !checkFileInfo.SupportsLocks)) {
+      if (checkFileInfo && lockId) {
         for (let i in fileInfoBlockList) {
           if (fileInfoBlockList.hasOwnProperty(i)) {
             delete checkFileInfo[i];
           }
         }
         let userAuth = {wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl};
-        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth, documentType: documentType};
+        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth, documentType: documentType, mode: mode};
         if (cfgTokenEnableBrowser) {
           let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
           let secret = utils.getSecretByElem(cfgSignatureSecretOutbox);
