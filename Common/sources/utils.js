@@ -714,6 +714,16 @@ function checkClientIp(req, res, next) {
 	}
 }
 exports.checkClientIp = checkClientIp;
+function lowercaseQueryString(req, res, next) {
+  for (var key in req.query) {
+    if (req.query.hasOwnProperty(key) && key.toLowerCase() !== key) {
+      req.query[key.toLowerCase()] = req.query[key];
+      delete req.query[key];
+    }
+  }
+  next();
+}
+exports.lowercaseQueryString = lowercaseQueryString;
 function dnsLookup(hostname, options) {
   return new Promise(function(resolve, reject) {
     dnscache.lookup(hostname, options, function(err, addresses){

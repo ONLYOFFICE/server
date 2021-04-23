@@ -49,12 +49,23 @@ const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expi
 const cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
+const cfgWopiWopiZone = config.get('wopi.wopiZone');
+const cfgWopiWordView = config.get('wopi.wordView');
+const cfgWopiWordEdit = config.get('wopi.wordEdit');
+const cfgWopiCellView = config.get('wopi.cellView');
+const cfgWopiCellEdit = config.get('wopi.cellEdit');
+const cfgWopiSlideView = config.get('wopi.slideView');
+const cfgWopiSlideEdit = config.get('wopi.slideEdit');
 const cfgWopiFavIconUrlWord = config.get('wopi.favIconUrlWord');
 const cfgWopiFavIconUrlCell = config.get('wopi.favIconUrlCell');
 const cfgWopiFavIconUrlSlide = config.get('wopi.favIconUrlSlide');
 const cfgWopiPublicKey = config.get('wopi.publicKey');
+const cfgWopiModulus = config.get('wopi.modulus');
+const cfgWopiExponent = config.get('wopi.exponent');
 const cfgWopiPrivateKey = config.get('wopi.privateKey');
 const cfgWopiPublicKeyOld = config.get('wopi.publicKeyOld');
+const cfgWopiModulusOld = config.get('wopi.modulusOld');
+const cfgWopiExponentOld = config.get('wopi.exponentOld');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 
 let fileInfoBlockList = cfgWopiFileInfoBlockList.keys();
@@ -67,23 +78,32 @@ function discovery(req, res) {
       let baseUrl = utils.getBaseUrlByRequest(req);
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
-      let exts = ['docx', 'xlsx', 'pptx'];
+      let exts = [{view: cfgWopiWordView, edit: cfgWopiWordEdit}, {view: cfgWopiCellView, edit: cfgWopiCellEdit},
+        {view: cfgWopiSlideView, edit: cfgWopiSlideEdit}];
       let templateStart = `${baseUrl}/hosting/wopi?documentType=`;
-      let templateEnd = `&amp;&lt;wopiSrc=WOPI_SOURCE&amp;&gt;`;
+      let templateEnd = `&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;e=EMBEDDED&amp;&gt;`;
+      templateEnd += `&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;`;
+      templateEnd += `&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;`;
+      templateEnd += `&lt;wopisrc=WOPI_SOURCE&amp;&gt;`;
       let documentTypes = [`word`, `cell`, `slide`];
-      output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="external-http">`;
+      output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="${cfgWopiWopiZone}">`;
       for(let i = 0; i < names.length; ++i) {
         let name = names[i];
         let favIconUrl = favIconUrls[i];
         let ext = exts[i];
         let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
         let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
-        output +=`<app name="${name}" favIconUrl="${favIconUrl}">
-        	<action name="view" ext="${ext}" urlsrc="${urlTemplateView}" />
-        	<action name="edit" ext="${ext}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />
-        </app>`;
+        output +=`<app name="${name}" favIconUrl="${favIconUrl}">`;
+        for(let j = 0; j < ext.view.length; ++j) {
+          output +=`<action name="view" ext="${ext.view[j]}" urlsrc="${urlTemplateView}" />`;
+        }
+        for(let j = 0; j < ext.edit.length; ++j) {
+          output +=`<action name="view" ext="${ext.edit[j]}" urlsrc="${urlTemplateView}" />`;
+          output +=`<action name="edit" ext="${ext.edit[j]}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+        }
+        output +=`</app>`;
       }
-      output += `</net-zone><proof-key oldvalue="${cfgWopiPublicKeyOld}" value="${cfgWopiPublicKey}"/></wopi-discovery>`;
+      output += `</net-zone><proof-key oldvalue="${cfgWopiPublicKeyOld}" oldmodulus="${cfgWopiModulusOld}" oldexponent="${cfgWopiExponentOld}" value="${cfgWopiPublicKey}" modulus="${cfgWopiModulus}" exponent="${cfgWopiExponent}"/></wopi-discovery>`;
     } catch (err) {
       logger.error('wopiDiscovery error\r\n%s', err.stack);
     } finally {
@@ -116,8 +136,7 @@ function getEditorHtml(req, res) {
       logger.debug(`wopiEditor req.url:${req.url}`);
       logger.debug(`wopiEditor req.query:${JSON.stringify(req.query)}`);
       logger.debug(`wopiEditor req.body:${JSON.stringify(req.body)}`);
-      let wopiSrc = req.query['WOPISrc'];
-      let documentType = req.query['documentType'];
+      let wopiSrc = req.query['wopisrc'];
       let mode = req.query['mode'];
       let sc = req.query['sc'];
       let access_token = req.body['access_token'];
@@ -195,7 +214,7 @@ function getEditorHtml(req, res) {
           logger.error('wopiEditor error Lock:%s', err.stack);
         }
       } else {
-        logger.info('wopi SupportsLocks = false');
+        logger.info('wopiEditor SupportsLocks = false');
       }
 
       if (checkFileInfo && lockId) {
@@ -205,7 +224,7 @@ function getEditorHtml(req, res) {
           }
         }
         let userAuth = {wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl};
-        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth, documentType: documentType, mode: mode};
+        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth, queryParams: req.query};
         if (cfgTokenEnableBrowser) {
           let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
           let secret = utils.getSecretByElem(cfgSignatureSecretOutbox);
@@ -288,9 +307,11 @@ function generateProofOld(url, accessToken, timeStamp) {
 }
 function fillStandardHeaders(headers, url, access_token) {
   let timeStamp = utils.getDateTimeTicks(new Date());
-  headers['X-WOPI-Proof'] = generateProof(url, access_token, timeStamp);
-  headers['X-WOPI-ProofOld'] = generateProof(url, access_token, timeStamp);
-  headers['X-WOPI-TimeStamp'] = timeStamp;
+  if (cfgWopiPrivateKey && cfgWopiPrivateKeyOld) {
+    headers['X-WOPI-Proof'] = generateProof(url, access_token, timeStamp);
+    headers['X-WOPI-ProofOld'] = generateProof(url, access_token, timeStamp);
+    headers['X-WOPI-TimeStamp'] = timeStamp;
+  }
   headers['Authorization'] = `Bearer ${access_token}`;
 }
 
