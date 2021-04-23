@@ -50,11 +50,17 @@ const docsCoServer = require('./DocsCoServer');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
 const fileUploaderService = require('./fileuploaderservice');
+const wopiClient = require('./wopiClient');
 const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const configStorage = configCommon.get('storage');
+
+const cfgHtmlTemplate = configCommon.get('wopi.htmlTemplate');
+
 const app = express();
+app.set("views", cfgHtmlTemplate);
+app.set("view engine", "ejs");
 const server = http.createServer(app);
 
 let licenseInfo, updatePluginsTime, userPlugins, pluginsLoaded;
@@ -148,6 +154,7 @@ docsCoServer.install(server, () => {
 	});
 	const rawFileParser = bodyParser.raw(
 		{inflate: true, limit: config.get('server.limits_tempfile_upload'), type: function() {return true;}});
+	const urleEcodedParser = bodyParser.urlencoded({ extended: false });
 
 	app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 	app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser,
@@ -197,6 +204,9 @@ docsCoServer.install(server, () => {
 	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+
+	app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
+	app.post('/hosting/wopi', utils.checkClientIp, urleEcodedParser, utils.lowercaseQueryString, wopiClient.getEditorHtml);
 
 	const sendUserPlugins = (res, data) => {
 		pluginsLoaded = true;

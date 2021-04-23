@@ -85,6 +85,9 @@ Object.assign(openpgp.config, cfgPasswordConfig);
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
+//https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
+BigInt.prototype.toJSON = function() { return this.toString() };
+
 var baseRequest = request.defaults(cfgRequestDefaults);
 let outboxUrlExclusionRegex = null;
 if ("" !== cfgTokenOutboxUrlExclusionRegex) {
@@ -253,7 +256,7 @@ function raiseError(ro, code, msg) {
   error.code = code;
   ro.emit('error', error);
 }
-function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
+function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_headers) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -265,6 +268,10 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
       options.headers = {};
       options.headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
+    if (opt_headers) {
+      options.headers = opt_headers;
+    }
+
     let sizeLimit = optLimit || Number.MAX_VALUE;
     let bufferLength = 0;
 
@@ -282,9 +289,14 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
           if (contentLength && body.length !== (contentLength - 0)) {
             logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
-          resolve(body);
+          resolve({response: response, body: body});
         } else {
-          reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
+          let code = response.statusCode;
+          let responseHeaders = JSON.stringify(response.headers);
+          let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
+          error.statusCode = response.statusCode;
+          error.response = response;
+          reject(error);
         }
       }
     }).on('response', function(response) {
@@ -305,7 +317,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
     }
   });
 }
-function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
+function postRequestPromise(uri, postData, optTimeout, opt_Authorization, opt_header) {
   return new Promise(function(resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -314,6 +326,7 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
     if (opt_Authorization) {
       headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
+    headers = opt_header || headers;
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     var options = {uri: urlParsed, body: postData, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
 
@@ -326,13 +339,14 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
       if (err) {
         reject(err);
       } else {
-        if (200 == response.statusCode || 204 == response.statusCode) {
-          resolve(body);
+        if (200 === response.statusCode || 204 === response.statusCode) {
+          resolve({response: response, body: body});
         } else {
           let code = response.statusCode;
           let responseHeaders = JSON.stringify(response.headers);
           let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
+          error.response = response;
           reject(error);
         }
       }
@@ -700,6 +714,16 @@ function checkClientIp(req, res, next) {
 	}
 }
 exports.checkClientIp = checkClientIp;
+function lowercaseQueryString(req, res, next) {
+  for (var key in req.query) {
+    if (req.query.hasOwnProperty(key) && key.toLowerCase() !== key) {
+      req.query[key.toLowerCase()] = req.query[key];
+      delete req.query[key];
+    }
+  }
+  next();
+}
+exports.lowercaseQueryString = lowercaseQueryString;
 function dnsLookup(hostname, options) {
   return new Promise(function(resolve, reject) {
     dnscache.lookup(hostname, options, function(err, addresses){
@@ -829,3 +853,6 @@ exports.decryptPassword = co.wrap(function* (password) {
   const { data: decrypted } = yield openpgp.decrypt(params);
   return decrypted;
 });
+exports.getDateTimeTicks = function(date) {
+  return BigInt(date.getTime() * 10000) + 621355968000000000n;
+};

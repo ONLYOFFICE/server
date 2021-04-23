@@ -41,6 +41,7 @@ const MultiRange = require('multi-integer-range').MultiRange;
 var sqlBase = require('./baseConnector');
 var docsCoServer = require('./DocsCoServer');
 var taskResult = require('./taskresult');
+var wopiClient = require('./wopiClient');
 var logger = require('./../../Common/sources/logger');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
@@ -64,6 +65,7 @@ const cfgOpenProtectedFile = config_server.get('openProtectedFile');
 const cfgExpUpdateVersionStatus = ms(config.get('services.CoAuthoring.expire.updateVersionStatus'));
 const cfgCallbackBackoffOptions = config.get('services.CoAuthoring.callbackBackoffOptions');
 const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemblyFormatAsOrigin');
+const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -482,7 +484,7 @@ function* commandSendMailMerge(cmd, outputData) {
   if (completeParts && !isJson) {
     isErr = true;
     var getRes = yield* docsCoServer.getCallback(cmd.getDocId(), cmd.getUserIndex());
-    if (getRes) {
+    if (getRes && !getRes.wopiParams) {
       mailMergeSend.setUrl(getRes.server.href);
       mailMergeSend.setBaseUrl(getRes.baseUrl);
       //меняем JsonKey и SaveKey, новый key нужет потому что за одну конвертацию делается часть, а json нужен всегда
@@ -492,6 +494,8 @@ function* commandSendMailMerge(cmd, outputData) {
       var queueData = getSaveTask(cmd);
       yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
       isErr = false;
+    } else if (getRes.wopiParams) {
+      logger.warn('commandSendMailMerge unexpected with wopi: docId = %s', cmd.getDocId());
     }
   }
   if (isErr) {
@@ -590,7 +594,8 @@ function* commandImgurls(conn, cmd, outputData) {
       } else if (urlSource) {
         try {
           //todo stream
-          data = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorization);
+          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorization);
+          data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
           data = undefined;
@@ -778,7 +783,26 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     let forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
     let forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
     let callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
-    var getRes = yield* docsCoServer.getCallback(docId, callbackUserIndex);
+    let uri, baseUrl, headers, wopiParams;
+    let selectRes = yield taskResult.select(docId);
+    let row = selectRes.length > 0 ? selectRes[0] : null;
+    if (row) {
+      if (row.callback) {
+        uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, callbackUserIndex);
+        wopiParams = wopiClient.parseWopiCallback(docId, uri, row.callback);
+      }
+      if (row.baseurl) {
+        baseUrl = row.baseurl;
+      }
+    }
+    if (wopiParams) {
+      let commonInfo = wopiParams.commonInfo;
+      let userAuth = wopiParams.userAuth;
+      uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+      //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
+      headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
+      wopiClient.fillStandardHeaders(headers, uri, userAuth.access_token);
+    }
     var isSfcmSuccess = false;
     let storeForgotten = false;
     let needRetry = false;
@@ -801,8 +825,6 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
 
     let updateMask = new taskResult.TaskResultData();
     updateMask.key = docId;
-    let selectRes = yield taskResult.select(docId);
-    let row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
       if (isEncrypted) {
         recoverTask.status = updateMask.status = row.status;
@@ -822,8 +844,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     } else {
       isError = true;
     }
-    if (getRes) {
-      logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, getRes.server.href);
+    if (uri && baseUrl) {
+      logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, uri);
       var outputSfc = new commonDefines.OutputSfcData();
       outputSfc.setKey(docId);
       outputSfc.setEncrypted(isEncrypted);
@@ -862,14 +884,14 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             //don't send history info because changes isn't from file in storage
             var data = yield storage.getObject(savePathHistory);
             outputSfc.setChangeHistory(JSON.parse(data.toString('utf-8')));
-            let changeUrl = yield storage.getSignedUrl(getRes.baseUrl, savePathChanges,
+            let changeUrl = yield storage.getSignedUrl(baseUrl, savePathChanges,
                                                        commonDefines.c_oAscUrlTypes.Temporary);
             outputSfc.setChangeUrl(changeUrl);
           } else {
             //for backward compatibility. remove this when Community is ready
             outputSfc.setChangeHistory({});
           }
-          let url = yield storage.getSignedUrl(getRes.baseUrl, savePathDoc, commonDefines.c_oAscUrlTypes.Temporary);
+          let url = yield storage.getSignedUrl(baseUrl, savePathDoc, commonDefines.c_oAscUrlTypes.Temporary);
           outputSfc.setUrl(url);
         } catch (e) {
           logger.error('Error commandSfcCallback: docId = %s\r\n%s', docId, e.stack);
@@ -883,7 +905,6 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       if (isError) {
         outputSfc.setStatus(statusErr);
       }
-      var uri = getRes.server.href;
       if (isSfcm) {
         let selectRes = yield taskResult.select(docId);
         let row = selectRes.length > 0 ? selectRes[0] : null;
@@ -895,7 +916,14 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             outputSfc.setLastSave(forceSaveDate.toISOString());
           }
           try {
-            replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+            if (wopiParams) {
+              logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
+              let data = yield storage.getObject(savePathDoc);
+              yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, headers);
+              replyStr = '{"error": 0}';
+            } else {
+              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+            }
             let replyData = docsCoServer.parseReplyData(docId, replyStr);
             isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
@@ -923,7 +951,14 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.status = updateIfTask.status;
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
-              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+              if (wopiParams) {
+                logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
+                let data = yield storage.getObject(savePathDoc);
+                yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, headers);
+                replyStr = '{"error": 0}';
+              } else {
+                replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+              }
             } catch (err) {
               logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
               if (!isEncrypted && !docsCoServer.getIsShutdown() && (!err.statusCode || retryHttpStatus.has(err.statusCode.toString()))) {
@@ -947,7 +982,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             }
             if (requestRes) {
               updateIfTask = undefined;
-              yield docsCoServer.cleanDocumentOnExitPromise(docId, true);
+              yield docsCoServer.cleanDocumentOnExitPromise(docId, true, callbackUserIndex);
               if (isOpenFromForgotten) {
                 //remove forgotten file in cache
                 yield cleanupCache(docId);

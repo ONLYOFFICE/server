@@ -37,6 +37,7 @@ const constants = require('./constants');
 function InputCommand(data, copyExplicit) {
   //must be set explicitly to prevent vulnerability(downloadAs(with url) creates request to integrator with authorization)
   this['withAuthorization'] = undefined;//bool
+  this['wopiParams'] = undefined;
   if (data) {
     this['c'] = data['c'];
     this['id'] = data['id'];
@@ -99,6 +100,7 @@ function InputCommand(data, copyExplicit) {
     this['attempt'] = data['attempt'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
+      this['wopiParams'] = data['wopiParams'];
     }
   } else {
     this['c'] = undefined;//string command
@@ -430,6 +432,12 @@ InputCommand.prototype = {
   },
   setWithAuthorization: function(data) {
     this['withAuthorization'] = data;
+  },
+  getWopiParams: function() {
+    return this['wopiParams'];
+  },
+  setWopiParams: function(data) {
+    this['wopiParams'] = data;
   }
 };
 
