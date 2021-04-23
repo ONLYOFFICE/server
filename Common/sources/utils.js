@@ -295,7 +295,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_he
           let responseHeaders = JSON.stringify(response.headers);
           let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
-          error.response = response.response;
+          error.response = response;
           reject(error);
         }
       }
@@ -346,7 +346,7 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization, opt_he
           let responseHeaders = JSON.stringify(response.headers);
           let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
-          error.response = response.response;
+          error.response = response;
           reject(error);
         }
       }
