@@ -783,7 +783,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     let forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
     let forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
     let callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
-    let uri, baseUrl, headers, wopiParams;
+    let uri, baseUrl, wopiParams;
     let selectRes = yield taskResult.select(docId);
     let row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
@@ -794,14 +794,6 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       if (row.baseurl) {
         baseUrl = row.baseurl;
       }
-    }
-    if (wopiParams) {
-      let commonInfo = wopiParams.commonInfo;
-      let userAuth = wopiParams.userAuth;
-      uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
-      //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
-      headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
-      wopiClient.fillStandardHeaders(headers, uri, userAuth.access_token);
     }
     var isSfcmSuccess = false;
     let storeForgotten = false;
@@ -917,10 +909,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           try {
             if (wopiParams) {
-              logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
               let data = yield storage.getObject(savePathDoc);
-              yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, headers);
-              replyStr = '{"error": 0}';
+              replyStr = yield wopiClient.putFile(wopiParams, data, userLastChangeId);
             } else {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
             }
@@ -952,10 +942,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
               if (wopiParams) {
-                logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
                 let data = yield storage.getObject(savePathDoc);
-                yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, headers);
-                replyStr = '{"error": 0}';
+                replyStr = yield wopiClient.putFile(wopiParams, data, userLastChangeId);
               } else {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
               }

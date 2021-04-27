@@ -48,6 +48,8 @@ const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.al
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
 const cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
+const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
 const cfgWopiWordView = config.get('wopi.wordView');
@@ -103,7 +105,13 @@ function discovery(req, res) {
         }
         output +=`</app>`;
       }
-      output += `</net-zone><proof-key oldvalue="${cfgWopiPublicKeyOld}" oldmodulus="${cfgWopiModulusOld}" oldexponent="${cfgWopiExponentOld}" value="${cfgWopiPublicKey}" modulus="${cfgWopiModulus}" exponent="${cfgWopiExponent}"/></wopi-discovery>`;
+      let proofKey = ``;
+      if (cfgWopiPublicKeyOld && cfgWopiPublicKey) {
+        proofKey += `<proof-key oldvalue="${cfgWopiPublicKeyOld}" oldmodulus="${cfgWopiModulusOld}" `;
+        proofKey += `oldexponent="${cfgWopiExponentOld}" value="${cfgWopiPublicKey}" modulus="${cfgWopiModulus}" `;
+        proofKey += `exponent="${cfgWopiExponent}"/>`;
+      }
+      output += `</net-zone>${proofKey}</wopi-discovery>`;
     } catch (err) {
       logger.error('wopiDiscovery error\r\n%s', err.stack);
     } finally {
@@ -153,7 +161,7 @@ function getEditorHtml(req, res) {
         }
         fillStandardHeaders(headers, uri, access_token);
         logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-        let getRes = yield utils.downloadUrlPromise(uri, undefined, undefined, undefined, headers);
+        let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, undefined, undefined, headers);
         checkFileInfo = JSON.parse(getRes.body);
         logger.debug(`wopiEditor checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
       } catch (err) {
@@ -166,6 +174,9 @@ function getEditorHtml(req, res) {
       //docId
       let docId = undefined;
       if (checkFileInfo) {
+        if (!checkFileInfo.UserCanWrite) {
+          mode = 'view';
+        }
         if (checkFileInfo.SHA256) {
           docId = checkFileInfo.SHA256;
         } else if (checkFileInfo.UniqueContentId) {
@@ -204,7 +215,7 @@ function getEditorHtml(req, res) {
           let headers = {"X-WOPI-Override": "LOCK", "X-WOPI-Lock": lockId};
           fillStandardHeaders(headers, uri, access_token);
           logger.debug('wopi Lock request uri=%s headers=%j', uri, headers);
-          let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, headers);
+          let postRes = yield utils.postRequestPromise(uri, undefined, cfgCallbackRequestTimeout, undefined, headers);
           logger.debug('wopiEditor Lock response headers=%j', postRes.response.headers);
         } catch (err) {
           lockId = undefined;
@@ -244,21 +255,52 @@ function getEditorHtml(req, res) {
     }
   });
 }
+function putFile(wopiParams, data, userLastChangeId) {
+  return co(function* () {
+    try {
+      logger.info('wopi PutFile start');
+      let fileInfo = wopiParams.commonInfo.fileInfo;
+
+      if (fileInfo && fileInfo.SupportsUpdate) {
+        let commonInfo = wopiParams.commonInfo;
+        let userAuth = wopiParams.userAuth;
+        let uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+        //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
+        let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
+        fillStandardHeaders(headers, uri, userAuth.access_token);
+
+        logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
+        let postRes = yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, headers);
+        logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
+      } else {
+        logger.info('wopi SupportsUpdate = false');
+      }
+    } catch (err) {
+      if (err.response) {
+        logger.error('wopi error PutFile statusCode=%s headers=%j', err.response.statusCode, err.response.headers);
+      }
+      logger.error('wopi error PutFile:%s', err.stack);
+    } finally {
+      logger.info('wopi PutFile end');
+    }
+    return '{"error": 0}';
+  });
+}
 function unlock(wopiParams) {
   return co(function* () {
     try {
       logger.info('wopi Unlock start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
-      let wopiSrc = wopiParams.userAuth.wopiSrc;
-      let lockId = wopiParams.commonInfo.lockId;
-      let access_token = wopiParams.userAuth.access_token;
-      let uri = `${wopiSrc}?access_token=${access_token}`;
-
       if (fileInfo && fileInfo.SupportsLocks) {
+        let wopiSrc = wopiParams.userAuth.wopiSrc;
+        let lockId = wopiParams.commonInfo.lockId;
+        let access_token = wopiParams.userAuth.access_token;
+        let uri = `${wopiSrc}?access_token=${access_token}`;
+
         let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
         logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
       } else {
         logger.info('wopi SupportsLocks = false');
@@ -318,6 +360,7 @@ function fillStandardHeaders(headers, url, access_token) {
 exports.discovery = discovery;
 exports.parseWopiCallback = parseWopiCallback;
 exports.getEditorHtml = getEditorHtml;
+exports.putFile = putFile;
 exports.unlock = unlock;
 exports.generateProof = generateProof;
 exports.generateProofOld = generateProofOld;
