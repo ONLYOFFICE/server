@@ -88,6 +88,7 @@ function InputCommand(data, copyExplicit) {
     this['inline'] = data['inline'];
     this['password'] = data['password'];
     this['savepassword'] = data['savepassword'];
+    this['withoutPassword'] = data['withoutPassword'];
     this['outputurls'] = data['outputurls'];
     this['closeonerror'] = data['closeonerror'];
     this['serverVersion'] = data['serverVersion'];
@@ -143,6 +144,7 @@ function InputCommand(data, copyExplicit) {
     this['inline'] = undefined;//content disposition
     this['password'] = undefined;
     this['savepassword'] = undefined;
+    this['withoutPassword'] = undefined;
     this['outputurls'] = undefined;
     this['closeonerror'] = undefined;
     this['serverVersion'] = undefined;
@@ -376,6 +378,12 @@ InputCommand.prototype = {
   },
   setSavePassword: function(data) {
     this['savepassword'] = data;
+  },
+  getWithoutPassword: function() {
+    return this['withoutPassword'];
+  },
+  setWithoutPassword: function(data) {
+    this['withoutPassword'] = data;
   },
   setOutputUrls: function(data) {
     this['outputurls'] = data;
