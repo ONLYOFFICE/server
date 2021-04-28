@@ -176,6 +176,7 @@ function getEditorHtml(req, res) {
       if (checkFileInfo) {
         if (!checkFileInfo.UserCanWrite) {
           mode = 'view';
+          req.query['mode'] = mode;
         }
         if (checkFileInfo.SHA256) {
           docId = checkFileInfo.SHA256;
@@ -235,7 +236,7 @@ function getEditorHtml(req, res) {
           }
         }
         let userAuth = {wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl};
-        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth, queryParams: req.query};
+        let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth, queryParams: req.query, token: undefined};
         if (cfgTokenEnableBrowser) {
           let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
           let secret = utils.getSecretByElem(cfgSignatureSecretOutbox);
