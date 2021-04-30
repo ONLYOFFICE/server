@@ -66,6 +66,9 @@ function TaskResultData() {
   this.callback = null;
   this.baseurl = null;
   this.password = null;
+
+  this.innerUserId = null;//not a DB field
+  this.innerUserIndex = null;//not a DB field
 }
 TaskResultData.prototype.completeDefaults = function() {
   if (!this.key) {
@@ -152,8 +155,10 @@ function toUpdateArray(task, updateTime, isMask, values) {
     res.push(`baseurl=${sqlParam}`);
   }
   if (null != task.password) {
-    let sqlParam = addSqlParam(task.password, values);
-    res.push(`password=${sqlParam}`);
+    var documentPassword = new sqlBase.DocumentPassword();
+    documentPassword.fromValues(task.password, task.innerUserId, task.innerUserIndex);
+    let sqlParam = addSqlParam(documentPassword.toSQLInsert(), values);
+    res.push(`password=${concatParams('password', sqlParam)}`);
   }
   return res;
 }

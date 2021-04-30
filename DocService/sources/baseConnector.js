@@ -314,3 +314,59 @@ UserCallback.prototype.getCallbackByUserIndex = function(docId, callbacksStr, op
   return callbackUrl;
 };
 exports.UserCallback = UserCallback;
+
+function DocumentPassword() {
+  this.password = undefined;
+  this.userId = undefined;
+  this.userIndex = undefined;
+}
+DocumentPassword.prototype.fromString = function(passwordStr){
+  var parsed = JSON.parse(passwordStr);
+  this.fromValues(parsed.password, parsed.userId, parsed.userIndex);
+};
+DocumentPassword.prototype.fromValues = function(password, userId, userIndex){
+  if(null !== password){
+    this.password = password;
+  }
+  if(null !== userId){
+    this.userId = userId;
+  }
+  if(null !== userIndex){
+    this.userIndex = userIndex;
+  }
+};
+DocumentPassword.prototype.delimiter = String.fromCharCode(5);
+DocumentPassword.prototype.toSQLInsert = function(){
+  return this.delimiter + JSON.stringify(this);
+};
+DocumentPassword.prototype.isInitial = function(){
+  return !this.userId;
+};
+DocumentPassword.prototype.getDocPassword = function(docId, docPasswordStr) {
+  let res = {initial: undefined, current: undefined, userId: undefined, userIndex: undefined};
+  if (docPasswordStr) {
+    logger.debug("getDocPassword: docId = %s passwords = %s", docId, docPasswordStr);
+    let passwords = docPasswordStr.split(UserCallback.prototype.delimiter);
+
+    for (let i = 1; i < passwords.length; ++i) {
+      let password = new DocumentPassword();
+      password.fromString(passwords[i]);
+      if (password.isInitial()) {
+        res.initial = password.password;
+      }
+      res.current = password.password;
+      res.userId = password.userId;
+      res.userIndex = password.userIndex;
+    }
+  }
+  return res;
+};
+DocumentPassword.prototype.getCurPassword = function(docId, docPasswordStr) {
+  let docPassword = this.getDocPassword(docId, docPasswordStr);
+  return docPassword.current;
+};
+DocumentPassword.prototype.hasPasswordChanges = function(docId, docPasswordStr) {
+  let docPassword = this.getDocPassword(docId, docPasswordStr);
+  return docPassword.initial !== docPassword.current;
+};
+exports.DocumentPassword = DocumentPassword;
