@@ -102,8 +102,8 @@ var checkDocumentExpire = function() {
         for (var i = 0; i < expiredKeys.length; ++i) {
           var docId = expiredKeys[i];
           if (docId) {
-            var puckerIndex = yield docsCoServer.getChangesIndexPromise(docId);
-            if (puckerIndex > 0) {
+            var hasChanges = yield docsCoServer.hasChanges(docId);
+            if (hasChanges) {
               yield docsCoServer.createSaveTimerPromise(docId, null, null, queue, true);
               startSaveCount++;
             } else {

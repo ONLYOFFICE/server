@@ -457,8 +457,10 @@ function* processChanges(tempDirs, cmd, authorProps) {
     changesAuthor = forceSave.getAuthorUserId();
     changesIndex = forceSave.getAuthorUserIndex();
   }
-  cmd.setUserId(changesAuthor);
-  cmd.setUserIndex(changesIndex);
+  if (null != changesAuthor && null != changesIndex) {
+    cmd.setUserId(changesAuthor);
+    cmd.setUserIndex(changesIndex);
+  }
   fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
   return res;
 }
