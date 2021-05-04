@@ -709,6 +709,7 @@ function* getChangesIndex(docId) {
 }
 
 const hasChanges = co.wrap(function*(docId) {
+  //todo check editorData.getForceSave in case of "undo all changes"
   let puckerIndex = yield* getChangesIndex(docId);
   if (0 === puckerIndex) {
     let selectRes = yield taskResult.select(docId);
@@ -779,7 +780,7 @@ let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, op
       priority = constants.QUEUE_PRIORITY_LOW;
     }
     //start new convert
-    let status = yield* converterService.convertFromChanges(docId, baseUrl, forceSave, opt_userdata,
+    let status = yield* converterService.convertFromChanges(docId, baseUrl, forceSave, startedForceSave.changeInfo, opt_userdata,
                                                             opt_userConnectionId, opt_responseKey, priority, expiration, opt_queue);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
@@ -793,10 +794,13 @@ let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, op
   logger.debug('startForceSave end:docId = %s', docId);
   return res;
 });
-let resetForceSaveAfterChanges = co.wrap(function*(docId, newChangesLastTime, puckerIndex, baseUrl) {
+function getExternalChangeInfo(user, date) {
+  return {user_id: user.id, user_id_original: user.idOriginal, user_name: user.username, change_date: date};
+}
+let resetForceSaveAfterChanges = co.wrap(function*(docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
   //last save
   if (newChangesLastTime) {
-    yield editorData.setForceSave(docId, newChangesLastTime, puckerIndex, baseUrl);
+    yield editorData.setForceSave(docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo);
     if (cfgForceSaveEnable) {
       let expireAt = newChangesLastTime + cfgForceSaveInterval;
       yield editorData.addForceSaveTimerNX(docId, expireAt);
@@ -1026,6 +1030,7 @@ function* cleanDocumentOnExit(docId, deleteChanges) {
   yield editorData.cleanDocumentOnExit(docId);
   //remove changes
   if (deleteChanges) {
+    yield taskResult.restoreInitialPassword(docId);
     sqlBase.deleteChanges(docId, null);
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(cfgForgottenFiles + '/' + docId);
@@ -1208,6 +1213,7 @@ exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChang
 exports.setForceSave = setForceSave;
 exports.startForceSave = startForceSave;
 exports.resetForceSaveAfterChanges = resetForceSaveAfterChanges;
+exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
@@ -2561,7 +2567,8 @@ exports.install = function(server, callbackFunction) {
       // Автоматически снимаем lock сами и посылаем индекс для сохранения
       yield* unSaveLock(conn, changesIndex, newChangesLastTime);
       //last save
-      yield resetForceSaveAfterChanges(docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn));
+      let changeInfo = getExternalChangeInfo(conn.user, newChangesLastTime);
+      yield resetForceSaveAfterChanges(docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
       let changesToSend = arrNewDocumentChanges;
       if(changesToSend.length > cfgPubSubMaxChanges) {

@@ -162,9 +162,9 @@ EditorData.prototype.getdelSaved = function(docId) {
   data.saved = undefined;
   return Promise.resolve(res);
 };
-EditorData.prototype.setForceSave = function(docId, time, index, baseUrl) {
+EditorData.prototype.setForceSave = function(docId, time, index, baseUrl, changeInfo) {
   let data = this._getDocumentData(docId);
-  data.forceSave = {time: time, index: index, baseUrl: baseUrl, started: false, ended: false};
+  data.forceSave = {time: time, index: index, baseUrl: baseUrl, changeInfo: changeInfo, started: false, ended: false};
   return Promise.resolve();
 };
 EditorData.prototype.getForceSave = function(docId) {

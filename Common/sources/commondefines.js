@@ -37,6 +37,7 @@ const constants = require('./constants');
 function InputCommand(data, copyExplicit) {
   //must be set explicitly to prevent vulnerability(downloadAs(with url) creates request to integrator with authorization)
   this['withAuthorization'] = undefined;//bool
+  this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
   if (data) {
     this['c'] = data['c'];
     this['id'] = data['id'];
@@ -100,6 +101,7 @@ function InputCommand(data, copyExplicit) {
     this['attempt'] = data['attempt'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
+      this['externalChangeInfo'] = data['externalChangeInfo'];
     }
   } else {
     this['c'] = undefined;//string command
@@ -438,6 +440,12 @@ InputCommand.prototype = {
   },
   setWithAuthorization: function(data) {
     this['withAuthorization'] = data;
+  },
+  getExternalChangeInfo: function() {
+    return this['externalChangeInfo'];
+  },
+  setExternalChangeInfo: function(data) {
+    this['externalChangeInfo'] = data;
   }
 };
 
