@@ -407,11 +407,28 @@ function* processChanges(tempDirs, cmd, authorProps) {
     forceSaveTime = forceSave.getTime();
     forceSaveIndex = forceSave.getIndex();
   }
+  let extChangeInfo = cmd.getExternalChangeInfo();
+  let extChanges;
+  if (extChangeInfo) {
+    extChanges = [{
+      id: cmd.getDocId(), change_id: 0, change_data: "", user_id: extChangeInfo.user_id,
+      user_id_original: extChangeInfo.user_id_original, user_name: extChangeInfo.user_name,
+      change_date: new Date(extChangeInfo.change_date)
+    }];
+  }
+
   let streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
   let curIndexStart = 0;
   let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
-  while (curIndexStart < curIndexEnd) {
-    let changes = yield baseConnector.getChangesPromise(cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+  while (curIndexStart < curIndexEnd || extChanges) {
+    let changes = [];
+    if (curIndexStart < curIndexEnd) {
+      changes = yield baseConnector.getChangesPromise(cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+    }
+    if (0 === changes.length && extChanges) {
+      changes = extChanges;
+    }
+    extChanges = undefined;
     for (let i = 0; i < changes.length; ++i) {
       let change = changes[i];
       if (change.change_data.startsWith('ENCRYPTED;')) {
@@ -457,10 +474,8 @@ function* processChanges(tempDirs, cmd, authorProps) {
     changesAuthor = forceSave.getAuthorUserId();
     changesIndex = forceSave.getAuthorUserIndex();
   }
-  if (null != changesAuthor && null != changesIndex) {
-    cmd.setUserId(changesAuthor);
-    cmd.setUserIndex(changesIndex);
-  }
+  cmd.setUserId(changesAuthor);
+  cmd.setUserIndex(changesIndex);
   fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
   return res;
 }

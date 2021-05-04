@@ -505,9 +505,8 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   let docPassword = row && sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), row.password);
   if (docPassword.current) {
     cmd.setSavePassword(docPassword.current);
-    if (docPassword.userId) {
-      cmd.setUserId(docPassword.userId);
-      cmd.setUserIndex(docPassword.userIndex);
+    if (docPassword.change) {
+      cmd.setExternalChangeInfo(docPassword.change);
     }
   }
   var queueData = getSaveTask(cmd);
@@ -714,12 +713,15 @@ function* commandSetPassword(conn, cmd, outputData) {
     updateMask.key = cmd.getDocId();
     updateMask.status = taskResult.FileStatus.Ok;
 
+    let newChangesLastDate = new Date();
+    newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
+
     var task = new taskResult.TaskResultData();
     task.key = cmd.getDocId();
     task.password = cmd.getPassword() || "";
+    let changeInfo = null;
     if (conn.user) {
-      task.innerUserId = conn.user.idOriginal;
-      task.innerUserIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
+      changeInfo = task.innerPasswordChange = docsCoServer.getExternalChangeInfo(conn.user, newChangesLastDate.getTime());
     }
 
     var upsertRes = yield taskResult.updateIf(task, updateMask);
@@ -728,9 +730,7 @@ function* commandSetPassword(conn, cmd, outputData) {
       if (!conn.isEnterCorrectPassword) {
         docsCoServer.modifyConnectionForPassword(conn, true);
       }
-      let newChangesLastDate = new Date();
-      newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
-      yield docsCoServer.resetForceSaveAfterChanges(cmd.getDocId(), newChangesLastDate.getTime(), 0x7FFFFFFF, utils.getBaseUrlByConnection(conn));
+      yield docsCoServer.resetForceSaveAfterChanges(cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
       logger.debug('commandSetPassword sql update error: docId = %s', cmd.getDocId());
       outputData.setStatus('err');
@@ -1305,9 +1305,8 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         let docPassword = row && sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), row.password);
         if (docPassword.current) {
           cmd.setSavePassword(docPassword.current);
-          if (docPassword.userId) {
-            cmd.setUserId(docPassword.userId);
-            cmd.setUserIndex(docPassword.userIndex);
+          if (docPassword.change) {
+            cmd.setExternalChangeInfo(docPassword.change);
           }
         }
         yield* addRandomKeyTaskCmd(cmd);
