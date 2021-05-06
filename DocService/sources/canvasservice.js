@@ -139,7 +139,7 @@ function* getOutputData(cmd, outputData, key, optConn, optAdditionalOutput, opt_
     let row = selectRes[0];
     status = row.status;
     statusInfo = row.status_info;
-    password = row.password;
+    password = sqlBase.DocumentPassword.prototype.getCurPassword(key, row.password);
     creationDate = row.created_at && row.created_at.getTime();
   }
   switch (status) {
@@ -425,7 +425,7 @@ function* commandReopen(conn, cmd, outputData) {
     let selectRes = yield taskResult.select(cmd.getDocId());
     if (selectRes.length > 0) {
       let row = selectRes[0];
-      if (row.password) {
+      if (sqlBase.DocumentPassword.prototype.getCurPassword(cmd.getDocId(), row.password)) {
         logger.debug('commandReopen has password: docId = %s', cmd.getDocId());
         yield* commandOpenFillOutput(conn, cmd, outputData, false);
         docsCoServer.modifyConnectionForPassword(conn, constants.FILE_STATUS_OK === outputData.getStatus());
@@ -510,8 +510,12 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   yield* addRandomKeyTaskCmd(cmd);
   var selectRes = yield taskResult.select(cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
-  if (row && row.password) {
-    cmd.setSavePassword(row.password);
+  let docPassword = row && sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), row.password);
+  if (docPassword.current) {
+    cmd.setSavePassword(docPassword.current);
+    if (docPassword.change) {
+      cmd.setExternalChangeInfo(docPassword.change);
+    }
   }
   if (cfgAssemblyFormatAsOrigin && row && row.change_id && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== row.change_id) {
     cmd.setOutputFormat(row.change_id);
@@ -711,7 +715,7 @@ function* commandSetPassword(conn, cmd, outputData) {
   if (selectRes.length > 0) {
     let row = selectRes[0];
     hasPasswordCol = undefined !== row.password;
-    if (taskResult.FileStatus.Ok === row.status && row.password) {
+    if (taskResult.FileStatus.Ok === row.status && sqlBase.DocumentPassword.prototype.getCurPassword(cmd.getDocId(), row.password)) {
       hasDocumentPassword = true;
     }
   }
@@ -721,9 +725,16 @@ function* commandSetPassword(conn, cmd, outputData) {
     updateMask.key = cmd.getDocId();
     updateMask.status = taskResult.FileStatus.Ok;
 
+    let newChangesLastDate = new Date();
+    newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
+
     var task = new taskResult.TaskResultData();
     task.key = cmd.getDocId();
     task.password = cmd.getPassword() || "";
+    let changeInfo = null;
+    if (conn.user) {
+      changeInfo = task.innerPasswordChange = docsCoServer.getExternalChangeInfo(conn.user, newChangesLastDate.getTime());
+    }
 
     var upsertRes = yield taskResult.updateIf(task, updateMask);
     if (upsertRes.affectedRows > 0) {
@@ -731,6 +742,7 @@ function* commandSetPassword(conn, cmd, outputData) {
       if (!conn.isEnterCorrectPassword) {
         docsCoServer.modifyConnectionForPassword(conn, true);
       }
+      yield docsCoServer.resetForceSaveAfterChanges(cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
       logger.debug('commandSetPassword sql update error: docId = %s', cmd.getDocId());
       outputData.setStatus('err');
@@ -836,7 +848,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     } else {
       isError = true;
     }
-    if (uri && baseUrl) {
+    if (uri && baseUrl && userLastChangeId) {
       logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, uri);
       var outputSfc = new commonDefines.OutputSfcData();
       outputSfc.setKey(docId);
@@ -984,7 +996,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         }
       }
     } else {
-      logger.warn('Empty Callback commandSfcCallback: docId = %s', docId);
+      logger.warn('Empty Callback or userLastChangeId=%s commandSfcCallback: docId = %s', userLastChangeId, docId);
       storeForgotten = true;
     }
     if (undefined !== updateIfTask && !isSfcm) {
@@ -1202,8 +1214,9 @@ exports.downloadAs = function(req, res) {
       }
       var selectRes = yield taskResult.select(docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row && row.password) {
-        cmd.setSavePassword(row.password);
+      let password = row && sqlBase.DocumentPassword.prototype.getCurPassword(cmd.getDocId(), row.password);
+      if (password && !cmd.getWithoutPassword()) {
+        cmd.setSavePassword(password);
       }
       cmd.setData(req.body);
       var outputData = new OutputData(cmd.getCommand());
@@ -1323,8 +1336,12 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         cmd.setStatusInfoIn(statusInfo);
         cmd.setUserActionId(opt_userId);
         cmd.setUserActionIndex(opt_userIndex);
-        if (row.password) {
-          cmd.setSavePassword(row.password);
+        let docPassword = row && sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), row.password);
+        if (docPassword.current) {
+          cmd.setSavePassword(docPassword.current);
+          if (docPassword.change) {
+            cmd.setExternalChangeInfo(docPassword.change);
+          }
         }
         yield* addRandomKeyTaskCmd(cmd);
         var queueData = getSaveTask(cmd);

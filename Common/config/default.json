@@ -277,6 +277,7 @@
 			"x2tPath": "null",
 			"docbuilderPath": "null",
 			"docbuilderAllFontsPath": "null",
+			"docbuilderCoreFontsPath": "",
 			"args": "",
 			"spawnOptions": {},
 			"errorfiles": "",

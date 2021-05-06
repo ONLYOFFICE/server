@@ -451,7 +451,7 @@ function removePresence(conn) {
 }
 
 let changeConnectionInfo = co.wrap(function*(conn, cmd) {
-  if (conn.canChangeName && conn.user) {
+  if (!conn.denyChangeName && conn.user) {
     yield* publish({type: commonDefines.c_oPublishType.changeConnecitonInfo, docId: conn.docId, useridoriginal: conn.user.idOriginal, cmd: cmd});
     return true;
   }
@@ -477,7 +477,7 @@ function fillJwtByConnection(conn) {
   edit.ds_view = conn.user.view;
   edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
   edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
-  edit.ds_canChangeName = conn.canChangeName;
+  edit.ds_denyChangeName = conn.denyChangeName;
 
   var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
   var secret = utils.getSecretByElem(cfgSecretSession);
@@ -710,6 +710,19 @@ function* getChangesIndex(docId) {
   }
   return res;
 }
+
+const hasChanges = co.wrap(function*(docId) {
+  //todo check editorData.getForceSave in case of "undo all changes"
+  let puckerIndex = yield* getChangesIndex(docId);
+  if (0 === puckerIndex) {
+    let selectRes = yield taskResult.select(docId);
+    if (selectRes.length > 0 && selectRes[0].password) {
+      return sqlBase.DocumentPassword.prototype.hasPasswordChanges(docId, selectRes[0].password);
+    }
+    return false;
+  }
+  return true;
+});
 function* setForceSave(docId, forceSave, cmd, success) {
   let forceSaveType = forceSave.getType();
   if (commonDefines.c_oAscForceSaveTypes.Form !== forceSaveType) {
@@ -770,7 +783,7 @@ let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, op
       priority = constants.QUEUE_PRIORITY_LOW;
     }
     //start new convert
-    let status = yield* converterService.convertFromChanges(docId, baseUrl, forceSave, opt_userdata,
+    let status = yield* converterService.convertFromChanges(docId, baseUrl, forceSave, startedForceSave.changeInfo, opt_userdata,
                                                             opt_userConnectionId, opt_responseKey, priority, expiration, opt_queue);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
@@ -783,6 +796,19 @@ let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, op
   }
   logger.debug('startForceSave end:docId = %s', docId);
   return res;
+});
+function getExternalChangeInfo(user, date) {
+  return {user_id: user.id, user_id_original: user.idOriginal, user_name: user.username, change_date: date};
+}
+let resetForceSaveAfterChanges = co.wrap(function*(docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
+  //last save
+  if (newChangesLastTime) {
+    yield editorData.setForceSave(docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo);
+    if (cfgForceSaveEnable) {
+      let expireAt = newChangesLastTime + cfgForceSaveInterval;
+      yield editorData.addForceSaveTimerNX(docId, expireAt);
+    }
+  }
 });
 function* startRPC(conn, responseKey, data) {
   let docId = conn.docId;
@@ -863,8 +889,8 @@ function* sendStatusDocument(docId, bChangeBase, opt_userAction, opt_userIndex, 
   var status = c_oAscServerStatus.Editing;
   var participants = yield* getOriginalParticipantsId(docId);
   if (0 === participants.length) {
-    var puckerIndex = yield* getChangesIndex(docId);
-    if (!(puckerIndex > 0) || opt_forceClose) {
+    let bHasChanges = yield hasChanges(docId);
+    if (!bHasChanges || opt_forceClose) {
       status = c_oAscServerStatus.Closed;
     }
   }
@@ -1011,6 +1037,7 @@ function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
   yield editorData.cleanDocumentOnExit(docId);
   //remove changes
   if (deleteChanges) {
+    yield taskResult.restoreInitialPassword(docId);
     sqlBase.deleteChanges(docId, null);
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(cfgForgottenFiles + '/' + docId);
@@ -1192,11 +1219,13 @@ exports.hasEditors = hasEditors;
 exports.getEditorsCountPromise = co.wrap(getEditorsCount);
 exports.getCallback = getCallback;
 exports.getIsShutdown = getIsShutdown;
-exports.getChangesIndexPromise = co.wrap(getChangesIndex);
+exports.hasChanges = hasChanges;
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
 exports.setForceSave = setForceSave;
 exports.startForceSave = startForceSave;
+exports.resetForceSaveAfterChanges = resetForceSaveAfterChanges;
+exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
@@ -1411,8 +1440,7 @@ exports.install = function(server, callbackFunction) {
       // Только если редактируем
       if (false === isView) {
         bHasEditors = yield* hasEditors(docId, hvals);
-        var puckerIndex = yield* getChangesIndex(docId);
-        bHasChanges = puckerIndex > 0;
+        bHasChanges = yield hasChanges(docId);
 
         let needSendStatus = true;
         if (conn.encrypted) {
@@ -1877,7 +1905,7 @@ exports.install = function(server, callbackFunction) {
         data.isCloseCoAuthoring = edit.ds_isCloseCoAuthoring;
       }
       data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
-      data.canChangeName = edit.ds_canChangeName;
+      data.denyChangeName = edit.ds_denyChangeName;
       if (edit.user) {
         var dataUser = data.user;
         var user = edit.user;
@@ -1896,12 +1924,12 @@ exports.install = function(server, callbackFunction) {
         if (null != user.lastname) {
           dataUser.lastname = user.lastname;
         }
-        if (null != user.name) {
+        if (user.name) {
           dataUser.username = user.name;
         }
       }
-      if (!(edit.user && edit.user.name)) {
-        data.canChangeName = true;
+      if (edit.user && edit.user.name) {
+        data.denyChangeName = true;
       }
     }
 
@@ -2004,7 +2032,7 @@ exports.install = function(server, callbackFunction) {
       };
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
       conn.isEnterCorrectPassword = data.isEnterCorrectPassword;
-      conn.canChangeName = data.canChangeName;
+      conn.denyChangeName = data.denyChangeName;
       conn.editorType = data['editorType'];
       if (data.sessionTimeConnect) {
         conn.sessionTimeConnect = data.sessionTimeConnect;
@@ -2559,13 +2587,8 @@ exports.install = function(server, callbackFunction) {
       // Автоматически снимаем lock сами и посылаем индекс для сохранения
       yield* unSaveLock(conn, changesIndex, newChangesLastTime);
       //last save
-      if (newChangesLastTime) {
-        yield editorData.setForceSave(docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn));
-        if (cfgForceSaveEnable) {
-          let expireAt = newChangesLastTime + cfgForceSaveInterval;
-          yield editorData.addForceSaveTimerNX(docId, expireAt);
-        }
-      }
+      let changeInfo = getExternalChangeInfo(conn.user, newChangesLastTime);
+      yield resetForceSaveAfterChanges(docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
       let changesToSend = arrNewDocumentChanges;
       if(changesToSend.length > cfgPubSubMaxChanges) {
@@ -2972,7 +2995,7 @@ exports.install = function(server, callbackFunction) {
             participants = getParticipants(data.docId);
             for (i = 0; i < participants.length; ++i) {
               participant = participants[i];
-              if (participant.canChangeName && participant.user.idOriginal === data.useridoriginal) {
+              if (!participant.denyChangeName && participant.user.idOriginal === data.useridoriginal) {
                 hasChanges = true;
                 logger.debug('changeConnectionInfo: docId = %s, userId = %s', data.docId, data.useridoriginal);
                 participant.user.username = cmd.getUserName();

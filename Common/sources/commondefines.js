@@ -37,6 +37,7 @@ const constants = require('./constants');
 function InputCommand(data, copyExplicit) {
   //must be set explicitly to prevent vulnerability(downloadAs(with url) creates request to integrator with authorization)
   this['withAuthorization'] = undefined;//bool
+  this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
   this['wopiParams'] = undefined;
   if (data) {
     this['c'] = data['c'];
@@ -89,6 +90,7 @@ function InputCommand(data, copyExplicit) {
     this['inline'] = data['inline'];
     this['password'] = data['password'];
     this['savepassword'] = data['savepassword'];
+    this['withoutPassword'] = data['withoutPassword'];
     this['outputurls'] = data['outputurls'];
     this['closeonerror'] = data['closeonerror'];
     this['serverVersion'] = data['serverVersion'];
@@ -100,6 +102,7 @@ function InputCommand(data, copyExplicit) {
     this['attempt'] = data['attempt'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
+      this['externalChangeInfo'] = data['externalChangeInfo'];
       this['wopiParams'] = data['wopiParams'];
     }
   } else {
@@ -145,6 +148,7 @@ function InputCommand(data, copyExplicit) {
     this['inline'] = undefined;//content disposition
     this['password'] = undefined;
     this['savepassword'] = undefined;
+    this['withoutPassword'] = undefined;
     this['outputurls'] = undefined;
     this['closeonerror'] = undefined;
     this['serverVersion'] = undefined;
@@ -379,6 +383,12 @@ InputCommand.prototype = {
   setSavePassword: function(data) {
     this['savepassword'] = data;
   },
+  getWithoutPassword: function() {
+    return this['withoutPassword'];
+  },
+  setWithoutPassword: function(data) {
+    this['withoutPassword'] = data;
+  },
   setOutputUrls: function(data) {
     this['outputurls'] = data;
   },
@@ -432,6 +442,12 @@ InputCommand.prototype = {
   },
   setWithAuthorization: function(data) {
     this['withAuthorization'] = data;
+  },
+  getExternalChangeInfo: function() {
+    return this['externalChangeInfo'];
+  },
+  setExternalChangeInfo: function(data) {
+    this['externalChangeInfo'] = data;
   },
   getWopiParams: function() {
     return this['wopiParams'];
