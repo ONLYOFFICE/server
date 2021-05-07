@@ -37,9 +37,11 @@ const crypto = require('crypto');
 const co = require('co');
 const jwt = require('jsonwebtoken');
 const config = require('config');
+const utf7 = require('utf7');
 const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
+const commonDefines = require('./../../Common/sources/commondefines');
 const sqlBase = require('./baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
@@ -178,14 +180,8 @@ function getEditorHtml(req, res) {
           mode = 'view';
           req.query['mode'] = mode;
         }
-        if (checkFileInfo.SHA256) {
-          docId = checkFileInfo.SHA256;
-        } else if (checkFileInfo.UniqueContentId) {
-          docId = checkFileInfo.UniqueContentId;
-        } else {
-          let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
-          docId = `${fileId}.${checkFileInfo.Version}`;
-        }
+        let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
+        docId = `${fileId}.${checkFileInfo.Version}`;
         docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
       }
       logger.debug(`wopiEditor docId=%s`, docId);
@@ -287,6 +283,41 @@ function putFile(wopiParams, data, userLastChangeId) {
     return '{"error": 0}';
   });
 }
+function renameFile(wopiParams, name) {
+  return co(function* () {
+    let res = true;
+    try {
+      logger.info('wopi RenameFile start');
+      let fileInfo = wopiParams.commonInfo.fileInfo;
+
+      if (fileInfo && fileInfo.SupportsRename) {
+        let fileNameMaxLength = fileInfo.FileNameMaxLength || 255;
+        name = name.substring(0, fileNameMaxLength);
+        let commonInfo = wopiParams.commonInfo;
+        let userAuth = wopiParams.userAuth;
+        let uri = `${userAuth.wopiSrc}?access_token=${userAuth.access_token}`;
+
+        let headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
+        fillStandardHeaders(headers, uri, userAuth.access_token);
+
+        logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        logger.debug('wopi RenameFile response headers=%j', postRes.response.headers);
+      } else {
+        logger.info('wopi SupportsRename = false');
+      }
+    } catch (err) {
+      if (err.response) {
+        logger.error('wopi error RenameFile statusCode=%s headers=%j', err.response.statusCode, err.response.headers);
+      }
+      logger.error('wopi error RenameFile:%s', err.stack);
+      res = false;
+    } finally {
+      logger.info('wopi RenameFile end');
+    }
+    return res;
+  });
+}
 function unlock(wopiParams) {
   return co(function* () {
     try {
@@ -354,6 +385,10 @@ function fillStandardHeaders(headers, url, access_token) {
     headers['X-WOPI-Proof'] = generateProof(url, access_token, timeStamp);
     headers['X-WOPI-ProofOld'] = generateProof(url, access_token, timeStamp);
     headers['X-WOPI-TimeStamp'] = timeStamp;
+    headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
+    // todo
+    // headers['X-WOPI-CorrelationId '] = "";
+    // headers['X-WOPI-SessionId'] = "";
   }
   headers['Authorization'] = `Bearer ${access_token}`;
 }
@@ -362,6 +397,7 @@ exports.discovery = discovery;
 exports.parseWopiCallback = parseWopiCallback;
 exports.getEditorHtml = getEditorHtml;
 exports.putFile = putFile;
+exports.renameFile = renameFile;
 exports.unlock = unlock;
 exports.generateProof = generateProof;
 exports.generateProofOld = generateProofOld;
