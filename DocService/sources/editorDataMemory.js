@@ -226,12 +226,15 @@ EditorData.prototype.addPresenceUniqueUser = function(userId, expireAt) {
   this.uniqueUser[userId] = expireAt;
   return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
+EditorData.prototype.getPresenceUniqueUser = function(nowUTC, opt_scores) {
   let res = [];
   for (let userId in this.uniqueUser) {
     if (this.uniqueUser.hasOwnProperty(userId)) {
       if (this.uniqueUser[userId] > nowUTC) {
         res.push(userId);
+        if(opt_scores) {
+          opt_scores.push(this.uniqueUser[userId]);
+        }
       } else {
         delete this.uniqueUser[userId];
       }
