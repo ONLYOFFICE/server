@@ -37,6 +37,7 @@ const constants = require('./constants');
 function InputCommand(data, copyExplicit) {
   //must be set explicitly to prevent vulnerability(downloadAs(with url) creates request to integrator with authorization)
   this['withAuthorization'] = undefined;//bool
+  this['isbuilder'] = undefined;//bool
   this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
   if (data) {
     this['c'] = data['c'];
@@ -96,11 +97,11 @@ function InputCommand(data, copyExplicit) {
     this['rediskey'] = data['rediskey'];
     this['nobase64'] = data['nobase64'];
     this['forgotten'] = data['forgotten'];
-    this['isbuilder'] = data['isbuilder'];
     this['status_info_in'] = data['status_info_in'];
     this['attempt'] = data['attempt'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
+      this['isbuilder'] = data['isbuilder'];
       this['externalChangeInfo'] = data['externalChangeInfo'];
     }
   } else {
@@ -153,7 +154,6 @@ function InputCommand(data, copyExplicit) {
     this['rediskey'] = undefined;
     this['nobase64'] = true;
     this['forgotten'] = undefined;
-    this['isbuilder'] = undefined;
     this['status_info_in'] = undefined;
     this['attempt'] = undefined;
   }
