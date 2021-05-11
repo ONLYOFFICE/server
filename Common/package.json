@@ -23,6 +23,7 @@
     "node-statsd": "^0.1.1",
     "openpgp": "^4.10.8",
     "request": "^2.88.0",
+    "request-filtering-agent": "^1.0.5",
     "rhea": "^0.3.9",
     "uri-js": "^4.2.2",
     "win-ca": "^3.4.5"
