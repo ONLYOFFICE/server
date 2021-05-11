@@ -149,6 +149,7 @@ function getEditorHtml(req, res) {
       let wopiSrc = req.query['wopisrc'];
       let mode = req.query['mode'];
       let sc = req.query['sc'];
+      let hostSessionId = req.query['hid'];
       let access_token = req.body['access_token'];
       let access_token_ttl = req.body['access_token_ttl'];
 
@@ -185,6 +186,7 @@ function getEditorHtml(req, res) {
         docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
       }
       logger.debug(`wopiEditor docId=%s`, docId);
+      let userSessionId = docId;
 
       //check current lock info
       let lockId = undefined;
@@ -231,7 +233,10 @@ function getEditorHtml(req, res) {
             delete checkFileInfo[i];
           }
         }
-        let userAuth = {wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl};
+        let userAuth = {
+          wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl,
+          hostSessionId: hostSessionId, userSessionId: userSessionId
+        };
         let params = {key: docId, fileInfo: checkFileInfo, userAuth: userAuth, queryParams: req.query, token: undefined};
         if (cfgTokenEnableBrowser) {
           let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
@@ -307,9 +312,6 @@ function renameFile(wopiParams, name) {
         logger.info('wopi SupportsRename = false');
       }
     } catch (err) {
-      if (err.response) {
-        logger.error('wopi error RenameFile statusCode=%s headers=%j', err.response.statusCode, err.response.headers);
-      }
       logger.error('wopi error RenameFile:%s', err.stack);
       res = false;
     } finally {

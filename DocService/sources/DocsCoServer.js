@@ -830,7 +830,10 @@ function* startRPC(conn, responseKey, data) {
           let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
           let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, userIndex);
           let wopiParams = wopiClient.parseWopiCallback(docId, uri, row.callback);
-          let renameRes = yield wopiClient.renameFile(wopiParams, data.name);
+          let renameRes = false;
+          if (wopiParams) {
+            renameRes = yield wopiClient.renameFile(wopiParams, data.name);
+          }
           sendDataRpc(conn, responseKey, renameRes);
         }
       } else {
