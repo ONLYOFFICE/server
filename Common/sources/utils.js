@@ -269,7 +269,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_he
   const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
   var redirectsFollowed = 0;
   let doRequest = function(curUrl) {
-    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, filterPrivate)
+    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, filterPrivate, opt_headers)
       .catch(function(err) {
         let response = err.response;
         if (response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location')) {
@@ -289,7 +289,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_he
   };
   return doRequest(uri);
 }
-function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate) {
+function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
