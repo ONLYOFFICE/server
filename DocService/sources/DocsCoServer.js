@@ -90,6 +90,7 @@ const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const statsDClient = require('./../../Common/sources/statsdclient');
+const license = require('./../../Common/sources/license');
 const configCommon = require('config');
 const config = configCommon.get('services.CoAuthoring');
 const sqlBase = require('./baseConnector');
@@ -3224,9 +3225,7 @@ exports.licenseInfo = function(req, res) {
   });
 };
 let commandLicense = co.wrap(function*() {
-  let res = {license: {}, server: null, quota: {}};
-  Object.assign(res.license, licenseInfo);
-  res.server = {buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber};
+  let res = {license: license.convertToFileParams(licenseInfo), server: license.convertToServerParams(licenseInfo), quota: {}};
   const nowUTC = getLicenseNowUtc();
   let scores = [];
   let execRes = yield editorData.getPresenceUniqueUser(nowUTC, scores);
@@ -3252,7 +3251,7 @@ exports.commandFromServer = function (req, res) {
       }
       // Ключ id-документа
       docId = params.key;
-      if (commonDefines.c_oAscServerCommandErrors.NoError === result && null == docId && 'version' != params.c && 'license' != params.c) {
+      if (commonDefines.c_oAscServerCommandErrors.NoError === result && null == docId && 'version' !== params.c && 'license' !== params.c) {
         result = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
       } else if(commonDefines.c_oAscServerCommandErrors.NoError === result) {
         logger.debug('Start commandFromServer: docId = %s c = %s', docId, params.c);
