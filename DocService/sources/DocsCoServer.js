@@ -78,7 +78,6 @@ const url = require('url');
 const os = require('os');
 const cluster = require('cluster');
 const crypto = require('crypto');
-const cron = require('cron');
 const co = require('co');
 const jwt = require('jsonwebtoken');
 const jwa = require('jwa');
@@ -165,6 +164,7 @@ let pubsub;
 let queue;
 let licenseInfo = {type: constants.LICENSE_RESULT.Error, light: false, branding: false, customization: false, plugins: false};
 let shutdownFlag = false;
+let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
 const MIN_SAVE_EXPIRATION = 60000;
 const FORCE_SAVE_EXPIRATION = Math.min(Math.max(cfgForceSaveInterval, MIN_SAVE_EXPIRATION),
@@ -3011,15 +3011,13 @@ exports.install = function(server, callbackFunction) {
     yield editorData.setEditorConnections(countEdit, countView, now, PRECISION);
   }
   function expireDoc() {
-    var cronJob = this;
     return co(function* () {
       try {
         var countEditByShard = 0;
         var countViewByShard = 0;
         logger.debug('expireDoc connections.length = %d', connections.length);
         var nowMs = new Date().getTime();
-        var nextMs = cronJob.nextDate();
-        var maxMs = Math.max(nowMs + cfgExpSessionCloseCommand, nextMs);
+        var maxMs = nowMs + Math.max(cfgExpSessionCloseCommand, expDocumentsStep);
         for (var i = 0; i < connections.length; ++i) {
           var conn = connections[i];
           if (cfgExpSessionAbsolute > 0) {
@@ -3068,16 +3066,12 @@ exports.install = function(server, callbackFunction) {
         }
       } catch (err) {
         logger.error('expireDoc error:\r\n%s', err.stack);
+      } finally {
+        setTimeout(expireDoc, expDocumentsStep);
       }
     });
   }
-  var innerPingJob = function(opt_isStart) {
-    if (!opt_isStart) {
-      logger.warn('expireDoc restart');
-    }
-    new cron.CronJob(cfgExpDocumentsCron, expireDoc, innerPingJob, true);
-  };
-  innerPingJob(true);
+  setTimeout(expireDoc, expDocumentsStep);
 
   pubsub = new pubsubService();
   pubsub.on('message', pubsubOnMessage);
