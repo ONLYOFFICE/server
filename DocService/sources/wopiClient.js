@@ -290,7 +290,7 @@ function putFile(wopiParams, data, userLastChangeId) {
 }
 function renameFile(wopiParams, name) {
   return co(function* () {
-    let res = true;
+    let res;
     try {
       logger.info('wopi RenameFile start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
@@ -307,13 +307,13 @@ function renameFile(wopiParams, name) {
 
         logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(uri, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        res = JSON.parse(postRes.body);
         logger.debug('wopi RenameFile response headers=%j', postRes.response.headers);
       } else {
         logger.info('wopi SupportsRename = false');
       }
     } catch (err) {
       logger.error('wopi error RenameFile:%s', err.stack);
-      res = false;
     } finally {
       logger.info('wopi RenameFile end');
     }

@@ -824,6 +824,7 @@ function* startRPC(conn, responseKey, data) {
       }
       break;
     case 'wopi_RenameFile':
+      let renameRes;
       let selectRes = yield taskResult.select(docId);
       let row = selectRes.length > 0 ? selectRes[0] : null;
       if (row) {
@@ -831,15 +832,12 @@ function* startRPC(conn, responseKey, data) {
           let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
           let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, userIndex);
           let wopiParams = wopiClient.parseWopiCallback(docId, uri, row.callback);
-          let renameRes = false;
           if (wopiParams) {
             renameRes = yield wopiClient.renameFile(wopiParams, data.name);
           }
-          sendDataRpc(conn, responseKey, renameRes);
         }
-      } else {
-        sendDataRpc(conn, responseKey);
       }
+      sendDataRpc(conn, responseKey, renameRes);
       break;
   }
   logger.debug('startRPC end:docId = %s', docId);
