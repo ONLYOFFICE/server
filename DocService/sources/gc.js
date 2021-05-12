@@ -47,7 +47,6 @@ var constants = require('./../../Common/sources/constants');
 var commondefines = require('./../../Common/sources/commondefines');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var pubsubService = require('./pubsubRabbitMQ');
-const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
 
 var cfgExpFilesCron = config.get('expire.filesCron');
 var cfgExpDocumentsCron = config.get('expire.documentsCron');
@@ -55,6 +54,14 @@ var cfgExpFiles = config.get('expire.files');
 var cfgExpFilesRemovedAtOnce = config.get('expire.filesremovedatonce');
 var cfgForceSaveEnable = config.get('autoAssembly.enable');
 var cfgForceSaveStep = ms(config.get('autoAssembly.step'));
+
+function getCronStep(cronTime){
+  let cronJob = new cron.CronJob(cronTime, function(){});
+  let dates = cronJob.nextDates(2);
+  return dates[1] - dates[0];
+}
+let expFilesStep = getCronStep(cfgExpFilesCron);
+let expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
 var checkFileExpire = function() {
   return co(function* () {
@@ -83,6 +90,8 @@ var checkFileExpire = function() {
       logger.debug('checkFileExpire end: removedCount = %d', removedCount);
     } catch (e) {
       logger.error('checkFileExpire error:\r\n%s', e.stack);
+    } finally {
+      setTimeout(checkFileExpire, expFilesStep);
     }
   });
 };
@@ -124,6 +133,7 @@ var checkDocumentExpire = function() {
         logger.error('checkDocumentExpire error:\r\n%s', e.stack);
       }
       logger.debug('checkDocumentExpire end: startSaveCount = %d, removedCount = %d', startSaveCount, removedCount);
+      setTimeout(checkDocumentExpire, expDocumentsStep);
     }
   });
 };
@@ -172,24 +182,11 @@ let forceSaveTimeout = function() {
   });
 };
 
-var documentExpireJob = function(opt_isStart) {
-  if (!opt_isStart) {
-    logger.warn('checkDocumentExpire restart');
-  }
-  new cron.CronJob(cfgExpDocumentsCron, checkDocumentExpire, documentExpireJob, true);
-};
-
-var fileExpireJob = function(opt_isStart) {
-  if (!opt_isStart) {
-    logger.warn('checkFileExpire restart');
-  }
-  new cron.CronJob(cfgExpFilesCron, checkFileExpire, fileExpireJob, true);
-};
-
 exports.startGC = function() {
-  documentExpireJob(true);
-  fileExpireJob(true);
+  setTimeout(checkDocumentExpire, expDocumentsStep);
+  setTimeout(checkFileExpire, expFilesStep);
   if (cfgForceSaveEnable) {
     setTimeout(forceSaveTimeout, cfgForceSaveStep);
   }
 };
+exports.getCronStep = getCronStep;
