@@ -33,7 +33,6 @@
 'use strict';
 
 const constants = require('./constants');
-const commonDefines = require('./commonDefines');
 
 const buildDate = '6/29/2016';
 const oBuildDate = new Date(buildDate);
@@ -56,49 +55,6 @@ exports.readLicense = function*() {
 		buildDate: oBuildDate,
 		endDate: null
 	};
-};
-exports.convertToFileParams = function(licenseInfo) {
-	// todo
-	// {
-	// 	user_quota = 0;
-	// 	portal_count = 0;
-	// 	process = 2;
-	// 	ssbranding = false;
-	// 	whiteLabel = false;
-	// }
-	let license = {};
-	license.end_date = licenseInfo.endDate && licenseInfo.endDate.toJSON();
-	license.trial = constants.LICENSE_MODE.Trial === licenseInfo.mode;
-	license.developer = constants.LICENSE_MODE.Developer === licenseInfo.mode;
-	switch (licenseInfo.mode) {
-		case constants.LICENSE_MODE.Developer:
-			license.mode = 'developer';
-			break;
-		case constants.LICENSE_MODE.Trial:
-			license.mode = 'trial';
-			break;
-		default:
-			license.mode = '';
-			break;
-	}
-	license.light = licenseInfo.light;
-	license.branding = licenseInfo.branding;
-	license.customization = licenseInfo.customization;
-	license.plugins = licenseInfo.plugins;
-	license.connections = licenseInfo.connections;
-	license.users_count = licenseInfo.usersCount;
-	license.users_expire = licenseInfo.usersExpire / constants.LICENSE_EXPIRE_USERS_ONE_DAY;
-	return license;
-};
-exports.convertToServerParams = function(licenseInfo) {
-	let license = {};
-	license.workersCount = licenseInfo.count;
-	license.resultType = licenseInfo.type;
-	license.packageType = licenseInfo.packageType;
-	license.buildDate = licenseInfo.buildDate && licenseInfo.buildDate.toJSON();
-	license.buildVersion = commonDefines.buildVersion;
-	license.buildNumber = commonDefines.buildNumber;
-	return license;
 };
 
 exports.packageType = constants.PACKAGE_TYPE_OS;

@@ -3225,7 +3225,7 @@ exports.licenseInfo = function(req, res) {
   });
 };
 let commandLicense = co.wrap(function*() {
-  let res = {license: license.convertToFileParams(licenseInfo), server: license.convertToServerParams(licenseInfo), quota: {}};
+  let res = {license: utils.convertLicenseInfoToFileParams(licenseInfo), server: utils.convertLicenseInfoToServerParams(licenseInfo), quota: {}};
   const nowUTC = getLicenseNowUtc();
   let scores = [];
   let execRes = yield editorData.getPresenceUniqueUser(nowUTC, scores);
