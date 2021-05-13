@@ -7,6 +7,9 @@
       "folderPath": "/var/lib/onlyoffice/documentserver/App_Data/cache/files"
     }
   },
+  "wopi": {
+    "htmlTemplate" : "/var/www/onlyoffice/documentserver/web-apps"
+  },
   "services": {
     "CoAuthoring": {
       "server": {
