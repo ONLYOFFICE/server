@@ -3225,12 +3225,15 @@ exports.licenseInfo = function(req, res) {
   });
 };
 let commandLicense = co.wrap(function*() {
-  let res = {license: utils.convertLicenseInfoToFileParams(licenseInfo), server: utils.convertLicenseInfoToServerParams(licenseInfo), quota: {}};
+  let res = {
+    license: utils.convertLicenseInfoToFileParams(licenseInfo),
+    server: utils.convertLicenseInfoToServerParams(licenseInfo), quota: {users: []}
+  };
   const nowUTC = getLicenseNowUtc();
   let scores = [];
   let execRes = yield editorData.getPresenceUniqueUser(nowUTC, scores);
-  execRes.forEach(function(currentValue, index){
-    res.quota[currentValue] = new Date(scores[index] * 1000);
+  execRes.forEach(function(currentValue, index) {
+    res.quota.users.push({userid: currentValue, expire: new Date(scores[index] * 1000)});
   });
   return res;
 });
