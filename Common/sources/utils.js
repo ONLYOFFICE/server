@@ -127,7 +127,7 @@ exports.encodeXml = function(value) {
 			case '\r': return '&#xD;';
 			case '\n': return '&#xA;';
 			case '\t': return '&#x9;';
-			case '\xA0': return '&#A0;';
+			case '\xA0': return '&#xA0;';
 		}
 	});
 };
