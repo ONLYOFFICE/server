@@ -255,6 +255,15 @@ function* addRandomKeyTaskCmd(cmd) {
   var task = yield* taskResult.addRandomKeyTask(cmd.getDocId());
   cmd.setSaveKey(task.key);
 }
+function addPasswordToCmd(cmd, docPasswordStr) {
+  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), docPasswordStr);
+  if (docPassword.current) {
+    cmd.setSavePassword(docPassword.current);
+  }
+  if (docPassword.change) {
+    cmd.setExternalChangeInfo(docPassword.change);
+  }
+}
 function* saveParts(cmd, filename) {
   var result = false;
   var saveType = cmd.getSaveType();
@@ -502,13 +511,7 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   yield* addRandomKeyTaskCmd(cmd);
   var selectRes = yield taskResult.select(cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
-  let docPassword = row && sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), row.password);
-  if (docPassword.current) {
-    cmd.setSavePassword(docPassword.current);
-  }
-  if (docPassword.change) {
-    cmd.setExternalChangeInfo(docPassword.change);
-  }
+  addPasswordToCmd(cmd, row && row.password);
   var queueData = getSaveTask(cmd);
   queueData.setFromChanges(true);
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
@@ -1184,10 +1187,7 @@ exports.downloadAs = function(req, res) {
       }
       var selectRes = yield taskResult.select(docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
-      let password = row && sqlBase.DocumentPassword.prototype.getCurPassword(cmd.getDocId(), row.password);
-      if (password && !cmd.getWithoutPassword()) {
-        cmd.setSavePassword(password);
-      }
+      addPasswordToCmd(cmd, row && row.password);
       cmd.setData(req.body);
       var outputData = new OutputData(cmd.getCommand());
       switch (cmd.getCommand()) {
@@ -1302,13 +1302,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         cmd.setStatusInfoIn(statusInfo);
         cmd.setUserActionId(opt_userId);
         cmd.setUserActionIndex(opt_userIndex);
-        let docPassword = row && sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), row.password);
-        if (docPassword.current) {
-          cmd.setSavePassword(docPassword.current);
-        }
-        if (docPassword.change) {
-          cmd.setExternalChangeInfo(docPassword.change);
-        }
+        addPasswordToCmd(cmd, row && row.password);
         yield* addRandomKeyTaskCmd(cmd);
         var queueData = getSaveTask(cmd);
         queueData.setFromChanges(true);
