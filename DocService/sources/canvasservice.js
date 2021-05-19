@@ -505,9 +505,9 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   let docPassword = row && sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), row.password);
   if (docPassword.current) {
     cmd.setSavePassword(docPassword.current);
-    if (docPassword.change) {
-      cmd.setExternalChangeInfo(docPassword.change);
-    }
+  }
+  if (docPassword.change) {
+    cmd.setExternalChangeInfo(docPassword.change);
   }
   var queueData = getSaveTask(cmd);
   queueData.setFromChanges(true);
@@ -1305,9 +1305,9 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         let docPassword = row && sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), row.password);
         if (docPassword.current) {
           cmd.setSavePassword(docPassword.current);
-          if (docPassword.change) {
-            cmd.setExternalChangeInfo(docPassword.change);
-          }
+        }
+        if (docPassword.change) {
+          cmd.setExternalChangeInfo(docPassword.change);
         }
         yield* addRandomKeyTaskCmd(cmd);
         var queueData = getSaveTask(cmd);
