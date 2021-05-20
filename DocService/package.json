@@ -1,7 +1,7 @@
 {
   "name": "coauthoring",
   "version": "1.0.1",
-  "homepage": "http://www.onlyoffice.com",
+  "homepage": "https://www.onlyoffice.com",
   "private": true,
   "bin": {
     "docservice": "sources/server.js",
@@ -16,7 +16,7 @@
     "config": "^2.0.1",
     "cron": "^1.5.0",
     "deep-equal": "^1.0.1",
-    "express": "^4.16.4",
+    "express": "^4.17.1",
     "fakeredis": "^2.0.0",
     "jsonwebtoken": "^8.3.0",
     "jwa": "^1.1.6",

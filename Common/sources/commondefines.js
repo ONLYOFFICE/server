@@ -38,11 +38,13 @@ function InputCommand(data, copyExplicit) {
   //must be set explicitly to prevent vulnerability(downloadAs(with url) creates request to integrator with authorization)
   this['withAuthorization'] = undefined;//bool
   this['isbuilder'] = undefined;//bool
+  this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
   if (data) {
     this['c'] = data['c'];
     this['id'] = data['id'];
     this['userid'] = data['userid'];
     this['userindex'] = data['userindex'];
+    this['username'] = data['username'];
     this['tokenSession'] = data['tokenSession'];
     this['tokenDownload'] = data['tokenDownload'];
     this['tokenHistory'] = data['tokenHistory'];
@@ -73,6 +75,7 @@ function InputCommand(data, copyExplicit) {
     this['status_info'] = data['status_info'];
     this['savekey'] = data['savekey'];
     this['userconnectionid'] = data['userconnectionid'];
+    this['responsekey'] = data['responsekey'];
     this['docconnectionid'] = data['docconnectionid'];
     this['jsonparams'] = data['jsonparams'];
     this['lcid'] = data['lcid'];
@@ -86,6 +89,8 @@ function InputCommand(data, copyExplicit) {
     this['userdata'] = data['userdata'];
     this['inline'] = data['inline'];
     this['password'] = data['password'];
+    this['savepassword'] = data['savepassword'];
+    this['withoutPassword'] = data['withoutPassword'];
     this['outputurls'] = data['outputurls'];
     this['closeonerror'] = data['closeonerror'];
     this['serverVersion'] = data['serverVersion'];
@@ -97,12 +102,14 @@ function InputCommand(data, copyExplicit) {
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
       this['isbuilder'] = data['isbuilder'];
+      this['externalChangeInfo'] = data['externalChangeInfo'];
     }
   } else {
     this['c'] = undefined;//string command
     this['id'] = undefined;//string document id
     this['userid'] = undefined;//string
     this['userindex'] = undefined;
+    this['username'] = undefined;
     this['tokenSession'] = undefined;//string validate
     this['tokenDownload'] = undefined;//string validate
     this['tokenHistory'] = undefined;//string validate
@@ -129,6 +136,7 @@ function InputCommand(data, copyExplicit) {
     this['status_info'] = undefined;//int
     this['savekey'] = undefined;//int document id to save
     this['userconnectionid'] = undefined;//string internal
+    this['responsekey'] = undefined;
     this['docconnectionid'] = undefined;//string internal
     this['jsonparams'] = undefined;//string
     this['lcid'] = undefined;
@@ -138,6 +146,8 @@ function InputCommand(data, copyExplicit) {
     this['userdata'] = undefined;
     this['inline'] = undefined;//content disposition
     this['password'] = undefined;
+    this['savepassword'] = undefined;
+    this['withoutPassword'] = undefined;
     this['outputurls'] = undefined;
     this['closeonerror'] = undefined;
     this['serverVersion'] = undefined;
@@ -175,6 +185,12 @@ InputCommand.prototype = {
   },
   setUserIndex: function(data) {
     this['userindex'] = data;
+  },
+  getUserName: function() {
+    return this['username'];
+  },
+  setUserName: function(data) {
+    this['username'] = data;
   },
   getTokenSession: function() {
     return this['tokenSession'];
@@ -299,6 +315,12 @@ InputCommand.prototype = {
   setUserConnectionId: function(data) {
     this['userconnectionid'] = data;
   },
+  getResponseKey: function() {
+    return this['responsekey'];
+  },
+  setResponseKey: function(data) {
+    this['responsekey'] = data;
+  },
   getDocConnectionId: function() {
     return this['docconnectionid'];
   },
@@ -353,6 +375,18 @@ InputCommand.prototype = {
   setPassword: function(data) {
     this['password'] = data;
   },
+  getSavePassword: function() {
+    return this['savepassword'];
+  },
+  setSavePassword: function(data) {
+    this['savepassword'] = data;
+  },
+  getWithoutPassword: function() {
+    return this['withoutPassword'];
+  },
+  setWithoutPassword: function(data) {
+    this['withoutPassword'] = data;
+  },
   setOutputUrls: function(data) {
     this['outputurls'] = data;
   },
@@ -406,6 +440,12 @@ InputCommand.prototype = {
   },
   setWithAuthorization: function(data) {
     this['withAuthorization'] = data;
+  },
+  getExternalChangeInfo: function() {
+    return this['externalChangeInfo'];
+  },
+  setExternalChangeInfo: function(data) {
+    this['externalChangeInfo'] = data;
   }
 };
 
@@ -868,7 +908,9 @@ const c_oPublishType = {
   meta: 11,
   forceSave: 12,
   closeConnection: 13,
-  changesNotify: 14
+  changesNotify: 14,
+  changeConnecitonInfo: 15,
+  rpc: 16
 };
 const c_oAscCsvDelimiter = {
   None: 0,
@@ -970,7 +1012,8 @@ const c_oAscServerCommandErrors = {
 const c_oAscForceSaveTypes = {
   Command: 0,
   Button: 1,
-  Timeout: 2
+  Timeout: 2,
+  Form: 3
 };
 const c_oAscUrlTypes = {
   Session: 0,

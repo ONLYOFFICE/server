@@ -24,6 +24,9 @@
           "/sdkjs-plugins": {
             "path": "../../../sdkjs-plugins"
           },
+          "/dictionaries": {
+            "path": "../../../dictionaries"
+          },
           "/info": {
             "path": "../branding/info"
           }
@@ -52,7 +55,8 @@
       "presentationThemesDir": "../../../sdkjs/slide/themes",
       "x2tPath": "../../FileConverter/bin/x2t",
       "docbuilderPath": "../../FileConverter/bin/docbuilder",
-      "docbuilderAllFontsPath": "../../App_Data/docbuilder/AllFonts.js"
+      "docbuilderAllFontsPath": "../../App_Data/docbuilder/AllFonts.js",
+      "docbuilderCoreFontsPath": "../../../core-fonts"
     }
   },
   "SpellChecker": {

@@ -64,6 +64,16 @@
 		"ttl" : 300,
 		"cachesize" : 1000
 	},
+	"openpgpjs": {
+		"config": {
+		},
+		"encrypt": {
+			"passwords": ["verysecretstring"]
+		},
+		"decrypt": {
+			"passwords": ["verysecretstring"]
+		}
+	},
 	"services": {
 		"CoAuthoring": {
 			"server": {
@@ -77,6 +87,7 @@
 					"wholeCycle": "2m"
 				},
 				"callbackRequestTimeout": {
+					"connectionAndInactivity": "10s",
 					"wholeCycle": "2m"
 				},
 				"healthcheckfilepath": "../public/healthcheck.docx",
@@ -204,7 +215,7 @@
 				"autostart": []
 			},
 			"editor":{
-				"spellcheckerUrl": "/spellchecker",
+				"spellcheckerUrl": "",
 				"reconnection":{
 					"attempts": 50,
 					"delay": "2s"
@@ -247,6 +258,7 @@
 			"x2tPath": "null",
 			"docbuilderPath": "null",
 			"docbuilderAllFontsPath": "null",
+			"docbuilderCoreFontsPath": "",
 			"args": "",
 			"spawnOptions": {},
 			"errorfiles": "",

@@ -58,6 +58,7 @@ const logger = require('./logger');
 const forwarded = require('forwarded');
 const mime = require('mime');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
+const openpgp = require('openpgp');
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
@@ -76,7 +77,12 @@ var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 const cfgTokenOutboxInBody = config.get('services.CoAuthoring.token.outbox.inBody');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
+const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
+const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
+const cfgPasswordConfig = config.get('openpgpjs.config');
 const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
+
+Object.assign(openpgp.config, cfgPasswordConfig);
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
@@ -849,3 +855,16 @@ exports.canIncludeOutboxAuthorization = function (url) {
   }
   return false;
 };
+exports.encryptPassword = co.wrap(function* (password) {
+  let params = {message: openpgp.message.fromText(password)};
+  Object.assign(params, cfgPasswordEncrypt);
+  const { data: encrypted } = yield openpgp.encrypt(params);
+  return encrypted;
+});
+exports.decryptPassword = co.wrap(function* (password) {
+  const message = yield openpgp.message.readArmored(password);
+  let params = {message: message};
+  Object.assign(params, cfgPasswordDecrypt);
+  const { data: decrypted } = yield openpgp.decrypt(params);
+  return decrypted;
+});

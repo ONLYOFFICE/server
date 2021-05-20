@@ -24,6 +24,9 @@
           "/sdkjs-plugins": {
             "path": "../../../sdkjs-plugins"
           },
+          "/dictionaries": {
+            "path": "../../../dictionaries"
+          },
           "/info": {
             "path": "../../branding/info"
           }
@@ -42,9 +45,6 @@
         "allowPrivateIPAddress": true,
         "allowMetaIPAddress": true
       },
-      "editor": {
-        "spellcheckerUrl": "http://127.0.0.1:8080"
-      },
       "sockjs": {
         "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
       }
@@ -62,6 +62,7 @@
       "x2tPath": "../../FileConverter/Bin/x2t.exe",
       "docbuilderPath": "../../FileConverter/Bin/docbuilder.exe",
       "docbuilderAllFontsPath": "../../App_Data/docbuilder/AllFonts.js",
+      "docbuilderCoreFontsPath": "../../../core-fonts",
       "errorfiles": "error"
     }
   },
