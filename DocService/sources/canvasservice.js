@@ -132,7 +132,7 @@ OutputData.prototype = {
   }
 };
 
-function* getOutputData(cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
+var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
   let status, statusInfo, password, creationDate;
   let selectRes = yield taskResult.select(key);
   if (selectRes.length > 0) {
@@ -253,7 +253,7 @@ function* getOutputData(cmd, outputData, key, optConn, optAdditionalOutput, opt_
       outputData.setData(constants.UNKNOWN);
       break;
   }
-}
+});
 function* addRandomKeyTaskCmd(cmd) {
   var task = yield* taskResult.addRandomKeyTask(cmd.getDocId());
   cmd.setSaveKey(task.key);
@@ -338,6 +338,16 @@ var cleanupCache = co.wrap(function* (docId) {
   }
   return res;
 });
+var cleanupCacheIf = co.wrap(function* (mask) {
+  //todo redis ?
+  var res = false;
+  var removeRes = yield taskResult.removeIf(mask);
+  if (removeRes.affectedRows > 0) {
+    yield storage.deletePath(mask.key);
+    res = true;
+  }
+  return res;
+});
 
 function commandOpenStartPromise(docId, baseUrl, opt_updateUserIndex, opt_documentCallbackUrl, opt_format) {
   var task = new taskResult.TaskResultData();
@@ -415,7 +425,7 @@ function* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
     }
   }
 function* commandOpenFillOutput(conn, cmd, outputData, opt_bIsRestore) {
-  yield* getOutputData(cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
+  yield getOutputData(cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
   return 'none' === outputData.getStatus();
 }
 function* commandReopen(conn, cmd, outputData) {
@@ -1381,9 +1391,9 @@ exports.receiveTask = function(data, ack) {
           var command = cmd.getCommand();
           var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined, creationDate: undefined};
           if ('open' == command || 'reopen' == command) {
-            yield* getOutputData(cmd, outputData, cmd.getDocId(), null, additionalOutput);
+            yield getOutputData(cmd, outputData, cmd.getDocId(), null, additionalOutput);
           } else if ('save' == command || 'savefromorigin' == command || 'sfct' == command) {
-            yield* getOutputData(cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
+            yield getOutputData(cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
           } else if ('sfcm' == command) {
             yield* commandSfcCallback(cmd, true);
           } else if ('sfc' == command) {
@@ -1417,6 +1427,8 @@ exports.receiveTask = function(data, ack) {
 };
 
 exports.cleanupCache = cleanupCache;
+exports.cleanupCacheIf = cleanupCacheIf;
+exports.getOutputData = getOutputData;
 exports.commandSfctByCmd = commandSfctByCmd;
 exports.commandOpenStartPromise = commandOpenStartPromise;
 exports.OutputDataWrap = OutputDataWrap;

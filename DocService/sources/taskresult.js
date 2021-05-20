@@ -287,6 +287,22 @@ function remove(docId) {
     }, undefined, undefined, values);
   });
 }
+function removeIf(mask) {
+  return new Promise(function(resolve, reject) {
+    let values = [];
+    let commandArgMask = toUpdateArray(mask, false, true, values, false);
+    commandArgMask.push('id=' + addSqlParam(mask.key, values));
+    let sqlWhere = commandArgMask.join(' AND ');
+    const sqlCommand = `DELETE FROM task_result WHERE ${sqlWhere};`;
+    sqlBase.baseConnector.sqlQuery(sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    }, undefined, undefined, values);
+  });
+}
 function getExpired(maxCount, expireSeconds) {
   return new Promise(function(resolve, reject) {
     let values = [];
@@ -315,4 +331,5 @@ exports.updateIf = updateIf;
 exports.restoreInitialPassword = restoreInitialPassword;
 exports.addRandomKeyTask = addRandomKeyTask;
 exports.remove = remove;
+exports.removeIf = removeIf;
 exports.getExpired = getExpired;

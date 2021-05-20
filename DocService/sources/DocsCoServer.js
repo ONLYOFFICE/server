@@ -1061,8 +1061,10 @@ function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
   }
   //unlock
   var getRes = yield* getCallback(docId, opt_userIndex);
-  if(getRes && getRes.wopiParams) {
+  if (getRes && getRes.wopiParams) {
     yield wopiClient.unlock(getRes.wopiParams);
+    let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
+    yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
   }
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_forceClose) {
