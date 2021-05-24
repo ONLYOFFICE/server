@@ -1187,7 +1187,9 @@ exports.downloadAs = function(req, res) {
       }
       var selectRes = yield taskResult.select(docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
-      addPasswordToCmd(cmd, row && row.password);
+      if (!cmd.getWithoutPassword()) {
+        addPasswordToCmd(cmd, row && row.password);
+      }
       cmd.setData(req.body);
       var outputData = new OutputData(cmd.getCommand());
       switch (cmd.getCommand()) {
