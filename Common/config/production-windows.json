@@ -8,7 +8,7 @@
     }
   },
   "wopi": {
-    "htmlTemplate" : "../../web-apps"
+    "htmlTemplate" : "../../web-apps/apps/api/wopi"
   },
   "services": {
     "CoAuthoring": {

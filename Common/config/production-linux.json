@@ -8,7 +8,7 @@
     }
   },
   "wopi": {
-    "htmlTemplate" : "/var/www/onlyoffice/documentserver/web-apps"
+    "htmlTemplate" : "/var/www/onlyoffice/documentserver/web-apps/apps/api/wopi"
   },
   "services": {
     "CoAuthoring": {
