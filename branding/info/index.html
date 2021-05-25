@@ -279,7 +279,8 @@
                 var quota = info.quota;
 
                 elem = document.getElementById('user-activity-info-caption');
-                elem.innerText = 'User activity in the last ' + (licenseInfo.usersExpire/86400 || 1) + ' days';
+                var days = parseInt(licenseInfo.usersExpire/86400) || 1;
+                elem.innerText = 'User activity in the last ' + days + (days>1 ? ' days' : ' day');
 
                 elem = document.getElementById('cell-use-up');
                 elem.innerText = quota.uniqueUserCount;
