@@ -222,19 +222,19 @@ EditorData.prototype.getForceSaveTimer = function(now) {
   return Promise.resolve(res);
 };
 
-EditorData.prototype.addPresenceUniqueUser = function(userId, expireAt) {
-  this.uniqueUser[userId] = expireAt;
+EditorData.prototype.addPresenceUniqueUser = function(userId, expireAt, userInfo) {
+  this.uniqueUser[userId] = {expireAt: expireAt, userInfo: userInfo};
   return Promise.resolve();
 };
 EditorData.prototype.getPresenceUniqueUser = function(nowUTC, opt_scores) {
   let res = [];
   for (let userId in this.uniqueUser) {
     if (this.uniqueUser.hasOwnProperty(userId)) {
-      if (this.uniqueUser[userId] > nowUTC) {
-        res.push(userId);
-        if(opt_scores) {
-          opt_scores.push(this.uniqueUser[userId]);
-        }
+      if (this.uniqueUser[userId].expireAt > nowUTC) {
+        let elem = this.uniqueUser[userId];
+        let newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
+        Object.assign(newElem, elem.userInfo);
+        res.push(newElem);
       } else {
         delete this.uniqueUser[userId];
       }

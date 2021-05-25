@@ -542,14 +542,14 @@ function getParticipantUser(docId, includeUserId) {
 }
 
 
-function* updateEditUsers(userId) {
+function* updateEditUsers(userId, anonym) {
   if (!licenseInfo.usersCount) {
     return;
   }
   const now = new Date();
   const expireAt = (Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)) / 1000 +
       licenseInfo.usersExpire - 1;
-  yield editorData.addPresenceUniqueUser(userId, expireAt);
+  yield editorData.addPresenceUniqueUser(userId, expireAt, {anonym: anonym});
 }
 function* getEditorsCount(docId, opt_hvals) {
   var elem, editorsCount = 0;
@@ -2068,7 +2068,8 @@ exports.install = function(server, callbackFunction) {
         if (c_LR.Success !== licenceType && c_LR.SuccessLimit !== licenceType) {
           conn.user.view = true;
         } else {
-          yield* updateEditUsers(conn.user.idOriginal);
+          //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
+          yield* updateEditUsers(conn.user.idOriginal,  !!data.IsAnonymousUser);
         }
       }
 
@@ -2814,7 +2815,7 @@ exports.install = function(server, callbackFunction) {
 		if (licenseInfo.usersCount) {
 				const nowUTC = getLicenseNowUtc();
 				const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
-				if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.indexOf(userId))) {
+				if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
 					licenseType = c_LR.UsersCount;
 				}
 				licenseWarningLimit = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
@@ -3189,8 +3190,9 @@ exports.licenseInfo = function(req, res) {
     let output = {
 		connectionsStat: {}, licenseInfo: {}, serverInfo: {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
-		}, usersInfo: {
-			uniqueUserCount: 0
+		}, quota: {
+        uniqueUserCount: 0,
+        anonymousUserCount: 0
 		}
 	};
     Object.assign(output.licenseInfo, licenseInfo);
@@ -3247,7 +3249,12 @@ exports.licenseInfo = function(req, res) {
       }
       const nowUTC = getLicenseNowUtc();
       let execRes = yield editorData.getPresenceUniqueUser(nowUTC);
-      output.usersInfo.uniqueUserCount = execRes.length;
+      output.quota.uniqueUserCount = execRes.length;
+      execRes.forEach(function(elem) {
+        if (elem.anonym) {
+          output.quota.anonymousUserCount++;
+        }
+      });
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;
@@ -3263,17 +3270,13 @@ exports.licenseInfo = function(req, res) {
   });
 };
 let commandLicense = co.wrap(function*() {
-  let res = {
-    license: utils.convertLicenseInfoToFileParams(licenseInfo),
-    server: utils.convertLicenseInfoToServerParams(licenseInfo), quota: {users: []}
-  };
   const nowUTC = getLicenseNowUtc();
-  let scores = [];
-  let execRes = yield editorData.getPresenceUniqueUser(nowUTC, scores);
-  execRes.forEach(function(currentValue, index) {
-    res.quota.users.push({userid: currentValue, expire: new Date(scores[index] * 1000)});
-  });
-  return res;
+  let users = yield editorData.getPresenceUniqueUser(nowUTC);
+  return {
+    license: utils.convertLicenseInfoToFileParams(licenseInfo),
+    server: utils.convertLicenseInfoToServerParams(licenseInfo),
+    quota: {users: users}
+  };
 });
 // Команда с сервера (в частности teamlab)
 exports.commandFromServer = function (req, res) {
