@@ -108,6 +108,9 @@
         .critical {
             color: #ff0000;
         }
+        .normal {
+            color: #017D1C;
+        }
 
         .separator {
             vertical-align: top;
@@ -149,6 +152,26 @@
                 <tr>
                     <td id="build-date">Release date:</td>
                     <td></td>
+                </tr>
+            </table>
+            <table id="user-activity-info" class="hidden">
+                <tr>
+                    <td colspan="4" class="td-caption" id="user-activity-info-caption">User activity in the last 10 days</td>
+                </tr>
+                <tr>
+                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
+                </tr>
+                <tr>
+                    <td id="cell-use-up" class="td-value" width="150">0</td>
+                    <td id="cell-external" class="td-value" width="150">0</td>
+                    <td id="cell-internal" class="td-value" width="150">0</td>
+                    <td id="cell-left" class="td-value" width="224">0</td>
+                </tr>
+                <tr>
+                    <td>Use up</td>
+                    <td>External</td>
+                    <td>Internal</td>
+                    <td>Left</td>
                 </tr>
             </table>
             <table>
@@ -219,7 +242,10 @@
             }
             return xmlhttp;
         };
-        function fillInfo(licenseInfo, serverInfo) {
+        function fillInfo(info) {
+            var licenseInfo = info.licenseInfo,
+                serverInfo = info.serverInfo;
+
             var elem = document.getElementById('build-type');
             elem.innerText = 'Type: ' + ((licenseInfo.packageType == 0) ? 'Open source' : ((licenseInfo.packageType == 1) ? 'Enterprise Edition' : 'Developer Edition'));
 
@@ -247,6 +273,29 @@
                 elem.innerText = licdate.toLocaleDateString();
                 if (Date.now() > licdate)
                     elem.classList.add('critical');
+            }
+
+            if (licenseInfo.usersCount>0) {
+                var quota = info.quota;
+
+                elem = document.getElementById('user-activity-info-caption');
+                elem.innerText = 'User activity in the last ' + (licenseInfo.usersExpire/86400 || 1) + ' days';
+
+                elem = document.getElementById('cell-use-up');
+                elem.innerText = quota.uniqueUserCount;
+                elem = document.getElementById('cell-external');
+                elem.innerText = quota.anonymousUserCount;
+                elem = document.getElementById('cell-internal');
+                elem.innerText = quota.uniqueUserCount - quota.anonymousUserCount;
+                elem = document.getElementById('cell-left');
+
+                var value = licenseInfo.usersCount - quota.uniqueUserCount;
+                elem.innerText = value;
+                elem.classList.add(value > licenseInfo.usersCount * 0.1 ? "normal" : "critical");
+
+                elem = document.getElementById('user-activity-info');
+                elem.classList.remove("hidden");
+
             }
 
 			return (licenseInfo.usersCount>0) ? 1000000 : licenseInfo.connections;
@@ -279,7 +328,7 @@
                             if (xhrObj.status == 200) {
 								document.getElementById('doc-server-ok').classList.remove("hidden");
                                 var info = JSON.parse(xhrObj.responseText);
-                                fillConnections(info, fillInfo(info.licenseInfo, info.serverInfo));
+                                fillConnections(info, fillInfo(info));
                             } else {
 								document.getElementById('doc-server-err').classList.remove("hidden");
                             }
