@@ -43,8 +43,19 @@
 
         td {
             padding-left: 15px;
-            padding-bottom: 12px;
+            padding-bottom: 10px;
             vertical-align: top;
+        }
+
+        .td-caption-main {
+            font-size: 18px;
+            padding-bottom: 4px;
+        }
+
+        .td-value-main {
+            font-size: 32px;
+            line-height: 28px;
+            padding-bottom: 8px;
         }
 
         .td-caption {
@@ -53,7 +64,7 @@
         }
 
         .td-value {
-            font-size: 32px;
+            font-size: 26px;
             line-height: 28px;
             padding-bottom: 8px;
         }
@@ -74,7 +85,8 @@
         }
         .header1 {
             font-size: 20px;
-            padding-bottom: 30px;
+            font-weight: 600;
+            padding-bottom: 25px;
         }
 
         #doc-server-wait {
@@ -131,9 +143,9 @@
             <div class="header1">Document Server information</div>
             <table width="672px">
                 <tr>
-                    <td class="td-caption">Build</td>
-                    <td class="td-caption">License</td>
-                    <td class="td-caption" id="limit-type">Connections limit</td>
+                    <td class="td-caption-main">Build</td>
+                    <td class="td-caption-main">License</td>
+                    <td class="td-caption-main" id="limit-type">Connections limit</td>
                 </tr>
                 <tr>
                     <td class="td-separator"><div class="separator"></div></td>
@@ -143,7 +155,7 @@
                 <tr>
                     <td id="build-type">Type:</td>
                     <td><span id="lic-valid-type">Valid: </span><span id="lic-valid"></span></td>
-                    <td rowspan="3" id="lic-limit" class="td-value"></td>
+                    <td rowspan="3" id="lic-limit" class="td-value-main"></td>
                 </tr>
                 <tr>
                     <td id="build-version">Version:</td>
