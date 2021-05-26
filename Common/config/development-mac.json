@@ -1,10 +1,10 @@
 {
   "log": {
-    "filePath": "../../Common/config/log4js/development.json"
+    "filePath": "../Common/config/log4js/development.json"
   },
   "storage": {
     "fs": {
-      "folderPath": "../../App_Data"
+      "folderPath": "../App_Data"
     }
   },
   "services": {
@@ -13,22 +13,22 @@
         "port": 8001,
         "static_content": {
           "/fonts": {
-            "path": "../../../fonts"
+            "path": "../../fonts"
           },
           "/sdkjs": {
-            "path": "../../../sdkjs"
+            "path": "../../sdkjs"
           },
           "/web-apps": {
-            "path": "../../../web-apps"
+            "path": "../../web-apps"
           },
           "/sdkjs-plugins": {
-            "path": "../../../sdkjs-plugins"
+            "path": "../../sdkjs-plugins"
           },
           "/dictionaries": {
-            "path": "../../../dictionaries"
+            "path": "../../dictionaries"
           },
           "/info": {
-            "path": "../../branding/info"
+            "path": "../branding/info"
           }
         }
       },
@@ -46,29 +46,29 @@
         "allowMetaIPAddress": true
       },
       "sockjs": {
-        "sockjs_url": "/office/vendor/sockjs/sockjs.min.js"
+        "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
       }
     }
   },
   "license": {
-    "license_file": "./../../license.lic",
+    "license_file": "./../license.lic",
     "warning_limit_percents": 70,
     "packageType": 0
   },
   "FileConverter": {
     "converter": {
       "fontDir": "",
-      "presentationThemesDir": "../../../OfficeWeb/PowerPoint/themes",
-      "x2tPath": "../../FileConverter/bin/x2t",
-      "docbuilderPath": "../../FileConverter/Bin/docbuilder",
-      "docbuilderAllFontsPath": "../../App_Data/docbuilder/AllFonts.js",
-      "docbuilderCoreFontsPath": "../../../core-fonts",
+      "presentationThemesDir": "../../sdkjs/slide/themes",
+      "x2tPath": "../FileConverter/bin/x2t",
+      "docbuilderPath": "../FileConverter/Bin/docbuilder",
+      "docbuilderAllFontsPath": "../App_Data/docbuilder/AllFonts.js",
+      "docbuilderCoreFontsPath": "../../core-fonts",
       "errorfiles": "error"
     }
   },
   "SpellChecker": {
     "server": {
-      "dictDir": "../../../dictionaries"
+      "dictDir": "../../dictionaries"
     }
   }
 }
