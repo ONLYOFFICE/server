@@ -10,7 +10,7 @@
   "services": {
     "CoAuthoring": {
       "server": {
-        "port": 8001,
+        "port": 8000,
         "static_content": {
           "/fonts": {
             "path": "../../fonts"
