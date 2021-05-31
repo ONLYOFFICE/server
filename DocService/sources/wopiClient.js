@@ -200,7 +200,7 @@ function getEditorHtml(req, res) {
       logger.info('wopiEditor start');
       logger.debug(`wopiEditor req.url:%s`, req.url);
       logger.debug(`wopiEditor req.query:%j`, req.query);
-      logger.debug(`wopiEditor req.body:%s`, req.body);
+      logger.debug(`wopiEditor req.body:%j`, req.body);
       let wopiSrc = req.query['wopisrc'];
       let mode = req.query['mode'];
       let sc = req.query['sc'];
@@ -226,6 +226,8 @@ function getEditorHtml(req, res) {
       if ('edit' === mode) {
         docId = `${fileId}`;
       } else {
+        //todo rename operation requires lock
+        fileInfo.SupportsRename = false;
         //todo change docId to avoid empty cache after editors are gone
         docId = `view.${fileId}.${fileInfo.Version}`;
       }
@@ -328,8 +330,13 @@ function renameFile(wopiParams, name) {
 
         logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(uri, undefined, cfgCallbackRequestTimeout, undefined, headers);
-        res = JSON.parse(postRes.body);
-        logger.debug('wopi RenameFile response headers=%j', postRes.response.headers);
+        logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
+        if (postRes.body) {
+          res = JSON.parse(postRes.body);
+        } else {
+          //sharepoint send empty body(2016 allways, 2019 with same name)
+          res = {"Name": name};
+        }
       } else {
         logger.info('wopi SupportsRename = false');
       }
@@ -352,10 +359,10 @@ function checkFileInfo(uri, access_token, sc) {
       fillStandardHeaders(headers, uri, access_token);
       logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
       let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, undefined, undefined, headers);
+      logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
       fileInfo = JSON.parse(getRes.body);
-      logger.debug(`wopiEditor checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
     } catch (err) {
-      logger.error('wopiEditor error checkFileInfo:%s', err.stack);
+      logger.error('wopi error checkFileInfo:%s', err.stack);
     } finally {
       logger.info('wopi checkFileInfo end');
     }
