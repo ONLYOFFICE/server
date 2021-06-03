@@ -881,18 +881,15 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   // }
   let license = {};
   license.end_date = licenseInfo.endDate && licenseInfo.endDate.toJSON();
-  license.trial = constants.LICENSE_MODE.Trial === licenseInfo.mode;
-  license.developer = constants.LICENSE_MODE.Developer === licenseInfo.mode;
-  switch (licenseInfo.mode) {
-    case constants.LICENSE_MODE.Developer:
-      license.mode = 'developer';
-      break;
-    case constants.LICENSE_MODE.Trial:
-      license.mode = 'trial';
-      break;
-    default:
-      license.mode = '';
-      break;
+  license.timelimited = 0 !== (constants.LICENSE_MODE.Limited & licenseInfo.mode);
+  license.trial = 0 !== (constants.LICENSE_MODE.Trial & licenseInfo.mode);
+  license.developer = 0 !== (constants.LICENSE_MODE.Developer & licenseInfo.mode);
+  if(license.developer) {
+    license.mode = 'developer';
+  } else if(license.trial) {
+    license.mode = 'trial';
+  } else {
+    license.mode = '';
   }
   license.light = licenseInfo.light;
   license.branding = licenseInfo.branding;
