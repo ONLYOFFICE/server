@@ -2145,7 +2145,8 @@ exports.install = function(server, callbackFunction) {
           //ok
         } else if (bIsRestore) {
           // Other error
-          yield* sendFileErrorAuth(conn, data.sessionId, 'Other error');
+          let code = null === status ? constants.NO_CACHE_CODE : undefined;
+          yield* sendFileErrorAuth(conn, data.sessionId, 'Other error', code);
           return;
         }
       }
