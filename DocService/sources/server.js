@@ -63,7 +63,7 @@ app.set("views", cfgHtmlTemplate);
 app.set("view engine", "ejs");
 const server = http.createServer(app);
 
-let licenseInfo, updatePluginsTime, userPlugins, pluginsLoaded;
+let licenseInfo, licenseOriginal, updatePluginsTime, userPlugins, pluginsLoaded;
 
 const updatePlugins = (eventType, filename) => {
 	console.log('update Folder: %s ; %s', eventType, filename);
@@ -75,13 +75,13 @@ const updatePlugins = (eventType, filename) => {
 	pluginsLoaded = false;
 };
 const readLicense = function*() {
-	licenseInfo = yield* license.readLicense();
+	[licenseInfo, licenseOriginal] = yield* license.readLicense();
 };
 const updateLicense = () => {
 	return co(function*() {
 		try {
 			yield* readLicense();
-			docsCoServer.setLicenseInfo(licenseInfo);
+			docsCoServer.setLicenseInfo(licenseInfo, licenseOriginal);
 			console.log('End updateLicense');
 		} catch (err) {
 			logger.error('updateLicense error:\r\n%s', err.stack);

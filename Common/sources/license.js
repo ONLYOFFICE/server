@@ -39,7 +39,7 @@ const oBuildDate = new Date(buildDate);
 
 exports.readLicense = function*() {
 	const c_LR = constants.LICENSE_RESULT;
-	return {
+	return [{
 		count: 1,
 		type: c_LR.Success,
 		light: false,
@@ -54,7 +54,7 @@ exports.readLicense = function*() {
 		plugins: false,
 		buildDate: oBuildDate,
 		endDate: null
-	};
+	}, null];
 };
 
 exports.packageType = constants.PACKAGE_TYPE_OS;
