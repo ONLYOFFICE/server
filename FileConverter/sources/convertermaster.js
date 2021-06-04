@@ -46,7 +46,7 @@ if (cluster.isMaster) {
   const cfgMaxProcessCount = config.get('maxprocesscount');
   var licenseInfo, workersCount = 0;
   const readLicense = function* () {
-    licenseInfo = yield* license.readLicense();
+    [licenseInfo] = yield* license.readLicense();
     workersCount = Math.min(licenseInfo.count, Math.ceil(numCPUs * cfgMaxProcessCount));
   };
   const updateWorkers = () => {

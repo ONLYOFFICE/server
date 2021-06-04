@@ -226,7 +226,7 @@ EditorData.prototype.addPresenceUniqueUser = function(userId, expireAt, userInfo
   this.uniqueUser[userId] = {expireAt: expireAt, userInfo: userInfo};
   return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueUser = function(nowUTC, opt_scores) {
+EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
   let res = [];
   for (let userId in this.uniqueUser) {
     if (this.uniqueUser.hasOwnProperty(userId)) {

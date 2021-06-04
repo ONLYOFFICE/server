@@ -165,6 +165,7 @@ let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
 let queue;
 let licenseInfo = {type: constants.LICENSE_RESULT.Error, light: false, branding: false, customization: false, plugins: false};
+let licenseOriginal = null;
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
@@ -3133,8 +3134,9 @@ exports.install = function(server, callbackFunction) {
     });
   });
 };
-exports.setLicenseInfo = function(data) {
+exports.setLicenseInfo = function(data, original ) {
   licenseInfo = data;
+  licenseOriginal = original;
 };
 exports.getLicenseInfo = function() {
   return licenseInfo;
@@ -3274,7 +3276,7 @@ let commandLicense = co.wrap(function*() {
   const nowUTC = getLicenseNowUtc();
   let users = yield editorData.getPresenceUniqueUser(nowUTC);
   return {
-    license: utils.convertLicenseInfoToFileParams(licenseInfo),
+    license: licenseOriginal || utils.convertLicenseInfoToFileParams(licenseInfo),
     server: utils.convertLicenseInfoToServerParams(licenseInfo),
     quota: {users: users}
   };
