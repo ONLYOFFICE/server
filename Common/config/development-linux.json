@@ -1,31 +1,31 @@
 {
   "log": {
-    "filePath": "../../Common/config/log4js/development.json"
+    "filePath": "../Common/config/log4js/development.json"
   },
   "storage": {
     "fs": {
-      "folderPath": "../../App_Data"
+      "folderPath": "../App_Data"
     }
   },
   "services": {
     "CoAuthoring": {
       "server": {
-        "port": 8001,
+        "port": 8000,
         "static_content": {
           "/fonts": {
-            "path": "../../../fonts"
+            "path": "../../fonts"
           },
           "/sdkjs": {
-            "path": "../../../sdkjs"
+            "path": "../../sdkjs"
           },
           "/web-apps": {
-            "path": "../../../web-apps"
+            "path": "../../web-apps"
           },
           "/sdkjs-plugins": {
-            "path": "../../../sdkjs-plugins"
+            "path": "../../sdkjs-plugins"
           },
           "/dictionaries": {
-            "path": "../../../dictionaries"
+            "path": "../../dictionaries"
           },
           "/info": {
             "path": "../branding/info"
@@ -45,23 +45,23 @@
     }
   },
   "license": {
-    "license_file": "./../../license.lic",
+    "license_file": "./../license.lic",
     "warning_limit_percents": 70,
     "packageType": 0
   },
   "FileConverter": {
     "converter": {
       "fontDir": "/usr/share/fonts",
-      "presentationThemesDir": "../../../sdkjs/slide/themes",
-      "x2tPath": "../../FileConverter/bin/x2t",
-      "docbuilderPath": "../../FileConverter/bin/docbuilder",
-      "docbuilderAllFontsPath": "../../App_Data/docbuilder/AllFonts.js",
-      "docbuilderCoreFontsPath": "../../../core-fonts"
+      "presentationThemesDir": "../../sdkjs/slide/themes",
+      "x2tPath": "../FileConverter/bin/x2t",
+      "docbuilderPath": "../FileConverter/bin/docbuilder",
+      "docbuilderAllFontsPath": "../App_Data/docbuilder/AllFonts.js",
+      "docbuilderCoreFontsPath": "../../core-fonts"
     }
   },
   "SpellChecker": {
     "server": {
-      "dictDir": "../../../dictionaries"
+      "dictDir": "../../dictionaries"
     }
   }
 }
