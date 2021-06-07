@@ -7,9 +7,6 @@
       "folderPath": "../App_Data/cache/files"
     }
   },
-  "wopi": {
-    "htmlTemplate" : "../../web-apps/apps/api/wopi"
-  },
   "services": {
     "CoAuthoring": {
       "server": {
