@@ -25,7 +25,7 @@
     "config": {
       "version": "2.0.1",
       "resolved": "https://registry.npmjs.org/config/-/config-2.0.1.tgz",
-      "integrity": "sha1-mVzMgXVGBXjWRqwKLkAY/6RMoEY=",
+      "integrity": "sha512-aTaviJnC8ZjQYx8kQf4u6tWqIxWolyQQ3LqXgnCLAsIb78JrUshHG0YuzIarzTaVVe1Pazms3TXImfYra8UsyQ==",
       "requires": {
         "json5": "^1.0.1"
       }
@@ -48,7 +48,7 @@
     "json5": {
       "version": "1.0.1",
       "resolved": "http://registry.npmjs.org/json5/-/json5-1.0.1.tgz",
-      "integrity": "sha1-d5+wAYYE+oVOrL9iUhgNg1Q+Pb4=",
+      "integrity": "sha512-aKS4WQjPenRxiQsC93MNfjx+nbF4PAdYzmd/1JIj8HYzqfbu86beTuNgXDzPknWk0n0uARlyewZo4s++ES36Ow==",
       "requires": {
         "minimist": "^1.2.0"
       }
@@ -56,7 +56,7 @@
     "lru-cache": {
       "version": "4.1.3",
       "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-4.1.3.tgz",
-      "integrity": "sha1-oRdc80lt/IQ2wVbDNLSVWZK85pw=",
+      "integrity": "sha512-fFEhvcgzuIoJVUF8fYr5KR0YqxD238zgObTps31YdADwPPAp82a4M8TrckkWyx7ekNlf9aBcVn81cFwwXngrJA==",
       "requires": {
         "pseudomap": "^1.0.2",
         "yallist": "^2.1.2"
@@ -88,7 +88,7 @@
     "which": {
       "version": "1.3.1",
       "resolved": "https://registry.npmjs.org/which/-/which-1.3.1.tgz",
-      "integrity": "sha1-pFBD1U9YBTFtqNYvn1CRjT2nCwo=",
+      "integrity": "sha512-HxJdYWq1MTIQbJ3nw0cqssHoTNU267KlrDuGZ1WYlxDStUtKUhOaJmh112/TZmHxxUfuJqPXSOm7tDyas0OSIQ==",
       "requires": {
         "isexe": "^2.0.0"
       }
