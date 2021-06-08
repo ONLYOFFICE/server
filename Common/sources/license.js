@@ -56,4 +56,5 @@ exports.readLicense = function*() {
 		endDate: null
 	};
 };
+
 exports.packageType = constants.PACKAGE_TYPE_OS;

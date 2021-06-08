@@ -54,6 +54,7 @@ const jwt = require('jsonwebtoken');
 const NodeCache = require( "node-cache" );
 const ms = require('ms');
 const constants = require('./constants');
+const commonDefines = require('./commondefines');
 const logger = require('./logger');
 const forwarded = require('forwarded');
 const mime = require('mime');
@@ -127,7 +128,7 @@ exports.encodeXml = function(value) {
 			case '\r': return '&#xD;';
 			case '\n': return '&#xA;';
 			case '\t': return '&#x9;';
-			case '\xA0': return '&#A0;';
+			case '\xA0': return '&#xA0;';
 		}
 	});
 };
@@ -868,3 +869,44 @@ exports.decryptPassword = co.wrap(function* (password) {
   const { data: decrypted } = yield openpgp.decrypt(params);
   return decrypted;
 });
+
+exports.convertLicenseInfoToFileParams = function(licenseInfo) {
+  // todo
+  // {
+  // 	user_quota = 0;
+  // 	portal_count = 0;
+  // 	process = 2;
+  // 	ssbranding = false;
+  // 	whiteLabel = false;
+  // }
+  let license = {};
+  license.end_date = licenseInfo.endDate && licenseInfo.endDate.toJSON();
+  license.timelimited = 0 !== (constants.LICENSE_MODE.Limited & licenseInfo.mode);
+  license.trial = 0 !== (constants.LICENSE_MODE.Trial & licenseInfo.mode);
+  license.developer = 0 !== (constants.LICENSE_MODE.Developer & licenseInfo.mode);
+  if(license.developer) {
+    license.mode = 'developer';
+  } else if(license.trial) {
+    license.mode = 'trial';
+  } else {
+    license.mode = '';
+  }
+  license.light = licenseInfo.light;
+  license.branding = licenseInfo.branding;
+  license.customization = licenseInfo.customization;
+  license.plugins = licenseInfo.plugins;
+  license.connections = licenseInfo.connections;
+  license.users_count = licenseInfo.usersCount;
+  license.users_expire = licenseInfo.usersExpire / constants.LICENSE_EXPIRE_USERS_ONE_DAY;
+  return license;
+};
+exports.convertLicenseInfoToServerParams = function(licenseInfo) {
+  let license = {};
+  license.workersCount = licenseInfo.count;
+  license.resultType = licenseInfo.type;
+  license.packageType = licenseInfo.packageType;
+  license.buildDate = licenseInfo.buildDate && licenseInfo.buildDate.toJSON();
+  license.buildVersion = commonDefines.buildVersion;
+  license.buildNumber = commonDefines.buildNumber;
+  return license;
+};

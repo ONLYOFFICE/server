@@ -90,6 +90,7 @@ const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const statsDClient = require('./../../Common/sources/statsdclient');
+const license = require('./../../Common/sources/license');
 const configCommon = require('config');
 const config = configCommon.get('services.CoAuthoring');
 const sqlBase = require('./baseConnector');
@@ -3223,12 +3224,26 @@ exports.licenseInfo = function(req, res) {
     }
   });
 };
+let commandLicense = co.wrap(function*() {
+  let res = {
+    license: utils.convertLicenseInfoToFileParams(licenseInfo),
+    server: utils.convertLicenseInfoToServerParams(licenseInfo), quota: {users: []}
+  };
+  const nowUTC = getLicenseNowUtc();
+  let scores = [];
+  let execRes = yield editorData.getPresenceUniqueUser(nowUTC, scores);
+  execRes.forEach(function(currentValue, index) {
+    res.quota.users.push({userid: currentValue, expire: new Date(scores[index] * 1000)});
+  });
+  return res;
+});
 // Команда с сервера (в частности teamlab)
 exports.commandFromServer = function (req, res) {
   return co(function* () {
     let result = commonDefines.c_oAscServerCommandErrors.NoError;
     let docId = 'commandFromServer';
     let version = undefined;
+    let outputLicense = undefined;
     try {
       let authRes = getRequestParams(docId, req);
       let params = authRes.params;
@@ -3239,7 +3254,7 @@ exports.commandFromServer = function (req, res) {
       }
       // Ключ id-документа
       docId = params.key;
-      if (commonDefines.c_oAscServerCommandErrors.NoError === result && null == docId && 'version' != params.c) {
+      if (commonDefines.c_oAscServerCommandErrors.NoError === result && null == docId && 'version' !== params.c && 'license' !== params.c) {
         result = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
       } else if(commonDefines.c_oAscServerCommandErrors.NoError === result) {
         logger.debug('Start commandFromServer: docId = %s c = %s', docId, params.c);
@@ -3287,6 +3302,9 @@ exports.commandFromServer = function (req, res) {
           case 'version':
               version = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
             break;
+          case 'license':
+              outputLicense = yield commandLicense();
+            break;
           default:
             result = commonDefines.c_oAscServerCommandErrors.UnknownCommand;
             break;
@@ -3297,9 +3315,12 @@ exports.commandFromServer = function (req, res) {
       logger.error('Error commandFromServer: docId = %s\r\n%s', docId, err.stack);
     } finally {
       //undefined value are excluded in JSON.stringify
-      const output = JSON.stringify({'key': docId, 'error': result, 'version': version});
-      logger.debug('End commandFromServer: docId = %s %s', docId, output);
-      const outputBuffer = Buffer.from(output, 'utf8');
+      let output = {'key': docId, 'error': result, 'version': version};
+      if (outputLicense) {
+        Object.assign(output, outputLicense);
+      }
+      logger.debug('End commandFromServer: docId = %s %j', docId, output);
+      const outputBuffer = Buffer.from(JSON.stringify(output), 'utf8');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Length', outputBuffer.length);
       res.send(outputBuffer);
