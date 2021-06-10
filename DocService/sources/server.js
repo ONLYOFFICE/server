@@ -208,6 +208,11 @@ docsCoServer.install(server, () => {
 	app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
 	app.post('/hosting/wopi', utils.checkClientIp, urleEcodedParser, utils.lowercaseQueryString, wopiClient.getEditorHtml);
 
+	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
+		logger.debug(`dummyCallback req.body:%s`, req.body);
+		utils.fillResponseSimple(res, JSON.stringify({error: 0}, "application/json"));
+	});
+
 	const sendUserPlugins = (res, data) => {
 		pluginsLoaded = true;
 		res.setHeader('Content-Type', 'application/json');
