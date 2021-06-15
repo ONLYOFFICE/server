@@ -106,10 +106,9 @@ if (configStorage.has('fs.folderPath')) {
 	app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, (req, res, next) => {
 		const index = req.url.lastIndexOf('/');
 		if ('GET' === req.method && -1 != index) {
-			const contentDisposition = req.query['disposition'] || 'attachment';
 			let sendFileOptions = {
 				root: configStorage.get('fs.folderPath'), dotfiles: 'deny', headers: {
-					'Content-Disposition': contentDisposition
+					'Content-Disposition': 'attachment'
 				}
 			};
 			const urlParsed = urlModule.parse(req.url);
@@ -187,6 +186,7 @@ docsCoServer.install(server, () => {
 
 	app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);
 	app.post('/savefile/:docid', rawFileParser, canvasService.saveFile);
+	app.get('/printfile/:docid', rawFileParser, canvasService.printFile);
 	app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
 	app.get('/baseurl', (req, res) => {

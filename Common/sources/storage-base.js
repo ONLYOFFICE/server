@@ -42,6 +42,9 @@ function getStoragePath(strPath) {
 exports.getObject = function(strPath) {
   return storage.getObject(getStoragePath(strPath));
 };
+exports.createReadStream = function(strPath) {
+  return storage.createReadStream(getStoragePath(strPath));
+};
 exports.putObject = function(strPath, buffer, contentLength) {
   return storage.putObject(getStoragePath(strPath), buffer, contentLength);
 };
@@ -78,13 +81,13 @@ exports.deletePath = function(strPath) {
     return exports.deleteObjects(list);
   });
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type, opt_creationDate) {
-  return storage.getSignedUrl(baseUrl, getStoragePath(strPath), urlType, optFilename, opt_type, opt_creationDate);
+exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+  return storage.getSignedUrl(baseUrl, getStoragePath(strPath), urlType, optFilename, opt_creationDate);
 };
 exports.getSignedUrls = function(baseUrl, strPath, urlType, opt_creationDate) {
   return exports.listObjects(getStoragePath(strPath)).then(function(list) {
     return Promise.all(list.map(function(curValue) {
-      return exports.getSignedUrl(baseUrl, curValue, urlType, undefined, undefined, opt_creationDate);
+      return exports.getSignedUrl(baseUrl, curValue, urlType, undefined, opt_creationDate);
     })).then(function(urls) {
       var outputMap = {};
       for (var i = 0; i < list.length && i < urls.length; ++i) {
@@ -94,9 +97,9 @@ exports.getSignedUrls = function(baseUrl, strPath, urlType, opt_creationDate) {
     });
   });
 };
-exports.getSignedUrlsArrayByArray = function(baseUrl, list, urlType, opt_type) {
+exports.getSignedUrlsArrayByArray = function(baseUrl, list, urlType) {
   return Promise.all(list.map(function(curValue) {
-    return exports.getSignedUrl(baseUrl, curValue, urlType, undefined, opt_type);
+    return exports.getSignedUrl(baseUrl, curValue, urlType, undefined);
   }));
 };
 exports.getSignedUrlsByArray = function(baseUrl, list, optPath, urlType) {

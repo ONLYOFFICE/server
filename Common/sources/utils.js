@@ -83,6 +83,7 @@ const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
 const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
 const cfgPasswordConfig = config.get('openpgpjs.config');
 const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
+const cfgStorageExternalHost = config.get('storage.externalHost');
 
 Object.assign(openpgp.config, cfgPasswordConfig);
 
@@ -355,7 +356,7 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
     }
   });
 }
-function postRequestPromise(uri, postData, optTimeout, opt_Authorization, opt_header) {
+function postRequestPromise(uri, postData, postDataStream, optTimeout, opt_Authorization, opt_header) {
   return new Promise(function(resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -366,7 +367,10 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization, opt_he
     }
     headers = opt_header || headers;
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    var options = {uri: urlParsed, body: postData, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
+    var options = {uri: urlParsed, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
+    if (postData) {
+      options.body = postData;
+    }
 
     let executed = false;
     let ro = baseRequest.post(options, function(err, response, body) {
@@ -393,6 +397,9 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization, opt_he
       setTimeout(function() {
         raiseError(ro, 'ETIMEDOUT', 'Error whole request cycle timeout');
       }, ms(optTimeout.wholeCycle));
+    }
+    if (postDataStream && !postData) {
+      postDataStream.pipe(ro);
     }
   });
 }
@@ -933,4 +940,7 @@ exports.convertLicenseInfoToServerParams = function(licenseInfo) {
   license.buildVersion = commonDefines.buildVersion;
   license.buildNumber = commonDefines.buildNumber;
   return license;
+};
+exports.checkBaseUrl = function(baseUrl) {
+  return cfgStorageExternalHost ? cfgStorageExternalHost : baseUrl;
 };
