@@ -59,6 +59,9 @@ var cfgImageSize = config_server.get('limits_image_size');
 var cfgImageDownloadTimeout = config_server.get('limits_image_download_timeout');
 var cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
 var cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgTokenSessionAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
+const cfgTokenSessionExpires = ms(config.get('services.CoAuthoring.token.session.expires'));
+const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
 const cfgForgottenFiles = config_server.get('forgottenfiles');
 const cfgForgottenFilesName = config_server.get('forgottenfilesname');
 const cfgOpenProtectedFile = config_server.get('openProtectedFile');
@@ -178,13 +181,16 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
       if ('open' != command && 'reopen' != command && !cmd.getOutputUrls()) {
         var strPath = key + '/' + cmd.getOutputPath();
         if (optConn) {
-          var contentDisposition = cmd.getInline() ? constants.CONTENT_DISPOSITION_INLINE : constants.CONTENT_DISPOSITION_ATTACHMENT;
-          let url = yield storage.getSignedUrl(optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary,
-                                               cmd.getTitle(),
-                                               contentDisposition);
+          let url;
+          if(cmd.getInline()) {
+            url = getPrintFileUrl(key, optConn.baseUrl, cmd.getTitle());
+          } else {
+            url = yield storage.getSignedUrl(optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary,
+                                                 cmd.getTitle());
+          }
           outputData.setData(url);
         } else if (optAdditionalOutput) {
-          optAdditionalOutput.needUrlKey = strPath;
+          optAdditionalOutput.needUrlKey = cmd.getInline() ? key : strPath;
           optAdditionalOutput.needUrlMethod = 2;
           optAdditionalOutput.needUrlType = commonDefines.c_oAscUrlTypes.Temporary;
         }
@@ -689,22 +695,16 @@ function* commandImgurls(conn, cmd, outputData) {
   }
 }
 function* commandPathUrls(conn, cmd, outputData) {
-  let contentDisposition = cmd.getInline() ? constants.CONTENT_DISPOSITION_INLINE :
-    constants.CONTENT_DISPOSITION_ATTACHMENT;
   let listImages = cmd.getData().map(function callback(currentValue) {
     return conn.docId + '/' + currentValue;
   });
-  let urls = yield storage.getSignedUrlsArrayByArray(conn.baseUrl, listImages, commonDefines.c_oAscUrlTypes.Session,
-                                                     contentDisposition);
+  let urls = yield storage.getSignedUrlsArrayByArray(conn.baseUrl, listImages, commonDefines.c_oAscUrlTypes.Session);
   outputData.setStatus('ok');
   outputData.setData(urls);
 }
 function* commandPathUrl(conn, cmd, outputData) {
-  var contentDisposition = cmd.getInline() ? constants.CONTENT_DISPOSITION_INLINE :
-    constants.CONTENT_DISPOSITION_ATTACHMENT;
   var strPath = conn.docId + '/' + cmd.getData();
-  var url = yield storage.getSignedUrl(conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary, cmd.getTitle(),
-                                       contentDisposition);
+  var url = yield storage.getSignedUrl(conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary, cmd.getTitle());
   var errorCode = constants.NO_ERROR;
   if (constants.NO_ERROR !== errorCode) {
     outputData.setStatus('err');
@@ -934,8 +934,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           try {
             if (wopiParams) {
-              let data = yield storage.getObject(savePathDoc);
-              replyStr = yield wopiClient.putFile(wopiParams, data, userLastChangeId);
+              let streamObj = yield storage.createReadStream(savePathDoc);
+              replyStr = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
             } else {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
             }
@@ -967,8 +967,8 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
               if (wopiParams) {
-                let data = yield storage.getObject(savePathDoc);
-                replyStr = yield wopiClient.putFile(wopiParams, data, userLastChangeId);
+                let streamObj = yield storage.createReadStream(savePathDoc);
+                replyStr = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
               } else {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
               }
@@ -1317,6 +1317,65 @@ exports.saveFile = function(req, res) {
     catch (e) {
       logger.error('Error saveFile: docId = %s\r\n%s', docId, e.stack);
       res.sendStatus(400);
+    }
+  });
+};
+function getPrintFileUrl(docId, baseUrl, filename) {
+  baseUrl = utils.checkBaseUrl(baseUrl);
+  let token = '';
+  if (cfgTokenEnableBrowser) {
+    let payload = {document: {key: docId}};
+    token = docsCoServer.signToken(payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, cfgSecretSession);
+  }
+  return `${baseUrl}/printfile/${encodeURIComponent(docId)}?filename=${encodeURIComponent(filename)}&token=${encodeURIComponent(token)}`;
+};
+exports.getPrintFileUrl = getPrintFileUrl;
+exports.printFile = function(req, res) {
+  return co(function*() {
+    let docId = 'null';
+    try {
+      let startDate = null;
+      if (clientStatsD) {
+        startDate = new Date();
+      }
+
+      let filename = req.query['filename'];
+      let token = req.query['token'];
+      docId = req.params.docid;
+      logger.info('Start printFile: docId = %s', docId);
+
+      if (cfgTokenEnableBrowser) {
+        let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Session);
+        if (checkJwtRes.decoded) {
+          let docIdBase = checkJwtRes.decoded.document.key;
+          if (!docId.startsWith(docIdBase)) {
+            logger.warn('Error printFile jwt: docId = %s description = %s', docId, 'access deny');
+            res.sendStatus(403);
+            return;
+          }
+        } else {
+          logger.warn('Error printFile jwt: docId = %s description = %s', docId, checkJwtRes.description);
+          res.sendStatus(403);
+          return;
+        }
+      }
+
+      let streamObj = yield storage.createReadStream(`${docId}/${constants.OUTPUT_NAME}.pdf`);
+      res.setHeader('Content-Disposition', utils.getContentDisposition(filename, null, constants.CONTENT_DISPOSITION_INLINE));
+      res.setHeader('Content-Length', streamObj.contentLength);
+      res.setHeader('Content-Type', 'application/pdf');
+      yield utils.pipeStreams(streamObj.readStream, res, true);
+
+      if (clientStatsD) {
+        clientStatsD.timing('coauth.printFile', new Date() - startDate);
+      }
+    }
+    catch (e) {
+      logger.error('Error printFile: docId = %s %s', docId, e.stack);
+      res.sendStatus(400);
+    }
+    finally {
+      logger.info('End printFile: docId = %s', docId);
     }
   });
 };

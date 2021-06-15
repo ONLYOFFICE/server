@@ -283,7 +283,7 @@ function getEditorHtml(req, res) {
     }
   });
 }
-function putFile(wopiParams, data, userLastChangeId) {
+function putFile(wopiParams, data, dataStream, userLastChangeId) {
   return co(function* () {
     try {
       logger.info('wopi PutFile start');
@@ -298,7 +298,7 @@ function putFile(wopiParams, data, userLastChangeId) {
         fillStandardHeaders(headers, uri, userAuth.access_token);
 
         logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, data, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(uri, data, dataStream, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
       } else {
         logger.info('wopi SupportsUpdate = false');
@@ -329,7 +329,7 @@ function renameFile(wopiParams, name) {
         fillStandardHeaders(headers, uri, userAuth.access_token);
 
         logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
         if (postRes.body) {
           res = JSON.parse(postRes.body);
@@ -382,7 +382,7 @@ function lock(lockId, fileInfo, userAuth) {
         let headers = {"X-WOPI-Override": "LOCK", "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
         logger.debug('wopi Lock request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi Lock response headers=%j', postRes.response.headers);
       } else {
         logger.info('wopi SupportsLocks = false');
@@ -410,7 +410,7 @@ function unlock(wopiParams) {
         let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
         logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
       } else {
         logger.info('wopi SupportsLocks = false');

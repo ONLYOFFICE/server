@@ -51,7 +51,6 @@ var cfgAccessKeyId = configStorage.get('accessKeyId');
 var cfgSecretAccessKey = configStorage.get('secretAccessKey');
 var cfgUseRequestToGetUrl = configStorage.get('useRequestToGetUrl');
 var cfgUseSignedUrl = configStorage.get('useSignedUrl');
-var cfgExternalHost = configStorage.get('externalHost');
 var cfgSslEnabled = configStorage.get('sslEnabled');
 var cfgS3ForcePathStyle = configStorage.get('s3ForcePathStyle');
 var configFs = configStorage.get('fs');
@@ -143,6 +142,25 @@ exports.getObject = function(strPath) {
     });
   });
 };
+exports.createReadStream = function(strPath) {
+  return new Promise(function(resolve, reject) {
+    var params = {Bucket: cfgBucketName, Key: getFilePath(strPath)};
+    s3Client.getObject(params)
+      .on('error', (err) => {
+        reject(err);
+      })
+      .on('httpHeaders', function(statusCode, headers, resp, statusMessage) {
+        //retries are possible
+        if (statusCode < 300) {
+          let responseObject = {
+            contentLength: headers['content-length'],
+            readStream: this.response.httpResponse.createUnbufferedStream()
+          };
+          resolve(responseObject);
+        }
+      }).send();
+  });
+};
 exports.putObject = function(strPath, buffer, contentLength) {
   return new Promise(function(resolve, reject) {
     //todo рассмотреть Expires
@@ -204,11 +222,11 @@ exports.deleteObjects = function(strPaths) {
   }
   return Promise.all(deletePromises);
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type, opt_creationDate) {
+exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
   return new Promise(function(resolve, reject) {
     var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute : cfgStorageUrlExpires) || 31536000;
     var userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
-    var contentDisposition = utils.getContentDisposition(userFriendlyName, null, opt_type);
+    var contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
     if (cfgUseRequestToGetUrl) {
       //default Expires 900 seconds
       var params = {
@@ -228,7 +246,7 @@ exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type
       } else if (cfgEndpointParsed &&
         (cfgEndpointParsed.hostname == 'localhost' || cfgEndpointParsed.hostname == '127.0.0.1') &&
         80 == cfgEndpointParsed.port) {
-        host = (cfgExternalHost ? cfgExternalHost : baseUrl) + cfgEndpointParsed.path;
+        host = utils.checkBaseUrl(baseUrl) + cfgEndpointParsed.path;
       } else {
         host = cfgEndpoint;
       }
