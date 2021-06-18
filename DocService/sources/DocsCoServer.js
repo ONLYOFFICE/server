@@ -865,6 +865,9 @@ function handleDeadLetter(data, ack) {
             yield* addTask(task, constants.QUEUE_PRIORITY_VERY_LOW, undefined, FORCE_SAVE_EXPIRATION);
             isRequeued = true;
           }
+        } else if (!forceSave && task.getFromChanges()) {
+          yield* addTask(task, constants.QUEUE_PRIORITY_NORMAL, undefined);
+          isRequeued = true;
         } else if(cmd.getAttempt()) {
           logger.warn('handleDeadLetter addResponse delayed = %d: docId = %s', cmd.getAttempt(), docId);
           yield* addResponse(task);
