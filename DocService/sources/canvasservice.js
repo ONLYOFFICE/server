@@ -1327,8 +1327,11 @@ function getPrintFileUrl(docId, baseUrl, filename) {
     let payload = {document: {key: docId}};
     token = docsCoServer.signToken(payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, cfgSecretSession);
   }
-  return `${baseUrl}/printfile/${encodeURIComponent(docId)}?filename=${encodeURIComponent(filename)}&token=${encodeURIComponent(token)}`;
-};
+  //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
+  //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
+  var userFriendlyName = encodeURIComponent(filename.replace(/\//g, "%2f"));
+  return `${baseUrl}/printfile/${encodeURIComponent(docId)}/${userFriendlyName}?token=${encodeURIComponent(token)}&filename=${userFriendlyName}`;
+}
 exports.getPrintFileUrl = getPrintFileUrl;
 exports.printFile = function(req, res) {
   return co(function*() {
