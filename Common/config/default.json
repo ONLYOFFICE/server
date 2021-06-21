@@ -317,11 +317,5 @@
 		"port": 4567,
 		"directory": "",
 		"silent": true
-	},
-	"SpellChecker": {
-		"server": {
-			"port": 8080,
-			"mode": "development"
-		}
 	}
 }
