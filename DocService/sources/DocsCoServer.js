@@ -740,7 +740,7 @@ function* setForceSave(docId, forceSave, cmd, success) {
     }
   }
 }
-let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
+let startForceSave = co.wrap(function*(docId, type, async, opt_userdata, opt_userId, opt_userConnectionId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
   logger.debug('startForceSave start:docId = %s', docId);
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null};
   let startedForceSave;
@@ -781,7 +781,7 @@ let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, op
       priority = constants.QUEUE_PRIORITY_LOW;
     }
     //start new convert
-    let status = yield* converterService.convertFromChanges(docId, baseUrl, forceSave, startedForceSave.changeInfo, opt_userdata,
+    let status = yield* converterService.convertFromChanges(docId, baseUrl, forceSave, startedForceSave.changeInfo, async, opt_userdata,
                                                             opt_userConnectionId, opt_responseKey, priority, expiration, opt_queue);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
@@ -815,7 +815,7 @@ function* startRPC(conn, responseKey, data) {
     case 'sendForm':
       var forceSaveRes;
       if (conn.user) {
-        forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Form, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser, responseKey);
+        forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Form, true, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser, responseKey);
       } else {
         sendDataRpc(conn, responseKey);
       }
@@ -1322,7 +1322,7 @@ exports.install = function(server, callbackFunction) {
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
-              forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser);
+              forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Button, true, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser);
             } else {
               forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
             }
@@ -3289,7 +3289,9 @@ exports.commandFromServer = function (req, res) {
             }
             break;
           case 'forcesave':
-            let forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(req));
+            // If async was not send - set true (as default)
+            let async = (typeof params.async === 'undefined') ? true : (typeof params.async === 'string') ? 'true' === params.async : params.async;
+            let forceSaveRes = yield startForceSave(docId, commonDefines.c_oAscForceSaveTypes.Command, async, params.userdata, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(req));
             result = forceSaveRes.code;
             break;
           case 'meta':

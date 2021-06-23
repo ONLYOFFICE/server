@@ -148,7 +148,7 @@ function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_prior
   return status;
 }
 
-function* convertFromChanges(docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_userConnectionId,
+function* convertFromChanges(docId, baseUrl, forceSave, externalChangeInfo, async, opt_userdata, opt_userConnectionId,
                              opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
@@ -173,7 +173,7 @@ function* convertFromChanges(docId, baseUrl, forceSave, externalChangeInfo, opt_
   }
 
   yield* canvasService.commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue);
-  return yield* convertByCmd(cmd, true, baseUrl, constants.OUTPUT_NAME, undefined, opt_priority, opt_expiration, opt_queue);
+  return yield* convertByCmd(cmd, async, baseUrl, constants.OUTPUT_NAME, undefined, opt_priority, opt_expiration, opt_queue);
 }
 function parseIntParam(val){
   return (typeof val === 'string') ? parseInt(val) : val;
