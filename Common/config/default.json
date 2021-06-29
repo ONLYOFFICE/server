@@ -237,6 +237,9 @@
 				"uri": "/sdkjs-plugins",
 				"autostart": []
 			},
+			"themes": {
+				"uri": "/web-apps/apps/common/main/resources/themes"
+			},
 			"editor":{
 				"spellcheckerUrl": "",
 				"reconnection":{

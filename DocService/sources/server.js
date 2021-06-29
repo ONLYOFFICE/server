@@ -46,6 +46,7 @@ const urlModule = require('url');
 const path = require('path');
 const bodyParser = require("body-parser");
 const mime = require('mime');
+const apicache = require('apicache');
 const docsCoServer = require('./DocsCoServer');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
@@ -259,6 +260,45 @@ docsCoServer.install(server, () => {
 				userPlugins = {'url': '', 'pluginsData': result, 'autostart': pluginsAutostart};
 				sendUserPlugins(res, userPlugins);
 			});
+		});
+	});
+	app.get('/themes.json', apicache.middleware("5 minutes"), (req, res) => {
+		return co(function*() {
+			let themes = [];
+			try {
+				logger.info('themes.json start');
+				if (!config.has('server.static_content') || !config.has('themes.uri')) {
+					return;
+				}
+				let staticContent = config.get('server.static_content');
+				let themesUri = config.get('themes.uri');
+				let themesList = [];
+
+				for (let i in staticContent) {
+					if (staticContent.hasOwnProperty(i) && themesUri.startsWith(i)) {
+						let dir = staticContent[i].path + themesUri.substring(i.length);
+						themesList = yield utils.listObjects(dir, true);
+						logger.debug('themes.json dir:%s', dir);
+						logger.debug('themes.json themesList:%j', themesList);
+						break;
+					}
+				}
+
+				let baseUrl = utils.getBaseUrlByRequest(req);
+				for (let i = 0; i < themesList.length; ++i) {
+					themes.push(baseUrl + themesUri + '/' + path.basename(themesList[i]));
+				}
+			} catch (err) {
+				logger.error('themes.json error:%s', err.stack);
+			} finally {
+				if (themes.length > 0) {
+					res.setHeader('Content-Type', 'text/xml');
+					res.send({"themes": themes});
+				} else {
+					res.sendStatus(404);
+				}
+				logger.info('themes.json end');
+			}
 		});
 	});
 });
