@@ -280,13 +280,12 @@ docsCoServer.install(server, () => {
 						themesList = yield utils.listObjects(dir, true);
 						logger.debug('themes.json dir:%s', dir);
 						logger.debug('themes.json themesList:%j', themesList);
+						for (let j = 0; j < themesList.length; ++j) {
+							let data = yield utils.readFile(themesList[j], true);
+							themes.push(JSON.parse(data.toString('utf-8')));
+						}
 						break;
 					}
-				}
-
-				let baseUrl = utils.getBaseUrlByRequest(req);
-				for (let i = 0; i < themesList.length; ++i) {
-					themes.push(baseUrl + themesUri + '/' + path.basename(themesList[i]));
 				}
 			} catch (err) {
 				logger.error('themes.json error:%s', err.stack);
