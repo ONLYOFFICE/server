@@ -48,7 +48,7 @@ TARGET := $(PLATFORM)_$(ARCHITECTURE)
 
 OUTPUT = ../build_tools/out/$(TARGET)/onlyoffice/documentserver/server
 
-SPELLCHECKER_DICTIONARIES := $(OUTPUT)/SpellChecker/dictionaries
+SPELLCHECKER_DICTIONARIES := $(OUTPUT)/dictionaries
 SPELLCHECKER_DICTIONARY_FILES += ../dictionaries/*_*
 
 SCHEMA_DIR = schema

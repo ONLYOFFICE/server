@@ -459,6 +459,11 @@ let changeConnectionInfo = co.wrap(function*(conn, cmd) {
   }
   return false;
 });
+function signToken(payload, algorithm, expiresIn, secretElem) {
+  var options = {algorithm: algorithm, expiresIn: expiresIn};
+  var secret = utils.getSecretByElem(secretElem);
+  return jwt.sign(payload, secret, options);
+}
 function fillJwtByConnection(conn) {
   var docId = conn.docId;
   var payload = {document: {}, editorConfig: {user: {}}};
@@ -481,9 +486,7 @@ function fillJwtByConnection(conn) {
   edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
   edit.ds_denyChangeName = conn.denyChangeName;
 
-  var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
-  var secret = utils.getSecretByElem(cfgSecretSession);
-  return jwt.sign(payload, secret, options);
+  return signToken(payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, cfgSecretSession);
 }
 
 function sendData(conn, data) {
@@ -650,7 +653,7 @@ function* sendServerRequest(docId, uri, dataObject, opt_checkAuthorization) {
       logger.warn('authorization reduced to: docId = %s; length=%d', docId, auth.length);
     }
   }
-  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), cfgCallbackRequestTimeout, auth);
+  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, cfgCallbackRequestTimeout, auth);
   logger.debug('postData response: docId = %s;data = %s', docId, postRes.body);
   return postRes.body;
 }
@@ -862,6 +865,9 @@ function handleDeadLetter(data, ack) {
             yield* addTask(task, constants.QUEUE_PRIORITY_VERY_LOW, undefined, FORCE_SAVE_EXPIRATION);
             isRequeued = true;
           }
+        } else if (!forceSave && task.getFromChanges()) {
+          yield* addTask(task, constants.QUEUE_PRIORITY_NORMAL, undefined);
+          isRequeued = true;
         } else if(cmd.getAttempt()) {
           logger.warn('handleDeadLetter addResponse delayed = %d: docId = %s', cmd.getAttempt(), docId);
           yield* addResponse(task);
@@ -1231,6 +1237,7 @@ exports.parseReplyData = parseReplyData;
 exports.sendServerRequest = sendServerRequest;
 exports.createSaveTimerPromise = co.wrap(_createSaveTimer);
 exports.changeConnectionInfo = changeConnectionInfo;
+exports.signToken = signToken;
 exports.publish = publish;
 exports.addTask = addTask;
 exports.addDelayed = addDelayed;
@@ -2959,10 +2966,15 @@ exports.install = function(server, callbackFunction) {
                 if (0 == data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrls(participant.baseUrl, data.needUrlKey, data.needUrlType, data.creationDate));
                 } else if (1 == data.needUrlMethod) {
-                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, undefined, undefined, data.creationDate));
+                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, undefined, data.creationDate));
                 } else {
-                  var contentDisposition = cmd.getInline() ? constants.CONTENT_DISPOSITION_INLINE : constants.CONTENT_DISPOSITION_ATTACHMENT;
-                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), contentDisposition, data.creationDate));
+                  let url;
+                  if (cmd.getInline()) {
+                    url = canvasService.getPrintFileUrl(data.needUrlKey, participant.baseUrl, cmd.getTitle());
+                  } else {
+                    url = yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), data.creationDate)
+                  }
+                  outputData.setData(url);
                 }
                 modifyConnectionForPassword(participant, data.needUrlIsCorrectPassword);
               }

@@ -45,7 +45,6 @@ var config = require('config');
 var configStorage = config.get('storage');
 var cfgBucketName = configStorage.get('bucketName');
 var cfgStorageFolderName = configStorage.get('storageFolderName');
-var cfgStorageExternalHost = configStorage.get('externalHost');
 var configFs = configStorage.get('fs');
 var cfgStorageFolderPath = configFs.get('folderPath');
 var cfgStorageSecretString = configFs.get('secretString');
@@ -88,6 +87,27 @@ function removeEmptyParent(strPath, done) {
 
 exports.getObject = function(strPath) {
   return utils.readFile(getFilePath(strPath));
+};
+exports.createReadStream = function(strPath) {
+  let fsPath = getFilePath(strPath);
+  let contentLength;
+  return new Promise(function(resolve, reject) {
+    fs.stat(fsPath, function(err, stats) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(stats);
+      }
+    });
+  }).then(function(stats){
+    contentLength = stats.size;
+    return utils.promiseCreateReadStream(fsPath);
+  }).then(function(readStream, stats){
+    return {
+      contentLength: contentLength,
+      readStream: readStream
+    };
+  });
 };
 
 exports.putObject = function(strPath, buffer, contentLength) {
@@ -155,12 +175,12 @@ exports.deleteObject = function(strPath) {
 exports.deleteObjects = function(strPaths) {
   return Promise.all(strPaths.map(exports.deleteObject));
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type, opt_creationDate) {
+exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
   return new Promise(function(resolve, reject) {
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
     var userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, "%2f")) : path.basename(strPath);
     var uri = '/' + cfgBucketName + '/' + cfgStorageFolderName + '/' + strPath + '/' + userFriendlyName;
-    var url = (cfgStorageExternalHost ? cfgStorageExternalHost : baseUrl) + uri;
+    var url = utils.checkBaseUrl(baseUrl) + uri;
 
     var date = Date.now();
     let creationDate = opt_creationDate || date;
@@ -175,7 +195,6 @@ exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_type
 
     url += '?md5=' + encodeURIComponent(md5);
     url += '&expires=' + encodeURIComponent(expires);
-    url += '&disposition=' + encodeURIComponent(utils.getContentDisposition(null, null, opt_type));
     url += '&filename=' + userFriendlyName;
     resolve(url);
   });
