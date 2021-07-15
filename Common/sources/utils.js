@@ -61,7 +61,7 @@ const mime = require('mime');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const openpgp = require('openpgp');
 require('win-ca');
-const contentDisposition = require('content-disposition')
+const contentDisposition = require('content-disposition');
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
@@ -246,7 +246,8 @@ function encodeRFC5987ValueChars(str) {
     replace(/%(?:7C|60|5E)/g, unescape);
 }
 function getContentDisposition (opt_filename, opt_useragent, opt_type) {
-  return contentDisposition(opt_filename, {type: opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT});
+  let type = opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT;
+  return contentDisposition(opt_filename, {type: type});
 }
 exports.getContentDisposition = getContentDisposition;
 function raiseError(ro, code, msg) {
