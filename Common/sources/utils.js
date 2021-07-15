@@ -61,6 +61,7 @@ const mime = require('mime');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const openpgp = require('openpgp');
 require('win-ca');
+const contentDisposition = require('content-disposition')
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
@@ -245,17 +246,7 @@ function encodeRFC5987ValueChars(str) {
     replace(/%(?:7C|60|5E)/g, unescape);
 }
 function getContentDisposition (opt_filename, opt_useragent, opt_type) {
-  //from http://stackoverflow.com/questions/93551/how-to-encode-the-filename-parameter-of-content-disposition-header-in-http
-  var contentDisposition = opt_type ? opt_type : constants.CONTENT_DISPOSITION_ATTACHMENT;
-  if (opt_filename) {
-    contentDisposition += '; filename="';
-    if (opt_useragent != null && -1 != opt_useragent.toLowerCase().indexOf('android')) {
-      contentDisposition += makeAndroidSafeFileName(opt_filename) + '"';
-    } else {
-      contentDisposition += opt_filename + '"; filename*=UTF-8\'\'' + encodeRFC5987ValueChars(opt_filename);
-    }
-  }
-  return contentDisposition;
+  return contentDisposition(opt_filename, {type: opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT});
 }
 exports.getContentDisposition = getContentDisposition;
 function raiseError(ro, code, msg) {
