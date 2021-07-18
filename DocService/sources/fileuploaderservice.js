@@ -63,7 +63,7 @@ exports.uploadTempFile = function(req, res) {
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {
-        utils.fillResponse(req, res, undefined, authRes.code, false);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(authRes.code), false);
         return;
       }
       docId = params.key;
@@ -74,18 +74,18 @@ exports.uploadTempFile = function(req, res) {
         yield storageBase.putObject(strPath, req.body, req.body.length);
         var url = yield storageBase.getSignedUrl(utils.getBaseUrlByRequest(req), strPath,
                                                  commonDefines.c_oAscUrlTypes.Temporary);
-        utils.fillResponse(req, res, url, constants.NO_ERROR, false);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.NO_ERROR, url), false);
       } else {
         if (!constants.DOC_ID_REGEX.test(docId)) {
           logger.warn('Error uploadTempFile unexpected key: docId = %s', docId);
         }
-        utils.fillResponse(req, res, undefined, constants.UNKNOWN, false);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), false);
       }
       logger.debug('End uploadTempFile: docId = %s', docId);
     }
     catch (e) {
       logger.error('Error uploadTempFile: docId = %s\r\n%s', docId, e.stack);
-      utils.fillResponse(req, res, undefined, constants.UNKNOWN, false);
+      utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), false);
     }
   });
 };

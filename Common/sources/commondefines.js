@@ -901,6 +901,20 @@ function OutputAction(type, userid) {
   this['type'] = type;
   this['userid'] = userid;
 }
+
+function ConvertStatus(err, url, filetype) {
+  this.err = err;
+  this.url = url;
+  this.filetype = filetype;
+  this.end = !!url;
+}
+ConvertStatus.prototype.setExtName = function(extname) {
+  this.filetype = extname.substring(1);
+};
+ConvertStatus.prototype.setUrl = function(url) {
+  this.url = url;
+  this.end = true;
+};
 const c_oPublishType = {
   drop : 0,
   releaseLock : 1,
@@ -1054,6 +1068,7 @@ exports.InputCommand = InputCommand;
 exports.OutputSfcData = OutputSfcData;
 exports.OutputMailMerge = OutputMailMerge;
 exports.OutputAction = OutputAction;
+exports.ConvertStatus = ConvertStatus;
 exports.c_oPublishType = c_oPublishType;
 exports.c_oAscCsvDelimiter = c_oAscCsvDelimiter;
 exports.c_oAscEncodings = c_oAscEncodings;

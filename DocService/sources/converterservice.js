@@ -52,18 +52,14 @@ var CONVERT_ASYNC_DELAY = 1000;
 
 var clientStatsD = statsDClient.getClient();
 
-function* getConvertStatus(cmd, selectRes, baseUrl, opt_fileTo) {
-  var status = {end: false, url: undefined, err: constants.NO_ERROR};
+function* getConvertStatus(cmd, selectRes) {
+  var status = new commonDefines.ConvertStatus(constants.NO_ERROR);
   if (selectRes.length > 0) {
     var docId = cmd.getDocId();
     var row = selectRes[0];
     switch (row.status) {
       case taskResult.FileStatus.Ok:
         status.end = true;
-        if (opt_fileTo) {
-          status.url = yield storage.getSignedUrl(baseUrl, docId + '/' + opt_fileTo,
-                                                  commonDefines.c_oAscUrlTypes.Temporary, cmd.getTitle());
-        }
         break;
       case taskResult.FileStatus.Err:
       case taskResult.FileStatus.ErrToReload:
@@ -88,8 +84,23 @@ function* getConvertStatus(cmd, selectRes, baseUrl, opt_fileTo) {
   }
   return status;
 }
-
-function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue) {
+function* getConvertPath(docId, fileTo, formatTo) {
+  if (constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML === formatTo || constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF === formatTo) {
+    let list = yield storage.listObjects(docId);
+    let baseName = path.basename(fileTo, path.extname(fileTo));
+    for (let i = 0; i < list.length; ++i) {
+      if (path.basename(list[i], path.extname(list[i])) === baseName) {
+        return list[i];
+      }
+    }
+  }
+  return docId + '/' + fileTo;
+}
+function* getConvertUrl(baseUrl, fileToPath, title) {
+  title = path.basename(title, path.extname(title)) + path.extname(fileToPath);
+  return yield storage.getSignedUrl(baseUrl, fileToPath, commonDefines.c_oAscUrlTypes.Temporary, title);
+}
+function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue) {
   var docId = cmd.getDocId();
   var startDate = null;
   if (clientStatsD) {
@@ -113,7 +124,7 @@ function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_prior
   var status;
   if (!bCreate) {
     selectRes = yield taskResult.select(docId);
-    status = yield* getConvertStatus(cmd, selectRes, baseUrl, opt_fileTo);
+    status = yield* getConvertStatus(cmd, selectRes);
   } else {
     var queueData = new commonDefines.TaskQueueData();
     queueData.setCmd(cmd);
@@ -121,9 +132,9 @@ function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_prior
       queueData.setToFile(opt_fileTo);
     }
     queueData.setFromOrigin(true);
-    var priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW
+    var priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
     yield* docsCoServer.addTask(queueData, priority, opt_queue, opt_expiration);
-    status = {end: false, url: undefined, err: constants.NO_ERROR};
+    status = new commonDefines.ConvertStatus(constants.NO_ERROR);
   }
   //wait
   if (!async) {
@@ -134,7 +145,7 @@ function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_prior
       }
       yield utils.sleep(CONVERT_ASYNC_DELAY);
       selectRes = yield taskResult.select(docId);
-      status = yield* getConvertStatus(cmd, selectRes, baseUrl, opt_fileTo);
+      status = yield* getConvertStatus(cmd, selectRes);
       waitTime += CONVERT_ASYNC_DELAY;
       if (waitTime > utils.CONVERTION_TIMEOUT) {
         status.err = constants.CONVERT_TIMEOUT;
@@ -153,7 +164,7 @@ function* convertFromChanges(docId, baseUrl, forceSave, externalChangeInfo, opt_
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
-  cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER);
+  cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
   cmd.setEmbeddedFonts(false);
   cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
   cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Comma);
@@ -173,7 +184,18 @@ function* convertFromChanges(docId, baseUrl, forceSave, externalChangeInfo, opt_
   }
 
   yield* canvasService.commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue);
-  return yield* convertByCmd(cmd, true, baseUrl, constants.OUTPUT_NAME, undefined, opt_priority, opt_expiration, opt_queue);
+  var fileTo = constants.OUTPUT_NAME;
+  let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
+  if (outputExt) {
+    fileTo += '.' + outputExt;
+  }
+  let status = yield* convertByCmd(cmd, true, fileTo, undefined, opt_priority, opt_expiration, opt_queue);
+  if (status.end) {
+    let fileToPath = yield* getConvertPath(docId, fileTo, cmd.getOutputFormat());
+    status.setExtName(path.extname(fileToPath));
+    status.setUrl(yield* getConvertUrl(baseUrl, fileToPath, cmd.getTitle()));
+  }
+  return status;
 }
 function parseIntParam(val){
   return (typeof val === 'string') ? parseInt(val) : val;
@@ -188,24 +210,24 @@ function convertRequest(req, res, isJson) {
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {
-        utils.fillResponse(req, res, undefined, authRes.code, isJson);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(authRes.code), isJson);
         return;
       }
       if (params.key && !constants.DOC_ID_REGEX.test(params.key)) {
         logger.warn('convertRequest unexpected key = %s: docId = %s', params.key, docId);
-        utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
       if (params.filetype && !constants.EXTENTION_REGEX.test(params.filetype)) {
         logger.warn('convertRequest unexpected filetype = %s: docId = %s', params.filetype, docId);
-        utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
       let outputtype = params.outputtype || '';
       let outputFormat = formatChecker.getFormatFromString(outputtype);
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
         logger.warn('convertRequest unexpected outputtype = %s: docId = %s', outputtype, docId);
-        utils.fillResponse(req, res, undefined, constants.CONVERT_PARAMS, isJson);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
       var cmd = new commonDefines.InputCommand();
@@ -216,8 +238,11 @@ function convertRequest(req, res, isJson) {
       docId = 'conv_' + params.key + '_' + outputtype;
       cmd.setDocId(docId);
       cmd.setOutputFormat(outputFormat);
+      let fileTo = constants.OUTPUT_NAME;
       let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
-      var fileTo = constants.OUTPUT_NAME + '.' + outputExt;
+      if (outputExt) {
+        fileTo += '.' + outputExt;
+      }
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage] || commonDefines.c_oAscCodePageUtf8);
       cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
       if(undefined != params.delimiterChar)
@@ -266,17 +291,22 @@ function convertRequest(req, res, isJson) {
       var async = (typeof params.async === 'string') ? 'true' == params.async : params.async;
 
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== cmd.getOutputFormat()) {
-        var status = yield* convertByCmd(cmd, async, utils.getBaseUrlByRequest(req), fileTo);
-        utils.fillResponse(req, res, status.url, status.err, isJson);
+        var status = yield* convertByCmd(cmd, async, fileTo);
+        if (status.end) {
+          let fileToPath = yield* getConvertPath(docId, fileTo, cmd.getOutputFormat());
+          status.setExtName(path.extname(fileToPath));
+          status.setUrl(yield* getConvertUrl(utils.getBaseUrlByRequest(req), fileToPath, cmd.getTitle()));
+        }
+        utils.fillResponse(req, res, status, isJson);
       } else {
         var addresses = utils.forwarded(req);
         logger.warn('Error convert unknown outputtype: query = %j from = %s docId = %s', params, addresses, docId);
-        utils.fillResponse(req, res, undefined, constants.UNKNOWN, isJson);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
       }
     }
     catch (e) {
       logger.error('Error convert: docId = %s\r\n%s', docId, e.stack);
-      utils.fillResponse(req, res, undefined, constants.UNKNOWN, isJson);
+      utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
     }
   });
 }

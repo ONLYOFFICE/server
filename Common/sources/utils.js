@@ -484,6 +484,11 @@ function fillXmlResponse(val) {
     } else {
       xml += '<FileUrl/>';
     }
+    if (val.fileType) {
+      xml += '<FileType>' + exports.encodeXml(val.fileType) + '</FileType>';
+    } else {
+      xml += '<FileType/>';
+    }
     xml += '<Percent>' + val.percent + '</Percent>';
     xml += '<EndConvert>' + (val.endConvert ? 'True' : 'False') + '</EndConvert>';
   }
@@ -510,12 +515,12 @@ function _fillResponse(res, output, isJSON) {
   fillResponseSimple(res, data, contentType);
 }
 
-function fillResponse(req, res, uri, error, isJSON) {
+function fillResponse(req, res, convertStatus, isJSON) {
   let output;
-  if (constants.NO_ERROR != error) {
-    output = {error: exports.mapAscServerErrorToOldError(error)};
+  if (constants.NO_ERROR != convertStatus.err) {
+    output = {error: exports.mapAscServerErrorToOldError(convertStatus.err)};
   } else {
-    output = {fileUrl: uri, percent: (uri ? 100 : 0), endConvert: !!uri};
+    output = {fileUrl: convertStatus.url, fileType: convertStatus.filetype, percent: (convertStatus.end ? 100 : 0), endConvert: convertStatus.end};
   }
   const accepts = isJSON ? ['json', 'xml'] : ['xml', 'json'];
   switch (req.accepts(accepts)) {
