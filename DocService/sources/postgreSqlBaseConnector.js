@@ -95,6 +95,10 @@ let addSqlParam = function (val, values) {
   return '$' + values.length;
 };
 exports.addSqlParameter = addSqlParam;
+let concatParams = function (val1, val2) {
+  return `COALESCE(${val1}, '') || COALESCE(${val2}, '')`;
+};
+exports.concatParams = concatParams;
 var isSupportOnConflict = true;
 
 function getUpsertString(task, values) {

@@ -54,6 +54,7 @@ function spell(type, word, id) {
 		} else {
 			if (arrExistDictionaries[id]) {
 				let pathTmp = path.join(pathDictionaries, allLanguages[id], allLanguages[id] + '.');
+				
 				dict = arrDictionaries[id] = new nodehun(pathTmp + 'aff', pathTmp + 'dic');
 			}
 		}
@@ -61,13 +62,15 @@ function spell(type, word, id) {
 		if (dict) {
 			if ("spell" === type) {
 				// use setImmediate because https://github.com/nodejs/node/issues/5691
-				dict.isCorrect(word, function (err, correct, origWord) {
-					return setImmediate(resolve, !err && correct);
-				});
+				dict.spell(word)
+				    .then(isCorrect => {
+				        return setImmediate(resolve, isCorrect);
+				    });
 			} else if ("suggest" === type) {
-				dict.spellSuggestions(word, function (err, correct, suggestions, origWord) {
-					return setImmediate(resolve, suggestions);
-				});
+				dict.suggest(word)
+				    .then(suggestions => {
+				        return setImmediate(resolve, suggestions);
+				    });
 			}
 		} else {
 			return setImmediate(resolve, true);

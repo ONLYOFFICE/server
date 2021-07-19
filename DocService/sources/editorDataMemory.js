@@ -162,9 +162,9 @@ EditorData.prototype.getdelSaved = function(docId) {
   data.saved = undefined;
   return Promise.resolve(res);
 };
-EditorData.prototype.setForceSave = function(docId, time, index, baseUrl) {
+EditorData.prototype.setForceSave = function(docId, time, index, baseUrl, changeInfo) {
   let data = this._getDocumentData(docId);
-  data.forceSave = {time: time, index: index, baseUrl: baseUrl, started: false, ended: false};
+  data.forceSave = {time: time, index: index, baseUrl: baseUrl, changeInfo: changeInfo, started: false, ended: false};
   return Promise.resolve();
 };
 EditorData.prototype.getForceSave = function(docId) {
@@ -226,12 +226,15 @@ EditorData.prototype.addPresenceUniqueUser = function(userId, expireAt) {
   this.uniqueUser[userId] = expireAt;
   return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
+EditorData.prototype.getPresenceUniqueUser = function(nowUTC, opt_scores) {
   let res = [];
   for (let userId in this.uniqueUser) {
     if (this.uniqueUser.hasOwnProperty(userId)) {
       if (this.uniqueUser[userId] > nowUTC) {
         res.push(userId);
+        if(opt_scores) {
+          opt_scores.push(this.uniqueUser[userId]);
+        }
       } else {
         delete this.uniqueUser[userId];
       }
@@ -251,6 +254,38 @@ EditorData.prototype.setEditorConnections = function(countEdit, countView, now, 
 };
 EditorData.prototype.getEditorConnections = function() {
   return Promise.resolve(this.stat);
+};
+EditorData.prototype.setEditorConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.incrEditorConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.getEditorConnectionsCount = function(connections) {
+  let count = 0;
+  for (let i = 0; i < connections.length; ++i) {
+    let conn = connections[i];
+    if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view))) {
+      count++;
+    }
+  }
+  return Promise.resolve(count);
+};
+EditorData.prototype.setViewerConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.incrViewerConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.getViewerConnectionsCount = function(connections) {
+  let count = 0;
+  for (let i = 0; i < connections.length; ++i) {
+    let conn = connections[i];
+    if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+      count++;
+    }
+  }
+  return Promise.resolve(count);
 };
 
 EditorData.prototype.addShutdown = function(key, docId) {

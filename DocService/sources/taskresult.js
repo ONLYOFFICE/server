@@ -39,6 +39,7 @@ var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
+let concatParams = sqlBase.baseConnector.concatParams;
 
 var RANDOM_KEY_MAX = 10000;
 
@@ -59,10 +60,14 @@ function TaskResultData() {
   this.status = null;
   this.statusInfo = null;
   this.lastOpenDate = null;
+  this.creationDate = null;
   this.userIndex = null;
   this.changeId = null;
   this.callback = null;
   this.baseurl = null;
+  this.password = null;
+
+  this.innerPasswordChange = null;//not a DB field
 }
 TaskResultData.prototype.completeDefaults = function() {
   if (!this.key) {
@@ -76,6 +81,9 @@ TaskResultData.prototype.completeDefaults = function() {
   }
   if (!this.lastOpenDate) {
     this.lastOpenDate = new Date();
+  }
+  if (!this.creationDate) {
+    this.creationDate = new Date();
   }
   if (!this.userIndex) {
     this.userIndex = 1;
@@ -109,7 +117,7 @@ function select(docId) {
     }, undefined, undefined, values);
   });
 }
-function toUpdateArray(task, updateTime, isMask, values) {
+function toUpdateArray(task, updateTime, isMask, values, setPassword) {
   var res = [];
   if (null != task.status) {
     let sqlParam = addSqlParam(task.status, values);
@@ -139,19 +147,28 @@ function toUpdateArray(task, updateTime, isMask, values) {
     var userCallback = new sqlBase.UserCallback();
     userCallback.fromValues(task.indexUser, task.callback);
     let sqlParam = addSqlParam(userCallback.toSQLInsert(), values);
-    res.push(`callback=callback || ${sqlParam}`);
+    res.push(`callback=${concatParams('callback', sqlParam)}`);
   }
   if (null != task.baseurl) {
     let sqlParam = addSqlParam(task.baseurl, values);
     res.push(`baseurl=${sqlParam}`);
   }
+  if (setPassword) {
+    let sqlParam = addSqlParam(task.password, values);
+    res.push(`password=${sqlParam}`);
+  } else if (null != task.password || setPassword) {
+    var documentPassword = new sqlBase.DocumentPassword();
+    documentPassword.fromValues(task.password, task.innerPasswordChange);
+    let sqlParam = addSqlParam(documentPassword.toSQLInsert(), values);
+    res.push(`password=${concatParams('password', sqlParam)}`);
+  }
   return res;
 }
 
-function update(task) {
+function update(task, setPassword) {
   return new Promise(function(resolve, reject) {
     let values = [];
-    let updateElems = toUpdateArray(task, true, false, values);
+    let updateElems = toUpdateArray(task, true, false, values, setPassword);
     let sqlSet = updateElems.join(', ');
     let sqlParam = addSqlParam(task.key, values);
     let sqlCommand = `UPDATE task_result SET ${sqlSet} WHERE id=${sqlParam};`;
@@ -168,8 +185,8 @@ function update(task) {
 function updateIf(task, mask) {
   return new Promise(function(resolve, reject) {
     let values = [];
-    let commandArg = toUpdateArray(task, true, false, values);
-    let commandArgMask = toUpdateArray(mask, false, true, values);
+    let commandArg = toUpdateArray(task, true, false, values, false);
+    let commandArgMask = toUpdateArray(mask, false, true, values, false);
     commandArgMask.push('id=' + addSqlParam(mask.key, values));
     let sqlSet = commandArg.join(', ');
     let sqlWhere = commandArgMask.join(' AND ');
@@ -181,6 +198,25 @@ function updateIf(task, mask) {
         resolve(result);
       }
     }, undefined, undefined, values);
+  });
+}
+function restoreInitialPassword(docId) {
+  return select(docId).then(function(selectRes) {
+    if (selectRes.length > 0) {
+      var row = selectRes[0];
+      let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(docId, row.password);
+      var updateTask = new TaskResultData();
+      updateTask.key = docId;
+      if (docPassword.initial) {
+        var documentPassword = new sqlBase.DocumentPassword();
+        documentPassword.fromValues(docPassword.initial);
+        updateTask.password = documentPassword.toSQLInsert();
+        return update(updateTask, true);
+      } else if (docPassword.current) {
+        updateTask.password = null;
+        return update(updateTask, true);
+      }
+    }
   });
 }
 
@@ -276,6 +312,7 @@ exports.upsert = upsert;
 exports.select = select;
 exports.update = update;
 exports.updateIf = updateIf;
+exports.restoreInitialPassword = restoreInitialPassword;
 exports.addRandomKeyTask = addRandomKeyTask;
 exports.remove = remove;
 exports.getExpired = getExpired;

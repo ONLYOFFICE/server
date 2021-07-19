@@ -52,7 +52,8 @@ exports.RIGHTS = {
 exports.LICENSE_MODE = {
   None: 0,
   Trial: 1,
-  Developer: 2
+  Developer: 2,
+  Limited: 4
 };
 
 exports.LICENSE_RESULT = {
@@ -65,7 +66,8 @@ exports.LICENSE_RESULT = {
   SuccessLimit  : 7,
   UsersCount    : 8,
   ConnectionsOS : 9,
-  UsersCountOS  : 10
+  UsersCountOS  : 10,
+  ExpiredLimited: 11
 };
 
 exports.LICENSE_CONNECTIONS = 20;
@@ -157,6 +159,7 @@ exports.NO_ERROR = 0;
 exports.UNKNOWN = -1;
 exports.READ_REQUEST_STREAM = -3;
 exports.WEB_REQUEST = -4;
+exports.CHANGE_DOC_INFO = -5;
 exports.TASK_QUEUE = -20;
 exports.TASK_RESULT = -40;
 exports.STORAGE = -60;
@@ -192,6 +195,7 @@ exports.VKEY_USER_COUNT_EXCEED = -123;
 exports.VKEY_TIME_EXPIRE = -124;
 exports.VKEY_TIME_INCORRECT = -125;
 exports.EDITOR_CHANGES = -160;
+exports.PASSWORD = -180;
 
 exports.QUEUE_PRIORITY_VERY_LOW = 0;
 exports.QUEUE_PRIORITY_LOW = 1;
@@ -227,6 +231,10 @@ exports.REDIS_KEY_COLLECT_LOST = 'collectlost';
 exports.REDIS_KEY_LICENSE = 'license';
 exports.REDIS_KEY_LICENSE_T = 'licenseT';
 exports.REDIS_KEY_EDITOR_CONNECTIONS = 'editorconnections';
+exports.REDIS_KEY_SHARD_CONNECTIONS_EDIT_ZSET = 'shardconnections:edit:zset';
+exports.REDIS_KEY_SHARD_CONNECTIONS_EDIT_HASH = 'shardconnections:edit:hash';
+exports.REDIS_KEY_SHARD_CONNECTIONS_VIEW_ZSET = 'shardconnections:view:zset';
+exports.REDIS_KEY_SHARD_CONNECTIONS_VIEW_HASH = 'shardconnections:view:hash';
 
 exports.SHUTDOWN_CODE = 4001;
 exports.SHUTDOWN_REASON = 'server shutdown';
@@ -250,6 +258,7 @@ exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';
 
 exports.CONN_CLOSED = 3;
 
+exports.FILE_STATUS_OK = 'ok';
 exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';
 
 exports.ACTIVEMQ_QUEUE_PREFIX = 'queue://';

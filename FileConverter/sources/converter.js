@@ -60,6 +60,7 @@ var cfgPresentationThemesDir = configConverter.get('presentationThemesDir');
 var cfgX2tPath = configConverter.get('x2tPath');
 var cfgDocbuilderPath = configConverter.get('docbuilderPath');
 var cfgDocbuilderAllFontsPath = configConverter.get('docbuilderAllFontsPath');
+var cfgDocbuilderCoreFontsPath = configConverter.get('docbuilderCoreFontsPath');
 var cfgArgs = configConverter.get('args');
 var cfgSpawnOptions = configConverter.get('spawnOptions');
 if (cfgSpawnOptions.env) {
@@ -91,6 +92,7 @@ function TaskQueueDataConvert(task) {
   this.key = cmd.savekey ? cmd.savekey : cmd.id;
   this.fileFrom = null;
   this.fileTo = null;
+  this.title = cmd.getTitle();
   if(constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA !== cmd.outputformat){
     this.formatTo = cmd.outputformat;
   } else {
@@ -115,6 +117,7 @@ function TaskQueueDataConvert(task) {
   this.jsonParams = cmd.getJsonParams();
   this.lcid = cmd.getLCID();
   this.password = cmd.getPassword();
+  this.savePassword = cmd.getSavePassword();
   this.noBase64 = cmd.getNoBase64();
   this.timestamp = new Date();
 }
@@ -126,6 +129,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_sKey', this.key);
     xml += this.serializeXmlProp('m_sFileFrom', this.fileFrom);
     xml += this.serializeXmlProp('m_sFileTo', this.fileTo);
+    xml += this.serializeXmlProp('m_sTitle', this.title);
     xml += this.serializeXmlProp('m_nFormatTo', this.formatTo);
     xml += this.serializeXmlProp('m_bIsPDFA', this.isPDFA);
     xml += this.serializeXmlProp('m_nCsvTxtEncoding', this.csvTxtEncoding);
@@ -149,13 +153,25 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeLimit();
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
-    let hiddenXml;
-    if (undefined !== this.password) {
-      hiddenXml = '<TaskQueueDataConvert>';
-      hiddenXml += this.serializeXmlProp('m_sPassword', this.password);
-      hiddenXml += '</TaskQueueDataConvert>';
-    }
-    return hiddenXml;
+  },
+  serializeHidden: function() {
+    var t = this;
+    return co(function* () {
+      let xml;
+      if (t.password || t.savePassword) {
+        xml = '<TaskQueueDataConvert>';
+        if(t.password) {
+          let password = yield utils.decryptPassword(t.password);
+          xml += t.serializeXmlProp('m_sPassword', password);
+        }
+        if(t.savePassword) {
+          let savePassword = yield utils.decryptPassword(t.savePassword);
+          xml += t.serializeXmlProp('m_sSavePassword', savePassword);
+        }
+        xml += '</TaskQueueDataConvert>';
+      }
+      return xml;
+    });
   },
   serializeMailMerge: function(data) {
     var xml = '<m_oMailMergeSend>';
@@ -387,15 +403,32 @@ function* processChanges(tempDirs, cmd, authorProps) {
   let forceSave = cmd.getForceSave();
   let forceSaveTime;
   let forceSaveIndex = Number.MAX_VALUE;
-  if (forceSave) {
+  if (forceSave && undefined !== forceSave.getTime() && undefined !== forceSave.getIndex()) {
     forceSaveTime = forceSave.getTime();
     forceSaveIndex = forceSave.getIndex();
   }
+  let extChangeInfo = cmd.getExternalChangeInfo();
+  let extChanges;
+  if (extChangeInfo) {
+    extChanges = [{
+      id: cmd.getDocId(), change_id: 0, change_data: "", user_id: extChangeInfo.user_id,
+      user_id_original: extChangeInfo.user_id_original, user_name: extChangeInfo.user_name,
+      change_date: new Date(extChangeInfo.change_date)
+    }];
+  }
+
   let streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
   let curIndexStart = 0;
   let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
-  while (curIndexStart < curIndexEnd) {
-    let changes = yield baseConnector.getChangesPromise(cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+  while (curIndexStart < curIndexEnd || extChanges) {
+    let changes = [];
+    if (curIndexStart < curIndexEnd) {
+      changes = yield baseConnector.getChangesPromise(cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+    }
+    if (0 === changes.length && extChanges) {
+      changes = extChanges;
+    }
+    extChanges = undefined;
     for (let i = 0; i < changes.length; ++i) {
       let change = changes[i];
       if (change.change_data.startsWith('ENCRYPTED;')) {
@@ -411,8 +444,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
         }
         changesAuthor = change.user_id_original;
         changesIndex = utils.getIndexFromUserId(change.user_id, change.user_id_original);
-        authorProps.lastModifiedBy = change.user_name;
-        authorProps.modified = change.change_date.toISOString().slice(0, 19) + 'Z';
+
         let strDate = baseConnector.getDateTime(change.change_date);
         changesHistory.changes.push({'created': strDate, 'user': {'id': changesAuthor, 'name': change.user_name}});
         yield* streamWrite(streamObj, '[');
@@ -421,6 +453,10 @@ function* processChanges(tempDirs, cmd, authorProps) {
       }
       yield* streamWrite(streamObj, change.change_data);
       streamObj.isNoChangesInFile = false;
+    }
+    if (changes.length > 0) {
+      authorProps.lastModifiedBy = changes[changes.length - 1].user_name;
+      authorProps.modified = changes[changes.length - 1].change_date.toISOString().slice(0, 19) + 'Z';
     }
     if (changes.length === curIndexEnd - curIndexStart) {
       curIndexStart += cfgMaxRequestChanges;
@@ -432,6 +468,11 @@ function* processChanges(tempDirs, cmd, authorProps) {
   yield* streamEnd(streamObj, ']');
   if (streamObj.isNoChangesInFile) {
     fs.unlinkSync(streamObj.filePath);
+  }
+  if (null == changesAuthor && null == changesIndex && forceSave && undefined !== forceSave.getAuthorUserId() &&
+    undefined !== forceSave.getAuthorUserIndex()) {
+    changesAuthor = forceSave.getAuthorUserId();
+    changesIndex = forceSave.getAuthorUserIndex();
   }
   cmd.setUserId(changesAuthor);
   cmd.setUserIndex(changesIndex);
@@ -650,8 +691,9 @@ function* ExecuteTask(task) {
       if (!isBuilder) {
         processPath = cfgX2tPath;
         let paramsFile = path.join(tempDirs.temp, 'params.xml');
-        let hiddenXml = dataConvert.serialize(paramsFile);
+        dataConvert.serialize(paramsFile);
         childArgs.push(paramsFile);
+        let hiddenXml = yield dataConvert.serializeHidden();
         if (hiddenXml) {
           childArgs.push(hiddenXml);
         }
@@ -659,6 +701,9 @@ function* ExecuteTask(task) {
         fs.mkdirSync(path.join(tempDirs.result, 'output'));
         processPath = cfgDocbuilderPath;
         childArgs.push('--all-fonts-path=' + cfgDocbuilderAllFontsPath);
+        if (cfgDocbuilderCoreFontsPath) {
+          childArgs.push('--fonts-dir=' + cfgDocbuilderCoreFontsPath);
+        }
         childArgs.push('--save-use-only-names=' + tempDirs.result + '/output');
         childArgs.push(dataConvert.fileFrom);
       }

@@ -1,7 +1,7 @@
 {
   "name": "metrics",
   "version": "1.0.0",
-  "homepage": "http://www.onlyoffice.com",
+  "homepage": "https://www.onlyoffice.com",
   "private": true,
   "bin": "node_modules/statsd/bin/statsd",
   "dependencies": {

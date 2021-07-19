@@ -270,9 +270,17 @@
       "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-0.6.1.tgz",
       "integrity": "sha1-KzJxhOiZIQEXeyhWP7XnECrNDKk="
     },
+    "node-addon-api": {
+      "version": "3.0.2",
+      "resolved": "https://registry.npmjs.org/node-addon-api/-/node-addon-api-3.0.2.tgz",
+      "integrity": "sha512-+D4s2HCnxPd5PjjI0STKwncjXTUKKqm74MDMz9OPXavjsGmjkvwgLtA5yoxJUdmpj52+2u+RrXgPipahKczMKg=="
+    },
     "nodehun": {
-      "version": "git+https://git@github.com/ONLYOFFICE/nodehun.git#631d3f3c48500bf2f2ec44f8a676423d5c92e3d3",
-      "from": "git+https://git@github.com/ONLYOFFICE/nodehun.git#631d3f3c48500bf2f2ec44f8a676423d5c92e3d3"
+      "version": "git+https://git@github.com/ONLYOFFICE/nodehun.git#2411a56828c7d58214c61781b4a5c63d18adba99",
+      "from": "git+https://git@github.com/ONLYOFFICE/nodehun.git#2411a56828c7d58214c61781b4a5c63d18adba99",
+      "requires": {
+        "node-addon-api": "*"
+      }
     },
     "on-finished": {
       "version": "2.3.0",

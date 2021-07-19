@@ -77,6 +77,10 @@ let addSqlParam = function (val, values) {
 	return '?';
 };
 exports.addSqlParameter = addSqlParam;
+let concatParams = function (val1, val2) {
+  return `CONCAT(COALESCE(${val1}, ''), COALESCE(${val2}, ''))`;
+};
+exports.concatParams = concatParams;
 
 exports.upsert = function(task, opt_updateUserIndex) {
 	return new Promise(function(resolve, reject) {

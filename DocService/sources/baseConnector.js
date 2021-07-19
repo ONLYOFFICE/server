@@ -314,3 +314,55 @@ UserCallback.prototype.getCallbackByUserIndex = function(docId, callbacksStr, op
   return callbackUrl;
 };
 exports.UserCallback = UserCallback;
+
+function DocumentPassword() {
+  this.password = undefined;
+  this.change = undefined;
+}
+DocumentPassword.prototype.fromString = function(passwordStr){
+  var parsed = JSON.parse(passwordStr);
+  this.fromValues(parsed.password, parsed.change);
+};
+DocumentPassword.prototype.fromValues = function(password, change){
+  if(null !== password){
+    this.password = password;
+  }
+  if(null !== change) {
+    this.change = change;
+  }
+};
+DocumentPassword.prototype.delimiter = String.fromCharCode(5);
+DocumentPassword.prototype.toSQLInsert = function(){
+  return this.delimiter + JSON.stringify(this);
+};
+DocumentPassword.prototype.isInitial = function(){
+  return !this.change;
+};
+DocumentPassword.prototype.getDocPassword = function(docId, docPasswordStr) {
+  let res = {initial: undefined, current: undefined, change: undefined};
+  if (docPasswordStr) {
+    logger.debug("getDocPassword: docId = %s passwords = %s", docId, docPasswordStr);
+    let passwords = docPasswordStr.split(UserCallback.prototype.delimiter);
+
+    for (let i = 1; i < passwords.length; ++i) {
+      let password = new DocumentPassword();
+      password.fromString(passwords[i]);
+      if (password.isInitial()) {
+        res.initial = password.password;
+      } else {
+        res.change = password.change;
+      }
+      res.current = password.password;
+    }
+  }
+  return res;
+};
+DocumentPassword.prototype.getCurPassword = function(docId, docPasswordStr) {
+  let docPassword = this.getDocPassword(docId, docPasswordStr);
+  return docPassword.current;
+};
+DocumentPassword.prototype.hasPasswordChanges = function(docId, docPasswordStr) {
+  let docPassword = this.getDocPassword(docId, docPasswordStr);
+  return docPassword.initial !== docPassword.current;
+};
+exports.DocumentPassword = DocumentPassword;

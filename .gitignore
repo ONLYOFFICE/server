@@ -7,7 +7,6 @@ FileConverter/bin
 DocService/npm-debug.log
 build
 node_modules
-SpellChecker/dictionaries
 /Gruntfile.js.out
 local-development-*.json
 *.pyc

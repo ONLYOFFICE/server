@@ -54,9 +54,12 @@ const jwt = require('jsonwebtoken');
 const NodeCache = require( "node-cache" );
 const ms = require('ms');
 const constants = require('./constants');
+const commonDefines = require('./commondefines');
 const logger = require('./logger');
 const forwarded = require('forwarded');
 const mime = require('mime');
+const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
+const openpgp = require('openpgp');
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
@@ -75,6 +78,12 @@ var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 const cfgTokenOutboxInBody = config.get('services.CoAuthoring.token.outbox.inBody');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
+const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
+const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
+const cfgPasswordConfig = config.get('openpgpjs.config');
+const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
+
+Object.assign(openpgp.config, cfgPasswordConfig);
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
@@ -96,6 +105,10 @@ var g_oIpFilterRules = function() {
 }();
 const pemfileCache = new NodeCache({stdTTL: ms(cfgExpPemStdTtl) / 1000, checkperiod: ms(cfgExpPemCheckPeriod) / 1000, errorOnMissing: false, useClones: true});
 
+function getRequestFilterAgent(url, options) {
+  return url.startsWith("https") ? new RequestFilteringHttpsAgent(options) : new RequestFilteringHttpAgent(options);
+}
+
 exports.CONVERTION_TIMEOUT = 1.5 * (cfgVisibilityTimeout + cfgQueueRetentionPeriod) * 1000;
 
 exports.addSeconds = function(date, sec) {
@@ -115,7 +128,7 @@ exports.encodeXml = function(value) {
 			case '\r': return '&#xD;';
 			case '\n': return '&#xA;';
 			case '\t': return '&#x9;';
-			case '\xA0': return '&#A0;';
+			case '\xA0': return '&#xA0;';
 		}
 	});
 };
@@ -247,13 +260,43 @@ function raiseError(ro, code, msg) {
   ro.emit('error', error);
 }
 function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
+  //todo replace deprecated request module
+  let filterPrivate = opt_Authorization ? false : true;
+  const maxRedirects = (undefined !== cfgRequestDefaults.maxRedirects) ? cfgRequestDefaults.maxRedirects : 10;
+  const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
+  var redirectsFollowed = 0;
+  let doRequest = function(curUrl) {
+    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, filterPrivate)
+      .catch(function(err) {
+        let response = err.response;
+        if (response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location')) {
+          let redirectTo = response.caseless.get('location');
+          if (followRedirect && redirectsFollowed < maxRedirects) {
+            if (!/^https?:/.test(redirectTo) && err.request) {
+              redirectTo = url.resolve(err.request.uri.href, redirectTo)
+            }
+
+            logger.debug('downloadUrlPromise redirectsFollowed:%d redirectTo: %s', redirectsFollowed, redirectTo);
+            redirectsFollowed++;
+            return doRequest(redirectTo);
+          }
+        }
+        throw err;
+      });
+  };
+  return doRequest(uri);
+}
+function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
     var urlParsed = url.parse(uri);
     //if you expect binary data, you should set encoding: null
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity};
+    var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false};
+    if (opt_filterPrivate) {
+      options.agent = getRequestFilterAgent(uri, cfgRequesFilteringAgent);
+    }
     if (opt_Authorization) {
       options.headers = {};
       options.headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
@@ -277,7 +320,11 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
           }
           resolve(body);
         } else {
-          reject(new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body));
+          let error = new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body);
+          error.statusCode = response.statusCode;
+          error.request = ro;
+          error.response = response;
+          reject(error);
         }
       }
     }).on('response', function(response) {
@@ -322,7 +369,9 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
         if (200 == response.statusCode || 204 == response.statusCode) {
           resolve(body);
         } else {
-          let error = new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body);
+          let code = response.statusCode;
+          let responseHeaders = JSON.stringify(response.headers);
+          let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
           reject(error);
         }
@@ -555,7 +604,7 @@ function containsAllAsciiNP(str) {
   return /^[\040-\176]*$/.test(str);//non-printing characters
 }
 exports.containsAllAsciiNP = containsAllAsciiNP;
-function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader) {
+function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
   if (forwardedProtoHeader) {
     url += forwardedProtoHeader;
@@ -572,13 +621,16 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
   } else {
     url += 'localhost';
   }
+  if (forwardedPrefixHeader) {
+    url += forwardedPrefixHeader;
+  }
   return url;
 }
 function getBaseUrlByConnection(conn) {
-  return getBaseUrl('', conn.headers['host'], conn.headers['x-forwarded-proto'], conn.headers['x-forwarded-host']);
+  return getBaseUrl('', conn.headers['host'], conn.headers['x-forwarded-proto'], conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
 }
 function getBaseUrlByRequest(req) {
-  return getBaseUrl(req.protocol, req.get('host'), req.get('x-forwarded-proto'), req.get('x-forwarded-host'));
+  return getBaseUrl(req.protocol, req.get('host'), req.get('x-forwarded-proto'), req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
@@ -784,7 +836,8 @@ exports.getConnectionInfo = function(conn){
       indexUser: user.indexUser,
       view: user.view,
       connectionId: conn.id,
-      isCloseCoAuthoring: conn.isCloseCoAuthoring
+      isCloseCoAuthoring: conn.isCloseCoAuthoring,
+      encrypted: conn.encrypted
     };
     return data;
 };
@@ -802,4 +855,58 @@ exports.canIncludeOutboxAuthorization = function (url) {
     }
   }
   return false;
+};
+exports.encryptPassword = co.wrap(function* (password) {
+  let params = {message: openpgp.message.fromText(password)};
+  Object.assign(params, cfgPasswordEncrypt);
+  const { data: encrypted } = yield openpgp.encrypt(params);
+  return encrypted;
+});
+exports.decryptPassword = co.wrap(function* (password) {
+  const message = yield openpgp.message.readArmored(password);
+  let params = {message: message};
+  Object.assign(params, cfgPasswordDecrypt);
+  const { data: decrypted } = yield openpgp.decrypt(params);
+  return decrypted;
+});
+
+exports.convertLicenseInfoToFileParams = function(licenseInfo) {
+  // todo
+  // {
+  // 	user_quota = 0;
+  // 	portal_count = 0;
+  // 	process = 2;
+  // 	ssbranding = false;
+  // 	whiteLabel = false;
+  // }
+  let license = {};
+  license.end_date = licenseInfo.endDate && licenseInfo.endDate.toJSON();
+  license.timelimited = 0 !== (constants.LICENSE_MODE.Limited & licenseInfo.mode);
+  license.trial = 0 !== (constants.LICENSE_MODE.Trial & licenseInfo.mode);
+  license.developer = 0 !== (constants.LICENSE_MODE.Developer & licenseInfo.mode);
+  if(license.developer) {
+    license.mode = 'developer';
+  } else if(license.trial) {
+    license.mode = 'trial';
+  } else {
+    license.mode = '';
+  }
+  license.light = licenseInfo.light;
+  license.branding = licenseInfo.branding;
+  license.customization = licenseInfo.customization;
+  license.plugins = licenseInfo.plugins;
+  license.connections = licenseInfo.connections;
+  license.users_count = licenseInfo.usersCount;
+  license.users_expire = licenseInfo.usersExpire / constants.LICENSE_EXPIRE_USERS_ONE_DAY;
+  return license;
+};
+exports.convertLicenseInfoToServerParams = function(licenseInfo) {
+  let license = {};
+  license.workersCount = licenseInfo.count;
+  license.resultType = licenseInfo.type;
+  license.packageType = licenseInfo.packageType;
+  license.buildDate = licenseInfo.buildDate && licenseInfo.buildDate.toJSON();
+  license.buildVersion = commonDefines.buildVersion;
+  license.buildNumber = commonDefines.buildNumber;
+  return license;
 };

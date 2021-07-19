@@ -51,11 +51,13 @@ CREATE TABLE IF NOT EXISTS `task_result` (
   `id` varchar(255) NOT NULL,
   `status` tinyint(3) NOT NULL,
   `status_info` int(10) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `last_open_date` datetime NOT NULL,
   `user_index` int(10) unsigned NOT NULL DEFAULT 1,
   `change_id` int(10) unsigned NOT NULL DEFAULT 0,
-  `callback` text NOT NULL,
+  `callback` longtext NOT NULL,
   `baseurl` text NOT NULL,
+  `password` longtext NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

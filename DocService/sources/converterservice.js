@@ -148,8 +148,8 @@ function* convertByCmd(cmd, async, baseUrl, opt_fileTo, opt_taskExist, opt_prior
   return status;
 }
 
-function* convertFromChanges(docId, baseUrl, forceSave, opt_userdata, opt_userConnectionId, opt_priority,
-                             opt_expiration, opt_queue, opt_redisKey) {
+function* convertFromChanges(docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_userConnectionId,
+                             opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
@@ -158,11 +158,15 @@ function* convertFromChanges(docId, baseUrl, forceSave, opt_userdata, opt_userCo
   cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
   cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Comma);
   cmd.setForceSave(forceSave);
+  cmd.setExternalChangeInfo(externalChangeInfo);
   if (opt_userdata) {
     cmd.setUserData(opt_userdata);
   }
   if (opt_userConnectionId) {
     cmd.setUserConnectionId(opt_userConnectionId);
+  }
+  if (opt_responseKey) {
+    cmd.setResponseKey(opt_responseKey);
   }
   if (opt_redisKey) {
     cmd.setRedisKey(opt_redisKey);
@@ -224,7 +228,10 @@ function convertRequest(req, res, isJson) {
       if (params.spreadsheetLayout) {
         cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
       }
-      cmd.setPassword(params.password);
+      if (params.password) {
+        let encryptedPassword = yield utils.encryptPassword(params.password);
+        cmd.setPassword(encryptedPassword);
+      }
       cmd.setWithAuthorization(true);
       var thumbnail = params.thumbnail;
       if (thumbnail) {
