@@ -97,7 +97,9 @@ function* getConvertPath(docId, fileTo, formatTo) {
   return docId + '/' + fileTo;
 }
 function* getConvertUrl(baseUrl, fileToPath, title) {
-  title = path.basename(title, path.extname(title)) + path.extname(fileToPath);
+  if (title) {
+    title = path.basename(title, path.extname(title)) + path.extname(fileToPath);
+  }
   return yield storage.getSignedUrl(baseUrl, fileToPath, commonDefines.c_oAscUrlTypes.Temporary, title);
 }
 function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue) {

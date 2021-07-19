@@ -580,7 +580,7 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
   }
   if (!existFile) {
     //todo пересмотреть. загрулка в случае AVS_OFFICESTUDIO_FILE_OTHER_OOXML x2t меняет расширение у файла.
-    var fileToBasename = path.basename(dataConvert.fileTo);
+    var fileToBasename = path.basename(dataConvert.fileTo, path.extname(dataConvert.fileTo));
     var fileToDir = path.dirname(dataConvert.fileTo);
     var files = fs.readdirSync(fileToDir);
     for (var i = 0; i < files.length; ++i) {
