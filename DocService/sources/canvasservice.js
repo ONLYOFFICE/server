@@ -1400,7 +1400,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
           if (cfgAssemblyFormatAsOrigin && row.change_id && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== row.change_id) {
             optFormat = row.change_id;
           } else {
-            optFormat = constants.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER;
+            optFormat = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
           }
         }
         var cmd = new commonDefines.InputCommand();

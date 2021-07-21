@@ -324,6 +324,10 @@ exports.getFormatFromString = function(ext) {
       return constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY;
     case 'pptt':
       return constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
+    case 'ooxml':
+      return constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
+    case 'odf':
+      return constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF;
     default:
       return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
@@ -466,6 +470,10 @@ exports.getStringFromFormat = function(format) {
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_OLD_DRAWING:
     case constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY:
       return 'pptt';
+    case constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML:
+      return 'ooxml';
+    case constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF:
+      return 'odf';
     default:
       return '';
   }

@@ -120,7 +120,7 @@
 				"maxRequestChanges": 20000,
 				"openProtectedFile": true,
 				"editorDataStorage": "editorDataMemory",
-				"assemblyFormatAsOrigin": false
+				"assemblyFormatAsOrigin": true
 			},
 			"requestDefaults": {
 				"headers": {
