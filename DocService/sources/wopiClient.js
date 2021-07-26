@@ -38,6 +38,7 @@ const co = require('co');
 const jwt = require('jsonwebtoken');
 const config = require('config');
 const utf7 = require('utf7');
+const mime = require('mime');
 const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
@@ -88,9 +89,10 @@ function discovery(req, res) {
       let templateEnd = `&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;e=EMBEDDED&amp;&gt;`;
       templateEnd += `&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;`;
       templateEnd += `&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;`;
-      templateEnd += `&lt;wopisrc=WOPI_SOURCE&amp;&gt;`;
+      templateEnd += `&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;`;
       let documentTypes = [`word`, `cell`, `slide`];
       output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="${cfgWopiWopiZone}">`;
+      //start section for MS WOPI connectors
       for(let i = 0; i < names.length; ++i) {
         let name = names[i];
         let favIconUrl = favIconUrls[i];
@@ -98,15 +100,36 @@ function discovery(req, res) {
         let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
         let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
         output +=`<app name="${name}" favIconUrl="${favIconUrl}">`;
-        for(let j = 0; j < ext.view.length; ++j) {
-          output +=`<action name="view" ext="${ext.view[j]}" urlsrc="${urlTemplateView}" />`;
+        for (let j = 0; j < ext.view.length; ++j) {
+          output += `<action name="view" ext="${ext.view[j]}" urlsrc="${urlTemplateView}" />`;
         }
-        for(let j = 0; j < ext.edit.length; ++j) {
-          output +=`<action name="view" ext="${ext.edit[j]}" urlsrc="${urlTemplateView}" />`;
-          output +=`<action name="edit" ext="${ext.edit[j]}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+        for (let j = 0; j < ext.edit.length; ++j) {
+          output += `<action name="view" ext="${ext.edit[j]}" urlsrc="${urlTemplateView}" />`;
+          output += `<action name="edit" ext="${ext.edit[j]}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
         }
         output +=`</app>`;
       }
+      //end section for MS WOPI connectors
+      //start section for collabora nexcloud connectors
+      for(let i = 0; i < exts.length; ++i) {
+        let ext = exts[i];
+        let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
+        let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
+        for (let j = 0; j < ext.view.length; ++j) {
+          output +=`<app name="${mime.getType(ext.view[j])}">`;
+          output +=`<action name="view" ext="" default="true" urlsrc="${urlTemplateView}" />`;
+          output +=`</app>`;
+        }
+        for (let j = 0; j < ext.edit.length; ++j) {
+          output +=`<app name="${mime.getType(ext.edit[j])}">`;
+          output += `<action name="edit" ext="" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+          output +=`</app>`;
+        }
+      }
+      output += `<app name="Capabilities">`;
+      output += `<action ext="" name="getinfo" urlsrc="${baseUrl}/hosting/capabilities"/>`;
+      output += `</app>`;
+      //end section for collabora nexcloud connectors
       let proofKey = ``;
       if (cfgWopiPublicKeyOld && cfgWopiPublicKey) {
         proofKey += `<proof-key oldvalue="${cfgWopiPublicKeyOld}" oldmodulus="${cfgWopiModulusOld}" `;
@@ -120,6 +143,22 @@ function discovery(req, res) {
       res.setHeader('Content-Type', 'text/xml');
       res.send(output);
       logger.info('wopiDiscovery end');
+    }
+  });
+}
+function collaboraCapabilities(req, res) {
+  return co(function*() {
+    let output = {
+      "convert-to": {"available": false}, "hasMobileSupport": true, "hasProxyPrefix": false, "hasTemplateSaveAs": false,
+      "hasTemplateSource": false, "productVersion": commonDefines.buildVersion
+    };
+    try {
+    logger.info('collaboraCapabilities start');
+    } catch (err) {
+      logger.error('collaboraCapabilities error:%s', err.stack);
+    } finally {
+      utils.fillResponseSimple(res, JSON.stringify(output), "application/json");
+      logger.info('collaboraCapabilities end');
     }
   });
 }
@@ -181,7 +220,7 @@ function checkAndInvalidateCache(docId, fileInfo) {
             yield canvasService.getOutputData(cmd, outputData, docId);
             if ('ok' !== outputData.getStatus()) {
               res.success = false;
-              logger.debug('wopiEditor inappropriate DB status selectRes=%j', selectRes);
+              logger.warn('wopiEditor inappropriate DB status selectRes=%j', selectRes);
             }
           }
         } else {
@@ -248,9 +287,11 @@ function getEditorHtml(req, res) {
       }
       //save common info
       if (undefined === lockId) {
+        let fileType = fileInfo.BaseFileName ? fileInfo.BaseFileName.substr(fileInfo.BaseFileName.lastIndexOf('.') + 1) : "";
+        fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-        yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), 1, commonInfo);
+        yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), 1, commonInfo, fileType);
       }
 
       //Lock
@@ -285,30 +326,37 @@ function getEditorHtml(req, res) {
 }
 function putFile(wopiParams, data, dataStream, userLastChangeId) {
   return co(function* () {
+    let res = '{"error": 1}';
     try {
       logger.info('wopi PutFile start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
 
-      if (fileInfo && fileInfo.SupportsUpdate) {
+      //collabora nexcloud connector sets only UserCanWrite=true
+      if (fileInfo && (fileInfo.SupportsUpdate || fileInfo.UserCanWrite)) {
         let commonInfo = wopiParams.commonInfo;
         let userAuth = wopiParams.userAuth;
         let uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
         fillStandardHeaders(headers, uri, userAuth.access_token);
+        if (fileInfo.LastModifiedTime) {
+          //collabora nexcloud connector
+          headers['X-LOOL-WOPI-Timestamp'] = fileInfo.LastModifiedTime;
+        }
 
         logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(uri, data, dataStream, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
+        res = '{"error": 0}';
       } else {
-        logger.info('wopi SupportsUpdate = false');
+        logger.warn('wopi SupportsUpdate = false or UserCanWrite = false');
       }
     } catch (err) {
       logger.error('wopi error PutFile:%s', err.stack);
     } finally {
       logger.info('wopi PutFile end');
     }
-    return '{"error": 0}';
+    return res;
   });
 }
 function renameFile(wopiParams, name) {
@@ -469,6 +517,7 @@ function fillStandardHeaders(headers, url, access_token) {
 }
 
 exports.discovery = discovery;
+exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;
 exports.getEditorHtml = getEditorHtml;
 exports.putFile = putFile;

@@ -154,7 +154,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
       } else if (taskResult.FileStatus.SaveVersion == status ||
         (!opt_bIsRestore && taskResult.FileStatus.UpdateVersion === status &&
         Date.now() - statusInfo * 60000 > cfgExpUpdateVersionStatus)) {
-        if ((optConn && optConn.user.view) || optConn.isCloseCoAuthoring) {
+        if (optConn && (optConn.user.view || optConn.isCloseCoAuthoring)) {
           outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
         } else {
           if (taskResult.FileStatus.UpdateVersion === status) {
