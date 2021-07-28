@@ -39,7 +39,7 @@
             "options": {"maxAge": "7d"}
           },
           "/dictionaries": {
-            "path": "/var/www/onlyoffice/documentserver/server/dictionaries",
+            "path": "/var/www/onlyoffice/documentserver/dictionaries",
             "options": {"maxAge": "7d"}
           }
         }
@@ -72,7 +72,7 @@
   },
   "SpellChecker": {
     "server": {
-      "dictDir": "/var/www/onlyoffice/documentserver/server/dictionaries"
+      "dictDir": "/var/www/onlyoffice/documentserver/dictionaries"
     }
   }
 }

@@ -28,7 +28,7 @@
             "options": {"maxAge": "7d"}
           },
           "/dictionaries": {
-            "path": "../dictionaries",
+            "path": "../../dictionaries",
             "options": {"maxAge": "7d"}
           },
           "/welcome": {
@@ -66,7 +66,7 @@
   },
   "SpellChecker": {
     "server": {
-      "dictDir": "../dictionaries"
+      "dictDir": "../../dictionaries"
     }
   }
 }
