@@ -934,8 +934,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           try {
             if (wopiParams) {
-              let streamObj = yield storage.createReadStream(savePathDoc);
-              replyStr = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
+              replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
             } else {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
             }
@@ -967,8 +966,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
               if (wopiParams) {
-                let streamObj = yield storage.createReadStream(savePathDoc);
-                replyStr = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
+                replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
               } else {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
               }
@@ -1053,6 +1051,23 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
   }
   logger.debug('End commandSfcCallback: docId = %s', docId);
   return replyStr;
+}
+function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId) {
+  let res = '{"error": 1}';
+  let streamObj = yield storage.createReadStream(savePathDoc);
+  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
+  if (postRes) {
+    if (postRes.body) {
+      let body = JSON.parse(postRes.body);
+      //collabora nexcloud connector
+      if (body.LastModifiedTime) {
+        let lastModifiedTimeInfo = wopiClient.getWopiModifiedMarker(wopiParams, body.LastModifiedTime);
+        yield commandOpenStartPromise(docId, undefined, true, lastModifiedTimeInfo);
+      }
+    }
+    res = '{"error": 0}';
+  }
+  return res;
 }
 function* commandSendMMCallback(cmd) {
   var docId = cmd.getDocId();

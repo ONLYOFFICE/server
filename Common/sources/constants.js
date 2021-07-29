@@ -73,7 +73,7 @@ exports.LICENSE_RESULT = {
 };
 
 exports.LICENSE_CONNECTIONS = 20;
-exports.LICENSE_EXPIRE_USERS_ONE_DAY = 2 * 24 * 60 * 60; // day in seconds
+exports.LICENSE_EXPIRE_USERS_ONE_DAY = 24 * 60 * 60; // day in seconds
 
 exports.AVS_OFFICESTUDIO_FILE_UNKNOWN =  0x0000;
 exports.AVS_OFFICESTUDIO_FILE_DOCUMENT = 0x0040;

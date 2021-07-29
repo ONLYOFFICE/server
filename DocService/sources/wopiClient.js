@@ -168,8 +168,26 @@ function isWopiCallback(url) {
 function isWopiUnlockMarker(url) {
   return isWopiCallback(url) && !!JSON.parse(url).unlockId;
 }
+function isWopiModifiedMarker(url) {
+  if (isWopiCallback(url)) {
+    let obj = JSON.parse(url);
+    return obj.fileInfo && obj.fileInfo.LastModifiedTime
+  }
+}
 function getWopiUnlockMarker(wopiParams) {
   return JSON.stringify(Object.assign({unlockId: wopiParams.commonInfo.lockId}, wopiParams.userAuth));
+}
+function getWopiModifiedMarker(wopiParams, lastModifiedTime) {
+  return JSON.stringify(Object.assign({fileInfo: {LastModifiedTime: lastModifiedTime}}, wopiParams.userAuth));
+}
+function getLastModifiedTimeFromCallbacks(callbacks) {
+  for (let i = callbacks.length; i >= 0; --i) {
+    let callback = callbacks[i];
+    let lastModifiedTime = isWopiModifiedMarker(callback);
+    if (lastModifiedTime) {
+      return lastModifiedTime;
+    }
+  }
 }
 function parseWopiCallback(docId, userAuthStr, url) {
   let wopiParams = null;
@@ -178,7 +196,12 @@ function parseWopiCallback(docId, userAuthStr, url) {
     let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, url, 1);
     if (isWopiCallback(commonInfoStr)) {
       let commonInfo = JSON.parse(commonInfoStr);
-      wopiParams = {commonInfo: commonInfo, userAuth: userAuth};
+      let lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
+      if (lastModifiedTime) {
+        let callbacks = sqlBase.UserCallback.prototype.getCallbacks(docId, url);
+        lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
+      }
+      wopiParams = {commonInfo: commonInfo, userAuth: userAuth, LastModifiedTime: lastModifiedTime};
       logger.debug('parseWopiCallback wopiParams:%j', wopiParams);
     }
   }
@@ -204,8 +227,11 @@ function checkAndInvalidateCache(docId, fileInfo) {
           if (hasUnlockMarker) {
             let fileInfoVersion = fileInfo.Version;
             let cacheVersion = commonInfo.fileInfo.Version;
-            logger.debug('wopiEditor fileInfoVersion=%s; cacheVersion=%s', fileInfoVersion, cacheVersion);
-            if (fileInfoVersion !== cacheVersion) {
+            let fileInfoModified = fileInfo.LastModifiedTime;
+            let cacheModified = commonInfo.fileInfo.LastModifiedTime;
+            logger.debug('wopiEditor version fileInfo=%s; cache=%s', fileInfoVersion, cacheVersion);
+            logger.debug('wopiEditor LastModifiedTime fileInfo=%s; cache=%s', fileInfoModified, cacheModified);
+            if (fileInfoVersion !== cacheVersion || (fileInfoModified !== cacheModified)) {
               var mask = new taskResult.TaskResultData();
               mask.key = docId;
               mask.last_open_date = row.last_open_date;
@@ -326,7 +352,7 @@ function getEditorHtml(req, res) {
 }
 function putFile(wopiParams, data, dataStream, userLastChangeId) {
   return co(function* () {
-    let res = '{"error": 1}';
+    let postRes = null;
     try {
       logger.info('wopi PutFile start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
@@ -339,15 +365,15 @@ function putFile(wopiParams, data, dataStream, userLastChangeId) {
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
         fillStandardHeaders(headers, uri, userAuth.access_token);
-        if (fileInfo.LastModifiedTime) {
+        if (wopiParams.LastModifiedTime) {
           //collabora nexcloud connector
-          headers['X-LOOL-WOPI-Timestamp'] = fileInfo.LastModifiedTime;
+          headers['X-LOOL-WOPI-Timestamp'] = wopiParams.LastModifiedTime;
         }
 
         logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, data, dataStream, cfgCallbackRequestTimeout, undefined, headers);
+        postRes = yield utils.postRequestPromise(uri, data, dataStream, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
-        res = '{"error": 0}';
+        logger.debug('wopi PutFile response body:%s', postRes.body);
       } else {
         logger.warn('wopi SupportsUpdate = false or UserCanWrite = false');
       }
@@ -356,7 +382,7 @@ function putFile(wopiParams, data, dataStream, userLastChangeId) {
     } finally {
       logger.info('wopi PutFile end');
     }
-    return res;
+    return postRes;
   });
 }
 function renameFile(wopiParams, name) {
@@ -528,4 +554,4 @@ exports.generateProof = generateProof;
 exports.generateProofOld = generateProofOld;
 exports.fillStandardHeaders = fillStandardHeaders;
 exports.getWopiUnlockMarker = getWopiUnlockMarker;
-
+exports.getWopiModifiedMarker = getWopiModifiedMarker;
