@@ -40,6 +40,11 @@
         "which": "^1.2.9"
       }
     },
+    "invert-kv": {
+      "version": "3.0.1",
+      "resolved": "https://registry.npmjs.org/invert-kv/-/invert-kv-3.0.1.tgz",
+      "integrity": "sha512-CYdFeFexxhv/Bcny+Q0BfOV+ltRlJcd4BBZBYFX/O0u4npJrgZtIcjokegtiSMAvlMTJ+Koq0GBCc//3bueQxw=="
+    },
     "isexe": {
       "version": "2.0.0",
       "resolved": "https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz",
@@ -51,6 +56,14 @@
       "integrity": "sha1-d5+wAYYE+oVOrL9iUhgNg1Q+Pb4=",
       "requires": {
         "minimist": "^1.2.0"
+      }
+    },
+    "lcid": {
+      "version": "3.1.1",
+      "resolved": "https://registry.npmjs.org/lcid/-/lcid-3.1.1.tgz",
+      "integrity": "sha512-M6T051+5QCGLBQb8id3hdvIW8+zeFV2FyBGFS9IEK5H9Wt4MueD4bW1eWikpHgZp+5xR3l5c8pZUkQsIA0BFZg==",
+      "requires": {
+        "invert-kv": "^3.0.0"
       }
     },
     "lru-cache": {
