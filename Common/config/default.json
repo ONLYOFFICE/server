@@ -120,7 +120,8 @@
 				"maxRequestChanges": 20000,
 				"openProtectedFile": true,
 				"editorDataStorage": "editorDataMemory",
-				"assemblyFormatAsOrigin": false
+				"assemblyFormatAsOrigin": false,
+				"newFileTemplate" : "../../document-templates/new"
 			},
 			"requestDefaults": {
 				"headers": {

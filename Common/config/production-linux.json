@@ -13,6 +13,7 @@
   "services": {
     "CoAuthoring": {
       "server": {
+        "newFileTemplate" : "/var/www/onlyoffice/documentserver/document-templates/new",
         "static_content": {
           "/fonts": {
             "path": "/var/www/onlyoffice/documentserver/fonts",
