@@ -273,6 +273,23 @@ function addPasswordToCmd(cmd, docPasswordStr) {
     cmd.setExternalChangeInfo(docPassword.change);
   }
 }
+
+function changeFormatByOrigin(docId, row, format) {
+  let originFormat = row && row.change_id;
+  if (originFormat && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== originFormat) {
+    if (cfgAssemblyFormatAsOrigin) {
+      format = originFormat;
+    } else {
+      //for wopi always save origin
+      let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback);
+      let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, row.callback);
+      if (wopiParams) {
+        format = originFormat;
+      }
+    }
+  }
+  return format;
+}
 function* saveParts(cmd, filename) {
   var result = false;
   var saveType = cmd.getSaveType();
@@ -536,9 +553,7 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   var selectRes = yield taskResult.select(cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
   addPasswordToCmd(cmd, row && row.password);
-  if (cfgAssemblyFormatAsOrigin && row && row.change_id && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== row.change_id) {
-    cmd.setOutputFormat(row.change_id);
-  }
+  cmd.setOutputFormat(changeFormatByOrigin(cmd.getDocId(), row, cmd.getOutputFormat()));
   var queueData = getSaveTask(cmd);
   queueData.setFromChanges(true);
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
@@ -1058,11 +1073,15 @@ function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId) {
   let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
   if (postRes) {
     if (postRes.body) {
-      let body = JSON.parse(postRes.body);
-      //collabora nexcloud connector
-      if (body.LastModifiedTime) {
-        let lastModifiedTimeInfo = wopiClient.getWopiModifiedMarker(wopiParams, body.LastModifiedTime);
-        yield commandOpenStartPromise(docId, undefined, true, lastModifiedTimeInfo);
+      try {
+        let body = JSON.parse(postRes.body);
+        //collabora nexcloud connector
+        if (body.LastModifiedTime) {
+          let lastModifiedTimeInfo = wopiClient.getWopiModifiedMarker(wopiParams, body.LastModifiedTime);
+          yield commandOpenStartPromise(docId, undefined, true, lastModifiedTimeInfo);
+        }
+      } catch (e) {
+        logger.debug('processWopiPutFile error: docId = %s %s', docId, e.stack);
       }
     }
     res = '{"error": 0}';
@@ -1412,11 +1431,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
       var row = selectRes.length > 0 ? selectRes[0] : null;
       if (row && row.status == taskResult.FileStatus.SaveVersion && row.status_info == statusInfo) {
         if (null == optFormat) {
-          if (cfgAssemblyFormatAsOrigin && row.change_id && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== row.change_id) {
-            optFormat = row.change_id;
-          } else {
-            optFormat = constants.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER;
-          }
+          optFormat = changeFormatByOrigin(docId, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER);
         }
         var cmd = new commonDefines.InputCommand();
         cmd.setCommand('sfc');
