@@ -151,7 +151,7 @@ function collaboraCapabilities(req, res) {
   return co(function*() {
     let output = {
       "convert-to": {"available": false}, "hasMobileSupport": true, "hasProxyPrefix": false, "hasTemplateSaveAs": false,
-      "hasTemplateSource": false, "productVersion": commonDefines.buildVersion
+      "hasTemplateSource": true, "productVersion": commonDefines.buildVersion
     };
     try {
     logger.info('collaboraCapabilities start');

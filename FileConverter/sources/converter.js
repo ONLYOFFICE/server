@@ -269,7 +269,7 @@ function getTempDir() {
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
 function* replaceEmptyFile(docId, fileFrom, ext, _lcid) {
-  if (0 === fs.lstatSync(fileFrom).size) {
+  if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
     let locale = 'en-US';
     if (_lcid) {
       let localeNew = lcid.from(_lcid);
@@ -669,13 +669,17 @@ function* ExecuteTask(task) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
       let headers;
+      let fileSize;
       let wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
         let fileInfo = wopiParams.commonInfo.fileInfo;
         let userAuth = wopiParams.userAuth;
+        fileSize = fileInfo.Size
         if (fileInfo.FileUrl) {
           url = fileInfo.FileUrl;
+        } else if (fileInfo.TemplateSource) {
+          url = fileInfo.TemplateSource;
         } else {
           url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
           headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes, 'X-WOPI-ItemVersion': fileInfo.Version};
@@ -683,8 +687,12 @@ function* ExecuteTask(task) {
         }
         logger.debug('wopi url=%s; headers=%j(id=%s)', url, headers, dataConvert.key);
       }
-      error = yield* downloadFile(dataConvert.key, url, dataConvert.fileFrom, withAuthorization, headers);
-      yield* replaceEmptyFile(dataConvert.key, dataConvert.fileFrom, format, cmd.getLCID());
+      if (undefined === fileSize || fileSize > 0) {
+        error = yield* downloadFile(dataConvert.key, url, dataConvert.fileFrom, withAuthorization, headers);
+      }
+      if (constants.NO_ERROR === error) {
+        yield* replaceEmptyFile(dataConvert.key, dataConvert.fileFrom, format, cmd.getLCID());
+      }
       if(clientStatsD) {
         clientStatsD.timing('conv.downloadFile', new Date() - curDate);
         curDate = new Date();
