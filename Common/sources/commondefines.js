@@ -781,6 +781,12 @@ OutputSfcData.prototype.getUrl = function() {
 OutputSfcData.prototype.setUrl = function(data) {
   return this['url'] = data;
 };
+OutputSfcData.prototype.getExtName = function() {
+  return this['filetype'];
+};
+OutputSfcData.prototype.setExtName = function(data) {
+  return this['filetype'] = data.substring(1);
+};
 OutputSfcData.prototype.getChangeUrl = function() {
   return this['changesurl'];
 };

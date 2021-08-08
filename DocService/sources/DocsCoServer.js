@@ -78,6 +78,7 @@ const url = require('url');
 const os = require('os');
 const cluster = require('cluster');
 const crypto = require('crypto');
+const pathModule = require('path');
 const co = require('co');
 const jwt = require('jsonwebtoken');
 const jwa = require('jwa');
@@ -2971,8 +2972,10 @@ exports.install = function(server, callbackFunction) {
                   let url;
                   if (cmd.getInline()) {
                     url = canvasService.getPrintFileUrl(data.needUrlKey, participant.baseUrl, cmd.getTitle());
+                    outputData.setExtName('.pdf');
                   } else {
-                    url = yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), data.creationDate)
+                    url = yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), data.creationDate);
+                    outputData.setExtName(pathModule.extname(data.needUrlKey));
                   }
                   outputData.setData(url);
                 }

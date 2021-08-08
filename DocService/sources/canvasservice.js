@@ -108,12 +108,14 @@ function OutputData(type) {
   this['type'] = type;
   this['status'] = undefined;
   this['data'] = undefined;
+  this['filetype'] = undefined;
 }
 OutputData.prototype = {
   fromObject: function(data) {
     this['type'] = data['type'];
     this['status'] = data['status'];
     this['data'] = data['data'];
+    this['filetype'] = data['filetype'];
   },
   getType: function() {
     return this['type'];
@@ -132,6 +134,12 @@ OutputData.prototype = {
   },
   setData: function(data) {
     this['data'] = data;
+  },
+  getExtName: function() {
+    return this['filetype'];
+  },
+  setExtName: function(data) {
+    this['filetype'] = data.substring(1);
   }
 };
 
@@ -189,6 +197,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
                                                  cmd.getTitle());
           }
           outputData.setData(url);
+          outputData.setExtName(pathModule.extname(strPath));
         } else if (optAdditionalOutput) {
           optAdditionalOutput.needUrlKey = cmd.getInline() ? key : strPath;
           optAdditionalOutput.needUrlMethod = 2;
@@ -712,6 +721,7 @@ function* commandPathUrl(conn, cmd, outputData) {
   } else {
     outputData.setStatus('ok');
     outputData.setData(url);
+    outputData.setExtName(pathModule.extname(strPath));
   }
 }
 function* commandSaveFromOrigin(cmd, outputData) {
@@ -910,6 +920,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           let url = yield storage.getSignedUrl(baseUrl, savePathDoc, commonDefines.c_oAscUrlTypes.Temporary);
           outputSfc.setUrl(url);
+          outputSfc.setExtName(pathModule.extname(savePathDoc));
         } catch (e) {
           logger.error('Error commandSfcCallback: docId = %s\r\n%s', docId, e.stack);
         }
@@ -1084,6 +1095,7 @@ function* commandSendMMCallback(cmd) {
     var signedUrl = yield storage.getSignedUrl(mailMergeSendData.getBaseUrl(), saveKey + '/' + pathRes[1],
                                                commonDefines.c_oAscUrlTypes.Temporary);
     outputSfc.setUrl(signedUrl);
+    outputSfc.setExtName(path.extname(pathRes[1]));
     var uri = mailMergeSendData.getUrl();
     var replyStr = null;
     try {
