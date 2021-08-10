@@ -375,6 +375,7 @@ var cleanupCacheIf = co.wrap(function* (mask) {
   var res = false;
   var removeRes = yield taskResult.removeIf(mask);
   if (removeRes.affectedRows > 0) {
+    sqlBase.deleteChanges(mask.key, null);
     yield storage.deletePath(mask.key);
     res = true;
   }
@@ -1041,6 +1042,11 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         yield storage.copyObject(savePathDoc, cfgForgottenFiles + '/' + docId + '/' + forgottenName);
       } catch (err) {
         logger.error('Error storeForgotten: docId = %s\r\n%s', docId, err.stack);
+      }
+      if (!isSfcm) {
+        //cleanupRes can be false in case of simultaneous opening. it is OK
+        let cleanupRes = yield cleanupCacheIf(updateMask);
+        logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
       }
     }
     if (forceSave) {
