@@ -69,6 +69,8 @@ const cfgExpUpdateVersionStatus = ms(config.get('services.CoAuthoring.expire.upd
 const cfgCallbackBackoffOptions = config.get('services.CoAuthoring.callbackBackoffOptions');
 const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemblyFormatAsOrigin');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
+const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
+const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -1391,6 +1393,57 @@ exports.printFile = function(req, res) {
     }
     finally {
       logger.info('End printFile: docId = %s', docId);
+    }
+  });
+};
+exports.downloadFile = function(req, res) {
+  return co(function*() {
+    let docId = 'null';
+    try {
+      let startDate = null;
+      if (clientStatsD) {
+        startDate = new Date();
+      }
+
+      let url = req.get('x-url');
+      docId = req.params.docid;
+      logger.info('Start downloadFile: docId = %s', docId);
+
+      if (cfgTokenEnableBrowser) {
+        let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
+        if (checkJwtRes.decoded) {
+          docId = checkJwtRes.decoded.document.key;
+          url = checkJwtRes.decoded.document.url;
+        } else {
+          logger.warn('Error downloadFile jwt: docId = %s description = %s', docId, checkJwtRes.description);
+          res.sendStatus(403);
+          return;
+        }
+      }
+      let authorization;
+      if (utils.canIncludeOutboxAuthorization(url)) {
+        authorization = utils.fillJwtForRequest({url: url});
+      }
+      yield utils.downloadUrlPromise(url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, null, res);
+
+      if (clientStatsD) {
+        clientStatsD.timing('coauth.downloadFile', new Date() - startDate);
+      }
+    }
+    catch (err) {
+      logger.error('Error downloadFile: docId = %s %s', docId, err.stack);
+      if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+        res.sendStatus(408);
+      } else if (err.code === 'EMSGSIZE') {
+        res.sendStatus(413);
+      } else if (err.response) {
+        res.sendStatus(err.response.statusCode);
+      } else {
+        res.sendStatus(400);
+      }
+    }
+    finally {
+      logger.info('End downloadFile: docId = %s', docId);
     }
   });
 };
