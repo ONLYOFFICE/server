@@ -973,3 +973,6 @@ exports.convertLicenseInfoToServerParams = function(licenseInfo) {
 exports.checkBaseUrl = function(baseUrl) {
   return cfgStorageExternalHost ? cfgStorageExternalHost : baseUrl;
 };
+exports.resolvePath = function(object, path, defaultValue) {
+  return path.split('.').reduce((o, p) => o ? o[p] : defaultValue, object);
+}
