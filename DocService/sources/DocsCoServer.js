@@ -2020,6 +2020,13 @@ exports.install = function(server, callbackFunction) {
       docId = data.docid;
       const user = data.user;
 
+      let wopiParams = null;
+      if (data.documentCallbackUrl) {
+        wopiParams = wopiClient.parseWopiCallback(docId, data.documentCallbackUrl);
+        if (wopiParams) {
+          conn.access_token_ttl = wopiParams.userAuth.access_token_ttl;
+        }
+      }
       //get user index
       const bIsRestore = null != data.sessionId;
       let upsertRes = null;
@@ -2028,7 +2035,7 @@ exports.install = function(server, callbackFunction) {
         // Если восстанавливаем, индекс тоже восстанавливаем
         curIndexUser = user.indexUser;
       } else {
-        if (data.documentCallbackUrl) {
+        if (data.documentCallbackUrl && !wopiParams) {
           documentCallback = url.parse(data.documentCallbackUrl);
           let filterStatus = yield* utils.checkHostFilter(documentCallback.hostname);
           if (0 !== filterStatus) {
@@ -3073,8 +3080,10 @@ exports.install = function(server, callbackFunction) {
         var maxMs = nowMs + Math.max(cfgExpSessionCloseCommand, expDocumentsStep);
         for (var i = 0; i < connections.length; ++i) {
           var conn = connections[i];
-          if (cfgExpSessionAbsolute > 0) {
-            if (maxMs - conn.sessionTimeConnect > cfgExpSessionAbsolute && !conn.sessionIsSendWarning) {
+          //wopi access_token_ttl;
+          if (cfgExpSessionAbsolute > 0 || conn.access_token_ttl) {
+            if ((cfgExpSessionAbsolute > 0 && maxMs - conn.sessionTimeConnect > cfgExpSessionAbsolute ||
+              (conn.access_token_ttl && maxMs > conn.access_token_ttl)) && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
               sendDataSession(conn, {
                 code: constants.SESSION_ABSOLUTE_CODE,

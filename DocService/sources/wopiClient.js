@@ -190,21 +190,25 @@ function getLastModifiedTimeFromCallbacks(callbacks) {
     }
   }
 }
-function parseWopiCallback(docId, userAuthStr, url) {
+function parseWopiCallback(docId, userAuthStr, opt_url) {
   let wopiParams = null;
   if (isWopiCallback(userAuthStr)) {
     let userAuth = JSON.parse(userAuthStr);
-    let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, url, 1);
-    if (isWopiCallback(commonInfoStr)) {
-      let commonInfo = JSON.parse(commonInfoStr);
-      let lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
-      if (lastModifiedTime) {
-        let callbacks = sqlBase.UserCallback.prototype.getCallbacks(docId, url);
-        lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
+    let commonInfo = null;
+    let lastModifiedTime = null;
+    if (opt_url) {
+      let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, opt_url, 1);
+      if (isWopiCallback(commonInfoStr)) {
+        commonInfo = JSON.parse(commonInfoStr);
+        lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
+        if (lastModifiedTime) {
+          let callbacks = sqlBase.UserCallback.prototype.getCallbacks(docId, opt_url);
+          lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
+        }
       }
-      wopiParams = {commonInfo: commonInfo, userAuth: userAuth, LastModifiedTime: lastModifiedTime};
-      logger.debug('parseWopiCallback wopiParams:%j', wopiParams);
     }
+    wopiParams = {commonInfo: commonInfo, userAuth: userAuth, LastModifiedTime: lastModifiedTime};
+    logger.debug('parseWopiCallback wopiParams:%j', wopiParams);
   }
   return wopiParams;
 }
