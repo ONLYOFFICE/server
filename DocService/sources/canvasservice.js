@@ -730,7 +730,11 @@ function* commandPathUrl(conn, cmd, outputData) {
     outputData.setData(url);
   }
 }
-function* commandSaveFromOrigin(cmd, outputData) {
+function* commandSaveFromOrigin(cmd, outputData, password) {
+  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), password);
+  if (docPassword.initial) {
+    cmd.setPassword(docPassword.initial);
+  }
   yield* addRandomKeyTaskCmd(cmd);
   var queueData = getSaveTask(cmd);
   queueData.setFromOrigin(true);
@@ -1277,7 +1281,7 @@ exports.downloadAs = function(req, res) {
           yield* commandSave(cmd, outputData);
           break;
         case 'savefromorigin':
-          yield* commandSaveFromOrigin(cmd, outputData);
+          yield* commandSaveFromOrigin(cmd, outputData, row && row.password);
           break;
         case 'sendmm':
           yield* commandSendMailMerge(cmd, outputData);
