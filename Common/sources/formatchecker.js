@@ -502,3 +502,18 @@ exports.getImageFormat = function(buffer, optExt) {
   }
   return format;
 };
+exports.isDocumentFormat = function(format) {
+  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_DOCUMENT) ||
+    format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD ||
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY;
+};
+exports.isSpreadsheetFormat = function(format) {
+  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET) ||
+    format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET ||
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY;
+};
+exports.isPresentationFormat = function(format) {
+  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_PRESENTATION) ||
+    format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION ||
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
+};

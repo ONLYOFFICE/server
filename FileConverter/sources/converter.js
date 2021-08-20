@@ -40,6 +40,7 @@ var co = require('co');
 var config = require('config');
 var spawnAsync = require('@expo/spawn-async');
 const bytes = require('bytes');
+const lcid = require('lcid');
 var configConverter = config.get('FileConverter.converter');
 
 var commonDefines = require('./../../Common/sources/commondefines');
@@ -51,6 +52,7 @@ var baseConnector = require('./../../DocService/sources/baseConnector');
 const wopiClient = require('./../../DocService/sources/wopiClient');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
+const formatChecker = require('./../../Common/sources/formatchecker');
 
 var cfgDownloadMaxBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
 var cfgDownloadTimeout = configConverter.has('downloadTimeout') ? configConverter.get('downloadTimeout') : 60;
@@ -73,6 +75,7 @@ const cfgStreamWriterBufferSize = configConverter.get('streamWriterBufferSize');
 //cfgMaxRequestChanges was obtained as a result of the test: 84408 changes - 5,16 MB
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
+const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 
 //windows limit 512(2048) https://msdn.microsoft.com/en-us/library/6e3b887c.aspx
 //Ubuntu 14.04 limit 4096 http://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors.html
@@ -264,6 +267,31 @@ function getTempDir() {
   var resultDir = path.join(newTemp, 'result');
   fs.mkdirSync(resultDir);
   return {temp: newTemp, source: sourceDir, result: resultDir};
+}
+function* replaceEmptyFile(docId, fileFrom, ext, _lcid) {
+  if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
+    let locale = 'en-US';
+    if (_lcid) {
+      let localeNew = lcid.from(_lcid);
+      if (localeNew) {
+        localeNew = localeNew.replace(/_/g, '-');
+        if (fs.existsSync(path.join(cfgNewFileTemplate, localeNew))) {
+          locale = localeNew;
+        } else {
+          logger.debug('replaceEmptyFile empty locale dir locale=%s (id=%s)', localeNew, docId);
+        }
+      }
+    }
+    logger.debug('replaceEmptyFile format=%s locale=%s (id=%s)', ext, locale, docId);
+    let format = formatChecker.getFormatFromString(ext);
+    if (formatChecker.isDocumentFormat(format)) {
+      fs.copyFileSync(path.join(cfgNewFileTemplate, locale, 'new.docx'), fileFrom);
+    } else if (formatChecker.isSpreadsheetFormat(format)) {
+      fs.copyFileSync(path.join(cfgNewFileTemplate, locale, 'new.xlsx'), fileFrom);
+    } else if (formatChecker.isPresentationFormat(format)) {
+      fs.copyFileSync(path.join(cfgNewFileTemplate, locale, 'new.pptx'), fileFrom);
+    }
+  }
 }
 function* downloadFile(docId, uri, fileFrom, withAuthorization, opt_headers) {
   var res = constants.CONVERT_DOWNLOAD;
@@ -635,18 +663,23 @@ function* ExecuteTask(task) {
   let isBuilder = cmd.getIsBuilder();
   let authorProps = {lastModifiedBy: null, modified: null};
   if (cmd.getUrl()) {
-    dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + cmd.getFormat());
+    let format = cmd.getFormat();
+    dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + format);
     if (utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
       let headers;
+      let fileSize;
       let wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
         let fileInfo = wopiParams.commonInfo.fileInfo;
         let userAuth = wopiParams.userAuth;
+        fileSize = fileInfo.Size
         if (fileInfo.FileUrl) {
           url = fileInfo.FileUrl;
+        } else if (fileInfo.TemplateSource) {
+          url = fileInfo.TemplateSource;
         } else {
           url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
           headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes, 'X-WOPI-ItemVersion': fileInfo.Version};
@@ -654,7 +687,12 @@ function* ExecuteTask(task) {
         }
         logger.debug('wopi url=%s; headers=%j(id=%s)', url, headers, dataConvert.key);
       }
-      error = yield* downloadFile(dataConvert.key, url, dataConvert.fileFrom, withAuthorization, headers);
+      if (undefined === fileSize || fileSize > 0) {
+        error = yield* downloadFile(dataConvert.key, url, dataConvert.fileFrom, withAuthorization, headers);
+      }
+      if (constants.NO_ERROR === error) {
+        yield* replaceEmptyFile(dataConvert.key, dataConvert.fileFrom, format, cmd.getLCID());
+      }
       if(clientStatsD) {
         clientStatsD.timing('conv.downloadFile', new Date() - curDate);
         curDate = new Date();

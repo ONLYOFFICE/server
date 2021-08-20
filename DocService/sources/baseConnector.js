@@ -313,6 +313,26 @@ UserCallback.prototype.getCallbackByUserIndex = function(docId, callbacksStr, op
   }
   return callbackUrl;
 };
+UserCallback.prototype.getCallbacks = function(docId, callbacksStr) {
+  logger.debug("getCallbacks: docId = %s callbacks = %s", docId, callbacksStr);
+  if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
+    let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
+    if (-1 === index) {
+      //old format
+      return [callbacksStr];
+    } else {
+      //mix of old and new format
+      callbacksStr = callbacksStr.substring(index);
+    }
+  }
+  let callbacks = callbacksStr.split(UserCallback.prototype.delimiter);
+  let res = [];
+  for (let i = 1; i < callbacks.length; ++i) {
+    let callback = JSON.parse(callbacks[i]);
+    res.push(callback.callback);
+  }
+  return res;
+};
 exports.UserCallback = UserCallback;
 
 function DocumentPassword() {

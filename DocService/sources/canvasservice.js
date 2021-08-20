@@ -164,7 +164,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
       } else if (taskResult.FileStatus.SaveVersion == status ||
         (!opt_bIsRestore && taskResult.FileStatus.UpdateVersion === status &&
         Date.now() - statusInfo * 60000 > cfgExpUpdateVersionStatus)) {
-        if ((optConn && optConn.user.view) || optConn.isCloseCoAuthoring) {
+        if (optConn && (optConn.user.view || optConn.isCloseCoAuthoring)) {
           outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
         } else {
           if (taskResult.FileStatus.UpdateVersion === status) {
@@ -284,6 +284,23 @@ function addPasswordToCmd(cmd, docPasswordStr) {
     cmd.setExternalChangeInfo(docPassword.change);
   }
 }
+
+function changeFormatByOrigin(docId, row, format) {
+  let originFormat = row && row.change_id;
+  if (originFormat && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== originFormat) {
+    if (cfgAssemblyFormatAsOrigin) {
+      format = originFormat;
+    } else {
+      //for wopi always save origin
+      let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback);
+      let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, row.callback);
+      if (wopiParams) {
+        format = originFormat;
+      }
+    }
+  }
+  return format;
+}
 function* saveParts(cmd, filename) {
   var result = false;
   var saveType = cmd.getSaveType();
@@ -369,6 +386,7 @@ var cleanupCacheIf = co.wrap(function* (mask) {
   var res = false;
   var removeRes = yield taskResult.removeIf(mask);
   if (removeRes.affectedRows > 0) {
+    sqlBase.deleteChanges(mask.key, null);
     yield storage.deletePath(mask.key);
     res = true;
   }
@@ -547,9 +565,7 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   var selectRes = yield taskResult.select(cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
   addPasswordToCmd(cmd, row && row.password);
-  if (cfgAssemblyFormatAsOrigin && row && row.change_id && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== row.change_id) {
-    cmd.setOutputFormat(row.change_id);
-  }
+  cmd.setOutputFormat(changeFormatByOrigin(cmd.getDocId(), row, cmd.getOutputFormat()));
   var queueData = getSaveTask(cmd);
   queueData.setFromChanges(true);
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
@@ -726,7 +742,11 @@ function* commandPathUrl(conn, cmd, outputData) {
     outputData.setExtName(pathModule.extname(strPath));
   }
 }
-function* commandSaveFromOrigin(cmd, outputData) {
+function* commandSaveFromOrigin(cmd, outputData, password) {
+  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), password);
+  if (docPassword.initial) {
+    cmd.setPassword(docPassword.initial);
+  }
   yield* addRandomKeyTaskCmd(cmd);
   var queueData = getSaveTask(cmd);
   queueData.setFromOrigin(true);
@@ -947,8 +967,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           try {
             if (wopiParams) {
-              let streamObj = yield storage.createReadStream(savePathDoc);
-              replyStr = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
+              replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
             } else {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
             }
@@ -980,8 +999,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
               if (wopiParams) {
-                let streamObj = yield storage.createReadStream(savePathDoc);
-                replyStr = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
+                replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
               } else {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
               }
@@ -1042,6 +1060,11 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       } catch (err) {
         logger.error('Error storeForgotten: docId = %s\r\n%s', docId, err.stack);
       }
+      if (!isSfcm) {
+        //cleanupRes can be false in case of simultaneous opening. it is OK
+        let cleanupRes = yield cleanupCacheIf(updateMask);
+        logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
+    }
     }
     if (forceSave) {
       yield* docsCoServer.setForceSave(docId, forceSave, cmd, isSfcmSuccess && !isError);
@@ -1066,6 +1089,27 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
   }
   logger.debug('End commandSfcCallback: docId = %s', docId);
   return replyStr;
+}
+function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId) {
+  let res = '{"error": 1}';
+  let streamObj = yield storage.createReadStream(savePathDoc);
+  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
+  if (postRes) {
+    if (postRes.body) {
+      try {
+        let body = JSON.parse(postRes.body);
+        //collabora nexcloud connector
+        if (body.LastModifiedTime) {
+          let lastModifiedTimeInfo = wopiClient.getWopiModifiedMarker(wopiParams, body.LastModifiedTime);
+          yield commandOpenStartPromise(docId, undefined, true, lastModifiedTimeInfo);
+        }
+      } catch (e) {
+        logger.debug('processWopiPutFile error: docId = %s %s', docId, e.stack);
+      }
+    }
+    res = '{"error": 0}';
+  }
+  return res;
 }
 function* commandSendMMCallback(cmd) {
   var docId = cmd.getDocId();
@@ -1251,7 +1295,7 @@ exports.downloadAs = function(req, res) {
           yield* commandSave(cmd, outputData);
           break;
         case 'savefromorigin':
-          yield* commandSaveFromOrigin(cmd, outputData);
+          yield* commandSaveFromOrigin(cmd, outputData, row && row.password);
           break;
         case 'sendmm':
           yield* commandSendMailMerge(cmd, outputData);
@@ -1462,12 +1506,8 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
       var row = selectRes.length > 0 ? selectRes[0] : null;
       if (row && row.status == taskResult.FileStatus.SaveVersion && row.status_info == statusInfo) {
         if (null == optFormat) {
-          if (cfgAssemblyFormatAsOrigin && row.change_id && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== row.change_id) {
-            optFormat = row.change_id;
-          } else {
-            optFormat = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
+          optFormat = changeFormatByOrigin(docId, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
           }
-        }
         var cmd = new commonDefines.InputCommand();
         cmd.setCommand('sfc');
         cmd.setDocId(docId);
