@@ -75,11 +75,12 @@
 		}
 	},
 	"wopi": {
+		"host" : "",
 		"htmlTemplate" : "../../web-apps/apps/api/wopi",
 		"wopiZone" : "external-http",
-		"favIconUrlWord" : "https://static.onlyoffice.com/studio/tag/personal.11.1.0/skins/default/images/logo/text.ico",
-		"favIconUrlCell" : "https://static.onlyoffice.com/studio/tag/personal.11.1.0/skins/default/images/logo/spreadsheet.ico",
-		"favIconUrlSlide" : "https://static.onlyoffice.com/studio/tag/personal.11.1.0/skins/default/images/logo/presentation.ico",
+		"favIconUrlWord" : "/web-apps/apps/documenteditor/main/resources/img/favicon.ico",
+		"favIconUrlCell" : "/web-apps/apps/spreadsheeteditor/main/resources/img/favicon.ico",
+		"favIconUrlSlide" : "/web-apps/apps/presentationeditor/main/resources/img/favicon.ico",
 		"fileInfoBlockList" : ["FileUrl"],
 		"wordView": ["pdf", "djvu", "xps"],
 		"wordEdit": ["docx", "docm", "odt", "txt"],
