@@ -249,14 +249,6 @@ function checkAndInvalidateCache(docId, fileInfo) {
               logger.debug('wopiEditor cleanupRes=%s', cleanupRes);
               res.lockId = undefined;
             }
-          } else {
-            let cmd = new commonDefines.InputCommand();
-            var outputData = new canvasService.OutputData(cmd.getCommand());
-            yield canvasService.getOutputData(cmd, outputData, docId);
-            if ('ok' !== outputData.getStatus()) {
-              res.success = false;
-              logger.warn('wopiEditor inappropriate DB status selectRes=%j', selectRes);
-            }
           }
         } else {
           res.success = false;
