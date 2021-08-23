@@ -598,16 +598,21 @@ function* commandImgurls(conn, cmd, outputData) {
   let docId = cmd.getDocId();
   var errorCode = constants.NO_ERROR;
   let urls = cmd.getData();
-  let authorization;
+  let authorizations = [];
   let token = cmd.getTokenDownload();
   if (cfgTokenEnableBrowser && token) {
     let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
       //todo multiple url case
-      let url = checkJwtRes.decoded.url;
-      urls = [url];
-      if (utils.canIncludeOutboxAuthorization(url)) {
-        authorization = utils.fillJwtForRequest({url: url});
+      if (checkJwtRes.decoded.urls) {
+        urls = checkJwtRes.decoded.urls;
+      } else {
+        urls = [checkJwtRes.decoded.url];
+      }
+      for (let i = 0; i < urls.length; ++i) {
+        if (utils.canIncludeOutboxAuthorization(urls[i])) {
+          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]})];
+        }
       }
     } else {
       logger.warn('Error commandImgurls jwt: docId = %s\r\n%s', docId, checkJwtRes.description);
@@ -644,7 +649,7 @@ function* commandImgurls(conn, cmd, outputData) {
       } else if (urlSource) {
         try {
           //todo stream
-          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorization);
+          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i]);
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -1454,6 +1459,7 @@ exports.downloadFile = function(req, res) {
       docId = req.params.docid;
       logger.info('Start downloadFile: docId = %s', docId);
 
+      let authorization;
       if (cfgTokenEnableBrowser) {
         let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
         if (checkJwtRes.decoded) {
@@ -1463,11 +1469,11 @@ exports.downloadFile = function(req, res) {
           res.sendStatus(403);
           return;
         }
+        if (utils.canIncludeOutboxAuthorization(url)) {
+          authorization = utils.fillJwtForRequest({url: url});
+        }
       }
-      let authorization;
-      if (utils.canIncludeOutboxAuthorization(url)) {
-        authorization = utils.fillJwtForRequest({url: url});
-      }
+
       yield utils.downloadUrlPromise(url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, null, res);
 
       if (clientStatsD) {
