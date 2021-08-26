@@ -323,7 +323,7 @@ function getEditorHtml(req, res) {
 
       //Lock
       if ('edit' === mode) {
-        let lockRes = yield lock(lockId, fileInfo, userAuth);
+        let lockRes = yield lock('LOCK', lockId, fileInfo, userAuth);
         if (!lockRes) {
           params.fileInfo = {};
           return;
@@ -444,29 +444,29 @@ function checkFileInfo(uri, access_token, sc) {
     return fileInfo;
   });
 }
-function lock(lockId, fileInfo, userAuth) {
+function lock(command, lockId, fileInfo, userAuth) {
   return co(function* () {
     let res = true;
     try {
-      logger.info('wopi Lock start');
+      logger.info('wopi %s start', command);
       if (fileInfo && fileInfo.SupportsLocks) {
         let wopiSrc = userAuth.wopiSrc;
         let access_token = userAuth.access_token;
         let uri = `${wopiSrc}?access_token=${access_token}`;
 
-        let headers = {"X-WOPI-Override": "LOCK", "X-WOPI-Lock": lockId};
+        let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
-        logger.debug('wopi Lock request uri=%s headers=%j', uri, headers);
+        logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
         let postRes = yield utils.postRequestPromise(uri, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
-        logger.debug('wopi Lock response headers=%j', postRes.response.headers);
+        logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
       } else {
-        logger.info('wopi SupportsLocks = false');
+        logger.info('wopi %s SupportsLocks = false', command);
       }
     } catch (err) {
       res = false;
-      logger.error('wopi error Lock:%s', err.stack);
+      logger.error('wopi error %s:%s', command, err.stack);
     } finally {
-      logger.info('wopi Lock end');
+      logger.info('wopi %s end', command);
     }
     return res;
   });

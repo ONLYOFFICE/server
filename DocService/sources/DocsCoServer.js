@@ -150,6 +150,7 @@ const cfgMaxRequestChanges = config.get('server.maxRequestChanges');
 const cfgWarningLimitPercents = configCommon.get('license.warning_limit_percents') / 100;
 const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('server.openProtectedFile');
+const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
 
 const EditorTypes = {
   document : 0,
@@ -3134,6 +3135,41 @@ exports.install = function(server, callbackFunction) {
     });
   }
   setTimeout(expireDoc, expDocumentsStep);
+  function refreshWopiLock() {
+    return co(function* () {
+      try {
+        logger.info('refreshWopiLock start');
+        let docIds = new Map();
+        for (let i = 0; i < connections.length; ++i) {
+          let conn = connections[i];
+          let docId = conn.docId;
+          if (docIds.has(docId)) {
+            continue;
+          }
+          docIds.set(docId, 1);
+          if (!conn.access_token_ttl) {
+            continue;
+          }
+          let selectRes = yield taskResult.select(docId);
+          if (selectRes.length > 0 && selectRes[0] && selectRes[0].callback) {
+            let callback = selectRes[0].callback;
+            let callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, callback);
+            let wopiParams = wopiClient.parseWopiCallback(docId, callbackUrl, callback);
+            if (wopiParams) {
+              yield wopiClient.lock('REFRESH_LOCK', wopiParams.commonInfo.lockId,
+                                    wopiParams.commonInfo.fileInfo, wopiParams.userAuth);
+            }
+          }
+        }
+      } catch (err) {
+        logger.error('refreshWopiLock error:%s', err.stack);
+      } finally {
+        logger.info('refreshWopiLock end');
+        setTimeout(refreshWopiLock, cfgRefreshLockInterval);
+      }
+    });
+  }
+  setTimeout(refreshWopiLock, cfgRefreshLockInterval);
 
   pubsub = new pubsubService();
   pubsub.on('message', pubsubOnMessage);
