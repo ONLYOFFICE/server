@@ -604,8 +604,10 @@ function* commandImgurls(conn, cmd, outputData) {
     let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
       //todo multiple url case
-      if (checkJwtRes.decoded.urls) {
-        urls = checkJwtRes.decoded.urls;
+      if (checkJwtRes.decoded.images) {
+        urls = checkJwtRes.decoded.images.map(function(curValue) {
+          return curValue.url;
+        });
       } else {
         urls = [checkJwtRes.decoded.url];
       }
