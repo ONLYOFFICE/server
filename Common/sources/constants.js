@@ -34,6 +34,8 @@
 
 exports.DOC_ID_PATTERN = '0-9-.a-zA-Z_=';
 exports.DOC_ID_REGEX = new RegExp("^[" + exports.DOC_ID_PATTERN + "]*$", 'i');
+exports.DOC_ID_REPLACE_REGEX = new RegExp("[^" + exports.DOC_ID_PATTERN + "]", 'g');
+exports.DOC_ID_MAX_LENGTH = 240;
 exports.EXTENTION_REGEX = /^[a-zA-Z0-9]*$/;
 exports.CHAR_DELIMITER = String.fromCharCode(5);
 exports.OUTPUT_NAME = 'output';
@@ -217,6 +219,7 @@ exports.REDIS_KEY_SAVE_LOCK = 'savelock:';
 exports.REDIS_KEY_PRESENCE_HASH = 'presence:hash:';
 exports.REDIS_KEY_PRESENCE_SET = 'presence:set:';
 exports.REDIS_KEY_PRESENCE_UNIQUE_USERS = 'presence:unique:users';
+exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_HASH = 'presence:unique:users:hash';
 exports.REDIS_KEY_LOCKS = 'locks:';
 exports.REDIS_KEY_LOCK_DOCUMENT = 'lockdocument:';
 exports.REDIS_KEY_MESSAGE = 'message:';

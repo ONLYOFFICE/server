@@ -60,6 +60,8 @@ const forwarded = require('forwarded');
 const mime = require('mime');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const openpgp = require('openpgp');
+require('win-ca');
+const contentDisposition = require('content-disposition');
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
@@ -82,10 +84,14 @@ const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
 const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
 const cfgPasswordConfig = config.get('openpgpjs.config');
 const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
+const cfgStorageExternalHost = config.get('storage.externalHost');
 
 Object.assign(openpgp.config, cfgPasswordConfig);
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
+
+//https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
+BigInt.prototype.toJSON = function() { return this.toString() };
 
 var baseRequest = request.defaults(cfgRequestDefaults);
 let outboxUrlExclusionRegex = null;
@@ -240,17 +246,8 @@ function encodeRFC5987ValueChars(str) {
     replace(/%(?:7C|60|5E)/g, unescape);
 }
 function getContentDisposition (opt_filename, opt_useragent, opt_type) {
-  //from http://stackoverflow.com/questions/93551/how-to-encode-the-filename-parameter-of-content-disposition-header-in-http
-  var contentDisposition = opt_type ? opt_type : constants.CONTENT_DISPOSITION_ATTACHMENT;
-  if (opt_filename) {
-    contentDisposition += '; filename="';
-    if (opt_useragent != null && -1 != opt_useragent.toLowerCase().indexOf('android')) {
-      contentDisposition += makeAndroidSafeFileName(opt_filename) + '"';
-    } else {
-      contentDisposition += opt_filename + '"; filename*=UTF-8\'\'' + encodeRFC5987ValueChars(opt_filename);
-    }
-  }
-  return contentDisposition;
+  let type = opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT;
+  return contentDisposition(opt_filename, {type: type});
 }
 exports.getContentDisposition = getContentDisposition;
 function raiseError(ro, code, msg) {
@@ -259,14 +256,14 @@ function raiseError(ro, code, msg) {
   error.code = code;
   ro.emit('error', error);
 }
-function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
+function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_headers) {
   //todo replace deprecated request module
   let filterPrivate = opt_Authorization ? false : true;
   const maxRedirects = (undefined !== cfgRequestDefaults.maxRedirects) ? cfgRequestDefaults.maxRedirects : 10;
   const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
   var redirectsFollowed = 0;
   let doRequest = function(curUrl) {
-    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, filterPrivate)
+    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, filterPrivate, opt_headers)
       .catch(function(err) {
         let response = err.response;
         if (response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location')) {
@@ -286,7 +283,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization) {
   };
   return doRequest(uri);
 }
-function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate) {
+function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -301,6 +298,10 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
       options.headers = {};
       options.headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
+    if (opt_headers) {
+      options.headers = opt_headers;
+    }
+
     let sizeLimit = optLimit || Number.MAX_VALUE;
     let bufferLength = 0;
 
@@ -318,9 +319,11 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
           if (contentLength && body.length !== (contentLength - 0)) {
             logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
-          resolve(body);
+          resolve({response: response, body: body});
         } else {
-          let error = new Error('Error response: statusCode:' + response.statusCode + ' ;body:\r\n' + body);
+          let code = response.statusCode;
+          let responseHeaders = JSON.stringify(response.headers);
+          let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
           error.request = ro;
           error.response = response;
@@ -345,7 +348,7 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
     }
   });
 }
-function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
+function postRequestPromise(uri, postData, postDataStream, optTimeout, opt_Authorization, opt_header) {
   return new Promise(function(resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -354,8 +357,12 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
     if (opt_Authorization) {
       headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
+    headers = opt_header || headers;
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    var options = {uri: urlParsed, body: postData, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
+    var options = {uri: urlParsed, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
+    if (postData) {
+      options.body = postData;
+    }
 
     let executed = false;
     let ro = baseRequest.post(options, function(err, response, body) {
@@ -366,13 +373,14 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
       if (err) {
         reject(err);
       } else {
-        if (200 == response.statusCode || 204 == response.statusCode) {
-          resolve(body);
+        if (200 === response.statusCode || 204 === response.statusCode) {
+          resolve({response: response, body: body});
         } else {
           let code = response.statusCode;
           let responseHeaders = JSON.stringify(response.headers);
           let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
           error.statusCode = response.statusCode;
+          error.response = response;
           reject(error);
         }
       }
@@ -381,6 +389,9 @@ function postRequestPromise(uri, postData, optTimeout, opt_Authorization) {
       setTimeout(function() {
         raiseError(ro, 'ETIMEDOUT', 'Error whole request cycle timeout');
       }, ms(optTimeout.wholeCycle));
+    }
+    if (postDataStream && !postData) {
+      postDataStream.pipe(ro);
     }
   });
 }
@@ -740,6 +751,16 @@ function checkClientIp(req, res, next) {
 	}
 }
 exports.checkClientIp = checkClientIp;
+function lowercaseQueryString(req, res, next) {
+  for (var key in req.query) {
+    if (req.query.hasOwnProperty(key) && key.toLowerCase() !== key) {
+      req.query[key.toLowerCase()] = req.query[key];
+      delete req.query[key];
+    }
+  }
+  next();
+}
+exports.lowercaseQueryString = lowercaseQueryString;
 function dnsLookup(hostname, options) {
   return new Promise(function(resolve, reject) {
     dnscache.lookup(hostname, options, function(err, addresses){
@@ -869,7 +890,9 @@ exports.decryptPassword = co.wrap(function* (password) {
   const { data: decrypted } = yield openpgp.decrypt(params);
   return decrypted;
 });
-
+exports.getDateTimeTicks = function(date) {
+  return BigInt(date.getTime() * 10000) + 621355968000000000n;
+};
 exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   // todo
   // {
@@ -909,4 +932,7 @@ exports.convertLicenseInfoToServerParams = function(licenseInfo) {
   license.buildVersion = commonDefines.buildVersion;
   license.buildNumber = commonDefines.buildNumber;
   return license;
+};
+exports.checkBaseUrl = function(baseUrl) {
+  return cfgStorageExternalHost ? cfgStorageExternalHost : baseUrl;
 };

@@ -100,6 +100,7 @@ const taskResult = require('./taskresult');
 const gc = require('./gc');
 const shutdown = require('./shutdown');
 const pubsubService = require('./pubsubRabbitMQ');
+const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
@@ -164,6 +165,7 @@ let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
 let queue;
 let licenseInfo = {type: constants.LICENSE_RESULT.Error, light: false, branding: false, customization: false, plugins: false};
+let licenseOriginal = null;
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
@@ -457,6 +459,11 @@ let changeConnectionInfo = co.wrap(function*(conn, cmd) {
   }
   return false;
 });
+function signToken(payload, algorithm, expiresIn, secretElem) {
+  var options = {algorithm: algorithm, expiresIn: expiresIn};
+  var secret = utils.getSecretByElem(secretElem);
+  return jwt.sign(payload, secret, options);
+}
 function fillJwtByConnection(conn) {
   var docId = conn.docId;
   var payload = {document: {}, editorConfig: {user: {}}};
@@ -479,9 +486,7 @@ function fillJwtByConnection(conn) {
   edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
   edit.ds_denyChangeName = conn.denyChangeName;
 
-  var options = {algorithm: cfgTokenSessionAlgorithm, expiresIn: cfgTokenSessionExpires / 1000};
-  var secret = utils.getSecretByElem(cfgSecretSession);
-  return jwt.sign(payload, secret, options);
+  return signToken(payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, cfgSecretSession);
 }
 
 function sendData(conn, data) {
@@ -541,14 +546,14 @@ function getParticipantUser(docId, includeUserId) {
 }
 
 
-function* updateEditUsers(userId) {
+function* updateEditUsers(userId, anonym) {
   if (!licenseInfo.usersCount) {
     return;
   }
   const now = new Date();
   const expireAt = (Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)) / 1000 +
       licenseInfo.usersExpire - 1;
-  yield editorData.addPresenceUniqueUser(userId, expireAt);
+  yield editorData.addPresenceUniqueUser(userId, expireAt, {anonym: anonym});
 }
 function* getEditorsCount(docId, opt_hvals) {
   var elem, editorsCount = 0;
@@ -648,9 +653,9 @@ function* sendServerRequest(docId, uri, dataObject, opt_checkAuthorization) {
       logger.warn('authorization reduced to: docId = %s; length=%d', docId, auth.length);
     }
   }
-  let res = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), cfgCallbackRequestTimeout, auth);
-  logger.debug('postData response: docId = %s;data = %s', docId, res);
-  return res;
+  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, cfgCallbackRequestTimeout, auth);
+  logger.debug('postData response: docId = %s;data = %s', docId, postRes.body);
+  return postRes.body;
 }
 
 // Парсинг ссылки
@@ -684,18 +689,20 @@ function parseUrl(callbackUrl) {
 function* getCallback(id, opt_userIndex) {
   var callbackUrl = null;
   var baseUrl = null;
+  let wopiParams = null;
   var selectRes = yield taskResult.select(id);
   if (selectRes.length > 0) {
     var row = selectRes[0];
     if (row.callback) {
       callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(id, row.callback, opt_userIndex);
+      wopiParams = wopiClient.parseWopiCallback(id, callbackUrl, row.callback);
     }
     if (row.baseurl) {
       baseUrl = row.baseurl;
     }
   }
   if (null != callbackUrl && null != baseUrl) {
-    return {server: parseUrl(callbackUrl), baseUrl: baseUrl};
+    return {server: parseUrl(callbackUrl), baseUrl: baseUrl, wopiParams: wopiParams};
   } else {
     return null;
   }
@@ -820,6 +827,22 @@ function* startRPC(conn, responseKey, data) {
         sendDataRpc(conn, responseKey);
       }
       break;
+    case 'wopi_RenameFile':
+      let renameRes;
+      let selectRes = yield taskResult.select(docId);
+      let row = selectRes.length > 0 ? selectRes[0] : null;
+      if (row) {
+        if (row.callback) {
+          let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
+          let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, userIndex);
+          let wopiParams = wopiClient.parseWopiCallback(docId, uri, row.callback);
+          if (wopiParams) {
+            renameRes = yield wopiClient.renameFile(wopiParams, data.name);
+          }
+        }
+      }
+      sendDataRpc(conn, responseKey, renameRes);
+      break;
   }
   logger.debug('startRPC end:docId = %s', docId);
 }
@@ -842,6 +865,9 @@ function handleDeadLetter(data, ack) {
             yield* addTask(task, constants.QUEUE_PRIORITY_VERY_LOW, undefined, FORCE_SAVE_EXPIRATION);
             isRequeued = true;
           }
+        } else if (!forceSave && task.getFromChanges()) {
+          yield* addTask(task, constants.QUEUE_PRIORITY_NORMAL, undefined);
+          isRequeued = true;
         } else if(cmd.getAttempt()) {
           logger.warn('handleDeadLetter addResponse delayed = %d: docId = %s', cmd.getAttempt(), docId);
           yield* addResponse(task);
@@ -873,6 +899,10 @@ function* sendStatusDocument(docId, bChangeBase, opt_userAction, opt_userIndex, 
       opt_callback = getRes.server;
       if (!opt_baseUrl) {
         opt_baseUrl = getRes.baseUrl;
+      }
+      if (getRes.wopiParams) {
+        logger.debug('sendStatusDocument wopi stub: docId = %s', docId);
+        return opt_callback;
       }
     }
   }
@@ -1002,7 +1032,7 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
   var oCallbackUrl;
   if (!callback) {
     var getRes = yield* getCallback(docId);
-    if (getRes) {
+    if (getRes && !getRes.wopiParams) {
       oCallbackUrl = getRes.server;
       bChangeBase = c_oAscChangeBase.Delete;
     }
@@ -1026,7 +1056,7 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
   }
 }
 
-function* cleanDocumentOnExit(docId, deleteChanges) {
+function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
   yield editorData.cleanDocumentOnExit(docId);
   //remove changes
@@ -1036,6 +1066,13 @@ function* cleanDocumentOnExit(docId, deleteChanges) {
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(cfgForgottenFiles + '/' + docId);
   }
+  //unlock
+  var getRes = yield* getCallback(docId, opt_userIndex);
+  if (getRes && getRes.wopiParams) {
+    yield wopiClient.unlock(getRes.wopiParams);
+    let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
+    yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
+  }
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
@@ -1043,7 +1080,7 @@ function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_for
   yield* sendStatusDocument(docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
   //если пользователь зашел в документ, соединение порвалось, на сервере удалилась вся информация,
   //при восстановлении соединения userIndex сохранится и он совпадет с userIndex следующего пользователя
-  yield* cleanDocumentOnExit(docId, false);
+  yield* cleanDocumentOnExit(docId, false, opt_userIndex);
 }
 
 function* _createSaveTimer(docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay) {
@@ -1200,6 +1237,7 @@ exports.parseReplyData = parseReplyData;
 exports.sendServerRequest = sendServerRequest;
 exports.createSaveTimerPromise = co.wrap(_createSaveTimer);
 exports.changeConnectionInfo = changeConnectionInfo;
+exports.signToken = signToken;
 exports.publish = publish;
 exports.addTask = addTask;
 exports.addDelayed = addDelayed;
@@ -1473,7 +1511,7 @@ exports.install = function(server, callbackFunction) {
           } else if (needSendStatus) {
             yield* cleanDocumentOnExitNoChanges(docId, tmpUser.idOriginal, userIndex);
           } else {
-            yield* cleanDocumentOnExit(docId);
+            yield* cleanDocumentOnExit(docId, false, userIndex);
           }
         } else if (needSendStatus) {
           yield* sendStatusDocument(docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
@@ -1982,6 +2020,13 @@ exports.install = function(server, callbackFunction) {
       docId = data.docid;
       const user = data.user;
 
+      let wopiParams = null;
+      if (data.documentCallbackUrl) {
+        wopiParams = wopiClient.parseWopiCallback(docId, data.documentCallbackUrl);
+        if (wopiParams) {
+          conn.access_token_ttl = wopiParams.userAuth.access_token_ttl;
+        }
+      }
       //get user index
       const bIsRestore = null != data.sessionId;
       let upsertRes = null;
@@ -1990,7 +2035,7 @@ exports.install = function(server, callbackFunction) {
         // Если восстанавливаем, индекс тоже восстанавливаем
         curIndexUser = user.indexUser;
       } else {
-        if (data.documentCallbackUrl) {
+        if (data.documentCallbackUrl && !wopiParams) {
           documentCallback = url.parse(data.documentCallbackUrl);
           let filterStatus = yield* utils.checkHostFilter(documentCallback.hostname);
           if (0 !== filterStatus) {
@@ -1999,7 +2044,8 @@ exports.install = function(server, callbackFunction) {
             return;
           }
         }
-        upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl);
+        let format = data.openCmd && data.openCmd.format;
+        upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl, format);
 		  curIndexUser = upsertRes.affectedRows == 1 ? 1 : upsertRes.insertId;
       }
       if (constants.CONN_CLOSED === conn.readyState) {
@@ -2037,7 +2083,8 @@ exports.install = function(server, callbackFunction) {
         if (c_LR.Success !== licenceType && c_LR.SuccessLimit !== licenceType) {
           conn.user.view = true;
         } else {
-          yield* updateEditUsers(conn.user.idOriginal);
+          //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
+          yield* updateEditUsers(conn.user.idOriginal,  !!data.IsAnonymousUser);
         }
       }
 
@@ -2068,10 +2115,17 @@ exports.install = function(server, callbackFunction) {
         }
         return;
       }
+      let result = yield taskResult.select(docId);
+      if (cmd && result && result.length > 0 && result[0].callback) {
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
+        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, result[0].callback);
+        cmd.setWopiParams(wopiParams);
+        if (wopiParams) {
+          documentCallback = null;
+        }
+      }
 
       if (!conn.user.view) {
-        var result = yield sqlBase.checkStatusFilePromise(docId);
-
         var status = result && result.length > 0 ? result[0]['status'] : null;
         if (taskResult.FileStatus.Ok === status) {
           // Все хорошо, статус обновлять не нужно
@@ -2776,7 +2830,7 @@ exports.install = function(server, callbackFunction) {
 		if (licenseInfo.usersCount) {
 				const nowUTC = getLicenseNowUtc();
 				const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
-				if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.indexOf(userId))) {
+				if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
 					licenseType = c_LR.UsersCount;
 				}
 				licenseWarningLimit = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
@@ -2918,10 +2972,15 @@ exports.install = function(server, callbackFunction) {
                 if (0 == data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrls(participant.baseUrl, data.needUrlKey, data.needUrlType, data.creationDate));
                 } else if (1 == data.needUrlMethod) {
-                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, undefined, undefined, data.creationDate));
+                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, undefined, data.creationDate));
                 } else {
-                  var contentDisposition = cmd.getInline() ? constants.CONTENT_DISPOSITION_INLINE : constants.CONTENT_DISPOSITION_ATTACHMENT;
-                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), contentDisposition, data.creationDate));
+                  let url;
+                  if (cmd.getInline()) {
+                    url = canvasService.getPrintFileUrl(data.needUrlKey, participant.baseUrl, cmd.getTitle());
+                  } else {
+                    url = yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), data.creationDate)
+                  }
+                  outputData.setData(url);
                 }
                 modifyConnectionForPassword(participant, data.needUrlIsCorrectPassword);
               }
@@ -3021,8 +3080,10 @@ exports.install = function(server, callbackFunction) {
         var maxMs = nowMs + Math.max(cfgExpSessionCloseCommand, expDocumentsStep);
         for (var i = 0; i < connections.length; ++i) {
           var conn = connections[i];
-          if (cfgExpSessionAbsolute > 0) {
-            if (maxMs - conn.sessionTimeConnect > cfgExpSessionAbsolute && !conn.sessionIsSendWarning) {
+          //wopi access_token_ttl;
+          if (cfgExpSessionAbsolute > 0 || conn.access_token_ttl) {
+            if ((cfgExpSessionAbsolute > 0 && maxMs - conn.sessionTimeConnect > cfgExpSessionAbsolute ||
+              (conn.access_token_ttl && maxMs > conn.access_token_ttl)) && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
               sendDataSession(conn, {
                 code: constants.SESSION_ABSOLUTE_CODE,
@@ -3093,8 +3154,9 @@ exports.install = function(server, callbackFunction) {
     });
   });
 };
-exports.setLicenseInfo = function(data) {
+exports.setLicenseInfo = function(data, original ) {
   licenseInfo = data;
+  licenseOriginal = original;
 };
 exports.getLicenseInfo = function() {
   return licenseInfo;
@@ -3151,8 +3213,9 @@ exports.licenseInfo = function(req, res) {
     let output = {
 		connectionsStat: {}, licenseInfo: {}, serverInfo: {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
-		}, usersInfo: {
-			uniqueUserCount: 0
+		}, quota: {
+        uniqueUserCount: 0,
+        anonymousUserCount: 0
 		}
 	};
     Object.assign(output.licenseInfo, licenseInfo);
@@ -3209,7 +3272,12 @@ exports.licenseInfo = function(req, res) {
       }
       const nowUTC = getLicenseNowUtc();
       let execRes = yield editorData.getPresenceUniqueUser(nowUTC);
-      output.usersInfo.uniqueUserCount = execRes.length;
+      output.quota.uniqueUserCount = execRes.length;
+      execRes.forEach(function(elem) {
+        if (elem.anonym) {
+          output.quota.anonymousUserCount++;
+        }
+      });
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;
@@ -3225,17 +3293,13 @@ exports.licenseInfo = function(req, res) {
   });
 };
 let commandLicense = co.wrap(function*() {
-  let res = {
-    license: utils.convertLicenseInfoToFileParams(licenseInfo),
-    server: utils.convertLicenseInfoToServerParams(licenseInfo), quota: {users: []}
-  };
   const nowUTC = getLicenseNowUtc();
-  let scores = [];
-  let execRes = yield editorData.getPresenceUniqueUser(nowUTC, scores);
-  execRes.forEach(function(currentValue, index) {
-    res.quota.users.push({userid: currentValue, expire: new Date(scores[index] * 1000)});
-  });
-  return res;
+  let users = yield editorData.getPresenceUniqueUser(nowUTC);
+  return {
+    license: licenseOriginal || utils.convertLicenseInfoToFileParams(licenseInfo),
+    server: utils.convertLicenseInfoToServerParams(licenseInfo),
+    quota: {users: users}
+  };
 });
 // Команда с сервера (в частности teamlab)
 exports.commandFromServer = function (req, res) {

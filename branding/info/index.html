@@ -38,13 +38,24 @@
         table {
             table-layout: fixed;
             border-spacing: 0;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
 
         td {
             padding-left: 15px;
-            padding-bottom: 16px;
+            padding-bottom: 10px;
             vertical-align: top;
+        }
+
+        .td-caption-main {
+            font-size: 18px;
+            padding-bottom: 4px;
+        }
+
+        .td-value-main {
+            font-size: 32px;
+            line-height: 28px;
+            padding-bottom: 8px;
         }
 
         .td-caption {
@@ -53,7 +64,7 @@
         }
 
         .td-value {
-            font-size: 32px;
+            font-size: 26px;
             line-height: 28px;
             padding-bottom: 8px;
         }
@@ -64,7 +75,7 @@
         }
 
         .main-panel {
-            margin: 80px auto 16px;
+            margin: 40px auto 16px;
             width: 672px;
         }
 
@@ -74,7 +85,8 @@
         }
         .header1 {
             font-size: 20px;
-            padding-bottom: 30px;
+            font-weight: 600;
+            padding-bottom: 25px;
         }
 
         #doc-server-wait {
@@ -108,6 +120,9 @@
         .critical {
             color: #ff0000;
         }
+        .normal {
+            color: #017D1C;
+        }
 
         .separator {
             vertical-align: top;
@@ -128,9 +143,9 @@
             <div class="header1">Document Server information</div>
             <table width="672px">
                 <tr>
-                    <td class="td-caption">Build</td>
-                    <td class="td-caption">License</td>
-                    <td class="td-caption" id="limit-type">Connections limit</td>
+                    <td class="td-caption-main">Build</td>
+                    <td class="td-caption-main">License</td>
+                    <td class="td-caption-main" id="limit-type">Connections limit</td>
                 </tr>
                 <tr>
                     <td class="td-separator"><div class="separator"></div></td>
@@ -140,7 +155,7 @@
                 <tr>
                     <td id="build-type">Type:</td>
                     <td><span id="lic-valid-type">Valid: </span><span id="lic-valid"></span></td>
-                    <td rowspan="3" id="lic-limit" class="td-value"></td>
+                    <td rowspan="3" id="lic-limit" class="td-value-main"></td>
                 </tr>
                 <tr>
                     <td id="build-version">Version:</td>
@@ -149,6 +164,26 @@
                 <tr>
                     <td id="build-date">Release date:</td>
                     <td></td>
+                </tr>
+            </table>
+            <table id="user-activity-info" class="hidden">
+                <tr>
+                    <td colspan="4" class="td-caption" id="user-activity-info-caption">User activity in the last 10 days</td>
+                </tr>
+                <tr>
+                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
+                </tr>
+                <tr>
+                    <td id="cell-use-up" class="td-value" width="150">0</td>
+                    <td id="cell-external" class="td-value" width="150">0</td>
+                    <td id="cell-internal" class="td-value" width="150">0</td>
+                    <td id="cell-left" class="td-value" width="224">0</td>
+                </tr>
+                <tr>
+                    <td>Use up</td>
+                    <td>External</td>
+                    <td>Internal</td>
+                    <td>Left</td>
                 </tr>
             </table>
             <table>
@@ -219,7 +254,10 @@
             }
             return xmlhttp;
         };
-        function fillInfo(licenseInfo, serverInfo) {
+        function fillInfo(info) {
+            var licenseInfo = info.licenseInfo,
+                serverInfo = info.serverInfo;
+
             var elem = document.getElementById('build-type');
             elem.innerText = 'Type: ' + ((licenseInfo.packageType == 0) ? 'Open source' : ((licenseInfo.packageType == 1) ? 'Enterprise Edition' : 'Developer Edition'));
 
@@ -247,6 +285,30 @@
                 elem.innerText = licdate.toLocaleDateString();
                 if (Date.now() > licdate)
                     elem.classList.add('critical');
+            }
+
+            if (licenseInfo.usersCount>0) {
+                var quota = info.quota;
+
+                elem = document.getElementById('user-activity-info-caption');
+                var days = parseInt(licenseInfo.usersExpire/86400) || 1;
+                elem.innerText = 'User activity in the last ' + days + (days>1 ? ' days' : ' day');
+
+                elem = document.getElementById('cell-use-up');
+                elem.innerText = quota.uniqueUserCount;
+                elem = document.getElementById('cell-external');
+                elem.innerText = quota.anonymousUserCount;
+                elem = document.getElementById('cell-internal');
+                elem.innerText = quota.uniqueUserCount - quota.anonymousUserCount;
+                elem = document.getElementById('cell-left');
+
+                var value = licenseInfo.usersCount - quota.uniqueUserCount;
+                elem.innerText = value;
+                elem.classList.add(value > licenseInfo.usersCount * 0.1 ? "normal" : "critical");
+
+                elem = document.getElementById('user-activity-info');
+                elem.classList.remove("hidden");
+
             }
 
 			return (licenseInfo.usersCount>0) ? 1000000 : licenseInfo.connections;
@@ -279,7 +341,7 @@
                             if (xhrObj.status == 200) {
 								document.getElementById('doc-server-ok').classList.remove("hidden");
                                 var info = JSON.parse(xhrObj.responseText);
-                                fillConnections(info, fillInfo(info.licenseInfo, info.serverInfo));
+                                fillConnections(info, fillInfo(info));
                             } else {
 								document.getElementById('doc-server-err').classList.remove("hidden");
                             }

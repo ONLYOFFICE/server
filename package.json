@@ -15,7 +15,6 @@
           "./FileConverter/package.json",
           "./FileConverter/bin/DoctRenderer.config",
           "./Metrics/package.json",
-          "./SpellChecker/package.json",
           "./Common/config/*.json",
           "./Common/config/log4js/*.json",
           "./Metrics/config/config.js"
@@ -52,8 +51,7 @@
     "./build/server/Common",
     "./build/server/DocService",
     "./build/server/FileConverter",
-    "./build/server/Metrics",
-    "./build/server/SpellChecker"
+    "./build/server/Metrics"
   ],
   "dependencies": {
     "grunt": "^1.3.0",

@@ -7,9 +7,13 @@
       "folderPath": "/var/lib/onlyoffice/documentserver/App_Data/cache/files"
     }
   },
+  "wopi": {
+    "htmlTemplate" : "/var/www/onlyoffice/documentserver/web-apps/apps/api/wopi"
+  },
   "services": {
     "CoAuthoring": {
       "server": {
+        "newFileTemplate" : "/var/www/onlyoffice/documentserver/document-templates/new",
         "static_content": {
           "/fonts": {
             "path": "/var/www/onlyoffice/documentserver/fonts",
@@ -36,7 +40,7 @@
             "options": {"maxAge": "7d"}
           },
           "/dictionaries": {
-            "path": "/var/www/onlyoffice/documentserver/server/SpellChecker/dictionaries",
+            "path": "/var/www/onlyoffice/documentserver/dictionaries",
             "options": {"maxAge": "7d"}
           }
         }
@@ -69,7 +73,7 @@
   },
   "SpellChecker": {
     "server": {
-      "dictDir": "/var/www/onlyoffice/documentserver/server/SpellChecker/dictionaries"
+      "dictDir": "/var/www/onlyoffice/documentserver/dictionaries"
     }
   }
 }

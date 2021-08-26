@@ -48,7 +48,7 @@ TARGET := $(PLATFORM)_$(ARCHITECTURE)
 
 OUTPUT = ../build_tools/out/$(TARGET)/onlyoffice/documentserver/server
 
-SPELLCHECKER_DICTIONARIES := $(OUTPUT)/SpellChecker/dictionaries
+SPELLCHECKER_DICTIONARIES := $(OUTPUT)/../dictionaries
 SPELLCHECKER_DICTIONARY_FILES += ../dictionaries/*_*
 
 SCHEMA_DIR = schema
@@ -78,12 +78,16 @@ CORE_FONTS_DIR = core-fonts
 CORE_FONTS_FILES = ../$(CORE_FONTS_DIR)/**
 CORE_FONTS = $(OUTPUT)/../$(CORE_FONTS_DIR)/
 
+DOCUMENT_TEMPLATES_DIR = document-templates
+DOCUMENT_TEMPLATES_FILES = ../$(DOCUMENT_TEMPLATES_DIR)/**
+DOCUMENT_TEMPLATES = $(OUTPUT)/../$(DOCUMENT_TEMPLATES_DIR)/
+
 DEBUG = $(BRANDING_DIR)/debug.js
 
 .PHONY: all clean install uninstall build-date
 
 .NOTPARALLEL:
-all: $(SPELLCHECKER_DICTIONARIES) $(TOOLS) $(SCHEMA) $(CORE_FONTS) $(LICENSE) $(WELCOME) $(INFO) build-date
+all: $(SPELLCHECKER_DICTIONARIES) $(TOOLS) $(SCHEMA) $(CORE_FONTS) $(DOCUMENT_TEMPLATES) $(LICENSE) $(WELCOME) $(INFO) build-date
 
 build-date: $(GRUNT_FILES)
 	sed "s|\(const buildVersion = \).*|\1'${PRODUCT_VERSION}';|" -i $(COMMON_DEFINES_JS)
@@ -127,6 +131,10 @@ $(INFO):
 $(CORE_FONTS):
 	mkdir -p $(CORE_FONTS) && \
 		cp -r -t $(CORE_FONTS) $(CORE_FONTS_FILES)
+
+$(DOCUMENT_TEMPLATES):
+	mkdir -p $(DOCUMENT_TEMPLATES) && \
+		cp -r -t $(DOCUMENT_TEMPLATES) $(DOCUMENT_TEMPLATES_FILES)
 
 clean:
 	rm -rf $(GRUNT_FILES)

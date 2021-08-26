@@ -39,6 +39,7 @@ function InputCommand(data, copyExplicit) {
   this['withAuthorization'] = undefined;//bool
   this['isbuilder'] = undefined;//bool
   this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
+  this['wopiParams'] = undefined;
   if (data) {
     this['c'] = data['c'];
     this['id'] = data['id'];
@@ -103,6 +104,7 @@ function InputCommand(data, copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
       this['isbuilder'] = data['isbuilder'];
       this['externalChangeInfo'] = data['externalChangeInfo'];
+      this['wopiParams'] = data['wopiParams'];
     }
   } else {
     this['c'] = undefined;//string command
@@ -446,6 +448,12 @@ InputCommand.prototype = {
   },
   setExternalChangeInfo: function(data) {
     this['externalChangeInfo'] = data;
+  },
+  getWopiParams: function() {
+    return this['wopiParams'];
+  },
+  setWopiParams: function(data) {
+    this['wopiParams'] = data;
   }
 };
 
