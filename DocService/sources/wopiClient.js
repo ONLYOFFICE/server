@@ -72,6 +72,7 @@ const cfgWopiPublicKeyOld = config.get('wopi.publicKeyOld');
 const cfgWopiModulusOld = config.get('wopi.modulusOld');
 const cfgWopiExponentOld = config.get('wopi.exponentOld');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
+const cfgWopiHost = config.get('wopi.host');
 
 let fileInfoBlockList = cfgWopiFileInfoBlockList.keys();
 
@@ -80,7 +81,7 @@ function discovery(req, res) {
     let output = '';
     try {
       logger.info('wopiDiscovery start');
-      let baseUrl = utils.getBaseUrlByRequest(req);
+      let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
       let exts = [{view: cfgWopiWordView, edit: cfgWopiWordEdit}, {view: cfgWopiCellView, edit: cfgWopiCellEdit},
@@ -96,6 +97,9 @@ function discovery(req, res) {
       for(let i = 0; i < names.length; ++i) {
         let name = names[i];
         let favIconUrl = favIconUrls[i];
+        if (!(favIconUrl.startsWith('http://') || favIconUrl.startsWith('https://'))) {
+          favIconUrl = baseUrl + favIconUrl;
+        }
         let ext = exts[i];
         let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
         let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
@@ -244,14 +248,6 @@ function checkAndInvalidateCache(docId, fileInfo) {
               let cleanupRes = yield canvasService.cleanupCacheIf(mask);
               logger.debug('wopiEditor cleanupRes=%s', cleanupRes);
               res.lockId = undefined;
-            }
-          } else {
-            let cmd = new commonDefines.InputCommand();
-            var outputData = new canvasService.OutputData(cmd.getCommand());
-            yield canvasService.getOutputData(cmd, outputData, docId);
-            if ('ok' !== outputData.getStatus()) {
-              res.success = false;
-              logger.warn('wopiEditor inappropriate DB status selectRes=%j', selectRes);
             }
           }
         } else {

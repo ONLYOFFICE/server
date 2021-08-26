@@ -675,7 +675,7 @@ function* ExecuteTask(task) {
         withAuthorization = false;
         let fileInfo = wopiParams.commonInfo.fileInfo;
         let userAuth = wopiParams.userAuth;
-        fileSize = fileInfo.Size
+        fileSize = fileInfo.Size;
         if (fileInfo.FileUrl) {
           url = fileInfo.FileUrl;
         } else if (fileInfo.TemplateSource) {

@@ -146,10 +146,10 @@ OutputData.prototype = {
 };
 
 var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
-  let status, statusInfo, password, creationDate;
+  let status, statusInfo, password, creationDate, row;
   let selectRes = yield taskResult.select(key);
   if (selectRes.length > 0) {
-    let row = selectRes[0];
+    row = selectRes[0];
     status = row.status;
     statusInfo = row.status_info;
     password = sqlBase.DocumentPassword.prototype.getCurPassword(key, row.password);
@@ -256,7 +256,12 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
       outputData.setStatus('err');
       outputData.setData(statusInfo);
       if (taskResult.FileStatus.ErrToReload == status) {
-        yield cleanupCache(key);
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(key, row.callback);
+        let wopiParams = wopiClient.parseWopiCallback(key, userAuthStr);
+        if (!wopiParams) {
+          //todo rework ErrToReload to clean up on next open
+          yield cleanupCache(key);
+        }
       }
       break;
     case taskResult.FileStatus.None:
