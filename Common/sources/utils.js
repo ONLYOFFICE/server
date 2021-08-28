@@ -57,7 +57,6 @@ const constants = require('./constants');
 const commonDefines = require('./commondefines');
 const logger = require('./logger');
 const forwarded = require('forwarded');
-const mime = require('mime');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const openpgp = require('openpgp');
 require('win-ca');
