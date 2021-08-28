@@ -38,7 +38,7 @@ const co = require('co');
 const jwt = require('jsonwebtoken');
 const config = require('config');
 const utf7 = require('utf7');
-const mime = require('mime');
+const mimeDB = require('mime-db');
 const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
@@ -75,6 +75,23 @@ const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
 
 let fileInfoBlockList = cfgWopiFileInfoBlockList.keys();
+let mimeTypesByExt = (function() {
+  let mimeTypesByExt = {};
+  for (let mimeType in mimeDB) {
+    if (mimeDB.hasOwnProperty(mimeType)) {
+      let val = mimeDB[mimeType];
+      if (val.extensions) {
+        val.extensions.forEach((value) => {
+          if (!mimeTypesByExt[value]) {
+            mimeTypesByExt[value] = [];
+          }
+          mimeTypesByExt[value].push(mimeType);
+        })
+      }
+    }
+  }
+  return mimeTypesByExt;
+})();
 
 function discovery(req, res) {
   return co(function*() {
@@ -121,14 +138,24 @@ function discovery(req, res) {
         let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
         let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
         for (let j = 0; j < ext.view.length; ++j) {
-          output +=`<app name="${mime.getType(ext.view[j])}">`;
-          output +=`<action name="view" ext="" default="true" urlsrc="${urlTemplateView}" />`;
-          output +=`</app>`;
+          let mimeTypes = mimeTypesByExt[ext.view[j]];
+          if (mimeTypes) {
+            mimeTypes.forEach((value) => {
+              output += `<app name="${value}">`;
+              output += `<action name="view" ext="" default="true" urlsrc="${urlTemplateView}" />`;
+              output += `</app>`;
+            });
+          }
         }
         for (let j = 0; j < ext.edit.length; ++j) {
-          output +=`<app name="${mime.getType(ext.edit[j])}">`;
-          output += `<action name="edit" ext="" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
-          output +=`</app>`;
+          let mimeTypes = mimeTypesByExt[ext.edit[j]];
+          if (mimeTypes) {
+            mimeTypes.forEach((value) => {
+              output +=`<app name="${value}">`;
+              output += `<action name="edit" ext="" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+              output +=`</app>`;
+            });
+          }
         }
       }
       output += `<app name="Capabilities">`;
