@@ -1881,6 +1881,55 @@ exports.install = function(server, callbackFunction) {
       return def;
     }
   }
+  function fillDataFromWopiJwt(decoded, data) {
+    let res = true;
+    var openCmd = data.openCmd;
+
+    if (decoded.key) {
+      data.docid = decoded.key;
+    }
+    if (decoded.userAuth) {
+      data.documentCallbackUrl = JSON.stringify(decoded.userAuth);
+    }
+    if (decoded.queryParams) {
+      let queryParams = decoded.queryParams;
+      data.mode = queryParams.mode;
+      data.lang = queryParams.lang || queryParams.ui || "en-US";
+    }
+    if (decoded.fileInfo) {
+      let fileInfo = decoded.fileInfo;
+      if (openCmd) {
+        let fileType = fileInfo.BaseFileName ? fileInfo.BaseFileName.substr(fileInfo.BaseFileName.lastIndexOf('.') + 1) : "";
+        openCmd.format = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
+        openCmd.title = fileInfo.BreadcrumbDocName || fileInfo.BaseFileName;
+      }
+      let name = fileInfo.IsAnonymousUser ? "" : fileInfo.UserFriendlyName;
+      if (name) {
+        data.user.username = name;
+        data.denyChangeName = true;
+      }
+      if (null != fileInfo.UserId) {
+        data.user.id = fileInfo.UserId;
+        if (openCmd) {
+          openCmd.userid = fileInfo.UserId;
+        }
+      }
+      let permissions = {
+        edit: !fileInfo.ReadOnly && fileInfo.UserCanWrite,
+        review: (fileInfo.SupportsReviewing === false) ? false : (fileInfo.UserCanReview === false ? false : fileInfo.UserCanReview),
+        copy: fileInfo.CopyPasteRestrictions !== "CurrentDocumentOnly" && fileInfo.CopyPasteRestrictions !== "BlockAll",
+        print: !fileInfo.DisablePrint && !fileInfo.HidePrintOption
+      };
+      //todo (review: undefiend)
+      // res = deepEqual(data.permissions, permissions, {strict: true});
+      if (!data.permissions) {
+        data.permissions = {};
+      }
+      //not '=' because if it jwt from previous version, we must use values from data
+      Object.assign(data.permissions, permissions);
+    }
+    return res;
+  }
   function fillDataFromJwt(decoded, data) {
     let res = true;
     var openCmd = data.openCmd;
@@ -1960,6 +2009,8 @@ exports.install = function(server, callbackFunction) {
         data.denyChangeName = true;
       }
     }
+
+    res = res && fillDataFromWopiJwt(decoded, data);
 
     //issuer for secret
     if (decoded.iss) {
