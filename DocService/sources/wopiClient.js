@@ -34,11 +34,12 @@
 
 const path = require('path');
 const crypto = require('crypto');
+const {URL} = require('url');
 const co = require('co');
 const jwt = require('jsonwebtoken');
 const config = require('config');
 const utf7 = require('utf7');
-const mime = require('mime');
+const mimeDB = require('mime-db');
 const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
@@ -75,6 +76,23 @@ const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
 
 let fileInfoBlockList = cfgWopiFileInfoBlockList.keys();
+let mimeTypesByExt = (function() {
+  let mimeTypesByExt = {};
+  for (let mimeType in mimeDB) {
+    if (mimeDB.hasOwnProperty(mimeType)) {
+      let val = mimeDB[mimeType];
+      if (val.extensions) {
+        val.extensions.forEach((value) => {
+          if (!mimeTypesByExt[value]) {
+            mimeTypesByExt[value] = [];
+          }
+          mimeTypesByExt[value].push(mimeType);
+        })
+      }
+    }
+  }
+  return mimeTypesByExt;
+})();
 
 function discovery(req, res) {
   return co(function*() {
@@ -121,14 +139,24 @@ function discovery(req, res) {
         let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
         let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
         for (let j = 0; j < ext.view.length; ++j) {
-          output +=`<app name="${mime.getType(ext.view[j])}">`;
-          output +=`<action name="view" ext="" default="true" urlsrc="${urlTemplateView}" />`;
-          output +=`</app>`;
+          let mimeTypes = mimeTypesByExt[ext.view[j]];
+          if (mimeTypes) {
+            mimeTypes.forEach((value) => {
+              output += `<app name="${value}">`;
+              output += `<action name="view" ext="" default="true" urlsrc="${urlTemplateView}" />`;
+              output += `</app>`;
+            });
+          }
         }
         for (let j = 0; j < ext.edit.length; ++j) {
-          output +=`<app name="${mime.getType(ext.edit[j])}">`;
-          output += `<action name="edit" ext="" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
-          output +=`</app>`;
+          let mimeTypes = mimeTypesByExt[ext.edit[j]];
+          if (mimeTypes) {
+            mimeTypes.forEach((value) => {
+              output +=`<app name="${value}">`;
+              output += `<action name="edit" ext="" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+              output +=`</app>`;
+            });
+          }
         }
       }
       output += `<app name="Capabilities">`;
@@ -323,7 +351,7 @@ function getEditorHtml(req, res) {
 
       //Lock
       if ('edit' === mode) {
-        let lockRes = yield lock(lockId, fileInfo, userAuth);
+        let lockRes = yield lock('LOCK', lockId, fileInfo, userAuth);
         if (!lockRes) {
           params.fileInfo = {};
           return;
@@ -357,12 +385,16 @@ function putFile(wopiParams, data, dataStream, userLastChangeId) {
     try {
       logger.info('wopi PutFile start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
+      let userAuth = wopiParams.userAuth;
+      let uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+      let filterStatus = yield checkIpFilter(uri);
+      if (0 !== filterStatus) {
+        return postRes;
+      }
 
       //collabora nexcloud connector sets only UserCanWrite=true
       if (fileInfo && (fileInfo.SupportsUpdate || fileInfo.UserCanWrite)) {
         let commonInfo = wopiParams.commonInfo;
-        let userAuth = wopiParams.userAuth;
-        let uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
         fillStandardHeaders(headers, uri, userAuth.access_token);
@@ -392,13 +424,17 @@ function renameFile(wopiParams, name) {
     try {
       logger.info('wopi RenameFile start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
+      let userAuth = wopiParams.userAuth;
+      let uri = `${userAuth.wopiSrc}?access_token=${userAuth.access_token}`;
+      let filterStatus = yield checkIpFilter(uri);
+      if (0 !== filterStatus) {
+        return res;
+      }
 
       if (fileInfo && fileInfo.SupportsRename) {
         let fileNameMaxLength = fileInfo.FileNameMaxLength || 255;
         name = name.substring(0, fileNameMaxLength);
         let commonInfo = wopiParams.commonInfo;
-        let userAuth = wopiParams.userAuth;
-        let uri = `${userAuth.wopiSrc}?access_token=${userAuth.access_token}`;
 
         let headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
         fillStandardHeaders(headers, uri, userAuth.access_token);
@@ -427,13 +463,18 @@ function checkFileInfo(uri, access_token, sc) {
   return co(function* () {
     let fileInfo;
     try {
+      logger.info('wopi checkFileInfo start');
+      let filterStatus = yield checkIpFilter(uri);
+      if (0 !== filterStatus) {
+        return fileInfo;
+      }
       let headers = {};
       if (sc) {
         headers['X-WOPI-SessionContext'] = sc;
       }
       fillStandardHeaders(headers, uri, access_token);
       logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-      let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, undefined, undefined, headers);
+      let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, undefined, undefined, false, headers);
       logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
       fileInfo = JSON.parse(getRes.body);
     } catch (err) {
@@ -444,29 +485,33 @@ function checkFileInfo(uri, access_token, sc) {
     return fileInfo;
   });
 }
-function lock(lockId, fileInfo, userAuth) {
+function lock(command, lockId, fileInfo, userAuth) {
   return co(function* () {
     let res = true;
     try {
-      logger.info('wopi Lock start');
+      logger.info('wopi %s start', command);
       if (fileInfo && fileInfo.SupportsLocks) {
         let wopiSrc = userAuth.wopiSrc;
         let access_token = userAuth.access_token;
         let uri = `${wopiSrc}?access_token=${access_token}`;
+        let filterStatus = yield checkIpFilter(uri);
+        if (0 !== filterStatus) {
+          return false;
+        }
 
-        let headers = {"X-WOPI-Override": "LOCK", "X-WOPI-Lock": lockId};
+        let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
-        logger.debug('wopi Lock request uri=%s headers=%j', uri, headers);
+        logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
         let postRes = yield utils.postRequestPromise(uri, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
-        logger.debug('wopi Lock response headers=%j', postRes.response.headers);
+        logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
       } else {
-        logger.info('wopi SupportsLocks = false');
+        logger.info('wopi %s SupportsLocks = false', command);
       }
     } catch (err) {
       res = false;
-      logger.error('wopi error Lock:%s', err.stack);
+      logger.error('wopi error %s:%s', command, err.stack);
     } finally {
-      logger.info('wopi Lock end');
+      logger.info('wopi %s end', command);
     }
     return res;
   });
@@ -481,6 +526,10 @@ function unlock(wopiParams) {
         let lockId = wopiParams.commonInfo.lockId;
         let access_token = wopiParams.userAuth.access_token;
         let uri = `${wopiSrc}?access_token=${access_token}`;
+        let filterStatus = yield checkIpFilter(uri);
+        if (0 !== filterStatus) {
+          return;
+        }
 
         let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
@@ -541,6 +590,17 @@ function fillStandardHeaders(headers, url, access_token) {
     // headers['X-WOPI-SessionId'] = "";
   }
   headers['Authorization'] = `Bearer ${access_token}`;
+}
+
+function checkIpFilter(uri){
+  return co(function* () {
+    let urlParsed = new URL(uri);
+    let filterStatus = yield* utils.checkHostFilter(urlParsed.hostname);
+    if (0 !== filterStatus) {
+      logger.warn('wopi checkIpFilter error: url = %s', uri);
+    }
+    return filterStatus;
+  });
 }
 
 exports.discovery = discovery;

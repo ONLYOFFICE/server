@@ -656,7 +656,7 @@ function* commandImgurls(conn, cmd, outputData) {
       } else if (urlSource) {
         try {
           //todo stream
-          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i]);
+          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], !authorizations[i]);
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -1481,7 +1481,7 @@ exports.downloadFile = function(req, res) {
         }
       }
 
-      yield utils.downloadUrlPromise(url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, null, res);
+      yield utils.downloadUrlPromise(url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.downloadFile', new Date() - startDate);

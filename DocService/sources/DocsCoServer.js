@@ -151,6 +151,7 @@ const cfgMaxRequestChanges = config.get('server.maxRequestChanges');
 const cfgWarningLimitPercents = configCommon.get('license.warning_limit_percents') / 100;
 const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('server.openProtectedFile');
+const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
 
 const EditorTypes = {
   document : 0,
@@ -1881,6 +1882,55 @@ exports.install = function(server, callbackFunction) {
       return def;
     }
   }
+  function fillDataFromWopiJwt(decoded, data) {
+    let res = true;
+    var openCmd = data.openCmd;
+
+    if (decoded.key) {
+      data.docid = decoded.key;
+    }
+    if (decoded.userAuth) {
+      data.documentCallbackUrl = JSON.stringify(decoded.userAuth);
+    }
+    if (decoded.queryParams) {
+      let queryParams = decoded.queryParams;
+      data.mode = queryParams.mode;
+      data.lang = queryParams.lang || queryParams.ui || "en-US";
+    }
+    if (decoded.fileInfo) {
+      let fileInfo = decoded.fileInfo;
+      if (openCmd) {
+        let fileType = fileInfo.BaseFileName ? fileInfo.BaseFileName.substr(fileInfo.BaseFileName.lastIndexOf('.') + 1) : "";
+        openCmd.format = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
+        openCmd.title = fileInfo.BreadcrumbDocName || fileInfo.BaseFileName;
+      }
+      let name = fileInfo.IsAnonymousUser ? "" : fileInfo.UserFriendlyName;
+      if (name) {
+        data.user.username = name;
+        data.denyChangeName = true;
+      }
+      if (null != fileInfo.UserId) {
+        data.user.id = fileInfo.UserId;
+        if (openCmd) {
+          openCmd.userid = fileInfo.UserId;
+        }
+      }
+      let permissions = {
+        edit: !fileInfo.ReadOnly && fileInfo.UserCanWrite,
+        review: (fileInfo.SupportsReviewing === false) ? false : (fileInfo.UserCanReview === false ? false : fileInfo.UserCanReview),
+        copy: fileInfo.CopyPasteRestrictions !== "CurrentDocumentOnly" && fileInfo.CopyPasteRestrictions !== "BlockAll",
+        print: !fileInfo.DisablePrint && !fileInfo.HidePrintOption
+      };
+      //todo (review: undefiend)
+      // res = deepEqual(data.permissions, permissions, {strict: true});
+      if (!data.permissions) {
+        data.permissions = {};
+      }
+      //not '=' because if it jwt from previous version, we must use values from data
+      Object.assign(data.permissions, permissions);
+    }
+    return res;
+  }
   function fillDataFromJwt(decoded, data) {
     let res = true;
     var openCmd = data.openCmd;
@@ -1960,6 +2010,8 @@ exports.install = function(server, callbackFunction) {
         data.denyChangeName = true;
       }
     }
+
+    res = res && fillDataFromWopiJwt(decoded, data);
 
     //issuer for secret
     if (decoded.iss) {
@@ -3138,6 +3190,41 @@ exports.install = function(server, callbackFunction) {
     });
   }
   setTimeout(expireDoc, expDocumentsStep);
+  function refreshWopiLock() {
+    return co(function* () {
+      try {
+        logger.info('refreshWopiLock start');
+        let docIds = new Map();
+        for (let i = 0; i < connections.length; ++i) {
+          let conn = connections[i];
+          let docId = conn.docId;
+          if (docIds.has(docId)) {
+            continue;
+          }
+          docIds.set(docId, 1);
+          if (!conn.access_token_ttl) {
+            continue;
+          }
+          let selectRes = yield taskResult.select(docId);
+          if (selectRes.length > 0 && selectRes[0] && selectRes[0].callback) {
+            let callback = selectRes[0].callback;
+            let callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, callback);
+            let wopiParams = wopiClient.parseWopiCallback(docId, callbackUrl, callback);
+            if (wopiParams) {
+              yield wopiClient.lock('REFRESH_LOCK', wopiParams.commonInfo.lockId,
+                                    wopiParams.commonInfo.fileInfo, wopiParams.userAuth);
+            }
+          }
+        }
+      } catch (err) {
+        logger.error('refreshWopiLock error:%s', err.stack);
+      } finally {
+        logger.info('refreshWopiLock end');
+        setTimeout(refreshWopiLock, cfgRefreshLockInterval);
+      }
+    });
+  }
+  setTimeout(refreshWopiLock, cfgRefreshLockInterval);
 
   pubsub = new pubsubService();
   pubsub.on('message', pubsubOnMessage);
