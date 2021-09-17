@@ -3198,7 +3198,7 @@ exports.install = function(server, callbackFunction) {
             continue;
           }
           docIds.set(docId, 1);
-          if (!conn.access_token_ttl) {
+          if (undefined === conn.access_token_ttl) {
             continue;
           }
           let selectRes = yield taskResult.select(docId);
