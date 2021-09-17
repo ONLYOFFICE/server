@@ -300,7 +300,7 @@ function getEditorHtml(req, res) {
       let sc = req.query['sc'];
       let hostSessionId = req.query['hid'];
       let access_token = req.body['access_token'];
-      let access_token_ttl = req.body['access_token_ttl'];
+      let access_token_ttl = parseInt(req.body['access_token_ttl']);
 
       let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
 
