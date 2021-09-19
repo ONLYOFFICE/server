@@ -1069,10 +1069,10 @@ function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
   }
   //unlock
   var getRes = yield* getCallback(docId, opt_userIndex);
-  if (getRes && getRes.wopiParams) {
-    yield wopiClient.unlock(getRes.wopiParams);
-    let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
-    yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
+  if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
+      yield wopiClient.unlock(getRes.wopiParams);
+      let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
+      yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
   }
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_forceClose) {
@@ -1890,10 +1890,10 @@ exports.install = function(server, callbackFunction) {
     }
     if (decoded.userAuth) {
       data.documentCallbackUrl = JSON.stringify(decoded.userAuth);
+      data.mode = decoded.userAuth.mode;
     }
     if (decoded.queryParams) {
       let queryParams = decoded.queryParams;
-      data.mode = queryParams.mode;
       data.lang = queryParams.lang || queryParams.ui || "en-US";
     }
     if (decoded.fileInfo) {
@@ -3194,7 +3194,7 @@ exports.install = function(server, callbackFunction) {
         for (let i = 0; i < connections.length; ++i) {
           let conn = connections[i];
           let docId = conn.docId;
-          if (docIds.has(docId)) {
+          if ((conn.user && conn.user.view) || docIds.has(docId)) {
             continue;
           }
           docIds.set(docId, 1);
