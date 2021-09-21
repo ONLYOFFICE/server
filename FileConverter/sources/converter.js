@@ -425,6 +425,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
   fs.mkdirSync(changesDir);
   let indexFile = 0;
   let changesAuthor = null;
+  let changesAuthorUnique = null;
   let changesIndex = null;
   let changesHistory = {
     serverVersion: commonDefines.buildVersion,
@@ -472,15 +473,14 @@ function* processChanges(tempDirs, cmd, authorProps) {
           yield* streamEnd(streamObj, ']');
           streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++);
         }
-        changesAuthor = change.user_id_original;
-        changesIndex = utils.getIndexFromUserId(change.user_id, change.user_id_original);
-
         let strDate = baseConnector.getDateTime(change.change_date);
-        changesHistory.changes.push({'created': strDate, 'user': {'id': changesAuthor, 'name': change.user_name}});
+        changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
         yield* streamWrite(streamObj, '[');
       } else {
         yield* streamWrite(streamObj, ',');
       }
+      changesAuthor = change.user_id_original;
+      changesAuthorUnique = change.user_id;
       yield* streamWrite(streamObj, change.change_data);
       streamObj.isNoChangesInFile = false;
     }
@@ -498,6 +498,9 @@ function* processChanges(tempDirs, cmd, authorProps) {
   yield* streamEnd(streamObj, ']');
   if (streamObj.isNoChangesInFile) {
     fs.unlinkSync(streamObj.filePath);
+  }
+  if (null !== changesAuthorUnique) {
+    changesIndex = utils.getIndexFromUserId(changesAuthorUnique, changesAuthor);
   }
   if (null == changesAuthor && null == changesIndex && forceSave && undefined !== forceSave.getAuthorUserId() &&
     undefined !== forceSave.getAuthorUserIndex()) {
