@@ -36,6 +36,7 @@ exports.DOC_ID_PATTERN = '0-9-.a-zA-Z_=';
 exports.DOC_ID_REGEX = new RegExp("^[" + exports.DOC_ID_PATTERN + "]*$", 'i');
 exports.DOC_ID_REPLACE_REGEX = new RegExp("[^" + exports.DOC_ID_PATTERN + "]", 'g');
 exports.DOC_ID_MAX_LENGTH = 240;
+exports.PASSWORD_MAX_LENGTH = 255;//set password limit for DoS protection with long password
 exports.EXTENTION_REGEX = /^[a-zA-Z0-9]*$/;
 exports.CHAR_DELIMITER = String.fromCharCode(5);
 exports.OUTPUT_NAME = 'output';

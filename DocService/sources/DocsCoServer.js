@@ -2045,7 +2045,13 @@ exports.install = function(server, callbackFunction) {
       dataWithPassword = data.openCmd;
     }
     if (dataWithPassword && dataWithPassword.password) {
-      dataWithPassword.password = yield utils.encryptPassword(dataWithPassword.password);
+      if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
+        //todo send back error
+        logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
+        dataWithPassword.password = null;
+      } else {
+        dataWithPassword.password = yield utils.encryptPassword(dataWithPassword.password);
+      }
     }
   }
 

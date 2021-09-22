@@ -256,6 +256,11 @@ function convertRequest(req, res, isJson) {
         cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
       }
       if (params.password) {
+        if (params.password.length > constants.PASSWORD_MAX_LENGTH) {
+          logger.warn('convertRequest password too long actual = %s; max = %s;docId = %s', params.password.length, constants.PASSWORD_MAX_LENGTH, docId);
+          utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
+          return;
+        }
         let encryptedPassword = yield utils.encryptPassword(params.password);
         cmd.setPassword(encryptedPassword);
       }
