@@ -1462,7 +1462,6 @@ exports.downloadFile = function(req, res) {
       }
 
       let url = req.get('x-url');
-      let urlPath = req.get('x-url-path-in-token');
       docId = req.params.docid;
       logger.info('Start downloadFile: docId = %s', docId);
 
@@ -1470,7 +1469,7 @@ exports.downloadFile = function(req, res) {
       if (cfgTokenEnableBrowser) {
         let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
         if (checkJwtRes.decoded) {
-          url = utils.resolvePath(checkJwtRes.decoded, urlPath, '');
+          url = checkJwtRes.decoded.changesUrl;
         } else {
           logger.warn('Error downloadFile jwt: docId = %s description = %s', docId, checkJwtRes.description);
           res.sendStatus(403);
