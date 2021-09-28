@@ -1864,14 +1864,20 @@ exports.install = function(server, callbackFunction) {
   }
 
   function fillUsername(data) {
+    let name;
     let user = data.user;
     if (user.firstname && user.lastname) {
       //as in web-apps/apps/common/main/lib/util/utils.js
       let isRu = (data.lang && /^ru/.test(data.lang));
-      return isRu ? user.lastname + ' ' + user.firstname : user.firstname + ' ' + user.lastname;
+      name = isRu ? user.lastname + ' ' + user.firstname : user.firstname + ' ' + user.lastname;
     } else {
-      return user.username;
+      name = user.username;
     }
+    if (name.length > constants.USER_NAME_MAX_LENGTH) {
+      logger.warn('fillUsername user name too long actual = %s; max = %s', name.length, constants.USER_NAME_MAX_LENGTH);
+      name = name.substr(0, constants.USER_NAME_MAX_LENGTH);
+    }
+    return name;
   }
   function isEditMode(permissions, mode, def) {
     if (permissions && mode) {
@@ -2183,7 +2189,12 @@ exports.install = function(server, callbackFunction) {
           documentCallback = null;
         }
       }
-
+      if (conn.user.idOriginal.length > constants.USER_ID_MAX_LENGTH) {
+        //todo refactor DB and remove restrictions
+        logger.warn('auth user id too long actual = %s; max = %s; docId = %s', curUserIdOriginal.length, constants.USER_ID_MAX_LENGTH, docId);
+        yield* sendFileErrorAuth(conn, data.sessionId, 'User id too long');
+        return;
+      }
       if (!conn.user.view) {
         var status = result && result.length > 0 ? result[0]['status'] : null;
         if (taskResult.FileStatus.Ok === status) {
