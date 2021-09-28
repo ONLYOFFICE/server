@@ -57,7 +57,6 @@ const constants = require('./constants');
 const commonDefines = require('./commondefines');
 const logger = require('./logger');
 const forwarded = require('forwarded');
-const mime = require('mime');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const openpgp = require('openpgp');
 require('win-ca');
@@ -256,14 +255,13 @@ function raiseError(ro, code, msg) {
   error.code = code;
   ro.emit('error', error);
 }
-function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_headers) {
+function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers) {
   //todo replace deprecated request module
-  let filterPrivate = opt_Authorization ? false : true;
   const maxRedirects = (undefined !== cfgRequestDefaults.maxRedirects) ? cfgRequestDefaults.maxRedirects : 10;
   const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
   var redirectsFollowed = 0;
   let doRequest = function(curUrl) {
-    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, filterPrivate, opt_headers)
+    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers)
       .catch(function(err) {
         let response = err.response;
         if (response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location')) {

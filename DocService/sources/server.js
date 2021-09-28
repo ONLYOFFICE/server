@@ -56,6 +56,7 @@ const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const configStorage = configCommon.get('storage');
 
+const cfgWopiEnable = configCommon.get('wopi.enable');
 const cfgHtmlTemplate = configCommon.get('wopi.htmlTemplate');
 
 const app = express();
@@ -205,9 +206,11 @@ docsCoServer.install(server, () => {
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 
-	app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
-	app.get('/hosting/capabilities', utils.checkClientIp, wopiClient.collaboraCapabilities);
-	app.post('/hosting/wopi', utils.checkClientIp, urleEcodedParser, utils.lowercaseQueryString, wopiClient.getEditorHtml);
+	if (cfgWopiEnable) {
+		app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
+		app.get('/hosting/capabilities', utils.checkClientIp, wopiClient.collaboraCapabilities);
+		app.post('/hosting/wopi/:documentType/:mode', utils.checkClientIp, urleEcodedParser, utils.lowercaseQueryString, wopiClient.getEditorHtml);
+	}
 
 	const sendUserPlugins = (res, data) => {
 		pluginsLoaded = true;
