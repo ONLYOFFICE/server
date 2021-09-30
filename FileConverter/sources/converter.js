@@ -293,7 +293,7 @@ function* replaceEmptyFile(docId, fileFrom, ext, _lcid) {
     }
   }
 }
-function* downloadFile(docId, uri, fileFrom, withAuthorization, opt_headers) {
+function* downloadFile(docId, uri, fileFrom, withAuthorization, filterPrivate, opt_headers) {
   var res = constants.CONVERT_DOWNLOAD;
   var data = null;
   var downloadAttemptCount = 0;
@@ -306,7 +306,7 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization, opt_headers) {
         if (utils.canIncludeOutboxAuthorization(uri) && withAuthorization) {
           authorization = utils.fillJwtForRequest({url: uri});
         }
-        let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, opt_headers);
+        let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;
         res = constants.NO_ERROR;
       } catch (err) {
@@ -668,11 +668,13 @@ function* ExecuteTask(task) {
     if (utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
+      let filterPrivate = !withAuthorization;
       let headers;
       let fileSize;
       let wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
+        filterPrivate = false;
         let fileInfo = wopiParams.commonInfo.fileInfo;
         let userAuth = wopiParams.userAuth;
         fileSize = fileInfo.Size;
@@ -688,7 +690,7 @@ function* ExecuteTask(task) {
         logger.debug('wopi url=%s; headers=%j(id=%s)', url, headers, dataConvert.key);
       }
       if (undefined === fileSize || fileSize > 0) {
-        error = yield* downloadFile(dataConvert.key, url, dataConvert.fileFrom, withAuthorization, headers);
+        error = yield* downloadFile(dataConvert.key, url, dataConvert.fileFrom, withAuthorization, filterPrivate, headers);
       }
       if (constants.NO_ERROR === error) {
         yield* replaceEmptyFile(dataConvert.key, dataConvert.fileFrom, format, cmd.getLCID());
