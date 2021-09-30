@@ -104,7 +104,7 @@ function discovery(req, res) {
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
       let exts = [{view: cfgWopiWordView, edit: cfgWopiWordEdit}, {view: cfgWopiCellView, edit: cfgWopiCellEdit},
         {view: cfgWopiSlideView, edit: cfgWopiSlideEdit}];
-      let templateStart = `${baseUrl}/hosting/wopi?documentType=`;
+      let templateStart = `${baseUrl}/hosting/wopi`;
       let templateEnd = `&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;e=EMBEDDED&amp;&gt;`;
       templateEnd += `&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;`;
       templateEnd += `&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;`;
@@ -119,8 +119,8 @@ function discovery(req, res) {
           favIconUrl = baseUrl + favIconUrl;
         }
         let ext = exts[i];
-        let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
-        let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
+        let urlTemplateView = `${templateStart}/${documentTypes[i]}/view?${templateEnd}`;
+        let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         output +=`<app name="${name}" favIconUrl="${favIconUrl}">`;
         for (let j = 0; j < ext.view.length; ++j) {
           output += `<action name="view" ext="${ext.view[j]}" urlsrc="${urlTemplateView}" />`;
@@ -136,8 +136,8 @@ function discovery(req, res) {
       //start section for collabora nexcloud connectors
       for(let i = 0; i < exts.length; ++i) {
         let ext = exts[i];
-        let urlTemplateView = `${templateStart}${documentTypes[i]}&amp;mode=view${templateEnd}`;
-        let urlTemplateEdit = `${templateStart}${documentTypes[i]}&amp;mode=edit${templateEnd}`;
+        let urlTemplateView = `${templateStart}/${documentTypes[i]}/view?${templateEnd}`;
+        let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         for (let j = 0; j < ext.view.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
@@ -289,18 +289,19 @@ function checkAndInvalidateCache(docId, fileInfo) {
 }
 function getEditorHtml(req, res) {
   return co(function*() {
-    let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined};
+    let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined};
     try {
       logger.info('wopiEditor start');
       logger.debug(`wopiEditor req.url:%s`, req.url);
       logger.debug(`wopiEditor req.query:%j`, req.query);
       logger.debug(`wopiEditor req.body:%j`, req.body);
+      params.documentType = req.params.documentType;
+      let mode = req.params.mode;
       let wopiSrc = req.query['wopisrc'];
-      let mode = req.query['mode'];
       let sc = req.query['sc'];
       let hostSessionId = req.query['hid'];
       let access_token = req.body['access_token'];
-      let access_token_ttl = req.body['access_token_ttl'];
+      let access_token_ttl = parseInt(req.body['access_token_ttl']);
 
       let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
 
@@ -312,25 +313,28 @@ function getEditorHtml(req, res) {
 
       if (!fileInfo.UserCanWrite) {
         mode = 'view';
-        req.query['mode'] = mode;
       }
       //docId
       let docId = undefined;
       let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
-      if ('edit' === mode) {
+      if ('view' !== mode) {
         docId = `${fileId}`;
       } else {
         //todo rename operation requires lock
         fileInfo.SupportsRename = false;
         //todo change docId to avoid empty cache after editors are gone
-        docId = `view.${fileId}.${fileInfo.Version}`;
+        if (fileInfo.LastModifiedTime) {
+          docId = `view.${fileId}.${fileInfo.LastModifiedTime}`;
+        } else {
+          docId = `view.${fileId}.${fileInfo.Version}`;
+        }
       }
       docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
       logger.debug(`wopiEditor docId=%s`, docId);
       params.key = docId;
       let userAuth = params.userAuth = {
         wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl,
-        hostSessionId: hostSessionId, userSessionId: docId
+        hostSessionId: hostSessionId, userSessionId: docId, mode: mode
       };
 
       //check and invalidate cache
@@ -350,7 +354,7 @@ function getEditorHtml(req, res) {
       }
 
       //Lock
-      if ('edit' === mode) {
+      if ('view' !== mode) {
         let lockRes = yield lock('LOCK', lockId, fileInfo, userAuth);
         if (!lockRes) {
           params.fileInfo = {};

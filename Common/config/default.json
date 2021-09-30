@@ -75,6 +75,7 @@
 		}
 	},
 	"wopi": {
+		"enable": false,
 		"host" : "",
 		"htmlTemplate" : "../../web-apps/apps/api/wopi",
 		"wopiZone" : "external-http",
