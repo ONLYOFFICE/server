@@ -100,6 +100,7 @@ function InputCommand(data, copyExplicit) {
     this['forgotten'] = data['forgotten'];
     this['status_info_in'] = data['status_info_in'];
     this['attempt'] = data['attempt'];
+    this['convertToOrigin'] = data['convertToOrigin'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
       this['isbuilder'] = data['isbuilder'];
@@ -158,6 +159,7 @@ function InputCommand(data, copyExplicit) {
     this['forgotten'] = undefined;
     this['status_info_in'] = undefined;
     this['attempt'] = undefined;
+    this['convertToOrigin'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -454,6 +456,12 @@ InputCommand.prototype = {
   },
   setWopiParams: function(data) {
     this['wopiParams'] = data;
+  },
+  getConvertToOrigin: function() {
+    return this['convertToOrigin'];
+  },
+  setConvertToOrigin: function(data) {
+    this['convertToOrigin'] = data;
   }
 };
 

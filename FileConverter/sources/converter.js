@@ -123,6 +123,7 @@ function TaskQueueDataConvert(task) {
   this.password = cmd.getPassword();
   this.savePassword = cmd.getSavePassword();
   this.noBase64 = cmd.getNoBase64();
+  this.convertToOrigin = cmd.getConvertToOrigin();
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
@@ -154,6 +155,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_nLcid', this.lcid);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
+    xml += this.serializeXmlProp('m_bConvertToOrigin', this.convertToOrigin);
     xml += this.serializeLimit();
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
