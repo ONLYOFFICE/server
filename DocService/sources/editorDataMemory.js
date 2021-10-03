@@ -243,8 +243,8 @@ EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
   return Promise.resolve(res);
 };
 
-EditorData.prototype.setEditorConnections = function(countEdit, countView, now, precision) {
-  this.stat.push({time: now, edit: countEdit, view: countView});
+EditorData.prototype.setEditorConnections = function(countEdit, countView, now, precision, countUniqueUsers, countAnonymousUsers) {
+  this.stat.push({time: now, edit: countEdit, view: countView, unique: countUniqueUsers, anonym: countAnonymousUsers});
   let i = 0;
   while (i < this.stat.length && this.stat[i] < now - precision[precision.length - 1].val) {
     i++;

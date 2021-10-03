@@ -178,7 +178,7 @@ const HEALTH_CHECK_KEY_MAX = 10000;
 const SHARD_ID = crypto.randomBytes(16).toString('base64');//16 as guid
 
 const PRECISION = [{name: 'hour', val: ms('1h')}, {name: 'day', val: ms('1d')}, {name: 'week', val: ms('7d')},
-  {name: 'month', val: ms('31d')},
+  {name: 'month', val: ms('31d')}, {name: 'year', val: ms('1y')},
 ];
 
 function getIsShutdown() {
@@ -1229,6 +1229,18 @@ let getParticipantMap = co.wrap(function*(docId, opt_hvals) {
   }
   return participantsMap;
 });
+function* getCurUsersStat() {
+  const nowUTC = getLicenseNowUtc();
+  let redisRes = yield editorData.getPresenceUniqueUser(nowUTC);
+  let unique = redisRes.length;
+  let anonym = 0;
+  redisRes.forEach(function(elem) {
+    if (elem.anonym) {
+      anonym++;
+    }
+  });
+  return {unique: unique, anonym: anonym};
+}
 
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
@@ -3139,9 +3151,9 @@ exports.install = function(server, callbackFunction) {
     });
   }
 
-  function* collectStats(countEdit, countView) {
+  function* collectStats(countEdit, countView, countUniqueUsers, countAnonymousUsers) {
     let now = Date.now();
-    yield editorData.setEditorConnections(countEdit, countView, now, PRECISION);
+    yield editorData.setEditorConnections(countEdit, countView, now, PRECISION, countUniqueUsers, countAnonymousUsers);
   }
   function expireDoc() {
     return co(function* () {
@@ -3190,7 +3202,8 @@ exports.install = function(server, callbackFunction) {
             countEditByShard++;
           }
         }
-        yield* collectStats(countEditByShard, countViewByShard);
+        let curUsersStat = yield* getCurUsersStat();
+        yield* collectStats(countEditByShard, countViewByShard, curUsersStat.unique, curUsersStat.anonym);
         yield editorData.setEditorConnectionsCountByShard(SHARD_ID, countEditByShard);
         yield editorData.setViewerConnectionsCountByShard(SHARD_ID, countViewByShard);
         if (clientStatsD) {
@@ -3315,77 +3328,94 @@ exports.healthCheck = function(req, res) {
     }
   });
 };
+function initStat() {
+  return {
+    edit: {min: Number.MAX_VALUE, max: 0, sum: 0, count: 0, avr: 0},
+    view: {min: Number.MAX_VALUE, max: 0, sum: 0, count: 0, avr: 0},
+    unique: {min: Number.MAX_VALUE, max: 0, sum: 0, count: 0, avr: 0},
+    anonym: {min: Number.MAX_VALUE, max: 0, sum: 0, count: 0, avr: 0}
+  }
+}
+function calculateStat(precision, elem) {
+  for (let type in precision) {
+    if (precision.hasOwnProperty(type) && elem.hasOwnProperty(type)) {
+      precision[type].min = Math.min(precision[type].min, elem[type]);
+      precision[type].max = Math.max(precision[type].max, elem[type]);
+      precision[type].sum += elem[type];
+      precision[type].count++;
+    }
+  }
+}
+function postprocessStat(precision) {
+  for (let type in precision) {
+    if (precision.hasOwnProperty(type)) {
+      if (precision[type].count > 0) {
+        precision[type].avr = Math.round(precision[type].sum / precision[type].count);
+      } else {
+        precision[type].min = 0;
+      }
+      delete precision[type].sum;
+      delete precision[type].count;
+    }
+  }
+}
+function processStat(redisRes, periodFrom, periodTo){
+  var precisionSum = {};
+  for (let i = 0; i < PRECISION.length; ++i) {
+    precisionSum[PRECISION[i].name] = initStat();
+  }
+  const now = Date.now();
+  var precisionIndex = 0;
+  for (let i = redisRes.length - 1; i >= 1; i -= 2) {
+    for (let j = precisionIndex; j < PRECISION.length; ++j) {
+      let elem = redisRes[i];
+      if (now - elem.time < PRECISION[j].val) {
+        calculateStat(precisionSum[PRECISION[j].name], elem);
+      }
+    }
+  }
+  if (periodFrom && periodTo) {
+    precisionSum['period'] = initStat();
+    for (let i = redisRes.length - 1; i >= 1; i -= 2) {
+      let elem = redisRes[i];
+      if (periodFrom <= elem.time && elem.time <= periodTo) {
+        calculateStat(precisionSum['period'], elem);
+      }
+    }
+  }
+  //todo fix avarage in case of cluster(duplicate of values because of expireDoc)
+  for (let type in precisionSum) {
+    if (precisionSum.hasOwnProperty(type)) {
+      postprocessStat(precisionSum[type]);
+    }
+  }
+  return precisionSum;
+}
 exports.licenseInfo = function(req, res) {
   return co(function*() {
     let isError = false;
     let output = {
-		connectionsStat: {}, licenseInfo: {}, serverInfo: {
-			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
-		}, quota: {
+      connectionsStat: {}, licenseInfo: {}, serverInfo: {
+        buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
+      }, quota: {
         uniqueUserCount: 0,
         anonymousUserCount: 0
-		}
-	};
+      }
+    };
     Object.assign(output.licenseInfo, licenseInfo);
     try {
       logger.debug('licenseInfo start');
-      var precisionSum = {};
-      for (let i = 0; i < PRECISION.length; ++i) {
-        precisionSum[PRECISION[i].name] = {
-          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0, time: null, period: PRECISION[i].val},
-          view: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0}
-        };
-        output.connectionsStat[PRECISION[i].name] = {
-          edit: {min: 0, avr: 0, max: 0},
-          view: {min: 0, avr: 0, max: 0}
-        };
+      let periodFrom = parseInt(req.query['periodfrom']);
+      let periodTo = parseInt(req.query['periodto']);
+      if (periodFrom && periodTo) {
+        logger.debug('licenseInfo from:%s', new Date(periodFrom));
+        logger.debug('licenseInfo to:%s', new Date(periodTo));
       }
-      var redisRes = yield editorData.getEditorConnections();
-      const now = Date.now();
-      var precisionIndex = 0;
-      for (let i = redisRes.length - 1; i >= 1; i -= 2) {
-        for (let j = precisionIndex; j < PRECISION.length; ++j) {
-          let elem = redisRes[i];
-          if (now - elem.time < PRECISION[j].val) {
-            let precision = precisionSum[PRECISION[j].name];
-            precision.edit.min = Math.min(precision.edit.min, elem.edit);
-            precision.edit.max = Math.max(precision.edit.max, elem.edit);
-            precision.edit.sum += elem.edit;
-            precision.edit.count++;
-			precision.edit.time = elem.time;
-            precision.view.min = Math.min(precision.view.min, elem.view);
-            precision.view.max = Math.max(precision.view.max, elem.view);
-            precision.view.sum += elem.view;
-            precision.view.count++;
-          } else {
-            precisionIndex = j + 1;
-          }
-        }
-      }
-      for (let i in precisionSum) {
-        let precision = precisionSum[i];
-        let precisionOut = output.connectionsStat[i];
-		//scale compensates for the lack of points at server start
-		let scale = (now - precision.edit.time) / precision.edit.period;
-        if (precision.edit.count > 0) {
-          precisionOut.edit.avr = Math.round((precision.edit.sum / precision.edit.count) * scale);
-          precisionOut.edit.min = precision.edit.min;
-          precisionOut.edit.max = precision.edit.max;
-        }
-        if (precision.view.count > 0) {
-          precisionOut.view.avr = Math.round((precision.view.sum / precision.view.count) * scale);
-          precisionOut.view.min = precision.view.min;
-          precisionOut.view.max = precision.view.max;
-        }
-      }
-      const nowUTC = getLicenseNowUtc();
-      let execRes = yield editorData.getPresenceUniqueUser(nowUTC);
-      output.quota.uniqueUserCount = execRes.length;
-      execRes.forEach(function(elem) {
-        if (elem.anonym) {
-          output.quota.anonymousUserCount++;
-        }
-      });
+      let redisRes = yield editorData.getEditorConnections();
+      output.connectionsStat = processStat(redisRes, periodFrom, periodTo);
+      let curUsersStat = yield* getCurUsersStat();
+      output.quota.uniqueUserCount = curUsersStat.unique;
+      output.quota.anonymousUserCount = curUsersStat.anonym;
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;
