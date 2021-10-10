@@ -188,7 +188,8 @@
 				"sessionclosecommand": "2m",
 				"pemStdTTL": "1h",
 				"pemCheckPeriod": "10m",
-				"updateVersionStatus": "5m"
+				"updateVersionStatus": "5m",
+				"monthUniqueUsers": "1y"
 			},
 			"ipfilter": {
 				"rules": [{"address": "*", "allowed": true}],

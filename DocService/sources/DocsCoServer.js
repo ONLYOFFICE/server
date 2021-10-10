@@ -556,6 +556,8 @@ function* updateEditUsers(userId, anonym) {
   const expireAt = (Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)) / 1000 +
       licenseInfo.usersExpire - 1;
   yield editorData.addPresenceUniqueUser(userId, expireAt, {anonym: anonym});
+  let period = utils.getLicensePeriod(licenseInfo.startDate, now);
+  yield editorData.addPresenceUniqueUsersOfMonth(userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
 }
 function* getEditorsCount(docId, opt_hvals) {
   var elem, editorsCount = 0;
@@ -3313,7 +3315,7 @@ exports.licenseInfo = function(req, res) {
   return co(function*() {
     let isError = false;
     let output = {
-		connectionsStat: {}, licenseInfo: {}, serverInfo: {
+		connectionsStat: {}, uniqueUsersOfMonth: {}, licenseInfo: {}, serverInfo: {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
 		}, quota: {
         uniqueUserCount: 0,
@@ -3323,10 +3325,12 @@ exports.licenseInfo = function(req, res) {
     Object.assign(output.licenseInfo, licenseInfo);
     try {
       logger.debug('licenseInfo start');
+      logger.debug(`licenseInfo req.query:%j`, req.query);
+      let monthOffset = parseInt(req.query['monthoffset']) || 0;
       var precisionSum = {};
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
-          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0, time: null, period: PRECISION[i].val},
+          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0},
           view: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0}
         };
         output.connectionsStat[PRECISION[i].name] = {
@@ -3346,7 +3350,6 @@ exports.licenseInfo = function(req, res) {
             precision.edit.max = Math.max(precision.edit.max, elem.edit);
             precision.edit.sum += elem.edit;
             precision.edit.count++;
-			precision.edit.time = elem.time;
             precision.view.min = Math.min(precision.view.min, elem.view);
             precision.view.max = Math.max(precision.view.max, elem.view);
             precision.view.sum += elem.view;
@@ -3359,15 +3362,13 @@ exports.licenseInfo = function(req, res) {
       for (let i in precisionSum) {
         let precision = precisionSum[i];
         let precisionOut = output.connectionsStat[i];
-		//scale compensates for the lack of points at server start
-		let scale = (now - precision.edit.time) / precision.edit.period;
         if (precision.edit.count > 0) {
-          precisionOut.edit.avr = Math.round((precision.edit.sum / precision.edit.count) * scale);
+          precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.count);
           precisionOut.edit.min = precision.edit.min;
           precisionOut.edit.max = precision.edit.max;
         }
         if (precision.view.count > 0) {
-          precisionOut.view.avr = Math.round((precision.view.sum / precision.view.count) * scale);
+          precisionOut.view.avr = Math.round(precision.view.sum / precision.view.count);
           precisionOut.view.min = precision.view.min;
           precisionOut.view.max = precision.view.max;
         }
@@ -3380,6 +3381,10 @@ exports.licenseInfo = function(req, res) {
           output.quota.anonymousUserCount++;
         }
       });
+      let nowClone = new Date(now);//clone
+      nowClone.addMonths(monthOffset);
+      let period = utils.getLicensePeriod(licenseInfo.startDate, nowClone);
+      output.uniqueUsersOfMonth = yield editorData.getPresenceUniqueUsersOfMonth(period);
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;

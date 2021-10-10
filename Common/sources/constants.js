@@ -228,6 +228,7 @@ exports.REDIS_KEY_PRESENCE_HASH = 'presence:hash:';
 exports.REDIS_KEY_PRESENCE_SET = 'presence:set:';
 exports.REDIS_KEY_PRESENCE_UNIQUE_USERS = 'presence:unique:users';
 exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_HASH = 'presence:unique:users:hash';
+exports.REDIS_KEY_PRESENCE_MONTH_UNIQUE_USERS_HASH = 'presence:unique:users:month';
 exports.REDIS_KEY_LOCKS = 'locks:';
 exports.REDIS_KEY_LOCK_DOCUMENT = 'lockdocument:';
 exports.REDIS_KEY_MESSAGE = 'message:';
