@@ -930,6 +930,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   // 	whiteLabel = false;
   // }
   let license = {};
+  license.start_date = licenseInfo.startDate && licenseInfo.startDate.toJSON();
   license.end_date = licenseInfo.endDate && licenseInfo.endDate.toJSON();
   license.timelimited = 0 !== (constants.LICENSE_MODE.Limited & licenseInfo.mode);
   license.trial = 0 !== (constants.LICENSE_MODE.Trial & licenseInfo.mode);
@@ -966,3 +967,43 @@ exports.checkBaseUrl = function(baseUrl) {
 exports.resolvePath = function(object, path, defaultValue) {
   return path.split('.').reduce((o, p) => o ? o[p] : defaultValue, object);
 }
+
+Date.isLeapYear = function (year) {
+  return (((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0));
+};
+
+Date.getDaysInMonth = function (year, month) {
+  return [31, (Date.isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month];
+};
+
+Date.prototype.isLeapYear = function () {
+  return Date.isLeapYear(this.getUTCFullYear());
+};
+
+Date.prototype.getDaysInMonth = function () {
+  return Date.getDaysInMonth(this.getUTCFullYear(), this.getUTCMonth());
+};
+
+Date.prototype.addMonths = function (value) {
+  var n = this.getUTCDate();
+  this.setUTCDate(1);
+  this.setUTCMonth(this.getUTCMonth() + value);
+  this.setUTCDate(Math.min(n, this.getDaysInMonth()));
+  return this;
+};
+function getMonthDiff(d1, d2) {
+  var months;
+  months = (d2.getUTCFullYear() - d1.getUTCFullYear()) * 12;
+  months -= d1.getUTCMonth();
+  months += d2.getUTCMonth();
+  return months;
+}
+
+exports.getLicensePeriod = function(startDate, now) {
+  startDate = new Date(startDate.getTime());//clone
+  startDate.addMonths(getMonthDiff(startDate, now));
+  if (startDate > now) {
+    startDate.addMonths(-1);
+  }
+  return startDate.getTime();
+};

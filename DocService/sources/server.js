@@ -204,7 +204,7 @@ docsCoServer.install(server, () => {
 	app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
 		converterService.builder(req, res);
 	});
-	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
+	app.get('/info/info.json', utils.checkClientIp, utils.lowercaseQueryString, docsCoServer.licenseInfo);
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 
