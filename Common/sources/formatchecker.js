@@ -231,6 +231,10 @@ exports.getFormatFromString = function(ext) {
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT_FLAT;
     case 'ott':
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OTT;
+    case 'oform':
+      return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM;
+    case 'docxf':
+      return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF;
 
     case 'pptx':
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX;
@@ -366,8 +370,16 @@ exports.getStringFromFormat = function(format) {
       return 'ott';
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC_FLAT:
       return 'doc';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX_FLAT:
+      return 'docx';
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML_IN_CONTAINER:
       return 'doc';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX_PACKAGE:
+      return 'xml';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM:
+      return 'oform';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF:
+      return 'docxf';
 
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX:
       return 'pptx';
