@@ -1005,5 +1005,6 @@ exports.getLicensePeriod = function(startDate, now) {
   if (startDate > now) {
     startDate.addMonths(-1);
   }
+  startDate.setUTCHours(0,0,0,0);
   return startDate.getTime();
 };

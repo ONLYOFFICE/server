@@ -3385,6 +3385,7 @@ exports.licenseInfo = function(req, res) {
       nowClone.addMonths(monthOffset);
       let period = utils.getLicensePeriod(licenseInfo.startDate, nowClone);
       output.uniqueUsersOfMonth = yield editorData.getPresenceUniqueUsersOfMonth(period);
+      logger.debug('licenseInfo period:%s', period);
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;
