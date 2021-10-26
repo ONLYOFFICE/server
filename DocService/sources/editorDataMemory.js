@@ -255,17 +255,20 @@ EditorData.prototype.addPresenceUniqueUsersOfMonth = function(userId, period, us
   this.uniqueUsersOfMonth[period].data[userId] = userInfo;
   return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueUsersOfMonth = function(period) {
+EditorData.prototype.getPresenceUniqueUsersOfMonth = function() {
+  let res = [];
   let nowUTC = Date.now();
   for (let periodId in this.uniqueUsersOfMonth) {
     if (this.uniqueUsersOfMonth.hasOwnProperty(periodId)) {
       if (this.uniqueUsersOfMonth[periodId].expireAt <= nowUTC) {
         delete this.uniqueUsersOfMonth[periodId];
+      } else {
+        let date = new Date(parseInt(periodId)).toISOString();
+        res.push({date: date, users: this.uniqueUsersOfMonth[periodId].data});
       }
     }
   }
-  let res = this.uniqueUsersOfMonth[period];
-  return Promise.resolve(res && res.data || {});
+  return Promise.resolve(res);
 };
 
 EditorData.prototype.setEditorConnections = function(countEdit, countView, now, precision) {

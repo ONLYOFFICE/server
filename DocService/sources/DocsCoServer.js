@@ -3315,18 +3315,17 @@ exports.licenseInfo = function(req, res) {
   return co(function*() {
     let isError = false;
     let output = {
-		connectionsStat: {}, uniqueUsersOfMonth: {}, licenseInfo: {}, serverInfo: {
+		connectionsStat: {}, licenseInfo: {}, serverInfo: {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
 		}, quota: {
         uniqueUserCount: 0,
-        anonymousUserCount: 0
+        anonymousUserCount: 0,
+        byMonth: null
 		}
 	};
     Object.assign(output.licenseInfo, licenseInfo);
     try {
       logger.debug('licenseInfo start');
-      logger.debug(`licenseInfo req.query:%j`, req.query);
-      let monthOffset = parseInt(req.query['monthoffset']) || 0;
       var precisionSum = {};
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
@@ -3381,11 +3380,10 @@ exports.licenseInfo = function(req, res) {
           output.quota.anonymousUserCount++;
         }
       });
-      let nowClone = new Date(now);//clone
-      nowClone.addMonths(monthOffset);
-      let period = utils.getLicensePeriod(licenseInfo.startDate, nowClone);
-      output.uniqueUsersOfMonth = yield editorData.getPresenceUniqueUsersOfMonth(period);
-      logger.debug('licenseInfo period:%s', period);
+      output.quota.byMonth = yield editorData.getPresenceUniqueUsersOfMonth();
+      output.quota.byMonth.sort((a, b) => {
+        return a.date.localeCompare(b.date);
+      });
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;
