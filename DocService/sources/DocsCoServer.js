@@ -3318,6 +3318,7 @@ exports.licenseInfo = function(req, res) {
 		connectionsStat: {}, licenseInfo: {}, serverInfo: {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
 		}, quota: {
+        editorConnectionsCount: 0,
         uniqueUserCount: 0,
         anonymousUserCount: 0,
         byMonth: null
@@ -3384,6 +3385,7 @@ exports.licenseInfo = function(req, res) {
       output.quota.byMonth.sort((a, b) => {
         return a.date.localeCompare(b.date);
       });
+      output.quota.editorConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;
