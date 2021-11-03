@@ -1060,7 +1060,10 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       updateIfTask.status = recoverTask.status;
       updateIfTask.statusInfo = recoverTask.statusInfo;
       updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
-      if (!(updateIfRes.affectedRows > 0)) {
+      if (updateIfRes.affectedRows > 0) {
+        updateMask.status = updateIfTask.status;
+        updateMask.statusInfo = updateIfTask.statusInfo;
+      } else {
         logger.debug('commandSfcCallback restore %d status failed: docId = %s', recoverTask.status, docId);
       }
     }
