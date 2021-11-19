@@ -500,7 +500,11 @@ function sendDataWarning(conn, msg) {
   sendData(conn, {type: "warning", message: msg});
 }
 function sendDataMessage(conn, msg) {
-  sendData(conn, {type: "message", messages: msg});
+  if (false !== conn.permissions.chat) {
+    sendData(conn, {type: "message", messages: msg});
+  } else {
+    logger.debug("sendDataMessage permissions.chat==false: userId = %s docId = %s", conn.user && conn.user.id, conn.docId);
+  }
 }
 function sendDataCursor(conn, msg) {
   sendData(conn, {type: "cursor", messages: msg});
@@ -2480,6 +2484,10 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* onMessage(conn, data) {
+    if (false === conn.permissions.chat) {
+      logger.warn("insert message permissions.chat==false: userId = %s docId = %s", conn.user && conn.user.id, conn.docId);
+      return;
+    }
     var docId = conn.docId;
     var userId = conn.user.id;
     var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal, username: conn.user.username};
@@ -2750,7 +2758,7 @@ exports.install = function(server, callbackFunction) {
   function* getMessages(conn) {
     let allMessages = yield editorData.getMessages(conn.docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
-    sendData(conn, {type: "message", messages: allMessages});
+    sendDataMessage(conn, allMessages);
   }
 
   function* _checkLock(docId, arrayBlocks) {
