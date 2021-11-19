@@ -150,8 +150,10 @@ docsCoServer.install(server, () => {
 	});
 
 	app.get('/index.html', (req, res) => {
+		let buildDate = licenseInfo && licenseInfo.buildDate.toISOString() || "";
+		let packageType = configCommon.get('license.packageType');
 		res.send('Server is functioning normally. Version: ' + commonDefines.buildVersion + '. Build: ' +
-			commonDefines.buildNumber);
+				 commonDefines.buildNumber + '. Release date: ' + buildDate + '. Package type: ' + packageType);
 	});
 	const rawFileParser = bodyParser.raw(
 		{inflate: true, limit: config.get('server.limits_tempfile_upload'), type: function() {return true;}});
