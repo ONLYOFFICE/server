@@ -224,7 +224,7 @@ exports.deleteObjects = function(strPaths) {
 };
 exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
   return new Promise(function(resolve, reject) {
-    var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute : cfgStorageUrlExpires) || 31536000;
+    var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : cfgStorageUrlExpires) || 31536000;
     var userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
     var contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
     if (cfgUseRequestToGetUrl) {
