@@ -542,7 +542,7 @@
           "version": "1.37.0",
           "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.37.0.tgz",
           "integrity": "sha512-R3C4db6bgQhlIhPU48fUtdVmKnflq+hRdad7IyKhtFj06VPNVdk2RhiYL3UjQIlso8L+YxAtFkobT0VK+S/ybg=="
-      }
+        }
       }
     },
     "minimist": {
