@@ -53,7 +53,8 @@ exports.readLicense = function*() {
 		hasLicense: false,
 		plugins: false,
 		buildDate: oBuildDate,
-		endDate: null
+		endDate: null,
+		customerId: ""
 	}, null];
 };
 

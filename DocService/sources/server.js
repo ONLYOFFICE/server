@@ -152,14 +152,14 @@ docsCoServer.install(server, () => {
 	app.get('/index.html', (req, res) => {
 		let buildVersion = commonDefines.buildVersion;
 		let buildNumber = commonDefines.buildNumber;
-		let buildDate, packageType, mode = "";
+		let buildDate, packageType, customerId = "";
 		if (licenseInfo) {
 			buildDate = licenseInfo.buildDate.toISOString();
 			packageType = licenseInfo.packageType;
-			mode = licenseInfo.mode;
+			customerId = licenseInfo.customerId;
 		}
 		let output = `Server is functioning normally. Version: ${buildVersion}. Build: ${buildNumber}`;
-		output += `. Release date: ${buildDate}. Package type: ${packageType}. Mode: ${mode}`;
+		output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}`;
 		res.send(output);
 	});
 	const rawFileParser = bodyParser.raw(
