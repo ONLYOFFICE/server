@@ -298,7 +298,7 @@ docsCoServer.install(server, () => {
 				logger.error('themes.json error:%s', err.stack);
 			} finally {
 				if (themes.length > 0) {
-					res.setHeader('Content-Type', 'text/xml');
+					res.setHeader('Content-Type', 'application/json');
 					res.send({"themes": themes});
 				} else {
 					res.sendStatus(404);
