@@ -127,7 +127,10 @@ function discovery(req, res) {
         }
         for (let j = 0; j < ext.edit.length; ++j) {
           output += `<action name="view" ext="${ext.edit[j]}" urlsrc="${urlTemplateView}" />`;
-          output += `<action name="editnew" ext="${ext.edit[j]}" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+          if ("oform" !== ext.edit[j]) {
+            //todo config
+            output += `<action name="editnew" ext="${ext.edit[j]}" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+          }
           output += `<action name="edit" ext="${ext.edit[j]}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
         }
         output +=`</app>`;
