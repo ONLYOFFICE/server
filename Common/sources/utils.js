@@ -431,6 +431,7 @@ exports.mapAscServerErrorToOldError = function(error) {
       break;
     case constants.CONVERT_PASSWORD :
     case constants.CONVERT_DRM :
+    case constants.CONVERT_DRM_UNSUPPORTED :
       res = -5;
       break;
     case constants.CONVERT_DOWNLOAD :
