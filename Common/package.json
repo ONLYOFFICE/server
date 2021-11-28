@@ -4,7 +4,6 @@
   "homepage": "https://www.onlyoffice.com",
   "private": true,
   "dependencies": {
-    "amazon-s3-url-signer": "https://github.com/agolybev/amazon-s3-url-signer/archive/v0.0.9.tar.gz",
     "amqplib": "^0.5.2",
     "aws-sdk": "^2.346.0",
     "co": "^4.6.0",

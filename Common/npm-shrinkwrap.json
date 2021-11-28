@@ -15,10 +15,6 @@
         "json-schema-traverse": "^0.3.0"
       }
     },
-    "amazon-s3-url-signer": {
-      "version": "https://github.com/agolybev/amazon-s3-url-signer/archive/v0.0.9.tar.gz",
-      "integrity": "sha512-wkmsZG000+d711di1U3690g3rE++ettaLZWDrAESgNhklr3wQcYEdEqAnQjgNirM0jjByQ9HTCeV48wFpHHguQ=="
-    },
     "amqplib": {
       "version": "0.5.2",
       "resolved": "https://registry.npmjs.org/amqplib/-/amqplib-0.5.2.tgz",
