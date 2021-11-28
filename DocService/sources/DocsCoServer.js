@@ -2084,7 +2084,7 @@ exports.install = function(server, callbackFunction) {
       let wopiParams = null;
       if (data.documentCallbackUrl) {
         wopiParams = wopiClient.parseWopiCallback(docId, data.documentCallbackUrl);
-        if (wopiParams) {
+        if (wopiParams && wopiParams.userAuth) {
           conn.access_token_ttl = wopiParams.userAuth.access_token_ttl;
         }
       }
@@ -2180,6 +2180,10 @@ exports.install = function(server, callbackFunction) {
       if (cmd && result && result.length > 0 && result[0].callback) {
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
         let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, result[0].callback);
+        if (!wopiParams.userAuth) {
+          yield* sendFileErrorAuth(conn, data.sessionId, 'Wopi without userAuth');
+          return;
+        }
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
