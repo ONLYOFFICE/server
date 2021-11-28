@@ -288,8 +288,10 @@ docsCoServer.install(server, () => {
 						logger.debug('themes.json dir:%s', dir);
 						logger.debug('themes.json themesList:%j', themesList);
 						for (let j = 0; j < themesList.length; ++j) {
-							let data = yield utils.readFile(themesList[j], true);
-							themes.push(JSON.parse(data.toString('utf-8')));
+							if (themesList[j].endsWith('.json')) {
+								let data = yield utils.readFile(themesList[j], true);
+								themes.push(JSON.parse(data.toString('utf-8')));
+							}
 						}
 						break;
 					}
