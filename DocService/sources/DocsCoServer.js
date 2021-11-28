@@ -2180,13 +2180,13 @@ exports.install = function(server, callbackFunction) {
       if (cmd && result && result.length > 0 && result[0].callback) {
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
         let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, result[0].callback);
-        if (!wopiParams.userAuth) {
-          yield* sendFileErrorAuth(conn, data.sessionId, 'Wopi without userAuth');
-          return;
-        }
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
+          if (!wopiParams.userAuth) {
+            yield* sendFileErrorAuth(conn, data.sessionId, 'Wopi without userAuth');
+            return;
+          }
         }
       }
       if (conn.user.idOriginal.length > constants.USER_ID_MAX_LENGTH) {
