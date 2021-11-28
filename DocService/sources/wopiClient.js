@@ -225,10 +225,16 @@ function getLastModifiedTimeFromCallbacks(callbacks) {
     }
   }
 }
+function isCorrectUserAuth(userAuth) {
+  return undefined !== userAuth.wopiSrc;
+}
 function parseWopiCallback(docId, userAuthStr, opt_url) {
   let wopiParams = null;
   if (isWopiCallback(userAuthStr)) {
     let userAuth = JSON.parse(userAuthStr);
+    if (!isCorrectUserAuth(userAuth)) {
+      userAuth = null;
+    }
     let commonInfo = null;
     let lastModifiedTime = null;
     if (opt_url) {
@@ -391,6 +397,9 @@ function putFile(wopiParams, data, dataStream, userLastChangeId) {
     let postRes = null;
     try {
       logger.info('wopi PutFile start');
+      if (!wopiParams.userAuth) {
+        return postRes;
+      }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       let userAuth = wopiParams.userAuth;
       let uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
@@ -430,6 +439,9 @@ function renameFile(wopiParams, name) {
     let res;
     try {
       logger.info('wopi RenameFile start');
+      if (!wopiParams.userAuth) {
+        return res;
+      }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       let userAuth = wopiParams.userAuth;
       let uri = `${userAuth.wopiSrc}?access_token=${userAuth.access_token}`;
@@ -498,6 +510,9 @@ function lock(command, lockId, fileInfo, userAuth) {
     try {
       logger.info('wopi %s start', command);
       if (fileInfo && fileInfo.SupportsLocks) {
+        if (!userAuth) {
+          return false;
+        }
         let wopiSrc = userAuth.wopiSrc;
         let access_token = userAuth.access_token;
         let uri = `${wopiSrc}?access_token=${access_token}`;
@@ -529,6 +544,9 @@ function unlock(wopiParams) {
       logger.info('wopi Unlock start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
       if (fileInfo && fileInfo.SupportsLocks) {
+        if (!wopiParams.userAuth) {
+          return;
+        }
         let wopiSrc = wopiParams.userAuth.wopiSrc;
         let lockId = wopiParams.commonInfo.lockId;
         let access_token = wopiParams.userAuth.access_token;
