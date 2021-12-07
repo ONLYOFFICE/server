@@ -292,6 +292,30 @@ function convertRequest(req, res, isJson) {
           outputExt = 'zip';
         }
       }
+      var textParams = params.textParams;
+      if (textParams) {
+        if (typeof textParams === 'string') {
+          textParams = JSON.parse(textParams);
+        }
+        var textParamsData = new commonDefines.CTextParams(textParams);
+        //todo text
+        switch (textParams.association) {
+          case 'block':
+            textParamsData.setAssociation(3);
+            break;
+          case 'noFrames':
+            textParamsData.setAssociation(2);
+            break;
+          case 'line':
+            textParamsData.setAssociation(1);
+            break;
+          case 'char':
+          default:
+            textParamsData.setAssociation(0);
+            break;
+        }
+        cmd.setTextParams(textParamsData);
+      }
       if (params.title) {
         cmd.setTitle(path.basename(params.title, path.extname(params.title)) + '.' + outputExt);
       }

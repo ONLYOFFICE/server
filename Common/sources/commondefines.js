@@ -72,6 +72,11 @@ function InputCommand(data, copyExplicit) {
     } else {
       this['thumbnail'] = undefined;
     }
+    if (data['textParams']) {
+      this['textParams'] = new CTextParams(data['textParams']);
+    } else {
+      this['textParams'] = undefined;
+    }
     this['status'] = data['status'];
     this['status_info'] = data['status_info'];
     this['savekey'] = data['savekey'];
@@ -288,6 +293,12 @@ InputCommand.prototype = {
   },
   setThumbnail: function(data) {
     this['thumbnail'] = data;
+  },
+  getTextParams: function() {
+    return this['textParams'];
+  },
+  setTextParams: function(data) {
+    this['textParams'] = data;
   },
   getStatus: function() {
     return this['status'];
@@ -555,6 +566,19 @@ CThumbnailData.prototype.getHeight = function() {
 };
 CThumbnailData.prototype.setHeight = function(v) {
   this['height'] = v;
+};
+function CTextParams(obj) {
+  if (obj) {
+    this['association'] = obj['association'];
+  } else {
+    this['association'] = null;
+  }
+}
+CTextParams.prototype.getAssociation = function() {
+  return this['association']
+};
+CTextParams.prototype.setAssociation = function(v) {
+  this['association'] = v;
 };
 
 function CMailMergeSendData(obj) {
@@ -1077,6 +1101,7 @@ const buildNumber = 37;
 exports.TaskQueueData = TaskQueueData;
 exports.CMailMergeSendData = CMailMergeSendData;
 exports.CThumbnailData = CThumbnailData;
+exports.CTextParams = CTextParams;
 exports.CForceSaveData = CForceSaveData;
 exports.InputCommand = InputCommand;
 exports.OutputSfcData = OutputSfcData;

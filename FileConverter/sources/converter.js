@@ -118,6 +118,7 @@ function TaskQueueDataConvert(task) {
   this.themeDir = path.resolve(cfgPresentationThemesDir);
   this.mailMergeSend = cmd.mailmergesend;
   this.thumbnail = cmd.thumbnail;
+  this.textParams = cmd.getTextParams();
   this.jsonParams = cmd.getJsonParams();
   this.lcid = cmd.getLCID();
   this.password = cmd.getPassword();
@@ -150,6 +151,9 @@ TaskQueueDataConvert.prototype = {
     }
     if (this.thumbnail) {
       xml += this.serializeThumbnail(this.thumbnail);
+    }
+    if (this.textParams) {
+      xml += this.serializeTextParams(this.textParams);
     }
     xml += this.serializeXmlProp('m_sJsonParams', this.jsonParams);
     xml += this.serializeXmlProp('m_nLcid', this.lcid);
@@ -203,6 +207,12 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('width', data.getWidth());
     xml += this.serializeXmlProp('height', data.getHeight());
     xml += '</m_oThumbnail>';
+    return xml;
+  },
+  serializeTextParams: function(data) {
+    var xml = '<m_oTextParams>';
+    xml += this.serializeXmlProp('m_nTextAssociationType', data.getAssociation());
+    xml += '</m_oTextParams>';
     return xml;
   },
   serializeLimit: function() {
