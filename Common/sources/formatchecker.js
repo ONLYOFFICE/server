@@ -307,7 +307,7 @@ exports.getFormatFromString = function(ext) {
     case 'pdf':
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
     case 'pdfa':
-      return constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA;
+      return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA;
     case 'swf':
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SWF;
     case 'djvu':
@@ -410,7 +410,7 @@ exports.getStringFromFormat = function(format) {
       return 'ots';
 
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF:
-    case constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA:
+    case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA:
       return 'pdf';
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SWF:
       return 'swf';

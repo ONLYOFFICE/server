@@ -97,7 +97,7 @@ function TaskQueueDataConvert(task) {
   this.fileFrom = null;
   this.fileTo = null;
   this.title = cmd.getTitle();
-  if(constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA !== cmd.outputformat){
+  if(constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA !== cmd.outputformat){
     this.formatTo = cmd.outputformat;
   } else {
     this.formatTo = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
