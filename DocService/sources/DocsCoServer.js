@@ -1171,7 +1171,7 @@ function checkJwtPayloadHash(docId, hash, body, token) {
 }
 function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
   let res = {code: constants.NO_ERROR, params: undefined};
-  if (req.body && Buffer.isBuffer(req.body) && !opt_isNotInBody) {
+  if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
     res.params = JSON.parse(req.body.toString('utf8'));
   } else {
     res.params = req.query;
