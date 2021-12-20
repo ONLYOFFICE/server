@@ -49,8 +49,6 @@ var cfgBucketName = configStorage.get('bucketName');
 var cfgStorageFolderName = configStorage.get('storageFolderName');
 var cfgAccessKeyId = configStorage.get('accessKeyId');
 var cfgSecretAccessKey = configStorage.get('secretAccessKey');
-var cfgUseRequestToGetUrl = configStorage.get('useRequestToGetUrl');
-var cfgUseSignedUrl = configStorage.get('useSignedUrl');
 var cfgSslEnabled = configStorage.get('sslEnabled');
 var cfgS3ForcePathStyle = configStorage.get('s3ForcePathStyle');
 var configFs = configStorage.get('fs');
@@ -224,50 +222,19 @@ exports.deleteObjects = function(strPaths) {
 };
 exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
   return new Promise(function(resolve, reject) {
-    var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute : cfgStorageUrlExpires) || 31536000;
+    var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : cfgStorageUrlExpires) || 31536000;
     var userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
     var contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
-    if (cfgUseRequestToGetUrl) {
-      //default Expires 900 seconds
-      var params = {
-        Bucket: cfgBucketName, Key: getFilePath(strPath), ResponseContentDisposition: contentDisposition, Expires: expires
-      };
-      s3Client.getSignedUrl('getObject', params, function(err, data) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(utils.changeOnlyOfficeUrl(data, strPath, optFilename));
-        }
-      });
-    } else {
-      var host;
-      if (cfgRegion) {
-        host = 'https://s3-'+cfgRegion+'.amazonaws.com';
-      } else if (cfgEndpointParsed &&
-        (cfgEndpointParsed.hostname == 'localhost' || cfgEndpointParsed.hostname == '127.0.0.1') &&
-        80 == cfgEndpointParsed.port) {
-        host = utils.checkBaseUrl(baseUrl) + cfgEndpointParsed.path;
+    //default Expires 900 seconds
+    var params = {
+      Bucket: cfgBucketName, Key: getFilePath(strPath), ResponseContentDisposition: contentDisposition, Expires: expires
+    };
+    s3Client.getSignedUrl('getObject', params, function(err, data) {
+      if (err) {
+        reject(err);
       } else {
-        host = cfgEndpoint;
+        resolve(utils.changeOnlyOfficeUrl(data, strPath, optFilename));
       }
-      if (host && host.length > 0 && '/' != host[host.length - 1]) {
-        host += '/';
-      }
-      var newUrl;
-      if (cfgUseSignedUrl) {
-        //todo уйти от parse
-        var hostParsed = url.parse(host);
-        var protocol = hostParsed.protocol.substring(0, hostParsed.protocol.length - 1);
-        var signerOptions = {
-          host: hostParsed.hostname, port: hostParsed.port,
-          protocol: protocol, useSubdomain: false
-        };
-        var awsUrlSigner = s3urlSigner.urlSigner(cfgAccessKeyId, cfgSecretAccessKey, signerOptions);
-        newUrl = awsUrlSigner.getUrl('GET', getFilePath(strPath), cfgBucketName, expires, contentDisposition);
-      } else {
-        newUrl = host + cfgBucketName + '/' + cfgStorageFolderName + '/' + strPath;
-      }
-      resolve(utils.changeOnlyOfficeUrl(newUrl, strPath, optFilename));
-    }
+    });
   });
 };

@@ -560,6 +560,8 @@ function* updateEditUsers(userId, anonym) {
   const expireAt = (Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)) / 1000 +
       licenseInfo.usersExpire - 1;
   yield editorData.addPresenceUniqueUser(userId, expireAt, {anonym: anonym});
+  let period = utils.getLicensePeriod(licenseInfo.startDate, now);
+  yield editorData.addPresenceUniqueUsersOfMonth(userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
 }
 function* getEditorsCount(docId, opt_hvals) {
   var elem, editorsCount = 0;
@@ -2092,7 +2094,7 @@ exports.install = function(server, callbackFunction) {
       let wopiParams = null;
       if (data.documentCallbackUrl) {
         wopiParams = wopiClient.parseWopiCallback(docId, data.documentCallbackUrl);
-        if (wopiParams) {
+        if (wopiParams && wopiParams.userAuth) {
           conn.access_token_ttl = wopiParams.userAuth.access_token_ttl;
         }
       }
@@ -2191,6 +2193,10 @@ exports.install = function(server, callbackFunction) {
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
+          if (!wopiParams.userAuth) {
+            yield* sendFileErrorAuth(conn, data.sessionId, 'Wopi without userAuth');
+            return;
+          }
         }
       }
       if (conn.user.idOriginal.length > constants.USER_ID_MAX_LENGTH) {
@@ -3330,8 +3336,10 @@ exports.licenseInfo = function(req, res) {
 		connectionsStat: {}, licenseInfo: {}, serverInfo: {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
 		}, quota: {
+        editorConnectionsCount: 0,
         uniqueUserCount: 0,
-        anonymousUserCount: 0
+        anonymousUserCount: 0,
+        byMonth: null
 		}
 	};
     Object.assign(output.licenseInfo, licenseInfo);
@@ -3340,7 +3348,7 @@ exports.licenseInfo = function(req, res) {
       var precisionSum = {};
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
-          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0, time: null, period: PRECISION[i].val},
+          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0},
           view: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0}
         };
         output.connectionsStat[PRECISION[i].name] = {
@@ -3360,7 +3368,6 @@ exports.licenseInfo = function(req, res) {
             precision.edit.max = Math.max(precision.edit.max, elem.edit);
             precision.edit.sum += elem.edit;
             precision.edit.count++;
-			precision.edit.time = elem.time;
             precision.view.min = Math.min(precision.view.min, elem.view);
             precision.view.max = Math.max(precision.view.max, elem.view);
             precision.view.sum += elem.view;
@@ -3373,15 +3380,13 @@ exports.licenseInfo = function(req, res) {
       for (let i in precisionSum) {
         let precision = precisionSum[i];
         let precisionOut = output.connectionsStat[i];
-		//scale compensates for the lack of points at server start
-		let scale = (now - precision.edit.time) / precision.edit.period;
         if (precision.edit.count > 0) {
-          precisionOut.edit.avr = Math.round((precision.edit.sum / precision.edit.count) * scale);
+          precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.count);
           precisionOut.edit.min = precision.edit.min;
           precisionOut.edit.max = precision.edit.max;
         }
         if (precision.view.count > 0) {
-          precisionOut.view.avr = Math.round((precision.view.sum / precision.view.count) * scale);
+          precisionOut.view.avr = Math.round(precision.view.sum / precision.view.count);
           precisionOut.view.min = precision.view.min;
           precisionOut.view.max = precision.view.max;
         }
@@ -3394,6 +3399,11 @@ exports.licenseInfo = function(req, res) {
           output.quota.anonymousUserCount++;
         }
       });
+      output.quota.byMonth = yield editorData.getPresenceUniqueUsersOfMonth();
+      output.quota.byMonth.sort((a, b) => {
+        return a.date.localeCompare(b.date);
+      });
+      output.quota.editorConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;

@@ -127,7 +127,10 @@ function discovery(req, res) {
         }
         for (let j = 0; j < ext.edit.length; ++j) {
           output += `<action name="view" ext="${ext.edit[j]}" urlsrc="${urlTemplateView}" />`;
-          output += `<action name="editnew" ext="${ext.edit[j]}" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+          if ("oform" !== ext.edit[j]) {
+            //todo config
+            output += `<action name="editnew" ext="${ext.edit[j]}" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+          }
           output += `<action name="edit" ext="${ext.edit[j]}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
         }
         output +=`</app>`;
@@ -222,10 +225,16 @@ function getLastModifiedTimeFromCallbacks(callbacks) {
     }
   }
 }
+function isCorrectUserAuth(userAuth) {
+  return undefined !== userAuth.wopiSrc;
+}
 function parseWopiCallback(docId, userAuthStr, opt_url) {
   let wopiParams = null;
   if (isWopiCallback(userAuthStr)) {
     let userAuth = JSON.parse(userAuthStr);
+    if (!isCorrectUserAuth(userAuth)) {
+      userAuth = null;
+    }
     let commonInfo = null;
     let lastModifiedTime = null;
     if (opt_url) {
@@ -300,8 +309,8 @@ function getEditorHtml(req, res) {
       let wopiSrc = req.query['wopisrc'];
       let sc = req.query['sc'];
       let hostSessionId = req.query['hid'];
-      let access_token = req.body['access_token'];
-      let access_token_ttl = parseInt(req.body['access_token_ttl']);
+      let access_token = req.body['access_token'] || "";
+      let access_token_ttl = parseInt(req.body['access_token_ttl']) || 0;
 
       let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
 
@@ -388,6 +397,9 @@ function putFile(wopiParams, data, dataStream, userLastChangeId) {
     let postRes = null;
     try {
       logger.info('wopi PutFile start');
+      if (!wopiParams.userAuth) {
+        return postRes;
+      }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       let userAuth = wopiParams.userAuth;
       let uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
@@ -427,6 +439,9 @@ function renameFile(wopiParams, name) {
     let res;
     try {
       logger.info('wopi RenameFile start');
+      if (!wopiParams.userAuth) {
+        return res;
+      }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       let userAuth = wopiParams.userAuth;
       let uri = `${userAuth.wopiSrc}?access_token=${userAuth.access_token}`;
@@ -495,6 +510,9 @@ function lock(command, lockId, fileInfo, userAuth) {
     try {
       logger.info('wopi %s start', command);
       if (fileInfo && fileInfo.SupportsLocks) {
+        if (!userAuth) {
+          return false;
+        }
         let wopiSrc = userAuth.wopiSrc;
         let access_token = userAuth.access_token;
         let uri = `${wopiSrc}?access_token=${access_token}`;
@@ -526,6 +544,9 @@ function unlock(wopiParams) {
       logger.info('wopi Unlock start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
       if (fileInfo && fileInfo.SupportsLocks) {
+        if (!wopiParams.userAuth) {
+          return;
+        }
         let wopiSrc = wopiParams.userAuth.wopiSrc;
         let lockId = wopiParams.commonInfo.lockId;
         let access_token = wopiParams.userAuth.access_token;

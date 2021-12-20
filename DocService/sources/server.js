@@ -45,6 +45,7 @@ const http = require('http');
 const urlModule = require('url');
 const path = require('path');
 const bodyParser = require("body-parser");
+const multer = require('multer');
 const mime = require('mime');
 const apicache = require('apicache');
 const docsCoServer = require('./DocsCoServer');
@@ -165,6 +166,7 @@ docsCoServer.install(server, () => {
 	const rawFileParser = bodyParser.raw(
 		{inflate: true, limit: config.get('server.limits_tempfile_upload'), type: function() {return true;}});
 	const urleEcodedParser = bodyParser.urlencoded({ extended: false });
+	let forms = multer();
 
 	app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 	app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser,
@@ -220,7 +222,7 @@ docsCoServer.install(server, () => {
 	if (cfgWopiEnable) {
 		app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
 		app.get('/hosting/capabilities', utils.checkClientIp, wopiClient.collaboraCapabilities);
-		app.post('/hosting/wopi/:documentType/:mode', utils.checkClientIp, urleEcodedParser, utils.lowercaseQueryString, wopiClient.getEditorHtml);
+		app.post('/hosting/wopi/:documentType/:mode', utils.checkClientIp, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
 	}
 
 	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
@@ -295,8 +297,10 @@ docsCoServer.install(server, () => {
 						logger.debug('themes.json dir:%s', dir);
 						logger.debug('themes.json themesList:%j', themesList);
 						for (let j = 0; j < themesList.length; ++j) {
-							let data = yield utils.readFile(themesList[j], true);
-							themes.push(JSON.parse(data.toString('utf-8')));
+							if (themesList[j].endsWith('.json')) {
+								let data = yield utils.readFile(themesList[j], true);
+								themes.push(JSON.parse(data.toString('utf-8')));
+							}
 						}
 						break;
 					}
@@ -305,7 +309,7 @@ docsCoServer.install(server, () => {
 				logger.error('themes.json error:%s', err.stack);
 			} finally {
 				if (themes.length > 0) {
-					res.setHeader('Content-Type', 'text/xml');
+					res.setHeader('Content-Type', 'application/json');
 					res.send({"themes": themes});
 				} else {
 					res.sendStatus(404);

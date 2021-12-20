@@ -31,13 +31,18 @@
  */
 
 'use strict';
+const config = require('config');
+const ms = require('ms');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
+
+const cfgExpMonthUniqueUsers = ms(config.get('services.CoAuthoring.expire.monthUniqueUsers'));
 
 function EditorData() {
   this.data = {};
   this.forceSaveTimer = {};
   this.uniqueUser = {};
+  this.uniqueUsersOfMonth = {};
   this.shutdown = {};
   this.stat = [];
 }
@@ -237,6 +242,29 @@ EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
         res.push(newElem);
       } else {
         delete this.uniqueUser[userId];
+      }
+    }
+  }
+  return Promise.resolve(res);
+};
+EditorData.prototype.addPresenceUniqueUsersOfMonth = function(userId, period, userInfo) {
+  if(!this.uniqueUsersOfMonth[period]) {
+    let expireAt = Date.now() + cfgExpMonthUniqueUsers;
+    this.uniqueUsersOfMonth[period] = {expireAt: expireAt, data: {}};
+  }
+  this.uniqueUsersOfMonth[period].data[userId] = userInfo;
+  return Promise.resolve();
+};
+EditorData.prototype.getPresenceUniqueUsersOfMonth = function() {
+  let res = [];
+  let nowUTC = Date.now();
+  for (let periodId in this.uniqueUsersOfMonth) {
+    if (this.uniqueUsersOfMonth.hasOwnProperty(periodId)) {
+      if (this.uniqueUsersOfMonth[periodId].expireAt <= nowUTC) {
+        delete this.uniqueUsersOfMonth[periodId];
+      } else {
+        let date = new Date(parseInt(periodId)).toISOString();
+        res.push({date: date, users: this.uniqueUsersOfMonth[periodId].data});
       }
     }
   }
