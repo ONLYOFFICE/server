@@ -387,7 +387,12 @@ function getEditorHtml(req, res) {
       params.fileInfo = {};
     } finally {
       logger.debug('wopiEditor render params=%j', params);
-      res.render("editor-wopi", params);
+      try {
+        res.render("editor-wopi", params);
+      } catch (err) {
+        logger.error('wopiEditor error:%s', err.stack);
+        res.sendStatus(400);
+      }
       logger.info('wopiEditor end');
     }
   });
