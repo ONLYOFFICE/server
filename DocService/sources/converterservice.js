@@ -240,11 +240,7 @@ function convertRequest(req, res, isJson) {
       docId = 'conv_' + params.key + '_' + outputtype;
       cmd.setDocId(docId);
       cmd.setOutputFormat(outputFormat);
-      let fileTo = constants.OUTPUT_NAME;
-      let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
-      if (outputExt) {
-        fileTo += '.' + outputExt;
-      }
+
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage] || commonDefines.c_oAscCodePageUtf8);
       cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
       if(undefined != params.delimiterChar)
@@ -282,17 +278,18 @@ function convertRequest(req, res, isJson) {
             break;
         }
         cmd.setThumbnail(thumbnailData);
-        cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_IMAGE);
         if (false == thumbnailData.getFirst()) {
-          outputExt = 'zip';
+        cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_IMAGE);
         }
       }
+      let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
       if (params.title) {
         cmd.setTitle(path.basename(params.title, path.extname(params.title)) + '.' + outputExt);
       }
       var async = (typeof params.async === 'string') ? 'true' == params.async : params.async;
 
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== cmd.getOutputFormat()) {
+        let fileTo = constants.OUTPUT_NAME + '.' + outputExt;
         var status = yield* convertByCmd(cmd, async, fileTo);
         if (status.end) {
           let fileToPath = yield* getConvertPath(docId, fileTo, cmd.getOutputFormat());
