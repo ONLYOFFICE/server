@@ -529,7 +529,8 @@ function* commandReopen(conn, cmd, outputData) {
   return res;
 }
 function* commandSave(cmd, outputData) {
-  var completeParts = yield* saveParts(cmd, "Editor.bin");
+  let format = cmd.getFormat() || 'bin';
+  var completeParts = yield* saveParts(cmd, "Editor." + format);
   if (completeParts) {
     var queueData = getSaveTask(cmd);
     yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
