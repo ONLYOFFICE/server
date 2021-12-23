@@ -97,8 +97,8 @@ function TaskQueueDataConvert(task) {
   this.fileFrom = null;
   this.fileTo = null;
   this.title = cmd.getTitle();
-  if(constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA !== cmd.outputformat){
-    this.formatTo = cmd.outputformat;
+  if(constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA !== cmd.getOutputFormat()){
+    this.formatTo = cmd.getOutputFormat();
   } else {
     this.formatTo = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
     this.isPDFA = true;
@@ -385,7 +385,8 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorPro
   } else {
     //перезаписываем некоторые файлы из m_sKey(например Editor.bin или changes)
     yield* downloadFileFromStorage(cmd.getSaveKey(), cmd.getSaveKey(), tempDirs.source);
-    dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.bin');
+    let format = cmd.getFormat() || 'bin';
+    dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
     needConcatFiles = true;
   }
   if (!utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {

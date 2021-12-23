@@ -451,7 +451,7 @@ exports.getStringFromFormat = function(format) {
       return 'json';
 
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE:
-      return 'jpg';
+      return 'zip';
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_JPG:
       return 'jpg';
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF:
