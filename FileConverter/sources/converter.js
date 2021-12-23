@@ -373,7 +373,8 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorPro
   } else {
     //перезаписываем некоторые файлы из m_sKey(например Editor.bin или changes)
     yield* downloadFileFromStorage(cmd.getSaveKey(), cmd.getSaveKey(), tempDirs.source);
-    dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.bin');
+    let format = cmd.getFormat() || 'bin';
+    dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
     needConcatFiles = true;
   }
   if (!utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
