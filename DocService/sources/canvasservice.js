@@ -1159,7 +1159,7 @@ function* commandSendMMCallback(cmd) {
     var signedUrl = yield storage.getSignedUrl(mailMergeSendData.getBaseUrl(), saveKey + '/' + pathRes[1],
                                                commonDefines.c_oAscUrlTypes.Temporary);
     outputSfc.setUrl(signedUrl);
-    outputSfc.setExtName(path.extname(pathRes[1]));
+    outputSfc.setExtName(pathModule.extname(pathRes[1]));
     var uri = mailMergeSendData.getUrl();
     var replyStr = null;
     try {
