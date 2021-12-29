@@ -910,8 +910,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     }
     if (uri && baseUrl && userLastChangeId) {
       logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, uri);
-      var outputSfc = new commonDefines.OutputSfcData();
-      outputSfc.setKey(docId);
+      var outputSfc = new commonDefines.OutputSfcData(docId);
       outputSfc.setEncrypted(isEncrypted);
       var users = [];
       let isOpenFromForgotten = false;
@@ -1134,8 +1133,7 @@ function* commandSendMMCallback(cmd) {
   logger.debug('Start commandSendMMCallback: docId = %s', docId);
   var saveKey = cmd.getSaveKey();
   var statusInfo = cmd.getStatusInfo();
-  var outputSfc = new commonDefines.OutputSfcData();
-  outputSfc.setKey(docId);
+  var outputSfc = new commonDefines.OutputSfcData(docId);
   if (constants.NO_ERROR == statusInfo) {
     outputSfc.setStatus(docsCoServer.c_oAscServerStatus.MailMerge);
   } else {
