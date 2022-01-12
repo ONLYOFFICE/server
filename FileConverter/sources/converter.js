@@ -645,20 +645,6 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
   logger.debug('output (data=%s;id=%s)', JSON.stringify(res), dataConvert.key);
   return res;
 }
-function deleteFolderRecursive(strPath) {
-  if (fs.existsSync(strPath)) {
-    var files = fs.readdirSync(strPath);
-    files.forEach(function(file) {
-      var curPath = path.join(strPath, file);
-      if (fs.lstatSync(curPath).isDirectory()) { // recurse
-        deleteFolderRecursive(curPath);
-      } else { // delete file
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(strPath);
-  }
-}
 
 function* ExecuteTask(task) {
   var startDate = null;
@@ -827,7 +813,7 @@ function* ExecuteTask(task) {
     curDate = new Date();
   }
   if (tempDirs) {
-    deleteFolderRecursive(tempDirs.temp);
+    fs.rmSync(tempDirs.temp, { recursive: true, force: true });
     logger.debug('deleteFolderRecursive (id=%s)', dataConvert.key);
     if(clientStatsD) {
       clientStatsD.timing('conv.deleteFolderRecursive', new Date() - curDate);
