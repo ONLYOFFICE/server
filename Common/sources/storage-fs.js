@@ -35,7 +35,6 @@
 var fs = require('fs');
 const fse = require('fs-extra')
 var path = require('path');
-var mkdirp = require('mkdirp');
 var utils = require("./utils");
 var crypto = require('crypto');
 const ms = require('ms');
@@ -113,7 +112,7 @@ exports.createReadStream = function(strPath) {
 exports.putObject = function(strPath, buffer, contentLength) {
   return new Promise(function(resolve, reject) {
     var fsPath = getFilePath(strPath);
-    mkdirp(path.dirname(fsPath), function(err) {
+    fs.mkdir(path.dirname(fsPath), { recursive: true}, function(err) {
       if (err) {
         reject(err);
       } else {
