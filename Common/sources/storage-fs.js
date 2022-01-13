@@ -33,7 +33,6 @@
 'use strict';
 
 var fs = require('fs');
-const fse = require('fs-extra')
 var path = require('path');
 var mkdirp = require('mkdirp');
 var utils = require("./utils");
@@ -139,12 +138,12 @@ exports.putObject = function(strPath, buffer, contentLength) {
 };
 exports.uploadObject = function(strPath, filePath) {
   let fsPath = getFilePath(strPath);
-  return fse.copy(filePath, fsPath);
+  return fsPromises.copyFile(filePath, fsPath);
 };
 exports.copyObject = function(sourceKey, destinationKey) {
   let fsPathSource = getFilePath(sourceKey);
   let fsPathSestination = getFilePath(destinationKey);
-  return fse.copy(fsPathSource, fsPathSestination);
+  return fsPromises.copyFile(fsPathSource, fsPathSestination);
 };
 exports.listObjects = function(strPath) {
   return utils.listObjects(getFilePath(strPath)).then(function(values) {
