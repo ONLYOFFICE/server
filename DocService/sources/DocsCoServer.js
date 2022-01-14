@@ -2279,14 +2279,14 @@ exports.install = function(server, callbackFunction) {
               if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
                 yield* authRestore(conn, data.sessionId);
               } else {
-                yield* sendFileErrorAuth(conn, data.sessionId, 'Restore error. Locks not checked.');
+                yield* sendFileErrorAuth(conn, data.sessionId, 'Restore error. Locks not checked.', constants.RESTORE_CODE);
               }
             } else {
-              yield* sendFileErrorAuth(conn, data.sessionId, 'Restore error. Document modified.');
+              yield* sendFileErrorAuth(conn, data.sessionId, 'Restore error. Document modified.', constants.RESTORE_CODE);
             }
           } catch (err) {
             logger.error("DataBase error: docId = %s %s", docId, err.stack);
-            yield* sendFileErrorAuth(conn, data.sessionId, 'DataBase error');
+            yield* sendFileErrorAuth(conn, data.sessionId, 'DataBase error', constants.RESTORE_CODE);
           }
         } else {
           yield* authRestore(conn, data.sessionId);

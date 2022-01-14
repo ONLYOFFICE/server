@@ -276,6 +276,8 @@ exports.UPDATE_VERSION_CODE = 4008;
 exports.UPDATE_VERSION = 'update version';
 exports.NO_CACHE_CODE = 4009;
 exports.NO_CACHE = 'no cache';
+exports.RESTORE_CODE = 4010;
+exports.RESTORE = 'no cache';
 
 exports.CONTENT_DISPOSITION_INLINE = 'inline';
 exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';
