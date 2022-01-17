@@ -69,6 +69,8 @@ const cfgExpUpdateVersionStatus = ms(config.get('services.CoAuthoring.expire.upd
 const cfgCallbackBackoffOptions = config.get('services.CoAuthoring.callbackBackoffOptions');
 const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemblyFormatAsOrigin');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
+const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
+const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -108,12 +110,14 @@ function OutputData(type) {
   this['type'] = type;
   this['status'] = undefined;
   this['data'] = undefined;
+  this['filetype'] = undefined;
 }
 OutputData.prototype = {
   fromObject: function(data) {
     this['type'] = data['type'];
     this['status'] = data['status'];
     this['data'] = data['data'];
+    this['filetype'] = data['filetype'];
   },
   getType: function() {
     return this['type'];
@@ -132,6 +136,12 @@ OutputData.prototype = {
   },
   setData: function(data) {
     this['data'] = data;
+  },
+  getExtName: function() {
+    return this['filetype'];
+  },
+  setExtName: function(data) {
+    this['filetype'] = data.substring(1);
   }
 };
 
@@ -189,6 +199,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
                                                  cmd.getTitle());
           }
           outputData.setData(url);
+          outputData.setExtName(pathModule.extname(strPath));
         } else if (optAdditionalOutput) {
           optAdditionalOutput.needUrlKey = cmd.getInline() ? key : strPath;
           optAdditionalOutput.needUrlMethod = 2;
@@ -357,6 +368,8 @@ function* getUpdateResponse(cmd) {
     } else {
       updateTask.status = taskResult.FileStatus.Err;
     }
+  } else if (constants.CONVERT_DRM_UNSUPPORTED == statusInfo) {
+    updateTask.status = taskResult.FileStatus.Err;
   } else if (constants.CONVERT_DEAD_LETTER == statusInfo) {
     updateTask.status = taskResult.FileStatus.ErrToReload;
   } else {
@@ -516,7 +529,8 @@ function* commandReopen(conn, cmd, outputData) {
   return res;
 }
 function* commandSave(cmd, outputData) {
-  var completeParts = yield* saveParts(cmd, "Editor.bin");
+  let format = cmd.getFormat() || 'bin';
+  var completeParts = yield* saveParts(cmd, "Editor." + format);
   if (completeParts) {
     var queueData = getSaveTask(cmd);
     yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
@@ -592,16 +606,23 @@ function* commandImgurls(conn, cmd, outputData) {
   let docId = cmd.getDocId();
   var errorCode = constants.NO_ERROR;
   let urls = cmd.getData();
-  let authorization;
+  let authorizations = [];
   let token = cmd.getTokenDownload();
   if (cfgTokenEnableBrowser && token) {
     let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
       //todo multiple url case
-      let url = checkJwtRes.decoded.url;
-      urls = [url];
-      if (utils.canIncludeOutboxAuthorization(url)) {
-        authorization = utils.fillJwtForRequest({url: url});
+      if (checkJwtRes.decoded.images) {
+        urls = checkJwtRes.decoded.images.map(function(curValue) {
+          return curValue.url;
+        });
+      } else {
+        urls = [checkJwtRes.decoded.url];
+      }
+      for (let i = 0; i < urls.length; ++i) {
+        if (utils.canIncludeOutboxAuthorization(urls[i])) {
+          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]})];
+        }
       }
     } else {
       logger.warn('Error commandImgurls jwt: docId = %s\r\n%s', docId, checkJwtRes.description);
@@ -638,7 +659,7 @@ function* commandImgurls(conn, cmd, outputData) {
       } else if (urlSource) {
         try {
           //todo stream
-          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorization, !authorization);
+          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], !authorizations[i]);
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -733,6 +754,7 @@ function* commandPathUrl(conn, cmd, outputData) {
   } else {
     outputData.setStatus('ok');
     outputData.setData(url);
+    outputData.setExtName(pathModule.extname(strPath));
   }
 }
 function* commandSaveFromOrigin(cmd, outputData, password) {
@@ -888,8 +910,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     }
     if (uri && baseUrl && userLastChangeId) {
       logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, uri);
-      var outputSfc = new commonDefines.OutputSfcData();
-      outputSfc.setKey(docId);
+      var outputSfc = new commonDefines.OutputSfcData(docId);
       outputSfc.setEncrypted(isEncrypted);
       var users = [];
       let isOpenFromForgotten = false;
@@ -935,6 +956,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           let url = yield storage.getSignedUrl(baseUrl, savePathDoc, commonDefines.c_oAscUrlTypes.Temporary);
           outputSfc.setUrl(url);
+          outputSfc.setExtName(pathModule.extname(savePathDoc));
         } catch (e) {
           logger.error('Error commandSfcCallback: docId = %s\r\n%s', docId, e.stack);
         }
@@ -1040,7 +1062,10 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       updateIfTask.status = recoverTask.status;
       updateIfTask.statusInfo = recoverTask.statusInfo;
       updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
-      if (!(updateIfRes.affectedRows > 0)) {
+      if (updateIfRes.affectedRows > 0) {
+        updateMask.status = updateIfTask.status;
+        updateMask.statusInfo = updateIfTask.statusInfo;
+      } else {
         logger.debug('commandSfcCallback restore %d status failed: docId = %s', recoverTask.status, docId);
       }
     }
@@ -1056,7 +1081,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         //cleanupRes can be false in case of simultaneous opening. it is OK
         let cleanupRes = yield cleanupCacheIf(updateMask);
         logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
-      }
+    }
     }
     if (forceSave) {
       yield* docsCoServer.setForceSave(docId, forceSave, cmd, isSfcmSuccess && !isError);
@@ -1108,8 +1133,7 @@ function* commandSendMMCallback(cmd) {
   logger.debug('Start commandSendMMCallback: docId = %s', docId);
   var saveKey = cmd.getSaveKey();
   var statusInfo = cmd.getStatusInfo();
-  var outputSfc = new commonDefines.OutputSfcData();
-  outputSfc.setKey(docId);
+  var outputSfc = new commonDefines.OutputSfcData(docId);
   if (constants.NO_ERROR == statusInfo) {
     outputSfc.setStatus(docsCoServer.c_oAscServerStatus.MailMerge);
   } else {
@@ -1133,6 +1157,7 @@ function* commandSendMMCallback(cmd) {
     var signedUrl = yield storage.getSignedUrl(mailMergeSendData.getBaseUrl(), saveKey + '/' + pathRes[1],
                                                commonDefines.c_oAscUrlTypes.Temporary);
     outputSfc.setUrl(signedUrl);
+    outputSfc.setExtName(pathModule.extname(pathRes[1]));
     var uri = mailMergeSendData.getUrl();
     var replyStr = null;
     try {
@@ -1431,6 +1456,57 @@ exports.printFile = function(req, res) {
     }
   });
 };
+exports.downloadFile = function(req, res) {
+  return co(function*() {
+    let docId = 'null';
+    try {
+      let startDate = null;
+      if (clientStatsD) {
+        startDate = new Date();
+      }
+
+      let url = req.get('x-url');
+      docId = req.params.docid;
+      logger.info('Start downloadFile: docId = %s', docId);
+
+      let authorization;
+      if (cfgTokenEnableBrowser) {
+        let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
+        if (checkJwtRes.decoded) {
+          url = checkJwtRes.decoded.changesUrl;
+        } else {
+          logger.warn('Error downloadFile jwt: docId = %s description = %s', docId, checkJwtRes.description);
+          res.sendStatus(403);
+          return;
+        }
+        if (utils.canIncludeOutboxAuthorization(url)) {
+          authorization = utils.fillJwtForRequest({url: url});
+        }
+      }
+
+      yield utils.downloadUrlPromise(url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
+
+      if (clientStatsD) {
+        clientStatsD.timing('coauth.downloadFile', new Date() - startDate);
+      }
+    }
+    catch (err) {
+      logger.error('Error downloadFile: docId = %s %s', docId, err.stack);
+      if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+        res.sendStatus(408);
+      } else if (err.code === 'EMSGSIZE') {
+        res.sendStatus(413);
+      } else if (err.response) {
+        res.sendStatus(err.response.statusCode);
+      } else {
+        res.sendStatus(400);
+      }
+    }
+    finally {
+      logger.info('End downloadFile: docId = %s', docId);
+    }
+  });
+};
 exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_queue) {
   return co(function* () {
     try {
@@ -1446,8 +1522,8 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
       var row = selectRes.length > 0 ? selectRes[0] : null;
       if (row && row.status == taskResult.FileStatus.SaveVersion && row.status_info == statusInfo) {
         if (null == optFormat) {
-          optFormat = changeFormatByOrigin(docId, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER);
-        }
+          optFormat = changeFormatByOrigin(docId, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
+          }
         var cmd = new commonDefines.InputCommand();
         cmd.setCommand('sfc');
         cmd.setDocId(docId);

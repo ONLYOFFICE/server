@@ -85,10 +85,10 @@ var TEMP_PREFIX = 'ASC_CONVERT';
 var queue = null;
 var clientStatsD = statsDClient.getClient();
 var exitCodesReturn = [constants.CONVERT_PARAMS, constants.CONVERT_NEED_PARAMS, constants.CONVERT_CORRUPTED,
-  constants.CONVERT_DRM, constants.CONVERT_PASSWORD, constants.CONVERT_LIMITS];
-var exitCodesMinorError = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM, constants.CONVERT_PASSWORD];
+  constants.CONVERT_DRM, constants.CONVERT_DRM_UNSUPPORTED, constants.CONVERT_PASSWORD, constants.CONVERT_LIMITS];
+var exitCodesMinorError = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM, constants.CONVERT_DRM_UNSUPPORTED, constants.CONVERT_PASSWORD];
 var exitCodesUpload = [constants.NO_ERROR, constants.CONVERT_CORRUPTED, constants.CONVERT_NEED_PARAMS,
-  constants.CONVERT_DRM];
+  constants.CONVERT_DRM, constants.CONVERT_DRM_UNSUPPORTED];
 let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(task) {
@@ -97,8 +97,8 @@ function TaskQueueDataConvert(task) {
   this.fileFrom = null;
   this.fileTo = null;
   this.title = cmd.getTitle();
-  if(constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA !== cmd.outputformat){
-    this.formatTo = cmd.outputformat;
+  if(constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA !== cmd.getOutputFormat()){
+    this.formatTo = cmd.getOutputFormat();
   } else {
     this.formatTo = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
     this.isPDFA = true;
@@ -373,7 +373,8 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorPro
   } else {
     //перезаписываем некоторые файлы из m_sKey(например Editor.bin или changes)
     yield* downloadFileFromStorage(cmd.getSaveKey(), cmd.getSaveKey(), tempDirs.source);
-    dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.bin');
+    let format = cmd.getFormat() || 'bin';
+    dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
     needConcatFiles = true;
   }
   if (!utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
@@ -607,8 +608,8 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
     existFile = false;
   }
   if (!existFile) {
-    //todo пересмотреть. загрулка в случае AVS_OFFICESTUDIO_FILE_OTHER_TEAMLAB_INNER x2t меняет расширение у файла.
-    var fileToBasename = path.basename(dataConvert.fileTo);
+    //todo пересмотреть. загрулка в случае AVS_OFFICESTUDIO_FILE_OTHER_OOXML x2t меняет расширение у файла.
+    var fileToBasename = path.basename(dataConvert.fileTo, path.extname(dataConvert.fileTo));
     var fileToDir = path.dirname(dataConvert.fileTo);
     var files = fs.readdirSync(fileToDir);
     for (var i = 0; i < files.length; ++i) {
@@ -682,7 +683,7 @@ function* ExecuteTask(task) {
           url = fileInfo.FileUrl;
         } else if (fileInfo.TemplateSource) {
           url = fileInfo.TemplateSource;
-        } else {
+        } else if (userAuth) {
           url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
           headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes, 'X-WOPI-ItemVersion': fileInfo.Version};
           wopiClient.fillStandardHeaders(headers, url, userAuth.access_token);

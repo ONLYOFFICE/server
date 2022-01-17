@@ -231,6 +231,10 @@ exports.getFormatFromString = function(ext) {
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT_FLAT;
     case 'ott':
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OTT;
+    case 'oform':
+      return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM;
+    case 'docxf':
+      return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF;
 
     case 'pptx':
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX;
@@ -324,6 +328,10 @@ exports.getFormatFromString = function(ext) {
       return constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY;
     case 'pptt':
       return constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
+    case 'ooxml':
+      return constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
+    case 'odf':
+      return constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF;
     default:
       return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
@@ -362,8 +370,16 @@ exports.getStringFromFormat = function(format) {
       return 'ott';
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC_FLAT:
       return 'doc';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX_FLAT:
+      return 'docx';
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML_IN_CONTAINER:
       return 'doc';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX_PACKAGE:
+      return 'xml';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM:
+      return 'oform';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF:
+      return 'docxf';
 
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX:
       return 'pptx';
@@ -425,7 +441,7 @@ exports.getStringFromFormat = function(format) {
       return 'json';
 
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE:
-      return 'jpg';
+      return 'zip';
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_JPG:
       return 'jpg';
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF:
@@ -466,6 +482,10 @@ exports.getStringFromFormat = function(format) {
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_OLD_DRAWING:
     case constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY:
       return 'pptt';
+    case constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML:
+      return 'ooxml';
+    case constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF:
+      return 'odf';
     default:
       return '';
   }

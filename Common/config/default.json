@@ -30,8 +30,6 @@
 		"urlExpires": 604800,
 		"accessKeyId": "AKID",
 		"secretAccessKey": "SECRET",
-		"useRequestToGetUrl": false,
-		"useSignedUrl": false,
 		"sslEnabled": false,
 		"s3ForcePathStyle": true,
 		"externalHost": ""
@@ -83,8 +81,8 @@
 		"favIconUrlCell" : "/web-apps/apps/spreadsheeteditor/main/resources/img/favicon.ico",
 		"favIconUrlSlide" : "/web-apps/apps/presentationeditor/main/resources/img/favicon.ico",
 		"fileInfoBlockList" : ["FileUrl"],
-		"wordView": ["pdf", "djvu", "xps", "doc", "dotx", "dotm", "dot", "fodt", "ott", "rtf", "mht", "html", "htm", "xml", "epub", "fb2"],
-		"wordEdit": ["docx", "docm", "odt", "txt"],
+		"wordView": ["pdf", "djvu", "xps", "oxps", "doc", "dotx", "dotm", "dot", "fodt", "ott", "rtf", "mht", "html", "htm", "xml", "epub", "fb2"],
+		"wordEdit": ["docx", "docm", "docxf", "oform", "odt", "txt"],
 		"cellView": ["xls", "xltx", "xltm", "xlt", "fods", "ots"],
 		"cellEdit": ["xlsx", "xlsm", "ods", "csv"],
 		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potx", "potm", "pot", "fodp", "otp"],
@@ -123,7 +121,7 @@
 				"maxRequestChanges": 20000,
 				"openProtectedFile": true,
 				"editorDataStorage": "editorDataMemory",
-				"assemblyFormatAsOrigin": false,
+				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new"
 			},
 			"requestDefaults": {
@@ -188,7 +186,8 @@
 				"sessionclosecommand": "2m",
 				"pemStdTTL": "1h",
 				"pemCheckPeriod": "10m",
-				"updateVersionStatus": "5m"
+				"updateVersionStatus": "5m",
+				"monthUniqueUsers": "1y"
 			},
 			"ipfilter": {
 				"rules": [{"address": "*", "allowed": true}],
@@ -240,6 +239,9 @@
 			"plugins": {
 				"uri": "/sdkjs-plugins",
 				"autostart": []
+			},
+			"themes": {
+				"uri": "/web-apps/apps/common/main/resources/themes"
 			},
 			"editor":{
 				"spellcheckerUrl": "",

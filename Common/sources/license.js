@@ -39,6 +39,8 @@ const oBuildDate = new Date(buildDate);
 
 exports.readLicense = function*() {
 	const c_LR = constants.LICENSE_RESULT;
+	var now = new Date();
+	var startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));//first day of current month
 	return [{
 		count: 1,
 		type: c_LR.Success,
@@ -53,6 +55,7 @@ exports.readLicense = function*() {
 		hasLicense: false,
 		plugins: false,
 		buildDate: oBuildDate,
+		startDate: startDate,
 		endDate: null
 	}, null];
 };

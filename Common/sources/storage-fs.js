@@ -180,7 +180,9 @@ exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_crea
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
     var userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, "%2f")) : path.basename(strPath);
     var uri = '/' + cfgBucketName + '/' + cfgStorageFolderName + '/' + strPath + '/' + userFriendlyName;
-    var url = utils.checkBaseUrl(baseUrl) + uri;
+    //RFC 1123 does not allow underscores https://stackoverflow.com/questions/2180465/can-domain-name-subdomains-have-an-underscore-in-it
+    var url = utils.checkBaseUrl(baseUrl).replace(/_/g, "%5f");
+    url += uri;
 
     var date = Date.now();
     let creationDate = opt_creationDate || date;

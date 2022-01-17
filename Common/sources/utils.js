@@ -255,16 +255,23 @@ function raiseError(ro, code, msg) {
   error.code = code;
   ro.emit('error', error);
 }
-function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers) {
+function raiseErrorObj(ro, error) {
+  ro.abort();
+  ro.emit('error', error);
+}
+function isRedirectResponse(response) {
+  return response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location');
+}
+function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   //todo replace deprecated request module
   const maxRedirects = (undefined !== cfgRequestDefaults.maxRedirects) ? cfgRequestDefaults.maxRedirects : 10;
   const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
   var redirectsFollowed = 0;
   let doRequest = function(curUrl) {
-    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers)
+    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
       .catch(function(err) {
         let response = err.response;
-        if (response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location')) {
+        if (isRedirectResponse(response)) {
           let redirectTo = response.caseless.get('location');
           if (followRedirect && redirectsFollowed < maxRedirects) {
             if (!/^https?:/.test(redirectTo) && err.request) {
@@ -281,11 +288,13 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_fi
   };
   return doRequest(uri);
 }
-function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers) {
+function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
     var urlParsed = url.parse(uri);
+    let sizeLimit = optLimit || Number.MAX_VALUE;
+    let bufferLength = 0;
     //if you expect binary data, you should set encoding: null
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false};
@@ -299,46 +308,61 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
     if (opt_headers) {
       options.headers = opt_headers;
     }
-
-    let sizeLimit = optLimit || Number.MAX_VALUE;
-    let bufferLength = 0;
-
-    let executed = false;
-    let ro = baseRequest.get(options, function(err, response, body) {
-      if (executed) {
-        return;
-      }
-      executed = true;
-      if (err) {
-        reject(err);
-      } else {
-        if (response.statusCode === 200) {
-          var contentLength = response.headers['content-length'];
+    let fError = function(err) {
+      reject(err);
+    }
+    if (!opt_streamWriter) {
+      fError = function() {};
+      let executed = false;
+      options.callback = function(err, response, body) {
+        if (executed) {
+          return;
+        }
+        executed = true;
+        if (err) {
+          reject(err);
+        } else {
+          var contentLength = response.caseless.get('content-length');
           if (contentLength && body.length !== (contentLength - 0)) {
             logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
           resolve({response: response, body: body});
-        } else {
-          let code = response.statusCode;
-          let responseHeaders = JSON.stringify(response.headers);
-          let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
-          error.statusCode = response.statusCode;
-          error.request = ro;
-          error.response = response;
-          reject(error);
         }
-      }
-    }).on('response', function(response) {
-      var contentLength = response.headers['content-length'];
+      };
+    }
+    let fResponse = function(response) {
+      var contentLength = response.caseless.get('content-length');
       if (contentLength && (contentLength - 0) > sizeLimit) {
         raiseError(this, 'EMSGSIZE', 'Error response: content-length:' + contentLength);
+      } else if (response.statusCode !== 200) {
+        let code = response.statusCode;
+        let responseHeaders = JSON.stringify(response.headers);
+        let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders};`);
+        error.statusCode = response.statusCode;
+        error.request = this;
+        error.response = response;
+        if (opt_streamWriter && !isRedirectResponse(response)) {
+          this.off('error', fError);
+          resolve(pipeStreams(this, opt_streamWriter, true));
+        } else {
+          raiseErrorObj(this, error);
+        }
+      } else if (opt_streamWriter) {
+        this.off('error', fError);
+        resolve(pipeStreams(this, opt_streamWriter, true));
       }
-    }).on('data', function(chunk) {
+    };
+    let fData = function(chunk) {
       bufferLength += chunk.length;
       if (bufferLength > sizeLimit) {
         raiseError(this, 'EMSGSIZE', 'Error response body.length');
       }
-    });
+    }
+
+    let ro = baseRequest.get(options)
+      .on('response', fResponse)
+      .on('data', fData)
+      .on('error', fError);
     if (optTimeout && optTimeout.wholeCycle) {
       setTimeout(function() {
         raiseError(ro, 'ETIMEDOUT', 'Error: whole request cycle timeout');
@@ -407,6 +431,7 @@ exports.mapAscServerErrorToOldError = function(error) {
       break;
     case constants.CONVERT_PASSWORD :
     case constants.CONVERT_DRM :
+    case constants.CONVERT_DRM_UNSUPPORTED :
       res = -5;
       break;
     case constants.CONVERT_DOWNLOAD :
@@ -474,6 +499,11 @@ function fillXmlResponse(val) {
     } else {
       xml += '<FileUrl/>';
     }
+    if (val.fileType) {
+      xml += '<FileType>' + exports.encodeXml(val.fileType) + '</FileType>';
+    } else {
+      xml += '<FileType/>';
+    }
     xml += '<Percent>' + val.percent + '</Percent>';
     xml += '<EndConvert>' + (val.endConvert ? 'True' : 'False') + '</EndConvert>';
   }
@@ -500,12 +530,12 @@ function _fillResponse(res, output, isJSON) {
   fillResponseSimple(res, data, contentType);
 }
 
-function fillResponse(req, res, uri, error, isJSON) {
+function fillResponse(req, res, convertStatus, isJSON) {
   let output;
-  if (constants.NO_ERROR != error) {
-    output = {error: exports.mapAscServerErrorToOldError(error)};
+  if (constants.NO_ERROR != convertStatus.err) {
+    output = {error: exports.mapAscServerErrorToOldError(convertStatus.err)};
   } else {
-    output = {fileUrl: uri, percent: (uri ? 100 : 0), endConvert: !!uri};
+    output = {fileUrl: convertStatus.url, fileType: convertStatus.filetype, percent: (convertStatus.end ? 100 : 0), endConvert: convertStatus.end};
   }
   const accepts = isJSON ? ['json', 'xml'] : ['xml', 'json'];
   switch (req.accepts(accepts)) {
@@ -901,6 +931,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   // 	whiteLabel = false;
   // }
   let license = {};
+  license.start_date = licenseInfo.startDate && licenseInfo.startDate.toJSON();
   license.end_date = licenseInfo.endDate && licenseInfo.endDate.toJSON();
   license.timelimited = 0 !== (constants.LICENSE_MODE.Limited & licenseInfo.mode);
   license.trial = 0 !== (constants.LICENSE_MODE.Trial & licenseInfo.mode);
@@ -933,4 +964,48 @@ exports.convertLicenseInfoToServerParams = function(licenseInfo) {
 };
 exports.checkBaseUrl = function(baseUrl) {
   return cfgStorageExternalHost ? cfgStorageExternalHost : baseUrl;
+};
+exports.resolvePath = function(object, path, defaultValue) {
+  return path.split('.').reduce((o, p) => o ? o[p] : defaultValue, object);
+}
+
+Date.isLeapYear = function (year) {
+  return (((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0));
+};
+
+Date.getDaysInMonth = function (year, month) {
+  return [31, (Date.isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month];
+};
+
+Date.prototype.isLeapYear = function () {
+  return Date.isLeapYear(this.getUTCFullYear());
+};
+
+Date.prototype.getDaysInMonth = function () {
+  return Date.getDaysInMonth(this.getUTCFullYear(), this.getUTCMonth());
+};
+
+Date.prototype.addMonths = function (value) {
+  var n = this.getUTCDate();
+  this.setUTCDate(1);
+  this.setUTCMonth(this.getUTCMonth() + value);
+  this.setUTCDate(Math.min(n, this.getDaysInMonth()));
+  return this;
+};
+function getMonthDiff(d1, d2) {
+  var months;
+  months = (d2.getUTCFullYear() - d1.getUTCFullYear()) * 12;
+  months -= d1.getUTCMonth();
+  months += d2.getUTCMonth();
+  return months;
+}
+
+exports.getLicensePeriod = function(startDate, now) {
+  startDate = new Date(startDate.getTime());//clone
+  startDate.addMonths(getMonthDiff(startDate, now));
+  if (startDate > now) {
+    startDate.addMonths(-1);
+  }
+  startDate.setUTCHours(0,0,0,0);
+  return startDate.getTime();
 };
