@@ -945,8 +945,7 @@ function* sendStatusDocument(docId, bChangeBase, opt_userAction, opt_userIndex, 
     }
   }
 
-  var sendData = new commonDefines.OutputSfcData();
-  sendData.setKey(docId);
+  var sendData = new commonDefines.OutputSfcData(docId);
   sendData.setStatus(status);
   if (c_oAscServerStatus.Closed !== status) {
     sendData.setUsers(participants);
@@ -2025,6 +2024,11 @@ exports.install = function(server, callbackFunction) {
 
     res = res && fillDataFromWopiJwt(decoded, data);
 
+    //todo make required fields
+    if (decoded.url || decoded.payload|| (decoded.key && !decoded.fileInfo)) {
+      res = false;
+    }
+
     //issuer for secret
     if (decoded.iss) {
       data.iss = decoded.iss;
@@ -2033,19 +2037,11 @@ exports.install = function(server, callbackFunction) {
   }
   function fillVersionHistoryFromJwt(decoded, cmd) {
     if (decoded.changesUrl && decoded.previous && (cmd.getServerVersion() === commonDefines.buildVersion)) {
-      if (decoded.previous.url) {
-        cmd.setUrl(decoded.previous.url);
-      }
-      if (decoded.previous.key) {
-        cmd.setDocId(decoded.previous.key);
-      }
+      cmd.setUrl(decoded.previous.url);
+      cmd.setDocId(decoded.previous.key);
     } else {
-      if (decoded.url) {
-        cmd.setUrl(decoded.url);
-      }
-      if (decoded.key) {
-        cmd.setDocId(decoded.key);
-      }
+      cmd.setUrl(decoded.url);
+      cmd.setDocId(decoded.key);
     }
   }
 

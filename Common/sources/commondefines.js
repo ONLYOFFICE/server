@@ -780,8 +780,8 @@ TaskQueueData.prototype = {
   }
 };
 
-function OutputSfcData() {
-  this['key'] = undefined;
+function OutputSfcData(key) {
+  this['key'] = key;
   this['status'] = undefined;
   this['url'] = undefined;
   this['changesurl'] = undefined;
