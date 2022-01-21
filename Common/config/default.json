@@ -122,7 +122,8 @@
 				"openProtectedFile": true,
 				"editorDataStorage": "editorDataMemory",
 				"assemblyFormatAsOrigin": true,
-				"newFileTemplate" : "../../document-templates/new"
+				"newFileTemplate" : "../../document-templates/new",
+				"downloadFileAllowExt": ["pdf"]
 			},
 			"requestDefaults": {
 				"headers": {

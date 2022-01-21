@@ -71,6 +71,7 @@ const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemb
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
+const cfgDownloadFileAllowExt = config.get('services.CoAuthoring.server.downloadFileAllowExt');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -1472,10 +1473,21 @@ exports.downloadFile = function(req, res) {
       let authorization;
       if (cfgTokenEnableBrowser) {
         let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
+        let errorDescription;
         if (checkJwtRes.decoded) {
-          url = checkJwtRes.decoded.changesUrl;
+          let decoded = checkJwtRes.decoded;
+          if (decoded.changesUrl) {
+            url = decoded.changesUrl;
+          } else if (decoded.document && -1 !== cfgDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
+            url = decoded.document.url;
+          } else {
+            errorDescription = 'access deny';
+          }
         } else {
-          logger.warn('Error downloadFile jwt: docId = %s description = %s', docId, checkJwtRes.description);
+          errorDescription = checkJwtRes.description;
+        }
+        if (errorDescription) {
+          logger.warn('Error downloadFile jwt: docId = %s description = %s', docId, errorDescription);
           res.sendStatus(403);
           return;
         }
