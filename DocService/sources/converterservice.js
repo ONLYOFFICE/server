@@ -248,6 +248,9 @@ function convertRequest(req, res, isJson) {
       if (params.region && locale[params.region.toLowerCase()]) {
         cmd.setLCID(locale[params.region.toLowerCase()].id);
       }
+      if (params.documentLayout) {
+        cmd.setJsonParams(JSON.stringify({'documentLayout': params.documentLayout}));
+      }
       if (params.spreadsheetLayout) {
         cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
       }
