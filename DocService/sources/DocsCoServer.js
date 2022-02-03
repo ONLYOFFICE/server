@@ -105,6 +105,8 @@ const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
+const Ajv = require("ajv");
+const openingFileSchema = require("../../schema/json-api/opening-file.json");
 
 const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
@@ -180,6 +182,9 @@ const SHARD_ID = crypto.randomBytes(16).toString('base64');//16 as guid
 const PRECISION = [{name: 'hour', val: ms('1h')}, {name: 'day', val: ms('1d')}, {name: 'week', val: ms('7d')},
   {name: 'month', val: ms('31d')},
 ];
+
+const ajv = new Ajv();
+const ajvValidate = ajv.compile(openingFileSchema);
 
 function getIsShutdown() {
   return shutdownFlag;
@@ -1940,93 +1945,81 @@ exports.install = function(server, callbackFunction) {
       //not '=' because if it jwt from previous version, we must use values from data
       Object.assign(data.permissions, permissions);
     }
+
+    //issuer for secret
+    if (decoded.iss) {
+      data.iss = decoded.iss;
+    }
     return res;
   }
   function fillDataFromJwt(decoded, data) {
     let res = true;
     var openCmd = data.openCmd;
-    if (decoded.document) {
-      var doc = decoded.document;
-      if(null != doc.key){
-        data.docid = doc.key;
-        if(openCmd){
-          openCmd.id = doc.key;
+    var doc = decoded.document;
+    data.docid = doc.key;
+    if (openCmd) {
+      openCmd.id = doc.key;
+    }
+    if (doc.permissions) {
+      res = deepEqual(data.permissions, doc.permissions, {strict: true});
+      if (!data.permissions) {
+        data.permissions = {};
+      }
+      //not '=' because if it jwt from previous version, we must use values from data
+      Object.assign(data.permissions, doc.permissions);
+    }
+    if (openCmd) {
+      if (null != doc.fileType) {
+        openCmd.format = doc.fileType;
+      }
+      if (null != doc.title) {
+        openCmd.title = doc.title;
+      }
+      openCmd.url = doc.url;
+    }
+    if (null != doc.ds_encrypted) {
+      data.encrypted = doc.ds_encrypted;
+    }
+    var edit = decoded.editorConfig;
+    data.documentCallbackUrl = edit.callbackUrl;
+    if (null != edit.lang) {
+      data.lang = edit.lang;
+    }
+    if (null != edit.mode) {
+      data.mode = edit.mode;
+    }
+    if (null != edit.ds_view) {
+      data.view = edit.ds_view;
+    }
+    if (null != edit.ds_isCloseCoAuthoring) {
+      data.isCloseCoAuthoring = edit.ds_isCloseCoAuthoring;
+    }
+    data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
+    data.denyChangeName = edit.ds_denyChangeName;
+    if (edit.user) {
+      var dataUser = data.user;
+      var user = edit.user;
+      if (null != user.id) {
+        dataUser.id = user.id;
+        if (openCmd) {
+          openCmd.userid = user.id;
         }
       }
-      if(doc.permissions) {
-        res = deepEqual(data.permissions, doc.permissions, {strict: true});
-        if(!data.permissions){
-          data.permissions = {};
-        }
-        //not '=' because if it jwt from previous version, we must use values from data
-        Object.assign(data.permissions, doc.permissions);
+      if (null != user.index) {
+        dataUser.indexUser = user.index;
       }
-      if(openCmd){
-        if(null != doc.fileType) {
-          openCmd.format = doc.fileType;
-        }
-        if(null != doc.title) {
-          openCmd.title = doc.title;
-        }
-        if(null != doc.url) {
-          openCmd.url = doc.url;
-        }
+      if (null != user.firstname) {
+        dataUser.firstname = user.firstname;
       }
-      if (null != doc.ds_encrypted) {
-        data.encrypted = doc.ds_encrypted;
+      if (null != user.lastname) {
+        dataUser.lastname = user.lastname;
+      }
+      if (user.name) {
+        dataUser.username = user.name;
       }
     }
-    if (decoded.editorConfig) {
-      var edit = decoded.editorConfig;
-      if (null != edit.callbackUrl) {
-        data.documentCallbackUrl = edit.callbackUrl;
-      }
-      if (null != edit.lang) {
-        data.lang = edit.lang;
-      }
-      if (null != edit.mode) {
-        data.mode = edit.mode;
-      }
-      if (null != edit.ds_view) {
-        data.view = edit.ds_view;
-      }
-      if (null != edit.ds_isCloseCoAuthoring) {
-        data.isCloseCoAuthoring = edit.ds_isCloseCoAuthoring;
-      }
-      data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
-      data.denyChangeName = edit.ds_denyChangeName;
-      if (edit.user) {
-        var dataUser = data.user;
-        var user = edit.user;
-        if (null != user.id) {
-          dataUser.id = user.id;
-          if (openCmd) {
-            openCmd.userid = user.id;
-          }
-        }
-        if (null != user.index) {
-          dataUser.indexUser = user.index;
-        }
-        if (null != user.firstname) {
-          dataUser.firstname = user.firstname;
-        }
-        if (null != user.lastname) {
-          dataUser.lastname = user.lastname;
-        }
-        if (user.name) {
-          dataUser.username = user.name;
-        }
-      }
-      if (edit.user && edit.user.name) {
-        data.denyChangeName = true;
-      }
-    }
-
-    res = res && fillDataFromWopiJwt(decoded, data);
-
-    //todo make required fields
-    if (decoded.url || decoded.payload|| (decoded.key && !decoded.fileInfo)) {
-      res = false;
+    if (edit.user && edit.user.name) {
+      data.denyChangeName = true;
     }
 
     //issuer for secret
@@ -2073,7 +2066,26 @@ exports.install = function(server, callbackFunction) {
           commonDefines.c_oAscSecretType.Browser;
         const checkJwtRes = checkJwt(docId, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
-          if (!fillDataFromJwt(checkJwtRes.decoded, data)) {
+          let decoded = checkJwtRes.decoded;
+          let fillDataFromJwtRes = false;
+          if (decoded.fileInfo) {
+            //wopi
+            fillDataFromJwtRes = fillDataFromWopiJwt(decoded, data);
+          } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_view) {
+            //reconnection
+            fillDataFromJwtRes = fillDataFromJwt(decoded, data);
+          } else {
+            //opening
+            let valid = ajvValidate(decoded);
+            if (valid) {
+              fillDataFromJwtRes = fillDataFromJwt(decoded, data);
+            } else {
+              logger.error("auth missing required parameter (since 7.1 version): docId = %s %j", docId, ajvValidate.errors);
+              conn.close(constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              return;
+            }
+          }
+          if(!fillDataFromJwtRes) {
             logger.warn("fillDataFromJwt return false: docId = %s", docId);
             conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
             return;
