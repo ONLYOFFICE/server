@@ -1081,7 +1081,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       if (!isSfcm) {
         //cleanupRes can be false in case of simultaneous opening. it is OK
         let cleanupRes = yield cleanupCacheIf(updateMask);
-        logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
+        logger.debug('storeForgotten cleanupRes=%s: docId = %s', cleanupRes, docId);
     }
     }
     if (forceSave) {
