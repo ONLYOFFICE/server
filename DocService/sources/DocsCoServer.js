@@ -106,7 +106,6 @@ const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
 const Ajv = require("ajv");
-const openingFileSchema = require("../../schema/json-api/opening-file.json");
 
 const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
@@ -184,7 +183,7 @@ const PRECISION = [{name: 'hour', val: ms('1h')}, {name: 'day', val: ms('1d')}, 
 ];
 
 const ajv = new Ajv();
-const ajvValidate = ajv.compile(openingFileSchema);
+const ajvValidate = ajv.compile(commonDefines.jwtSchemaOpening);
 
 function getIsShutdown() {
   return shutdownFlag;
