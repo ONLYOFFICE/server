@@ -1098,93 +1098,6 @@ const c_oAscUnlockRes = {
 const buildVersion = '4.1.2';
 const buildNumber = 37;
 
-const jwtSchemaOpening = {
-  "$schema": "http://json-schema.org/draft-07/schema",
-  "$id": "https://example.com/example.json",
-  "type": "object",
-  "required": [
-  "document",
-  "editorConfig"
-],
-  "properties": {
-  "document": {
-    "$id": "#/properties/document",
-      "type": "object",
-      "required": [
-      "key",
-      "permissions",
-      "url"
-    ],
-      "properties": {
-      "key": {
-        "$id": "#/properties/document/properties/key",
-          "type": "string"
-      },
-      "permissions": {
-        "$id": "#/properties/document/properties/permissions",
-          "type": "object",
-          "required": [],
-          "additionalProperties": true
-      },
-      "url": {
-        "$id": "#/properties/document/properties/url",
-          "type": "string"
-      }
-    },
-    "additionalProperties": true
-  },
-  "editorConfig": {
-    "$id": "#/properties/editorConfig",
-      "type": "object",
-      "required": [
-      "callbackUrl",
-      "mode"
-    ],
-      "properties": {
-      "callbackUrl": {
-        "$id": "#/properties/editorConfig/properties/callbackUrl",
-          "type": "string"
-      },
-      "mode": {
-        "$id": "#/properties/editorConfig/properties/mode",
-          "type": "string"
-      },
-      "user": {
-        "$id": "#/properties/editorConfig/properties/user",
-          "type": "object",
-          "required": [],
-          "properties": {
-          "group": {
-            "$id": "#/properties/editorConfig/properties/user/properties/group",
-              "type": "string"
-          },
-          "id": {
-            "$id": "#/properties/editorConfig/properties/user/properties/id",
-              "anyOf": [
-              {
-                "$id": "#/properties/editorConfig/properties/user/properties/id/anyOf/0",
-                "type": "string"
-              },
-              {
-                "$id": "#/properties/editorConfig/properties/user/properties/id/anyOf/1",
-                "type": "integer"
-              }
-            ]
-          },
-          "name": {
-            "$id": "#/properties/editorConfig/properties/user/properties/name",
-              "type": "string"
-          }
-        },
-        "additionalProperties": true
-      }
-    },
-    "additionalProperties": true
-  }
-},
-  "additionalProperties": true
-}
-
 exports.TaskQueueData = TaskQueueData;
 exports.CMailMergeSendData = CMailMergeSendData;
 exports.CThumbnailData = CThumbnailData;
@@ -1209,4 +1122,3 @@ exports.c_oAscQueueType = c_oAscQueueType;
 exports.c_oAscUnlockRes = c_oAscUnlockRes;
 exports.buildVersion = buildVersion;
 exports.buildNumber = buildNumber;
-exports.jwtSchemaOpening = jwtSchemaOpening;
