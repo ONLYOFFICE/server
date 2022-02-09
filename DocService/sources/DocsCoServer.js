@@ -2041,6 +2041,10 @@ exports.install = function(server, callbackFunction) {
         if (user.name) {
           dataUser.username = user.name;
         }
+        if (user.group) {
+          //like in Common.Utils.fillUserInfo(web-apps/apps/common/main/lib/util/utils.js)
+          dataUser.username = user.group.toString() + String.fromCharCode(160) + dataUser.username;
+        }
       }
       if (edit.user && edit.user.name) {
         data.denyChangeName = true;
