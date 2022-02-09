@@ -123,7 +123,8 @@
 				"editorDataStorage": "editorDataMemory",
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
-				"downloadFileAllowExt": ["pdf"]
+				"downloadFileAllowExt": ["pdf"],
+				"tokenRequiredParams": true
 			},
 			"requestDefaults": {
 				"headers": {
