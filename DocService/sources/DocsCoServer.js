@@ -3394,8 +3394,8 @@ exports.licenseInfo = function(req, res) {
       var precisionSum = {};
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
-          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0},
-          view: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0}
+          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0},
+          view: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0}
         };
         output.connectionsStat[PRECISION[i].name] = {
           edit: {min: 0, avr: 0, max: 0},
@@ -3404,37 +3404,45 @@ exports.licenseInfo = function(req, res) {
       }
       var redisRes = yield editorData.getEditorConnections();
       const now = Date.now();
-      var precisionIndex = 0;
-      for (let i = redisRes.length - 1; i >= 1; i -= 2) {
-        for (let j = precisionIndex; j < PRECISION.length; ++j) {
+      if (redisRes.length > 0) {
+        let expDocumentsStep95 = expDocumentsStep * 0.95;
+        let prevTime = Number.MAX_VALUE;
+        var precisionIndex = 0;
+        for (let i = redisRes.length - 1; i >= 0; i--) {
           let elem = redisRes[i];
-          if (now - elem.time < PRECISION[j].val) {
-            let precision = precisionSum[PRECISION[j].name];
-            precision.edit.min = Math.min(precision.edit.min, elem.edit);
-            precision.edit.max = Math.max(precision.edit.max, elem.edit);
-            precision.edit.sum += elem.edit;
-            precision.edit.count++;
-            precision.view.min = Math.min(precision.view.min, elem.view);
-            precision.view.max = Math.max(precision.view.max, elem.view);
-            precision.view.sum += elem.view;
-            precision.view.count++;
-          } else {
-            precisionIndex = j + 1;
+          //skip duplicates in cluster
+          if (prevTime - elem.time >= expDocumentsStep95) {
+            for (let j = precisionIndex; j < PRECISION.length; ++j) {
+              if (now - elem.time < PRECISION[j].val) {
+                let precision = precisionSum[PRECISION[j].name];
+                precision.edit.min = Math.min(precision.edit.min, elem.edit);
+                precision.edit.max = Math.max(precision.edit.max, elem.edit);
+                precision.edit.sum += elem.edit;
+                precision.edit.count++;
+                precision.view.min = Math.min(precision.view.min, elem.view);
+                precision.view.max = Math.max(precision.view.max, elem.view);
+                precision.view.sum += elem.view;
+                precision.view.count++;
+              } else {
+                precisionIndex = j + 1;
+              }
+            }
           }
+          prevTime = elem.time;
         }
-      }
-      for (let i in precisionSum) {
-        let precision = precisionSum[i];
-        let precisionOut = output.connectionsStat[i];
-        if (precision.edit.count > 0) {
-          precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.count);
-          precisionOut.edit.min = precision.edit.min;
-          precisionOut.edit.max = precision.edit.max;
-        }
-        if (precision.view.count > 0) {
-          precisionOut.view.avr = Math.round(precision.view.sum / precision.view.count);
-          precisionOut.view.min = precision.view.min;
-          precisionOut.view.max = precision.view.max;
+        for (let i in precisionSum) {
+          let precision = precisionSum[i];
+          let precisionOut = output.connectionsStat[i];
+          if (precision.edit.count > 0) {
+            precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.intervalsInPresision);
+            precisionOut.edit.min = precision.edit.min;
+            precisionOut.edit.max = precision.edit.max;
+          }
+          if (precision.view.count > 0) {
+            precisionOut.view.avr = Math.round(precision.view.sum / precision.view.intervalsInPresision);
+            precisionOut.view.min = precision.view.min;
+            precisionOut.view.max = precision.view.max;
+          }
         }
       }
       const nowUTC = getLicenseNowUtc();
