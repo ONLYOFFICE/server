@@ -2748,7 +2748,7 @@ exports.install = function(server, callbackFunction) {
         }
         yield* publish({type: commonDefines.c_oPublishType.changes, docId: docId, userId: userId,
           changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
-          locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo}, docId, userId);
+          locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo, endSaveChanges: data.endSaveChanges}, docId, userId);
       }
       // Автоматически снимаем lock сами и посылаем индекс для сохранения
       yield* unSaveLock(conn, changesIndex, newChangesLastTime);
@@ -2766,7 +2766,7 @@ exports.install = function(server, callbackFunction) {
       }
       let isPublished = yield* publish({type: commonDefines.c_oPublishType.changes, docId: docId, userId: userId,
         changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
-        locks: [], excelAdditionalInfo: undefined}, docId, userId);
+        locks: [], excelAdditionalInfo: undefined, endSaveChanges: data.endSaveChanges}, docId, userId);
       sendData(conn, {type: 'savePartChanges', changesIndex: changesIndex});
       if (!isPublished) {
         //stub for lockDocumentsTimerId
@@ -3052,7 +3052,8 @@ exports.install = function(server, callbackFunction) {
               }
               _.each(participants, function(participant) {
                 sendData(participant, {type: 'saveChanges', changes: changes,
-                  changesIndex: data.changesIndex, locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
+                  changesIndex: data.changesIndex, endSaveChanges:  data.endSaveChanges,
+                  locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
               });
             }
             break;
