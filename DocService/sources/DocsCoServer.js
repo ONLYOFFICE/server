@@ -134,7 +134,6 @@ const cfgTokenSessionAlgorithm = config.get('token.session.algorithm');
 const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
 const cfgTokenInboxHeader = config.get('token.inbox.header');
 const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
-const cfgTokenInboxInBody = config.get('token.inbox.inBody');
 const cfgTokenOutboxInBody = config.get('token.outbox.inBody');
 const cfgTokenBrowserSecretFromInbox = config.get('token.browser.secretFromInbox');
 const cfgTokenVerifyOptions = config.get('token.verifyOptions');
@@ -1160,18 +1159,7 @@ function checkJwtHeader(docId, req, opt_header, opt_prefix, opt_secretType) {
   }
   return null;
 }
-function checkJwtPayloadHash(docId, hash, body, token) {
-  var res = false;
-  if (body && Buffer.isBuffer(body)) {
-    var decoded = jwt.decode(token, {complete: true});
-    var hmac = jwa(decoded.header.alg);
-    var secret = utils.getSecret(docId, cfgSecretInbox, null, token);
-    var signature = hmac.sign(body, secret);
-    res = (hash === signature);
-  }
-  return res;
-}
-function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
+function getRequestParams(docId, req, opt_isNotInBody) {
   let res = {code: constants.NO_ERROR, params: undefined};
   if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
     res.params = JSON.parse(req.body.toString('utf8'));
@@ -1181,33 +1169,26 @@ function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
   if (cfgTokenEnableRequestInbox) {
     res.code = constants.VKEY;
     let checkJwtRes;
-    if (cfgTokenInboxInBody && !opt_isNotInBody) {
+    if (res.params.token) {
       checkJwtRes = checkJwt(docId, res.params.token, commonDefines.c_oAscSecretType.Inbox);
     } else {
-      //for compatibility
       checkJwtRes = checkJwtHeader(docId, req);
     }
     if (checkJwtRes) {
       if (checkJwtRes.decoded) {
         res.code = constants.NO_ERROR;
-        if (cfgTokenInboxInBody && !opt_tokenAssign) {
-          res.params = checkJwtRes.decoded;
-        } else {
-          //for compatibility
-          if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
-            Object.assign(res.params, checkJwtRes.decoded.payload);
-          } else if (checkJwtRes.decoded.payloadhash) {
-            if (!checkJwtPayloadHash(docId, checkJwtRes.decoded.payloadhash, req.body, checkJwtRes.token)) {
-              res.code = constants.VKEY;
-            }
-          } else if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
-            Object.assign(res.params, checkJwtRes.decoded.query);
-          }
+        if (cfgTokenRequiredParams) {
+          res.params = {};
         }
-      } else {
-        if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
-          res.code = constants.VKEY_KEY_EXPIRE;
+        Object.assign(res.params, checkJwtRes.decoded);
+        if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
+          Object.assign(res.params, checkJwtRes.decoded.payload);
         }
+        if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
+          Object.assign(res.params, checkJwtRes.decoded.query);
+        }
+      } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
+        res.code = constants.VKEY_KEY_EXPIRE;
       }
     }
   }
@@ -1264,7 +1245,6 @@ exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
-exports.checkJwtPayloadHash = checkJwtPayloadHash;
 exports.install = function(server, callbackFunction) {
   var sockjs_echo = sockjs.createServer(cfgSockjs),
     urlParse = new RegExp("^/doc/([" + constants.DOC_ID_PATTERN + "]*)/c.+", 'i');
