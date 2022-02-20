@@ -218,8 +218,7 @@
 				},
 				"inbox": {
 					"header": "Authorization",
-					"prefix": "Bearer ",
-					"inBody": false
+					"prefix": "Bearer "
 				},
 				"outbox": {
 					"header": "Authorization",

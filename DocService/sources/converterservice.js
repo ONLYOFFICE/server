@@ -354,7 +354,7 @@ function builderRequest(req, res) {
       let authRes;
       if (!utils.isEmptyObject(req.query)) {
         //todo this is a stub for compatibility. remove in future version
-        authRes = docsCoServer.getRequestParams(docId, req, true, true);
+        authRes = docsCoServer.getRequestParams(docId, req, true);
       } else {
         authRes = docsCoServer.getRequestParams(docId, req);
       }
