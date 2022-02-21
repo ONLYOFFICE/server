@@ -225,7 +225,6 @@
 					"prefix": "Bearer ",
 					"algorithm": "HS256",
 					"expires": "5m",
-					"inBody": false,
 					"urlExclusionRegex": ""
 				},
 				"session": {

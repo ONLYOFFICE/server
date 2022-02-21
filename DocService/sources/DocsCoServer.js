@@ -134,7 +134,6 @@ const cfgTokenSessionAlgorithm = config.get('token.session.algorithm');
 const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
 const cfgTokenInboxHeader = config.get('token.inbox.header');
 const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
-const cfgTokenOutboxInBody = config.get('token.outbox.inBody');
 const cfgTokenBrowserSecretFromInbox = config.get('token.browser.secretFromInbox');
 const cfgTokenVerifyOptions = config.get('token.verifyOptions');
 const cfgSecretBrowser = config.get('secret.browser');
@@ -648,18 +647,18 @@ function* getOriginalParticipantsId(docId) {
   return result;
 }
 
-function* sendServerRequest(docId, uri, dataObject, opt_checkAuthorization) {
+function* sendServerRequest(docId, uri, dataObject, opt_checkAndFixAuthorizationLength) {
   logger.debug('postData request: docId = %s;url = %s;data = %j', docId, uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(uri)) {
-    auth = utils.fillJwtForRequest(dataObject);
-    if (cfgTokenOutboxInBody) {
-      dataObject = {token: auth};
-      auth = undefined;
-    } else if (opt_checkAuthorization && !opt_checkAuthorization(auth, dataObject)) {
-      auth = utils.fillJwtForRequest(dataObject);
-      logger.warn('authorization reduced to: docId = %s; length=%d', docId, auth.length);
+    let bodyToken = utils.fillJwtForRequest(dataObject, true);
+    auth = utils.fillJwtForRequest(dataObject, false);
+    let authLen = auth.length;
+    if (opt_checkAndFixAuthorizationLength && !opt_checkAndFixAuthorizationLength(auth, dataObject)) {
+      auth = utils.fillJwtForRequest(dataObject, false);
+      logger.warn('authorization too large. Use body token instead. size reduced from %d to %d: docId = %s', authLen, auth.length, docId);
     }
+    dataObject.setToken(bodyToken);
   }
   let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, cfgCallbackRequestTimeout, auth);
   logger.debug('postData response: docId = %s;data = %s', docId, postRes.body);

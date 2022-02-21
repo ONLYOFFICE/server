@@ -622,7 +622,7 @@ function* commandImgurls(conn, cmd, outputData) {
       }
       for (let i = 0; i < urls.length; ++i) {
         if (utils.canIncludeOutboxAuthorization(urls[i])) {
-          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]})];
+          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]}, false)];
         }
       }
     } else {
@@ -823,14 +823,12 @@ function* commandChangeDocInfo(conn, cmd, outputData) {
     outputData.setData(constants.CHANGE_DOC_INFO);
   }
 }
-function checkAuthorizationLength(authorization, data){
+function checkAndFixAuthorizationLength(authorization, data){
   //todo it is stub (remove in future versions)
-  //8kb(https://stackoverflow.com/questions/686217/maximum-on-http-header-values) - 1kb(for other header)
+  //8kb(https://stackoverflow.com/questions/686217/maximum-on-http-header-values) - 1kb(for other headers)
   let res = authorization.length < 7168;
   if (!res) {
-    logger.warn('authorization too long: docId = %s; length=%d', data.getKey(), authorization.length);
     data.setChangeUrl(undefined);
-    //for backward compatibility. remove this when Community is ready
     data.setChangeHistory({});
   }
   return res;
@@ -984,7 +982,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             if (wopiParams) {
               replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
             } else {
-              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
             }
             let replyData = docsCoServer.parseReplyData(docId, replyStr);
             isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
@@ -1016,7 +1014,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               if (wopiParams) {
                 replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
               } else {
-                replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+                replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
               }
             } catch (err) {
               logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
@@ -1492,7 +1490,7 @@ exports.downloadFile = function(req, res) {
           return;
         }
         if (utils.canIncludeOutboxAuthorization(url)) {
-          authorization = utils.fillJwtForRequest({url: url});
+          authorization = utils.fillJwtForRequest({url: url}, false);
         }
       }
 
