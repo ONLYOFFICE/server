@@ -330,6 +330,10 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
       };
     }
     let fResponse = function(response) {
+      if (opt_streamWriter) {
+        //Set-Cookie resets browser session
+        response.caseless.del('Set-Cookie');
+      }
       var contentLength = response.caseless.get('content-length');
       if (contentLength && (contentLength - 0) > sizeLimit) {
         raiseError(this, 'EMSGSIZE', 'Error response: content-length:' + contentLength);
