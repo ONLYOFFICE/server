@@ -466,6 +466,12 @@ function signToken(payload, algorithm, expiresIn, secretElem) {
   var secret = utils.getSecretByElem(secretElem);
   return jwt.sign(payload, secret, options);
 }
+function isLiveViewer (conn){
+  return conn.user?.view && "fast" === conn.coEditingMode;
+}
+function needSendChanges (conn){
+  return !conn.user?.view || isLiveViewer(conn);
+}
 function fillJwtByConnection(conn) {
   var docId = conn.docId;
   var payload = {document: {}, editorConfig: {user: {}}};
@@ -482,6 +488,9 @@ function fillJwtByConnection(conn) {
   user.id = conn.user.idOriginal;
   user.name = conn.user.username;
   user.index = conn.user.indexUser;
+  if (conn.coEditingMode) {
+    edit.coEditing = {mode: conn.coEditingMode};
+  }
   //no standart
   edit.ds_view = conn.user.view;
   edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
@@ -1988,6 +1997,9 @@ exports.install = function(server, callbackFunction) {
       if (null != edit.mode) {
         data.mode = edit.mode;
       }
+      if (edit.coEditing?.mode) {
+        data.coEditingMode = edit.coEditing.mode;
+      }
       if (null != edit.ds_view) {
         data.view = edit.ds_view;
       }
@@ -2134,6 +2146,9 @@ exports.install = function(server, callbackFunction) {
         indexUser: curIndexUser,
         view: !isEditMode(data.permissions, data.mode, !data.view)
       };
+      if (conn.user.view) {
+        conn.coEditingMode = data.coEditingMode;
+      }
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
       conn.isEnterCorrectPassword = data.isEnterCorrectPassword;
       conn.denyChangeName = data.denyChangeName;
@@ -2372,7 +2387,7 @@ exports.install = function(server, callbackFunction) {
       };
       sendData(conn, sendObject);//Or 0 if fails
     } else {
-      if (!bIsRestore) {
+      if (!bIsRestore && needSendChanges(conn)) {
         yield* sendAuthChanges(conn.docId, [conn]);
       }
       if (constants.CONN_CLOSED === conn.readyState) {
@@ -2426,7 +2441,9 @@ exports.install = function(server, callbackFunction) {
         changes: changes.slice(startIndex, endIndex)
       };
       for (let i = 0; i < connections.length; ++i) {
-        sendData(connections[i], sendObject);//Or 0 if fails
+        if(needSendChanges(connections[i])) {
+          sendData(connections[i], sendObject);//Or 0 if fails
+        }
       }
     }
   }
@@ -2996,7 +3013,7 @@ exports.install = function(server, callbackFunction) {
               cleanLockDocumentTimer(data.docId, lockDocumentTimer);
               yield* setLockDocumentTimer(data.docId, lockDocumentTimer.userId);
             }
-            participants = getParticipants(data.docId, true, data.userId, true);
+            participants = getParticipants(data.docId, true, data.userId);
             if(participants.length > 0) {
               var changes = data.changes;
               if (null == changes) {
@@ -3004,6 +3021,9 @@ exports.install = function(server, callbackFunction) {
                 changes = objChangesDocument.arrChanges;
               }
               _.each(participants, function(participant) {
+                if (!needSendChanges(participant)) {
+                  return;
+                }
                 sendData(participant, {type: 'saveChanges', changes: changes,
                   changesIndex: data.changesIndex, locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
               });
