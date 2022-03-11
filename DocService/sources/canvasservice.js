@@ -1077,6 +1077,9 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         logger.error('Error storeForgotten: docId = %s\r\n%s', docId, err.stack);
       }
       if (!isSfcm) {
+        //todo simultaneous opening
+        //to unlock wopi file
+        yield docsCoServer.cleanDocumentOnExitPromise(docId, true, callbackUserIndex);
         //cleanupRes can be false in case of simultaneous opening. it is OK
         let cleanupRes = yield cleanupCacheIf(updateMask);
         logger.debug('storeForgotten cleanupRes=%s: docId = %s', cleanupRes, docId);
