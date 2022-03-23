@@ -2002,7 +2002,7 @@ exports.install = function(server, callbackFunction) {
       if (edit.user) {
         var dataUser = data.user;
         var user = edit.user;
-        if (null != user.id) {
+        if (user.id) {
           dataUser.id = user.id;
           if (openCmd) {
             openCmd.userid = user.id;
@@ -2011,10 +2011,10 @@ exports.install = function(server, callbackFunction) {
         if (null != user.index) {
           dataUser.indexUser = user.index;
         }
-        if (null != user.firstname) {
+        if (user.firstname) {
           dataUser.firstname = user.firstname;
         }
-        if (null != user.lastname) {
+        if (user.lastname) {
           dataUser.lastname = user.lastname;
         }
         if (user.name) {
