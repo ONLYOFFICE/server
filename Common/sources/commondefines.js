@@ -794,6 +794,8 @@ function OutputSfcData(key) {
   this['notmodified'] = undefined;
   this['forcesavetype'] = undefined;
   this['encrypted'] = undefined;
+
+  this['token'] = undefined;
 }
 OutputSfcData.prototype.getKey = function() {
   return this['key'];
@@ -878,6 +880,12 @@ OutputSfcData.prototype.getEncrypted = function() {
 };
 OutputSfcData.prototype.setEncrypted = function(v) {
   this['encrypted'] = v;
+};
+OutputSfcData.prototype.getToken = function() {
+  return this['token']
+};
+OutputSfcData.prototype.setToken = function(v) {
+  this['token'] = v;
 };
 
 function OutputMailMerge(mailMergeSendData) {

@@ -36,7 +36,6 @@ var url = require('url');
 var path = require('path');
 var AWS = require('aws-sdk');
 var mime = require('mime');
-var s3urlSigner = require('amazon-s3-url-signer');
 var utils = require('./utils');
 const ms = require('ms');
 const commonDefines = require('./../../Common/sources/commondefines');

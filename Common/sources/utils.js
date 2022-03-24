@@ -76,7 +76,6 @@ var cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 var cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
 var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
 var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
-const cfgTokenOutboxInBody = config.get('services.CoAuthoring.token.outbox.inBody');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
 const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
@@ -331,6 +330,10 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
       };
     }
     let fResponse = function(response) {
+      if (opt_streamWriter) {
+        //Set-Cookie resets browser session
+        response.caseless.del('Set-Cookie');
+      }
       var contentLength = response.caseless.get('content-length');
       if (contentLength && (contentLength - 0) > sizeLimit) {
         raiseError(this, 'EMSGSIZE', 'Error response: content-length:' + contentLength);
@@ -843,17 +846,15 @@ function getSecret(docId, secretElem, opt_iss, opt_token) {
   return getSecretByElem(secretElem);
 }
 exports.getSecret = getSecret;
-function fillJwtForRequest(opt_payload) {
+function fillJwtForRequest(payload, opt_inBody) {
+  //todo refuse prototypes in payload(they are simple getter/setter).
+  //JSON.parse/stringify is more universal but Object.assign is enough for our inputs
+  payload = Object.assign(Object.create(null), payload);
   let data;
-  if (cfgTokenOutboxInBody) {
-    //todo refuse prototypes in opt_payload(they are simple getter/setter).
-    //JSON.parse/stringify is more universal but Object.assign is enough for our inputs
-    data = Object.assign(Object.create(null), opt_payload);
+  if (opt_inBody) {
+    data = payload;
   } else {
-    data = {};
-    if(opt_payload){
-      data.payload = opt_payload;
-    }
+    data = {payload: payload};
   }
 
   let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};

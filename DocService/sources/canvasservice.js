@@ -71,6 +71,7 @@ const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemb
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
+const cfgDownloadFileAllowExt = config.get('services.CoAuthoring.server.downloadFileAllowExt');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -621,7 +622,7 @@ function* commandImgurls(conn, cmd, outputData) {
       }
       for (let i = 0; i < urls.length; ++i) {
         if (utils.canIncludeOutboxAuthorization(urls[i])) {
-          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]})];
+          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]}, false)];
         }
       }
     } else {
@@ -822,14 +823,12 @@ function* commandChangeDocInfo(conn, cmd, outputData) {
     outputData.setData(constants.CHANGE_DOC_INFO);
   }
 }
-function checkAuthorizationLength(authorization, data){
+function checkAndFixAuthorizationLength(authorization, data){
   //todo it is stub (remove in future versions)
-  //8kb(https://stackoverflow.com/questions/686217/maximum-on-http-header-values) - 1kb(for other header)
+  //8kb(https://stackoverflow.com/questions/686217/maximum-on-http-header-values) - 1kb(for other headers)
   let res = authorization.length < 7168;
   if (!res) {
-    logger.warn('authorization too long: docId = %s; length=%d', data.getKey(), authorization.length);
     data.setChangeUrl(undefined);
-    //for backward compatibility. remove this when Community is ready
     data.setChangeHistory({});
   }
   return res;
@@ -983,7 +982,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             if (wopiParams) {
               replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
             } else {
-              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
             }
             let replyData = docsCoServer.parseReplyData(docId, replyStr);
             isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
@@ -1015,7 +1014,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               if (wopiParams) {
                 replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
               } else {
-                replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAuthorizationLength);
+                replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
               }
             } catch (err) {
               logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
@@ -1078,9 +1077,12 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         logger.error('Error storeForgotten: docId = %s\r\n%s', docId, err.stack);
       }
       if (!isSfcm) {
+        //todo simultaneous opening
+        //to unlock wopi file
+        yield docsCoServer.cleanDocumentOnExitPromise(docId, true, callbackUserIndex);
         //cleanupRes can be false in case of simultaneous opening. it is OK
         let cleanupRes = yield cleanupCacheIf(updateMask);
-        logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
+        logger.debug('storeForgotten cleanupRes=%s: docId = %s', cleanupRes, docId);
     }
     }
     if (forceSave) {
@@ -1472,15 +1474,26 @@ exports.downloadFile = function(req, res) {
       let authorization;
       if (cfgTokenEnableBrowser) {
         let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
+        let errorDescription;
         if (checkJwtRes.decoded) {
-          url = checkJwtRes.decoded.changesUrl;
+          let decoded = checkJwtRes.decoded;
+          if (decoded.changesUrl) {
+            url = decoded.changesUrl;
+          } else if (decoded.document && -1 !== cfgDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
+            url = decoded.document.url;
+          } else {
+            errorDescription = 'access deny';
+          }
         } else {
-          logger.warn('Error downloadFile jwt: docId = %s description = %s', docId, checkJwtRes.description);
+          errorDescription = checkJwtRes.description;
+        }
+        if (errorDescription) {
+          logger.warn('Error downloadFile jwt: docId = %s description = %s', docId, errorDescription);
           res.sendStatus(403);
           return;
         }
         if (utils.canIncludeOutboxAuthorization(url)) {
-          authorization = utils.fillJwtForRequest({url: url});
+          authorization = utils.fillJwtForRequest({url: url}, false);
         }
       }
 

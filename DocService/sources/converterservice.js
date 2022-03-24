@@ -248,6 +248,9 @@ function convertRequest(req, res, isJson) {
       if (params.region && locale[params.region.toLowerCase()]) {
         cmd.setLCID(locale[params.region.toLowerCase()].id);
       }
+      if (params.documentLayout) {
+        cmd.setJsonParams(JSON.stringify({'documentLayout': params.documentLayout}));
+      }
       if (params.spreadsheetLayout) {
         cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
       }
@@ -287,24 +290,23 @@ function convertRequest(req, res, isJson) {
           cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_IMAGE);
         }
       }
-      var textParams = params.textParams;
-      if (textParams) {
-        if (typeof textParams === 'string') {
-          textParams = JSON.parse(textParams);
+      var documentRenderer = params.documentRenderer;
+      if (documentRenderer) {
+        if (typeof documentRenderer === 'string') {
+          documentRenderer = JSON.parse(documentRenderer);
         }
-        var textParamsData = new commonDefines.CTextParams(textParams);
-        //todo text
-        switch (textParams.association) {
-          case 'block':
+        var textParamsData = new commonDefines.CTextParams();
+        switch (documentRenderer.textAssociation) {
+          case 'plainParagraph':
             textParamsData.setAssociation(3);
             break;
-          case 'noFrames':
+          case 'plainLine':
             textParamsData.setAssociation(2);
             break;
-          case 'line':
+          case 'blockLine':
             textParamsData.setAssociation(1);
             break;
-          case 'char':
+          case 'blockChar':
           default:
             textParamsData.setAssociation(0);
             break;
@@ -352,7 +354,7 @@ function builderRequest(req, res) {
       let authRes;
       if (!utils.isEmptyObject(req.query)) {
         //todo this is a stub for compatibility. remove in future version
-        authRes = docsCoServer.getRequestParams(docId, req, true, true);
+        authRes = docsCoServer.getRequestParams(docId, req, true);
       } else {
         authRes = docsCoServer.getRequestParams(docId, req);
       }

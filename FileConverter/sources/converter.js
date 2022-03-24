@@ -316,7 +316,7 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization, filterPrivate, o
       try {
         let authorization;
         if (utils.canIncludeOutboxAuthorization(uri) && withAuthorization) {
-          authorization = utils.fillJwtForRequest({url: uri});
+          authorization = utils.fillJwtForRequest({url: uri}, false);
         }
         let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;

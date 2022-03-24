@@ -134,8 +134,6 @@ const cfgTokenSessionAlgorithm = config.get('token.session.algorithm');
 const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
 const cfgTokenInboxHeader = config.get('token.inbox.header');
 const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
-const cfgTokenInboxInBody = config.get('token.inbox.inBody');
-const cfgTokenOutboxInBody = config.get('token.outbox.inBody');
 const cfgTokenBrowserSecretFromInbox = config.get('token.browser.secretFromInbox');
 const cfgTokenVerifyOptions = config.get('token.verifyOptions');
 const cfgSecretBrowser = config.get('secret.browser');
@@ -152,6 +150,7 @@ const cfgWarningLimitPercents = configCommon.get('license.warning_limit_percents
 const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('server.openProtectedFile');
 const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
+const cfgTokenRequiredParams = config.get('server.tokenRequiredParams');
 
 const EditorTypes = {
   document : 0,
@@ -658,18 +657,18 @@ function* getOriginalParticipantsId(docId) {
   return result;
 }
 
-function* sendServerRequest(docId, uri, dataObject, opt_checkAuthorization) {
+function* sendServerRequest(docId, uri, dataObject, opt_checkAndFixAuthorizationLength) {
   logger.debug('postData request: docId = %s;url = %s;data = %j', docId, uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(uri)) {
-    auth = utils.fillJwtForRequest(dataObject);
-    if (cfgTokenOutboxInBody) {
-      dataObject = {token: auth};
-      auth = undefined;
-    } else if (opt_checkAuthorization && !opt_checkAuthorization(auth, dataObject)) {
-      auth = utils.fillJwtForRequest(dataObject);
-      logger.warn('authorization reduced to: docId = %s; length=%d', docId, auth.length);
+    let bodyToken = utils.fillJwtForRequest(dataObject, true);
+    auth = utils.fillJwtForRequest(dataObject, false);
+    let authLen = auth.length;
+    if (opt_checkAndFixAuthorizationLength && !opt_checkAndFixAuthorizationLength(auth, dataObject)) {
+      auth = utils.fillJwtForRequest(dataObject, false);
+      logger.warn('authorization too large. Use body token instead. size reduced from %d to %d: docId = %s', authLen, auth.length, docId);
     }
+    dataObject.setToken(bodyToken);
   }
   let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, cfgCallbackRequestTimeout, auth);
   logger.debug('postData response: docId = %s;data = %s', docId, postRes.body);
@@ -1169,18 +1168,7 @@ function checkJwtHeader(docId, req, opt_header, opt_prefix, opt_secretType) {
   }
   return null;
 }
-function checkJwtPayloadHash(docId, hash, body, token) {
-  var res = false;
-  if (body && Buffer.isBuffer(body)) {
-    var decoded = jwt.decode(token, {complete: true});
-    var hmac = jwa(decoded.header.alg);
-    var secret = utils.getSecret(docId, cfgSecretInbox, null, token);
-    var signature = hmac.sign(body, secret);
-    res = (hash === signature);
-  }
-  return res;
-}
-function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
+function getRequestParams(docId, req, opt_isNotInBody) {
   let res = {code: constants.NO_ERROR, params: undefined};
   if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
     res.params = JSON.parse(req.body.toString('utf8'));
@@ -1190,33 +1178,26 @@ function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
   if (cfgTokenEnableRequestInbox) {
     res.code = constants.VKEY;
     let checkJwtRes;
-    if (cfgTokenInboxInBody && !opt_isNotInBody) {
+    if (res.params.token) {
       checkJwtRes = checkJwt(docId, res.params.token, commonDefines.c_oAscSecretType.Inbox);
     } else {
-      //for compatibility
       checkJwtRes = checkJwtHeader(docId, req);
     }
     if (checkJwtRes) {
       if (checkJwtRes.decoded) {
         res.code = constants.NO_ERROR;
-        if (cfgTokenInboxInBody && !opt_tokenAssign) {
-          res.params = checkJwtRes.decoded;
-        } else {
-          //for compatibility
-          if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
-            Object.assign(res.params, checkJwtRes.decoded.payload);
-          } else if (checkJwtRes.decoded.payloadhash) {
-            if (!checkJwtPayloadHash(docId, checkJwtRes.decoded.payloadhash, req.body, checkJwtRes.token)) {
-              res.code = constants.VKEY;
-            }
-          } else if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
-            Object.assign(res.params, checkJwtRes.decoded.query);
-          }
+        if (cfgTokenRequiredParams) {
+          res.params = {};
         }
-      } else {
-        if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
-          res.code = constants.VKEY_KEY_EXPIRE;
+        Object.assign(res.params, checkJwtRes.decoded);
+        if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
+          Object.assign(res.params, checkJwtRes.decoded.payload);
         }
+        if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
+          Object.assign(res.params, checkJwtRes.decoded.query);
+        }
+      } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
+        res.code = constants.VKEY_KEY_EXPIRE;
       }
     }
   }
@@ -1273,7 +1254,6 @@ exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
-exports.checkJwtPayloadHash = checkJwtPayloadHash;
 exports.install = function(server, callbackFunction) {
   var sockjs_echo = sockjs.createServer(cfgSockjs),
     urlParse = new RegExp("^/doc/([" + constants.DOC_ID_PATTERN + "]*)/c.+", 'i');
@@ -1950,6 +1930,27 @@ exports.install = function(server, callbackFunction) {
       //not '=' because if it jwt from previous version, we must use values from data
       Object.assign(data.permissions, permissions);
     }
+
+    //issuer for secret
+    if (decoded.iss) {
+      data.iss = decoded.iss;
+    }
+    return res;
+  }
+  function validateAuthToken(data, decoded) {
+    var res = "";
+    if (!decoded?.document?.key) {
+      res = "document.key";
+    } else if (!decoded?.document?.permissions) {
+      res = "document.permissions";
+    } else if (!decoded?.document?.url) {
+      res = "document.url";
+    } else if (data.documentCallbackUrl && !decoded?.editorConfig?.callbackUrl) {
+      //todo callbackUrl required
+      res = "editorConfig.callbackUrl";
+    } else if (data.mode && !decoded?.editorConfig?.mode) {
+      res = "editorConfig.mode";
+    }
     return res;
   }
   function fillDataFromJwt(decoded, data) {
@@ -1965,6 +1966,9 @@ exports.install = function(server, callbackFunction) {
       }
       if(doc.permissions) {
         res = deepEqual(data.permissions, doc.permissions, {strict: true});
+        if (!res) {
+          logger.warn('fillDataFromJwt token has modified permissions docId = %s', data.docid);
+        }
         if(!data.permissions){
           data.permissions = {};
         }
@@ -2013,7 +2017,7 @@ exports.install = function(server, callbackFunction) {
       if (edit.user) {
         var dataUser = data.user;
         var user = edit.user;
-        if (null != user.id) {
+        if (user.id) {
           dataUser.id = user.id;
           if (openCmd) {
             openCmd.userid = user.id;
@@ -2022,14 +2026,18 @@ exports.install = function(server, callbackFunction) {
         if (null != user.index) {
           dataUser.indexUser = user.index;
         }
-        if (null != user.firstname) {
+        if (user.firstname) {
           dataUser.firstname = user.firstname;
         }
-        if (null != user.lastname) {
+        if (user.lastname) {
           dataUser.lastname = user.lastname;
         }
         if (user.name) {
           dataUser.username = user.name;
+        }
+        if (user.group) {
+          //like in Common.Utils.fillUserInfo(web-apps/apps/common/main/lib/util/utils.js)
+          dataUser.username = user.group.toString() + String.fromCharCode(160) + dataUser.username;
         }
       }
       if (edit.user && edit.user.name) {
@@ -2037,10 +2045,9 @@ exports.install = function(server, callbackFunction) {
       }
     }
 
-    res = res && fillDataFromWopiJwt(decoded, data);
-
     //todo make required fields
     if (decoded.url || decoded.payload|| (decoded.key && !decoded.fileInfo)) {
+      logger.warn('fillDataFromJwt token has invalid format docId = %s', data.docid);
       res = false;
     }
 
@@ -2088,7 +2095,29 @@ exports.install = function(server, callbackFunction) {
           commonDefines.c_oAscSecretType.Browser;
         const checkJwtRes = checkJwt(docId, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
-          if (!fillDataFromJwt(checkJwtRes.decoded, data)) {
+          let decoded = checkJwtRes.decoded;
+          let fillDataFromJwtRes = false;
+          if (decoded.fileInfo) {
+            //wopi
+            fillDataFromJwtRes = fillDataFromWopiJwt(decoded, data);
+          } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_view) {
+            //reconnection
+            fillDataFromJwtRes = fillDataFromJwt(decoded, data);
+          } else {
+            //opening
+            let validationErr = validateAuthToken(data, decoded);
+            if (!validationErr) {
+              fillDataFromJwtRes = fillDataFromJwt(decoded, data);
+            } else if (cfgTokenRequiredParams) {
+              logger.error("auth missing required parameter %s (since 7.1 version): docId = %s ", validationErr, docId);
+              conn.close(constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              return;
+            } else {
+              logger.warn("auth missing required parameter %s (since 7.1 version): docId = %s ", validationErr, docId);
+              fillDataFromJwtRes = fillDataFromJwt(decoded, data);
+            }
+          }
+          if(!fillDataFromJwtRes) {
             logger.warn("fillDataFromJwt return false: docId = %s", docId);
             conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
             return;
@@ -2718,7 +2747,7 @@ exports.install = function(server, callbackFunction) {
         }
         yield* publish({type: commonDefines.c_oPublishType.changes, docId: docId, userId: userId,
           changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
-          locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo}, docId, userId);
+          locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo, endSaveChanges: data.endSaveChanges}, docId, userId);
       }
       // Автоматически снимаем lock сами и посылаем индекс для сохранения
       yield* unSaveLock(conn, changesIndex, newChangesLastTime);
@@ -2736,7 +2765,7 @@ exports.install = function(server, callbackFunction) {
       }
       let isPublished = yield* publish({type: commonDefines.c_oPublishType.changes, docId: docId, userId: userId,
         changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
-        locks: [], excelAdditionalInfo: undefined}, docId, userId);
+        locks: [], excelAdditionalInfo: undefined, endSaveChanges: data.endSaveChanges}, docId, userId);
       sendData(conn, {type: 'savePartChanges', changesIndex: changesIndex});
       if (!isPublished) {
         //stub for lockDocumentsTimerId
@@ -3025,7 +3054,8 @@ exports.install = function(server, callbackFunction) {
                   return;
                 }
                 sendData(participant, {type: 'saveChanges', changes: changes,
-                  changesIndex: data.changesIndex, locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
+                  changesIndex: data.changesIndex, endSaveChanges:  data.endSaveChanges,
+                  locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
               });
             }
             break;
@@ -3367,8 +3397,8 @@ exports.licenseInfo = function(req, res) {
       var precisionSum = {};
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
-          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0},
-          view: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0}
+          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0},
+          view: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0}
         };
         output.connectionsStat[PRECISION[i].name] = {
           edit: {min: 0, avr: 0, max: 0},
@@ -3377,37 +3407,45 @@ exports.licenseInfo = function(req, res) {
       }
       var redisRes = yield editorData.getEditorConnections();
       const now = Date.now();
-      var precisionIndex = 0;
-      for (let i = redisRes.length - 1; i >= 1; i -= 2) {
-        for (let j = precisionIndex; j < PRECISION.length; ++j) {
+      if (redisRes.length > 0) {
+        let expDocumentsStep95 = expDocumentsStep * 0.95;
+        let prevTime = Number.MAX_VALUE;
+        var precisionIndex = 0;
+        for (let i = redisRes.length - 1; i >= 0; i--) {
           let elem = redisRes[i];
-          if (now - elem.time < PRECISION[j].val) {
-            let precision = precisionSum[PRECISION[j].name];
-            precision.edit.min = Math.min(precision.edit.min, elem.edit);
-            precision.edit.max = Math.max(precision.edit.max, elem.edit);
-            precision.edit.sum += elem.edit;
-            precision.edit.count++;
-            precision.view.min = Math.min(precision.view.min, elem.view);
-            precision.view.max = Math.max(precision.view.max, elem.view);
-            precision.view.sum += elem.view;
-            precision.view.count++;
-          } else {
-            precisionIndex = j + 1;
+          //skip duplicates in cluster
+          if (prevTime - elem.time >= expDocumentsStep95) {
+            for (let j = precisionIndex; j < PRECISION.length; ++j) {
+              if (now - elem.time < PRECISION[j].val) {
+                let precision = precisionSum[PRECISION[j].name];
+                precision.edit.min = Math.min(precision.edit.min, elem.edit);
+                precision.edit.max = Math.max(precision.edit.max, elem.edit);
+                precision.edit.sum += elem.edit;
+                precision.edit.count++;
+                precision.view.min = Math.min(precision.view.min, elem.view);
+                precision.view.max = Math.max(precision.view.max, elem.view);
+                precision.view.sum += elem.view;
+                precision.view.count++;
+              } else {
+                precisionIndex = j + 1;
+              }
+            }
           }
+          prevTime = elem.time;
         }
-      }
-      for (let i in precisionSum) {
-        let precision = precisionSum[i];
-        let precisionOut = output.connectionsStat[i];
-        if (precision.edit.count > 0) {
-          precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.count);
-          precisionOut.edit.min = precision.edit.min;
-          precisionOut.edit.max = precision.edit.max;
-        }
-        if (precision.view.count > 0) {
-          precisionOut.view.avr = Math.round(precision.view.sum / precision.view.count);
-          precisionOut.view.min = precision.view.min;
-          precisionOut.view.max = precision.view.max;
+        for (let i in precisionSum) {
+          let precision = precisionSum[i];
+          let precisionOut = output.connectionsStat[i];
+          if (precision.edit.count > 0) {
+            precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.intervalsInPresision);
+            precisionOut.edit.min = precision.edit.min;
+            precisionOut.edit.max = precision.edit.max;
+          }
+          if (precision.view.count > 0) {
+            precisionOut.view.avr = Math.round(precision.view.sum / precision.view.intervalsInPresision);
+            precisionOut.view.min = precision.view.min;
+            precisionOut.view.max = precision.view.max;
+          }
         }
       }
       const nowUTC = getLicenseNowUtc();

@@ -83,7 +83,7 @@
 		"fileInfoBlockList" : ["FileUrl"],
 		"wordView": ["pdf", "djvu", "xps", "oxps", "doc", "dotx", "dotm", "dot", "fodt", "ott", "rtf", "mht", "html", "htm", "xml", "epub", "fb2"],
 		"wordEdit": ["docx", "docm", "docxf", "oform", "odt", "txt"],
-		"cellView": ["xls", "xltx", "xltm", "xlt", "fods", "ots"],
+		"cellView": ["xls", "xlsb", "xltx", "xltm", "xlt", "fods", "ots"],
 		"cellEdit": ["xlsx", "xlsm", "ods", "csv"],
 		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potx", "potm", "pot", "fodp", "otp"],
 		"slideEdit": ["pptx", "pptm", "odp"],
@@ -122,7 +122,9 @@
 				"openProtectedFile": true,
 				"editorDataStorage": "editorDataMemory",
 				"assemblyFormatAsOrigin": true,
-				"newFileTemplate" : "../../document-templates/new"
+				"newFileTemplate" : "../../document-templates/new",
+				"downloadFileAllowExt": ["pdf"],
+				"tokenRequiredParams": true
 			},
 			"requestDefaults": {
 				"headers": {
@@ -216,15 +218,13 @@
 				},
 				"inbox": {
 					"header": "Authorization",
-					"prefix": "Bearer ",
-					"inBody": false
+					"prefix": "Bearer "
 				},
 				"outbox": {
 					"header": "Authorization",
 					"prefix": "Bearer ",
 					"algorithm": "HS256",
 					"expires": "5m",
-					"inBody": false,
 					"urlExclusionRegex": ""
 				},
 				"session": {
