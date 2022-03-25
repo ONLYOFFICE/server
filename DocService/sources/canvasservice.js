@@ -980,7 +980,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           try {
             if (wopiParams) {
-              replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
+              replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, forceSaveType);
             } else {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
             }
@@ -1012,7 +1012,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
               if (wopiParams) {
-                replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId);
+                replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, null);
               } else {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
               }
@@ -1109,10 +1109,10 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
   logger.debug('End commandSfcCallback: docId = %s', docId);
   return replyStr;
 }
-function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId) {
+function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, forceSaveType) {
   let res = '{"error": 1}';
   let streamObj = yield storage.createReadStream(savePathDoc);
-  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId);
+  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId, forceSaveType);
   if (postRes) {
     if (postRes.body) {
       try {
