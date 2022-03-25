@@ -397,7 +397,7 @@ function getEditorHtml(req, res) {
     }
   });
 }
-function putFile(wopiParams, data, dataStream, userLastChangeId, forceSaveType) {
+function putFile(wopiParams, data, dataStream, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   return co(function* () {
     let postRes = null;
     try {
@@ -419,14 +419,12 @@ function putFile(wopiParams, data, dataStream, userLastChangeId, forceSaveType) 
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
         fillStandardHeaders(headers, uri, userAuth.access_token);
+        headers['X-LOOL-WOPI-IsModifiedByUser'] = isModifiedByUser;
+        headers['X-LOOL-WOPI-IsAutosave'] = isAutosave;
+        headers['X-LOOL-WOPI-IsExitSave'] = isExitSave;
         if (wopiParams.LastModifiedTime) {
           //collabora nexcloud connector
           headers['X-LOOL-WOPI-Timestamp'] = wopiParams.LastModifiedTime;
-        }
-        if (null === forceSaveType) {
-          headers['X-COOL-WOPI-IsExitSave'] = true;
-        } else {
-          headers['X-COOL-WOPI-IsAutosave'] = (forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button);
         }
 
         logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);

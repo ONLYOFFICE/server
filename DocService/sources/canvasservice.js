@@ -980,7 +980,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           }
           try {
             if (wopiParams) {
-              replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, forceSaveType);
+              replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, true, forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button, false);
             } else {
               replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
             }
@@ -1012,7 +1012,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
               if (wopiParams) {
-                replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, null);
+                replyStr = yield processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, !notModified, false, true);
               } else {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
               }
@@ -1109,10 +1109,10 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
   logger.debug('End commandSfcCallback: docId = %s', docId);
   return replyStr;
 }
-function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, forceSaveType) {
+function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   let res = '{"error": 1}';
   let streamObj = yield storage.createReadStream(savePathDoc);
-  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId, forceSaveType);
+  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId, isModifiedByUser, isAutosave, isExitSave);
   if (postRes) {
     if (postRes.body) {
       try {
