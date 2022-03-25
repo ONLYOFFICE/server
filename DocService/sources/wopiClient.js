@@ -397,7 +397,7 @@ function getEditorHtml(req, res) {
     }
   });
 }
-function putFile(wopiParams, data, dataStream, userLastChangeId) {
+function putFile(wopiParams, data, dataStream, userLastChangeId, forceSaveType) {
   return co(function* () {
     let postRes = null;
     try {
@@ -422,6 +422,11 @@ function putFile(wopiParams, data, dataStream, userLastChangeId) {
         if (wopiParams.LastModifiedTime) {
           //collabora nexcloud connector
           headers['X-LOOL-WOPI-Timestamp'] = wopiParams.LastModifiedTime;
+        }
+        if (null === forceSaveType) {
+          headers['X-COOL-WOPI-IsExitSave'] = true;
+        } else {
+          headers['X-COOL-WOPI-IsAutosave'] = (forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button);
         }
 
         logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
