@@ -1061,7 +1061,15 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
     return commonDefines.c_oAscServerCommandErrors.NoError;
   }
 }
-
+let unlockWopiDoc = co.wrap(function*(docId, opt_userIndex) {
+  //wopi unlock
+  var getRes = yield* getCallback(docId, opt_userIndex);
+  if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
+    yield wopiClient.unlock(getRes.wopiParams);
+    let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
+    yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
+  }
+});
 function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
   yield editorData.cleanDocumentOnExit(docId);
@@ -1072,13 +1080,7 @@ function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(cfgForgottenFiles + '/' + docId);
   }
-  //unlock
-  var getRes = yield* getCallback(docId, opt_userIndex);
-  if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
-      yield wopiClient.unlock(getRes.wopiParams);
-      let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
-      yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
-  }
+  yield unlockWopiDoc(docId, opt_userIndex);
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
@@ -1237,6 +1239,7 @@ exports.getIsShutdown = getIsShutdown;
 exports.hasChanges = hasChanges;
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
+exports.unlockWopiDoc = unlockWopiDoc;
 exports.setForceSave = setForceSave;
 exports.startForceSave = startForceSave;
 exports.resetForceSaveAfterChanges = resetForceSaveAfterChanges;
