@@ -373,7 +373,7 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
     }
   });
 }
-function postRequestPromise(uri, postData, postDataStream, optTimeout, opt_Authorization, opt_header) {
+function postRequestPromise(uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_header) {
   return new Promise(function(resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -383,6 +383,14 @@ function postRequestPromise(uri, postData, postDataStream, optTimeout, opt_Autho
       headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
     headers = opt_header || headers;
+    if (undefined !== postDataSize) {
+      //If no Content-Length is set, data will automatically be encoded in HTTP Chunked transfer encoding,
+      //so that server knows when the data ends. The Transfer-Encoding: chunked header is added.
+      //https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
+      //issue with Transfer-Encoding: chunked wopi and sharepoint 2019
+      //https://community.alteryx.com/t5/Dev-Space/Download-Tool-amp-Microsoft-SharePoint-Chunked-Request-Error/td-p/735824
+      headers['Content-Length'] = postDataSize;
+    }
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     var options = {uri: urlParsed, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
     if (postData) {

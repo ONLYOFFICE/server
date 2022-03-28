@@ -1111,8 +1111,9 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
 }
 function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   let res = '{"error": 1}';
+  let metadata = yield storage.headObject(savePathDoc);
   let streamObj = yield storage.createReadStream(savePathDoc);
-  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, userLastChangeId, isModifiedByUser, isAutosave, isExitSave);
+  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, metadata.ContentLength, userLastChangeId, isModifiedByUser, isAutosave, isExitSave);
   if (postRes) {
     if (postRes.body) {
       try {

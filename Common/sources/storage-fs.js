@@ -85,6 +85,11 @@ function removeEmptyParent(strPath, done) {
   }
 }
 
+exports.headObject = function(strPath) {
+  return utils.fsStat(getFilePath(strPath)).then(function(stats) {
+    return {ContentLength: stats.size};
+  });
+};
 exports.getObject = function(strPath) {
   return utils.readFile(getFilePath(strPath));
 };

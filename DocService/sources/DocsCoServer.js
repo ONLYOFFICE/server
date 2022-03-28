@@ -660,7 +660,7 @@ function* sendServerRequest(docId, uri, dataObject, opt_checkAndFixAuthorization
     }
     dataObject.setToken(bodyToken);
   }
-  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, cfgCallbackRequestTimeout, auth);
+  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, undefined, cfgCallbackRequestTimeout, auth);
   logger.debug('postData response: docId = %s;data = %s', docId, postRes.body);
   return postRes.body;
 }
