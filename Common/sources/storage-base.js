@@ -39,6 +39,9 @@ var storage = require('./' + config.get('storage.name'));
 function getStoragePath(strPath) {
   return strPath.replace(/\\/g, '/');
 }
+exports.headObject = function(strPath) {
+  return storage.headObject(getStoragePath(strPath));
+};
 exports.getObject = function(strPath) {
   return storage.getObject(getStoragePath(strPath));
 };
