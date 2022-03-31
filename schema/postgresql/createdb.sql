@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS "public"."task_result" (
 "callback" text COLLATE "default" NOT NULL,
 "baseurl" text COLLATE "default" NOT NULL,
 "password" text COLLATE "default" NULL,
+"additional" text COLLATE "default" NULL,
 PRIMARY KEY ("id")
 )
 WITH (OIDS=FALSE);

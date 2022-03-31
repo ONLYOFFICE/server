@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS `task_result` (
   `callback` longtext NOT NULL,
   `baseurl` text NOT NULL,
   `password` longtext NULL,
+  `additional` longtext NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
