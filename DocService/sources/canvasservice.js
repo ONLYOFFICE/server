@@ -165,7 +165,7 @@ function getOpenedAt(row) {
 function getOpenedAtJSONParams(row) {
   let openedAt = getOpenedAt(row);
   if (openedAt) {
-    return {openedAt: openedAt};
+    return JSON.stringify({'documentLayout': {'openedAt': openedAt}});
   }
   return undefined;
 }
