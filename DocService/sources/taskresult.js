@@ -66,6 +66,7 @@ function TaskResultData() {
   this.callback = null;
   this.baseurl = null;
   this.password = null;
+  this.additional = null;
 
   this.innerPasswordChange = null;//not a DB field
 }
@@ -161,6 +162,10 @@ function toUpdateArray(task, updateTime, isMask, values, setPassword) {
     documentPassword.fromValues(task.password, task.innerPasswordChange);
     let sqlParam = addSqlParam(documentPassword.toSQLInsert(), values);
     res.push(`password=${concatParams('password', sqlParam)}`);
+  }
+  if (null != task.additional) {
+    let sqlParam = addSqlParam(task.additional, values);
+    res.push(`additional=${concatParams('additional', sqlParam)}`);
   }
   return res;
 }

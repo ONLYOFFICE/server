@@ -81,6 +81,7 @@ var SAVE_TYPE_COMPLETE_ALL = 3;
 var clientStatsD = statsDClient.getClient();
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 let hasPasswordCol = false;//stub on upgradev630.sql update failure
+exports.hasAdditionalCol = false;//stub on upgradev710.sql update failure
 
 const retryHttpStatus = new MultiRange(cfgCallbackBackoffOptions.httpStatus);
 
@@ -112,6 +113,7 @@ function OutputData(type) {
   this['status'] = undefined;
   this['data'] = undefined;
   this['filetype'] = undefined;
+  this['openedAt'] = undefined;
 }
 OutputData.prototype = {
   fromObject: function(data) {
@@ -119,6 +121,7 @@ OutputData.prototype = {
     this['status'] = data['status'];
     this['data'] = data['data'];
     this['filetype'] = data['filetype'];
+    this['openedAt'] = data['openedAt'];
   },
   getType: function() {
     return this['type'];
@@ -143,11 +146,32 @@ OutputData.prototype = {
   },
   setExtName: function(data) {
     this['filetype'] = data.substring(1);
+  },
+  getOpenedAt: function() {
+    return this['openedAt'];
+  },
+  setOpenedAt: function(data) {
+    this['openedAt'] = data;
   }
 };
 
+function getOpenedAt(row) {
+  let timezoneOffset = sqlBase.DocumentAdditional.prototype.getTimezoneOffset(row.additional);
+  if (row.created_at && undefined !== timezoneOffset) {
+    return row.created_at.getTime() + timezoneOffset * 60 * 1000;
+  }
+  return undefined;
+}
+function getOpenedAtJSONParams(row) {
+  let openedAt = getOpenedAt(row);
+  if (openedAt) {
+    return {openedAt: openedAt};
+  }
+  return undefined;
+}
+
 var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
-  let status, statusInfo, password, creationDate, row;
+  let status, statusInfo, password, creationDate, openedAt, row;
   let selectRes = yield taskResult.select(key);
   if (selectRes.length > 0) {
     row = selectRes[0];
@@ -155,6 +179,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
     statusInfo = row.status_info;
     password = sqlBase.DocumentPassword.prototype.getCurPassword(key, row.password);
     creationDate = row.created_at && row.created_at.getTime();
+    openedAt = getOpenedAt(row);
   }
   switch (status) {
     case taskResult.FileStatus.SaveVersion:
@@ -226,6 +251,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
             outputData.setData(constants.CONVERT_DRM);
           }
         } else if (optConn) {
+          outputData.setOpenedAt(openedAt);
           outputData.setData(yield storage.getSignedUrls(optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session, creationDate));
         } else if (optAdditionalOutput) {
           optAdditionalOutput.needUrlKey = key;
@@ -233,6 +259,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
           optAdditionalOutput.needUrlType = commonDefines.c_oAscUrlTypes.Session;
           optAdditionalOutput.needUrlIsCorrectPassword = isCorrectPassword;
           optAdditionalOutput.creationDate = creationDate;
+          optAdditionalOutput.openedAt = openedAt;
         }
       }
       break;
@@ -575,6 +602,7 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   var row = selectRes.length > 0 ? selectRes[0] : null;
   addPasswordToCmd(cmd, row && row.password);
   cmd.setOutputFormat(changeFormatByOrigin(cmd.getDocId(), row, cmd.getOutputFormat()));
+  cmd.setJsonParams(getOpenedAtJSONParams(row));
   var queueData = getSaveTask(cmd);
   queueData.setFromChanges(true);
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
@@ -1545,6 +1573,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         cmd.setStatusInfoIn(statusInfo);
         cmd.setUserActionId(opt_userId);
         cmd.setUserActionIndex(opt_userIndex);
+        cmd.setJsonParams(getOpenedAtJSONParams(row));
         addPasswordToCmd(cmd, row && row.password);
         yield* addRandomKeyTaskCmd(cmd);
         var queueData = getSaveTask(cmd);
@@ -1582,7 +1611,7 @@ exports.receiveTask = function(data, ack) {
         if (updateRes.affectedRows > 0) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
-          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined, creationDate: undefined};
+          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined, creationDate: undefined, openedAt: undefined};
           if ('open' == command || 'reopen' == command) {
             yield getOutputData(cmd, outputData, cmd.getDocId(), null, additionalOutput);
           } else if ('save' == command || 'savefromorigin' == command || 'sfct' == command) {
@@ -1605,7 +1634,8 @@ exports.receiveTask = function(data, ack) {
                                           needUrlMethod: additionalOutput.needUrlMethod,
                                           needUrlType: additionalOutput.needUrlType,
                                           needUrlIsCorrectPassword: additionalOutput.needUrlIsCorrectPassword,
-                                          creationDate: additionalOutput.creationDate
+                                          creationDate: additionalOutput.creationDate,
+                                          openedAt: additionalOutput.openedAt
                                         });
           }
         }

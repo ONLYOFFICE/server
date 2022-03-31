@@ -41,6 +41,7 @@ var sqlDataBaseType = {
 var config = require('config').get('services.CoAuthoring.sql');
 var baseConnector = (sqlDataBaseType.mySql === config.get('type') || sqlDataBaseType.mariaDB === config.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
 var logger = require('./../../Common/sources/logger');
+let constants = require('./../../Common/sources/constants');
 
 const tableChanges = config.get('tableChanges'),
 	tableResult = config.get('tableResult');
@@ -286,7 +287,7 @@ UserCallback.prototype.fromValues = function(userIndex, callback){
     this.callback = callback;
   }
 };
-UserCallback.prototype.delimiter = String.fromCharCode(5);
+UserCallback.prototype.delimiter = constants.CHAR_DELIMITER;
 UserCallback.prototype.toSQLInsert = function(){
   return this.delimiter + JSON.stringify(this);
 };
@@ -351,7 +352,7 @@ DocumentPassword.prototype.fromValues = function(password, change){
     this.change = change;
   }
 };
-DocumentPassword.prototype.delimiter = String.fromCharCode(5);
+DocumentPassword.prototype.delimiter = constants.CHAR_DELIMITER;
 DocumentPassword.prototype.toSQLInsert = function(){
   return this.delimiter + JSON.stringify(this);
 };
@@ -386,3 +387,44 @@ DocumentPassword.prototype.hasPasswordChanges = function(docId, docPasswordStr) 
   return docPassword.initial !== docPassword.current;
 };
 exports.DocumentPassword = DocumentPassword;
+
+function DocumentAdditional() {
+  this.data = [];
+}
+DocumentAdditional.prototype.delimiter = constants.CHAR_DELIMITER;
+DocumentAdditional.prototype.toSQLInsert = function() {
+  if (this.data.length) {
+    let vals = this.data.map((currentValue) => {
+      return JSON.stringify(currentValue);
+    });
+    return this.delimiter + vals.join(this.delimiter);
+  } else {
+    return null;
+  }
+};
+DocumentAdditional.prototype.fromString = function(str) {
+  if (!str) {
+    return;
+  }
+  let vals = str.split(this.delimiter).slice(1);
+  this.data = vals.map((currentValue) => {
+    return JSON.parse(currentValue);
+  });
+};
+DocumentAdditional.prototype.setTimezoneOffset = function(val) {
+  let additional = new DocumentAdditional();
+  additional.data.push({timezoneOffset: val});
+  return additional.toSQLInsert();
+};
+DocumentAdditional.prototype.getTimezoneOffset = function(str) {
+  let res;
+  let val = new DocumentAdditional();
+  val.fromString(str);
+  val.data.forEach((elem) => {
+    if (undefined !== elem.timezoneOffset) {
+      res = elem.timezoneOffset;
+    }
+  });
+  return res;
+};
+exports.DocumentAdditional = DocumentAdditional;

@@ -2145,7 +2145,23 @@ exports.install = function(server, callbackFunction) {
         }
         let format = data.openCmd && data.openCmd.format;
         upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl, format);
-		  curIndexUser = upsertRes.affectedRows == 1 ? 1 : upsertRes.insertId;
+        let isInserted = upsertRes.affectedRows == 1;
+        curIndexUser = isInserted ? 1 : upsertRes.insertId;
+        if (isInserted && undefined !== data.timezoneOffset) {
+          //todo insert in commandOpenStartPromise. insert here for database compatibility
+          if (false === canvasService.hasAdditionalCol) {
+            let selectRes = yield taskResult.select(docId);
+            canvasService.hasAdditionalCol = selectRes.length > 0 && undefined !== selectRes[0].additional;
+          }
+          if (canvasService.hasAdditionalCol) {
+            let task = new taskResult.TaskResultData();
+            task.key = docId;
+            task.additional = sqlBase.DocumentAdditional.prototype.setTimezoneOffset(data.timezoneOffset);
+            yield taskResult.update(task);
+          } else {
+            logger.warn('auth unknown column "additional": docId = %s', docId);
+          }
+        }
       }
       if (constants.CONN_CLOSED === conn.readyState) {
         //closing could happen during async action
@@ -3097,6 +3113,9 @@ exports.install = function(server, callbackFunction) {
                     outputData.setExtName(pathModule.extname(data.needUrlKey));
                   }
                   outputData.setData(url);
+                }
+                if (undefined !== data.openedAt) {
+                  outputData.setOpenedAt(data.openedAt);
                 }
                 modifyConnectionForPassword(participant, data.needUrlIsCorrectPassword);
               }
