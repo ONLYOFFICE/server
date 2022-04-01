@@ -156,9 +156,11 @@ OutputData.prototype = {
 };
 
 function getOpenedAt(row) {
-  let timezoneOffset = sqlBase.DocumentAdditional.prototype.getTimezoneOffset(row.additional);
-  if (row.created_at && undefined !== timezoneOffset) {
-    return row.created_at.getTime() + timezoneOffset * 60 * 1000;
+  if (row) {
+    let timezoneOffset = sqlBase.DocumentAdditional.prototype.getTimezoneOffset(row.additional);
+    if (row.created_at && undefined !== timezoneOffset) {
+      return row.created_at.getTime() + timezoneOffset * 60 * 1000;
+    }
   }
   return undefined;
 }
@@ -597,10 +599,13 @@ function* commandSendMailMerge(cmd, outputData) {
   }
 }
 function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
-  yield* addRandomKeyTaskCmd(cmd);
   var selectRes = yield taskResult.select(cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
-  addPasswordToCmd(cmd, row && row.password);
+  if (!row) {
+    return;
+  }
+  yield* addRandomKeyTaskCmd(cmd);
+  addPasswordToCmd(cmd, row.password);
   cmd.setOutputFormat(changeFormatByOrigin(cmd.getDocId(), row, cmd.getOutputFormat()));
   cmd.setJsonParams(getOpenedAtJSONParams(row));
   var queueData = getSaveTask(cmd);
