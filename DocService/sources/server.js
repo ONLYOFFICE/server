@@ -62,6 +62,7 @@ const cfgWopiEnable = configCommon.get('wopi.enable');
 const cfgHtmlTemplate = configCommon.get('wopi.htmlTemplate');
 
 const app = express();
+app.disable('x-powered-by');
 //path.resolve uses __dirname by default(unexpected path in pkg)
 app.set("views", path.resolve(process.cwd(), cfgHtmlTemplate));
 app.set("view engine", "ejs");
