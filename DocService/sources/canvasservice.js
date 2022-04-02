@@ -286,12 +286,8 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
       outputData.setStatus('err');
       outputData.setData(statusInfo);
       if (taskResult.FileStatus.ErrToReload == status) {
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(key, row.callback);
-        let wopiParams = wopiClient.parseWopiCallback(key, userAuthStr);
-        if (!wopiParams) {
-          //todo rework ErrToReload to clean up on next open
-          yield cleanupCache(key);
-        }
+        yield docsCoServer.unlockWopiDoc(key);
+        yield cleanupCache(key);
       }
       break;
     case taskResult.FileStatus.None:
