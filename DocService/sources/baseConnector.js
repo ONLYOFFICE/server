@@ -411,18 +411,18 @@ DocumentAdditional.prototype.fromString = function(str) {
     return JSON.parse(currentValue);
   });
 };
-DocumentAdditional.prototype.setTimezoneOffset = function(val) {
+DocumentAdditional.prototype.setOpenedAt = function(time, timezoneOffset) {
   let additional = new DocumentAdditional();
-  additional.data.push({timezoneOffset: val});
+  additional.data.push({time: time, timezoneOffset: timezoneOffset});
   return additional.toSQLInsert();
 };
-DocumentAdditional.prototype.getTimezoneOffset = function(str) {
+DocumentAdditional.prototype.getOpenedAt = function(str) {
   let res;
   let val = new DocumentAdditional();
   val.fromString(str);
   val.data.forEach((elem) => {
     if (undefined !== elem.timezoneOffset) {
-      res = elem.timezoneOffset;
+      res = elem.time - (elem.timezoneOffset * 60 * 1000);
     }
   });
   return res;

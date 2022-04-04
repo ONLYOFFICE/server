@@ -2156,7 +2156,8 @@ exports.install = function(server, callbackFunction) {
           if (canvasService.hasAdditionalCol) {
             let task = new taskResult.TaskResultData();
             task.key = docId;
-            task.additional = sqlBase.DocumentAdditional.prototype.setTimezoneOffset(data.timezoneOffset);
+            //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
+            task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
             yield taskResult.update(task);
           } else {
             logger.warn('auth unknown column "additional": docId = %s', docId);
