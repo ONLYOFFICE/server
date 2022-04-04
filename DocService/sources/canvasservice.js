@@ -157,12 +157,9 @@ OutputData.prototype = {
 
 function getOpenedAt(row) {
   if (row) {
-    let timezoneOffset = sqlBase.DocumentAdditional.prototype.getTimezoneOffset(row.additional);
-    if (row.created_at && undefined !== timezoneOffset) {
-      return row.created_at.getTime() + timezoneOffset * 60 * 1000;
-    }
+    return sqlBase.DocumentAdditional.prototype.getOpenedAt(row.additional);
   }
-  return undefined;
+  return;
 }
 function getOpenedAtJSONParams(row) {
   let openedAt = getOpenedAt(row);
