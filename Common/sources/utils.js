@@ -894,6 +894,9 @@ exports.getConnectionInfo = function(conn){
 exports.getConnectionInfoStr = function(conn){
   return JSON.stringify(exports.getConnectionInfo(conn));
 };
+exports.isLiveViewer = function(conn){
+  return conn.user?.view && "fast" === conn.coEditingMode;
+};
 exports.canIncludeOutboxAuthorization = function (url) {
   if (cfgTokenEnableRequestOutbox) {
     if (!outboxUrlExclusionRegex) {

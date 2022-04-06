@@ -423,7 +423,13 @@ CRecalcIndex.prototype = {
 
 function updatePresenceCounters(conn, val) {
   return co(function* () {
-    if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+    if (utils.isLiveViewer(conn)) {
+      yield editorData.incrLiveViewerConnectionsCountByShard(SHARD_ID, val);
+      if (clientStatsD) {
+        let countLiveView = yield editorData.getLiveViewerConnectionsCount(connections);
+        clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
+      }
+    } else if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
       yield editorData.incrViewerConnectionsCountByShard(SHARD_ID, val);
       if (clientStatsD) {
         let countView = yield editorData.getViewerConnectionsCount(connections);
@@ -465,11 +471,8 @@ function signToken(payload, algorithm, expiresIn, secretElem) {
   var secret = utils.getSecretByElem(secretElem);
   return jwt.sign(payload, secret, options);
 }
-function isLiveViewer (conn){
-  return conn.user?.view && "fast" === conn.coEditingMode;
-}
 function needSendChanges (conn){
-  return !conn.user?.view || isLiveViewer(conn);
+  return !conn.user?.view || utils.isLiveViewer(conn);
 }
 function fillJwtByConnection(conn) {
   var docId = conn.docId;
@@ -2192,10 +2195,13 @@ exports.install = function(server, callbackFunction) {
 
       const c_LR = constants.LICENSE_RESULT;
       conn.licenseType = c_LR.Success;
-      if (!conn.user.view) {
-        let licenceType = conn.licenseType = yield* _checkLicenseAuth(conn.user.idOriginal);
+      let isLiveViewer = utils.isLiveViewer(conn);
+      if (!conn.user.view || isLiveViewer) {
+        //todo
+        let licenceType = conn.licenseType = yield* _checkLicenseAuth(conn.user.idOriginal, isLiveViewer);
         if (c_LR.Success !== licenceType && c_LR.SuccessLimit !== licenceType) {
           conn.user.view = true;
+          delete conn.coEditingMode;
         } else {
           //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
           yield* updateEditUsers(conn.user.idOriginal,  !!data.IsAnonymousUser);
@@ -2952,43 +2958,65 @@ exports.install = function(server, callbackFunction) {
 		});
 	}
 
-	function* _checkLicenseAuth(userId) {
-		let licenseWarningLimit = false;
-		const c_LR = constants.LICENSE_RESULT;
-		let licenseType = licenseInfo.type;
-		if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
-		if (licenseInfo.usersCount) {
-				const nowUTC = getLicenseNowUtc();
-				const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
-				if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
-					licenseType = c_LR.UsersCount;
-				}
-				licenseWarningLimit = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
-		} else {
-				const connectionsCount = licenseInfo.connections;
-				const editConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
-				if (editConnectionsCount >= connectionsCount) {
-				  licenseType = c_LR.Connections;
-				}
-				licenseWarningLimit = connectionsCount * cfgWarningLimitPercents <= editConnectionsCount;
-			  }
-			  }
-
-		if (c_LR.UsersCount === licenseType) {
-		  if (!licenseInfo.hasLicense) {
-		    licenseType = c_LR.UsersCountOS;
-          }
-		  logger.error('License: User limit exceeded!!!');
-        } else if (c_LR.Connections === licenseType) {
-		  if (!licenseInfo.hasLicense) {
-		    licenseType = c_LR.ConnectionsOS;
-          }
-		  logger.error('License: Connection limit exceeded!!!');
-        } else if (licenseWarningLimit) {
-		  logger.warn('License: Warning limit exceeded!!!');
+  function* _checkLicenseAuth(userId, isLiveViewer) {
+    let licenseWarningLimitUsers = false;
+    let licenseWarningLimitConnections = false;
+    let licenseWarningLimitConnectionsLive = false;
+    const c_LR = constants.LICENSE_RESULT;
+    let licenseType = licenseInfo.type;
+    if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
+      if (licenseInfo.usersCount) {
+        const nowUTC = getLicenseNowUtc();
+        const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
+        if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
+          licenseType = c_LR.UsersCount;
         }
-		return licenseType;
-	}
+        licenseWarningLimitUsers = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
+      } else if(false && isLiveViewer) {
+        const connectionsLiveCount = licenseInfo.connectionsLive;
+        const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
+        if (liveViewerConnectionsCount >= connectionsLiveCount) {
+          licenseType = c_LR.Connections;
+        }
+        licenseWarningLimitConnectionsLive = connectionsLiveCount * cfgWarningLimitPercents <= liveViewerConnectionsCount;
+      } else {
+        const connectionsCount = licenseInfo.connections;
+        const editConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
+        if (editConnectionsCount >= connectionsCount) {
+          licenseType = c_LR.Connections;
+        }
+        licenseWarningLimitConnections = connectionsCount * cfgWarningLimitPercents <= editConnectionsCount;
+      }
+    }
+
+    if (c_LR.UsersCount === licenseType) {
+      if (!licenseInfo.hasLicense) {
+        licenseType = c_LR.UsersCountOS;
+      }
+      logger.error('License: User limit exceeded!!!');
+    } else if (c_LR.Connections === licenseType) {
+      if (!licenseInfo.hasLicense) {
+        licenseType = c_LR.ConnectionsOS;
+      }
+      logger.error('License: Connection limit exceeded!!!');
+    } else if (c_LR.ConnectionsLive === licenseType) {
+      if (!licenseInfo.hasLicense) {
+        licenseType = c_LR.ConnectionsLiveOS;
+      }
+      logger.error('License: Connection Live Viewer limit exceeded!!!');
+    } else {
+      if (licenseWarningLimitUsers) {
+        logger.warn('License: Warning User limit exceeded!!!');
+      }
+      if (licenseWarningLimitConnections) {
+        logger.warn('License: Warning Connection limit exceeded!!!');
+      }
+      if (licenseWarningLimitConnectionsLive) {
+        logger.warn('License: Warning Connection Live Viewer limit exceeded!!!');
+      }
+    }
+    return licenseType;
+  }
 
   sockjs_echo.installHandlers(server, {prefix: '/doc/['+constants.DOC_ID_PATTERN+']*/c', log: function(severity, message) {
     //TODO: handle severity
@@ -3202,15 +3230,16 @@ exports.install = function(server, callbackFunction) {
     });
   }
 
-  function* collectStats(countEdit, countView) {
+  function* collectStats(countEdit, countLiveView, countView) {
     let now = Date.now();
-    yield editorData.setEditorConnections(countEdit, countView, now, PRECISION);
+    yield editorData.setEditorConnections(countEdit, countLiveView, countView, now, PRECISION);
   }
   function expireDoc() {
     return co(function* () {
       try {
-        var countEditByShard = 0;
-        var countViewByShard = 0;
+        let countEditByShard = 0;
+        let countLiveViewByShard = 0;
+        let countViewByShard = 0;
         logger.debug('expireDoc connections.length = %d', connections.length);
         var nowMs = new Date().getTime();
         var maxMs = nowMs + Math.max(cfgExpSessionCloseCommand, expDocumentsStep);
@@ -3247,18 +3276,23 @@ exports.install = function(server, callbackFunction) {
             logger.error('expireDoc connection closed docId = %s', conn.docId);
           }
           yield addPresence(conn, false);
-          if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+          if (utils.isLiveViewer(conn)) {
+            countLiveViewByShard++;
+          } else if(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
             countViewByShard++;
           } else {
             countEditByShard++;
           }
         }
-        yield* collectStats(countEditByShard, countViewByShard);
+        yield* collectStats(countEditByShard, countLiveViewByShard, countViewByShard);
         yield editorData.setEditorConnectionsCountByShard(SHARD_ID, countEditByShard);
+        yield editorData.setLiveViewerConnectionsCountByShard(SHARD_ID, countLiveViewByShard);
         yield editorData.setViewerConnectionsCountByShard(SHARD_ID, countViewByShard);
         if (clientStatsD) {
           let countEdit = yield editorData.getEditorConnectionsCount(connections);
           clientStatsD.gauge('expireDoc.connections.edit', countEdit);
+          let countLiveView = yield editorData.getLiveViewerConnectionsCount(connections);
+          clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
           let countView = yield editorData.getViewerConnectionsCount(connections);
           clientStatsD.gauge('expireDoc.connections.view', countView);
         }
@@ -3386,6 +3420,7 @@ exports.licenseInfo = function(req, res) {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
 		}, quota: {
         editorConnectionsCount: 0,
+        liveViewerConnectionsCount: 0,
         uniqueUserCount: 0,
         anonymousUserCount: 0,
         byMonth: null
@@ -3398,10 +3433,12 @@ exports.licenseInfo = function(req, res) {
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
           edit: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0},
+          liveview: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0},
           view: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0}
         };
         output.connectionsStat[PRECISION[i].name] = {
           edit: {min: 0, avr: 0, max: 0},
+          liveview: {min: 0, avr: 0, max: 0},
           view: {min: 0, avr: 0, max: 0}
         };
       }
@@ -3426,6 +3463,12 @@ exports.licenseInfo = function(req, res) {
                 precision.view.max = Math.max(precision.view.max, elem.view);
                 precision.view.sum += elem.view;
                 precision.view.count++;
+                if (elem.liveview) {
+                  precision.liveview.min = Math.min(precision.liveview.min, elem.liveview);
+                  precision.liveview.max = Math.max(precision.liveview.max, elem.liveview);
+                  precision.liveview.sum += elem.liveview;
+                  precision.liveview.count++;
+                }
               } else {
                 precisionIndex = j + 1;
               }
@@ -3440,6 +3483,11 @@ exports.licenseInfo = function(req, res) {
             precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.intervalsInPresision);
             precisionOut.edit.min = precision.edit.min;
             precisionOut.edit.max = precision.edit.max;
+          }
+          if (precision.liveview.count > 0) {
+            precisionOut.liveview.avr = Math.round(precision.liveview.sum / precision.liveview.intervalsInPresision);
+            precisionOut.liveview.min = precision.liveview.min;
+            precisionOut.liveview.max = precision.liveview.max;
           }
           if (precision.view.count > 0) {
             precisionOut.view.avr = Math.round(precision.view.sum / precision.view.intervalsInPresision);
@@ -3461,6 +3509,7 @@ exports.licenseInfo = function(req, res) {
         return a.date.localeCompare(b.date);
       });
       output.quota.editorConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
+      output.quota.liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;

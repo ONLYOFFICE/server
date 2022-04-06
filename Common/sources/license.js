@@ -49,6 +49,7 @@ exports.readLicense = function*() {
 		mode: constants.LICENSE_MODE.None,
 		branding: false,
 		connections: constants.LICENSE_CONNECTIONS,
+		connectionsLive: constants.LICENSE_CONNECTIONS,
 		customization: false,
 		usersCount: 0,
 		usersExpire: constants.LICENSE_EXPIRE_USERS_ONE_DAY,

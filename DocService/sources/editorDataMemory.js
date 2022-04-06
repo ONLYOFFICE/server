@@ -271,8 +271,8 @@ EditorData.prototype.getPresenceUniqueUsersOfMonth = function() {
   return Promise.resolve(res);
 };
 
-EditorData.prototype.setEditorConnections = function(countEdit, countView, now, precision) {
-  this.stat.push({time: now, edit: countEdit, view: countView});
+EditorData.prototype.setEditorConnections = function(countEdit, countLiveView, countView, now, precision) {
+  this.stat.push({time: now, edit: countEdit, liveview: countLiveView, view: countView});
   let i = 0;
   while (i < this.stat.length && this.stat[i] < now - precision[precision.length - 1].val) {
     i++;
@@ -310,6 +310,22 @@ EditorData.prototype.getViewerConnectionsCount = function(connections) {
   for (let i = 0; i < connections.length; ++i) {
     let conn = connections[i];
     if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+      count++;
+    }
+  }
+  return Promise.resolve(count);
+};
+EditorData.prototype.setLiveViewerConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.incrLiveViewerConnectionsCountByShard = function(shardId, count) {
+  return Promise.resolve();
+};
+EditorData.prototype.getLiveViewerConnectionsCount = function(connections) {
+  let count = 0;
+  for (let i = 0; i < connections.length; ++i) {
+    let conn = connections[i];
+    if (utils.isLiveViewer(conn)) {
       count++;
     }
   }

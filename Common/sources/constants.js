@@ -72,7 +72,9 @@ exports.LICENSE_RESULT = {
   UsersCount    : 8,
   ConnectionsOS : 9,
   UsersCountOS  : 10,
-  ExpiredLimited: 11
+  ExpiredLimited: 11,
+  ConnectionsLiveOS: 12,
+  ConnectionsLive: 13
 };
 
 exports.LICENSE_CONNECTIONS = 20;
@@ -255,6 +257,8 @@ exports.REDIS_KEY_LICENSE_T = 'licenseT';
 exports.REDIS_KEY_EDITOR_CONNECTIONS = 'editorconnections';
 exports.REDIS_KEY_SHARD_CONNECTIONS_EDIT_ZSET = 'shardconnections:edit:zset';
 exports.REDIS_KEY_SHARD_CONNECTIONS_EDIT_HASH = 'shardconnections:edit:hash';
+exports.REDIS_KEY_SHARD_CONNECTIONS_LIVE_VIEW_ZSET = 'shardconnections:liveview:zset';
+exports.REDIS_KEY_SHARD_CONNECTIONS_LIVE_VIEW_HASH = 'shardconnections:liveview:hash';
 exports.REDIS_KEY_SHARD_CONNECTIONS_VIEW_ZSET = 'shardconnections:view:zset';
 exports.REDIS_KEY_SHARD_CONNECTIONS_VIEW_HASH = 'shardconnections:view:hash';
 
