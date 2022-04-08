@@ -1654,6 +1654,7 @@ exports.receiveTask = function(data, ack) {
 exports.cleanupCache = cleanupCache;
 exports.cleanupCacheIf = cleanupCacheIf;
 exports.getOutputData = getOutputData;
+exports.getOpenedAt = getOpenedAt;
 exports.commandSfctByCmd = commandSfctByCmd;
 exports.commandOpenStartPromise = commandOpenStartPromise;
 exports.OutputDataWrap = OutputDataWrap;

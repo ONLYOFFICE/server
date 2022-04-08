@@ -2232,9 +2232,10 @@ exports.install = function(server, callbackFunction) {
         return;
       }
       let result = yield taskResult.select(docId);
-      if (cmd && result && result.length > 0 && result[0].callback) {
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
-        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, result[0].callback);
+      let resultRow = result.length > 0 ? result[0] : null;
+      if (cmd && resultRow && resultRow.callback) {
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, resultRow.callback, curIndexUser);
+        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, resultRow.callback);
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
@@ -2335,7 +2336,7 @@ exports.install = function(server, callbackFunction) {
         }
       } else {
         conn.sessionId = conn.id;
-        const endAuthRes = yield* endAuth(conn, false, documentCallback);
+        const endAuthRes = yield* endAuth(conn, false, documentCallback, canvasService.getOpenedAt(resultRow));
         if (endAuthRes && cmd) {
           yield canvasService.openDocument(conn, cmd, upsertRes, bIsRestore);
         }
@@ -2343,7 +2344,7 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  function* endAuth(conn, bIsRestore, documentCallback) {
+  function* endAuth(conn, bIsRestore, documentCallback, opt_openedAt) {
     let res = true;
     const docId = conn.docId;
     const tmpUser = conn.user;
@@ -2425,7 +2426,7 @@ exports.install = function(server, callbackFunction) {
         //closing could happen during async action
         return false;
       }
-      yield* sendAuthInfo(conn, bIsRestore, participantsMap, hasForgotten);
+      yield* sendAuthInfo(conn, bIsRestore, participantsMap, hasForgotten, opt_openedAt);
     }
     if (constants.CONN_CLOSED === conn.readyState) {
       //closing could happen during async action
@@ -2486,7 +2487,7 @@ exports.install = function(server, callbackFunction) {
       index += cfgMaxRequestChanges;
     } while (changes && cfgMaxRequestChanges === changes.length);
   }
-  function* sendAuthInfo(conn, bIsRestore, participantsMap, opt_hasForgotten) {
+  function* sendAuthInfo(conn, bIsRestore, participantsMap, opt_hasForgotten, opt_openedAt) {
     const docId = conn.docId;
     let docLock;
     if(EditorTypes.document == conn.editorType){
@@ -2517,7 +2518,8 @@ exports.install = function(server, callbackFunction) {
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
-      settings: cfgEditor
+      settings: cfgEditor,
+      openedAt: opt_openedAt
     };
     sendData(conn, sendObject);//Or 0 if fails
   }
