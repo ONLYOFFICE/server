@@ -159,7 +159,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_nLcid', this.lcid);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
-    xml += this.serializeXmlProp('m_bConvertToOrigin', this.convertToOrigin);
+    xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
     xml += this.serializeLimit();
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
