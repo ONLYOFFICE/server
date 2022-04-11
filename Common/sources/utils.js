@@ -952,6 +952,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.customization = licenseInfo.customization;
   license.plugins = licenseInfo.plugins;
   license.connections = licenseInfo.connections;
+  license.connections_view = licenseInfo.connectionsView;
   license.users_count = licenseInfo.usersCount;
   license.users_expire = licenseInfo.usersExpire / constants.LICENSE_EXPIRE_USERS_ONE_DAY;
   return license;

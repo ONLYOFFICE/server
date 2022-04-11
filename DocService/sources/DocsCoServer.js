@@ -2947,6 +2947,7 @@ exports.install = function(server, callbackFunction) {
 						buildVersion: commonDefines.buildVersion,
 						buildNumber: commonDefines.buildNumber,
 						protectionSupport: cfgOpenProtectedFile, //todo find a better place
+						liveViewerSupport: !!licenseInfo.connectionsView,
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
 						plugins: licenseInfo.plugins
@@ -2972,8 +2973,8 @@ exports.install = function(server, callbackFunction) {
           licenseType = c_LR.UsersCount;
         }
         licenseWarningLimitUsers = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
-      } else if(false && isLiveViewer) {
-        const connectionsLiveCount = licenseInfo.connectionsLive;
+      } else if(isLiveViewer) {
+        const connectionsLiveCount = licenseInfo.connectionsView;
         const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
         if (liveViewerConnectionsCount >= connectionsLiveCount) {
           licenseType = c_LR.Connections;
