@@ -673,7 +673,7 @@ function* sendServerRequest(docId, uri, dataObject, opt_checkAndFixAuthorization
     }
     dataObject.setToken(bodyToken);
   }
-  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, cfgCallbackRequestTimeout, auth);
+  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, undefined, cfgCallbackRequestTimeout, auth);
   logger.debug('postData response: docId = %s;data = %s', docId, postRes.body);
   return postRes.body;
 }
@@ -1074,7 +1074,15 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
     return commonDefines.c_oAscServerCommandErrors.NoError;
   }
 }
-
+let unlockWopiDoc = co.wrap(function*(docId, opt_userIndex) {
+  //wopi unlock
+  var getRes = yield* getCallback(docId, opt_userIndex);
+  if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
+    yield wopiClient.unlock(getRes.wopiParams);
+    let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
+    yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
+  }
+});
 function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
   yield editorData.cleanDocumentOnExit(docId);
@@ -1085,13 +1093,7 @@ function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(cfgForgottenFiles + '/' + docId);
   }
-  //unlock
-  var getRes = yield* getCallback(docId, opt_userIndex);
-  if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
-      yield wopiClient.unlock(getRes.wopiParams);
-      let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
-      yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
-  }
+  yield unlockWopiDoc(docId, opt_userIndex);
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
@@ -1250,6 +1252,7 @@ exports.getIsShutdown = getIsShutdown;
 exports.hasChanges = hasChanges;
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
+exports.unlockWopiDoc = unlockWopiDoc;
 exports.setForceSave = setForceSave;
 exports.startForceSave = startForceSave;
 exports.resetForceSaveAfterChanges = resetForceSaveAfterChanges;
@@ -2160,7 +2163,24 @@ exports.install = function(server, callbackFunction) {
         }
         let format = data.openCmd && data.openCmd.format;
         upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl, format);
-		  curIndexUser = upsertRes.affectedRows == 1 ? 1 : upsertRes.insertId;
+        let isInserted = upsertRes.affectedRows == 1;
+        curIndexUser = isInserted ? 1 : upsertRes.insertId;
+        if (isInserted && undefined !== data.timezoneOffset) {
+          //todo insert in commandOpenStartPromise. insert here for database compatibility
+          if (false === canvasService.hasAdditionalCol) {
+            let selectRes = yield taskResult.select(docId);
+            canvasService.hasAdditionalCol = selectRes.length > 0 && undefined !== selectRes[0].additional;
+          }
+          if (canvasService.hasAdditionalCol) {
+            let task = new taskResult.TaskResultData();
+            task.key = docId;
+            //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
+            task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+            yield taskResult.update(task);
+          } else {
+            logger.warn('auth unknown column "additional": docId = %s', docId);
+          }
+        }
       }
       if (constants.CONN_CLOSED === conn.readyState) {
         //closing could happen during async action
@@ -2236,9 +2256,10 @@ exports.install = function(server, callbackFunction) {
         return;
       }
       let result = yield taskResult.select(docId);
-      if (cmd && result && result.length > 0 && result[0].callback) {
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
-        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, result[0].callback);
+      let resultRow = result.length > 0 ? result[0] : null;
+      if (cmd && resultRow && resultRow.callback) {
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, resultRow.callback, curIndexUser);
+        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, resultRow.callback);
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
@@ -2339,7 +2360,7 @@ exports.install = function(server, callbackFunction) {
         }
       } else {
         conn.sessionId = conn.id;
-        const endAuthRes = yield* endAuth(conn, false, documentCallback);
+        const endAuthRes = yield* endAuth(conn, false, documentCallback, canvasService.getOpenedAt(resultRow));
         if (endAuthRes && cmd) {
           yield canvasService.openDocument(conn, cmd, upsertRes, bIsRestore);
         }
@@ -2347,7 +2368,7 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  function* endAuth(conn, bIsRestore, documentCallback) {
+  function* endAuth(conn, bIsRestore, documentCallback, opt_openedAt) {
     let res = true;
     const docId = conn.docId;
     const tmpUser = conn.user;
@@ -2429,7 +2450,7 @@ exports.install = function(server, callbackFunction) {
         //closing could happen during async action
         return false;
       }
-      yield* sendAuthInfo(conn, bIsRestore, participantsMap, hasForgotten);
+      yield* sendAuthInfo(conn, bIsRestore, participantsMap, hasForgotten, opt_openedAt);
     }
     if (constants.CONN_CLOSED === conn.readyState) {
       //closing could happen during async action
@@ -2492,7 +2513,7 @@ exports.install = function(server, callbackFunction) {
       index += cfgMaxRequestChanges;
     } while (changes && cfgMaxRequestChanges === changes.length);
   }
-  function* sendAuthInfo(conn, bIsRestore, participantsMap, opt_hasForgotten) {
+  function* sendAuthInfo(conn, bIsRestore, participantsMap, opt_hasForgotten, opt_openedAt) {
     const docId = conn.docId;
     let docLock;
     if(EditorTypes.document == conn.editorType){
@@ -2523,7 +2544,8 @@ exports.install = function(server, callbackFunction) {
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
-      settings: cfgEditor
+      settings: cfgEditor,
+      openedAt: opt_openedAt
     };
     sendData(conn, sendObject);//Or 0 if fails
   }
@@ -3146,6 +3168,9 @@ exports.install = function(server, callbackFunction) {
                     outputData.setExtName(pathModule.extname(data.needUrlKey));
                   }
                   outputData.setData(url);
+                }
+                if (undefined !== data.openedAt) {
+                  outputData.setOpenedAt(data.openedAt);
                 }
                 modifyConnectionForPassword(participant, data.needUrlIsCorrectPassword);
               }
