@@ -2999,7 +2999,7 @@ exports.install = function(server, callbackFunction) {
         const connectionsLiveCount = licenseInfo.connectionsView;
         const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
         if (liveViewerConnectionsCount >= connectionsLiveCount) {
-          // licenseType = c_LR.ConnectionsLive;
+          licenseType = c_LR.ConnectionsLive;
         }
         licenseWarningLimitConnectionsLive = connectionsLiveCount * cfgWarningLimitPercents <= liveViewerConnectionsCount;
       } else {
