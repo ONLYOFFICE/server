@@ -1859,7 +1859,7 @@ exports.install = function(server, callbackFunction) {
       let isRu = (data.lang && /^ru/.test(data.lang));
       name = isRu ? user.lastname + ' ' + user.firstname : user.firstname + ' ' + user.lastname;
     } else {
-      name = user.username;
+      name = user.username || "Anonymous";
     }
     if (name.length > constants.USER_NAME_MAX_LENGTH) {
       logger.warn('fillUsername user name too long actual = %s; max = %s', name.length, constants.USER_NAME_MAX_LENGTH);
