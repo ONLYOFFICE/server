@@ -2009,6 +2009,9 @@ exports.install = function(server, callbackFunction) {
       }
       if (edit.coEditing?.mode) {
         data.coEditingMode = edit.coEditing.mode;
+        if (edit.coEditing?.change) {
+          data.coEditingMode = 'fast';
+        }
       }
       if (null != edit.ds_view) {
         data.view = edit.ds_view;
