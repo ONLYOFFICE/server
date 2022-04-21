@@ -105,7 +105,7 @@ function discovery(req, res) {
       let exts = [{view: cfgWopiWordView, edit: cfgWopiWordEdit}, {view: cfgWopiCellView, edit: cfgWopiCellEdit},
         {view: cfgWopiSlideView, edit: cfgWopiSlideEdit}];
       let templateStart = `${baseUrl}/hosting/wopi`;
-      let templateEnd = `&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;e=EMBEDDED&amp;&gt;`;
+      let templateEnd = `&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;`;
       templateEnd += `&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;`;
       templateEnd += `&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;`;
       templateEnd += `&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;`;
@@ -120,13 +120,16 @@ function discovery(req, res) {
         }
         let ext = exts[i];
         let urlTemplateView = `${templateStart}/${documentTypes[i]}/view?${templateEnd}`;
+        let urlTemplateEmbedView = `${templateStart}/${documentTypes[i]}/view?embed=1${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         output +=`<app name="${name}" favIconUrl="${favIconUrl}">`;
         for (let j = 0; j < ext.view.length; ++j) {
           output += `<action name="view" ext="${ext.view[j]}" urlsrc="${urlTemplateView}" />`;
+          output += `<action name="embedview" ext="${ext.view[j]}" urlsrc="${urlTemplateEmbedView}" />`;
         }
         for (let j = 0; j < ext.edit.length; ++j) {
           output += `<action name="view" ext="${ext.edit[j]}" urlsrc="${urlTemplateView}" />`;
+          output += `<action name="embedview" ext="${ext.edit[j]}" urlsrc="${urlTemplateEmbedView}" />`;
           if ("oform" !== ext.edit[j]) {
             //todo config
             output += `<action name="editnew" ext="${ext.edit[j]}" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
@@ -140,6 +143,7 @@ function discovery(req, res) {
       for(let i = 0; i < exts.length; ++i) {
         let ext = exts[i];
         let urlTemplateView = `${templateStart}/${documentTypes[i]}/view?${templateEnd}`;
+        let urlTemplateEmbedView = `${templateStart}/${documentTypes[i]}/view?embed=1${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         for (let j = 0; j < ext.view.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
@@ -147,6 +151,7 @@ function discovery(req, res) {
             mimeTypes.forEach((value) => {
               output += `<app name="${value}">`;
               output += `<action name="view" ext="" default="true" urlsrc="${urlTemplateView}" />`;
+              output += `<action name="embedview" ext="" urlsrc="${urlTemplateEmbedView}" />`;
               output += `</app>`;
             });
           }
