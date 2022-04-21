@@ -2012,6 +2012,11 @@ exports.install = function(server, callbackFunction) {
         if (edit.coEditing?.change) {
           data.coEditingMode = 'fast';
         }
+        //offline viewer for pdf|djvu|xps|oxps and embeded
+        let type = constants.VIEWER_ONLY.exec(decoded.document?.fileType);
+        if ((type && typeof type[1] === 'string') || "embedded" === decoded.type) {
+          data.coEditingMode = 'strict';
+        }
       }
       if (null != edit.ds_view) {
         data.view = edit.ds_view;
