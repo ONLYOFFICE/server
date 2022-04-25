@@ -251,7 +251,7 @@ function clear(taskqueue) {
   taskqueue.channelDelayed = null;
 }
 function* pushBackRedeliveredRabbit(taskqueue, message, ack) {
-  if (message.fields.redelivered) {
+  if (message?.fields?.redelivered) {
     try {
       logger.warn('checkRedelivered redelivered data=%j', message);
       //remove current task and add new into tail of queue to remove redelivered flag
