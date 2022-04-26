@@ -56,7 +56,6 @@ const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callba
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
-const cfgWopiWordPdf = config.get('wopi.wordPdf');
 const cfgWopiWordView = config.get('wopi.wordView');
 const cfgWopiWordEdit = config.get('wopi.wordEdit');
 const cfgWopiCellView = config.get('wopi.cellView');
@@ -101,10 +100,10 @@ function discovery(req, res) {
     try {
       logger.info('wopiDiscovery start');
       let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
-      let names = ['WordPdf', 'Word','Excel','PowerPoint'];
-      let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
-      let exts = [{view: cfgWopiWordPdf, edit: []}, {view: cfgWopiWordView, edit: cfgWopiWordEdit},
-        {view: cfgWopiCellView, edit: cfgWopiCellEdit}, {view: cfgWopiSlideView, edit: cfgWopiSlideEdit}];
+      let names = ['Word','Excel','PowerPoint'];
+      let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
+      let exts = [{view: cfgWopiWordView, edit: cfgWopiWordEdit}, {view: cfgWopiCellView, edit: cfgWopiCellEdit},
+        {view: cfgWopiSlideView, edit: cfgWopiSlideEdit}];
       let templateStart = `${baseUrl}/hosting/wopi`;
       let templateEnd = `&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;`;
       templateEnd += `&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;`;
