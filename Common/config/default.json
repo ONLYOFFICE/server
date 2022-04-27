@@ -106,12 +106,12 @@
 				"limits_tempfile_upload": 104857600,
 				"limits_image_size": 26214400,
 				"limits_image_download_timeout": {
-					"connectionAndInactivity": "10s",
+					"connectionAndInactivity": "2m",
 					"wholeCycle": "2m"
 				},
 				"callbackRequestTimeout": {
-					"connectionAndInactivity": "10s",
-					"wholeCycle": "2m"
+					"connectionAndInactivity": "10m",
+					"wholeCycle": "10m"
 				},
 				"healthcheckfilepath": "../public/healthcheck.docx",
 				"savetimeoutdelay": 5000,
@@ -275,7 +275,7 @@
 		"converter": {
 			"maxDownloadBytes": 104857600,
 			"downloadTimeout": {
-				"connectionAndInactivity": "10s",
+				"connectionAndInactivity": "2m",
 				"wholeCycle": "2m"
 			},
 			"downloadAttemptMaxCount": 3,
