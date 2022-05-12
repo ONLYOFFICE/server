@@ -56,7 +56,8 @@ exports.readLicense = function*() {
 		plugins: false,
 		buildDate: oBuildDate,
 		startDate: startDate,
-		endDate: null
+		endDate: null,
+		customerId: ""
 	}, null];
 };
 

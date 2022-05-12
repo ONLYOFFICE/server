@@ -72,6 +72,11 @@ function InputCommand(data, copyExplicit) {
     } else {
       this['thumbnail'] = undefined;
     }
+    if (data['textParams']) {
+      this['textParams'] = new CTextParams(data['textParams']);
+    } else {
+      this['textParams'] = undefined;
+    }
     this['status'] = data['status'];
     this['status_info'] = data['status_info'];
     this['savekey'] = data['savekey'];
@@ -100,6 +105,7 @@ function InputCommand(data, copyExplicit) {
     this['forgotten'] = data['forgotten'];
     this['status_info_in'] = data['status_info_in'];
     this['attempt'] = data['attempt'];
+    this['convertToOrigin'] = data['convertToOrigin'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
       this['isbuilder'] = data['isbuilder'];
@@ -158,6 +164,7 @@ function InputCommand(data, copyExplicit) {
     this['forgotten'] = undefined;
     this['status_info_in'] = undefined;
     this['attempt'] = undefined;
+    this['convertToOrigin'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -286,6 +293,12 @@ InputCommand.prototype = {
   },
   setThumbnail: function(data) {
     this['thumbnail'] = data;
+  },
+  getTextParams: function() {
+    return this['textParams'];
+  },
+  setTextParams: function(data) {
+    this['textParams'] = data;
   },
   getStatus: function() {
     return this['status'];
@@ -454,6 +467,12 @@ InputCommand.prototype = {
   },
   setWopiParams: function(data) {
     this['wopiParams'] = data;
+  },
+  getConvertToOrigin: function() {
+    return this['convertToOrigin'];
+  },
+  setConvertToOrigin: function(data) {
+    this['convertToOrigin'] = data;
   }
 };
 
@@ -547,6 +566,19 @@ CThumbnailData.prototype.getHeight = function() {
 };
 CThumbnailData.prototype.setHeight = function(v) {
   this['height'] = v;
+};
+function CTextParams(obj) {
+  if (obj) {
+    this['association'] = obj['association'];
+  } else {
+    this['association'] = null;
+  }
+}
+CTextParams.prototype.getAssociation = function() {
+  return this['association']
+};
+CTextParams.prototype.setAssociation = function(v) {
+  this['association'] = v;
 };
 
 function CMailMergeSendData(obj) {
@@ -762,6 +794,8 @@ function OutputSfcData(key) {
   this['notmodified'] = undefined;
   this['forcesavetype'] = undefined;
   this['encrypted'] = undefined;
+
+  this['token'] = undefined;
 }
 OutputSfcData.prototype.getKey = function() {
   return this['key'];
@@ -846,6 +880,12 @@ OutputSfcData.prototype.getEncrypted = function() {
 };
 OutputSfcData.prototype.setEncrypted = function(v) {
   this['encrypted'] = v;
+};
+OutputSfcData.prototype.getToken = function() {
+  return this['token']
+};
+OutputSfcData.prototype.setToken = function(v) {
+  this['token'] = v;
 };
 
 function OutputMailMerge(mailMergeSendData) {
@@ -1069,6 +1109,7 @@ const buildNumber = 37;
 exports.TaskQueueData = TaskQueueData;
 exports.CMailMergeSendData = CMailMergeSendData;
 exports.CThumbnailData = CThumbnailData;
+exports.CTextParams = CTextParams;
 exports.CForceSaveData = CForceSaveData;
 exports.InputCommand = InputCommand;
 exports.OutputSfcData = OutputSfcData;

@@ -387,12 +387,17 @@ function getEditorHtml(req, res) {
       params.fileInfo = {};
     } finally {
       logger.debug('wopiEditor render params=%j', params);
-      res.render("editor-wopi", params);
+      try {
+        res.render("editor-wopi", params);
+      } catch (err) {
+        logger.error('wopiEditor error:%s', err.stack);
+        res.sendStatus(400);
+      }
       logger.info('wopiEditor end');
     }
   });
 }
-function putFile(wopiParams, data, dataStream, userLastChangeId) {
+function putFile(wopiParams, data, dataStream, dataSize, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   return co(function* () {
     let postRes = null;
     try {
@@ -414,13 +419,16 @@ function putFile(wopiParams, data, dataStream, userLastChangeId) {
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
         fillStandardHeaders(headers, uri, userAuth.access_token);
+        headers['X-LOOL-WOPI-IsModifiedByUser'] = isModifiedByUser;
+        headers['X-LOOL-WOPI-IsAutosave'] = isAutosave;
+        headers['X-LOOL-WOPI-IsExitSave'] = isExitSave;
         if (wopiParams.LastModifiedTime) {
           //collabora nexcloud connector
           headers['X-LOOL-WOPI-Timestamp'] = wopiParams.LastModifiedTime;
         }
 
         logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
-        postRes = yield utils.postRequestPromise(uri, data, dataStream, cfgCallbackRequestTimeout, undefined, headers);
+        postRes = yield utils.postRequestPromise(uri, data, dataStream, dataSize, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
         logger.debug('wopi PutFile response body:%s', postRes.body);
       } else {
@@ -459,7 +467,7 @@ function renameFile(wopiParams, name) {
         fillStandardHeaders(headers, uri, userAuth.access_token);
 
         logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
         if (postRes.body) {
           res = JSON.parse(postRes.body);
@@ -524,7 +532,7 @@ function lock(command, lockId, fileInfo, userAuth) {
         let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
         logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
       } else {
         logger.info('wopi %s SupportsLocks = false', command);
@@ -559,7 +567,7 @@ function unlock(wopiParams) {
         let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
         logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
       } else {
         logger.info('wopi SupportsLocks = false');

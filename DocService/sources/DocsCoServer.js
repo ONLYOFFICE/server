@@ -134,8 +134,6 @@ const cfgTokenSessionAlgorithm = config.get('token.session.algorithm');
 const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
 const cfgTokenInboxHeader = config.get('token.inbox.header');
 const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
-const cfgTokenInboxInBody = config.get('token.inbox.inBody');
-const cfgTokenOutboxInBody = config.get('token.outbox.inBody');
 const cfgTokenBrowserSecretFromInbox = config.get('token.browser.secretFromInbox');
 const cfgTokenVerifyOptions = config.get('token.verifyOptions');
 const cfgSecretBrowser = config.get('secret.browser');
@@ -152,6 +150,7 @@ const cfgWarningLimitPercents = configCommon.get('license.warning_limit_percents
 const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('server.openProtectedFile');
 const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
+const cfgTokenRequiredParams = config.get('server.tokenRequiredParams');
 
 const EditorTypes = {
   document : 0,
@@ -500,7 +499,11 @@ function sendDataWarning(conn, msg) {
   sendData(conn, {type: "warning", message: msg});
 }
 function sendDataMessage(conn, msg) {
-  sendData(conn, {type: "message", messages: msg});
+  if (false !== conn.permissions.chat) {
+    sendData(conn, {type: "message", messages: msg});
+  } else {
+    logger.debug("sendDataMessage permissions.chat==false: userId = %s docId = %s", conn.user && conn.user.id, conn.docId);
+  }
 }
 function sendDataCursor(conn, msg) {
   sendData(conn, {type: "cursor", messages: msg});
@@ -644,20 +647,20 @@ function* getOriginalParticipantsId(docId) {
   return result;
 }
 
-function* sendServerRequest(docId, uri, dataObject, opt_checkAuthorization) {
+function* sendServerRequest(docId, uri, dataObject, opt_checkAndFixAuthorizationLength) {
   logger.debug('postData request: docId = %s;url = %s;data = %j', docId, uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(uri)) {
-    auth = utils.fillJwtForRequest(dataObject);
-    if (cfgTokenOutboxInBody) {
-      dataObject = {token: auth};
-      auth = undefined;
-    } else if (opt_checkAuthorization && !opt_checkAuthorization(auth, dataObject)) {
-      auth = utils.fillJwtForRequest(dataObject);
-      logger.warn('authorization reduced to: docId = %s; length=%d', docId, auth.length);
+    let bodyToken = utils.fillJwtForRequest(dataObject, true);
+    auth = utils.fillJwtForRequest(dataObject, false);
+    let authLen = auth.length;
+    if (opt_checkAndFixAuthorizationLength && !opt_checkAndFixAuthorizationLength(auth, dataObject)) {
+      auth = utils.fillJwtForRequest(dataObject, false);
+      logger.warn('authorization too large. Use body token instead. size reduced from %d to %d: docId = %s', authLen, auth.length, docId);
     }
+    dataObject.setToken(bodyToken);
   }
-  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, cfgCallbackRequestTimeout, auth);
+  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, undefined, cfgCallbackRequestTimeout, auth);
   logger.debug('postData response: docId = %s;data = %s', docId, postRes.body);
   return postRes.body;
 }
@@ -1058,7 +1061,15 @@ function* bindEvents(docId, callback, baseUrl, opt_userAction, opt_userData) {
     return commonDefines.c_oAscServerCommandErrors.NoError;
   }
 }
-
+let unlockWopiDoc = co.wrap(function*(docId, opt_userIndex) {
+  //wopi unlock
+  var getRes = yield* getCallback(docId, opt_userIndex);
+  if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
+    yield wopiClient.unlock(getRes.wopiParams);
+    let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
+    yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
+  }
+});
 function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
   yield editorData.cleanDocumentOnExit(docId);
@@ -1069,13 +1080,7 @@ function* cleanDocumentOnExit(docId, deleteChanges, opt_userIndex) {
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(cfgForgottenFiles + '/' + docId);
   }
-  //unlock
-  var getRes = yield* getCallback(docId, opt_userIndex);
-  if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
-      yield wopiClient.unlock(getRes.wopiParams);
-      let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
-      yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
-  }
+  yield unlockWopiDoc(docId, opt_userIndex);
 }
 function* cleanDocumentOnExitNoChanges(docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
@@ -1155,20 +1160,9 @@ function checkJwtHeader(docId, req, opt_header, opt_prefix, opt_secretType) {
   }
   return null;
 }
-function checkJwtPayloadHash(docId, hash, body, token) {
-  var res = false;
-  if (body && Buffer.isBuffer(body)) {
-    var decoded = jwt.decode(token, {complete: true});
-    var hmac = jwa(decoded.header.alg);
-    var secret = utils.getSecret(docId, cfgSecretInbox, null, token);
-    var signature = hmac.sign(body, secret);
-    res = (hash === signature);
-  }
-  return res;
-}
-function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
+function getRequestParams(docId, req, opt_isNotInBody) {
   let res = {code: constants.NO_ERROR, params: undefined};
-  if (req.body && Buffer.isBuffer(req.body) && !opt_isNotInBody) {
+  if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
     res.params = JSON.parse(req.body.toString('utf8'));
   } else {
     res.params = req.query;
@@ -1176,33 +1170,26 @@ function getRequestParams(docId, req, opt_isNotInBody, opt_tokenAssign) {
   if (cfgTokenEnableRequestInbox) {
     res.code = constants.VKEY;
     let checkJwtRes;
-    if (cfgTokenInboxInBody && !opt_isNotInBody) {
+    if (res.params.token) {
       checkJwtRes = checkJwt(docId, res.params.token, commonDefines.c_oAscSecretType.Inbox);
     } else {
-      //for compatibility
       checkJwtRes = checkJwtHeader(docId, req);
     }
     if (checkJwtRes) {
       if (checkJwtRes.decoded) {
         res.code = constants.NO_ERROR;
-        if (cfgTokenInboxInBody && !opt_tokenAssign) {
-          res.params = checkJwtRes.decoded;
-        } else {
-          //for compatibility
-          if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
-            Object.assign(res.params, checkJwtRes.decoded.payload);
-          } else if (checkJwtRes.decoded.payloadhash) {
-            if (!checkJwtPayloadHash(docId, checkJwtRes.decoded.payloadhash, req.body, checkJwtRes.token)) {
-              res.code = constants.VKEY;
-            }
-          } else if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
-            Object.assign(res.params, checkJwtRes.decoded.query);
-          }
+        if (cfgTokenRequiredParams) {
+          res.params = {};
         }
-      } else {
-        if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
-          res.code = constants.VKEY_KEY_EXPIRE;
+        Object.assign(res.params, checkJwtRes.decoded);
+        if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
+          Object.assign(res.params, checkJwtRes.decoded.payload);
         }
+        if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
+          Object.assign(res.params, checkJwtRes.decoded.query);
+        }
+      } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
+        res.code = constants.VKEY_KEY_EXPIRE;
       }
     }
   }
@@ -1252,6 +1239,7 @@ exports.getIsShutdown = getIsShutdown;
 exports.hasChanges = hasChanges;
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
+exports.unlockWopiDoc = unlockWopiDoc;
 exports.setForceSave = setForceSave;
 exports.startForceSave = startForceSave;
 exports.resetForceSaveAfterChanges = resetForceSaveAfterChanges;
@@ -1259,7 +1247,6 @@ exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
-exports.checkJwtPayloadHash = checkJwtPayloadHash;
 exports.install = function(server, callbackFunction) {
   var sockjs_echo = sockjs.createServer(cfgSockjs),
     urlParse = new RegExp("^/doc/([" + constants.DOC_ID_PATTERN + "]*)/c.+", 'i');
@@ -1872,7 +1859,7 @@ exports.install = function(server, callbackFunction) {
       let isRu = (data.lang && /^ru/.test(data.lang));
       name = isRu ? user.lastname + ' ' + user.firstname : user.firstname + ' ' + user.lastname;
     } else {
-      name = user.username;
+      name = user.username || "Anonymous";
     }
     if (name.length > constants.USER_NAME_MAX_LENGTH) {
       logger.warn('fillUsername user name too long actual = %s; max = %s', name.length, constants.USER_NAME_MAX_LENGTH);
@@ -1936,6 +1923,27 @@ exports.install = function(server, callbackFunction) {
       //not '=' because if it jwt from previous version, we must use values from data
       Object.assign(data.permissions, permissions);
     }
+
+    //issuer for secret
+    if (decoded.iss) {
+      data.iss = decoded.iss;
+    }
+    return res;
+  }
+  function validateAuthToken(data, decoded) {
+    var res = "";
+    if (!decoded?.document?.key) {
+      res = "document.key";
+    } else if (!decoded?.document?.permissions) {
+      res = "document.permissions";
+    } else if (!decoded?.document?.url) {
+      res = "document.url";
+    } else if (data.documentCallbackUrl && !decoded?.editorConfig?.callbackUrl) {
+      //todo callbackUrl required
+      res = "editorConfig.callbackUrl";
+    } else if (data.mode && !decoded?.editorConfig?.mode) {
+      res = "editorConfig.mode";
+    }
     return res;
   }
   function fillDataFromJwt(decoded, data) {
@@ -1951,6 +1959,9 @@ exports.install = function(server, callbackFunction) {
       }
       if(doc.permissions) {
         res = deepEqual(data.permissions, doc.permissions, {strict: true});
+        if (!res) {
+          logger.warn('fillDataFromJwt token has modified permissions docId = %s', data.docid);
+        }
         if(!data.permissions){
           data.permissions = {};
         }
@@ -1994,7 +2005,7 @@ exports.install = function(server, callbackFunction) {
       if (edit.user) {
         var dataUser = data.user;
         var user = edit.user;
-        if (null != user.id) {
+        if (user.id) {
           dataUser.id = user.id;
           if (openCmd) {
             openCmd.userid = user.id;
@@ -2003,14 +2014,18 @@ exports.install = function(server, callbackFunction) {
         if (null != user.index) {
           dataUser.indexUser = user.index;
         }
-        if (null != user.firstname) {
+        if (user.firstname) {
           dataUser.firstname = user.firstname;
         }
-        if (null != user.lastname) {
+        if (user.lastname) {
           dataUser.lastname = user.lastname;
         }
         if (user.name) {
           dataUser.username = user.name;
+        }
+        if (user.group) {
+          //like in Common.Utils.fillUserInfo(web-apps/apps/common/main/lib/util/utils.js)
+          dataUser.username = user.group.toString() + String.fromCharCode(160) + dataUser.username;
         }
       }
       if (edit.user && edit.user.name) {
@@ -2018,10 +2033,9 @@ exports.install = function(server, callbackFunction) {
       }
     }
 
-    res = res && fillDataFromWopiJwt(decoded, data);
-
     //todo make required fields
     if (decoded.url || decoded.payload|| (decoded.key && !decoded.fileInfo)) {
+      logger.warn('fillDataFromJwt token has invalid format docId = %s', data.docid);
       res = false;
     }
 
@@ -2049,7 +2063,13 @@ exports.install = function(server, callbackFunction) {
       dataWithPassword = data.openCmd;
     }
     if (dataWithPassword && dataWithPassword.password) {
-      dataWithPassword.password = yield utils.encryptPassword(dataWithPassword.password);
+      if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
+        //todo send back error
+        logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
+        dataWithPassword.password = null;
+      } else {
+        dataWithPassword.password = yield utils.encryptPassword(dataWithPassword.password);
+      }
     }
   }
 
@@ -2063,7 +2083,29 @@ exports.install = function(server, callbackFunction) {
           commonDefines.c_oAscSecretType.Browser;
         const checkJwtRes = checkJwt(docId, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
-          if (!fillDataFromJwt(checkJwtRes.decoded, data)) {
+          let decoded = checkJwtRes.decoded;
+          let fillDataFromJwtRes = false;
+          if (decoded.fileInfo) {
+            //wopi
+            fillDataFromJwtRes = fillDataFromWopiJwt(decoded, data);
+          } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_view) {
+            //reconnection
+            fillDataFromJwtRes = fillDataFromJwt(decoded, data);
+          } else {
+            //opening
+            let validationErr = validateAuthToken(data, decoded);
+            if (!validationErr) {
+              fillDataFromJwtRes = fillDataFromJwt(decoded, data);
+            } else if (cfgTokenRequiredParams) {
+              logger.error("auth missing required parameter %s (since 7.1 version): docId = %s ", validationErr, docId);
+              conn.close(constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              return;
+            } else {
+              logger.warn("auth missing required parameter %s (since 7.1 version): docId = %s ", validationErr, docId);
+              fillDataFromJwtRes = fillDataFromJwt(decoded, data);
+            }
+          }
+          if(!fillDataFromJwtRes) {
             logger.warn("fillDataFromJwt return false: docId = %s", docId);
             conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
             return;
@@ -2103,7 +2145,24 @@ exports.install = function(server, callbackFunction) {
         }
         let format = data.openCmd && data.openCmd.format;
         upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl, format);
-		  curIndexUser = upsertRes.affectedRows == 1 ? 1 : upsertRes.insertId;
+        let isInserted = upsertRes.affectedRows == 1;
+        curIndexUser = isInserted ? 1 : upsertRes.insertId;
+        if (isInserted && undefined !== data.timezoneOffset) {
+          //todo insert in commandOpenStartPromise. insert here for database compatibility
+          if (false === canvasService.hasAdditionalCol) {
+            let selectRes = yield taskResult.select(docId);
+            canvasService.hasAdditionalCol = selectRes.length > 0 && undefined !== selectRes[0].additional;
+          }
+          if (canvasService.hasAdditionalCol) {
+            let task = new taskResult.TaskResultData();
+            task.key = docId;
+            //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
+            task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+            yield taskResult.update(task);
+          } else {
+            logger.warn('auth unknown column "additional": docId = %s', docId);
+          }
+        }
       }
       if (constants.CONN_CLOSED === conn.readyState) {
         //closing could happen during async action
@@ -2173,9 +2232,10 @@ exports.install = function(server, callbackFunction) {
         return;
       }
       let result = yield taskResult.select(docId);
-      if (cmd && result && result.length > 0 && result[0].callback) {
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, result[0].callback, curIndexUser);
-        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, result[0].callback);
+      let resultRow = result.length > 0 ? result[0] : null;
+      if (cmd && resultRow && resultRow.callback) {
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, resultRow.callback, curIndexUser);
+        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, resultRow.callback);
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
@@ -2276,7 +2336,7 @@ exports.install = function(server, callbackFunction) {
         }
       } else {
         conn.sessionId = conn.id;
-        const endAuthRes = yield* endAuth(conn, false, documentCallback);
+        const endAuthRes = yield* endAuth(conn, false, documentCallback, canvasService.getOpenedAt(resultRow));
         if (endAuthRes && cmd) {
           yield canvasService.openDocument(conn, cmd, upsertRes, bIsRestore);
         }
@@ -2284,7 +2344,7 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  function* endAuth(conn, bIsRestore, documentCallback) {
+  function* endAuth(conn, bIsRestore, documentCallback, opt_openedAt) {
     let res = true;
     const docId = conn.docId;
     const tmpUser = conn.user;
@@ -2366,7 +2426,7 @@ exports.install = function(server, callbackFunction) {
         //closing could happen during async action
         return false;
       }
-      yield* sendAuthInfo(conn, bIsRestore, participantsMap, hasForgotten);
+      yield* sendAuthInfo(conn, bIsRestore, participantsMap, hasForgotten, opt_openedAt);
     }
     if (constants.CONN_CLOSED === conn.readyState) {
       //closing could happen during async action
@@ -2427,7 +2487,7 @@ exports.install = function(server, callbackFunction) {
       index += cfgMaxRequestChanges;
     } while (changes && cfgMaxRequestChanges === changes.length);
   }
-  function* sendAuthInfo(conn, bIsRestore, participantsMap, opt_hasForgotten) {
+  function* sendAuthInfo(conn, bIsRestore, participantsMap, opt_hasForgotten, opt_openedAt) {
     const docId = conn.docId;
     let docLock;
     if(EditorTypes.document == conn.editorType){
@@ -2458,12 +2518,17 @@ exports.install = function(server, callbackFunction) {
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
-      settings: cfgEditor
+      settings: cfgEditor,
+      openedAt: opt_openedAt
     };
     sendData(conn, sendObject);//Or 0 if fails
   }
 
   function* onMessage(conn, data) {
+    if (false === conn.permissions.chat) {
+      logger.warn("insert message permissions.chat==false: userId = %s docId = %s", conn.user && conn.user.id, conn.docId);
+      return;
+    }
     var docId = conn.docId;
     var userId = conn.user.id;
     var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal, username: conn.user.username};
@@ -2684,7 +2749,7 @@ exports.install = function(server, callbackFunction) {
         }
         yield* publish({type: commonDefines.c_oPublishType.changes, docId: docId, userId: userId,
           changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
-          locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo}, docId, userId);
+          locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo, endSaveChanges: data.endSaveChanges}, docId, userId);
       }
       // Автоматически снимаем lock сами и посылаем индекс для сохранения
       yield* unSaveLock(conn, changesIndex, newChangesLastTime);
@@ -2702,7 +2767,7 @@ exports.install = function(server, callbackFunction) {
       }
       let isPublished = yield* publish({type: commonDefines.c_oPublishType.changes, docId: docId, userId: userId,
         changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
-        locks: [], excelAdditionalInfo: undefined}, docId, userId);
+        locks: [], excelAdditionalInfo: undefined, endSaveChanges: data.endSaveChanges}, docId, userId);
       sendData(conn, {type: 'savePartChanges', changesIndex: changesIndex});
       if (!isPublished) {
         //stub for lockDocumentsTimerId
@@ -2734,7 +2799,7 @@ exports.install = function(server, callbackFunction) {
   function* getMessages(conn) {
     let allMessages = yield editorData.getMessages(conn.docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
-    sendData(conn, {type: "message", messages: allMessages});
+    sendDataMessage(conn, allMessages);
   }
 
   function* _checkLock(docId, arrayBlocks) {
@@ -2988,7 +3053,8 @@ exports.install = function(server, callbackFunction) {
               }
               _.each(participants, function(participant) {
                 sendData(participant, {type: 'saveChanges', changes: changes,
-                  changesIndex: data.changesIndex, locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
+                  changesIndex: data.changesIndex, endSaveChanges:  data.endSaveChanges,
+                  locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
               });
             }
             break;
@@ -3050,6 +3116,9 @@ exports.install = function(server, callbackFunction) {
                     outputData.setExtName(pathModule.extname(data.needUrlKey));
                   }
                   outputData.setData(url);
+                }
+                if (undefined !== data.openedAt) {
+                  outputData.setOpenedAt(data.openedAt);
                 }
                 modifyConnectionForPassword(participant, data.needUrlIsCorrectPassword);
               }
@@ -3330,8 +3399,8 @@ exports.licenseInfo = function(req, res) {
       var precisionSum = {};
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
-          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0},
-          view: {min: Number.MAX_VALUE, sum: 0, count: 0, max: 0}
+          edit: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0},
+          view: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0}
         };
         output.connectionsStat[PRECISION[i].name] = {
           edit: {min: 0, avr: 0, max: 0},
@@ -3340,37 +3409,45 @@ exports.licenseInfo = function(req, res) {
       }
       var redisRes = yield editorData.getEditorConnections();
       const now = Date.now();
-      var precisionIndex = 0;
-      for (let i = redisRes.length - 1; i >= 1; i -= 2) {
-        for (let j = precisionIndex; j < PRECISION.length; ++j) {
+      if (redisRes.length > 0) {
+        let expDocumentsStep95 = expDocumentsStep * 0.95;
+        let prevTime = Number.MAX_VALUE;
+        var precisionIndex = 0;
+        for (let i = redisRes.length - 1; i >= 0; i--) {
           let elem = redisRes[i];
-          if (now - elem.time < PRECISION[j].val) {
-            let precision = precisionSum[PRECISION[j].name];
-            precision.edit.min = Math.min(precision.edit.min, elem.edit);
-            precision.edit.max = Math.max(precision.edit.max, elem.edit);
-            precision.edit.sum += elem.edit;
-            precision.edit.count++;
-            precision.view.min = Math.min(precision.view.min, elem.view);
-            precision.view.max = Math.max(precision.view.max, elem.view);
-            precision.view.sum += elem.view;
-            precision.view.count++;
-          } else {
-            precisionIndex = j + 1;
+          //skip duplicates in cluster
+          if (prevTime - elem.time >= expDocumentsStep95) {
+            for (let j = precisionIndex; j < PRECISION.length; ++j) {
+              if (now - elem.time < PRECISION[j].val) {
+                let precision = precisionSum[PRECISION[j].name];
+                precision.edit.min = Math.min(precision.edit.min, elem.edit);
+                precision.edit.max = Math.max(precision.edit.max, elem.edit);
+                precision.edit.sum += elem.edit;
+                precision.edit.count++;
+                precision.view.min = Math.min(precision.view.min, elem.view);
+                precision.view.max = Math.max(precision.view.max, elem.view);
+                precision.view.sum += elem.view;
+                precision.view.count++;
+              } else {
+                precisionIndex = j + 1;
+              }
+            }
           }
+          prevTime = elem.time;
         }
-      }
-      for (let i in precisionSum) {
-        let precision = precisionSum[i];
-        let precisionOut = output.connectionsStat[i];
-        if (precision.edit.count > 0) {
-          precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.count);
-          precisionOut.edit.min = precision.edit.min;
-          precisionOut.edit.max = precision.edit.max;
-        }
-        if (precision.view.count > 0) {
-          precisionOut.view.avr = Math.round(precision.view.sum / precision.view.count);
-          precisionOut.view.min = precision.view.min;
-          precisionOut.view.max = precision.view.max;
+        for (let i in precisionSum) {
+          let precision = precisionSum[i];
+          let precisionOut = output.connectionsStat[i];
+          if (precision.edit.count > 0) {
+            precisionOut.edit.avr = Math.round(precision.edit.sum / precision.edit.intervalsInPresision);
+            precisionOut.edit.min = precision.edit.min;
+            precisionOut.edit.max = precision.edit.max;
+          }
+          if (precision.view.count > 0) {
+            precisionOut.view.avr = Math.round(precision.view.sum / precision.view.intervalsInPresision);
+            precisionOut.view.min = precision.view.min;
+            precisionOut.view.max = precision.view.max;
+          }
         }
       }
       const nowUTC = getLicenseNowUtc();

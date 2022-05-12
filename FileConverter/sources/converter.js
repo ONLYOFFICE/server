@@ -97,7 +97,7 @@ function TaskQueueDataConvert(task) {
   this.fileFrom = null;
   this.fileTo = null;
   this.title = cmd.getTitle();
-  if(constants.AVS_OFFICESTUDIO_FILE_OTHER_PDFA !== cmd.getOutputFormat()){
+  if(constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA !== cmd.getOutputFormat()){
     this.formatTo = cmd.getOutputFormat();
   } else {
     this.formatTo = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
@@ -118,11 +118,13 @@ function TaskQueueDataConvert(task) {
   this.themeDir = path.resolve(cfgPresentationThemesDir);
   this.mailMergeSend = cmd.mailmergesend;
   this.thumbnail = cmd.thumbnail;
+  this.textParams = cmd.getTextParams();
   this.jsonParams = cmd.getJsonParams();
   this.lcid = cmd.getLCID();
   this.password = cmd.getPassword();
   this.savePassword = cmd.getSavePassword();
   this.noBase64 = cmd.getNoBase64();
+  this.convertToOrigin = cmd.getConvertToOrigin();
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
@@ -150,10 +152,14 @@ TaskQueueDataConvert.prototype = {
     if (this.thumbnail) {
       xml += this.serializeThumbnail(this.thumbnail);
     }
+    if (this.textParams) {
+      xml += this.serializeTextParams(this.textParams);
+    }
     xml += this.serializeXmlProp('m_sJsonParams', this.jsonParams);
     xml += this.serializeXmlProp('m_nLcid', this.lcid);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
+    xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
     xml += this.serializeLimit();
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
@@ -201,6 +207,12 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('width', data.getWidth());
     xml += this.serializeXmlProp('height', data.getHeight());
     xml += '</m_oThumbnail>';
+    return xml;
+  },
+  serializeTextParams: function(data) {
+    var xml = '<m_oTextParams>';
+    xml += this.serializeXmlProp('m_nTextAssociationType', data.getAssociation());
+    xml += '</m_oTextParams>';
     return xml;
   },
   serializeLimit: function() {
@@ -304,7 +316,7 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization, filterPrivate, o
       try {
         let authorization;
         if (utils.canIncludeOutboxAuthorization(uri) && withAuthorization) {
-          authorization = utils.fillJwtForRequest({url: uri});
+          authorization = utils.fillJwtForRequest({url: uri}, false);
         }
         let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;
@@ -426,6 +438,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
   fs.mkdirSync(changesDir);
   let indexFile = 0;
   let changesAuthor = null;
+  let changesAuthorUnique = null;
   let changesIndex = null;
   let changesHistory = {
     serverVersion: commonDefines.buildVersion,
@@ -473,15 +486,14 @@ function* processChanges(tempDirs, cmd, authorProps) {
           yield* streamEnd(streamObj, ']');
           streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++);
         }
-        changesAuthor = change.user_id_original;
-        changesIndex = utils.getIndexFromUserId(change.user_id, change.user_id_original);
-
         let strDate = baseConnector.getDateTime(change.change_date);
-        changesHistory.changes.push({'created': strDate, 'user': {'id': changesAuthor, 'name': change.user_name}});
+        changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
         yield* streamWrite(streamObj, '[');
       } else {
         yield* streamWrite(streamObj, ',');
       }
+      changesAuthor = change.user_id_original;
+      changesAuthorUnique = change.user_id;
       yield* streamWrite(streamObj, change.change_data);
       streamObj.isNoChangesInFile = false;
     }
@@ -499,6 +511,9 @@ function* processChanges(tempDirs, cmd, authorProps) {
   yield* streamEnd(streamObj, ']');
   if (streamObj.isNoChangesInFile) {
     fs.unlinkSync(streamObj.filePath);
+  }
+  if (null !== changesAuthorUnique) {
+    changesIndex = utils.getIndexFromUserId(changesAuthorUnique, changesAuthor);
   }
   if (null == changesAuthor && null == changesIndex && forceSave && undefined !== forceSave.getAuthorUserId() &&
     undefined !== forceSave.getAuthorUserIndex()) {

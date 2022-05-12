@@ -60,9 +60,13 @@ const configStorage = configCommon.get('storage');
 
 const cfgWopiEnable = configCommon.get('wopi.enable');
 const cfgHtmlTemplate = configCommon.get('wopi.htmlTemplate');
+const cfgTokenEnableBrowser = configCommon.get('services.CoAuthoring.token.enable.browser');
+const cfgTokenEnableRequestInbox = configCommon.get('services.CoAuthoring.token.enable.request.inbox');
+const cfgTokenEnableRequestOutbox = configCommon.get('services.CoAuthoring.token.enable.request.outbox');
 
 const app = express();
-app.set("views", cfgHtmlTemplate);
+//path.resolve uses __dirname by default(unexpected path in pkg)
+app.set("views", path.resolve(process.cwd(), cfgHtmlTemplate));
 app.set("view engine", "ejs");
 const server = http.createServer(app);
 
@@ -93,6 +97,12 @@ const updateLicense = () => {
 };
 
 logger.warn('Express server starting...');
+
+if (!(cfgTokenEnableBrowser && cfgTokenEnableRequestInbox && cfgTokenEnableRequestOutbox)) {
+	logger.warn('Set services.CoAuthoring.token.enable.browser, services.CoAuthoring.token.enable.request.inbox, ' +
+				'services.CoAuthoring.token.enable.request.outbox in the Document Server config ' +
+				'to prevent an unauthorized access to your documents and the substitution of important parameters in ONLYOFFICE Document Server requests.');
+}
 
 updateLicense();
 
@@ -151,8 +161,17 @@ docsCoServer.install(server, () => {
 	});
 
 	app.get('/index.html', (req, res) => {
-		res.send('Server is functioning normally. Version: ' + commonDefines.buildVersion + '. Build: ' +
-			commonDefines.buildNumber);
+		let buildVersion = commonDefines.buildVersion;
+		let buildNumber = commonDefines.buildNumber;
+		let buildDate, packageType, customerId = "";
+		if (licenseInfo) {
+			buildDate = licenseInfo.buildDate.toISOString();
+			packageType = licenseInfo.packageType;
+			customerId = licenseInfo.customerId;
+		}
+		let output = `Server is functioning normally. Version: ${buildVersion}. Build: ${buildNumber}`;
+		output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}`;
+		res.send(output);
 	});
 	const rawFileParser = bodyParser.raw(
 		{inflate: true, limit: config.get('server.limits_tempfile_upload'), type: function() {return true;}});

@@ -350,7 +350,7 @@ EditorData.prototype.setLicense = function(key, val) {
   return Promise.resolve();
 };
 EditorData.prototype.getLicense = function(key) {
-  return Promise.resolve(false);
+  return Promise.resolve(null);
 };
 
 EditorData.prototype.isConnected = function() {

@@ -68,9 +68,6 @@
       "docbuilderCoreFontsPath": "/var/www/onlyoffice/documentserver/core-fonts"
     }
   },
-  "FileStorage": {
-    "directory": "/var/lib/onlyoffice/documentserver/App_Data"
-  },
   "SpellChecker": {
     "server": {
       "dictDir": "/var/www/onlyoffice/documentserver/dictionaries"

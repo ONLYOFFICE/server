@@ -248,10 +248,18 @@ function convertRequest(req, res, isJson) {
       if (params.region && locale[params.region.toLowerCase()]) {
         cmd.setLCID(locale[params.region.toLowerCase()].id);
       }
+      if (params.documentLayout) {
+        cmd.setJsonParams(JSON.stringify({'documentLayout': params.documentLayout}));
+      }
       if (params.spreadsheetLayout) {
         cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
       }
       if (params.password) {
+        if (params.password.length > constants.PASSWORD_MAX_LENGTH) {
+          logger.warn('convertRequest password too long actual = %s; max = %s;docId = %s', params.password.length, constants.PASSWORD_MAX_LENGTH, docId);
+          utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
+          return;
+        }
         let encryptedPassword = yield utils.encryptPassword(params.password);
         cmd.setPassword(encryptedPassword);
       }
@@ -279,8 +287,31 @@ function convertRequest(req, res, isJson) {
         }
         cmd.setThumbnail(thumbnailData);
         if (false == thumbnailData.getFirst()) {
-        cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_IMAGE);
+          cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_IMAGE);
         }
+      }
+      var documentRenderer = params.documentRenderer;
+      if (documentRenderer) {
+        if (typeof documentRenderer === 'string') {
+          documentRenderer = JSON.parse(documentRenderer);
+        }
+        var textParamsData = new commonDefines.CTextParams();
+        switch (documentRenderer.textAssociation) {
+          case 'plainParagraph':
+            textParamsData.setAssociation(3);
+            break;
+          case 'plainLine':
+            textParamsData.setAssociation(2);
+            break;
+          case 'blockLine':
+            textParamsData.setAssociation(1);
+            break;
+          case 'blockChar':
+          default:
+            textParamsData.setAssociation(0);
+            break;
+        }
+        cmd.setTextParams(textParamsData);
       }
       let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
       if (params.title) {
@@ -323,7 +354,7 @@ function builderRequest(req, res) {
       let authRes;
       if (!utils.isEmptyObject(req.query)) {
         //todo this is a stub for compatibility. remove in future version
-        authRes = docsCoServer.getRequestParams(docId, req, true, true);
+        authRes = docsCoServer.getRequestParams(docId, req, true);
       } else {
         authRes = docsCoServer.getRequestParams(docId, req);
       }
