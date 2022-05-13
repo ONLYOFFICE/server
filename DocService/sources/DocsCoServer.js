@@ -2982,7 +2982,7 @@ exports.install = function(server, callbackFunction) {
 						buildVersion: commonDefines.buildVersion,
 						buildNumber: commonDefines.buildNumber,
 						protectionSupport: cfgOpenProtectedFile, //todo find a better place
-						liveViewerSupport: !!licenseInfo.connectionsView,
+						liveViewerSupport: (licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0 ),
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
 						plugins: licenseInfo.plugins
