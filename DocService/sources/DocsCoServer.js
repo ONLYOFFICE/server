@@ -564,16 +564,21 @@ function getParticipantUser(docId, includeUserId) {
 }
 
 
-function* updateEditUsers(userId, anonym) {
+function* updateEditUsers(userId, anonym, isLiveViewer) {
   if (!licenseInfo.usersCount) {
     return;
   }
   const now = new Date();
   const expireAt = (Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)) / 1000 +
       licenseInfo.usersExpire - 1;
-  yield editorData.addPresenceUniqueUser(userId, expireAt, {anonym: anonym});
   let period = utils.getLicensePeriod(licenseInfo.startDate, now);
-  yield editorData.addPresenceUniqueUsersOfMonth(userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
+  if (isLiveViewer) {
+    yield editorData.addPresenceUniqueViewUser(userId, expireAt, {anonym: anonym});
+    yield editorData.addPresenceUniqueViewUsersOfMonth(userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
+  } else {
+    yield editorData.addPresenceUniqueUser(userId, expireAt, {anonym: anonym});
+    yield editorData.addPresenceUniqueUsersOfMonth(userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
+  }
 }
 function* getEditorsCount(docId, opt_hvals) {
   var elem, editorsCount = 0;
@@ -2232,7 +2237,7 @@ exports.install = function(server, callbackFunction) {
           delete conn.coEditingMode;
         } else {
           //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
-          yield* updateEditUsers(conn.user.idOriginal,  !!data.IsAnonymousUser);
+          yield* updateEditUsers(conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
         }
       }
 
@@ -2991,6 +2996,7 @@ exports.install = function(server, callbackFunction) {
 
   function* _checkLicenseAuth(userId, isLiveViewer) {
     let licenseWarningLimitUsers = false;
+    let licenseWarningLimitUsersView = false;
     let licenseWarningLimitConnections = false;
     let licenseWarningLimitConnectionsLive = false;
     const c_LR = constants.LICENSE_RESULT;
@@ -2998,11 +3004,19 @@ exports.install = function(server, callbackFunction) {
     if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
       if (licenseInfo.usersCount) {
         const nowUTC = getLicenseNowUtc();
-        const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
-        if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
-          licenseType = c_LR.UsersCount;
+        if(isLiveViewer) {
+          const arrUsers = yield editorData.getPresenceUniqueViewUser(nowUTC);
+          if (arrUsers.length >= licenseInfo.usersViewCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
+            licenseType = c_LR.UsersViewCount;
+          }
+          licenseWarningLimitUsersView = licenseInfo.usersViewCount * cfgWarningLimitPercents <= arrUsers.length;
+        } else {
+          const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
+          if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
+            licenseType = c_LR.UsersCount;
+          }
+          licenseWarningLimitUsers = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
         }
-        licenseWarningLimitUsers = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
       } else if(isLiveViewer) {
         const connectionsLiveCount = licenseInfo.connectionsView;
         const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
@@ -3025,6 +3039,11 @@ exports.install = function(server, callbackFunction) {
         licenseType = c_LR.UsersCountOS;
       }
       logger.error('License: User limit exceeded!!!');
+    } else if (c_LR.UsersViewCount === licenseType) {
+        if (!licenseInfo.hasLicense) {
+          licenseType = c_LR.UsersViewCountOS;
+        }
+        logger.error('License: User Live Viewer limit exceeded!!!');
     } else if (c_LR.Connections === licenseType) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.ConnectionsOS;
@@ -3038,6 +3057,9 @@ exports.install = function(server, callbackFunction) {
     } else {
       if (licenseWarningLimitUsers) {
         logger.warn('License: Warning User limit exceeded!!!');
+      }
+      if (licenseWarningLimitUsersView) {
+        logger.warn('License: Warning User Live Viewer limit exceeded!!!');
       }
       if (licenseWarningLimitConnections) {
         logger.warn('License: Warning Connection limit exceeded!!!');
@@ -3454,11 +3476,15 @@ exports.licenseInfo = function(req, res) {
 			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
 		}, quota: {
         editorConnectionsCount: 0,
-        liveViewerConnectionsCount: 0,
         uniqueUserCount: 0,
         anonymousUserCount: 0,
         byMonth: null
-		}
+        }, quotaView: {
+        connectionsCount: 0,
+        uniqueUserCount: 0,
+        anonymousUserCount: 0,
+        byMonth: null
+        }
 	};
     Object.assign(output.licenseInfo, licenseInfo);
     try {
@@ -3543,7 +3569,20 @@ exports.licenseInfo = function(req, res) {
         return a.date.localeCompare(b.date);
       });
       output.quota.editorConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
-      output.quota.liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
+
+      execRes = yield editorData.getPresenceUniqueViewUser(nowUTC);
+      output.quotaView.uniqueUserCount = execRes.length;
+      execRes.forEach(function(elem) {
+        if (elem.anonym) {
+          output.quotaView.anonymousUserCount++;
+        }
+      });
+      output.quotaView.byMonth = yield editorData.getPresenceUniqueViewUsersOfMonth();
+      output.quotaView.byMonth.sort((a, b) => {
+        return a.date.localeCompare(b.date);
+      });
+      output.quotaView.connectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
+
       logger.debug('licenseInfo end');
     } catch (err) {
       isError = true;
@@ -3561,10 +3600,11 @@ exports.licenseInfo = function(req, res) {
 let commandLicense = co.wrap(function*() {
   const nowUTC = getLicenseNowUtc();
   let users = yield editorData.getPresenceUniqueUser(nowUTC);
+  let users_view = yield editorData.getPresenceUniqueViewUser(nowUTC);
   return {
     license: licenseOriginal || utils.convertLicenseInfoToFileParams(licenseInfo),
     server: utils.convertLicenseInfoToServerParams(licenseInfo),
-    quota: {users: users}
+    quota: {users: users, users_view: users_view}
   };
 });
 // Команда с сервера (в частности teamlab)

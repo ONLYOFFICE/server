@@ -43,6 +43,8 @@ function EditorData() {
   this.forceSaveTimer = {};
   this.uniqueUser = {};
   this.uniqueUsersOfMonth = {};
+  this.uniqueViewUser = {};
+  this.uniqueViewUsersOfMonth = {};
   this.shutdown = {};
   this.stat = [];
 }
@@ -265,6 +267,50 @@ EditorData.prototype.getPresenceUniqueUsersOfMonth = function() {
       } else {
         let date = new Date(parseInt(periodId)).toISOString();
         res.push({date: date, users: this.uniqueUsersOfMonth[periodId].data});
+      }
+    }
+  }
+  return Promise.resolve(res);
+};
+
+EditorData.prototype.addPresenceUniqueViewUser = function(userId, expireAt, userInfo) {
+  this.uniqueViewUser[userId] = {expireAt: expireAt, userInfo: userInfo};
+  return Promise.resolve();
+};
+EditorData.prototype.getPresenceUniqueViewUser = function(nowUTC) {
+  let res = [];
+  for (let userId in this.uniqueViewUser) {
+    if (this.uniqueViewUser.hasOwnProperty(userId)) {
+      if (this.uniqueViewUser[userId].expireAt > nowUTC) {
+        let elem = this.uniqueViewUser[userId];
+        let newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
+        Object.assign(newElem, elem.userInfo);
+        res.push(newElem);
+      } else {
+        delete this.uniqueViewUser[userId];
+      }
+    }
+  }
+  return Promise.resolve(res);
+};
+EditorData.prototype.addPresenceUniqueViewUsersOfMonth = function(userId, period, userInfo) {
+  if(!this.uniqueViewUsersOfMonth[period]) {
+    let expireAt = Date.now() + cfgExpMonthUniqueUsers;
+    this.uniqueViewUsersOfMonth[period] = {expireAt: expireAt, data: {}};
+  }
+  this.uniqueViewUsersOfMonth[period].data[userId] = userInfo;
+  return Promise.resolve();
+};
+EditorData.prototype.getPresenceUniqueViewUsersOfMonth = function() {
+  let res = [];
+  let nowUTC = Date.now();
+  for (let periodId in this.uniqueViewUsersOfMonth) {
+    if (this.uniqueViewUsersOfMonth.hasOwnProperty(periodId)) {
+      if (this.uniqueViewUsersOfMonth[periodId].expireAt <= nowUTC) {
+        delete this.uniqueViewUsersOfMonth[periodId];
+      } else {
+        let date = new Date(parseInt(periodId)).toISOString();
+        res.push({date: date, users: this.uniqueViewUsersOfMonth[periodId].data});
       }
     }
   }

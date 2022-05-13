@@ -52,6 +52,7 @@ exports.readLicense = function*() {
 		connectionsView: constants.LICENSE_CONNECTIONS,
 		customization: false,
 		usersCount: 0,
+		usersViewCount: 0,
 		usersExpire: constants.LICENSE_EXPIRE_USERS_ONE_DAY,
 		hasLicense: false,
 		plugins: false,

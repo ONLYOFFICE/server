@@ -75,7 +75,9 @@ exports.LICENSE_RESULT = {
   UsersCountOS  : 10,
   ExpiredLimited: 11,
   ConnectionsLiveOS: 12,
-  ConnectionsLive: 13
+  ConnectionsLive: 13,
+  UsersViewCount: 14,
+  UsersViewCountOS: 15
 };
 
 exports.LICENSE_CONNECTIONS = 20;
@@ -242,6 +244,9 @@ exports.REDIS_KEY_PRESENCE_SET = 'presence:set:';
 exports.REDIS_KEY_PRESENCE_UNIQUE_USERS = 'presence:unique:users';
 exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_HASH = 'presence:unique:users:hash';
 exports.REDIS_KEY_PRESENCE_MONTH_UNIQUE_USERS_HASH = 'presence:unique:users:month';
+exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_VIEW = 'presence:unique:usersview';
+exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_VIEW_HASH = 'presence:unique:usersview:hash';
+exports.REDIS_KEY_PRESENCE_MONTH_UNIQUE_USERS_VIEW_HASH = 'presence:unique:usersview:month';
 exports.REDIS_KEY_LOCKS = 'locks:';
 exports.REDIS_KEY_LOCK_DOCUMENT = 'lockdocument:';
 exports.REDIS_KEY_MESSAGE = 'message:';
