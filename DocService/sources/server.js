@@ -60,6 +60,9 @@ const configStorage = configCommon.get('storage');
 
 const cfgWopiEnable = configCommon.get('wopi.enable');
 const cfgHtmlTemplate = configCommon.get('wopi.htmlTemplate');
+const cfgTokenEnableBrowser = configCommon.get('services.CoAuthoring.token.enable.browser');
+const cfgTokenEnableRequestInbox = configCommon.get('services.CoAuthoring.token.enable.request.inbox');
+const cfgTokenEnableRequestOutbox = configCommon.get('services.CoAuthoring.token.enable.request.outbox');
 
 const app = express();
 app.disable('x-powered-by');
@@ -95,6 +98,12 @@ const updateLicense = () => {
 };
 
 logger.warn('Express server starting...');
+
+if (!(cfgTokenEnableBrowser && cfgTokenEnableRequestInbox && cfgTokenEnableRequestOutbox)) {
+	logger.warn('Set services.CoAuthoring.token.enable.browser, services.CoAuthoring.token.enable.request.inbox, ' +
+				'services.CoAuthoring.token.enable.request.outbox in the Document Server config ' +
+				'to prevent an unauthorized access to your documents and the substitution of important parameters in ONLYOFFICE Document Server requests.');
+}
 
 updateLicense();
 
