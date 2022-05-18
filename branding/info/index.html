@@ -96,8 +96,22 @@
             padding-right: 20px;
         }
 
+        .td-separator-vert {
+            padding: 0 10px;
+        }
+
         .td-last {
             padding-bottom: 15px;
+        }
+
+        .td-link {
+            padding: 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .td-link.current {
+            font-weight: 700;
         }
 
         .main-panel {
@@ -163,6 +177,13 @@
             border-top: 1px solid #dadada;
         }
 
+        .separator-vert {
+            display: inline;
+            width: 0;
+            height: 100%;
+            border-left: 1px dotted #333333;
+        }
+
     </style>
 </head>
 <body>
@@ -199,6 +220,18 @@
                     <td id="build-date">Release date:</td>
                     <td></td>
                     <td></td>
+                </tr>
+            </table>
+            <table style="margin-left: 15px;">
+                <tr>
+                    <td class="td-link current" value="all">All</td>
+                    <td class="td-separator-vert"><div class="separator-vert"></div></td>
+                    <td class="td-link" value="edit">Editors</td>
+                    <td class="td-separator-vert"><div class="separator-vert"></div></td>
+                    <td class="td-link" value="view">Live Viewer</td>
+                </tr>
+                <tr>
+                    <td class="td-separator" colspan="5"></td>
                 </tr>
             </table>
             <table id="user-activity-info" class="hidden">
@@ -406,10 +439,10 @@
         }
 
         function createInfoTableSection(elem, caption, cls, values, desc) {
-            var tr = document.createElement("tr"); tr.classList.add(cls);
+            var tr = document.createElement("tr"); tr.classList.add('all-info');
             tr.innerHTML = '<td colspan="4" class="td-caption-small">' + caption + '</td>';
             elem.appendChild(tr);
-            tr = document.createElement("tr"); tr.classList.add(cls);
+            tr = document.createElement("tr"); tr.classList.add('all-info');
             tr.innerHTML = '<td class="td-separator" colspan="4"><div class="separator"></div></td>';
             elem.appendChild(tr);
 
@@ -425,7 +458,7 @@
                 tr.innerHTML +=  '<td class="td-last">' + (desc[i] || '') + '</td>';
             elem.appendChild(tr);
 
-            tr = document.createElement("tr"); tr.classList.add(cls);
+            tr = document.createElement("tr"); tr.classList.add('all-info');
             tr.innerHTML = '<td class="td-separator" colspan="4"></div></td>';
             elem.appendChild(tr);
         }
@@ -440,6 +473,41 @@
 
             createInfoTableSection(elem, 'EDITORS', 'editor-info', editor, desc);
             createInfoTableSection(elem, 'LIVE VIEWER', 'viewer-info', viewer, desc);
+        }
+
+        function applyMode() {
+            var current = document.querySelector('.td-link.current').getAttribute('value') || 'all';
+            var arr = document.getElementsByClassName('editor-info');
+            for (var i=0; i < arr.length; i++) {
+                (current==='view') ? arr[i].classList.add("hidden") : arr[i].classList.remove("hidden");
+            }
+            arr = document.getElementsByClassName('viewer-info');
+            for (var i=0; i < arr.length; i++) {
+                (current==='edit') ? arr[i].classList.add("hidden") : arr[i].classList.remove("hidden");
+            }
+            arr = document.getElementsByClassName('all-info');
+            for (var i=0; i < arr.length; i++) {
+                (current==='all') ? arr[i].classList.remove("hidden") : arr[i].classList.add("hidden");
+            }
+        }
+
+        function initEvents() {
+            var arr = document.getElementsByClassName('td-link');
+            var onClick = function (evt) {
+                for (var i=0; i < arr.length; i++) {
+                    arr[i].classList.remove("current");
+                }
+                evt.target.classList.add('current');
+                applyMode();
+            };
+
+            for (var i=0; i < arr.length; i++) {
+                if (arr[i].addEventListener) {
+                    arr[i].addEventListener("click", onClick)
+                } else if (arr[i].attachEvent) {
+                    arr[i].attachEvent("click", onClick);
+                }
+            }
         }
 
         (function(){
@@ -458,6 +526,8 @@
                                 fillInfo(info);
                                 fillConnections(info);
                                 fillStatistic(info);
+                                initEvents();
+                                applyMode();
                             } else {
 								document.getElementById('doc-server-err').classList.remove("hidden");
                             }
