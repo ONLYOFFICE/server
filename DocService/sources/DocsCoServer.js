@@ -3472,20 +3472,26 @@ exports.licenseInfo = function(req, res) {
   return co(function*() {
     let isError = false;
     let output = {
-		connectionsStat: {}, licenseInfo: {}, serverInfo: {
-			buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
-		}, quota: {
-        editorConnectionsCount: 0,
-        uniqueUserCount: 0,
-        anonymousUserCount: 0,
+      connectionsStat: {}, licenseInfo: {}, serverInfo: {
+        buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
+      }, quota: {
+        edit: {
+          connectionsCount: 0,
+          usersCount: {
+            unique: 0,
+            anonymous: 0,
+          }
+        },
+        view: {
+          connectionsCount: 0,
+          usersCount: {
+            unique: 0,
+            anonymous: 0,
+          }
+        },
         byMonth: null
-        }, quotaView: {
-        connectionsCount: 0,
-        uniqueUserCount: 0,
-        anonymousUserCount: 0,
-        byMonth: null
-        }
-	};
+      }
+    };
     Object.assign(output.licenseInfo, licenseInfo);
     try {
       logger.debug('licenseInfo start');
@@ -3557,31 +3563,46 @@ exports.licenseInfo = function(req, res) {
         }
       }
       const nowUTC = getLicenseNowUtc();
-      let execRes = yield editorData.getPresenceUniqueUser(nowUTC);
-      output.quota.uniqueUserCount = execRes.length;
+      let execRes;
+      execRes = yield editorData.getPresenceUniqueUser(nowUTC);
+      output.quota.edit.connectionsCount = yield editorData.getEditorConnectionsCount(connections);
+      output.quota.edit.usersCount.unique = execRes.length;
       execRes.forEach(function(elem) {
         if (elem.anonym) {
-          output.quota.anonymousUserCount++;
+          output.quota.edit.usersCount.anonymous++;
         }
       });
-      output.quota.byMonth = yield editorData.getPresenceUniqueUsersOfMonth();
+
+      execRes = yield editorData.getPresenceUniqueViewUser(nowUTC);
+      output.quota.view.connectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
+      output.quota.view.usersCount.unique = execRes.length;
+      execRes.forEach(function(elem) {
+        if (elem.anonym) {
+          output.quota.view.usersCount.anonymous++;
+        }
+      });
+
+      let byMonth = yield editorData.getPresenceUniqueUsersOfMonth();
+      let byMonthView = yield editorData.getPresenceUniqueViewUsersOfMonth();
+      let byMonthMerged = yield editorData.getPresenceUniqueViewUsersOfMonth();
+      for (let i in byMonth) {
+        if (byMonth.hasOwnProperty(i)) {
+          byMonthMerged[i] = {date: i, users: byMonth[i], usersView: {}};
+        }
+      }
+      for (let i in byMonthView) {
+        if (byMonthView.hasOwnProperty(i)) {
+          if (byMonthMerged.hasOwnProperty(i)) {
+            byMonthMerged[i].usersView = byMonthView[i];
+          } else {
+            byMonthMerged[i] = {date: i, users: {}, usersView: byMonthView[i]};
+          }
+        }
+      }
+      output.quota.byMonth = Object.values(byMonthMerged);
       output.quota.byMonth.sort((a, b) => {
         return a.date.localeCompare(b.date);
       });
-      output.quota.editorConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
-
-      execRes = yield editorData.getPresenceUniqueViewUser(nowUTC);
-      output.quotaView.uniqueUserCount = execRes.length;
-      execRes.forEach(function(elem) {
-        if (elem.anonym) {
-          output.quotaView.anonymousUserCount++;
-        }
-      });
-      output.quotaView.byMonth = yield editorData.getPresenceUniqueViewUsersOfMonth();
-      output.quotaView.byMonth.sort((a, b) => {
-        return a.date.localeCompare(b.date);
-      });
-      output.quotaView.connectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
 
       logger.debug('licenseInfo end');
     } catch (err) {
