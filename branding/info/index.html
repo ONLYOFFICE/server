@@ -118,6 +118,7 @@
             font-size: 16px;
             font-weight: 600;
             padding-bottom: 25px;
+            text-align: center;
         }
 
         #doc-server-wait {
@@ -201,24 +202,6 @@
                 </tr>
             </table>
             <table id="user-activity-info" class="hidden">
-                <tr>
-                    <td colspan="4" class="td-caption" id="user-activity-info-caption">User activity in the last 10 days</td>
-                </tr>
-                <tr>
-                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
-                </tr>
-                <tr>
-                    <td id="cell-use-up" class="td-value" width="150">0</td>
-                    <td id="cell-internal" class="td-value" width="150">0</td>
-                    <td id="cell-external" class="td-value" width="150">0</td>
-                    <td id="cell-left" class="td-value" width="224">0</td>
-                </tr>
-                <tr>
-                    <td>Active</td>
-                    <td>Internal</td>
-                    <td>External</td>
-                    <td>Remaining</td>
-                </tr>
             </table>
             <table id="connection-activity-info" class="hidden">
             </table>
@@ -226,7 +209,7 @@
             </table>
             <table id="connections-average" class="hidden">
             </table>
-            <div id="user-statistics-caption" class="header2 hidden">Usage statistics for the reporting period:</div>
+            <div id="user-statistics-caption" class="header2 hidden">Usage statistics for the reporting period</div>
             <table id="user-statistics" class="hidden">
             </table>
         </div>
@@ -298,41 +281,41 @@
                 elem.innerText = (licenseInfo.mode & 4) ? 'Trial' : '';
             }
 
-            var quota = info.quota,
-                quotaView = info.quotaView;
+            var quotaEdit = info.quota.edit,
+                quotaView = info.quota.view;
 
             if (licenseInfo.usersCount>0) { // users limit
+                var days = parseInt(licenseInfo.usersExpire/86400) || 1;
+                var value = licenseInfo.usersCount - quotaEdit.usersCount.unique;
+                var editor = [
+                    [quotaEdit.usersCount.unique, ''],
+                    [quotaEdit.usersCount.anonymous, ''],
+                    [quotaEdit.usersCount.unique - quotaEdit.usersCount.anonymous, ''],
+                    [value, value > licenseInfo.usersCount * 0.1 ? "normal" : "critical"]
+                ];
+                value = licenseInfo.usersViewCount - quotaView.usersCount.unique;
+                var viewer = [
+                    [quotaView.usersCount.unique, ''],
+                    [quotaView.usersCount.anonymous, ''],
+                    [quotaView.usersCount.unique - quotaView.usersCount.anonymous, ''],
+                    [value, value > licenseInfo.usersViewCount * 0.1 ? "normal" : "critical"]
+                ];
                 elem = document.getElementById('user-activity-info');
                 elem.classList.remove('hidden');
-
-                elem = document.getElementById('user-activity-info-caption');
-                var days = parseInt(licenseInfo.usersExpire/86400) || 1;
-                elem.innerText = 'User activity in the last ' + days + (days>1 ? ' days' : ' day');
-
-                elem = document.getElementById('cell-use-up');
-                elem.innerText = quota.uniqueUserCount;
-                elem = document.getElementById('cell-external');
-                elem.innerText = quota.anonymousUserCount;
-                elem = document.getElementById('cell-internal');
-                elem.innerText = quota.uniqueUserCount - quota.anonymousUserCount;
-                elem = document.getElementById('cell-left');
-
-                var value = licenseInfo.usersCount - quota.uniqueUserCount;
-                elem.innerText = value;
-                elem.classList.add(value > licenseInfo.usersCount * 0.1 ? "normal" : "critical");
+                createInfoTable(elem, 'User activity in the last ' + days + (days>1 ? ' days' : ' day'), editor, viewer, ['Active', 'Internal', 'External', 'Remaining']);
             } else { // connections limit
-                elem = document.getElementById('connection-activity-info');
-                elem.classList.remove('hidden');
-                var value = licenseInfo.connections - (quota.editorConnectionsCount || 0);
+                var value = licenseInfo.connections - (quotaEdit.connectionsCount || 0);
                 var editor = [
-                                [quota.editorConnectionsCount || 0, ''],
-                                [value, value > licenseInfo.connections * 0.1 ? "normal" : "critical"]
-                             ];
+                    [quotaEdit.connectionsCount || 0, ''],
+                    [value, value > licenseInfo.connections * 0.1 ? "normal" : "critical"]
+                ];
                 value = licenseInfo.connectionsView - (quotaView.connectionsCount || 0);
                 var viewer = [
-                                [quotaView.connectionsCount || 0, ''],
-                                [value, value > licenseInfo.connectionsView * 0.1 ? "normal" : "critical"]
-                             ];
+                    [quotaView.connectionsCount || 0, ''],
+                    [value, value > licenseInfo.connectionsView * 0.1 ? "normal" : "critical"]
+                ];
+                elem = document.getElementById('connection-activity-info');
+                elem.classList.remove('hidden');
                 createInfoTable(elem, 'Current connections', editor, viewer, ['Active', 'Remaining']);
             }
         }
@@ -386,18 +369,26 @@
             byMonth.forEach(function(item){
                 var date = item.date,
                     users = item.users,
-                    internal = 0,
-                    external = 0;
+                    internalEdit = 0, internalView = 0,
+                    externalEdit = 0, externalView = 0;
                 if (date && users) {
                     for (var uid in users) {
                         if (users.hasOwnProperty(uid)) {
-                            users[uid].anonym ? external++ : internal++;
+                            users[uid].anonym ? externalEdit++ : internalEdit++;
+                        }
+                    }
+                    users = item.usersView;
+                    for (var uid in users) {
+                        if (users.hasOwnProperty(uid)) {
+                            users[uid].anonym ? externalView++ : internalView++;
                         }
                     }
                     arr.push({
                         startDate: new Date(date),
-                        internal: internal,
-                        external: external
+                        internalEdit: internalEdit,
+                        externalEdit: externalEdit,
+                        internalView: internalView,
+                        externalView: externalView
                     });
                     if (arr.length>1) {
                         arr[arr.length-2].endDate = new Date(new Date(date) - 86400000);
@@ -408,30 +399,9 @@
             for (var i=0; i<arr.length; i++) {
                 var item = arr[arr.length-i-1];
                 createInfoTable(elem, item.endDate ? item.startDate.toLocaleDateString() + ' - ' + item.endDate.toLocaleDateString(): 'From ' + item.startDate.toLocaleDateString(),
-                                [], [], ['Internal', 'External', 'Active', ''])
-                /*
-                var tr = document.createElement("tr");
-                tr.innerHTML = '<td colspan="4" class="td-caption">' + (item.endDate ? item.startDate.toLocaleDateString() + ' - ' + item.endDate.toLocaleDateString(): 'From ' + item.startDate.toLocaleDateString()) + '</td>';
-                elem.appendChild(tr);
-
-                tr = document.createElement("tr");
-                tr.innerHTML = '<td class="td-separator" colspan="4"><div class="separator"></div></td>';
-                elem.appendChild(tr);
-
-                tr = document.createElement("tr");
-                tr.innerHTML = '<td class="td-value" width="150">' + item.internal + '</td>' +
-                                '<td class="td-value" width="150">' + item.external + '</td>' +
-                                '<td class="td-value" width="150">' + (item.internal + item.external) + '</td>' +
-                                '<td class="td-value" width="224"></td>';
-                elem.appendChild(tr);
-
-                tr = document.createElement("tr");
-                tr.innerHTML = '<td class="td-last">Internal</td>' +
-                                '<td class="td-last">External</td>' +
-                                '<td class="td-last">Active</td>' +
-                                '<td class="td-last"></td>';
-                elem.appendChild(tr);
-                */
+                                [[item.internalEdit, ''], [item.externalEdit, ''], [item.internalEdit + item.externalEdit, '']],
+                                [[item.internalView, ''], [item.externalView, ''], [item.internalView + item.externalView, '']],
+                                ['Internal', 'External', 'Active', ''])
             }
         }
 
