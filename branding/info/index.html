@@ -224,7 +224,7 @@
             </table>
             <table style="margin-left: 15px;">
                 <tr>
-                    <td class="td-link current" value="all">All</td>
+                    <td class="td-link" value="all">All</td>
                     <td class="td-separator-vert"><div class="separator-vert"></div></td>
                     <td class="td-link" value="edit">Editors</td>
                     <td class="td-separator-vert"><div class="separator-vert"></div></td>
@@ -322,15 +322,15 @@
                 var value = licenseInfo.usersCount - quotaEdit.usersCount.unique;
                 var editor = [
                     [quotaEdit.usersCount.unique, ''],
-                    [quotaEdit.usersCount.anonymous, ''],
                     [quotaEdit.usersCount.unique - quotaEdit.usersCount.anonymous, ''],
+                    [quotaEdit.usersCount.anonymous, ''],
                     [value, value > licenseInfo.usersCount * 0.1 ? "normal" : "critical"]
                 ];
                 value = licenseInfo.usersViewCount - quotaView.usersCount.unique;
                 var viewer = [
                     [quotaView.usersCount.unique, ''],
-                    [quotaView.usersCount.anonymous, ''],
                     [quotaView.usersCount.unique - quotaView.usersCount.anonymous, ''],
+                    [quotaView.usersCount.anonymous, ''],
                     [value, value > licenseInfo.usersViewCount * 0.1 ? "normal" : "critical"]
                 ];
                 elem = document.getElementById('user-activity-info');
@@ -498,6 +498,7 @@
                     arr[i].classList.remove("current");
                 }
                 evt.target.classList.add('current');
+                window.localStorage && window.localStorage.setItem('server-info-display-mode', evt.target.getAttribute('value'));
                 applyMode();
             };
 
@@ -508,6 +509,9 @@
                     arr[i].attachEvent("click", onClick);
                 }
             }
+
+            var value = window.localStorage ? window.localStorage.getItem('server-info-display-mode') || 'all' : 'all';
+            document.querySelector('.td-link[value=' + value + ']').classList.add('current');
         }
 
         (function(){
