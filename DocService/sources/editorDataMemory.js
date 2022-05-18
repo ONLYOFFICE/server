@@ -258,7 +258,7 @@ EditorData.prototype.addPresenceUniqueUsersOfMonth = function(userId, period, us
   return Promise.resolve();
 };
 EditorData.prototype.getPresenceUniqueUsersOfMonth = function() {
-  let res = [];
+  let res = {};
   let nowUTC = Date.now();
   for (let periodId in this.uniqueUsersOfMonth) {
     if (this.uniqueUsersOfMonth.hasOwnProperty(periodId)) {
@@ -266,7 +266,7 @@ EditorData.prototype.getPresenceUniqueUsersOfMonth = function() {
         delete this.uniqueUsersOfMonth[periodId];
       } else {
         let date = new Date(parseInt(periodId)).toISOString();
-        res.push({date: date, users: this.uniqueUsersOfMonth[periodId].data});
+        res[date] = this.uniqueUsersOfMonth[periodId].data;
       }
     }
   }
@@ -302,7 +302,7 @@ EditorData.prototype.addPresenceUniqueViewUsersOfMonth = function(userId, period
   return Promise.resolve();
 };
 EditorData.prototype.getPresenceUniqueViewUsersOfMonth = function() {
-  let res = [];
+  let res = {};
   let nowUTC = Date.now();
   for (let periodId in this.uniqueViewUsersOfMonth) {
     if (this.uniqueViewUsersOfMonth.hasOwnProperty(periodId)) {
@@ -310,7 +310,7 @@ EditorData.prototype.getPresenceUniqueViewUsersOfMonth = function() {
         delete this.uniqueViewUsersOfMonth[periodId];
       } else {
         let date = new Date(parseInt(periodId)).toISOString();
-        res.push({date: date, users: this.uniqueViewUsersOfMonth[periodId].data});
+        res[date] = this.uniqueViewUsersOfMonth[periodId].data;
       }
     }
   }
