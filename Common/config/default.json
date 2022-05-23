@@ -218,13 +218,15 @@
 				},
 				"inbox": {
 					"header": "Authorization",
-					"prefix": "Bearer "
+					"prefix": "Bearer ",
+					"inBody": false
 				},
 				"outbox": {
 					"header": "Authorization",
 					"prefix": "Bearer ",
 					"algorithm": "HS256",
 					"expires": "5m",
+					"inBody": false,
 					"urlExclusionRegex": ""
 				},
 				"session": {
