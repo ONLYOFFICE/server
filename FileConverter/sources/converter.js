@@ -404,6 +404,16 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorPro
   if (task.getFromChanges()) {
     res = yield* processChanges(tempDirs, cmd, authorProps);
   }
+  //todo rework
+  if (!fs.existsSync(dataConvert.fileFrom)) {
+    if (fs.existsSync(path.join(tempDirs.source, 'origin.docx'))) {
+      dataConvert.fileFrom = path.join(tempDirs.source, 'origin.docx');
+    } else if (fs.existsSync(path.join(tempDirs.source, 'origin.xlsx'))) {
+      dataConvert.fileFrom = path.join(tempDirs.source, 'origin.xlsx');
+    } else if (fs.existsSync(path.join(tempDirs.source, 'origin.pptx'))) {
+      dataConvert.fileFrom = path.join(tempDirs.source, 'origin.pptx');
+    }
+  }
   return res;
 }
 
