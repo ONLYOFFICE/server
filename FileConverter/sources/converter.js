@@ -659,6 +659,69 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
   return res;
 }
 
+function* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task, cmd) {
+  let childRes, isTimeout = false;
+  let childArgs;
+  if (cfgArgs.length > 0) {
+    childArgs = cfgArgs.trim().replace(/  +/g, ' ').split(' ');
+  } else {
+    childArgs = [];
+  }
+  let processPath;
+  if (!isBuilder) {
+    processPath = cfgX2tPath;
+    let paramsFile = path.join(tempDirs.temp, 'params.xml');
+    dataConvert.serialize(paramsFile);
+    childArgs.push(paramsFile);
+    let hiddenXml = yield dataConvert.serializeHidden();
+    if (hiddenXml) {
+      childArgs.push(hiddenXml);
+    }
+  } else {
+    fs.mkdirSync(path.join(tempDirs.result, 'output'));
+    processPath = cfgDocbuilderPath;
+    childArgs.push('--all-fonts-path=' + cfgDocbuilderAllFontsPath);
+    if (cfgDocbuilderCoreFontsPath) {
+      childArgs.push('--fonts-dir=' + cfgDocbuilderCoreFontsPath);
+    }
+    childArgs.push('--save-use-only-names=' + tempDirs.result + '/output');
+    childArgs.push(dataConvert.fileFrom);
+  }
+  let timeoutId;
+  try {
+    let spawnOptions = cfgSpawnOptions;
+    if (authorProps.lastModifiedBy && authorProps.modified) {
+      //copy to avoid modification of global cfgSpawnOptions
+      spawnOptions = Object.assign({}, cfgSpawnOptions);
+      spawnOptions.env = Object.assign({}, spawnOptions.env || process.env);
+
+      spawnOptions.env['LAST_MODIFIED_BY'] = authorProps.lastModifiedBy;
+      spawnOptions.env['MODIFIED'] = authorProps.modified;
+    }
+    let spawnAsyncPromise = spawnAsync(processPath, childArgs, spawnOptions);
+    childRes = spawnAsyncPromise.child;
+    let waitMS = task.getVisibilityTimeout() * 1000 - (new Date().getTime() - getTaskTime.getTime());
+    timeoutId = setTimeout(function() {
+      isTimeout = true;
+      timeoutId = undefined;
+      //close stdio streams to enable emit 'close' event even if HtmlFileInternal is hung-up
+      childRes.stdin.end();
+      childRes.stdout.destroy();
+      childRes.stderr.destroy();
+      childRes.kill();
+    }, waitMS);
+    childRes = yield spawnAsyncPromise;
+  } catch (err) {
+    let fLog = null === err.status ? logger.error : logger.debug;
+    fLog.call(logger, 'error spawnAsync(id=%s)\r\n%s', cmd.getDocId(), err.stack);
+    childRes = err;
+  }
+  if (undefined !== timeoutId) {
+    clearTimeout(timeoutId);
+  }
+  return {childRes: childRes, isTimeout: isTimeout};
+}
+
 function* ExecuteTask(task) {
   var startDate = null;
   var curDate = null;
@@ -748,70 +811,21 @@ function* ExecuteTask(task) {
   } else {
     error = constants.UNKNOWN;
   }
-  var childRes = null;
+  let childRes = null;
   let isTimeout = false;
   if (constants.NO_ERROR === error) {
     if(constants.AVS_OFFICESTUDIO_FILE_OTHER_HTMLZIP === dataConvert.formatTo && cmd.getSaveKey() && !dataConvert.mailMergeSend) {
       //todo заглушка.вся конвертация на клиенте, но нет простого механизма сохранения на клиенте
       yield utils.pipeFiles(dataConvert.fileFrom, dataConvert.fileTo);
     } else {
-      var childArgs;
-      if (cfgArgs.length > 0) {
-        childArgs = cfgArgs.trim().replace(/  +/g, ' ').split(' ');
-      } else {
-        childArgs = [];
-      }
-      let processPath;
-      if (!isBuilder) {
-        processPath = cfgX2tPath;
-        let paramsFile = path.join(tempDirs.temp, 'params.xml');
-        dataConvert.serialize(paramsFile);
-        childArgs.push(paramsFile);
-        let hiddenXml = yield dataConvert.serializeHidden();
-        if (hiddenXml) {
-          childArgs.push(hiddenXml);
-        }
-      } else {
-        fs.mkdirSync(path.join(tempDirs.result, 'output'));
-        processPath = cfgDocbuilderPath;
-        childArgs.push('--all-fonts-path=' + cfgDocbuilderAllFontsPath);
-        if (cfgDocbuilderCoreFontsPath) {
-          childArgs.push('--fonts-dir=' + cfgDocbuilderCoreFontsPath);
-        }
-        childArgs.push('--save-use-only-names=' + tempDirs.result + '/output');
-        childArgs.push(dataConvert.fileFrom);
-      }
-      let timeoutId;
-      try {
-        let spawnOptions = cfgSpawnOptions;
-        if (authorProps.lastModifiedBy && authorProps.modified) {
-          //copy to avoid modification of global cfgSpawnOptions
-          spawnOptions = Object.assign({}, cfgSpawnOptions);
-          spawnOptions.env = Object.assign({}, spawnOptions.env || process.env);
-
-          spawnOptions.env['LAST_MODIFIED_BY'] = authorProps.lastModifiedBy;
-          spawnOptions.env['MODIFIED'] = authorProps.modified;
-        }
-        let spawnAsyncPromise = spawnAsync(processPath, childArgs, spawnOptions);
-        childRes = spawnAsyncPromise.child;
-        let waitMS = task.getVisibilityTimeout() * 1000 - (new Date().getTime() - getTaskTime.getTime());
-        timeoutId = setTimeout(function() {
-          isTimeout = true;
-          timeoutId = undefined;
-          //close stdio streams to enable emit 'close' event even if HtmlFileInternal is hung-up
-          childRes.stdin.end();
-          childRes.stdout.destroy();
-          childRes.stderr.destroy();
-          childRes.kill();
-        }, waitMS);
-        childRes = yield spawnAsyncPromise;
-      } catch (err) {
-        let fLog = null === err.status ? logger.error : logger.debug;
-        fLog.call(logger, 'error spawnAsync(id=%s)\r\n%s', cmd.getDocId(), err.stack);
-        childRes = err;
-      }
-      if (undefined !== timeoutId) {
-        clearTimeout(timeoutId);
+      ({childRes, isTimeout} = yield* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task, cmd));
+      if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges() && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo) {
+        logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s (id=%s)', formatChecker.getStringFromFormat(dataConvert.formatTo), dataConvert.key);
+        let extOld = path.extname(dataConvert.fileTo)
+        let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
+        dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
+        dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
+        ({childRes, isTimeout} = yield* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task, cmd));
       }
     }
     if(clientStatsD) {
