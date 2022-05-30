@@ -408,22 +408,28 @@ function* getUpdateResponse(cmd) {
 var cleanupCache = co.wrap(function* (docId) {
   //todo redis ?
   var res = false;
+  let list = [];
   var removeRes = yield taskResult.remove(docId);
   if (removeRes.affectedRows > 0) {
-    yield storage.deletePath(docId);
+    list = yield storage.listObjects(docId);
+    yield storage.deleteObjects(list);
     res = true;
   }
+  logger.debug("cleanupCache db.affectedRows=%d list.length=%d: docId = %s", removeRes.affectedRows, list.length, docId);
   return res;
 });
 var cleanupCacheIf = co.wrap(function* (mask) {
   //todo redis ?
   var res = false;
+  let list = [];
   var removeRes = yield taskResult.removeIf(mask);
   if (removeRes.affectedRows > 0) {
     sqlBase.deleteChanges(mask.key, null);
-    yield storage.deletePath(mask.key);
+    list = yield storage.listObjects(mask.key);
+    yield storage.deleteObjects(list);
     res = true;
   }
+  logger.debug("cleanupCacheIf db.affectedRows=%d list.length=%d: docId = %s", removeRes.affectedRows, list.length, mask.key);
   return res;
 });
 
