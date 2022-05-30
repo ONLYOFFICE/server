@@ -819,9 +819,10 @@ function* ExecuteTask(task) {
       yield utils.pipeFiles(dataConvert.fileFrom, dataConvert.fileTo);
     } else {
       ({childRes, isTimeout} = yield* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task, cmd));
-      if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges() && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo) {
+      if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
+        && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo && !cmd.getWopiParams()) {
         logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s (id=%s)', formatChecker.getStringFromFormat(dataConvert.formatTo), dataConvert.key);
-        let extOld = path.extname(dataConvert.fileTo)
+        let extOld = path.extname(dataConvert.fileTo);
         let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
         dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
         dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
