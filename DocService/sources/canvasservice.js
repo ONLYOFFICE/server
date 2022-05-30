@@ -603,6 +603,8 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   }
   yield* addRandomKeyTaskCmd(cmd);
   addPasswordToCmd(cmd, row.password);
+  let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(cmd.getDocId(), row.callback);
+  cmd.setWopiParams(wopiClient.parseWopiCallback(cmd.getDocId(), userAuthStr));
   cmd.setOutputFormat(changeFormatByOrigin(cmd.getDocId(), row, cmd.getOutputFormat()));
   cmd.setJsonParams(getOpenedAtJSONParams(row));
   var queueData = getSaveTask(cmd);
@@ -1576,6 +1578,8 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         cmd.setUserActionId(opt_userId);
         cmd.setUserActionIndex(opt_userIndex);
         cmd.setJsonParams(getOpenedAtJSONParams(row));
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback);
+        cmd.setWopiParams(wopiClient.parseWopiCallback(docId, userAuthStr));
         addPasswordToCmd(cmd, row && row.password);
         yield* addRandomKeyTaskCmd(cmd);
         var queueData = getSaveTask(cmd);
