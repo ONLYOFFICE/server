@@ -539,3 +539,22 @@ exports.isPresentationFormat = function(format) {
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION ||
     format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
 };
+exports.isOOXFormat = function(format) {
+  console.log('isOOXFormat'+format);
+  return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX === format
+  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM === format
+  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX === format
+  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM === format
+  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === format
+  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === format
+  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX === format
+  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSX === format
+  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTM === format
+  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSM === format
+  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTX === format
+  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTM === format
+  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX === format
+  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM === format
+  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format
+  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format;
+};

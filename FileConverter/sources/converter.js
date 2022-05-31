@@ -820,7 +820,8 @@ function* ExecuteTask(task) {
     } else {
       ({childRes, isTimeout} = yield* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task, cmd));
       if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
-        && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo && !cmd.getWopiParams()) {
+        && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
+        && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
         logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s (id=%s)', formatChecker.getStringFromFormat(dataConvert.formatTo), dataConvert.key);
         let extOld = path.extname(dataConvert.fileTo);
         let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
