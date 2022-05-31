@@ -413,6 +413,9 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorPro
     } else if (fs.existsSync(path.join(tempDirs.source, 'origin.pptx'))) {
       dataConvert.fileFrom = path.join(tempDirs.source, 'origin.pptx');
     }
+    let fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
+    fs.renameSync(dataConvert.fileFrom, fileFromNew);
+    dataConvert.fileFrom = fileFromNew;
   }
   return res;
 }
