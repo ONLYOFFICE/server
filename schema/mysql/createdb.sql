@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS `task_result` (
   `baseurl` text NOT NULL,
   `password` longtext NULL,
   `additional` longtext NULL,
+  `tenant` longtext NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

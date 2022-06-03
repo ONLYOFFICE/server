@@ -105,6 +105,7 @@ const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
+const tenantManager = require('./tenantManager');
 
 const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
