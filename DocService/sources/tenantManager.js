@@ -49,4 +49,4 @@ TenantManager.prototype.getTenant = function(domain) {
   return tenant;
 };
 
-export.TenantManager;
+exports.TenantManager = TenantManager;
