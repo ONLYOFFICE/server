@@ -98,28 +98,14 @@ License:        MIT License
 License File:   license/jsrsasign.license
 
 
-15. JSZip - SZip is a javascript library for creating, reading and editing .zip files, with a lovely and simple API.
-
-URL:            http://stuk.github.io/jszip/
-License:        MIT license or the GPLv3 license
-License File:   license/jszip.license
-
-
-16. JSZipUtils - A collection of cross-browser utilities to go along with JSZip.
-
-URL:            http://stuk.github.io/jszip-utils/
-License:        MIT license or the GPLv3 license
-License File:   license/jszip.license
-
-
-17. less - Less is a CSS pre-processor
+15. less - Less is a CSS pre-processor
 
 URL:            http://lesscss.org/
 License:        Apache 2 License
 License File:   license/less.license
 
 
-18. requirejs-text - A RequireJS/AMD loader plugin for loading text resources
+16. requirejs-text - A RequireJS/AMD loader plugin for loading text resources
 
 URL:            http://lesscss.org/
 License:        MIT License
