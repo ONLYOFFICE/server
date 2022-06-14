@@ -154,7 +154,7 @@ function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_
       }
     }
   }
-  logger.debug('End convert request end %s url %s status %s docId = %s', status.end, status.url, status.err, docId);
+  logger.debug('End convert request end %s status %s docId = %s', status.end, status.err, docId);
   if (clientStatsD) {
     clientStatsD.timing('coauth.convertservice', new Date() - startDate);
   }
@@ -326,6 +326,7 @@ function convertRequest(req, res, isJson) {
           let fileToPath = yield* getConvertPath(docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
           status.setUrl(yield* getConvertUrl(utils.getBaseUrlByRequest(req), fileToPath, cmd.getTitle()));
+          logger.debug('convertRequest: url = %s docId = %s', status.url, docId);
         }
         utils.fillResponse(req, res, status, isJson);
       } else {
