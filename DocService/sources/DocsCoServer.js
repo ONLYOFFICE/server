@@ -3222,9 +3222,9 @@ exports.install = function(server, callbackFunction) {
           case commonDefines.c_oPublishType.shutdown:
             //flag prevent new socket connections and receive data from exist connections
             shutdownFlag = data.status;
-            logger.debug('start shutdown:%b', shutdownFlag);
+            logger.warn('start shutdown:%b', shutdownFlag);
             if (shutdownFlag) {
-              logger.debug('active connections: %d', connections.length);
+              logger.warn('active connections: %d', connections.length);
               //не останавливаем сервер, т.к. будут недоступны сокеты и все запросы
               //плохо тем, что может понадобится конвертация выходного файла и то что не будут обработаны запросы на CommandService
               //server.close();
@@ -3235,7 +3235,7 @@ exports.install = function(server, callbackFunction) {
                 connectionsTmp[i].close(constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
               }
             }
-            logger.debug('end shutdown');
+            logger.warn('end shutdown');
             break;
           case commonDefines.c_oPublishType.meta:
             participants = getParticipants(data.docId);
