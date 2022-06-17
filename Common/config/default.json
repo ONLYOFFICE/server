@@ -124,7 +124,8 @@
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
 				"downloadFileAllowExt": ["pdf"],
-				"tokenRequiredParams": true
+				"tokenRequiredParams": true,
+				"baseDomain": ""
 			},
 			"requestDefaults": {
 				"headers": {

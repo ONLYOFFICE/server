@@ -23,6 +23,7 @@ WITH (OIDS=FALSE);
 -- Table structure for task_result
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS "public"."task_result" (
+"tenant" varchar(255) COLLATE "default" NULL,
 "id" varchar(255) COLLATE "default" NOT NULL,
 "status" int2 NOT NULL,
 "status_info" int4 NOT NULL,
@@ -34,7 +35,7 @@ CREATE TABLE IF NOT EXISTS "public"."task_result" (
 "baseurl" text COLLATE "default" NOT NULL,
 "password" text COLLATE "default" NULL,
 "additional" text COLLATE "default" NULL,
-PRIMARY KEY ("id")
+PRIMARY KEY ("tenant", "id")
 )
 WITH (OIDS=FALSE);
 

@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS `doc_changes` (
 --
 
 CREATE TABLE IF NOT EXISTS `task_result` (
+  `tenant` varchar(255) NULL,
   `id` varchar(255) NOT NULL,
   `status` tinyint(3) NOT NULL,
   `status_info` int(10) NOT NULL,
@@ -59,8 +60,7 @@ CREATE TABLE IF NOT EXISTS `task_result` (
   `baseurl` text NOT NULL,
   `password` longtext NULL,
   `additional` longtext NULL,
-  `tenant` longtext NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`tenant`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --

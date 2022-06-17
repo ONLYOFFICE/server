@@ -40,8 +40,7 @@ function TenantManager(){
 }
 TenantManager.prototype.getTenant = function(domain) {
   let tenant = "localhost";
-  let baseDomain;
-  let index = domain.indexOf(baseDomain);
+  let index = domain.indexOf(cfgBaseDomain);
   if (-1 !== index)
   {
     tenant = domain.subtring(0, index);
