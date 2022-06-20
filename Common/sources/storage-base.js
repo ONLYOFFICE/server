@@ -36,61 +36,67 @@ var utils = require('./utils');
 var logger = require('./logger');
 
 var storage = require('./' + config.get('storage.name'));
-function getStoragePath(strPath) {
-  return strPath.replace(/\\/g, '/');
+function getStoragePath(tenant, strPath) {
+  return tenant + '/' + strPath.replace(/\\/g, '/');
 }
-exports.headObject = function(strPath) {
-  return storage.headObject(getStoragePath(strPath));
+exports.headObject = function(tenant, strPath) {
+  return storage.headObject(getStoragePath(tenant, strPath));
 };
-exports.getObject = function(strPath) {
-  return storage.getObject(getStoragePath(strPath));
+exports.getObject = function(tenant, strPath) {
+  return storage.getObject(getStoragePath(tenant, strPath));
 };
-exports.createReadStream = function(strPath) {
-  return storage.createReadStream(getStoragePath(strPath));
+exports.createReadStream = function(tenant, strPath) {
+  return storage.createReadStream(getStoragePath(tenant, strPath));
 };
-exports.putObject = function(strPath, buffer, contentLength) {
-  return storage.putObject(getStoragePath(strPath), buffer, contentLength);
+exports.putObject = function(tenant, strPath, buffer, contentLength) {
+  return storage.putObject(getStoragePath(tenant, strPath), buffer, contentLength);
 };
-exports.uploadObject = function(strPath, filePath) {
-  return storage.uploadObject(strPath, filePath);
+exports.uploadObject = function(tenant, strPath, filePath) {
+  return storage.uploadObject(getStoragePath(tenant, strPath), filePath);
 };
-exports.copyObject = function(sourceKey, destinationKey) {
-  return storage.copyObject(sourceKey, destinationKey);
+exports.copyObject = function(tenant, sourceKey, destinationKey) {
+  let storageSrc = getStoragePath(tenant, sourceKey);
+  let storageDst = getStoragePath(tenant, destinationKey);
+  return storage.copyObject(storageSrc, storageDst);
 };
-exports.copyPath = function(sourcePath, destinationPath) {
-  return exports.listObjects(getStoragePath(sourcePath)).then(function(list) {
+exports.copyPath = function(tenant, sourcePath, destinationPath) {
+  let storageSrc = getStoragePath(tenant, sourcePath);
+  let storageDst = getStoragePath(tenant, destinationPath);
+  return storage.listObjects(storageSrc).then(function(list) {
     return Promise.all(list.map(function(curValue) {
-      return exports.copyObject(curValue, destinationPath + '/' + exports.getRelativePath(sourcePath, curValue));
+      return storage.copyObject(curValue, storageDst + '/' + exports.getRelativePath(storageSrc, curValue));
     }));
   });
 };
-exports.listObjects = function(strPath) {
-  return storage.listObjects(getStoragePath(strPath)).catch(function(e) {
+exports.listObjects = function(tenant, strPath) {
+  return storage.listObjects(getStoragePath(tenant, strPath)).catch(function(e) {
     logger.error('storage.listObjects:\r\n%s', e.stack);
     return [];
   });
 };
-exports.deleteObject = function(strPath) {
-  return storage.deleteObject(getStoragePath(strPath));
+exports.deleteObject = function(tenant, strPath) {
+  return storage.deleteObject(getStoragePath(tenant, strPath));
 };
-exports.deleteObjects = function(strPaths) {
+exports.deleteObjects = function(tenant, strPaths) {
   var StoragePaths = strPaths.map(function(curValue) {
-    return getStoragePath(curValue);
+    return getStoragePath(tenant, curValue);
   });
   return storage.deleteObjects(StoragePaths);
 };
-exports.deletePath = function(strPath) {
-  return exports.listObjects(getStoragePath(strPath)).then(function(list) {
-    return exports.deleteObjects(list);
+exports.deletePath = function(tenant, strPath) {
+  let storageSrc = getStoragePath(tenant, strPath);
+  return storage.listObjects(storageSrc).then(function(list) {
+    return storage.deleteObjects(list);
   });
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-  return storage.getSignedUrl(baseUrl, getStoragePath(strPath), urlType, optFilename, opt_creationDate);
+exports.getSignedUrl = function(baseUrl, tenant, strPath, urlType, optFilename, opt_creationDate) {
+  return storage.getSignedUrl(baseUrl, getStoragePath(tenant, strPath), urlType, optFilename, opt_creationDate);
 };
-exports.getSignedUrls = function(baseUrl, strPath, urlType, opt_creationDate) {
-  return exports.listObjects(getStoragePath(strPath)).then(function(list) {
+exports.getSignedUrls = function(baseUrl, tenant, strPath, urlType, opt_creationDate) {
+  let storageSrc = getStoragePath(tenant, strPath);
+  return storage.listObjects(storageSrc).then(function(list) {
     return Promise.all(list.map(function(curValue) {
-      return exports.getSignedUrl(baseUrl, curValue, urlType, undefined, opt_creationDate);
+      return storage.getSignedUrl(baseUrl, curValue, urlType, undefined, opt_creationDate);
     })).then(function(urls) {
       var outputMap = {};
       for (var i = 0; i < list.length && i < urls.length; ++i) {
@@ -100,17 +106,19 @@ exports.getSignedUrls = function(baseUrl, strPath, urlType, opt_creationDate) {
     });
   });
 };
-exports.getSignedUrlsArrayByArray = function(baseUrl, list, urlType) {
-  return Promise.all(list.map(function(curValue) {
-    return exports.getSignedUrl(baseUrl, curValue, urlType, undefined);
+exports.getSignedUrlsArrayByArray = function(baseUrl, tenant, list, urlType) {
+    return Promise.all(list.map(function(curValue) {
+    let storageSrc = getStoragePath(tenant, curValue);
+    return storage.getSignedUrl(baseUrl, storageSrc, urlType, undefined);
   }));
 };
-exports.getSignedUrlsByArray = function(baseUrl, list, optPath, urlType) {
-  return exports.getSignedUrlsArrayByArray(baseUrl, list, urlType).then(function(urls) {
+exports.getSignedUrlsByArray = function(baseUrl, tenant, list, optPath, urlType) {
+  return exports.getSignedUrlsArrayByArray(baseUrl, tenant, list, urlType).then(function(urls) {
     var outputMap = {};
     for (var i = 0; i < list.length && i < urls.length; ++i) {
       if (optPath) {
-        outputMap[exports.getRelativePath(optPath, list[i])] = urls[i];
+        let storageSrc = getStoragePath(tenant, optPath);
+        outputMap[exports.getRelativePath(storageSrc, list[i])] = urls[i];
       } else {
         outputMap[list[i]] = urls[i];
       }

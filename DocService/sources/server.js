@@ -63,6 +63,7 @@ const cfgHtmlTemplate = configCommon.get('wopi.htmlTemplate');
 const cfgTokenEnableBrowser = configCommon.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenEnableRequestInbox = configCommon.get('services.CoAuthoring.token.enable.request.inbox');
 const cfgTokenEnableRequestOutbox = configCommon.get('services.CoAuthoring.token.enable.request.outbox');
+const cfgLicenseFile = configCommon.get('license.license_file');
 
 const app = express();
 app.disable('x-powered-by');
@@ -83,7 +84,7 @@ const updatePlugins = (eventType, filename) => {
 	pluginsLoaded = false;
 };
 const readLicense = function*() {
-	[licenseInfo, licenseOriginal] = yield* license.readLicense();
+	[licenseInfo, licenseOriginal] = yield* license.readLicense(cfgLicenseFile);
 };
 const updateLicense = () => {
 	return co(function*() {
@@ -110,7 +111,9 @@ updateLicense();
 if (config.has('server.static_content')) {
 	const staticContent = config.get('server.static_content');
 	for (let i in staticContent) {
-		app.use(i, express.static(staticContent[i]['path'], staticContent[i]['options']));
+		if (staticContent.hasOwnProperty(i)) {
+			app.use(i, express.static(staticContent[i]['path'], staticContent[i]['options']));
+		}
 	}
 }
 

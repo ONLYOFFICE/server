@@ -32,20 +32,35 @@
 
 'use strict';
 
-var config = require('config');
-var cfgBaseDomain = config.get('services.CoAuthoring.server.baseDomain');
+const config = require('config');
+const license = require('./../../Common/sources/license');
+const { readFile } = require('fs/promises');
+const path = require('path');
+
+const cfgBaseDomain = config.get('services.CoAuthoring.server.baseDomain');
+const cfgTenantsDir = config.get('services.CoAuthoring.server.tenantsDir');
 
 function TenantManager(){
   
 }
 TenantManager.prototype.getTenant = function(domain) {
   let tenant = "localhost";
-  let index = domain.indexOf(cfgBaseDomain);
-  if (-1 !== index)
-  {
-    tenant = domain.subtring(0, index);
+  if (domain) {
+    let index = domain.indexOf(cfgBaseDomain);
+    if (-1 !== index) {
+      tenant = domain.subtring(0, index);
+    }
   }
   return tenant;
+};
+TenantManager.prototype.getTenantSecret = async function(tenant) {
+  let secretPath = path.join(cfgTenantsDir, tenant, 'secret.key');
+  return await readFile(secretPath, {encoding: 'utf8'});
+
+};
+TenantManager.prototype.getTenantLicence = async function(tenant) {
+  let licensePath = path.join(cfgTenantsDir, tenant, 'license.lic');
+  return await readFile(licensePath, {encoding: 'utf8'});
 };
 
 exports.TenantManager = TenantManager;

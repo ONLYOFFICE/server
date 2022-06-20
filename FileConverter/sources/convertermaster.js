@@ -43,10 +43,12 @@ if (cluster.isMaster) {
   const config = configCommon.get('FileConverter.converter');
   const license = require('./../../Common/sources/license');
 
+  const cfgLicenseFile = configCommon.get('license.license_file');
+
   const cfgMaxProcessCount = config.get('maxprocesscount');
   var licenseInfo, workersCount = 0;
   const readLicense = function* () {
-    [licenseInfo] = yield* license.readLicense();
+    [licenseInfo] = yield* license.readLicense(cfgLicenseFile);
     workersCount = Math.min(licenseInfo.count, Math.ceil(numCPUs * cfgMaxProcessCount));
   };
   const updateWorkers = () => {

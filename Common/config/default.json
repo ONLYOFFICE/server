@@ -125,7 +125,8 @@
 				"newFileTemplate" : "../../document-templates/new",
 				"downloadFileAllowExt": ["pdf"],
 				"tokenRequiredParams": true,
-				"baseDomain": ""
+				"baseDomain": "",
+				"tenantsDir": ""
 			},
 			"requestDefaults": {
 				"headers": {
