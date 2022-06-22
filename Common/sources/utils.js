@@ -832,28 +832,6 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
-function getSecret(docId, secretElem, opt_iss, opt_token) {
-  if (!isEmptyObject(secretElem.tenants)) {
-    var iss;
-    if (opt_token) {
-      //look for issuer
-      var decodedTemp = jwt.decode(opt_token);
-      if (decodedTemp && decodedTemp.iss) {
-        iss = decodedTemp.iss;
-      }
-    } else {
-      iss = opt_iss;
-    }
-    if (iss) {
-      secretElem = secretElem.tenants[iss];
-      if (!secretElem) {
-        logger.error('getSecret unknown issuer: docId = %s iss = %s', docId, iss);
-      }
-    }
-  }
-  return getSecretByElem(secretElem);
-}
-exports.getSecret = getSecret;
 function fillJwtForRequest(payload, opt_inBody) {
   //todo refuse prototypes in payload(they are simple getter/setter).
   //JSON.parse/stringify is more universal but Object.assign is enough for our inputs

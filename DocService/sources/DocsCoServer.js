@@ -135,9 +135,7 @@ const cfgTokenSessionAlgorithm = config.get('token.session.algorithm');
 const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
 const cfgTokenInboxHeader = config.get('token.inbox.header');
 const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
-const cfgTokenBrowserSecretFromInbox = config.get('token.browser.secretFromInbox');
 const cfgTokenVerifyOptions = config.get('token.verifyOptions');
-const cfgSecretBrowser = config.get('secret.browser');
 const cfgSecretInbox = config.get('secret.inbox');
 const cfgSecretSession = config.get('secret.session');
 const cfgForceSaveEnable = config.get('autoAssembly.enable');
@@ -1143,10 +1141,8 @@ function checkJwt(docId, token, type) {
   var secret;
   switch (type) {
     case commonDefines.c_oAscSecretType.Browser:
-      secret = utils.getSecret(docId, cfgTokenBrowserSecretFromInbox ? cfgSecretInbox : cfgSecretBrowser, null, token);
-      break;
     case commonDefines.c_oAscSecretType.Inbox:
-      secret = utils.getSecret(docId, cfgSecretInbox, null, token);
+      secret = utils.getSecretByElem(cfgSecretInbox);
       break;
     case commonDefines.c_oAscSecretType.Session:
       secret = utils.getSecretByElem(cfgSecretSession);
@@ -2109,8 +2105,7 @@ exports.install = function(server, callbackFunction) {
       let docId = data.docid;
       //check jwt
       if (cfgTokenEnableBrowser) {
-        let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session :
-          commonDefines.c_oAscSecretType.Browser;
+        let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
         const checkJwtRes = checkJwt(docId, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
           let decoded = checkJwtRes.decoded;

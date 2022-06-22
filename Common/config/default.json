@@ -202,8 +202,7 @@
 				"allowMetaIPAddress": true
 			},
 			"secret": {
-				"browser": {"string": "secret", "file": "", "tenants": {}},
-				"inbox": {"string": "secret", "file": "", "tenants": {}},
+				"inbox": {"string": "secret", "file": ""},
 				"outbox": {"string": "secret", "file": ""},
 				"session": {"string": "secret", "file": ""}
 			},
@@ -214,9 +213,6 @@
 						"inbox": false,
 						"outbox": false
 					}
-				},
-				"browser": {
-					"secretFromInbox": true
 				},
 				"inbox": {
 					"header": "Authorization",
