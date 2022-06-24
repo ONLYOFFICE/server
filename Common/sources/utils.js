@@ -654,6 +654,9 @@ function containsAllAsciiNP(str) {
   return /^[\040-\176]*$/.test(str);//non-printing characters
 }
 exports.containsAllAsciiNP = containsAllAsciiNP;
+function getDomain(hostHeader, forwardedHostHeader) {
+  return forwardedHostHeader || hostHeader || 'localhost';
+};
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
   if (forwardedProtoHeader) {
@@ -664,13 +667,7 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
     url += 'http';
   }
   url += '://';
-  if (forwardedHostHeader) {
-    url += forwardedHostHeader;
-  } else if (hostHeader) {
-    url += hostHeader;
-  } else {
-    url += 'localhost';
-  }
+  url += getDomain(hostHeader, forwardedHostHeader);
   if (forwardedPrefixHeader) {
     url += forwardedPrefixHeader;
   }
@@ -684,6 +681,12 @@ function getBaseUrlByRequest(req) {
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
+exports.getDomainByConnection = function(conn) {
+  return getDomain(conn.headers['host'], conn.headers['x-forwarded-host']);
+};
+exports.getDomainByRequest = function(req) {
+  return getDomain(req.get('host'), req.get('x-forwarded-host'));
+};
 function stream2Buffer(stream) {
   return new Promise(function(resolve, reject) {
     if (!stream.readable) {
@@ -959,7 +962,21 @@ exports.checkBaseUrl = function(baseUrl) {
 };
 exports.resolvePath = function(object, path, defaultValue) {
   return path.split('.').reduce((o, p) => o ? o[p] : defaultValue, object);
+};
+
+function OperationContext(tenant, docid, userid){
+  this.logger = logger.getLogger();
+  this.init(tenant, docid, userid);
 }
+OperationContext.prototype.init = function(tenant, docid, userid) {
+  this.tenant = tenant;
+  this.docid = docid;
+  this.userid = userid;
+  this.logger.addContext('tenant', tenant);
+  this.logger.addContext('docid', docid);
+  this.logger.addContext('userid', userid);
+};
+exports.OperationContext = OperationContext;
 
 Date.isLeapYear = function (year) {
   return (((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0));

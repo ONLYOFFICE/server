@@ -48,7 +48,7 @@ TenantManager.prototype.getTenant = function(domain) {
   if (domain) {
     let index = domain.indexOf(cfgBaseDomain);
     if (-1 !== index) {
-      tenant = domain.subtring(0, index);
+      tenant = domain.substring(0, index);
     }
   }
   return tenant;

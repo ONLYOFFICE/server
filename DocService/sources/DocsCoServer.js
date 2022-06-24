@@ -168,6 +168,7 @@ let licenseInfo = {type: constants.LICENSE_RESULT.Error, light: false, branding:
 let licenseOriginal = null;
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
+let tenantManager = new TenantManager();
 
 const MIN_SAVE_EXPIRATION = 60000;
 const FORCE_SAVE_EXPIRATION = Math.min(Math.max(cfgForceSaveInterval, MIN_SAVE_EXPIRATION),
@@ -1136,7 +1137,7 @@ function* _createSaveTimer(docId, opt_userId, opt_userIndex, opt_queue, opt_noDe
   }
 }
 
-function checkJwt(docId, token, type) {
+function checkJwt(ctx, token, type) {
   var res = {decoded: null, description: null, code: null, token: token};
   var secret;
   switch (type) {
@@ -1149,13 +1150,13 @@ function checkJwt(docId, token, type) {
       break;
   }
   if (undefined == secret) {
-    logger.warn('empty secret: docId = %s token = %s', docId, token);
+    ctx.logger.warn('empty secret: token = %s', token);
   }
   try {
     res.decoded = jwt.verify(token, secret, cfgTokenVerifyOptions);
-    logger.debug('checkJwt success: docId = %s decoded = %j', docId, res.decoded);
+    ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
   } catch (err) {
-    logger.warn('checkJwt error: docId = %s name = %s message = %s token = %s', docId, err.name, err.message, token);
+    ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
     if ('TokenExpiredError' === err.name) {
       res.code = constants.JWT_EXPIRED_CODE;
       res.description = constants.JWT_EXPIRED_REASON + err.message;
@@ -1284,35 +1285,38 @@ exports.install = function(server, callbackFunction) {
     conn.on('data', function(message) {
       return co(function* () {
       var docId = 'null';
+      let ctx = new utils.OperationContext();
       try {
+        ctx.init(tenantManager.getTenant(utils.getDomainByConnection(conn)), conn.docid, conn.user?.id);
         var startDate = null;
         if(clientStatsD) {
           startDate = new Date();
         }
+
         var data = JSON.parse(message);
         docId = conn.docId;
-        logger.info('data.type = ' + data.type + ' id = ' + docId);
+        ctx.logger.info('data.type = ' + data.type + ' id = ' + docId);
         if(getIsShutdown())
         {
-          logger.debug('Server shutdown receive data');
+          ctx.logger.debug('Server shutdown receive data');
           return;
         }
         if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
             'isSaveLock' == data.type)) {
-          logger.warn("conn.isCiriticalError send command: docId = %s type = %s", docId, data.type);
+          ctx.logger.warn("conn.isCiriticalError send command: docId = %s type = %s", docId, data.type);
           conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
           return;
         }
         if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
             ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
-          logger.warn("conn.user.view||isCloseCoAuthoring access deny: docId = %s type = %s", docId, data.type);
+          ctx.logger.warn("conn.user.view||isCloseCoAuthoring access deny: docId = %s type = %s", docId, data.type);
           conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
           return;
         }
         yield* encryptPasswordParams(data);
         switch (data.type) {
           case 'auth'          :
-            yield* auth(conn, data);
+            yield* auth(ctx, conn, data);
             break;
           case 'message'        :
             yield* onMessage(conn, data);
@@ -1353,7 +1357,7 @@ exports.install = function(server, callbackFunction) {
             break;
           }
           case 'changesError':
-            logger.error("changesError: docId = %s %s", docId, data.stack);
+            ctx.logger.error("changesError: docId = %s %s", docId, data.stack);
             if (cfgErrorFiles && docId) {
               let destDir = cfgErrorFiles + '/browser/' + docId;
               yield storage.copyPath(docId, destDir);
@@ -1377,7 +1381,7 @@ exports.install = function(server, callbackFunction) {
             yield* startRPC(conn, data.responseKey, data.data);
             break;
           default:
-            logger.debug("unknown command %s", message);
+            ctx.logger.debug("unknown command %s", message);
             break;
         }
         if(clientStatsD) {
@@ -1386,21 +1390,25 @@ exports.install = function(server, callbackFunction) {
           }
         }
       } catch (e) {
-        logger.error("error receiving response: docId = %s type = %s\r\n%s", docId, (data && data.type) ? data.type : 'null', e.stack);
+        ctx.logger.error("error receiving response: docId = %s type = %s\r\n%s", docId, (data && data.type) ? data.type : 'null', e.stack);
       }
       });
     });
     conn.on('error', function() {
-      logger.error("On error");
+      let ctx = new utils.OperationContext();
+      ctx.init(tenantManager.getTenant(utils.getDomainByConnection(conn)), conn.docid, conn.user?.id);
+      ctx.logger.error("On error");
     });
     conn.on('close', function() {
       return co(function* () {
         var docId = 'null';
+        let ctx = new utils.OperationContext();
         try {
+          ctx.init(tenantManager.getTenant(utils.getDomainByConnection(conn)), conn.docid, conn.user?.id);
           docId = conn.docId;
           yield* closeDocument(conn, true);
         } catch (err) {
-          logger.error('Error conn close: docId = %s\r\n%s', docId, err.stack);
+          ctx.logger.error('Error conn close: docId = %s\r\n%s', docId, err.stack);
         }
       });
     });
@@ -2099,10 +2107,11 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  function* auth(conn, data) {
+  function* auth(ctx, conn, data) {
     //TODO: Do authorization etc. check md5 or query db
     if (data.token && data.user) {
       let docId = data.docid;
+      tenantManager.getTenantSecret(ctx.tenant);
       //check jwt
       if (cfgTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
@@ -2194,12 +2203,8 @@ exports.install = function(server, callbackFunction) {
         return;
       }
 
-      let tenantManager = new TenantManager();
-      let tenant = tenantManager.getTenant();
-
       const curUserIdOriginal = String(user.id);
       const curUserId = curUserIdOriginal + curIndexUser;
-      conn.tenant = tenant;
       conn.docId = data.docid;
       conn.permissions = data.permissions;
       conn.user = {

@@ -73,7 +73,9 @@ if (config.get('log.options.replaceConsole')) {
 	console.error = logger.error.bind(logger);
 	console.debug = logger.debug.bind(logger);
 }
-
+exports.getLogger = function (category){
+	return log4js.getLogger(category);
+};
 exports.trace = function (){
 	return logger.trace.apply(logger, Array.prototype.slice.call(arguments));
 };
