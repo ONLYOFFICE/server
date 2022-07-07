@@ -47,19 +47,38 @@ var storage = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var storageBase = require('./../../Common/sources/storage-base');
+const sqlBase = require('./baseConnector');
 
 var CONVERT_ASYNC_DELAY = 1000;
 
 var clientStatsD = statsDClient.getClient();
 
-function* getConvertStatus(cmd, selectRes) {
+function* getConvertStatus(cmd, selectRes, opt_checkPassword) {
   var status = new commonDefines.ConvertStatus(constants.NO_ERROR);
   if (selectRes.length > 0) {
     var docId = cmd.getDocId();
     var row = selectRes[0];
+    let password = opt_checkPassword && sqlBase.DocumentPassword.prototype.getCurPassword(docId, row.password);
     switch (row.status) {
       case taskResult.FileStatus.Ok:
-        status.end = true;
+        if (password) {
+          let encryptedUserPassword = cmd.getPassword();
+          let isCorrectPassword;
+          if (encryptedUserPassword) {
+            let decryptedPassword = yield utils.decryptPassword(password);
+            let userPassword = yield utils.decryptPassword(encryptedUserPassword);
+            isCorrectPassword = decryptedPassword === userPassword;
+          }
+          if (isCorrectPassword) {
+            logger.debug("getConvertStatus password match: docId = %s", docId);
+            status.end = true;
+          } else {
+            logger.debug("getConvertStatus password mismatch: docId = %s", docId);
+            status.err = constants.CONVERT_PASSWORD;
+          }
+        } else {
+          status.end = true;
+        }
         break;
       case taskResult.FileStatus.Err:
       case taskResult.FileStatus.ErrToReload:
@@ -102,7 +121,7 @@ function* getConvertUrl(baseUrl, fileToPath, title) {
   }
   return yield storage.getSignedUrl(baseUrl, fileToPath, commonDefines.c_oAscUrlTypes.Temporary, title);
 }
-function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue) {
+function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue, opt_checkPassword) {
   var docId = cmd.getDocId();
   var startDate = null;
   if (clientStatsD) {
@@ -126,7 +145,7 @@ function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_
   var status;
   if (!bCreate) {
     selectRes = yield taskResult.select(docId);
-    status = yield* getConvertStatus(cmd, selectRes);
+    status = yield* getConvertStatus(cmd, selectRes, opt_checkPassword);
   } else {
     var queueData = new commonDefines.TaskQueueData();
     queueData.setCmd(cmd);
@@ -147,7 +166,7 @@ function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_
       }
       yield utils.sleep(CONVERT_ASYNC_DELAY);
       selectRes = yield taskResult.select(docId);
-      status = yield* getConvertStatus(cmd, selectRes);
+      status = yield* getConvertStatus(cmd, selectRes, opt_checkPassword);
       waitTime += CONVERT_ASYNC_DELAY;
       if (waitTime > utils.CONVERTION_TIMEOUT) {
         status.err = constants.CONVERT_TIMEOUT;
@@ -321,7 +340,7 @@ function convertRequest(req, res, isJson) {
 
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== cmd.getOutputFormat()) {
         let fileTo = constants.OUTPUT_NAME + '.' + outputExt;
-        var status = yield* convertByCmd(cmd, async, fileTo);
+        var status = yield* convertByCmd(cmd, async, fileTo, undefined, undefined, undefined, undefined, true);
         if (status.end) {
           let fileToPath = yield* getConvertPath(docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
