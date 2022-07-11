@@ -182,7 +182,7 @@
 				"files": 86400,
 				"filesCron": "00 00 */1 * * *",
 				"filesremovedatonce": 100,
-				"sessionidle": "0",
+				"sessionidle": "1h",
 				"sessionabsolute": "30d",
 				"sessionclosecommand": "2m",
 				"pemStdTTL": "1h",
