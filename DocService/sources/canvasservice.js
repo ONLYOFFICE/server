@@ -1091,7 +1091,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         }
       }
     } else {
-      logger.warn('Empty Callback or userLastChangeId=%s commandSfcCallback: docId = %s', userLastChangeId, docId);
+      logger.warn('Empty Callback=%s or baseUrl=%s or userLastChangeId=%s commandSfcCallback: docId = %s', uri, baseUrl, userLastChangeId, docId);
       storeForgotten = true;
     }
     if (undefined !== updateIfTask && !isSfcm) {
