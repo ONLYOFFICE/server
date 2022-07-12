@@ -783,8 +783,9 @@ let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, op
       return !!JSON.parse(currentValue).encrypted;
     });
     if (!hasEncrypted) {
-      startedForceSave = commonDefines.c_oAscForceSaveTypes.Form === type;
-      if (!startedForceSave) {
+      if (commonDefines.c_oAscForceSaveTypes.Form === type) {
+        startedForceSave = yield editorData.getForceSave(docId);
+      } else {
         startedForceSave = yield editorData.checkAndStartForceSave(docId);
       }
     }
