@@ -91,7 +91,7 @@ exports.shutdown = function(editorData, status) {
       logger.debug('shutdown end');
     } catch (e) {
       res = false;
-      logger.error('shutdown error:\r\n%s', e.stack);
+      logger.error('shutdown error: %s', e.stack);
     }
     return res;
   });

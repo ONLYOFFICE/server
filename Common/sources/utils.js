@@ -771,7 +771,7 @@ function* checkHostFilter(hostname) {
     hostIp = yield dnsLookup(hostname);
   } catch (e) {
     status = cfgIpFilterErrorCode;
-    logger.error('dnsLookup error: hostname = %s\r\n%s', hostname, e.stack);
+    logger.error('dnsLookup error: hostname = %s %s', hostname, e.stack);
   }
   if (0 === status) {
     status = checkIpFilter(hostIp, hostname);
@@ -857,11 +857,11 @@ exports.getIndexFromUserId = function(userId, userIdOriginal){
 };
 exports.checkPathTraversal = function(docId, rootDirectory, filename) {
   if (filename.indexOf('\0') !== -1) {
-    logger.warn('checkPathTraversal Poison Null Bytes docId=%s filename=%s', docId, filename);
+    logger.warn('checkPathTraversal Poison Null Bytes filename=%s', filename);
     return false;
   }
   if (!filename.startsWith(rootDirectory)) {
-    logger.warn('checkPathTraversal Path Traversal docId=%s filename=%s', docId, filename);
+    logger.warn('checkPathTraversal Path Traversal filename=%s', filename);
     return false;
   }
   return true;

@@ -75,7 +75,7 @@ exports.sqlQuery = function(sqlCommand, callbackFunction, opt_noModifyRes, opt_n
     } catch (err) {
       error = err;
       if (!opt_noLog) {
-        logger.warn('sqlQuery error sqlCommand: %s:\r\n%s', sqlCommand.slice(0, 50), err.stack);
+        logger.warn('sqlQuery error sqlCommand: %s: %s', sqlCommand.slice(0, 50), err.stack);
       }
     } finally {
       if (callbackFunction) {

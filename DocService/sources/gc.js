@@ -82,14 +82,14 @@ var checkFileExpire = function() {
               currentRemovedCount++;
             }
           } else {
-            logger.debug('checkFileExpire expire but presence: editorsCount = %d; docId = %s', editorsCount, docId);
+            logger.debug('checkFileExpire expire but presence: editorsCount = %d', editorsCount);
           }
         }
         removedCount += currentRemovedCount;
       } while (currentRemovedCount > 0);
       logger.debug('checkFileExpire end: removedCount = %d', removedCount);
     } catch (e) {
-      logger.error('checkFileExpire error:\r\n%s', e.stack);
+      logger.error('checkFileExpire error: %s', e.stack);
     } finally {
       setTimeout(checkFileExpire, expFilesStep);
     }
@@ -123,14 +123,14 @@ var checkDocumentExpire = function() {
         }
       }
     } catch (e) {
-      logger.error('checkDocumentExpire error:\r\n%s', e.stack);
+      logger.error('checkDocumentExpire error: %s', e.stack);
     } finally {
       try {
         if (queue) {
           yield queue.close();
         }
       } catch (e) {
-        logger.error('checkDocumentExpire error:\r\n%s', e.stack);
+        logger.error('checkDocumentExpire error: %s', e.stack);
       }
       logger.debug('checkDocumentExpire end: startSaveCount = %d, removedCount = %d', startSaveCount, removedCount);
       setTimeout(checkDocumentExpire, expDocumentsStep);
@@ -165,7 +165,7 @@ let forceSaveTimeout = function() {
       }
       logger.debug('forceSaveTimeout end');
     } catch (e) {
-      logger.error('forceSaveTimeout error:\r\n%s', e.stack);
+      logger.error('forceSaveTimeout error: %s', e.stack);
     } finally {
       try {
         if (queue) {
@@ -175,7 +175,7 @@ let forceSaveTimeout = function() {
           yield pubsub.close();
         }
       } catch (e) {
-        logger.error('checkDocumentExpire error:\r\n%s', e.stack);
+        logger.error('checkDocumentExpire error: %s', e.stack);
       }
       setTimeout(forceSaveTimeout, cfgForceSaveStep);
     }

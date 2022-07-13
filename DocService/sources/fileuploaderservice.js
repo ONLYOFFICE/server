@@ -67,7 +67,7 @@ exports.uploadTempFile = function(req, res) {
         return;
       }
       docId = params.key;
-      logger.debug('Start uploadTempFile: docId = %s', docId);
+      logger.debug('Start uploadTempFile');
       if (docId && constants.DOC_ID_REGEX.test(docId) && req.body && Buffer.isBuffer(req.body)) {
         var task = yield* taskResult.addRandomKeyTask(docId);
         var strPath = task.key + '/' + docId + '.tmp';
@@ -77,14 +77,14 @@ exports.uploadTempFile = function(req, res) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.NO_ERROR, url), false);
       } else {
         if (!constants.DOC_ID_REGEX.test(docId)) {
-          logger.warn('Error uploadTempFile unexpected key: docId = %s', docId);
+          logger.warn('Error uploadTempFile unexpected key');
         }
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), false);
       }
-      logger.debug('End uploadTempFile: docId = %s', docId);
+      logger.debug('End uploadTempFile');
     }
     catch (e) {
-      logger.error('Error uploadTempFile: docId = %s\r\n%s', docId, e.stack);
+      logger.error('Error uploadTempFile: %s', e.stack);
       utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), false);
     }
   });
@@ -106,16 +106,16 @@ function checkJwtUploadTransformRes(docId, errorName, checkJwtRes){
         res.userid = edit.user.id;
       }
     } else {
-      logger.warn('Error %s jwt: docId = %s\r\n%s', errorName, docId, 'access deny');
+      logger.warn('Error %s jwt: %s', errorName, 'access deny');
     }
   } else {
-    logger.warn('Error %s jwt: docId = %s\r\n%s', errorName, docId, checkJwtRes.description);
+    logger.warn('Error %s jwt: %s', errorName, checkJwtRes.description);
   }
   return res;
 }
 exports.uploadImageFileOld = function(req, res) {
   var docId = req.params.docid;
-  logger.debug('Start uploadImageFileOld: docId = %s', docId);
+  logger.debug('Start uploadImageFileOld');
   var userid = req.params.userid;
   if (cfgTokenEnableBrowser) {
     var checkJwtRes = checkJwtUpload(docId, 'uploadImageFileOld', req.query['token']);
@@ -133,7 +133,7 @@ exports.uploadImageFileOld = function(req, res) {
     var isError = false;
     var form = new multiparty.Form();
     form.on('error', function(err) {
-      logger.error('Error parsing form: docId = %s\r\n%s', docId, err.toString());
+      logger.error('Error parsing form:%s', err.toString());
       res.sendStatus(400);
     });
     form.on('part', function(part) {
@@ -157,14 +157,14 @@ exports.uploadImageFileOld = function(req, res) {
           }).then(function() {
             part.resume();
           }).catch(function(err) {
-            logger.error('Upload putObject: docId = %s\r\n%s', docId, err.stack);
+            logger.error('Upload putObject:%s', err.stack);
             isError = true;
             part.resume();
           });
         }
       }
       part.on('error', function(err) {
-        logger.error('Error parsing form part: docId = %s\r\n%s', docId, err.toString());
+        logger.error('Error parsing form part:%s', err.toString());
       });
     });
     form.on('close', function() {
@@ -181,17 +181,17 @@ exports.uploadImageFileOld = function(req, res) {
             //res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Content-Type', 'text/html');
             res.send(output);
-            logger.debug('End uploadImageFileOld: docId = %s %s', docId, output);
+            logger.debug('End uploadImageFileOld:%s', output);
           }
         ).catch(function(err) {
             res.sendStatus(400);
-            logger.error('upload getSignedUrlsByArray: docId = %s\r\n%s', docId, err.stack);
+            logger.error('upload getSignedUrlsByArray:%s', err.stack);
           });
       }
     });
     form.parse(req);
   } else {
-    logger.debug('Error params uploadImageFileOld: docId = %s', docId);
+    logger.debug('Error params uploadImageFileOld',);
     res.sendStatus(400);
   }
 };
@@ -204,7 +204,7 @@ exports.uploadImageFile = function(req, res) {
     try {
       docId = req.params.docid;
       let encrypted = false;
-      logger.debug('Start uploadImageFile: docId = %s', docId);
+      logger.debug('Start uploadImageFile', );
 
       if (cfgTokenEnableBrowser) {
         let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
@@ -241,15 +241,15 @@ exports.uploadImageFile = function(req, res) {
                                                                 commonDefines.c_oAscUrlTypes.Session);
             isError = false;
           } else {
-            logger.debug('uploadImageFile format is not supported: docId = %s', docId);
+            logger.debug('uploadImageFile format is not supported');
           }
         } else {
-          logger.debug('uploadImageFile size limit exceeded: buffer.length = %d docId = %s', buffer.length, docId);
+          logger.debug('uploadImageFile size limit exceeded: buffer.length = %d', buffer.length);
         }
       }
     } catch (e) {
       isError = true;
-      logger.error('Error uploadImageFile: docId = %s\r\n%s', docId, e.stack);
+      logger.error('Error uploadImageFile:%s', e.stack);
     } finally {
       try {
         if (!isError) {
@@ -258,9 +258,9 @@ exports.uploadImageFile = function(req, res) {
         } else {
           res.sendStatus(isValidJwt ? 400 : 403);
         }
-        logger.debug('End uploadImageFile: isError = %s docId = %s', isError, docId);
+        logger.debug('End uploadImageFile: isError = %s', isError);
       } catch (e) {
-        logger.error('Error uploadImageFile: docId = %s\r\n%s', docId, e.stack);
+        logger.error('Error uploadImageFile:%s', e.stack);
       }
     }
   });

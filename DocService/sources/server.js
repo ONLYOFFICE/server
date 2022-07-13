@@ -93,7 +93,7 @@ const updateLicense = () => {
 			docsCoServer.setLicenseInfo(licenseInfo, licenseOriginal);
 			console.log('End updateLicense');
 		} catch (err) {
-			logger.error('updateLicense error:\r\n%s', err.stack);
+			logger.error('updateLicense error: %s', err.stack);
 		}
 	});
 };

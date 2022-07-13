@@ -520,7 +520,7 @@ exports.getImageFormat = function(buffer, optExt) {
   }
   catch (e) {
     logger.error(optExt);
-    logger.error('error getImageFormat:\r\n%s', e.stack);
+    logger.error('error getImageFormat: %s', e.stack);
   }
   return format;
 };

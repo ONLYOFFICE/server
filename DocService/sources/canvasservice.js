@@ -193,7 +193,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
           outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
         } else {
           if (taskResult.FileStatus.UpdateVersion === status) {
-            logger.warn("UpdateVersion expired: docId = %s", key);
+            logger.warn("UpdateVersion expired");
           }
           var updateMask = new taskResult.TaskResultData();
           updateMask.key = key;
@@ -241,7 +241,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
           isCorrectPassword = decryptedPassword === userPassword;
         }
         if(password && !isCorrectPassword) {
-          logger.debug("getOutputData password mismatch: docId = %s", key);
+          logger.debug("getOutputData password mismatch");
           if(encryptedUserPassword) {
             outputData.setStatus('needpassword');
             outputData.setData(constants.CONVERT_PASSWORD);
@@ -415,7 +415,7 @@ var cleanupCache = co.wrap(function* (docId) {
     yield storage.deleteObjects(list);
     res = true;
   }
-  logger.debug("cleanupCache db.affectedRows=%d list.length=%d: docId = %s", removeRes.affectedRows, list.length, docId);
+  logger.debug("cleanupCache db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
   return res;
 });
 var cleanupCacheIf = co.wrap(function* (mask) {
@@ -429,7 +429,7 @@ var cleanupCacheIf = co.wrap(function* (mask) {
     yield storage.deleteObjects(list);
     res = true;
   }
-  logger.debug("cleanupCacheIf db.affectedRows=%d list.length=%d: docId = %s", removeRes.affectedRows, list.length, mask.key);
+  logger.debug("cleanupCacheIf db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
   return res;
 });
 
@@ -463,7 +463,7 @@ function* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
     needAddTask = yield* commandOpenFillOutput(conn, cmd, outputData, opt_bIsRestore);
   }
   if (conn.encrypted) {
-    logger.debug("commandOpen encrypted %j: docId = %s", outputData, cmd.getDocId());
+    logger.debug("commandOpen encrypted %j", outputData);
     if (constants.FILE_STATUS_UPDATE_VERSION !== outputData.getStatus()) {
       //don't send output data
       outputData.setStatus(undefined);
@@ -484,7 +484,7 @@ function* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
         let forgotten = yield storage.listObjects(forgottenId);
         //replace url with forgotten file because it absorbed all lost changes
         if (forgotten.length > 0) {
-          logger.debug("commandOpen from forgotten: docId = %s", cmd.getDocId());
+          logger.debug("commandOpen from forgotten");
           cmd.setUrl(undefined);
           cmd.setForgotten(forgottenId);
         }
@@ -520,7 +520,7 @@ function* commandReopen(conn, cmd, outputData) {
     if (selectRes.length > 0) {
       let row = selectRes[0];
       if (sqlBase.DocumentPassword.prototype.getCurPassword(cmd.getDocId(), row.password)) {
-        logger.debug('commandReopen has password: docId = %s', cmd.getDocId());
+        logger.debug('commandReopen has password');
         yield* commandOpenFillOutput(conn, cmd, outputData, false);
         docsCoServer.modifyConnectionForPassword(conn, constants.FILE_STATUS_OK === outputData.getStatus());
         return res;
@@ -590,7 +590,7 @@ function* commandSendMailMerge(cmd, outputData) {
       yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
       isErr = false;
     } else if (getRes.wopiParams) {
-      logger.warn('commandSendMailMerge unexpected with wopi: docId = %s', cmd.getDocId());
+      logger.warn('commandSendMailMerge unexpected with wopi');
     }
   }
   if (isErr) {
@@ -664,7 +664,7 @@ function* commandImgurls(conn, cmd, outputData) {
         }
       }
     } else {
-      logger.warn('Error commandImgurls jwt: docId = %s\r\n%s', docId, checkJwtRes.description);
+      logger.warn('Error commandImgurls jwt: %s', checkJwtRes.description);
       errorCode = constants.VKEY_ENCRYPT;
     }
   }
@@ -703,7 +703,7 @@ function* commandImgurls(conn, cmd, outputData) {
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
           data = undefined;
-          logger.error('error commandImgurls download: url = %s; docId = %s\r\n%s', urlSource, docId, e.stack);
+          logger.error('error commandImgurls download: url = %s; %s', urlSource, e.stack);
           if (e.code === 'EMSGSIZE') {
             errorCode = constants.UPLOAD_CONTENT_LENGTH;
           } else {
@@ -764,7 +764,7 @@ function* commandImgurls(conn, cmd, outputData) {
       outputUrls.push(outputUrl);
     }
   } else if(constants.NO_ERROR === errorCode) {
-    logger.warn('error commandImgurls: docId = %s access deny', docId);
+    logger.warn('error commandImgurls: access deny');
     errorCode = constants.UPLOAD;
   }
   if (constants.NO_ERROR !== errorCode && 0 == outputUrls.length) {
@@ -818,7 +818,7 @@ function* commandSetPassword(conn, cmd, outputData) {
       hasDocumentPassword = true;
     }
   }
-  logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s, hasPasswordCol=%s: docId = %s', conn.isEnterCorrectPassword, hasDocumentPassword, hasPasswordCol, cmd.getDocId());
+  logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s, hasPasswordCol=%s', conn.isEnterCorrectPassword, hasDocumentPassword, hasPasswordCol);
   if (cfgOpenProtectedFile && (conn.isEnterCorrectPassword || !hasDocumentPassword) && hasPasswordCol) {
     let updateMask = new taskResult.TaskResultData();
     updateMask.key = cmd.getDocId();
@@ -843,7 +843,7 @@ function* commandSetPassword(conn, cmd, outputData) {
       }
       yield docsCoServer.resetForceSaveAfterChanges(cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
-      logger.debug('commandSetPassword sql update error: docId = %s', cmd.getDocId());
+      logger.debug('commandSetPassword sql update error');
       outputData.setStatus('err');
       outputData.setData(constants.PASSWORD);
     }
@@ -873,7 +873,7 @@ function checkAndFixAuthorizationLength(authorization, data){
 }
 function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
   var docId = cmd.getDocId();
-  logger.debug('Start commandSfcCallback: docId = %s', docId);
+  logger.debug('Start commandSfcCallback');
   var statusInfo = cmd.getStatusInfo();
   //setUserId - set from changes in convert
   //setUserActionId - used in case of save without changes(forgotten files)
@@ -946,7 +946,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       isError = true;
     }
     if (uri && baseUrl && userLastChangeId) {
-      logger.debug('Callback commandSfcCallback: docId = %s callback = %s', docId, uri);
+      logger.debug('Callback commandSfcCallback: callback = %s', uri);
       var outputSfc = new commonDefines.OutputSfcData(docId);
       outputSfc.setEncrypted(isEncrypted);
       var users = [];
@@ -978,7 +978,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             var forgottenMark = yield storage.listObjects(forgottenMarkPath);
             isOpenFromForgotten = 0 !== forgottenMark.length;
             isSendHistory = !isOpenFromForgotten;
-            logger.debug('commandSfcCallback forgotten no empty: docId = %s isSendHistory = %s', docId, isSendHistory);
+            logger.debug('commandSfcCallback forgotten no empty: isSendHistory = %s', isSendHistory);
           }
           if (isSendHistory && !isEncrypted) {
             //don't send history info because changes isn't from file in storage
@@ -995,7 +995,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
           outputSfc.setUrl(url);
           outputSfc.setExtName(pathModule.extname(savePathDoc));
         } catch (e) {
-          logger.error('Error commandSfcCallback: docId = %s\r\n%s', docId, e.stack);
+          logger.error('Error commandSfcCallback: %s', e.stack);
         }
         if (outputSfc.getUrl() && outputSfc.getUsers().length > 0) {
           outputSfc.setStatus(statusOk);
@@ -1025,16 +1025,16 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
             let replyData = docsCoServer.parseReplyData(docId, replyStr);
             isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
-              logger.warn('sendServerRequest returned an error: docId = %s; data = %s', docId, replyStr);
+              logger.warn('sendServerRequest returned an error: data = %s', replyStr);
             }
           } catch (err) {
-            logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
+            logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
           }
         }
       } else {
         //if anybody in document stop save
         let editorsCount = yield docsCoServer.getEditorsCountPromise(docId);
-        logger.debug('commandSfcCallback presence: docId = %s count = %d', docId, editorsCount);
+        logger.debug('commandSfcCallback presence: count = %d', editorsCount);
         if (0 === editorsCount || (isEncrypted && 1 === editorsCount)) {
           if (!updateIfRes) {
             updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
@@ -1055,13 +1055,13 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
                 replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
               }
             } catch (err) {
-              logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
+              logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
               if (!isEncrypted && !docsCoServer.getIsShutdown() && (!err.statusCode || retryHttpStatus.has(err.statusCode.toString()))) {
                 let attempt = cmd.getAttempt() || 0;
                 if (attempt < cfgCallbackBackoffOptions.retries) {
                   needRetry = true;
                 } else {
-                  logger.warn('commandSfcCallback backoff limit exceeded: docId = %s', docId);
+                  logger.warn('commandSfcCallback backoff limit exceeded');
                 }
               }
             }
@@ -1073,7 +1073,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               requestRes = (null == savedVal || '1' === savedVal);
             }
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
-              logger.warn('sendServerRequest returned an error: docId = %s; data = %s', docId, replyStr);
+              logger.warn('sendServerRequest returned an error: data = %s', replyStr);
             }
             if (requestRes) {
               updateIfTask = undefined;
@@ -1091,11 +1091,11 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         }
       }
     } else {
-      logger.warn('Empty Callback=%s or baseUrl=%s or userLastChangeId=%s commandSfcCallback: docId = %s', uri, baseUrl, userLastChangeId, docId);
+      logger.warn('Empty Callback=%s or baseUrl=%s or userLastChangeId=%s commandSfcCallback', uri, baseUrl, userLastChangeId);
       storeForgotten = true;
     }
     if (undefined !== updateIfTask && !isSfcm) {
-      logger.debug('commandSfcCallback restore %d status: docId = %s', recoverTask.status, docId);
+      logger.debug('commandSfcCallback restore %d status', recoverTask.status);
       updateIfTask.status = recoverTask.status;
       updateIfTask.statusInfo = recoverTask.statusInfo;
       updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
@@ -1103,16 +1103,16 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         updateMask.status = updateIfTask.status;
         updateMask.statusInfo = updateIfTask.statusInfo;
       } else {
-        logger.debug('commandSfcCallback restore %d status failed: docId = %s', recoverTask.status, docId);
+        logger.debug('commandSfcCallback restore %d status failed', recoverTask.status);
       }
     }
     if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
       try {
-        logger.warn("storeForgotten: docId = %s", docId);
+        logger.warn("storeForgotten");
         let forgottenName = cfgForgottenFilesName + pathModule.extname(cmd.getOutputPath());
         yield storage.copyObject(savePathDoc, cfgForgottenFiles + '/' + docId + '/' + forgottenName);
       } catch (err) {
-        logger.error('Error storeForgotten: docId = %s\r\n%s', docId, err.stack);
+        logger.error('Error storeForgotten: %s', err.stack);
       }
       if (!isSfcm) {
         //todo simultaneous opening
@@ -1120,7 +1120,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
         yield docsCoServer.unlockWopiDoc(docId, callbackUserIndex);
         //cleanupRes can be false in case of simultaneous opening. it is OK
         let cleanupRes = yield cleanupCacheIf(updateMask);
-        logger.debug('storeForgotten cleanupRes=%s: docId = %s', cleanupRes, docId);
+        logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
     }
     }
     if (forceSave) {
@@ -1132,11 +1132,11 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
       let queueData = new commonDefines.TaskQueueData();
       queueData.setCmd(cmd);
       let timeout = retry.createTimeout(attempt, cfgCallbackBackoffOptions.timeout);
-      logger.debug('commandSfcCallback backoff timeout = %d : docId = %s', timeout, docId);
+      logger.debug('commandSfcCallback backoff timeout = %d', timeout);
       yield* docsCoServer.addDelayed(queueData, timeout);
     }
   } else {
-    logger.debug('commandSfcCallback cleanDocumentOnExitNoChangesPromise: docId = %s', docId);
+    logger.debug('commandSfcCallback cleanDocumentOnExitNoChangesPromise');
     yield docsCoServer.cleanDocumentOnExitNoChangesPromise(docId, undefined, userLastChangeIndex, true);
   }
 
@@ -1144,7 +1144,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     let keyRedis = cmd.getRedisKey() ? cmd.getRedisKey() : redisKeyShutdown;
     yield docsCoServer.editorData.removeShutdown(keyRedis, docId);
   }
-  logger.debug('End commandSfcCallback: docId = %s', docId);
+  logger.debug('End commandSfcCallback');
   return replyStr;
 }
 function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
@@ -1162,7 +1162,7 @@ function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, i
           yield commandOpenStartPromise(docId, undefined, true, lastModifiedTimeInfo);
         }
       } catch (e) {
-        logger.debug('processWopiPutFile error: docId = %s %s', docId, e.stack);
+        logger.debug('processWopiPutFile error: %s', e.stack);
       }
     }
     res = '{"error": 0}';
@@ -1171,7 +1171,7 @@ function* processWopiPutFile(docId, wopiParams, savePathDoc, userLastChangeId, i
 }
 function* commandSendMMCallback(cmd) {
   var docId = cmd.getDocId();
-  logger.debug('Start commandSendMMCallback: docId = %s', docId);
+  logger.debug('Start commandSendMMCallback');
   var saveKey = cmd.getSaveKey();
   var statusInfo = cmd.getStatusInfo();
   var outputSfc = new commonDefines.OutputSfcData(docId);
@@ -1205,7 +1205,7 @@ function* commandSendMMCallback(cmd) {
       replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc);
     } catch (err) {
       replyStr = null;
-      logger.error('sendServerRequest error: docId = %s;url = %s;data = %j\r\n%s', docId, uri, outputSfc, err.stack);
+      logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
     }
     var replyData = docsCoServer.parseReplyData(docId, replyStr);
     if (!(replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error)) {
@@ -1215,7 +1215,7 @@ function* commandSendMMCallback(cmd) {
       mailMergeSendData.setRecordErrorCount(recordErrorCount);
     }
     if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
-      logger.warn('sendServerRequest returned an error: docId = %s; data = %s', docId, replyStr);
+      logger.warn('sendServerRequest returned an error: data = %s', docId, replyStr);
     }
   }
   var newRecordFrom = mailMergeSendData.getRecordFrom() + Math.max(files.length, 1);
@@ -1225,9 +1225,9 @@ function* commandSendMMCallback(cmd) {
     var queueData = getSaveTask(cmd);
     yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
   } else {
-    logger.debug('End MailMerge: docId = %s', docId);
+    logger.debug('End MailMerge');
   }
-  logger.debug('End commandSendMMCallback: docId = %s', docId);
+  logger.debug('End commandSendMMCallback');
 }
 
 exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
@@ -1239,7 +1239,7 @@ exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
       if(clientStatsD) {
         startDate = new Date();
       }
-      logger.debug('Start command: docId = %s %s', docId, JSON.stringify(cmd));
+      logger.debug('Start command: %s', JSON.stringify(cmd));
       outputData = new OutputData(cmd.getCommand());
       let res = true;
       switch (cmd.getCommand()) {
@@ -1277,7 +1277,7 @@ exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
       }
     }
     catch (e) {
-      logger.error('Error openDocument: docId = %s\r\n%s', docId, e.stack);
+      logger.error('Error openDocument: %s', e.stack);
       if (!outputData) {
         outputData = new OutputData();
       }
@@ -1286,10 +1286,10 @@ exports.openDocument = function(conn, cmd, opt_upsertRes, opt_bIsRestore) {
     }
     finally {
       if (outputData && outputData.getStatus()) {
-        logger.debug('Response command: docId = %s %s', docId, JSON.stringify(outputData));
+        logger.debug('Response command: %s', JSON.stringify(outputData));
         docsCoServer.sendData(conn, new OutputDataWrap('documentOpen', outputData));
       }
-      logger.debug('End command: docId = %s', docId);
+      logger.debug('End command');
     }
   });
 };
@@ -1304,7 +1304,7 @@ exports.downloadAs = function(req, res) {
       var strCmd = req.query['cmd'];
       var cmd = new commonDefines.InputCommand(JSON.parse(strCmd));
       docId = cmd.getDocId();
-      logger.debug('Start downloadAs: docId = %s %s', docId, strCmd);
+      logger.debug('Start downloadAs: %s', strCmd);
 
       if (cfgTokenEnableBrowser) {
         var isValidJwt = false;
@@ -1316,7 +1316,7 @@ exports.downloadAs = function(req, res) {
             cmd.setUrl(checkJwtRes.decoded.url);
             cmd.setWithAuthorization(true);
           } else {
-            logger.warn('Error downloadAs jwt: docId = %s\r\n%s', docId, checkJwtRes.description);
+            logger.warn('Error downloadAs jwt: %s', checkJwtRes.description);
           }
         } else {
           let checkJwtRes = docsCoServer.checkJwt(docId, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
@@ -1329,10 +1329,10 @@ exports.downloadAs = function(req, res) {
               cmd.setDocId(doc.key);
               cmd.setUserIndex(decoded.editorConfig && decoded.editorConfig.user && decoded.editorConfig.user.index);
             } else {
-              logger.warn('Error downloadAs jwt: docId = %s\r\n%s', docId, 'access deny');
+              logger.warn('Error downloadAs jwt: %s', 'access deny');
             }
           } else {
-            logger.warn('Error downloadAs jwt: docId = %s\r\n%s', docId, checkJwtRes.description);
+            logger.warn('Error downloadAs jwt: %s', checkJwtRes.description);
           }
         }
         if (!isValidJwt) {
@@ -1368,13 +1368,13 @@ exports.downloadAs = function(req, res) {
       var strRes = JSON.stringify(outputData);
       res.setHeader('Content-Type', 'application/json');
       res.send(strRes);
-      logger.debug('End downloadAs: docId = %s %s', docId, strRes);
+      logger.debug('End downloadAs: %s', strRes);
       if(clientStatsD) {
         clientStatsD.timing('coauth.downloadAs.' + cmd.getCommand(), new Date() - startDate);
       }
     }
     catch (e) {
-      logger.error('Error downloadAs: docId = %s\r\n%s', docId, e.stack);
+      logger.error('Error downloadAs: %s', e.stack);
       res.sendStatus(400);
     }
   });
@@ -1391,7 +1391,7 @@ exports.saveFile = function(req, res) {
       let strCmd = req.query['cmd'];
       let cmd = new commonDefines.InputCommand(JSON.parse(strCmd));
       docId = cmd.getDocId();
-      logger.debug('Start saveFile: docId = %s', docId);
+      logger.debug('Start saveFile');
 
       if (cfgTokenEnableBrowser) {
         let isValidJwt = false;
@@ -1404,10 +1404,10 @@ exports.saveFile = function(req, res) {
             docId = doc.key;
             cmd.setDocId(doc.key);
           } else {
-            logger.warn('Error saveFile jwt: docId = %s\r\n%s', docId, 'access deny');
+            logger.warn('Error saveFile jwt: %s', 'access deny');
           }
         } else {
-          logger.warn('Error saveFile jwt: docId = %s\r\n%s', docId, checkJwtRes.description);
+          logger.warn('Error saveFile jwt: %s', checkJwtRes.description);
         }
         if (!isValidJwt) {
           res.sendStatus(403);
@@ -1424,13 +1424,13 @@ exports.saveFile = function(req, res) {
       } else {
         res.sendStatus(400);
       }
-      logger.debug('End saveFile: docId = %s %s', docId, replyStr);
+      logger.debug('End saveFile: %s', replyStr);
       if (clientStatsD) {
         clientStatsD.timing('coauth.saveFile', new Date() - startDate);
       }
     }
     catch (e) {
-      logger.error('Error saveFile: docId = %s\r\n%s', docId, e.stack);
+      logger.error('Error saveFile: %s', e.stack);
       res.sendStatus(400);
     }
   });
@@ -1460,19 +1460,19 @@ exports.printFile = function(req, res) {
       let filename = req.query['filename'];
       let token = req.query['token'];
       docId = req.params.docid;
-      logger.info('Start printFile: docId = %s', docId);
+      logger.info('Start printFile');
 
       if (cfgTokenEnableBrowser) {
         let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Session);
         if (checkJwtRes.decoded) {
           let docIdBase = checkJwtRes.decoded.document.key;
           if (!docId.startsWith(docIdBase)) {
-            logger.warn('Error printFile jwt: docId = %s description = %s', docId, 'access deny');
+            logger.warn('Error printFile jwt: description = %s', 'access deny');
             res.sendStatus(403);
             return;
           }
         } else {
-          logger.warn('Error printFile jwt: docId = %s description = %s', docId, checkJwtRes.description);
+          logger.warn('Error printFile jwt: description = %s', checkJwtRes.description);
           res.sendStatus(403);
           return;
         }
@@ -1489,11 +1489,11 @@ exports.printFile = function(req, res) {
       }
     }
     catch (e) {
-      logger.error('Error printFile: docId = %s %s', docId, e.stack);
+      logger.error('Error printFile: %s', e.stack);
       res.sendStatus(400);
     }
     finally {
-      logger.info('End printFile: docId = %s', docId);
+      logger.info('End printFile');
     }
   });
 };
@@ -1508,7 +1508,7 @@ exports.downloadFile = function(req, res) {
 
       let url = req.get('x-url');
       docId = req.params.docid;
-      logger.info('Start downloadFile: docId = %s', docId);
+      logger.info('Start downloadFile');
 
       let authorization;
       if (cfgTokenEnableBrowser) {
@@ -1527,7 +1527,7 @@ exports.downloadFile = function(req, res) {
           errorDescription = checkJwtRes.description;
         }
         if (errorDescription) {
-          logger.warn('Error downloadFile jwt: docId = %s description = %s', docId, errorDescription);
+          logger.warn('Error downloadFile jwt: description = %s', errorDescription);
           res.sendStatus(403);
           return;
         }
@@ -1543,7 +1543,7 @@ exports.downloadFile = function(req, res) {
       }
     }
     catch (err) {
-      logger.error('Error downloadFile: docId = %s %s', docId, err.stack);
+      logger.error('Error downloadFile: %s', err.stack);
       if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
         res.sendStatus(408);
       } else if (err.code === 'EMSGSIZE') {
@@ -1555,7 +1555,7 @@ exports.downloadFile = function(req, res) {
       }
     }
     finally {
-      logger.info('End downloadFile: docId = %s', docId);
+      logger.info('End downloadFile');
     }
   });
 };
@@ -1566,7 +1566,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
       if(clientStatsD) {
         startDate = new Date();
       }
-      logger.debug('Start saveFromChanges: docId = %s', docId);
+      logger.debug('Start saveFromChanges');
       var task = new taskResult.TaskResultData();
       task.key = docId;
       //делаем select, потому что за время timeout информация могла измениться
@@ -1594,10 +1594,10 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         if (docsCoServer.getIsShutdown()) {
           yield docsCoServer.editorData.addShutdown(redisKeyShutdown, docId);
         }
-        logger.debug('AddTask saveFromChanges: docId = %s', docId);
+        logger.debug('AddTask saveFromChanges');
       } else {
         if (row) {
-          logger.debug('saveFromChanges status mismatch: docId = %s; row: %d; %d; expected: %d', docId, row.status, row.status_info, statusInfo);
+          logger.debug('saveFromChanges status mismatch: row: %d; %d; expected: %d', row.status, row.status_info, statusInfo);
         }
       }
       if (clientStatsD) {
@@ -1605,7 +1605,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
       }
     }
     catch (e) {
-      logger.error('Error saveFromChanges: docId = %s\r\n%s', docId, e.stack);
+      logger.error('Error saveFromChanges: %s', e.stack);
     }
   });
 };
@@ -1617,7 +1617,7 @@ exports.receiveTask = function(data, ack) {
       if (task) {
         var cmd = task.getCmd();
         docId = cmd.getDocId();
-        logger.debug('Start receiveTask: docId = %s %s', docId, data);
+        logger.debug('Start receiveTask: %s', data);
         var updateTask = yield* getUpdateResponse(cmd);
         var updateRes = yield taskResult.update(updateTask);
         if (updateRes.affectedRows > 0) {
@@ -1638,7 +1638,7 @@ exports.receiveTask = function(data, ack) {
             //nothing
           }
           if (outputData.getStatus()) {
-            logger.debug('Send receiveTask: docId = %s %s', docId, JSON.stringify(outputData));
+            logger.debug('Send receiveTask: %s', JSON.stringify(outputData));
             var output = new OutputDataWrap('documentOpen', outputData);
             yield* docsCoServer.publish({
                                           type: commonDefines.c_oPublishType.receiveTask, cmd: cmd, output: output,
@@ -1651,10 +1651,10 @@ exports.receiveTask = function(data, ack) {
                                         });
           }
         }
-        logger.debug('End receiveTask: docId = %s', docId);
+        logger.debug('End receiveTask');
       }
     } catch (err) {
-      logger.debug('Error receiveTask: docId = %s\r\n%s', docId, err.stack);
+      logger.debug('Error receiveTask: %s', err.stack);
     } finally {
       ack();
     }

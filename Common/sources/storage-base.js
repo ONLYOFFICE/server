@@ -70,7 +70,7 @@ exports.copyPath = function(tenant, sourcePath, destinationPath) {
 };
 exports.listObjects = function(tenant, strPath) {
   return storage.listObjects(getStoragePath(tenant, strPath)).catch(function(e) {
-    logger.error('storage.listObjects:\r\n%s', e.stack);
+    logger.error('storage.listObjects: %s', e.stack);
     return [];
   });
 };

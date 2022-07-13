@@ -344,7 +344,7 @@ function getEditorHtml(req, res) {
         }
       }
       docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
-      logger.debug(`wopiEditor docId=%s`, docId);
+      logger.debug(`wopiEditor`);
       params.key = docId;
       let userAuth = params.userAuth = {
         wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl,

@@ -321,7 +321,7 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization, filterPrivate, o
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
-        logger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s;(id=%s)\r\n%s', uri, downloadAttemptCount, err.code, err.connect, docId, err.stack);
+        logger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s %s', uri, downloadAttemptCount, err.code, err.connect, err.stack);
         //not continue attempts if timeout
         if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
           break;
@@ -543,7 +543,7 @@ function* streamCreate(docId, changesDir, indexFile, opt_options) {
   let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
   writeStream.on('error', function(err) {
     //todo integrate error handle in main thread (probable: set flag here and check it in main thread)
-    logger.error('WriteStreamError (id=%s)\r\n%s', docId, err.stack);
+    logger.error('WriteStreamError %s', err.stack);
   });
   return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
 }
@@ -708,7 +708,7 @@ function* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTim
     childRes = yield spawnAsyncPromise;
   } catch (err) {
     let fLog = null === err.status ? logger.error : logger.debug;
-    fLog.call(logger, 'error spawnAsync(id=%s)\r\n%s', cmd.getDocId(), err.stack);
+    fLog.call(logger, 'error spawnAsync %s', err.stack);
     childRes = err;
   }
   if (undefined !== timeoutId) {
@@ -895,7 +895,7 @@ function run() {
   queue.on('task', receiveTask);
   queue.init(true, true, true, false, false, false, function(err) {
     if (null != err) {
-      logger.error('createTaskQueue error :\r\n%s', err.stack);
+      logger.error('createTaskQueue error: %s', err.stack);
     }
   });
 }

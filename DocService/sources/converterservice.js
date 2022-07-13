@@ -70,10 +70,10 @@ function* getConvertStatus(cmd, selectRes, opt_checkPassword) {
             isCorrectPassword = decryptedPassword === userPassword;
           }
           if (isCorrectPassword) {
-            logger.debug("getConvertStatus password match: docId = %s", docId);
+            logger.debug("getConvertStatus password match");
             status.end = true;
           } else {
-            logger.debug("getConvertStatus password mismatch: docId = %s", docId);
+            logger.debug("getConvertStatus password mismatch");
             status.err = constants.CONVERT_PASSWORD;
           }
         } else {
@@ -127,7 +127,7 @@ function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_
   if (clientStatsD) {
     startDate = new Date();
   }
-  logger.debug('Start convert request docId = %s', docId);
+  logger.debug('Start convert request');
 
   let bCreate = false;
   if (!opt_taskExist) {
@@ -173,7 +173,7 @@ function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_
       }
     }
   }
-  logger.debug('End convert request end %s status %s docId = %s', status.end, status.err, docId);
+  logger.debug('End convert request end %s status %s', status.end, status.err);
   if (clientStatsD) {
     clientStatsD.timing('coauth.convertservice', new Date() - startDate);
   }
@@ -235,19 +235,19 @@ function convertRequest(req, res, isJson) {
         return;
       }
       if (params.key && !constants.DOC_ID_REGEX.test(params.key)) {
-        logger.warn('convertRequest unexpected key = %s: docId = %s', params.key, docId);
+        logger.warn('convertRequest unexpected key = %s', params.key);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
       if (params.filetype && !constants.EXTENTION_REGEX.test(params.filetype)) {
-        logger.warn('convertRequest unexpected filetype = %s: docId = %s', params.filetype, docId);
+        logger.warn('convertRequest unexpected filetype = %s', params.filetype);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
       let outputtype = params.outputtype || '';
       let outputFormat = formatChecker.getFormatFromString(outputtype);
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
-        logger.warn('convertRequest unexpected outputtype = %s: docId = %s', outputtype, docId);
+        logger.warn('convertRequest unexpected outputtype = %s', outputtype);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
@@ -275,7 +275,7 @@ function convertRequest(req, res, isJson) {
       }
       if (params.password) {
         if (params.password.length > constants.PASSWORD_MAX_LENGTH) {
-          logger.warn('convertRequest password too long actual = %s; max = %s;docId = %s', params.password.length, constants.PASSWORD_MAX_LENGTH, docId);
+          logger.warn('convertRequest password too long actual = %s; max = %s', params.password.length, constants.PASSWORD_MAX_LENGTH);
           utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
           return;
         }
@@ -345,17 +345,17 @@ function convertRequest(req, res, isJson) {
           let fileToPath = yield* getConvertPath(docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
           status.setUrl(yield* getConvertUrl(utils.getBaseUrlByRequest(req), fileToPath, cmd.getTitle()));
-          logger.debug('convertRequest: url = %s docId = %s', status.url, docId);
+          logger.debug('convertRequest: url = %s', status.url);
         }
         utils.fillResponse(req, res, status, isJson);
       } else {
         var addresses = utils.forwarded(req);
-        logger.warn('Error convert unknown outputtype: query = %j from = %s docId = %s', params, addresses, docId);
+        logger.warn('Error convert unknown outputtype: query = %j from = %s', params, addresses);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
       }
     }
     catch (e) {
-      logger.error('Error convert: docId = %s\r\n%s', docId, e.stack);
+      logger.error('Error convert: %s', e.stack);
       utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
     }
   });
@@ -416,11 +416,11 @@ function builderRequest(req, res) {
       } else if (error === constants.NO_ERROR) {
         error = constants.UNKNOWN;
       }
-      logger.debug('End builderRequest request: docId = %s urls = %j end = %s error = %s', docId, urls, end, error);
+      logger.debug('End builderRequest request: urls = %j end = %s error = %s', urls, end, error);
       utils.fillResponseBuilder(res, docId, urls, end, error);
     }
     catch (e) {
-      logger.error('Error builderRequest: docId = %s\r\n%s', docId, e.stack);
+      logger.error('Error builderRequest: %s', e.stack);
       utils.fillResponseBuilder(res, undefined, undefined, undefined, constants.UNKNOWN);
     }
   });

@@ -292,7 +292,7 @@ UserCallback.prototype.toSQLInsert = function(){
   return this.delimiter + JSON.stringify(this);
 };
 UserCallback.prototype.getCallbackByUserIndex = function(docId, callbacksStr, opt_userIndex) {
-  logger.debug("getCallbackByUserIndex: docId = %s userIndex = %s callbacks = %s", docId, opt_userIndex, callbacksStr);
+  logger.debug("getCallbackByUserIndex: userIndex = %s callbacks = %s", opt_userIndex, callbacksStr);
   if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
     let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
     if (-1 === index) {
@@ -315,7 +315,7 @@ UserCallback.prototype.getCallbackByUserIndex = function(docId, callbacksStr, op
   return callbackUrl;
 };
 UserCallback.prototype.getCallbacks = function(docId, callbacksStr) {
-  logger.debug("getCallbacks: docId = %s callbacks = %s", docId, callbacksStr);
+  logger.debug("getCallbacks: callbacks = %s", callbacksStr);
   if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
     let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
     if (-1 === index) {
@@ -362,7 +362,7 @@ DocumentPassword.prototype.isInitial = function(){
 DocumentPassword.prototype.getDocPassword = function(docId, docPasswordStr) {
   let res = {initial: undefined, current: undefined, change: undefined};
   if (docPasswordStr) {
-    logger.debug("getDocPassword: docId = %s passwords = %s", docId, docPasswordStr);
+    logger.debug("getDocPassword: passwords = %s", docPasswordStr);
     let passwords = docPasswordStr.split(UserCallback.prototype.delimiter);
 
     for (let i = 1; i < passwords.length; ++i) {

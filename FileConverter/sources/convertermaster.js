@@ -75,7 +75,7 @@ if (cluster.isMaster) {
         logger.warn('update cluster with %s workers', workersCount);
         updateWorkers();
       } catch (err) {
-        logger.error('updateLicense error:\r\n%s', err.stack);
+        logger.error('updateLicense error: %s', err.stack);
       }
     });
   };
