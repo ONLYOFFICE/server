@@ -283,7 +283,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
       outputData.setStatus('err');
       outputData.setData(statusInfo);
       if (taskResult.FileStatus.ErrToReload == status) {
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(key, row.callback);
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
         let wopiParams = wopiClient.parseWopiCallback(key, userAuthStr);
         if (!wopiParams) {
           //todo rework ErrToReload to clean up on next open
@@ -308,7 +308,7 @@ function* addRandomKeyTaskCmd(cmd) {
   cmd.setSaveKey(task.key);
 }
 function addPasswordToCmd(cmd, docPasswordStr) {
-  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), docPasswordStr);
+  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, docPasswordStr);
   if (docPassword.current) {
     cmd.setSavePassword(docPassword.current);
   }
@@ -324,7 +324,7 @@ function changeFormatByOrigin(docId, row, format) {
       format = originFormat;
     } else {
       //for wopi always save origin
-      let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback);
+      let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
       let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, row.callback);
       if (wopiParams) {
         format = originFormat;
@@ -609,7 +609,7 @@ function* commandSfctByCmd(cmd, opt_priority, opt_expiration, opt_queue) {
   }
   yield* addRandomKeyTaskCmd(cmd);
   addPasswordToCmd(cmd, row.password);
-  let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(cmd.getDocId(), row.callback);
+  let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(cmd.getDocId(), userAuthStr));
   cmd.setOutputFormat(changeFormatByOrigin(cmd.getDocId(), row, cmd.getOutputFormat()));
   cmd.setJsonParams(getOpenedAtJSONParams(row));
@@ -648,7 +648,7 @@ function* commandImgurls(conn, cmd, outputData) {
   let authorizations = [];
   let token = cmd.getTokenDownload();
   if (cfgTokenEnableBrowser && token) {
-    let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Browser);
+    let checkJwtRes = docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
       //todo multiple url case
       if (checkJwtRes.decoded.images) {
@@ -698,7 +698,7 @@ function* commandImgurls(conn, cmd, outputData) {
       } else if (urlSource) {
         try {
           //todo stream
-          let getRes = yield utils.downloadUrlPromise(urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], !authorizations[i]);
+          let getRes = yield utils.downloadUrlPromise(ctx, urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], !authorizations[i]);
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -713,7 +713,7 @@ function* commandImgurls(conn, cmd, outputData) {
       }
       var outputUrl = {url: 'error', path: 'error'};
       if (data) {
-        let format = formatChecker.getImageFormat(data);
+        let format = formatChecker.getImageFormat(ctx, data);
         let formatStr;
         let isAllow = false;
         if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== format) {
@@ -797,7 +797,7 @@ function* commandPathUrl(conn, cmd, outputData) {
   }
 }
 function* commandSaveFromOrigin(cmd, outputData, password) {
-  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(cmd.getDocId(), password);
+  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
   if (docPassword.initial) {
     cmd.setPassword(docPassword.initial);
   }
@@ -897,7 +897,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
     let row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
       if (row.callback) {
-        uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, callbackUserIndex);
+        uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, callbackUserIndex);
         wopiParams = wopiClient.parseWopiCallback(docId, uri, row.callback);
       }
       if (row.baseurl) {
@@ -1309,7 +1309,7 @@ exports.downloadAs = function(req, res) {
       if (cfgTokenEnableBrowser) {
         var isValidJwt = false;
         if (cmd.getTokenDownload()) {
-          let checkJwtRes = docsCoServer.checkJwt(docId, cmd.getTokenDownload(), commonDefines.c_oAscSecretType.Browser);
+          let checkJwtRes = docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), commonDefines.c_oAscSecretType.Browser);
           if (checkJwtRes.decoded) {
             isValidJwt = true;
             cmd.setFormat(checkJwtRes.decoded.fileType);
@@ -1319,7 +1319,7 @@ exports.downloadAs = function(req, res) {
             logger.warn('Error downloadAs jwt: %s', checkJwtRes.description);
           }
         } else {
-          let checkJwtRes = docsCoServer.checkJwt(docId, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+          let checkJwtRes = docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
           if (checkJwtRes.decoded) {
             let decoded = checkJwtRes.decoded;
             var doc = checkJwtRes.decoded.document;
@@ -1395,7 +1395,7 @@ exports.saveFile = function(req, res) {
 
       if (cfgTokenEnableBrowser) {
         let isValidJwt = false;
-        let checkJwtRes = docsCoServer.checkJwt(docId, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+        let checkJwtRes = docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
         if (checkJwtRes.decoded) {
           let doc = checkJwtRes.decoded.document;
           var edit = checkJwtRes.decoded.editorConfig;
@@ -1463,7 +1463,7 @@ exports.printFile = function(req, res) {
       logger.info('Start printFile');
 
       if (cfgTokenEnableBrowser) {
-        let checkJwtRes = docsCoServer.checkJwt(docId, token, commonDefines.c_oAscSecretType.Session);
+        let checkJwtRes = docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
         if (checkJwtRes.decoded) {
           let docIdBase = checkJwtRes.decoded.document.key;
           if (!docId.startsWith(docIdBase)) {
@@ -1536,7 +1536,7 @@ exports.downloadFile = function(req, res) {
         }
       }
 
-      yield utils.downloadUrlPromise(url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
+      yield utils.downloadUrlPromise(ctx, url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.downloadFile', new Date() - startDate);
@@ -1584,7 +1584,7 @@ exports.saveFromChanges = function(docId, statusInfo, optFormat, opt_userId, opt
         cmd.setUserActionId(opt_userId);
         cmd.setUserActionIndex(opt_userIndex);
         cmd.setJsonParams(getOpenedAtJSONParams(row));
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback);
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
         cmd.setWopiParams(wopiClient.parseWopiCallback(docId, userAuthStr));
         addPasswordToCmd(cmd, row && row.password);
         yield* addRandomKeyTaskCmd(cmd);

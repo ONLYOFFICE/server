@@ -224,7 +224,7 @@ exports.uploadImageFile = function(req, res) {
       if (isValidJwt && docId && req.body && Buffer.isBuffer(req.body)) {
         let buffer = req.body;
         if (buffer.length <= cfgImageSize) {
-          var format = formatChecker.getImageFormat(buffer, undefined);
+          var format = formatChecker.getImageFormat(ctx, buffer);
           var formatStr = formatChecker.getStringFromFormat(format);
           if (encrypted && PATTERN_ENCRYPTED === buffer.toString('utf8', 0, PATTERN_ENCRYPTED.length)) {
             formatStr = buffer.toString('utf8', PATTERN_ENCRYPTED.length, buffer.indexOf(';', PATTERN_ENCRYPTED.length));

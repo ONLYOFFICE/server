@@ -209,7 +209,7 @@ function restoreInitialPassword(docId) {
   return select(docId).then(function(selectRes) {
     if (selectRes.length > 0) {
       var row = selectRes[0];
-      let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(docId, row.password);
+      let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, row.password);
       var updateTask = new TaskResultData();
       updateTask.key = docId;
       if (docPassword.initial) {

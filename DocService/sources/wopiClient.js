@@ -243,12 +243,12 @@ function parseWopiCallback(docId, userAuthStr, opt_url) {
     let commonInfo = null;
     let lastModifiedTime = null;
     if (opt_url) {
-      let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, opt_url, 1);
+      let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, opt_url, 1);
       if (isWopiCallback(commonInfoStr)) {
         commonInfo = JSON.parse(commonInfoStr);
         lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
         if (lastModifiedTime) {
-          let callbacks = sqlBase.UserCallback.prototype.getCallbacks(docId, opt_url);
+          let callbacks = sqlBase.UserCallback.prototype.getCallbacks(ctx, opt_url);
           lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
         }
       }
@@ -265,12 +265,12 @@ function checkAndInvalidateCache(docId, fileInfo) {
     if (selectRes.length > 0) {
       let row = selectRes[0];
       if (row.callback) {
-        let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, 1);
+        let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, 1);
         if (isWopiCallback(commonInfoStr)) {
           let commonInfo = JSON.parse(commonInfoStr);
           res.lockId = commonInfo.lockId;
           logger.debug('wopiEditor lockId from DB lockId=%s', res.lockId);
-          let unlockMarkStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback);
+          let unlockMarkStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
           logger.debug('wopiEditor commonInfoStr=%s', commonInfoStr);
           logger.debug('wopiEditor unlockMarkStr=%s', unlockMarkStr);
           let hasUnlockMarker = isWopiUnlockMarker(unlockMarkStr);
@@ -449,7 +449,7 @@ function putFile(wopiParams, data, dataStream, dataSize, userLastChangeId, isMod
 }
 function renameFile(wopiParams, name) {
   return co(function* () {
-    let res;
+    let res = undefined;
     try {
       logger.info('wopi RenameFile start');
       if (!wopiParams.userAuth) {
@@ -493,7 +493,7 @@ function renameFile(wopiParams, name) {
 }
 function checkFileInfo(uri, access_token, sc) {
   return co(function* () {
-    let fileInfo;
+    let fileInfo = undefined;
     try {
       logger.info('wopi checkFileInfo start');
       let filterStatus = yield checkIpFilter(uri);
@@ -506,7 +506,7 @@ function checkFileInfo(uri, access_token, sc) {
       }
       fillStandardHeaders(headers, uri, access_token);
       logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-      let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, undefined, undefined, false, headers);
+      let getRes = yield utils.downloadUrlPromise(ctx, uri, cfgDownloadTimeout, undefined, undefined, false, headers);
       logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
       fileInfo = JSON.parse(getRes.body);
     } catch (err) {

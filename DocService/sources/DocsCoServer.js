@@ -105,6 +105,7 @@ const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
+const operationContext = require('./../../Common/sources/operationContext');
 const {TenantManager} = require('./tenantManager');
 
 const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
@@ -180,7 +181,7 @@ const PRECISION = [{name: 'hour', val: ms('1h')}, {name: 'day', val: ms('1d')}, 
   {name: 'month', val: ms('31d')},
 ];
 
-function getIsShutdown() {
+function getIsShutdown(ctx) {
   return shutdownFlag;
 }
 
@@ -720,7 +721,7 @@ function* getCallback(id, opt_userIndex) {
   if (selectRes.length > 0) {
     var row = selectRes[0];
     if (row.callback) {
-      callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(id, row.callback, opt_userIndex);
+      callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, opt_userIndex);
       wopiParams = wopiClient.parseWopiCallback(id, callbackUrl, row.callback);
     }
     if (row.baseurl) {
@@ -861,7 +862,7 @@ function* startRPC(conn, responseKey, data) {
       if (row) {
         if (row.callback) {
           let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
-          let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, userIndex);
+          let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex);
           let wopiParams = wopiClient.parseWopiCallback(docId, uri, row.callback);
           if (wopiParams) {
             renameRes = yield wopiClient.renameFile(wopiParams, data.name);
@@ -1174,7 +1175,7 @@ function checkJwtHeader(docId, req, opt_header, opt_prefix, opt_secretType) {
   let authorization = req.get(header);
   if (authorization && authorization.startsWith(prefix)) {
     var token = authorization.substring(prefix.length);
-    return checkJwt(docId, token, secretType);
+    return checkJwt(ctx, token, secretType);
   }
   return null;
 }
@@ -1266,15 +1267,14 @@ exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
 exports.install = function(server, callbackFunction) {
-  var sockjs_echo = sockjs.createServer(cfgSockjs),
-    urlParse = new RegExp("^/doc/([" + constants.DOC_ID_PATTERN + "]*)/c.+", 'i');
+  var sockjs_echo = sockjs.createServer(cfgSockjs);
 
   sockjs_echo.on('connection', function(conn) {
     if (!conn) {
       logger.error("null == conn");
       return;
     }
-    if (getIsShutdown()) {
+    if (getIsShutdown(ctx)) {
       sendFileError(conn, 'Server shutdow');
       return;
     }
@@ -1285,9 +1285,9 @@ exports.install = function(server, callbackFunction) {
     conn.on('data', function(message) {
       return co(function* () {
       var docId = 'null';
-      let ctx = new utils.OperationContext();
+      let ctx = new operationContext.OperationContext();
       try {
-        ctx.init(tenantManager.getTenant(utils.getDomainByConnection(conn)), conn.docid, conn.user?.id);
+        ctx.initByConnection(conn);
         var startDate = null;
         if(clientStatsD) {
           startDate = new Date();
@@ -1343,7 +1343,7 @@ exports.install = function(server, callbackFunction) {
             yield* checkEndAuthLock(data.unlock, data.isSave, docId, conn.user.id, data.releaseLocks, data.deleteIndex, conn);
             break;
           case 'close':
-            yield* closeDocument(conn, false);
+            yield* closeDocument(ctx, conn, false);
             break;
           case 'versionHistory'          : {
             let cmd = new commonDefines.InputCommand(data.cmd);
@@ -1395,18 +1395,16 @@ exports.install = function(server, callbackFunction) {
       });
     });
     conn.on('error', function() {
-      let ctx = new utils.OperationContext();
-      ctx.init(tenantManager.getTenant(utils.getDomainByConnection(conn)), conn.docid, conn.user?.id);
+      let ctx = new operationContext.OperationContext();
+      ctx.initByConnection(conn);
       ctx.logger.error("On error");
     });
     conn.on('close', function() {
       return co(function* () {
-        var docId = 'null';
-        let ctx = new utils.OperationContext();
+        let ctx = new operationContext.OperationContext();
         try {
-          ctx.init(tenantManager.getTenant(utils.getDomainByConnection(conn)), conn.docid, conn.user?.id);
-          docId = conn.docId;
-          yield* closeDocument(conn, true);
+          ctx.initByConnection(conn);
+          yield* closeDocument(ctx, conn, true);
         } catch (err) {
           ctx.logger.error('Error conn close: %s', err.stack);
         }
@@ -1420,7 +1418,7 @@ exports.install = function(server, callbackFunction) {
    * @param conn
    * @param isCloseConnection - закрываем ли мы окончательно соединение
    */
-  function* closeDocument(conn, isCloseConnection) {
+  function* closeDocument(ctx, conn, isCloseConnection) {
     var userLocks, reconnected = false, bHasEditors, bHasChanges;
     var docId = conn.docId;
     if (null == docId) {
@@ -2274,7 +2272,7 @@ exports.install = function(server, callbackFunction) {
       let result = yield taskResult.select(docId);
       let resultRow = result.length > 0 ? result[0] : null;
       if (cmd && resultRow && resultRow.callback) {
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, resultRow.callback, curIndexUser);
+        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, resultRow.callback, curIndexUser);
         let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, resultRow.callback);
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
@@ -2963,7 +2961,7 @@ exports.install = function(server, callbackFunction) {
 				let rights = constants.RIGHTS.Edit;
 				if (config.get('server.edit_singleton')) {
 					// ToDo docId from url ?
-					const docIdParsed = urlParse.exec(conn.url);
+					const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(conn.url);
 					if (docIdParsed && 1 < docIdParsed.length) {
 						const participantsMap = yield getParticipantMap(docIdParsed[1]);
 						for (let i = 0; i < participantsMap.length; ++i) {
@@ -3365,8 +3363,9 @@ exports.install = function(server, callbackFunction) {
   setTimeout(expireDoc, expDocumentsStep);
   function refreshWopiLock() {
     return co(function* () {
+      let ctx = new operationContext.OperationContext();
       try {
-        logger.info('refreshWopiLock start');
+        ctx.logger.info('refreshWopiLock start');
         let docIds = new Map();
         for (let i = 0; i < connections.length; ++i) {
           let conn = connections[i];
@@ -3381,7 +3380,7 @@ exports.install = function(server, callbackFunction) {
           let selectRes = yield taskResult.select(docId);
           if (selectRes.length > 0 && selectRes[0] && selectRes[0].callback) {
             let callback = selectRes[0].callback;
-            let callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, callback);
+            let callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, callback);
             let wopiParams = wopiClient.parseWopiCallback(docId, callbackUrl, callback);
             if (wopiParams) {
               yield wopiClient.lock('REFRESH_LOCK', wopiParams.commonInfo.lockId,
@@ -3390,9 +3389,9 @@ exports.install = function(server, callbackFunction) {
           }
         }
       } catch (err) {
-        logger.error('refreshWopiLock error:%s', err.stack);
+        ctx.logger.error('refreshWopiLock error:%s', err.stack);
       } finally {
-        logger.info('refreshWopiLock end');
+        ctx.logger.info('refreshWopiLock end');
         setTimeout(refreshWopiLock, cfgRefreshLockInterval);
       }
     });
@@ -3638,7 +3637,10 @@ exports.commandFromServer = function (req, res) {
     let docId = 'commandFromServer';
     let version = undefined;
     let outputLicense = undefined;
+    let ctx = new operationContext.OperationContext();
     try {
+      ctx.initByRequest(req);
+      ctx.logger.info('commandFromServer start');
       let authRes = getRequestParams(docId, req);
       let params = authRes.params;
       if(authRes.code === constants.VKEY_KEY_EXPIRE){
@@ -3651,7 +3653,7 @@ exports.commandFromServer = function (req, res) {
       if (commonDefines.c_oAscServerCommandErrors.NoError === result && null == docId && 'version' !== params.c && 'license' !== params.c) {
         result = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
       } else if(commonDefines.c_oAscServerCommandErrors.NoError === result) {
-        logger.debug('Start commandFromServer: c = %s', params.c);
+        ctx.logger.debug('commandFromServer: c = %s', params.c);
         switch (params.c) {
           case 'info':
             //If no files in the database means they have not been edited.
@@ -3677,9 +3679,9 @@ exports.commandFromServer = function (req, res) {
             if ('1' !== params.status) {
               //запрос saved выполняется синхронно, поэтому заполняем переменную чтобы проверить ее после sendServerRequest
               yield editorData.setSaved(docId, params.status);
-              logger.warn('saved corrupted id = %s status = %s conv = %s', docId, params.status, params.conv);
+              ctx.logger.warn('saved corrupted id = %s status = %s conv = %s', docId, params.status, params.conv);
             } else {
-              logger.info('saved id = %s status = %s conv = %s', docId, params.status, params.conv);
+              ctx.logger.info('saved id = %s status = %s conv = %s', docId, params.status, params.conv);
             }
             break;
           case 'forcesave':
@@ -3706,18 +3708,18 @@ exports.commandFromServer = function (req, res) {
       }
     } catch (err) {
       result = commonDefines.c_oAscServerCommandErrors.UnknownError;
-      logger.error('Error commandFromServer: %s', err.stack);
+      ctx.logger.error('Error commandFromServer: %s', err.stack);
     } finally {
       //undefined value are excluded in JSON.stringify
       let output = {'key': docId, 'error': result, 'version': version};
       if (outputLicense) {
         Object.assign(output, outputLicense);
       }
-      logger.debug('End commandFromServer: %j', output);
       const outputBuffer = Buffer.from(JSON.stringify(output), 'utf8');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Length', outputBuffer.length);
       res.send(outputBuffer);
+      ctx.logger.info('commandFromServer end : %j', output);
     }
   });
 };
@@ -3725,13 +3727,17 @@ exports.commandFromServer = function (req, res) {
 exports.shutdown = function(req, res) {
   return co(function*() {
     let output = false;
+    let ctx = new operationContext.OperationContext();
     try {
-      output = yield shutdown.shutdown(editorData, req.method === 'PUT');
+      ctx.initByRequest(req);
+      ctx.logger.info('shutdown start');
+      output = yield shutdown.shutdown(ctx, editorData, req.method === 'PUT');
     } catch (err) {
-      logger.error('shutdown error %s', err.stack);
+      ctx.logger.error('shutdown error %s', err.stack);
     } finally {
       res.setHeader('Content-Type', 'text/plain');
       res.send(output.toString());
+      ctx.logger.info('shutdown end');
     }
   });
 };

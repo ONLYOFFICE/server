@@ -40,7 +40,6 @@ var sqlDataBaseType = {
 
 var config = require('config').get('services.CoAuthoring.sql');
 var baseConnector = (sqlDataBaseType.mySql === config.get('type') || sqlDataBaseType.mariaDB === config.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
-var logger = require('./../../Common/sources/logger');
 let constants = require('./../../Common/sources/constants');
 
 const tableChanges = config.get('tableChanges'),
@@ -291,8 +290,8 @@ UserCallback.prototype.delimiter = constants.CHAR_DELIMITER;
 UserCallback.prototype.toSQLInsert = function(){
   return this.delimiter + JSON.stringify(this);
 };
-UserCallback.prototype.getCallbackByUserIndex = function(docId, callbacksStr, opt_userIndex) {
-  logger.debug("getCallbackByUserIndex: userIndex = %s callbacks = %s", opt_userIndex, callbacksStr);
+UserCallback.prototype.getCallbackByUserIndex = function(ctx, callbacksStr, opt_userIndex) {
+  ctx.logger.debug("getCallbackByUserIndex: userIndex = %s callbacks = %s", opt_userIndex, callbacksStr);
   if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
     let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
     if (-1 === index) {
@@ -314,8 +313,8 @@ UserCallback.prototype.getCallbackByUserIndex = function(docId, callbacksStr, op
   }
   return callbackUrl;
 };
-UserCallback.prototype.getCallbacks = function(docId, callbacksStr) {
-  logger.debug("getCallbacks: callbacks = %s", callbacksStr);
+UserCallback.prototype.getCallbacks = function(ctx, callbacksStr) {
+  ctx.logger.debug("getCallbacks: callbacks = %s", callbacksStr);
   if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
     let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
     if (-1 === index) {
@@ -359,10 +358,10 @@ DocumentPassword.prototype.toSQLInsert = function(){
 DocumentPassword.prototype.isInitial = function(){
   return !this.change;
 };
-DocumentPassword.prototype.getDocPassword = function(docId, docPasswordStr) {
+DocumentPassword.prototype.getDocPassword = function(ctx, docPasswordStr) {
   let res = {initial: undefined, current: undefined, change: undefined};
   if (docPasswordStr) {
-    logger.debug("getDocPassword: passwords = %s", docPasswordStr);
+    ctx.logger.debug("getDocPassword: passwords = %s", docPasswordStr);
     let passwords = docPasswordStr.split(UserCallback.prototype.delimiter);
 
     for (let i = 1; i < passwords.length; ++i) {
@@ -379,11 +378,11 @@ DocumentPassword.prototype.getDocPassword = function(docId, docPasswordStr) {
   return res;
 };
 DocumentPassword.prototype.getCurPassword = function(docId, docPasswordStr) {
-  let docPassword = this.getDocPassword(docId, docPasswordStr);
+  let docPassword = this.getDocPassword(ctx, docPasswordStr);
   return docPassword.current;
 };
 DocumentPassword.prototype.hasPasswordChanges = function(docId, docPasswordStr) {
-  let docPassword = this.getDocPassword(docId, docPasswordStr);
+  let docPassword = this.getDocPassword(ctx, docPasswordStr);
   return docPassword.initial !== docPassword.current;
 };
 exports.DocumentPassword = DocumentPassword;
