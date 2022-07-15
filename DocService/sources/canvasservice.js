@@ -169,7 +169,7 @@ function getOpenedAtJSONParams(row) {
   return undefined;
 }
 
-var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
+var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
   let status, statusInfo, password, creationDate, openedAt, row;
   let selectRes = yield taskResult.select(key);
   if (selectRes.length > 0) {
@@ -193,7 +193,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
           outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
         } else {
           if (taskResult.FileStatus.UpdateVersion === status) {
-            logger.warn("UpdateVersion expired");
+            ctx.logger.warn("UpdateVersion expired");
           }
           var updateMask = new taskResult.TaskResultData();
           updateMask.key = key;
@@ -241,7 +241,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
           isCorrectPassword = decryptedPassword === userPassword;
         }
         if(password && !isCorrectPassword) {
-          logger.debug("getOutputData password mismatch");
+          ctx.logger.debug("getOutputData password mismatch");
           if(encryptedUserPassword) {
             outputData.setStatus('needpassword');
             outputData.setData(constants.CONVERT_PASSWORD);
@@ -287,7 +287,7 @@ var getOutputData = co.wrap(function* (cmd, outputData, key, optConn, optAdditio
         let wopiParams = wopiClient.parseWopiCallback(key, userAuthStr);
         if (!wopiParams) {
           //todo rework ErrToReload to clean up on next open
-          yield cleanupCache(key);
+          yield cleanupCache(ctx);
         }
       }
       break;
@@ -405,9 +405,10 @@ function* getUpdateResponse(cmd) {
   updateTask.statusInfo = statusInfo;
   return updateTask;
 }
-var cleanupCache = co.wrap(function* (docId) {
+var cleanupCache = co.wrap(function* (ctx) {
   //todo redis ?
   var res = false;
+  let docId = ctx.docId;
   let list = [];
   var removeRes = yield taskResult.remove(docId);
   if (removeRes.affectedRows > 0) {
@@ -415,10 +416,10 @@ var cleanupCache = co.wrap(function* (docId) {
     yield storage.deleteObjects(list);
     res = true;
   }
-  logger.debug("cleanupCache db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
+  ctx.logger.debug("cleanupCache db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
   return res;
 });
-var cleanupCacheIf = co.wrap(function* (mask) {
+var cleanupCacheIf = co.wrap(function* (ctx, mask) {
   //todo redis ?
   var res = false;
   let list = [];
@@ -509,7 +510,7 @@ function* commandOpen(conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
     }
   }
 function* commandOpenFillOutput(conn, cmd, outputData, opt_bIsRestore) {
-  yield getOutputData(cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
+  yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
   return 'none' === outputData.getStatus();
 }
 function* commandReopen(conn, cmd, outputData) {
@@ -1080,7 +1081,7 @@ function* commandSfcCallback(cmd, isSfcm, isEncrypted) {
               yield docsCoServer.cleanDocumentOnExitPromise(docId, true, callbackUserIndex);
               if (isOpenFromForgotten) {
                 //remove forgotten file in cache
-                yield cleanupCache(docId);
+                yield cleanupCache(ctx);
               }
             } else {
               storeForgotten = true;
@@ -1625,9 +1626,9 @@ exports.receiveTask = function(data, ack) {
           var command = cmd.getCommand();
           var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined, creationDate: undefined, openedAt: undefined};
           if ('open' == command || 'reopen' == command) {
-            yield getOutputData(cmd, outputData, cmd.getDocId(), null, additionalOutput);
+            yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), null, additionalOutput);
           } else if ('save' == command || 'savefromorigin' == command || 'sfct' == command) {
-            yield getOutputData(cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
+            yield getOutputData(ctx, cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
           } else if ('sfcm' == command) {
             yield* commandSfcCallback(cmd, true);
           } else if ('sfc' == command) {
@@ -1663,7 +1664,6 @@ exports.receiveTask = function(data, ack) {
 
 exports.cleanupCache = cleanupCache;
 exports.cleanupCacheIf = cleanupCacheIf;
-exports.getOutputData = getOutputData;
 exports.getOpenedAt = getOpenedAt;
 exports.commandSfctByCmd = commandSfctByCmd;
 exports.commandOpenStartPromise = commandOpenStartPromise;

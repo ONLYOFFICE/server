@@ -85,7 +85,7 @@ function* getConvertStatus(cmd, selectRes, opt_checkPassword) {
       case taskResult.FileStatus.NeedPassword:
         status.err = row.status_info;
         if (taskResult.FileStatus.ErrToReload == row.status || taskResult.FileStatus.NeedPassword == row.status) {
-          yield canvasService.cleanupCache(docId);
+          yield canvasService.cleanupCache(ctx);
         }
         break;
       case taskResult.FileStatus.NeedParams:

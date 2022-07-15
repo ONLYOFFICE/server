@@ -64,7 +64,7 @@ log4js.addLayout('json', function(config) {
 
 log4js.configure(config.get('log.filePath'));
 
-var logger = log4js.getLogger('nodeJS');
+var logger = log4js.getLogger();
 
 if (config.get('log.options.replaceConsole')) {
 	console.log = logger.info.bind(logger);

@@ -33,67 +33,66 @@
 'use strict';
 var config = require('config');
 var utils = require('./utils');
-var logger = require('./logger');
 
 var storage = require('./' + config.get('storage.name'));
-function getStoragePath(tenant, strPath) {
-  return tenant + '/' + strPath.replace(/\\/g, '/');
+function getStoragePath(ctx, strPath) {
+  return ctx.tenant + '/' + strPath.replace(/\\/g, '/');
 }
-exports.headObject = function(tenant, strPath) {
-  return storage.headObject(getStoragePath(tenant, strPath));
+exports.headObject = function(ctx, strPath) {
+  return storage.headObject(getStoragePath(ctx, strPath));
 };
-exports.getObject = function(tenant, strPath) {
-  return storage.getObject(getStoragePath(tenant, strPath));
+exports.getObject = function(ctx, strPath) {
+  return storage.getObject(getStoragePath(ctx, strPath));
 };
-exports.createReadStream = function(tenant, strPath) {
-  return storage.createReadStream(getStoragePath(tenant, strPath));
+exports.createReadStream = function(ctx, strPath) {
+  return storage.createReadStream(getStoragePath(ctx, strPath));
 };
-exports.putObject = function(tenant, strPath, buffer, contentLength) {
-  return storage.putObject(getStoragePath(tenant, strPath), buffer, contentLength);
+exports.putObject = function(ctx, strPath, buffer, contentLength) {
+  return storage.putObject(getStoragePath(ctx, strPath), buffer, contentLength);
 };
-exports.uploadObject = function(tenant, strPath, filePath) {
-  return storage.uploadObject(getStoragePath(tenant, strPath), filePath);
+exports.uploadObject = function(ctx, strPath, filePath) {
+  return storage.uploadObject(getStoragePath(ctx, strPath), filePath);
 };
-exports.copyObject = function(tenant, sourceKey, destinationKey) {
-  let storageSrc = getStoragePath(tenant, sourceKey);
-  let storageDst = getStoragePath(tenant, destinationKey);
+exports.copyObject = function(ctx, sourceKey, destinationKey) {
+  let storageSrc = getStoragePath(ctx, sourceKey);
+  let storageDst = getStoragePath(ctx, destinationKey);
   return storage.copyObject(storageSrc, storageDst);
 };
-exports.copyPath = function(tenant, sourcePath, destinationPath) {
-  let storageSrc = getStoragePath(tenant, sourcePath);
-  let storageDst = getStoragePath(tenant, destinationPath);
+exports.copyPath = function(ctx, sourcePath, destinationPath) {
+  let storageSrc = getStoragePath(ctx, sourcePath);
+  let storageDst = getStoragePath(ctx, destinationPath);
   return storage.listObjects(storageSrc).then(function(list) {
     return Promise.all(list.map(function(curValue) {
       return storage.copyObject(curValue, storageDst + '/' + exports.getRelativePath(storageSrc, curValue));
     }));
   });
 };
-exports.listObjects = function(tenant, strPath) {
-  return storage.listObjects(getStoragePath(tenant, strPath)).catch(function(e) {
-    logger.error('storage.listObjects: %s', e.stack);
+exports.listObjects = function(ctx, strPath) {
+  return storage.listObjects(getStoragePath(ctx, strPath)).catch(function(e) {
+    ctx.logger.error('storage.listObjects: %s', e.stack);
     return [];
   });
 };
-exports.deleteObject = function(tenant, strPath) {
-  return storage.deleteObject(getStoragePath(tenant, strPath));
+exports.deleteObject = function(ctx, strPath) {
+  return storage.deleteObject(getStoragePath(ctx, strPath));
 };
-exports.deleteObjects = function(tenant, strPaths) {
+exports.deleteObjects = function(ctx, strPaths) {
   var StoragePaths = strPaths.map(function(curValue) {
-    return getStoragePath(tenant, curValue);
+    return getStoragePath(ctx, curValue);
   });
   return storage.deleteObjects(StoragePaths);
 };
-exports.deletePath = function(tenant, strPath) {
-  let storageSrc = getStoragePath(tenant, strPath);
+exports.deletePath = function(ctx, strPath) {
+  let storageSrc = getStoragePath(ctx, strPath);
   return storage.listObjects(storageSrc).then(function(list) {
     return storage.deleteObjects(list);
   });
 };
-exports.getSignedUrl = function(baseUrl, tenant, strPath, urlType, optFilename, opt_creationDate) {
-  return storage.getSignedUrl(baseUrl, getStoragePath(tenant, strPath), urlType, optFilename, opt_creationDate);
+exports.getSignedUrl = function(baseUrl, ctx, strPath, urlType, optFilename, opt_creationDate) {
+  return storage.getSignedUrl(baseUrl, getStoragePath(ctx, strPath), urlType, optFilename, opt_creationDate);
 };
-exports.getSignedUrls = function(baseUrl, tenant, strPath, urlType, opt_creationDate) {
-  let storageSrc = getStoragePath(tenant, strPath);
+exports.getSignedUrls = function(baseUrl, ctx, strPath, urlType, opt_creationDate) {
+  let storageSrc = getStoragePath(ctx, strPath);
   return storage.listObjects(storageSrc).then(function(list) {
     return Promise.all(list.map(function(curValue) {
       return storage.getSignedUrl(baseUrl, curValue, urlType, undefined, opt_creationDate);
@@ -106,18 +105,18 @@ exports.getSignedUrls = function(baseUrl, tenant, strPath, urlType, opt_creation
     });
   });
 };
-exports.getSignedUrlsArrayByArray = function(baseUrl, tenant, list, urlType) {
+exports.getSignedUrlsArrayByArray = function(baseUrl, ctx, list, urlType) {
     return Promise.all(list.map(function(curValue) {
-    let storageSrc = getStoragePath(tenant, curValue);
+    let storageSrc = getStoragePath(ctx, curValue);
     return storage.getSignedUrl(baseUrl, storageSrc, urlType, undefined);
   }));
 };
-exports.getSignedUrlsByArray = function(baseUrl, tenant, list, optPath, urlType) {
-  return exports.getSignedUrlsArrayByArray(baseUrl, tenant, list, urlType).then(function(urls) {
+exports.getSignedUrlsByArray = function(baseUrl, ctx, list, optPath, urlType) {
+  return exports.getSignedUrlsArrayByArray(baseUrl, ctx, list, urlType).then(function(urls) {
     var outputMap = {};
     for (var i = 0; i < list.length && i < urls.length; ++i) {
       if (optPath) {
-        let storageSrc = getStoragePath(tenant, optPath);
+        let storageSrc = getStoragePath(ctx, optPath);
         outputMap[exports.getRelativePath(storageSrc, list[i])] = urls[i];
       } else {
         outputMap[list[i]] = urls[i];

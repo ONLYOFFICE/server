@@ -261,13 +261,13 @@ function raiseErrorObj(ro, error) {
 function isRedirectResponse(response) {
   return response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location');
 }
-function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
+function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   //todo replace deprecated request module
   const maxRedirects = (undefined !== cfgRequestDefaults.maxRedirects) ? cfgRequestDefaults.maxRedirects : 10;
   const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
   var redirectsFollowed = 0;
   let doRequest = function(curUrl) {
-    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
+    return downloadUrlPromiseWithoutRedirect(ctx, curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
       .catch(function(err) {
         let response = err.response;
         if (isRedirectResponse(response)) {
@@ -277,7 +277,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_fi
               redirectTo = url.resolve(err.request.uri.href, redirectTo)
             }
 
-            logger.debug('downloadUrlPromise redirectsFollowed:%d redirectTo: %s', redirectsFollowed, redirectTo);
+            ctx.logger.debug('downloadUrlPromise redirectsFollowed:%d redirectTo: %s', redirectsFollowed, redirectTo);
             redirectsFollowed++;
             return doRequest(redirectTo);
           }
@@ -287,7 +287,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_fi
   };
   return doRequest(uri);
 }
-function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
+function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -323,7 +323,7 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
         } else {
           var contentLength = response.caseless.get('content-length');
           if (contentLength && body.length !== (contentLength - 0)) {
-            logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
+            ctx.logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
           resolve({response: response, body: body});
         }
@@ -681,12 +681,14 @@ function getBaseUrlByRequest(req) {
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
-exports.getDomainByConnection = function(conn) {
+function getDomainByConnection(conn) {
   return getDomain(conn.headers['host'], conn.headers['x-forwarded-host']);
-};
-exports.getDomainByRequest = function(req) {
+}
+function getDomainByRequest(req) {
   return getDomain(req.get('host'), req.get('x-forwarded-host'));
-};
+}
+exports.getDomainByConnection = getDomainByConnection;
+exports.getDomainByRequest = getDomainByRequest;
 function stream2Buffer(stream) {
   return new Promise(function(resolve, reject) {
     if (!stream.readable) {
@@ -963,21 +965,6 @@ exports.checkBaseUrl = function(baseUrl) {
 exports.resolvePath = function(object, path, defaultValue) {
   return path.split('.').reduce((o, p) => o ? o[p] : defaultValue, object);
 };
-
-function OperationContext(tenant, docid, userid){
-  this.logger = logger.getLogger();
-  this.init(tenant, docid, userid);
-}
-OperationContext.prototype.init = function(tenant, docid, userid) {
-  this.tenant = tenant;
-  this.docid = docid;
-  this.userid = userid;
-  this.logger.addContext('tenant', tenant);
-  this.logger.addContext('docid', docid);
-  this.logger.addContext('userid', userid);
-};
-exports.OperationContext = OperationContext;
-
 Date.isLeapYear = function (year) {
   return (((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0));
 };
