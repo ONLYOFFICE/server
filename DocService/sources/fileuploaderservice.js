@@ -43,6 +43,7 @@ var storageBase = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var logger = require('./../../Common/sources/logger');
 const commonDefines = require('./../../Common/sources/commondefines');
+const operationContext = require('./../../Common/sources/operationContext');
 
 var config = require('config');
 var configServer = config.get('services.CoAuthoring.server');
@@ -57,9 +58,11 @@ const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 exports.uploadTempFile = function(req, res) {
   return co(function* () {
     var docId = 'uploadTempFile';
+    let ctx = new operationContext.OperationContext();
     try {
+      ctx.initByRequest(req);
       let params;
-      let authRes = docsCoServer.getRequestParams(docId, req, true);
+      let authRes = docsCoServer.getRequestParams(ctx, req, true);
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {

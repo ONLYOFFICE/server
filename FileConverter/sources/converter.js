@@ -32,7 +32,6 @@
 
 //ctx
 //id - cmd.getSaveKey(), mailMergeSend.getJsonKey()
-//postProcess dataConvert.key
 
 'use strict';
 var os = require('os');
@@ -96,6 +95,7 @@ let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(task) {
   var cmd = task.getCmd();
+  this.tenant = cmd.tenant;
   this.key = cmd.savekey ? cmd.savekey : cmd.id;
   this.fileFrom = null;
   this.fileTo = null;
@@ -380,7 +380,7 @@ function* downloadFileFromStorage(ctx, strPath, dir) {
     fs.writeFileSync(path.join(dir, fileRel), data);
   }
 }
-function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorProps) {
+function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, authorProps) {
   let res = constants.NO_ERROR;
   let needConcatFiles = false;
   if (task.getFromOrigin() || task.getFromSettings()) {
@@ -405,7 +405,7 @@ function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorPro
     yield* concatFiles(tempDirs.source);
   }
   if (task.getFromChanges()) {
-    res = yield* processChanges(tempDirs, cmd, authorProps);
+    res = yield* processChanges(ctx, tempDirs, cmd, authorProps);
   }
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
@@ -448,7 +448,7 @@ function* concatFiles(source) {
   }
 }
 
-function* processChanges(tempDirs, cmd, authorProps) {
+function* processChanges(ctx, tempDirs, cmd, authorProps) {
   let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
@@ -725,9 +725,7 @@ function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTa
   return {childRes: childRes, isTimeout: isTimeout};
 }
 
-function* ExecuteTask(task) {
-  let ctx = new operationContext.OperationContext();
-
+function* ExecuteTask(ctx, task) {
   var startDate = null;
   var curDate = null;
   if(clientStatsD) {
@@ -738,6 +736,7 @@ function* ExecuteTask(task) {
   var getTaskTime = new Date();
   var cmd = task.getCmd();
   var dataConvert = new TaskQueueDataConvert(task);
+  ctx.init(dataConvert.tenant, dataConvert.key);
   ctx.logger.info('Start Task');
   var error = constants.NO_ERROR;
   tempDirs = getTempDir();
@@ -792,7 +791,7 @@ function* ExecuteTask(task) {
       clientStatsD.timing('conv.downloadFileFromStorage', new Date() - curDate);
       curDate = new Date();
     }
-    error = yield* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorProps);
+    error = yield* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, authorProps);
   } else if (cmd.getForgotten()) {
     yield* downloadFileFromStorage(ctx, cmd.getForgotten(), tempDirs.source);
     ctx.logger.debug('downloadFileFromStorage complete');
@@ -865,13 +864,15 @@ function receiveTask(data, ack) {
   return co(function* () {
     var res = null;
     var task = null;
+    let ctx = new operationContext.OperationContext();
     try {
       task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
+        ctx.init();
         res = yield* ExecuteTask(task);
       }
     } catch (err) {
-      logger.error(err);
+      ctx.logger.error(err);
     } finally {
       try {
         if (!res && task) {
@@ -885,7 +886,7 @@ function receiveTask(data, ack) {
           yield queue.addResponse(res);
         }
       } catch (err) {
-        logger.error(err);
+        ctx.logger.error(err);
       } finally {
         ack();
       }

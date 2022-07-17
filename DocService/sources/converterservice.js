@@ -47,6 +47,7 @@ var storage = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var storageBase = require('./../../Common/sources/storage-base');
+var operationContext = require('./../../Common/sources/operationContext');
 const sqlBase = require('./baseConnector');
 
 var CONVERT_ASYNC_DELAY = 1000;
@@ -180,7 +181,7 @@ function* convertByCmd(cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_
   return status;
 }
 
-function* convertFromChanges(docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_userConnectionId,
+let convertFromChanges = co.wrap(function*(ctx, docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_userConnectionId,
                              opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
@@ -217,23 +218,29 @@ function* convertFromChanges(docId, baseUrl, forceSave, externalChangeInfo, opt_
     status.setUrl(yield* getConvertUrl(baseUrl, fileToPath, cmd.getTitle()));
   }
   return status;
-}
+});
 function parseIntParam(val){
   return (typeof val === 'string') ? parseInt(val) : val;
 }
 
 function convertRequest(req, res, isJson) {
   return co(function* () {
-    var docId = 'convertRequest';
+    let ctx = new operationContext.OperationContext();
     try {
+      ctx.initByRequest(req);
+      ctx.logger.info('convertRequest start');
       let params;
-      let authRes = docsCoServer.getRequestParams(docId, req);
+      let authRes = docsCoServer.getRequestParams(ctx, req);
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(authRes.code), isJson);
         return;
       }
+      let outputtype = params.outputtype || '';
+      let docId = 'conv_' + params.key + '_' + outputtype;
+      ctx.setDocId(docId);
+
       if (params.key && !constants.DOC_ID_REGEX.test(params.key)) {
         logger.warn('convertRequest unexpected key = %s', params.key);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
@@ -244,7 +251,6 @@ function convertRequest(req, res, isJson) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
-      let outputtype = params.outputtype || '';
       let outputFormat = formatChecker.getFormatFromString(outputtype);
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
         logger.warn('convertRequest unexpected outputtype = %s', outputtype);
@@ -256,7 +262,6 @@ function convertRequest(req, res, isJson) {
       cmd.setUrl(params.url);
       cmd.setEmbeddedFonts(false);//params.embeddedfonts'];
       cmd.setFormat(params.filetype);
-      docId = 'conv_' + params.key + '_' + outputtype;
       cmd.setDocId(docId);
       cmd.setOutputFormat(outputFormat);
 
@@ -353,10 +358,11 @@ function convertRequest(req, res, isJson) {
         logger.warn('Error convert unknown outputtype: query = %j from = %s', params, addresses);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
       }
-    }
-    catch (e) {
-      logger.error('Error convert: %s', e.stack);
+    } catch (e) {
+      logger.error('convertRequest error: %s', e.stack);
       utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
+    } finally {
+      ctx.logger.info('convertRequest end');
     }
   });
 }
@@ -369,23 +375,26 @@ function convertRequestXml(req, res) {
 
 function builderRequest(req, res) {
   return co(function* () {
-    let docId = 'builderRequest';
+    let ctx = new operationContext.OperationContext();
     try {
+      ctx.initByRequest(req);
+      ctx.logger.info('builderRequest start');
       let authRes;
       if (!utils.isEmptyObject(req.query)) {
         //todo this is a stub for compatibility. remove in future version
-        authRes = docsCoServer.getRequestParams(docId, req, true);
+        authRes = docsCoServer.getRequestParams(ctx, req, true);
       } else {
-        authRes = docsCoServer.getRequestParams(docId, req);
+        authRes = docsCoServer.getRequestParams(ctx, req);
       }
-
       let params = authRes.params;
+      let docId = params.key;
+      ctx.setDocId(docId);
+
       let error = authRes.code;
       let urls;
       let end = false;
       if (error === constants.NO_ERROR &&
         (params.key || params.url || (req.body && Buffer.isBuffer(req.body) && req.body.length > 0))) {
-        docId = params.key;
         let cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
         cmd.setIsBuilder(true);
@@ -416,12 +425,14 @@ function builderRequest(req, res) {
       } else if (error === constants.NO_ERROR) {
         error = constants.UNKNOWN;
       }
-      logger.debug('End builderRequest request: urls = %j end = %s error = %s', urls, end, error);
+      ctx.logger.debug('End builderRequest request: urls = %j end = %s error = %s', urls, end, error);
       utils.fillResponseBuilder(res, docId, urls, end, error);
     }
     catch (e) {
-      logger.error('Error builderRequest: %s', e.stack);
+      ctx.logger.error('Error builderRequest: %s', e.stack);
       utils.fillResponseBuilder(res, undefined, undefined, undefined, constants.UNKNOWN);
+    } finally {
+      ctx.logger.info('builderRequest end');
     }
   });
 }

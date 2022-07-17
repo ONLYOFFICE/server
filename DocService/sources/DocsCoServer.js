@@ -816,7 +816,7 @@ let startForceSave = co.wrap(function*(docId, type, opt_userdata, opt_userId, op
       priority = constants.QUEUE_PRIORITY_LOW;
     }
     //start new convert
-    let status = yield* converterService.convertFromChanges(docId, baseUrl, forceSave, startedForceSave.changeInfo, opt_userdata,
+    let status = yield converterService.convertFromChanges(ctx, docId, baseUrl, forceSave, startedForceSave.changeInfo, opt_userdata,
                                                             opt_userConnectionId, opt_responseKey, priority, expiration, opt_queue);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
@@ -1168,7 +1168,7 @@ function checkJwt(ctx, token, type) {
   }
   return res;
 }
-function checkJwtHeader(docId, req, opt_header, opt_prefix, opt_secretType) {
+function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
   let header = opt_header || cfgTokenInboxHeader;
   let prefix = opt_prefix || cfgTokenInboxPrefix;
   let secretType = opt_secretType || commonDefines.c_oAscSecretType.Inbox;
@@ -1179,7 +1179,7 @@ function checkJwtHeader(docId, req, opt_header, opt_prefix, opt_secretType) {
   }
   return null;
 }
-function getRequestParams(docId, req, opt_isNotInBody) {
+function getRequestParams(ctx, req, opt_isNotInBody) {
   let res = {code: constants.NO_ERROR, params: undefined};
   if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
     res.params = JSON.parse(req.body.toString('utf8'));
@@ -1190,9 +1190,9 @@ function getRequestParams(docId, req, opt_isNotInBody) {
     res.code = constants.VKEY;
     let checkJwtRes;
     if (res.params.token) {
-      checkJwtRes = checkJwt(docId, res.params.token, commonDefines.c_oAscSecretType.Inbox);
+      checkJwtRes = checkJwt(ctx, res.params.token, commonDefines.c_oAscSecretType.Inbox);
     } else {
-      checkJwtRes = checkJwtHeader(docId, req);
+      checkJwtRes = checkJwtHeader(ctx, req);
     }
     if (checkJwtRes) {
       if (checkJwtRes.decoded) {
@@ -2113,7 +2113,7 @@ exports.install = function(server, callbackFunction) {
       //check jwt
       if (cfgTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
-        const checkJwtRes = checkJwt(docId, data.jwtSession || data.jwtOpen, secretType);
+        const checkJwtRes = checkJwt(ctx, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
           let decoded = checkJwtRes.decoded;
           let fillDataFromJwtRes = false;
@@ -3641,7 +3641,7 @@ exports.commandFromServer = function (req, res) {
     try {
       ctx.initByRequest(req);
       ctx.logger.info('commandFromServer start');
-      let authRes = getRequestParams(docId, req);
+      let authRes = getRequestParams(ctx, req);
       let params = authRes.params;
       if(authRes.code === constants.VKEY_KEY_EXPIRE){
         result = commonDefines.c_oAscServerCommandErrors.TokenExpire;
