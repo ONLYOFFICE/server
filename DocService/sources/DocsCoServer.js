@@ -512,7 +512,7 @@ function sendDataWarning(conn, msg) {
   sendData(conn, {type: "warning", message: msg});
 }
 function sendDataMessage(conn, msg) {
-  if (false !== conn.permissions.chat) {
+  if (!conn.permissions || false !== conn.permissions.chat) {
     sendData(conn, {type: "message", messages: msg});
   } else {
     logger.debug("sendDataMessage permissions.chat==false: userId = %s docId = %s", conn.user && conn.user.id, conn.docId);
@@ -1886,14 +1886,10 @@ exports.install = function(server, callbackFunction) {
     }
     return name;
   }
-  function isEditMode(permissions, mode, def) {
-    if (permissions && mode) {
-      //as in web-apps/apps/documenteditor/main/app/controller/Main.js
-      return mode !== 'view' && (permissions.edit !== false || permissions.review === true ||
+  function isEditMode(permissions, mode) {
+    //as in web-apps/apps/documenteditor/main/app/controller/Main.js
+    return (!mode || mode !== 'view') && (!permissions || permissions.edit !== false || permissions.review === true ||
         permissions.comment === true || permissions.fillForms === true);
-    } else {
-      return def;
-    }
   }
   function fillDataFromWopiJwt(decoded, data) {
     let res = true;
@@ -1953,7 +1949,7 @@ exports.install = function(server, callbackFunction) {
     var res = "";
     if (!decoded?.document?.key) {
       res = "document.key";
-    } else if (!decoded?.document?.permissions) {
+    } else if (data.permissions && !decoded?.document?.permissions) {
       res = "document.permissions";
     } else if (!decoded?.document?.url) {
       res = "document.url";
@@ -2210,7 +2206,7 @@ exports.install = function(server, callbackFunction) {
         idOriginal: curUserIdOriginal,
         username: fillUsername(data),
         indexUser: curIndexUser,
-        view: !isEditMode(data.permissions, data.mode, !data.view)
+        view: !isEditMode(data.permissions, data.mode)
       };
       if (conn.user.view) {
         conn.coEditingMode = data.coEditingMode;
