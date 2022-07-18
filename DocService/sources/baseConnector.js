@@ -377,11 +377,11 @@ DocumentPassword.prototype.getDocPassword = function(ctx, docPasswordStr) {
   }
   return res;
 };
-DocumentPassword.prototype.getCurPassword = function(docId, docPasswordStr) {
+DocumentPassword.prototype.getCurPassword = function(ctx, docPasswordStr) {
   let docPassword = this.getDocPassword(ctx, docPasswordStr);
   return docPassword.current;
 };
-DocumentPassword.prototype.hasPasswordChanges = function(docId, docPasswordStr) {
+DocumentPassword.prototype.hasPasswordChanges = function(ctx, docPasswordStr) {
   let docPassword = this.getDocPassword(ctx, docPasswordStr);
   return docPassword.initial !== docPassword.current;
 };

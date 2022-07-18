@@ -722,7 +722,7 @@ function* getCallback(id, opt_userIndex) {
     var row = selectRes[0];
     if (row.callback) {
       callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, opt_userIndex);
-      wopiParams = wopiClient.parseWopiCallback(id, callbackUrl, row.callback);
+      wopiParams = wopiClient.parseWopiCallback(ctx, callbackUrl, row.callback);
     }
     if (row.baseurl) {
       baseUrl = row.baseurl;
@@ -749,7 +749,7 @@ const hasChanges = co.wrap(function*(docId) {
   if (0 === puckerIndex) {
     let selectRes = yield taskResult.select(docId);
     if (selectRes.length > 0 && selectRes[0].password) {
-      return sqlBase.DocumentPassword.prototype.hasPasswordChanges(docId, selectRes[0].password);
+      return sqlBase.DocumentPassword.prototype.hasPasswordChanges(ctx, selectRes[0].password);
     }
     return false;
   }
@@ -863,7 +863,7 @@ function* startRPC(conn, responseKey, data) {
         if (row.callback) {
           let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
           let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex);
-          let wopiParams = wopiClient.parseWopiCallback(docId, uri, row.callback);
+          let wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
           if (wopiParams) {
             renameRes = yield wopiClient.renameFile(wopiParams, data.name);
           }
@@ -1126,7 +1126,7 @@ function* _createSaveTimer(docId, opt_userId, opt_userIndex, opt_queue, opt_noDe
     }
     while (true) {
       if (!sqlBase.isLockCriticalSection(docId)) {
-        canvasService.saveFromChanges(docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_queue);
+        canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_queue);
         break;
       }
       yield utils.sleep(c_oAscLockTimeOutDelay);
@@ -1287,7 +1287,7 @@ exports.install = function(server, callbackFunction) {
       var docId = 'null';
       let ctx = new operationContext.OperationContext();
       try {
-        ctx.initByConnection(conn);
+        ctx.initFromConnection(conn);
         var startDate = null;
         if(clientStatsD) {
           startDate = new Date();
@@ -1353,7 +1353,7 @@ exports.install = function(server, callbackFunction) {
           case 'openDocument'      : {
             var cmd = new commonDefines.InputCommand(data.message);
             cmd.fillFromConnection(conn);
-            yield canvasService.openDocument(conn, cmd);
+            yield canvasService.openDocument(ctx, conn, cmd);
             break;
           }
           case 'changesError':
@@ -1396,14 +1396,14 @@ exports.install = function(server, callbackFunction) {
     });
     conn.on('error', function() {
       let ctx = new operationContext.OperationContext();
-      ctx.initByConnection(conn);
+      ctx.initFromConnection(conn);
       ctx.logger.error("On error");
     });
     conn.on('close', function() {
       return co(function* () {
         let ctx = new operationContext.OperationContext();
         try {
-          ctx.initByConnection(conn);
+          ctx.initFromConnection(conn);
           yield* closeDocument(ctx, conn, true);
         } catch (err) {
           ctx.logger.error('Error conn close: %s', err.stack);
@@ -1564,7 +1564,7 @@ exports.install = function(server, callbackFunction) {
       }
     }
     //open
-    yield canvasService.openDocument(conn, cmd, null);
+    yield canvasService.openDocument(ctx, conn, cmd, null);
   }
   // Получение изменений для документа (либо из кэша, либо обращаемся к базе, но только если были сохранения)
   function* getDocumentChanges(docId, optStartIndex, optEndIndex) {
@@ -2153,7 +2153,7 @@ exports.install = function(server, callbackFunction) {
 
       let wopiParams = null;
       if (data.documentCallbackUrl) {
-        wopiParams = wopiClient.parseWopiCallback(docId, data.documentCallbackUrl);
+        wopiParams = wopiClient.parseWopiCallback(ctx, data.documentCallbackUrl);
         if (wopiParams && wopiParams.userAuth) {
           conn.access_token_ttl = wopiParams.userAuth.access_token_ttl;
         }
@@ -2264,7 +2264,7 @@ exports.install = function(server, callbackFunction) {
           // Посылаем формальную авторизацию, чтобы подтвердить соединение
           yield* sendAuthInfo(conn, bIsRestore, undefined);
           if (cmd) {
-            yield canvasService.openDocument(conn, cmd, upsertRes, bIsRestore);
+            yield canvasService.openDocument(ctx, conn, cmd, upsertRes, bIsRestore);
           }
         }
         return;
@@ -2273,7 +2273,7 @@ exports.install = function(server, callbackFunction) {
       let resultRow = result.length > 0 ? result[0] : null;
       if (cmd && resultRow && resultRow.callback) {
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, resultRow.callback, curIndexUser);
-        let wopiParams = wopiClient.parseWopiCallback(docId, userAuthStr, resultRow.callback);
+        let wopiParams = wopiClient.parseWopiCallback(ctx, userAuthStr, resultRow.callback);
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
@@ -2376,7 +2376,7 @@ exports.install = function(server, callbackFunction) {
         conn.sessionId = conn.id;
         const endAuthRes = yield* endAuth(conn, false, documentCallback, canvasService.getOpenedAt(resultRow));
         if (endAuthRes && cmd) {
-          yield canvasService.openDocument(conn, cmd, upsertRes, bIsRestore);
+          yield canvasService.openDocument(ctx, conn, cmd, upsertRes, bIsRestore);
         }
       }
     }
@@ -3381,7 +3381,7 @@ exports.install = function(server, callbackFunction) {
           if (selectRes.length > 0 && selectRes[0] && selectRes[0].callback) {
             let callback = selectRes[0].callback;
             let callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, callback);
-            let wopiParams = wopiClient.parseWopiCallback(docId, callbackUrl, callback);
+            let wopiParams = wopiClient.parseWopiCallback(ctx, callbackUrl, callback);
             if (wopiParams) {
               yield wopiClient.lock('REFRESH_LOCK', wopiParams.commonInfo.lockId,
                                     wopiParams.commonInfo.fileInfo, wopiParams.userAuth);
@@ -3639,7 +3639,7 @@ exports.commandFromServer = function (req, res) {
     let outputLicense = undefined;
     let ctx = new operationContext.OperationContext();
     try {
-      ctx.initByRequest(req);
+      ctx.initFromRequest(req);
       ctx.logger.info('commandFromServer start');
       let authRes = getRequestParams(ctx, req);
       let params = authRes.params;
@@ -3729,7 +3729,7 @@ exports.shutdown = function(req, res) {
     let output = false;
     let ctx = new operationContext.OperationContext();
     try {
-      ctx.initByRequest(req);
+      ctx.initFromRequest(req);
       ctx.logger.info('shutdown start');
       output = yield shutdown.shutdown(ctx, editorData, req.method === 'PUT');
     } catch (err) {

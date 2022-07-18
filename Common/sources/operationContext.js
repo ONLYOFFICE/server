@@ -46,7 +46,7 @@ OperationContext.prototype.init = function(tenant, docId, userId) {
   this.setDocId(docId);
   this.setUserId(userId);
 };
-OperationContext.prototype.initByConnection = function(conn) {
+OperationContext.prototype.initFromConnection = function(conn) {
   let tenant = tenantManager.getTenant(utils.getDomainByConnection(conn));
   let docId = conn.docid;
   if (!docId) {
@@ -58,10 +58,15 @@ OperationContext.prototype.initByConnection = function(conn) {
   let userId = conn.user?.id;
   this.init(tenant, docId, userId);
 };
-OperationContext.prototype.initByRequest = function(req) {
+OperationContext.prototype.initFromRequest = function(req) {
   let tenant = tenantManager.getTenant(utils.getDomainByRequest(req));
   this.init(tenant, this.docId, this.userId);
 };
+OperationContext.prototype.initFromTaskQueueData = function(task) {
+  //todo
+  this.init(this.tenant, this.docId, this.userId);
+};
+
 OperationContext.prototype.setTenant = function(docId) {
   this.docId = docId;
   this.logger.addContext('TENANT', docId);
