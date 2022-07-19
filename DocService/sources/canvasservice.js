@@ -524,7 +524,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
       if (sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password)) {
         ctx.logger.debug('commandReopen has password');
         yield* commandOpenFillOutput(ctx, conn, cmd, outputData, false);
-        docsCoServer.modifyConnectionForPassword(conn, constants.FILE_STATUS_OK === outputData.getStatus());
+        docsCoServer.modifyConnectionForPassword(ctx, conn, constants.FILE_STATUS_OK === outputData.getStatus());
         return res;
       }
     }
@@ -580,7 +580,7 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
   var isErr = false;
   if (completeParts && !isJson) {
     isErr = true;
-    var getRes = yield* docsCoServer.getCallback(cmd.getDocId(), cmd.getUserIndex());
+    var getRes = yield* docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
     if (getRes && !getRes.wopiParams) {
       mailMergeSend.setUrl(getRes.server.href);
       mailMergeSend.setBaseUrl(getRes.baseUrl);
@@ -644,7 +644,6 @@ function isDisplayedImage(strName) {
   return res;
 }
 function* commandImgurls(ctx, conn, cmd, outputData) {
-  let docId = cmd.getDocId();
   var errorCode = constants.NO_ERROR;
   let urls = cmd.getData();
   let authorizations = [];
@@ -841,7 +840,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     if (upsertRes.affectedRows > 0) {
       outputData.setStatus('ok');
       if (!conn.isEnterCorrectPassword) {
-        docsCoServer.modifyConnectionForPassword(conn, true);
+        docsCoServer.modifyConnectionForPassword(ctx, conn, true);
       }
       yield docsCoServer.resetForceSaveAfterChanges(cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
@@ -1022,9 +1021,9 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
             if (wopiParams) {
               replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, true, forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button, false);
             } else {
-              replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
+              replyStr = yield* docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
             }
-            let replyData = docsCoServer.parseReplyData(docId, replyStr);
+            let replyData = docsCoServer.parseReplyData(ctx, replyStr);
             isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
               ctx.logger.warn('sendServerRequest returned an error: data = %s', replyStr);
@@ -1054,7 +1053,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
               if (wopiParams) {
                 replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, !notModified, false, true);
               } else {
-                replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc, checkAndFixAuthorizationLength);
+                replyStr = yield* docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
               }
             } catch (err) {
               ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
@@ -1068,7 +1067,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
               }
             }
             var requestRes = false;
-            var replyData = docsCoServer.parseReplyData(docId, replyStr);
+            var replyData = docsCoServer.parseReplyData(ctx, replyStr);
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error) {
               //в случае comunity server придет запрос в CommandService проверяем результат
               var savedVal = yield docsCoServer.editorData.getdelSaved(docId);
@@ -1119,7 +1118,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
       if (!isSfcm) {
         //todo simultaneous opening
         //to unlock wopi file
-        yield docsCoServer.unlockWopiDoc(docId, callbackUserIndex);
+        yield docsCoServer.unlockWopiDoc(ctx, docId, callbackUserIndex);
         //cleanupRes can be false in case of simultaneous opening. it is OK
         let cleanupRes = yield cleanupCacheIf(ctx, updateMask);
         ctx.logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
@@ -1153,7 +1152,7 @@ function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChange
   let res = '{"error": 1}';
   let metadata = yield storage.headObject(savePathDoc);
   let streamObj = yield storage.createReadStream(savePathDoc);
-  let postRes = yield wopiClient.putFile(wopiParams, null, streamObj.readStream, metadata.ContentLength, userLastChangeId, isModifiedByUser, isAutosave, isExitSave);
+  let postRes = yield wopiClient.putFile(ctx, wopiParams, null, streamObj.readStream, metadata.ContentLength, userLastChangeId, isModifiedByUser, isAutosave, isExitSave);
   if (postRes) {
     if (postRes.body) {
       try {
@@ -1204,12 +1203,12 @@ function* commandSendMMCallback(ctx, cmd) {
     var uri = mailMergeSendData.getUrl();
     var replyStr = null;
     try {
-      replyStr = yield* docsCoServer.sendServerRequest(docId, uri, outputSfc);
+      replyStr = yield* docsCoServer.sendServerRequest(ctx, uri, outputSfc);
     } catch (err) {
       replyStr = null;
       ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
     }
-    var replyData = docsCoServer.parseReplyData(docId, replyStr);
+    var replyData = docsCoServer.parseReplyData(ctx, replyStr);
     if (!(replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error)) {
       var recordErrorCount = mailMergeSendData.getRecordErrorCount();
       recordErrorCount++;
@@ -1235,7 +1234,6 @@ function* commandSendMMCallback(ctx, cmd) {
 exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
   return co(function* () {
     var outputData;
-    var docId = conn ? conn.docId : 'null';
     try {
       var startDate = null;
       if(clientStatsD) {
@@ -1289,7 +1287,7 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
     finally {
       if (outputData && outputData.getStatus()) {
         ctx.logger.debug('Response command: %s', JSON.stringify(outputData));
-        docsCoServer.sendData(conn, new OutputDataWrap('documentOpen', outputData));
+        docsCoServer.sendData(ctx, conn, new OutputDataWrap('documentOpen', outputData));
       }
       ctx.logger.debug('End command');
     }

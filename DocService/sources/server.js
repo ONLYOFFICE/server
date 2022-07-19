@@ -56,6 +56,7 @@ const wopiClient = require('./wopiClient');
 const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
+const operationContext = require('./../../Common/sources/operationContext');
 const configStorage = configCommon.get('storage');
 
 const cfgWopiEnable = configCommon.get('wopi.enable');
@@ -240,7 +241,9 @@ docsCoServer.install(server, () => {
 	}
 
 	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
-		logger.debug(`dummyCallback req.body:%s`, req.body);
+		let ctx = new operationContext.OperationContext();
+		ctx.initFromRequest(req);
+		ctx.logger.debug(`dummyCallback req.body:%s`, req.body);
 		utils.fillResponseSimple(res, JSON.stringify({error: 0}, "application/json"));
 	});
 
@@ -295,8 +298,10 @@ docsCoServer.install(server, () => {
 	app.get('/themes.json', apicache.middleware("5 minutes"), (req, res) => {
 		return co(function*() {
 			let themes = [];
+			let ctx = new operationContext.OperationContext();
 			try {
-				logger.info('themes.json start');
+				ctx.initFromRequest(req);
+				ctx.logger.info('themes.json start');
 				if (!config.has('server.static_content') || !config.has('themes.uri')) {
 					return;
 				}
@@ -308,8 +313,8 @@ docsCoServer.install(server, () => {
 					if (staticContent.hasOwnProperty(i) && themesUri.startsWith(i)) {
 						let dir = staticContent[i].path + themesUri.substring(i.length);
 						themesList = yield utils.listObjects(dir, true);
-						logger.debug('themes.json dir:%s', dir);
-						logger.debug('themes.json themesList:%j', themesList);
+						ctx.logger.debug('themes.json dir:%s', dir);
+						ctx.logger.debug('themes.json themesList:%j', themesList);
 						for (let j = 0; j < themesList.length; ++j) {
 							if (themesList[j].endsWith('.json')) {
 								let data = yield utils.readFile(themesList[j], true);
@@ -320,7 +325,7 @@ docsCoServer.install(server, () => {
 					}
 				}
 			} catch (err) {
-				logger.error('themes.json error:%s', err.stack);
+				ctx.logger.error('themes.json error:%s', err.stack);
 			} finally {
 				if (themes.length > 0) {
 					res.setHeader('Content-Type', 'application/json');
@@ -328,7 +333,7 @@ docsCoServer.install(server, () => {
 				} else {
 					res.sendStatus(404);
 				}
-				logger.info('themes.json end');
+				ctx.logger.info('themes.json end');
 			}
 		});
 	});

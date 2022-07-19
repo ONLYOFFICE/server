@@ -263,7 +263,7 @@ function parseWopiCallback(ctx, userAuthStr, opt_url) {
   }
   return wopiParams;
 }
-function checkAndInvalidateCache(docId, fileInfo) {
+function checkAndInvalidateCache(ctx, docId, fileInfo) {
   return co(function*() {
     let res = {success: true, lockId: undefined};
     let selectRes = yield taskResult.select(docId);
@@ -309,7 +309,10 @@ function checkAndInvalidateCache(docId, fileInfo) {
 function getEditorHtml(req, res) {
   return co(function*() {
     let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined};
+    let ctx = new operationContext.OperationContext();
     try {
+      ctx.initFromRequest(req);
+
       ctx.logger.info('wopiEditor start');
       ctx.logger.debug(`wopiEditor req.url:%s`, req.url);
       ctx.logger.debug(`wopiEditor req.query:%j`, req.query);
@@ -324,7 +327,7 @@ function getEditorHtml(req, res) {
 
       let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
 
-      let fileInfo = params.fileInfo = yield checkFileInfo(uri, access_token, sc);
+      let fileInfo = params.fileInfo = yield checkFileInfo(ctx, uri, access_token, sc);
       if (!fileInfo) {
         params.fileInfo = {};
         return;
@@ -357,7 +360,7 @@ function getEditorHtml(req, res) {
       };
 
       //check and invalidate cache
-      let checkRes = yield checkAndInvalidateCache(docId, fileInfo);
+      let checkRes = yield checkAndInvalidateCache(ctx, docId, fileInfo);
       let lockId = checkRes.lockId;
       if (!checkRes.success) {
         params.fileInfo = {};
@@ -374,7 +377,7 @@ function getEditorHtml(req, res) {
 
       //Lock
       if ('view' !== mode) {
-        let lockRes = yield lock('LOCK', lockId, fileInfo, userAuth);
+        let lockRes = yield lock(ctx, 'LOCK', lockId, fileInfo, userAuth);
         if (!lockRes) {
           params.fileInfo = {};
           return;
@@ -407,7 +410,7 @@ function getEditorHtml(req, res) {
     }
   });
 }
-function putFile(wopiParams, data, dataStream, dataSize, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
+function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   return co(function* () {
     let postRes = null;
     try {
@@ -452,7 +455,7 @@ function putFile(wopiParams, data, dataStream, dataSize, userLastChangeId, isMod
     return postRes;
   });
 }
-function renameFile(wopiParams, name) {
+function renameFile(ctx, wopiParams, name) {
   return co(function* () {
     let res = undefined;
     try {
@@ -496,7 +499,7 @@ function renameFile(wopiParams, name) {
     return res;
   });
 }
-function checkFileInfo(uri, access_token, sc) {
+function checkFileInfo(ctx, uri, access_token, sc) {
   return co(function* () {
     let fileInfo = undefined;
     try {
@@ -522,7 +525,7 @@ function checkFileInfo(uri, access_token, sc) {
     return fileInfo;
   });
 }
-function lock(command, lockId, fileInfo, userAuth) {
+function lock(ctx, command, lockId, fileInfo, userAuth) {
   return co(function* () {
     let res = true;
     try {
@@ -556,7 +559,7 @@ function lock(command, lockId, fileInfo, userAuth) {
     return res;
   });
 }
-function unlock(wopiParams) {
+function unlock(ctx, wopiParams) {
   return co(function* () {
     try {
       ctx.logger.info('wopi Unlock start');
