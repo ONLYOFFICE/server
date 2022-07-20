@@ -64,7 +64,7 @@ log4js.addLayout('json', function(config) {
 
 log4js.configure(config.get('log.filePath'));
 
-var logger = log4js.getLogger();
+var logger = log4js.getLogger('nodeJS');
 
 if (config.get('log.options.replaceConsole')) {
 	console.log = logger.info.bind(logger);
@@ -73,8 +73,8 @@ if (config.get('log.options.replaceConsole')) {
 	console.error = logger.error.bind(logger);
 	console.debug = logger.debug.bind(logger);
 }
-exports.getLogger = function (category){
-	return log4js.getLogger(category);
+exports.getLogger = function (){
+	return log4js.getLogger.apply(log4js, Array.prototype.slice.call(arguments));
 };
 exports.trace = function (){
 	return logger.trace.apply(logger, Array.prototype.slice.call(arguments));

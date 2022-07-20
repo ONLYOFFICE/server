@@ -221,7 +221,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
           if(cmd.getInline()) {
             url = getPrintFileUrl(key, optConn.baseUrl, cmd.getTitle());
           } else {
-            url = yield storage.getSignedUrl(optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary,
+            url = yield storage.getSignedUrl(ctx, optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary,
                                                  cmd.getTitle());
           }
           outputData.setData(url);
@@ -252,7 +252,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
           }
         } else if (optConn) {
           outputData.setOpenedAt(openedAt);
-          outputData.setData(yield storage.getSignedUrls(optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session, creationDate));
+          outputData.setData(yield storage.getSignedUrls(ctx, optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session, creationDate));
         } else if (optAdditionalOutput) {
           optAdditionalOutput.needUrlKey = key;
           optAdditionalOutput.needUrlMethod = 0;
@@ -267,7 +267,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       outputData.setStatus('needparams');
       var settingsPath = key + '/' + 'origin.' + cmd.getFormat();
       if (optConn) {
-        let url = yield storage.getSignedUrl(optConn.baseUrl, settingsPath, commonDefines.c_oAscUrlTypes.Temporary);
+        let url = yield storage.getSignedUrl(ctx, optConn.baseUrl, settingsPath, commonDefines.c_oAscUrlTypes.Temporary);
         outputData.setData(url);
       } else if (optAdditionalOutput) {
         optAdditionalOutput.needUrlKey = settingsPath;
@@ -349,7 +349,7 @@ function* saveParts(cmd, filename) {
     result = true;
   } else {
     var buffer = cmd.getData();
-    yield storage.putObject(cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
+    yield storage.putObject(ctx, cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
     //delete data to prevent serialize into json
     cmd.data = null;
     result = (SAVE_TYPE_COMPLETE_ALL === saveType || SAVE_TYPE_COMPLETE === saveType);
@@ -413,8 +413,8 @@ var cleanupCache = co.wrap(function* (ctx) {
   let list = [];
   var removeRes = yield taskResult.remove(docId);
   if (removeRes.affectedRows > 0) {
-    list = yield storage.listObjects(docId);
-    yield storage.deleteObjects(list);
+    list = yield storage.listObjects(ctx, docId);
+    yield storage.deleteObjects(ctx, list);
     res = true;
   }
   ctx.logger.debug("cleanupCache db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
@@ -427,8 +427,8 @@ var cleanupCacheIf = co.wrap(function* (ctx, mask) {
   var removeRes = yield taskResult.removeIf(mask);
   if (removeRes.affectedRows > 0) {
     sqlBase.deleteChanges(mask.key, null);
-    list = yield storage.listObjects(mask.key);
-    yield storage.deleteObjects(list);
+    list = yield storage.listObjects(ctx, mask.key);
+    yield storage.deleteObjects(ctx, list);
     res = true;
   }
   ctx.logger.debug("cleanupCacheIf db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
@@ -483,7 +483,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
     let updateIfRes = yield taskResult.updateIf(task, updateMask);
       if (updateIfRes.affectedRows > 0) {
         let forgottenId = cfgForgottenFiles + '/' + cmd.getDocId();
-        let forgotten = yield storage.listObjects(forgottenId);
+        let forgotten = yield storage.listObjects(ctx, forgottenId);
         //replace url with forgotten file because it absorbed all lost changes
         if (forgotten.length > 0) {
           ctx.logger.debug("commandOpen from forgotten");
@@ -754,8 +754,8 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           }
           strLocalPath += 'image1' + '.' + formatStr;
           var strPath = cmd.getDocId() + '/' + strLocalPath;
-          yield storage.putObject(strPath, data, data.length);
-          var imgUrl = yield storage.getSignedUrl(conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Session);
+          yield storage.putObject(ctx, strPath, data, data.length);
+          var imgUrl = yield storage.getSignedUrl(ctx, conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Session);
           outputUrl = {url: imgUrl, path: strLocalPath};
         }
       }
@@ -780,13 +780,13 @@ function* commandPathUrls(conn, cmd, outputData) {
   let listImages = cmd.getData().map(function callback(currentValue) {
     return conn.docId + '/' + currentValue;
   });
-  let urls = yield storage.getSignedUrlsArrayByArray(conn.baseUrl, listImages, commonDefines.c_oAscUrlTypes.Session);
+  let urls = yield storage.getSignedUrlsArrayByArray(ctx, conn.baseUrl, listImages, commonDefines.c_oAscUrlTypes.Session);
   outputData.setStatus('ok');
   outputData.setData(urls);
 }
 function* commandPathUrl(conn, cmd, outputData) {
   var strPath = conn.docId + '/' + cmd.getData();
-  var url = yield storage.getSignedUrl(conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary, cmd.getTitle());
+  var url = yield storage.getSignedUrl(ctx, conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary, cmd.getTitle());
   var errorCode = constants.NO_ERROR;
   if (constants.NO_ERROR !== errorCode) {
     outputData.setStatus('err');
@@ -971,28 +971,28 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
       if (!isError || isErrorCorrupted) {
         try {
           let forgottenId = cfgForgottenFiles + '/' + docId;
-          let forgotten = yield storage.listObjects(forgottenId);
+          let forgotten = yield storage.listObjects(ctx, forgottenId);
           let isSendHistory = 0 === forgotten.length;
           if (!isSendHistory) {
             //check indicator file to determine if opening was from the forgotten file
             var forgottenMarkPath = docId + '/' + cfgForgottenFilesName + '.txt';
-            var forgottenMark = yield storage.listObjects(forgottenMarkPath);
+            var forgottenMark = yield storage.listObjects(ctx, forgottenMarkPath);
             isOpenFromForgotten = 0 !== forgottenMark.length;
             isSendHistory = !isOpenFromForgotten;
             ctx.logger.debug('commandSfcCallback forgotten no empty: isSendHistory = %s', isSendHistory);
           }
           if (isSendHistory && !isEncrypted) {
             //don't send history info because changes isn't from file in storage
-            var data = yield storage.getObject(savePathHistory);
+            var data = yield storage.getObject(ctx, savePathHistory);
             outputSfc.setChangeHistory(JSON.parse(data.toString('utf-8')));
-            let changeUrl = yield storage.getSignedUrl(baseUrl, savePathChanges,
+            let changeUrl = yield storage.getSignedUrl(ctx, baseUrl, savePathChanges,
                                                        commonDefines.c_oAscUrlTypes.Temporary);
             outputSfc.setChangeUrl(changeUrl);
           } else {
             //for backward compatibility. remove this when Community is ready
             outputSfc.setChangeHistory({});
           }
-          let url = yield storage.getSignedUrl(baseUrl, savePathDoc, commonDefines.c_oAscUrlTypes.Temporary);
+          let url = yield storage.getSignedUrl(ctx, baseUrl, savePathDoc, commonDefines.c_oAscUrlTypes.Temporary);
           outputSfc.setUrl(url);
           outputSfc.setExtName(pathModule.extname(savePathDoc));
         } catch (e) {
@@ -1111,7 +1111,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
       try {
         ctx.logger.warn("storeForgotten");
         let forgottenName = cfgForgottenFilesName + pathModule.extname(cmd.getOutputPath());
-        yield storage.copyObject(savePathDoc, cfgForgottenFiles + '/' + docId + '/' + forgottenName);
+        yield storage.copyObject(ctx, savePathDoc, cfgForgottenFiles + '/' + docId + '/' + forgottenName);
       } catch (err) {
         ctx.logger.error('Error storeForgotten: %s', err.stack);
       }
@@ -1150,8 +1150,8 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
 }
 function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   let res = '{"error": 1}';
-  let metadata = yield storage.headObject(savePathDoc);
-  let streamObj = yield storage.createReadStream(savePathDoc);
+  let metadata = yield storage.headObject(ctx, savePathDoc);
+  let streamObj = yield storage.createReadStream(ctx, savePathDoc);
   let postRes = yield wopiClient.putFile(ctx, wopiParams, null, streamObj.readStream, metadata.ContentLength, userLastChangeId, isModifiedByUser, isAutosave, isExitSave);
   if (postRes) {
     if (postRes.body) {
@@ -1185,7 +1185,7 @@ function* commandSendMMCallback(ctx, cmd) {
   var outputMailMerge = new commonDefines.OutputMailMerge(mailMergeSendData);
   outputSfc.setMailMerge(outputMailMerge);
   outputSfc.setUsers([mailMergeSendData.getUserId()]);
-  var data = yield storage.getObject(saveKey + '/' + cmd.getOutputPath());
+  var data = yield storage.getObject(ctx, saveKey + '/' + cmd.getOutputPath());
   var xml = data.toString('utf8');
   var files = xml.match(/[< ]file.*?\/>/g);
   var recordRemain = (mailMergeSendData.getRecordTo() - mailMergeSendData.getRecordFrom() + 1);
@@ -1196,7 +1196,7 @@ function* commandSendMMCallback(ctx, cmd) {
     outputMailMerge.setTo(fieldRes[1]);
     outputMailMerge.setRecordIndex(recordIndexStart + i);
     var pathRes = /path=["'](.*?)["']/.exec(file);
-    var signedUrl = yield storage.getSignedUrl(mailMergeSendData.getBaseUrl(), saveKey + '/' + pathRes[1],
+    var signedUrl = yield storage.getSignedUrl(ctx, mailMergeSendData.getBaseUrl(), saveKey + '/' + pathRes[1],
                                                commonDefines.c_oAscUrlTypes.Temporary);
     outputSfc.setUrl(signedUrl);
     outputSfc.setExtName(pathModule.extname(pathRes[1]));
@@ -1424,7 +1424,7 @@ exports.saveFile = function(req, res) {
       cmd.setStatusInfo(constants.NO_ERROR);
       yield* addRandomKeyTaskCmd(cmd);
       cmd.setOutputPath(constants.OUTPUT_NAME + pathModule.extname(cmd.getOutputPath()));
-      yield storage.putObject(cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
+      yield storage.putObject(ctx, cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
       let replyStr = yield* commandSfcCallback(ctx, cmd, false, true);
       if (replyStr) {
         utils.fillResponseSimple(res, replyStr, 'application/json');
@@ -1487,7 +1487,7 @@ exports.printFile = function(req, res) {
         }
       }
       ctx.setDocId(docId);
-      let streamObj = yield storage.createReadStream(`${docId}/${constants.OUTPUT_NAME}.pdf`);
+      let streamObj = yield storage.createReadStream(ctx, `${docId}/${constants.OUTPUT_NAME}.pdf`);
       res.setHeader('Content-Disposition', utils.getContentDisposition(filename, null, constants.CONTENT_DISPOSITION_INLINE));
       res.setHeader('Content-Length', streamObj.contentLength);
       res.setHeader('Content-Type', 'application/pdf');
@@ -1508,7 +1508,6 @@ exports.printFile = function(req, res) {
 };
 exports.downloadFile = function(req, res) {
   return co(function*() {
-    let docId = 'null';
     let ctx = new operationContext.OperationContext();
     try {
       let startDate = null;
@@ -1517,13 +1516,12 @@ exports.downloadFile = function(req, res) {
       }
       ctx.initFromRequest(req);
       let url = req.get('x-url');
-      docId = req.params.docid;
-      ctx.setDocId(docId);
+      ctx.setDocId(req.params.docid);
       ctx.logger.info('Start downloadFile');
 
       let authorization;
       if (cfgTokenEnableBrowser) {
-        let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
+        let checkJwtRes = docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
         let errorDescription;
         if (checkJwtRes.decoded) {
           let decoded = checkJwtRes.decoded;
@@ -1546,7 +1544,6 @@ exports.downloadFile = function(req, res) {
           authorization = utils.fillJwtForRequest({url: url}, false);
         }
       }
-      ctx.setDocId(docId);
       yield utils.downloadUrlPromise(ctx, url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
 
       if (clientStatsD) {

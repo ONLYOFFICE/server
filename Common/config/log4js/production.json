@@ -4,7 +4,7 @@
 			"type": "console",
 			"layout": {
 				"type": "pattern",
-				"pattern": "[%d] [%p] %c - %.10000m"
+				"pattern": "[%d] [%p] [%X{TENANT}] [%X{DOCID}] [%X{USERID}] %c - %.10000m"
 			}
 		}
 	},

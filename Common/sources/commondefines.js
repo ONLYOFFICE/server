@@ -40,7 +40,6 @@ function InputCommand(data, copyExplicit) {
   this['isbuilder'] = undefined;//bool
   this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
   this['wopiParams'] = undefined;
-  this['tenant'] = undefined;
   if (data) {
     this['c'] = data['c'];
     this['id'] = data['id'];
@@ -112,7 +111,6 @@ function InputCommand(data, copyExplicit) {
       this['isbuilder'] = data['isbuilder'];
       this['externalChangeInfo'] = data['externalChangeInfo'];
       this['wopiParams'] = data['wopiParams'];
-      this['tenant'] = data['tenant'];
     }
   } else {
     this['c'] = undefined;//string command
@@ -167,7 +165,6 @@ function InputCommand(data, copyExplicit) {
     this['status_info_in'] = undefined;
     this['attempt'] = undefined;
     this['convertToOrigin'] = undefined;
-    this['tenant'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -476,12 +473,6 @@ InputCommand.prototype = {
   },
   setConvertToOrigin: function(data) {
     this['convertToOrigin'] = data;
-  },
-  getTenant: function() {
-    return this['tenant'];
-  },
-  setTenant: function(data) {
-    this['tenant'] = data;
   }
 };
 

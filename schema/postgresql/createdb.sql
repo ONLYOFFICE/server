@@ -8,6 +8,7 @@
 -- Table structure for doc_changes
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS "public"."doc_changes" (
+"tenant" varchar(255) COLLATE "default" NOT NULL,
 "id" varchar(255) COLLATE "default" NOT NULL,
 "change_id" int4 NOT NULL,
 "user_id" varchar(255) COLLATE "default" NOT NULL,
@@ -15,7 +16,7 @@ CREATE TABLE IF NOT EXISTS "public"."doc_changes" (
 "user_name" varchar(255) COLLATE "default" NOT NULL,
 "change_data" text COLLATE "default" NOT NULL,
 "change_date" timestamp without time zone NOT NULL,
-PRIMARY KEY ("id", "change_id")
+PRIMARY KEY ("tenant", "id", "change_id")
 )
 WITH (OIDS=FALSE);
 
@@ -23,7 +24,7 @@ WITH (OIDS=FALSE);
 -- Table structure for task_result
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS "public"."task_result" (
-"tenant" varchar(255) COLLATE "default" NULL,
+"tenant" varchar(255) COLLATE "default" NOT NULL,
 "id" varchar(255) COLLATE "default" NOT NULL,
 "status" int2 NOT NULL,
 "status_info" int4 NOT NULL,

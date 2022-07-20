@@ -1099,7 +1099,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
     yield taskResult.restoreInitialPassword(docId);
     sqlBase.deleteChanges(docId, null);
     //delete forgotten after successful send on callbackUrl
-    yield storage.deletePath(cfgForgottenFiles + '/' + docId);
+    yield storage.deletePath(ctx, cfgForgottenFiles + '/' + docId);
   }
   yield unlockWopiDoc(ctx, docId, opt_userIndex);
 }
@@ -1153,13 +1153,13 @@ function checkJwt(ctx, token, type) {
       break;
   }
   if (undefined == secret) {
-    ctx.ctx.logger.warn('empty secret: token = %s', token);
+    ctx.logger.warn('empty secret: token = %s', token);
   }
   try {
     res.decoded = jwt.verify(token, secret, cfgTokenVerifyOptions);
-    ctx.ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
+    ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
   } catch (err) {
-    ctx.ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
+    ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
     if ('TokenExpiredError' === err.name) {
       res.code = constants.JWT_EXPIRED_CODE;
       res.description = constants.JWT_EXPIRED_REASON + err.message;
@@ -1292,6 +1292,7 @@ exports.install = function(server, callbackFunction) {
       let ctx = new operationContext.OperationContext();
       try {
         ctx.initFromConnection(conn);
+        console.log(`ctx:${JSON.stringify(ctx)}`);
         var startDate = null;
         if(clientStatsD) {
           startDate = new Date();
@@ -1299,7 +1300,7 @@ exports.install = function(server, callbackFunction) {
 
         var data = JSON.parse(message);
         docId = conn.docId;
-        ctx.logger.info('data.type = ' + data.type + ' id = ' + docId);
+        ctx.logger.info('data.type = %s', data.type);
         if(getIsShutdown())
         {
           ctx.logger.debug('Server shutdown receive data');
@@ -1341,7 +1342,7 @@ exports.install = function(server, callbackFunction) {
             yield* unSaveLock(ctx, conn, -1, -1);
             break;	// Индекс отправляем -1, т.к. это экстренное снятие без сохранения
           case 'getMessages'      :
-            yield* getMessages(conn, data);
+            yield* getMessages(ctx, conn, data);
             break;
           case 'unLockDocument'    :
             yield* checkEndAuthLock(ctx, data.unlock, data.isSave, docId, conn.user.id, data.releaseLocks, data.deleteIndex, conn);
@@ -1364,7 +1365,7 @@ exports.install = function(server, callbackFunction) {
             ctx.logger.error("changesError: %s", data.stack);
             if (cfgErrorFiles && docId) {
               let destDir = cfgErrorFiles + '/browser/' + docId;
-              yield storage.copyPath(docId, destDir);
+              yield storage.copyPath(ctx, docId, destDir);
               yield* saveErrorChanges(docId, destDir);
             }
             break;
@@ -1518,13 +1519,13 @@ exports.install = function(server, callbackFunction) {
           if (!needSaveChanges) {
             //start save changes if forgotten file exists.
             //more effective to send file without sfc, but this method is simpler by code
-            let forgotten = yield storage.listObjects(cfgForgottenFiles + '/' + docId);
+            let forgotten = yield storage.listObjects(ctx, cfgForgottenFiles + '/' + docId);
             needSaveChanges = forgotten.length > 0;
             ctx.logger.debug('closeDocument hasForgotten %s', needSaveChanges);
           }
           if (needSaveChanges && !conn.encrypted) {
             // Send changes to save server
-            yield createSaveTimer(docId, tmpUser.idOriginal, userIndex);
+            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex);
           } else if (needSendStatus) {
             yield* cleanDocumentOnExitNoChanges(ctx, docId, tmpUser.idOriginal, userIndex);
           } else {
@@ -1542,7 +1543,7 @@ exports.install = function(server, callbackFunction) {
     var docIdNew = cmd.getDocId();
     //check jwt
     if (cfgTokenEnableBrowser) {
-      var checkJwtRes = checkJwt(docIdNew, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
+      var checkJwtRes = checkJwt(ctx, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
       if (checkJwtRes.decoded) {
         fillVersionHistoryFromJwt(checkJwtRes.decoded, cmd);
         docIdNew = cmd.getDocId();
@@ -2114,7 +2115,7 @@ exports.install = function(server, callbackFunction) {
     if (data.token && data.user) {
       let docId = data.docid;
       let tm = new tenantManager.TenantManager();
-      tm.getTenantSecret(ctx.tenant);
+      let secret = yield tm.getTenantSecret(ctx, ctx.tenant);
       //check jwt
       if (cfgTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
@@ -2421,7 +2422,7 @@ exports.install = function(server, callbackFunction) {
       let callback = yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
       if (!callback && !bIsRestore) {
         //check forgotten file
-        let forgotten = yield storage.listObjects(cfgForgottenFiles + '/' + docId);
+        let forgotten = yield storage.listObjects(ctx, cfgForgottenFiles + '/' + docId);
         hasForgotten = forgotten.length > 0;
         ctx.logger.debug('endAuth hasForgotten %s', hasForgotten);
       }
@@ -2495,7 +2496,7 @@ exports.install = function(server, callbackFunction) {
         }
         changesJSON += ']\r\n';
         let buffer = Buffer.from(changesJSON, 'utf8');
-        yield storage.putObject(changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length);
+        yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length);
       }
       index += cfgMaxRequestChanges;
     } while (changes && cfgMaxRequestChanges === changes.length);
@@ -2526,7 +2527,7 @@ exports.install = function(server, callbackFunction) {
     let index = 0;
     let changes;
     do {
-      let objChangesDocument = yield getDocumentChanges(ctx, docId, index, index + cfgMaxRequestChanges);
+      let objChangesDocument = yield getDocumentChanges(docId, index, index + cfgMaxRequestChanges);
       changes = objChangesDocument.arrChanges;
       sendAuthChangesByChunks(ctx, changes, connections);
       index += cfgMaxRequestChanges;
@@ -2582,7 +2583,7 @@ exports.install = function(server, callbackFunction) {
     ctx.logger.info("insert message: %j", msg);
 
     var messages = [msg];
-    sendDataMessage(conn, messages);
+    sendDataMessage(ctx, conn, messages);
     yield* publish({type: commonDefines.c_oPublishType.message, docId: docId, userId: userId, messages: messages}, docId, userId);
   }
 
@@ -2841,10 +2842,10 @@ exports.install = function(server, callbackFunction) {
   }
 
   // Возвращаем все сообщения для документа
-  function* getMessages(conn) {
+  function* getMessages(ctx, conn) {
     let allMessages = yield editorData.getMessages(conn.docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
-    sendDataMessage(conn, allMessages);
+    sendDataMessage(ctx, conn, allMessages);
   }
 
   function* _checkLock(ctx, docId, arrayBlocks) {
@@ -3116,7 +3117,7 @@ exports.install = function(server, callbackFunction) {
           case commonDefines.c_oPublishType.message:
             participants = getParticipants(data.docId, true, data.userId);
             _.each(participants, function(participant) {
-              sendDataMessage(participant, data.messages);
+              sendDataMessage(ctx, participant, data.messages);
             });
             break;
           case commonDefines.c_oPublishType.getLock:
@@ -3192,16 +3193,16 @@ exports.install = function(server, callbackFunction) {
               participant = participants[i];
               if (data.needUrlKey) {
                 if (0 == data.needUrlMethod) {
-                  outputData.setData(yield storage.getSignedUrls(participant.baseUrl, data.needUrlKey, data.needUrlType, data.creationDate));
+                  outputData.setData(yield storage.getSignedUrls(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, data.creationDate));
                 } else if (1 == data.needUrlMethod) {
-                  outputData.setData(yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, undefined, data.creationDate));
+                  outputData.setData(yield storage.getSignedUrl(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, undefined, data.creationDate));
                 } else {
                   let url;
                   if (cmd.getInline()) {
                     url = canvasService.getPrintFileUrl(data.needUrlKey, participant.baseUrl, cmd.getTitle());
                     outputData.setExtName('.pdf');
                   } else {
-                    url = yield storage.getSignedUrl(participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), data.creationDate);
+                    url = yield storage.getSignedUrl(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), data.creationDate);
                     outputData.setExtName(pathModule.extname(data.needUrlKey));
                   }
                   outputData.setData(url);
@@ -3461,10 +3462,10 @@ exports.healthCheck = function(req, res) {
       const tempName = 'hc_' + os.hostname() + '_' + clusterId + '_' + Math.round(Math.random() * HEALTH_CHECK_KEY_MAX);
       const tempBuffer = Buffer.from([1, 2, 3, 4, 5]);
       //It's proper to putObject one tempName
-      yield storage.putObject(tempName, tempBuffer, tempBuffer.length);
+      yield storage.putObject(ctx, tempName, tempBuffer, tempBuffer.length);
       try {
         //try to prevent case, when another process can remove same tempName
-        yield storage.deleteObject(tempName);
+        yield storage.deleteObject(ctx, tempName);
       } catch (err) {
         ctx.logger.warn('healthCheck error %s', err.stack);
       }

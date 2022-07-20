@@ -75,8 +75,8 @@ exports.uploadTempFile = function(req, res) {
       if (docId && constants.DOC_ID_REGEX.test(docId) && req.body && Buffer.isBuffer(req.body)) {
         var task = yield* taskResult.addRandomKeyTask(docId);
         var strPath = task.key + '/' + docId + '.tmp';
-        yield storageBase.putObject(strPath, req.body, req.body.length);
-        var url = yield storageBase.getSignedUrl(utils.getBaseUrlByRequest(req), strPath,
+        yield storageBase.putObject(ctx, strPath, req.body, req.body.length);
+        var url = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(req), strPath,
                                                  commonDefines.c_oAscUrlTypes.Temporary);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.NO_ERROR, url), false);
       } else {
@@ -161,7 +161,7 @@ exports.uploadImageFileOld = function(req, res) {
           var strPath = docId + '/media/' + strImageName + '.jpg';
           listImages.push(strPath);
           utils.stream2Buffer(part).then(function(buffer) {
-            return storageBase.putObject(strPath, buffer, buffer.length);
+            return storageBase.putObject(ctx, strPath, buffer, buffer.length);
           }).then(function() {
             part.resume();
           }).catch(function(err) {
@@ -179,7 +179,7 @@ exports.uploadImageFileOld = function(req, res) {
       if (isError) {
         res.sendStatus(400);
       } else {
-        storageBase.getSignedUrlsByArray(utils.getBaseUrlByRequest(req), listImages, docId,
+        storageBase.getSignedUrlsByArray(ctx, utils.getBaseUrlByRequest(req), listImages, docId,
                                          commonDefines.c_oAscUrlTypes.Session).then(function(urls) {
           var outputData = {'type': 0, 'error': constants.NO_ERROR, 'urls': urls, 'input': req.query};
             var output = '<html><head><script type="text/javascript">function load(){ parent.postMessage("';
@@ -217,7 +217,7 @@ exports.uploadImageFile = function(req, res) {
       ctx.logger.debug('Start uploadImageFile');
 
       if (cfgTokenEnableBrowser) {
-        let checkJwtRes = docsCoServer.checkJwtHeader(docId, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+        let checkJwtRes = docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
         if (!checkJwtRes) {
           //todo remove compatibility with previous versions
           checkJwtRes = docsCoServer.checkJwt(ctx, req.query['token'], commonDefines.c_oAscSecretType.Session);
@@ -247,8 +247,8 @@ exports.uploadImageFile = function(req, res) {
             var strImageName = crypto.randomBytes(16).toString("hex");
             var strPathRel = 'media/' + strImageName + '.' + formatStr;
             var strPath = docId + '/' + strPathRel;
-            yield storageBase.putObject(strPath, buffer, buffer.length);
-            output[strPathRel] = yield storageBase.getSignedUrl(utils.getBaseUrlByRequest(req), strPath,
+            yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
+            output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(req), strPath,
                                                                 commonDefines.c_oAscUrlTypes.Session);
             isError = false;
           } else {

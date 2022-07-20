@@ -95,7 +95,6 @@ let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(task) {
   var cmd = task.getCmd();
-  this.tenant = cmd.tenant;
   this.key = cmd.savekey ? cmd.savekey : cmd.id;
   this.fileFrom = null;
   this.fileTo = null;
@@ -349,7 +348,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
   return res;
 }
 function* downloadFileFromStorage(ctx, strPath, dir) {
-  var list = yield storage.listObjects(strPath);
+  var list = yield storage.listObjects(ctx, strPath);
   ctx.logger.debug('downloadFileFromStorage list %s', list.toString());
   //create dirs
   var dirsToCreate = [];
@@ -376,7 +375,7 @@ function* downloadFileFromStorage(ctx, strPath, dir) {
   for (var i = 0; i < list.length; ++i) {
     var file = list[i];
     var fileRel = storage.getRelativePath(strPath, file);
-    var data = yield storage.getObject(file);
+    var data = yield storage.getObject(ctx, file);
     fs.writeFileSync(path.join(dir, fileRel), data);
   }
 }
@@ -563,20 +562,20 @@ function* streamEnd(streamObj, text) {
   streamObj.writeStream.end(text, 'utf8');
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
-function* processUploadToStorage(dir, storagePath) {
+function* processUploadToStorage(ctx, dir, storagePath) {
   var list = yield utils.listObjects(dir);
   if (list.length < MAX_OPEN_FILES) {
-    yield* processUploadToStorageChunk(list, dir, storagePath);
+    yield* processUploadToStorageChunk(ctx, list, dir, storagePath);
   } else {
     for (var i = 0, j = list.length; i < j; i += MAX_OPEN_FILES) {
-      yield* processUploadToStorageChunk(list.slice(i, i + MAX_OPEN_FILES), dir, storagePath);
+      yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath);
     }
   }
 }
-function* processUploadToStorageChunk(list, dir, storagePath) {
+function* processUploadToStorageChunk(ctx, list, dir, storagePath) {
   yield Promise.all(list.map(function (curValue) {
     let localValue = storagePath + '/' + curValue.substring(dir.length + 1);
-    return storage.uploadObject(localValue, curValue);
+    return storage.uploadObject(ctx, localValue, curValue);
   }));
 }
 function writeProcessOutputToLog(ctx, childRes, isDebug) {
@@ -619,7 +618,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
       writeProcessOutputToLog(ctx, childRes, false);
       ctx.logger.error('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
       if (cfgErrorFiles) {
-        yield* processUploadToStorage(tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
+        yield* processUploadToStorage(ctx, tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
         ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
       }
     }
@@ -628,7 +627,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     ctx.logger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
   }
   if (-1 !== exitCodesUpload.indexOf(error)) {
-    yield* processUploadToStorage(tempDirs.result, dataConvert.key);
+    yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key);
     ctx.logger.debug('processUploadToStorage complete');
   }
   cmd.setStatusInfo(error);
@@ -868,8 +867,8 @@ function receiveTask(data, ack) {
     try {
       task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
-        ctx.init();
-        res = yield* ExecuteTask(task);
+        ctx.initFromTaskQueueData(task);
+        res = yield* ExecuteTask(ctx, task);
       }
     } catch (err) {
       ctx.logger.error(err);

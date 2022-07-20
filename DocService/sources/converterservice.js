@@ -103,9 +103,9 @@ function* getConvertStatus(ctx, cmd, selectRes, opt_checkPassword) {
   }
   return status;
 }
-function* getConvertPath(docId, fileTo, formatTo) {
+function* getConvertPath(ctx, docId, fileTo, formatTo) {
   if (constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML === formatTo || constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF === formatTo) {
-    let list = yield storage.listObjects(docId);
+    let list = yield storage.listObjects(ctx, docId);
     let baseName = path.basename(fileTo, path.extname(fileTo));
     for (let i = 0; i < list.length; ++i) {
       if (path.basename(list[i], path.extname(list[i])) === baseName) {
@@ -119,7 +119,7 @@ function* getConvertUrl(baseUrl, fileToPath, title) {
   if (title) {
     title = path.basename(title, path.extname(title)) + path.extname(fileToPath);
   }
-  return yield storage.getSignedUrl(baseUrl, fileToPath, commonDefines.c_oAscUrlTypes.Temporary, title);
+  return yield storage.getSignedUrl(ctx, baseUrl, fileToPath, commonDefines.c_oAscUrlTypes.Temporary, title);
 }
 function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue, opt_checkPassword) {
   var docId = cmd.getDocId();
@@ -212,7 +212,7 @@ let convertFromChanges = co.wrap(function*(ctx, docId, baseUrl, forceSave, exter
   }
   let status = yield* convertByCmd(ctx, cmd, true, fileTo, undefined, opt_priority, opt_expiration, opt_queue);
   if (status.end) {
-    let fileToPath = yield* getConvertPath(docId, fileTo, cmd.getOutputFormat());
+    let fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
     status.setExtName(path.extname(fileToPath));
     status.setUrl(yield* getConvertUrl(baseUrl, fileToPath, cmd.getTitle()));
   }
@@ -346,7 +346,7 @@ function convertRequest(req, res, isJson) {
         let fileTo = constants.OUTPUT_NAME + '.' + outputExt;
         var status = yield* convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true);
         if (status.end) {
-          let fileToPath = yield* getConvertPath(docId, fileTo, cmd.getOutputFormat());
+          let fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
           status.setUrl(yield* getConvertUrl(utils.getBaseUrlByRequest(req), fileToPath, cmd.getTitle()));
           ctx.logger.debug('convertRequest: url = %s', status.url);
@@ -407,7 +407,7 @@ function builderRequest(req, res) {
             cmd.setUrl(params.url);
             cmd.setFormat('docbuilder');
           } else {
-            yield storageBase.putObject(docId + '/script.docbuilder', req.body, req.body.length);
+            yield storageBase.putObject(ctx, docId + '/script.docbuilder', req.body, req.body.length);
           }
           let queueData = new commonDefines.TaskQueueData();
           queueData.setCmd(cmd);
@@ -418,7 +418,7 @@ function builderRequest(req, res) {
         end = status.end;
         error = status.err;
         if (end) {
-          urls = yield storageBase.getSignedUrls(utils.getBaseUrlByRequest(req), docId + '/output',
+          urls = yield storageBase.getSignedUrls(ctx, utils.getBaseUrlByRequest(req), docId + '/output',
                                                  commonDefines.c_oAscUrlTypes.Temporary);
         }
       } else if (error === constants.NO_ERROR) {

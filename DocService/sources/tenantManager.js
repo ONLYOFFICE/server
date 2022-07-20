@@ -33,6 +33,7 @@
 'use strict';
 
 const config = require('config');
+const co = require('co');
 const license = require('./../../Common/sources/license');
 const { readFile } = require('fs/promises');
 const path = require('path');
@@ -46,21 +47,47 @@ function TenantManager(){
 TenantManager.prototype.getTenant = function(domain) {
   let tenant = "localhost";
   if (domain) {
-    let index = domain.indexOf(cfgBaseDomain);
-    if (-1 !== index) {
-      tenant = domain.substring(0, index);
-    }
+    // let index = domain.indexOf(cfgBaseDomain);
+    // if (-1 !== index) {
+    //   tenant = domain.substring(0, index);
+    // }
+    tenant = domain;
   }
   return tenant;
 };
-TenantManager.prototype.getTenantSecret = async function(tenant) {
-  let secretPath = path.join(cfgTenantsDir, tenant, 'secret.key');
-  return await readFile(secretPath, {encoding: 'utf8'});
-
+TenantManager.prototype.getTenantSecret = function(ctx) {
+  return co(function*() {
+    let res = undefined;
+    let secretPath = path.join(cfgTenantsDir, ctx.tenant, 'secret.key');
+    try {
+      ctx.logger.debug('getTenantSecret');
+      res = yield readFile(secretPath, {encoding: 'utf8'});
+    } catch(err) {
+      if (err.code === 'ENOENT') {
+        ctx.logger.warn('getTenantSecret error: %s', err.stack);
+      } else {
+        throw err;
+      }
+    }
+    return res;
+  });
 };
-TenantManager.prototype.getTenantLicence = async function(tenant) {
-  let licensePath = path.join(cfgTenantsDir, tenant, 'license.lic');
-  return await readFile(licensePath, {encoding: 'utf8'});
+TenantManager.prototype.getTenantLicence = function(ctx) {
+  return co(function*() {
+    let res = undefined;
+    let licensePath = path.join(cfgTenantsDir, ctx.tenant, 'license.lic');
+    try {
+      ctx.logger.debug('getTenantLicence');
+      res = yield readFile(licensePath, {encoding: 'utf8'});
+    } catch(err) {
+      if (err.code === 'ENOENT') {
+        ctx.logger.warn('getTenantLicence error: %s', err.stack);
+      } else {
+        throw err;
+      }
+    }
+    return res;
+  });
 };
 
 exports.TenantManager = TenantManager;

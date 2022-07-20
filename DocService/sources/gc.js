@@ -66,10 +66,10 @@ let expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
 var checkFileExpire = function() {
   return co(function* () {
-    let removedCount = 0;
     let ctx = new operationContext.OperationContext();
     try {
       ctx.logger.info('checkFileExpire start');
+      let removedCount = 0;
       var expired;
       var currentRemovedCount;
       do {
@@ -89,10 +89,10 @@ var checkFileExpire = function() {
         }
         removedCount += currentRemovedCount;
       } while (currentRemovedCount > 0);
+      ctx.logger.info('checkFileExpire end: removedCount = %d', removedCount);
     } catch (e) {
       ctx.logger.error('checkFileExpire error: %s', e.stack);
     } finally {
-      ctx.logger.info('checkFileExpire end: removedCount = %d', removedCount);
       setTimeout(checkFileExpire, expFilesStep);
     }
   });
@@ -116,7 +116,7 @@ var checkDocumentExpire = function() {
           if (docId) {
             var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
             if (hasChanges) {
-              yield docsCoServer.createSaveTimer(docId, null, null, queue, true);
+              yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
               startSaveCount++;
             } else {
               yield docsCoServer.cleanDocumentOnExitNoChangesPromise(docId);

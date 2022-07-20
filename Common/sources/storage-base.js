@@ -35,9 +35,14 @@ var config = require('config');
 var utils = require('./utils');
 
 var storage = require('./' + config.get('storage.name'));
-function getStoragePath(ctx, strPath) {
-  return ctx.tenant + '/' + strPath.replace(/\\/g, '/');
+
+function removeIillegalCharacters(filename) {
+  return filename.replace(/[/\\?%*:|"<>]/g, '-');
 }
+function getStoragePath(ctx, strPath) {
+  return removeIillegalCharacters(ctx.tenant) + '/' + strPath.replace(/\\/g, '/');
+}
+
 exports.headObject = function(ctx, strPath) {
   return storage.headObject(getStoragePath(ctx, strPath));
 };

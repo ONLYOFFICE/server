@@ -38,7 +38,7 @@ const constants = require('./constants');
 const tenantManager = require('../../DocService/sources/tenantManager');
 
 function OperationContext(){
-  this.logger = logger.getLogger();
+  this.logger = logger.getLogger('nodeJS');
   this.init(constants.DEFAULT_TENANT, constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID);
 }
 OperationContext.prototype.init = function(tenant, docId, userId) {
@@ -69,9 +69,9 @@ OperationContext.prototype.initFromTaskQueueData = function(task) {
   this.init(this.tenant, this.docId, this.userId);
 };
 
-OperationContext.prototype.setTenant = function(docId) {
-  this.docId = docId;
-  this.logger.addContext('TENANT', docId);
+OperationContext.prototype.setTenant = function(tenant) {
+  this.tenant = tenant;
+  this.logger.addContext('TENANT', tenant);
 };
 OperationContext.prototype.setDocId = function(docId) {
   this.docId = docId;

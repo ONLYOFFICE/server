@@ -259,7 +259,7 @@ function parseWopiCallback(ctx, userAuthStr, opt_url) {
       }
     }
     wopiParams = {commonInfo: commonInfo, userAuth: userAuth, LastModifiedTime: lastModifiedTime};
-    ctx.ctx.logger.debug('parseWopiCallback wopiParams:%j', wopiParams);
+    ctx.logger.debug('parseWopiCallback wopiParams:%j', wopiParams);
   }
   return wopiParams;
 }

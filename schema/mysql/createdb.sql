@@ -26,6 +26,7 @@ USE onlyoffice;
 --
 
 CREATE TABLE IF NOT EXISTS `doc_changes` (
+  `tenant` varchar(255) NOT NULL,
   `id` varchar(255) NOT NULL,
   `change_id` int(10) unsigned NOT NULL,
   `user_id` varchar(255) NOT NULL,
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS `doc_changes` (
   `user_name` varchar(255) NOT NULL,
   `change_data` longtext NOT NULL,
   `change_date` datetime NOT NULL,
-  PRIMARY KEY (`id`,`change_id`)
+  PRIMARY KEY (`tenant`, `id`,`change_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
@@ -48,7 +49,7 @@ CREATE TABLE IF NOT EXISTS `doc_changes` (
 --
 
 CREATE TABLE IF NOT EXISTS `task_result` (
-  `tenant` varchar(255) NULL,
+  `tenant` varchar(255) NOT NULL,
   `id` varchar(255) NOT NULL,
   `status` tinyint(3) NOT NULL,
   `status_info` int(10) NOT NULL,
