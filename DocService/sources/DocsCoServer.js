@@ -497,7 +497,8 @@ function fillJwtByConnection(conn) {
   edit.ds_view = conn.user.view;
   edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
   edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
-  edit.ds_sessionId = conn.sessionId;
+  // presenter viewer opens with same session jwt. do not put sessionId to jwt
+  // edit.ds_sessionId = conn.sessionId;
   edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
 
   return signToken(payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, cfgSecretSession);
@@ -2028,7 +2029,7 @@ exports.install = function(server, callbackFunction) {
       }
       data.isEnterCorrectPassword = edit.ds_isEnterCorrectPassword;
       data.denyChangeName = edit.ds_denyChangeName;
-      data.sessionId = edit.ds_sessionId;
+      // data.sessionId = edit.ds_sessionId;
       data.sessionTimeConnect = edit.ds_sessionTimeConnect;
       if (edit.user) {
         var dataUser = data.user;
