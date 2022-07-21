@@ -119,7 +119,7 @@ var checkDocumentExpire = function() {
               yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
               startSaveCount++;
             } else {
-              yield docsCoServer.cleanDocumentOnExitNoChangesPromise(docId);
+              yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId);
               removedCount++;
             }
           }

@@ -204,7 +204,7 @@ function updateIf(task, mask) {
     }, undefined, undefined, values);
   });
 }
-function restoreInitialPassword(docId) {
+function restoreInitialPassword(ctx, docId) {
   return select(docId).then(function(selectRes) {
     if (selectRes.length > 0) {
       var row = selectRes[0];

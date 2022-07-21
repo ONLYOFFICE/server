@@ -115,7 +115,7 @@ function* getConvertPath(ctx, docId, fileTo, formatTo) {
   }
   return docId + '/' + fileTo;
 }
-function* getConvertUrl(baseUrl, fileToPath, title) {
+function* getConvertUrl(ctx, baseUrl, fileToPath, title) {
   if (title) {
     title = path.basename(title, path.extname(title)) + path.extname(fileToPath);
   }
@@ -214,7 +214,7 @@ let convertFromChanges = co.wrap(function*(ctx, docId, baseUrl, forceSave, exter
   if (status.end) {
     let fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
     status.setExtName(path.extname(fileToPath));
-    status.setUrl(yield* getConvertUrl(baseUrl, fileToPath, cmd.getTitle()));
+    status.setUrl(yield* getConvertUrl(ctx, baseUrl, fileToPath, cmd.getTitle()));
   }
   return status;
 });
@@ -348,7 +348,7 @@ function convertRequest(req, res, isJson) {
         if (status.end) {
           let fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
-          status.setUrl(yield* getConvertUrl(utils.getBaseUrlByRequest(req), fileToPath, cmd.getTitle()));
+          status.setUrl(yield* getConvertUrl(ctx, utils.getBaseUrlByRequest(req), fileToPath, cmd.getTitle()));
           ctx.logger.debug('convertRequest: url = %s', status.url);
         }
         utils.fillResponse(req, res, status, isJson);

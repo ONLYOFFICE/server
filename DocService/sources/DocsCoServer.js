@@ -1096,7 +1096,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
   yield editorData.cleanDocumentOnExit(docId);
   //remove changes
   if (deleteChanges) {
-    yield taskResult.restoreInitialPassword(docId);
+    yield taskResult.restoreInitialPassword(ctx, docId);
     sqlBase.deleteChanges(docId, null);
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(ctx, cfgForgottenFiles + '/' + docId);
@@ -1366,7 +1366,7 @@ exports.install = function(server, callbackFunction) {
             if (cfgErrorFiles && docId) {
               let destDir = cfgErrorFiles + '/browser/' + docId;
               yield storage.copyPath(ctx, docId, destDir);
-              yield* saveErrorChanges(docId, destDir);
+              yield* saveErrorChanges(ctx, docId, destDir);
             }
             break;
           case 'extendSession' :
@@ -2480,7 +2480,7 @@ exports.install = function(server, callbackFunction) {
     return res;
   }
 
-  function* saveErrorChanges(docId, destDir) {
+  function* saveErrorChanges(ctx, docId, destDir) {
     let index = 0;
     let indexChunk = 1;
     let changes;

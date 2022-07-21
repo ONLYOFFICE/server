@@ -334,7 +334,7 @@ function changeFormatByOrigin(ctx, row, format) {
   }
   return format;
 }
-function* saveParts(cmd, filename) {
+function* saveParts(ctx, cmd, filename) {
   var result = false;
   var saveType = cmd.getSaveType();
   if (SAVE_TYPE_COMPLETE_ALL !== saveType) {
@@ -563,9 +563,9 @@ function* commandReopen(ctx, conn, cmd, outputData) {
   }
   return res;
 }
-function* commandSave(cmd, outputData) {
+function* commandSave(ctx, cmd, outputData) {
   let format = cmd.getFormat() || 'bin';
-  var completeParts = yield* saveParts(cmd, "Editor." + format);
+  var completeParts = yield* saveParts(ctx, cmd, "Editor." + format);
   if (completeParts) {
     var queueData = getSaveTask(cmd);
     yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
@@ -576,7 +576,7 @@ function* commandSave(cmd, outputData) {
 function* commandSendMailMerge(ctx, cmd, outputData) {
   let mailMergeSend = cmd.getMailMergeSend();
   let isJson = mailMergeSend.getIsJsonKey();
-  var completeParts = yield* saveParts(cmd, isJson ? "Editor.json" : "Editor.bin");
+  var completeParts = yield* saveParts(ctx, cmd, isJson ? "Editor.json" : "Editor.bin");
   var isErr = false;
   if (completeParts && !isJson) {
     isErr = true;
@@ -776,7 +776,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
     outputData.setData({error: errorCode, urls: outputUrls});
   }
 }
-function* commandPathUrls(conn, cmd, outputData) {
+function* commandPathUrls(ctx, conn, cmd, outputData) {
   let listImages = cmd.getData().map(function callback(currentValue) {
     return conn.docId + '/' + currentValue;
   });
@@ -784,7 +784,7 @@ function* commandPathUrls(conn, cmd, outputData) {
   outputData.setStatus('ok');
   outputData.setData(urls);
 }
-function* commandPathUrl(conn, cmd, outputData) {
+function* commandPathUrl(ctx, conn, cmd, outputData) {
   var strPath = conn.docId + '/' + cmd.getData();
   var url = yield storage.getSignedUrl(ctx, conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary, cmd.getTitle());
   var errorCode = constants.NO_ERROR;
@@ -1078,7 +1078,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
             }
             if (requestRes) {
               updateIfTask = undefined;
-              yield docsCoServer.cleanDocumentOnExitPromise(docId, true, callbackUserIndex);
+              yield docsCoServer.cleanDocumentOnExitPromise(ctx, docId, true, callbackUserIndex);
               if (isOpenFromForgotten) {
                 //remove forgotten file in cache
                 yield cleanupCache(ctx);
@@ -1138,7 +1138,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
     }
   } else {
     ctx.logger.debug('commandSfcCallback cleanDocumentOnExitNoChangesPromise');
-    yield docsCoServer.cleanDocumentOnExitNoChangesPromise(docId, undefined, userLastChangeIndex, true);
+    yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId, undefined, userLastChangeIndex, true);
   }
 
   if ((docsCoServer.getIsShutdown() && !isSfcm) || cmd.getRedisKey()) {
@@ -1253,10 +1253,10 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
           yield* commandImgurls(ctx, conn, cmd, outputData);
           break;
         case 'pathurl':
-          yield* commandPathUrl(conn, cmd, outputData);
+          yield* commandPathUrl(ctx, conn, cmd, outputData);
           break;
         case 'pathurls':
-          yield* commandPathUrls(conn, cmd, outputData);
+          yield* commandPathUrls(ctx, conn, cmd, outputData);
           break;
         case 'setpassword':
           yield* commandSetPassword(ctx, conn, cmd, outputData);
@@ -1353,7 +1353,7 @@ exports.downloadAs = function(req, res) {
       var outputData = new OutputData(cmd.getCommand());
       switch (cmd.getCommand()) {
         case 'save':
-          yield* commandSave(cmd, outputData);
+          yield* commandSave(ctx, cmd, outputData);
           break;
         case 'savefromorigin':
           yield* commandSaveFromOrigin(ctx, cmd, outputData, row && row.password);
