@@ -62,8 +62,6 @@ var cfgFontDir = configConverter.get('fontDir');
 var cfgPresentationThemesDir = configConverter.get('presentationThemesDir');
 var cfgX2tPath = configConverter.get('x2tPath');
 var cfgDocbuilderPath = configConverter.get('docbuilderPath');
-var cfgDocbuilderAllFontsPath = configConverter.get('docbuilderAllFontsPath');
-var cfgDocbuilderCoreFontsPath = configConverter.get('docbuilderCoreFontsPath');
 var cfgArgs = configConverter.get('args');
 var cfgSpawnOptions = configConverter.get('spawnOptions');
 if (cfgSpawnOptions.env) {
@@ -680,10 +678,7 @@ function* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTim
   } else {
     fs.mkdirSync(path.join(tempDirs.result, 'output'));
     processPath = cfgDocbuilderPath;
-    childArgs.push('--all-fonts-path=' + cfgDocbuilderAllFontsPath);
-    if (cfgDocbuilderCoreFontsPath) {
-      childArgs.push('--fonts-dir=' + cfgDocbuilderCoreFontsPath);
-    }
+    childArgs.push('--check-fonts=0');
     childArgs.push('--save-use-only-names=' + tempDirs.result + '/output');
     childArgs.push(dataConvert.fileFrom);
   }
