@@ -1005,3 +1005,7 @@ exports.getLicensePeriod = function(startDate, now) {
   startDate.setUTCHours(0,0,0,0);
   return startDate.getTime();
 };
+
+exports.removeIllegalCharacters = function(filename) {
+  return filename?.replace(/[/\\?%*:|"<>]/g, '-') || filename;
+}

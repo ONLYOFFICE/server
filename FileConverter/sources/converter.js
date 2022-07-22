@@ -735,7 +735,6 @@ function* ExecuteTask(ctx, task) {
   var getTaskTime = new Date();
   var cmd = task.getCmd();
   var dataConvert = new TaskQueueDataConvert(task);
-  ctx.init(dataConvert.tenant, dataConvert.key);
   ctx.logger.info('Start Task');
   var error = constants.NO_ERROR;
   tempDirs = getTempDir();
@@ -771,7 +770,7 @@ function* ExecuteTask(ctx, task) {
         ctx.logger.debug('wopi url=%s; headers=%j', url, headers);
       }
       if (undefined === fileSize || fileSize > 0) {
-        error = yield* downloadFile(ctx, dataConvert.key, url, dataConvert.fileFrom, withAuthorization, filterPrivate, headers);
+        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, filterPrivate, headers);
       }
       if (constants.NO_ERROR === error) {
         yield* replaceEmptyFile(ctx, dataConvert.fileFrom, format, cmd.getLCID());

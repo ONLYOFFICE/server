@@ -35,11 +35,13 @@
 const config = require('config');
 const co = require('co');
 const license = require('./../../Common/sources/license');
+const utils = require('./../../Common/sources/utils');
 const { readFile } = require('fs/promises');
 const path = require('path');
 
 const cfgBaseDomain = config.get('services.CoAuthoring.server.baseDomain');
 const cfgTenantsDir = config.get('services.CoAuthoring.server.tenantsDir');
+const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 
 function TenantManager(){
   
@@ -58,16 +60,21 @@ TenantManager.prototype.getTenant = function(domain) {
 TenantManager.prototype.getTenantSecret = function(ctx) {
   return co(function*() {
     let res = undefined;
-    let secretPath = path.join(cfgTenantsDir, ctx.tenant, 'secret.key');
-    try {
-      ctx.logger.debug('getTenantSecret');
-      res = yield readFile(secretPath, {encoding: 'utf8'});
-    } catch(err) {
-      if (err.code === 'ENOENT') {
-        ctx.logger.warn('getTenantSecret error: %s', err.stack);
-      } else {
-        throw err;
+    if (this.isMultitenantMode()) {
+      let utils.removeIllegalCharacters(ctx.tenant);
+      let secretPath = path.join(cfgTenantsDir, ctx.tenant, 'secret.key');
+      try {
+        ctx.logger.debug('getTenantSecret');
+        res = yield readFile(secretPath, {encoding: 'utf8'});
+      } catch(err) {
+        if (err.code === 'ENOENT') {
+          ctx.logger.warn('getTenantSecret error: %s', err.stack);
+        } else {
+          throw err;
+        }
       }
+    } else {
+      res = utils.getSecretByElem(cfgSecretInbox);
     }
     return res;
   });
@@ -75,19 +82,25 @@ TenantManager.prototype.getTenantSecret = function(ctx) {
 TenantManager.prototype.getTenantLicence = function(ctx) {
   return co(function*() {
     let res = undefined;
-    let licensePath = path.join(cfgTenantsDir, ctx.tenant, 'license.lic');
-    try {
-      ctx.logger.debug('getTenantLicence');
-      res = yield readFile(licensePath, {encoding: 'utf8'});
-    } catch(err) {
-      if (err.code === 'ENOENT') {
-        ctx.logger.warn('getTenantLicence error: %s', err.stack);
-      } else {
-        throw err;
+    if (this.isMultitenantMode()) {
+      let licensePath = path.join(cfgTenantsDir, ctx.tenant, 'license.lic');
+      try {
+        ctx.logger.debug('getTenantLicence');
+        res = yield readFile(licensePath, {encoding: 'utf8'});
+        license.readLicense(licensePath);
+      } catch(err) {
+        if (err.code === 'ENOENT') {
+          ctx.logger.warn('getTenantLicence error: %s', err.stack);
+        } else {
+          throw err;
+        }
       }
     }
     return res;
   });
+};
+TenantManager.prototype.isMultitenantMode = function() {
+  return !!cfgTenantsDir;
 };
 
 exports.TenantManager = TenantManager;
