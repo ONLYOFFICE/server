@@ -58,11 +58,12 @@ TenantManager.prototype.getTenant = function(domain) {
   return tenant;
 };
 TenantManager.prototype.getTenantSecret = function(ctx) {
+  let t = this;
   return co(function*() {
     let res = undefined;
-    if (this.isMultitenantMode()) {
-      let utils.removeIllegalCharacters(ctx.tenant);
-      let secretPath = path.join(cfgTenantsDir, ctx.tenant, 'secret.key');
+    if (t.isMultitenantMode()) {
+      let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+      let secretPath = path.join(cfgTenantsDir, tenantPath, 'secret.key');
       try {
         ctx.logger.debug('getTenantSecret');
         res = yield readFile(secretPath, {encoding: 'utf8'});
@@ -82,8 +83,9 @@ TenantManager.prototype.getTenantSecret = function(ctx) {
 TenantManager.prototype.getTenantLicence = function(ctx) {
   return co(function*() {
     let res = undefined;
-    if (this.isMultitenantMode()) {
-      let licensePath = path.join(cfgTenantsDir, ctx.tenant, 'license.lic');
+    if (t.isMultitenantMode()) {
+      let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+      let licensePath = path.join(cfgTenantsDir, tenantPath, 'license.lic');
       try {
         ctx.logger.debug('getTenantLicence');
         res = yield readFile(licensePath, {encoding: 'utf8'});

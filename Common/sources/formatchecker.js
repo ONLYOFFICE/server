@@ -538,7 +538,6 @@ exports.isPresentationFormat = function(format) {
     format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
 };
 exports.isOOXFormat = function(format) {
-  console.log('isOOXFormat'+format);
   return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX === format
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM === format
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX === format

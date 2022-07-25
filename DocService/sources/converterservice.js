@@ -148,6 +148,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
     status = yield* getConvertStatus(ctx, cmd, selectRes, opt_checkPassword);
   } else {
     var queueData = new commonDefines.TaskQueueData();
+    queueData.setCtx(ctx);
     queueData.setCmd(cmd);
     if (opt_fileTo) {
       queueData.setToFile(opt_fileTo);
@@ -410,6 +411,7 @@ function builderRequest(req, res) {
             yield storageBase.putObject(ctx, docId + '/script.docbuilder', req.body, req.body.length);
           }
           let queueData = new commonDefines.TaskQueueData();
+          queueData.setCtx(ctx);
           queueData.setCmd(cmd);
           yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
         }

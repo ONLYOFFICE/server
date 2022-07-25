@@ -211,6 +211,7 @@ exports.uploadImageFile = function(req, res) {
     let isValidJwt = true;
     let ctx = new operationContext.OperationContext();
     try {
+      ctx.initFromRequest(req);
       docId = req.params.docid;
       ctx.setDocId(docId);
       let encrypted = false;

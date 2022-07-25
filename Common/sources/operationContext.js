@@ -65,8 +65,12 @@ OperationContext.prototype.initFromRequest = function(req) {
   this.init(tenant, this.docId, this.userId);
 };
 OperationContext.prototype.initFromTaskQueueData = function(task) {
-  //todo
-  this.init(this.tenant, this.docId, this.userId);
+  let ctx = task.getCtx();
+  this.init(ctx.tenant, ctx.docId, ctx.userId);
+};
+OperationContext.prototype.initFromPubSub = function(data) {
+  let ctx = data.ctx;
+  this.init(ctx.tenant, ctx.docId, ctx.userId);
 };
 
 OperationContext.prototype.setTenant = function(tenant) {

@@ -77,6 +77,8 @@ var checkFileExpire = function() {
         expired = yield taskResult.getExpired(cfgExpFilesRemovedAtOnce, cfgExpFiles);
         for (var i = 0; i < expired.length; ++i) {
           var docId = expired[i].id;
+          ctx.setDocId(docId);
+          //todo tenant
           //проверяем что никто не сидит в документе
           let editorsCount = yield docsCoServer.getEditorsCountPromise(docId);
           if(0 === editorsCount){
@@ -114,6 +116,7 @@ var checkDocumentExpire = function() {
         for (var i = 0; i < expiredKeys.length; ++i) {
           var docId = expiredKeys[i];
           if (docId) {
+            ctx.setDocId(docId);
             var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
             if (hasChanges) {
               yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
@@ -160,6 +163,7 @@ let forceSaveTimeout = function() {
         for (let i = 0; i < expiredKeys.length; ++i) {
           let docId = expiredKeys[i];
           if (docId) {
+            ctx.setDocId(docId);
             actions.push(docsCoServer.startForceSave(ctx, docId, commondefines.c_oAscForceSaveTypes.Timeout,
                                                             undefined, undefined, undefined, undefined, undefined, undefined, queue, pubsub));
           }

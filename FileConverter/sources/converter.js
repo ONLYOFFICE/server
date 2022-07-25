@@ -655,10 +655,11 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     cmd.setTitle(cmd.getOutputPath());
   }
 
-  var res = new commonDefines.TaskQueueData();
-  res.setCmd(cmd);
-  ctx.logger.debug('output (data=%s)', JSON.stringify(res));
-  return res;
+  var queueData = new commonDefines.TaskQueueData();
+  queueData.setCtx(ctx);
+  queueData.setCmd(cmd);
+  ctx.logger.debug('output (data=%j)', queueData);
+  return queueData;
 }
 
 function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task) {
@@ -878,6 +879,7 @@ function receiveTask(data, ack) {
           var cmd = task.getCmd();
           cmd.setStatusInfo(constants.CONVERT);
           res = new commonDefines.TaskQueueData();
+          res.setCtx(ctx);
           res.setCmd(cmd);
         }
         if (res) {
@@ -893,10 +895,13 @@ function receiveTask(data, ack) {
 }
 function simulateErrorResponse(data){
   let task = new commonDefines.TaskQueueData(JSON.parse(data));
+  let ctx = new operationContext.OperationContext();
+  ctx.initFromTaskQueueData(task);
   //simulate error response
   let cmd = task.getCmd();
   cmd.setStatusInfo(constants.CONVERT);
   let res = new commonDefines.TaskQueueData();
+  task.setCtx(ctx);
   res.setCmd(cmd);
   return res;
 }
