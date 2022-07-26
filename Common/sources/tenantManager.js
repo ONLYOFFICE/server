@@ -39,31 +39,32 @@ const utils = require('./../../Common/sources/utils');
 const { readFile } = require('fs/promises');
 const path = require('path');
 
-const cfgBaseDomain = config.get('services.CoAuthoring.server.baseDomain');
-const cfgTenantsDir = config.get('services.CoAuthoring.server.tenantsDir');
+const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
+const cfgTenantsBaseDir = config.get('tenants.baseDir');
+const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
+const cfgTenantsFilenameLicense = config.get('tenants.filenameLicense');
 const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 
-function TenantManager(){
-  
-}
-TenantManager.prototype.getTenant = function(domain) {
+function getTenant(domain) {
   let tenant = "localhost";
   if (domain) {
-    // let index = domain.indexOf(cfgBaseDomain);
+    // let index = domain.indexOf(cfgTenantsBaseDomain);
     // if (-1 !== index) {
     //   tenant = domain.substring(0, index);
     // }
     tenant = domain;
   }
   return tenant;
-};
-TenantManager.prototype.getTenantSecret = function(ctx) {
-  let t = this;
+}
+function getTenantPathPrefix(ctx) {
+  return isMultitenantMode() ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
+}
+function getTenantSecret(ctx) {
   return co(function*() {
     let res = undefined;
-    if (t.isMultitenantMode()) {
+    if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-      let secretPath = path.join(cfgTenantsDir, tenantPath, 'secret.key');
+      let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
       try {
         ctx.logger.debug('getTenantSecret');
         res = yield readFile(secretPath, {encoding: 'utf8'});
@@ -79,13 +80,13 @@ TenantManager.prototype.getTenantSecret = function(ctx) {
     }
     return res;
   });
-};
-TenantManager.prototype.getTenantLicence = function(ctx) {
+}
+function getTenantLicence(ctx) {
   return co(function*() {
     let res = undefined;
-    if (t.isMultitenantMode()) {
+    if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-      let licensePath = path.join(cfgTenantsDir, tenantPath, 'license.lic');
+      let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
       try {
         ctx.logger.debug('getTenantLicence');
         res = yield readFile(licensePath, {encoding: 'utf8'});
@@ -97,12 +98,18 @@ TenantManager.prototype.getTenantLicence = function(ctx) {
           throw err;
         }
       }
+    } else {
+
     }
     return res;
   });
-};
-TenantManager.prototype.isMultitenantMode = function() {
-  return !!cfgTenantsDir;
-};
+}
+function isMultitenantMode() {
+  return !!cfgTenantsBaseDir;
+}
 
-exports.TenantManager = TenantManager;
+exports.getTenant = getTenant;
+exports.getTenantPathPrefix = getTenantPathPrefix;
+exports.getTenantSecret = getTenantSecret;
+exports.getTenantLicence = getTenantLicence;
+exports.isMultitenantMode = isMultitenantMode;

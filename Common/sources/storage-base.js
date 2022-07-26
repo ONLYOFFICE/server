@@ -35,13 +35,10 @@ var config = require('config');
 var utils = require('./utils');
 
 var storage = require('./' + config.get('storage.name'));
+var tenantManager = require('./tenantManager');
 
 function getStoragePath(ctx, strPath) {
-  if (ctx.tenant) {
-    return utils.removeIllegalCharacters(ctx.tenant) + '/' + strPath.replace(/\\/g, '/');
-  } else {
-    return strPath.replace(/\\/g, '/');
-  }
+  return tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/')
 }
 
 exports.headObject = function(ctx, strPath) {

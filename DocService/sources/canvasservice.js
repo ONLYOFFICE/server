@@ -652,7 +652,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
   let authorizations = [];
   let token = cmd.getTokenDownload();
   if (cfgTokenEnableBrowser && token) {
-    let checkJwtRes = docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
+    let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
       //todo multiple url case
       if (checkJwtRes.decoded.images) {
@@ -1316,7 +1316,7 @@ exports.downloadAs = function(req, res) {
       if (cfgTokenEnableBrowser) {
         var isValidJwt = false;
         if (cmd.getTokenDownload()) {
-          let checkJwtRes = docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), commonDefines.c_oAscSecretType.Browser);
+          let checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), commonDefines.c_oAscSecretType.Browser);
           if (checkJwtRes.decoded) {
             isValidJwt = true;
             cmd.setFormat(checkJwtRes.decoded.fileType);
@@ -1326,7 +1326,7 @@ exports.downloadAs = function(req, res) {
             ctx.logger.warn('Error downloadAs jwt: %s', checkJwtRes.description);
           }
         } else {
-          let checkJwtRes = docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+          let checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
           if (checkJwtRes.decoded) {
             let decoded = checkJwtRes.decoded;
             var doc = checkJwtRes.decoded.document;
@@ -1405,7 +1405,7 @@ exports.saveFile = function(req, res) {
 
       if (cfgTokenEnableBrowser) {
         let isValidJwt = false;
-        let checkJwtRes = docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+        let checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
         if (checkJwtRes.decoded) {
           let doc = checkJwtRes.decoded.document;
           var edit = checkJwtRes.decoded.editorConfig;
@@ -1476,7 +1476,7 @@ exports.printFile = function(req, res) {
       ctx.logger.info('Start printFile');
 
       if (cfgTokenEnableBrowser) {
-        let checkJwtRes = docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
+        let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
         if (checkJwtRes.decoded) {
           let docIdBase = checkJwtRes.decoded.document.key;
           if (!docId.startsWith(docIdBase)) {
@@ -1525,7 +1525,7 @@ exports.downloadFile = function(req, res) {
 
       let authorization;
       if (cfgTokenEnableBrowser) {
-        let checkJwtRes = docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
+        let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
         let errorDescription;
         if (checkJwtRes.decoded) {
           let decoded = checkJwtRes.decoded;

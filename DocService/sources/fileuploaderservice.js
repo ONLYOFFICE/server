@@ -62,7 +62,7 @@ exports.uploadTempFile = function(req, res) {
       ctx.initFromRequest(req);
       ctx.logger.info('uploadTempFile start');
       let params;
-      let authRes = docsCoServer.getRequestParams(ctx, req, true);
+      let authRes = yield docsCoServer.getRequestParams(ctx, req, true);
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {
@@ -93,8 +93,8 @@ exports.uploadTempFile = function(req, res) {
     }
   });
 };
-function checkJwtUpload(ctx, errorName, token){
-  let checkJwtRes = docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
+function* checkJwtUpload(ctx, errorName, token){
+  let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
   return checkJwtUploadTransformRes(ctx, errorName, checkJwtRes);
 }
 function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
@@ -118,90 +118,92 @@ function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
   return res;
 }
 exports.uploadImageFileOld = function(req, res) {
-  let ctx = new operationContext.OperationContext();
-  ctx.initFromRequest(req);
-  var docId = req.params.docid;
-  var userid = req.params.userid;
-  ctx.init(ctx.tenant, docId, userid);
-  ctx.logger.debug('Start uploadImageFileOld');
-  if (cfgTokenEnableBrowser) {
-    var checkJwtRes = checkJwtUpload(ctx, 'uploadImageFileOld', req.query['token']);
-    if(!checkJwtRes.err){
-      docId = checkJwtRes.docId || docId;
-      userid = checkJwtRes.userid || userid;
-    } else {
-      res.sendStatus(403);
-      return;
-    }
-  }
-  ctx.init(ctx.tenant, docId, userid);
-  var listImages = [];
-  //todo userid
-  if (docId) {
-    var isError = false;
-    var form = new multiparty.Form();
-    form.on('error', function(err) {
-      ctx.logger.error('Error parsing form:%s', err.toString());
-      res.sendStatus(400);
-    });
-    form.on('part', function(part) {
-      if (!part.filename) {
-        // ignore field's content
-        part.resume();
-      }
-      if (part.filename) {
-        if (part.byteCount > cfgImageSize) {
-          isError = true;
-        }
-        if (isError) {
-          part.resume();
-        } else {
-          //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
-          var strImageName = crypto.randomBytes(16).toString("hex");
-          var strPath = docId + '/media/' + strImageName + '.jpg';
-          listImages.push(strPath);
-          utils.stream2Buffer(part).then(function(buffer) {
-            return storageBase.putObject(ctx, strPath, buffer, buffer.length);
-          }).then(function() {
-            part.resume();
-          }).catch(function(err) {
-            ctx.logger.error('Upload putObject:%s', err.stack);
-            isError = true;
-            part.resume();
-          });
-        }
-      }
-      part.on('error', function(err) {
-        ctx.logger.error('Error parsing form part:%s', err.toString());
-      });
-    });
-    form.on('close', function() {
-      if (isError) {
-        res.sendStatus(400);
+  return co(function* () {
+    let ctx = new operationContext.OperationContext();
+    ctx.initFromRequest(req);
+    var docId = req.params.docid;
+    var userid = req.params.userid;
+    ctx.init(ctx.tenant, docId, userid);
+    ctx.logger.debug('Start uploadImageFileOld');
+    if (cfgTokenEnableBrowser) {
+      var checkJwtRes = yield* checkJwtUpload(ctx, 'uploadImageFileOld', req.query['token']);
+      if(!checkJwtRes.err){
+        docId = checkJwtRes.docId || docId;
+        userid = checkJwtRes.userid || userid;
       } else {
-        storageBase.getSignedUrlsByArray(ctx, utils.getBaseUrlByRequest(req), listImages, docId,
-                                         commonDefines.c_oAscUrlTypes.Session).then(function(urls) {
-          var outputData = {'type': 0, 'error': constants.NO_ERROR, 'urls': urls, 'input': req.query};
-            var output = '<html><head><script type="text/javascript">function load(){ parent.postMessage("';
-            output += JSON.stringify(outputData).replace(/"/g, '\\"');
-            output += '", "*"); }</script></head><body onload="load()"></body></html>';
-
-            //res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Content-Type', 'text/html');
-            res.send(output);
-          ctx.logger.debug('End uploadImageFileOld:%s', output);
-          }
-        ).catch(function(err) {
-            res.sendStatus(400);
-          ctx.logger.error('upload getSignedUrlsByArray:%s', err.stack);
-          });
+        res.sendStatus(403);
+        return;
       }
-    });
-    form.parse(req);
-  } else {
-    ctx.logger.debug('Error params uploadImageFileOld');
-    res.sendStatus(400);
-  }
+    }
+    ctx.init(ctx.tenant, docId, userid);
+    var listImages = [];
+    //todo userid
+    if (docId) {
+      var isError = false;
+      var form = new multiparty.Form();
+      form.on('error', function(err) {
+        ctx.logger.error('Error parsing form:%s', err.toString());
+        res.sendStatus(400);
+      });
+      form.on('part', function(part) {
+        if (!part.filename) {
+          // ignore field's content
+          part.resume();
+        }
+        if (part.filename) {
+          if (part.byteCount > cfgImageSize) {
+            isError = true;
+          }
+          if (isError) {
+            part.resume();
+          } else {
+            //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
+            var strImageName = crypto.randomBytes(16).toString("hex");
+            var strPath = docId + '/media/' + strImageName + '.jpg';
+            listImages.push(strPath);
+            utils.stream2Buffer(part).then(function(buffer) {
+              return storageBase.putObject(ctx, strPath, buffer, buffer.length);
+            }).then(function() {
+              part.resume();
+            }).catch(function(err) {
+              ctx.logger.error('Upload putObject:%s', err.stack);
+              isError = true;
+              part.resume();
+            });
+          }
+        }
+        part.on('error', function(err) {
+          ctx.logger.error('Error parsing form part:%s', err.toString());
+        });
+      });
+      form.on('close', function() {
+        if (isError) {
+          res.sendStatus(400);
+        } else {
+          storageBase.getSignedUrlsByArray(ctx, utils.getBaseUrlByRequest(req), listImages, docId,
+                                           commonDefines.c_oAscUrlTypes.Session).then(function(urls) {
+                                                                                        var outputData = {'type': 0, 'error': constants.NO_ERROR, 'urls': urls, 'input': req.query};
+                                                                                        var output = '<html><head><script type="text/javascript">function load(){ parent.postMessage("';
+                                                                                        output += JSON.stringify(outputData).replace(/"/g, '\\"');
+                                                                                        output += '", "*"); }</script></head><body onload="load()"></body></html>';
+
+                                                                                        //res.setHeader('Access-Control-Allow-Origin', '*');
+                                                                                        res.setHeader('Content-Type', 'text/html');
+                                                                                        res.send(output);
+                                                                                        ctx.logger.debug('End uploadImageFileOld:%s', output);
+                                                                                      }
+          ).catch(function(err) {
+            res.sendStatus(400);
+            ctx.logger.error('upload getSignedUrlsByArray:%s', err.stack);
+          });
+        }
+      });
+      form.parse(req);
+    } else {
+      ctx.logger.debug('Error params uploadImageFileOld');
+      res.sendStatus(400);
+    }
+  });
 };
 exports.uploadImageFile = function(req, res) {
   return co(function* () {
@@ -218,10 +220,10 @@ exports.uploadImageFile = function(req, res) {
       ctx.logger.debug('Start uploadImageFile');
 
       if (cfgTokenEnableBrowser) {
-        let checkJwtRes = docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+        let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
         if (!checkJwtRes) {
           //todo remove compatibility with previous versions
-          checkJwtRes = docsCoServer.checkJwt(ctx, req.query['token'], commonDefines.c_oAscSecretType.Session);
+          checkJwtRes = yield docsCoServer.checkJwt(ctx, req.query['token'], commonDefines.c_oAscSecretType.Session);
         }
         let transformedRes = checkJwtUploadTransformRes(ctx, 'uploadImageFile', checkJwtRes);
         if (!transformedRes.err) {

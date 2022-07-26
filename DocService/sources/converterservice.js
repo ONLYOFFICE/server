@@ -230,7 +230,7 @@ function convertRequest(req, res, isJson) {
       ctx.initFromRequest(req);
       ctx.logger.info('convertRequest start');
       let params;
-      let authRes = docsCoServer.getRequestParams(ctx, req);
+      let authRes = yield docsCoServer.getRequestParams(ctx, req);
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {
@@ -382,9 +382,9 @@ function builderRequest(req, res) {
       let authRes;
       if (!utils.isEmptyObject(req.query)) {
         //todo this is a stub for compatibility. remove in future version
-        authRes = docsCoServer.getRequestParams(ctx, req, true);
+        authRes = yield docsCoServer.getRequestParams(ctx, req, true);
       } else {
-        authRes = docsCoServer.getRequestParams(ctx, req);
+        authRes = yield docsCoServer.getRequestParams(ctx, req);
       }
       let params = authRes.params;
       let docId = params.key;

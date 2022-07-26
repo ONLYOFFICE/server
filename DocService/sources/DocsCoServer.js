@@ -106,8 +106,7 @@ const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 const activeMQCore = require('./../../Common/sources/activeMQCore');
 const operationContext = require('./../../Common/sources/operationContext');
-const tenantManager = require('./tenantManager');
-const {TenantManager} = require('./tenantManager');
+const tenantManager = require('./../../Common/sources/tenantManager');
 
 const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
@@ -138,7 +137,6 @@ const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
 const cfgTokenInboxHeader = config.get('token.inbox.header');
 const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
 const cfgTokenVerifyOptions = config.get('token.verifyOptions');
-const cfgSecretInbox = config.get('secret.inbox');
 const cfgSecretSession = config.get('secret.session');
 const cfgForceSaveEnable = config.get('autoAssembly.enable');
 const cfgForceSaveInterval = ms(config.get('autoAssembly.interval'));
@@ -1141,80 +1139,86 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
 }
 
 function checkJwt(ctx, token, type) {
-  var res = {decoded: null, description: null, code: null, token: token};
-  var secret;
-  switch (type) {
-    case commonDefines.c_oAscSecretType.Browser:
-    case commonDefines.c_oAscSecretType.Inbox:
-      secret = utils.getSecretByElem(cfgSecretInbox);
-      break;
-    case commonDefines.c_oAscSecretType.Session:
-      secret = utils.getSecretByElem(cfgSecretSession);
-      break;
-  }
-  if (undefined == secret) {
-    ctx.logger.warn('empty secret: token = %s', token);
-  }
-  try {
-    res.decoded = jwt.verify(token, secret, cfgTokenVerifyOptions);
-    ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
-  } catch (err) {
-    ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
-    if ('TokenExpiredError' === err.name) {
-      res.code = constants.JWT_EXPIRED_CODE;
-      res.description = constants.JWT_EXPIRED_REASON + err.message;
-    } else if ('JsonWebTokenError' === err.name) {
-      res.code = constants.JWT_ERROR_CODE;
-      res.description = constants.JWT_ERROR_REASON + err.message;
+  return co(function*() {
+    var res = {decoded: null, description: null, code: null, token: token};
+    var secret;
+    switch (type) {
+      case commonDefines.c_oAscSecretType.Browser:
+      case commonDefines.c_oAscSecretType.Inbox:
+        secret = yield tenantManager.getTenantSecret(ctx);
+        break;
+      case commonDefines.c_oAscSecretType.Session:
+        secret = utils.getSecretByElem(cfgSecretSession);
+        break;
     }
-  }
-  return res;
-}
-function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
-  let header = opt_header || cfgTokenInboxHeader;
-  let prefix = opt_prefix || cfgTokenInboxPrefix;
-  let secretType = opt_secretType || commonDefines.c_oAscSecretType.Inbox;
-  let authorization = req.get(header);
-  if (authorization && authorization.startsWith(prefix)) {
-    var token = authorization.substring(prefix.length);
-    return checkJwt(ctx, token, secretType);
-  }
-  return null;
-}
-function getRequestParams(ctx, req, opt_isNotInBody) {
-  let res = {code: constants.NO_ERROR, params: undefined};
-  if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
-    res.params = JSON.parse(req.body.toString('utf8'));
-  } else {
-    res.params = req.query;
-  }
-  if (cfgTokenEnableRequestInbox) {
-    res.code = constants.VKEY;
-    let checkJwtRes;
-    if (res.params.token) {
-      checkJwtRes = checkJwt(ctx, res.params.token, commonDefines.c_oAscSecretType.Inbox);
-    } else {
-      checkJwtRes = checkJwtHeader(ctx, req);
+    if (undefined == secret) {
+      ctx.logger.warn('empty secret: token = %s', token);
     }
-    if (checkJwtRes) {
-      if (checkJwtRes.decoded) {
-        res.code = constants.NO_ERROR;
-        if (cfgTokenRequiredParams) {
-          res.params = {};
-        }
-        Object.assign(res.params, checkJwtRes.decoded);
-        if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
-          Object.assign(res.params, checkJwtRes.decoded.payload);
-        }
-        if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
-          Object.assign(res.params, checkJwtRes.decoded.query);
-        }
-      } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
-        res.code = constants.VKEY_KEY_EXPIRE;
+    try {
+      res.decoded = jwt.verify(token, secret, cfgTokenVerifyOptions);
+      ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
+    } catch (err) {
+      ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
+      if ('TokenExpiredError' === err.name) {
+        res.code = constants.JWT_EXPIRED_CODE;
+        res.description = constants.JWT_EXPIRED_REASON + err.message;
+      } else if ('JsonWebTokenError' === err.name) {
+        res.code = constants.JWT_ERROR_CODE;
+        res.description = constants.JWT_ERROR_REASON + err.message;
       }
     }
-  }
-  return res;
+    return res;
+  });
+}
+function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
+  return co(function*() {
+    let header = opt_header || cfgTokenInboxHeader;
+    let prefix = opt_prefix || cfgTokenInboxPrefix;
+    let secretType = opt_secretType || commonDefines.c_oAscSecretType.Inbox;
+    let authorization = req.get(header);
+    if (authorization && authorization.startsWith(prefix)) {
+      var token = authorization.substring(prefix.length);
+      return yield checkJwt(ctx, token, secretType);
+    }
+    return null;
+  });
+}
+function getRequestParams(ctx, req, opt_isNotInBody) {
+  return co(function*(){
+    let res = {code: constants.NO_ERROR, params: undefined};
+    if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
+      res.params = JSON.parse(req.body.toString('utf8'));
+    } else {
+      res.params = req.query;
+    }
+    if (cfgTokenEnableRequestInbox) {
+      res.code = constants.VKEY;
+      let checkJwtRes;
+      if (res.params.token) {
+        checkJwtRes = yield checkJwt(ctx, res.params.token, commonDefines.c_oAscSecretType.Inbox);
+      } else {
+        checkJwtRes = yield checkJwtHeader(ctx, req);
+      }
+      if (checkJwtRes) {
+        if (checkJwtRes.decoded) {
+          res.code = constants.NO_ERROR;
+          if (cfgTokenRequiredParams) {
+            res.params = {};
+          }
+          Object.assign(res.params, checkJwtRes.decoded);
+          if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
+            Object.assign(res.params, checkJwtRes.decoded.payload);
+          }
+          if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
+            Object.assign(res.params, checkJwtRes.decoded.query);
+          }
+        } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
+          res.code = constants.VKEY_KEY_EXPIRE;
+        }
+      }
+    }
+    return res;
+  });
 }
 
 function getLicenseNowUtc() {
@@ -1542,7 +1546,7 @@ exports.install = function(server, callbackFunction) {
     var docIdNew = cmd.getDocId();
     //check jwt
     if (cfgTokenEnableBrowser) {
-      var checkJwtRes = checkJwt(ctx, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
+      var checkJwtRes = yield checkJwt(ctx, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
       if (checkJwtRes.decoded) {
         fillVersionHistoryFromJwt(checkJwtRes.decoded, cmd);
         docIdNew = cmd.getDocId();
@@ -2114,13 +2118,10 @@ exports.install = function(server, callbackFunction) {
   function* auth(ctx, conn, data) {
     //TODO: Do authorization etc. check md5 or query db
     if (data.token && data.user) {
-      let docId = data.docid;
-      let tm = new tenantManager.TenantManager();
-      let secret = yield tm.getTenantSecret(ctx, ctx.tenant);
       //check jwt
       if (cfgTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
-        const checkJwtRes = checkJwt(ctx, data.jwtSession || data.jwtOpen, secretType);
+        const checkJwtRes = yield checkJwt(ctx, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
           let decoded = checkJwtRes.decoded;
           let fillDataFromJwtRes = false;
@@ -2155,7 +2156,7 @@ exports.install = function(server, callbackFunction) {
         }
       }
 
-      docId = data.docid;
+      let docId = data.docid;
       const user = data.user;
 
       let wopiParams = null;
@@ -3657,7 +3658,7 @@ exports.commandFromServer = function (req, res) {
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('commandFromServer start');
-      let authRes = getRequestParams(ctx, req);
+      let authRes = yield getRequestParams(ctx, req);
       let params = authRes.params;
       if(authRes.code === constants.VKEY_KEY_EXPIRE){
         result = commonDefines.c_oAscServerCommandErrors.TokenExpire;

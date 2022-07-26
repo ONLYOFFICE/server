@@ -35,7 +35,7 @@
 const utils = require('./utils');
 const logger = require('./logger');
 const constants = require('./constants');
-const tenantManager = require('../../DocService/sources/tenantManager');
+const tenantManager = require('./tenantManager');
 
 function OperationContext(){
   this.logger = logger.getLogger('nodeJS');
@@ -47,8 +47,7 @@ OperationContext.prototype.init = function(tenant, docId, userId) {
   this.setUserId(userId);
 };
 OperationContext.prototype.initFromConnection = function(conn) {
-  let tm = new tenantManager.TenantManager();
-  let tenant = tm.getTenant(utils.getDomainByConnection(conn));
+  let tenant = tenantManager.getTenant(utils.getDomainByConnection(conn));
   let docId = conn.docid;
   if (!docId) {
     const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(conn.url);
@@ -60,8 +59,7 @@ OperationContext.prototype.initFromConnection = function(conn) {
   this.init(tenant, docId, userId);
 };
 OperationContext.prototype.initFromRequest = function(req) {
-  let tm = new tenantManager.TenantManager();
-  let tenant = tm.getTenant(utils.getDomainByRequest(req));
+  let tenant = tenantManager.getTenant(utils.getDomainByRequest(req));
   this.init(tenant, this.docId, this.userId);
 };
 OperationContext.prototype.initFromTaskQueueData = function(task) {
