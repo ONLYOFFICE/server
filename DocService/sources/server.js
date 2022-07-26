@@ -233,7 +233,7 @@ docsCoServer.install(server, () => {
 	if (cfgWopiEnable) {
 		app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
 		app.get('/hosting/capabilities', utils.checkClientIp, wopiClient.collaboraCapabilities);
-		app.post('/hosting/wopi/:documentType/:mode', utils.checkClientIp, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
+		app.post('/hosting/wopi/:documentType/:mode', urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
 	}
 
 	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
