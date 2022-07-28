@@ -42,14 +42,18 @@ if (cluster.isMaster) {
   const configCommon = require('config');
   const config = configCommon.get('FileConverter.converter');
   const license = require('./../../Common/sources/license');
+  const tenantManager = require('./../../Common/sources/tenantManager');
 
   const cfgLicenseFile = configCommon.get('license.license_file');
 
   const cfgMaxProcessCount = config.get('maxprocesscount');
-  var licenseInfo, workersCount = 0;
+  var workersCount = 0;
   const readLicense = function* () {
-    [licenseInfo] = yield* license.readLicense(cfgLicenseFile);
-    workersCount = Math.min(licenseInfo.count, Math.ceil(numCPUs * cfgMaxProcessCount));
+    workersCount = Math.ceil(numCPUs * cfgMaxProcessCount);
+    if (!tenantManager.isMultitenantMode()) {
+      let [licenseInfo] = yield* license.readLicense(cfgLicenseFile);
+      workersCount = Math.min(licenseInfo.count, workersCount);
+    }
   };
   const updateWorkers = () => {
     var i;
@@ -87,8 +91,10 @@ if (cluster.isMaster) {
 
   updateLicense();
 
-  fs.watchFile(configCommon.get('license').get('license_file'), updateLicense);
-  setInterval(updateLicense, 86400000);
+  if (!tenantManager.isMultitenantMode()) {
+    fs.watchFile(cfgLicenseFile, updateLicense);
+    setInterval(updateLicense, 86400000);
+  }
 } else {
   const converter = require('./converter');
   converter.run();

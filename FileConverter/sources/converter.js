@@ -57,6 +57,7 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const formatChecker = require('./../../Common/sources/formatchecker');
 const operationContext = require('./../../Common/sources/operationContext');
+const tenantManager = require('./../../Common/sources/tenantManager');
 
 var cfgDownloadMaxBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
 var cfgDownloadTimeout = configConverter.has('downloadTimeout') ? configConverter.get('downloadTimeout') : 60;
@@ -318,7 +319,8 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
       try {
         let authorization;
         if (utils.canIncludeOutboxAuthorization(uri) && withAuthorization) {
-          authorization = utils.fillJwtForRequest({url: uri}, false);
+          let secret = yield tenantManager.getTenantSecret(ctx, false);
+          authorization = utils.fillJwtForRequest({url: uri}, secret, false);
         }
         let getRes = yield utils.downloadUrlPromise(ctx, uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;

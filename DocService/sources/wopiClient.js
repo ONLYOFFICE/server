@@ -45,13 +45,13 @@ const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
+const tenantManager = require('./../../Common/sources/tenantManager');
 const sqlBase = require('./baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
 
 const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
-const cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
@@ -392,7 +392,7 @@ function getEditorHtml(req, res) {
 
       if (cfgTokenEnableBrowser) {
         let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
-        let secret = utils.getSecretByElem(cfgSignatureSecretOutbox);
+        let secret = yield tenantManager.getTenantSecret(ctx, true);
         params.token = jwt.sign(params, secret, options);
       }
     } catch (err) {

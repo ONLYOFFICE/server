@@ -72,7 +72,6 @@ var cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header'
 var cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
 var cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 var cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
-var cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 var cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
 var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
 var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
@@ -837,7 +836,7 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
-function fillJwtForRequest(payload, opt_inBody) {
+function fillJwtForRequest(payload, secret, opt_inBody) {
   //todo refuse prototypes in payload(they are simple getter/setter).
   //JSON.parse/stringify is more universal but Object.assign is enough for our inputs
   payload = Object.assign(Object.create(null), payload);
@@ -849,7 +848,6 @@ function fillJwtForRequest(payload, opt_inBody) {
   }
 
   let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
-  let secret = getSecretByElem(cfgSignatureSecretOutbox);
   return jwt.sign(data, secret, options);
 }
 exports.fillJwtForRequest = fillJwtForRequest;

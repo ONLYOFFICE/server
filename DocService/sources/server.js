@@ -57,6 +57,7 @@ const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
+const tenantManager = require('./../../Common/sources/tenantManager');
 const configStorage = configCommon.get('storage');
 
 const cfgWopiEnable = configCommon.get('wopi.enable');
@@ -107,7 +108,11 @@ if (!(cfgTokenEnableBrowser && cfgTokenEnableRequestInbox && cfgTokenEnableReque
 				'to prevent an unauthorized access to your documents and the substitution of important parameters in ONLYOFFICE Document Server requests.');
 }
 
-updateLicense();
+if (!tenantManager.isMultitenantMode()) {
+	updateLicense();
+	fs.watchFile(cfgLicenseFile, updateLicense);
+	setInterval(updateLicense, 86400000);
+}
 
 if (config.has('server.static_content')) {
 	const staticContent = config.get('server.static_content');
@@ -152,8 +157,6 @@ try {
 } catch (e) {
 	logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability');
 }
-fs.watchFile(configCommon.get('license').get('license_file'), updateLicense);
-setInterval(updateLicense, 86400000);
 
 // Если захочется использовать 'development' и 'production',
 // то с помощью app.settings.env (https://github.com/strongloop/express/issues/936)
@@ -166,17 +169,22 @@ docsCoServer.install(server, () => {
 	});
 
 	app.get('/index.html', (req, res) => {
-		let buildVersion = commonDefines.buildVersion;
-		let buildNumber = commonDefines.buildNumber;
-		let buildDate, packageType, customerId = "";
-		if (licenseInfo) {
-			buildDate = licenseInfo.buildDate.toISOString();
-			packageType = licenseInfo.packageType;
-			customerId = licenseInfo.customerId;
-		}
-		let output = `Server is functioning normally. Version: ${buildVersion}. Build: ${buildNumber}`;
-		output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}`;
-		res.send(output);
+		return co(function*() {
+			let ctx = new operationContext.OperationContext();
+			ctx.initFromRequest(req);
+			let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+			let buildVersion = commonDefines.buildVersion;
+			let buildNumber = commonDefines.buildNumber;
+			let buildDate, packageType, customerId = "";
+			if (licenseInfo) {
+				buildDate = licenseInfo.buildDate.toISOString();
+				packageType = licenseInfo.packageType;
+				customerId = licenseInfo.customerId;
+			}
+			let output = `Server is functioning normally. Version: ${buildVersion}. Build: ${buildNumber}`;
+			output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}`;
+			res.send(output);
+		});
 	});
 	const rawFileParser = bodyParser.raw(
 		{inflate: true, limit: config.get('server.limits_tempfile_upload'), type: function() {return true;}});

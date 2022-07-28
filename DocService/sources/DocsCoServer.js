@@ -164,7 +164,7 @@ let connections = []; // Активные соединения
 let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
 let queue;
-let licenseInfo = {type: constants.LICENSE_RESULT.Error, light: false, branding: false, customization: false, plugins: false};
+let f = {type: constants.LICENSE_RESULT.Error, light: false, branding: false, customization: false, plugins: false};
 let licenseOriginal = null;
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
@@ -564,7 +564,7 @@ function getParticipantUser(docId, includeUserId) {
 }
 
 
-function* updateEditUsers(userId, anonym, isLiveViewer) {
+function* updateEditUsers(licenseInfo, userId, anonym, isLiveViewer) {
   if (!licenseInfo.usersCount) {
     return;
   }
@@ -669,11 +669,12 @@ function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLe
   ctx.logger.debug('postData request: url = %s;data = %j', uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(uri)) {
-    let bodyToken = utils.fillJwtForRequest(dataObject, true);
-    auth = utils.fillJwtForRequest(dataObject, false);
+    let secret = yield tenantManager.getTenantSecret(ctx, false);
+    let bodyToken = utils.fillJwtForRequest(dataObject, secret, true);
+    auth = utils.fillJwtForRequest(dataObject, secret, false);
     let authLen = auth.length;
     if (opt_checkAndFixAuthorizationLength && !opt_checkAndFixAuthorizationLength(auth, dataObject)) {
-      auth = utils.fillJwtForRequest(dataObject, false);
+      auth = utils.fillJwtForRequest(dataObject, secret, false);
       ctx.logger.warn('authorization too large. Use body token instead. size reduced from %d to %d', authLen, auth.length);
     }
     dataObject.setToken(bodyToken);
@@ -753,7 +754,7 @@ const hasChanges = co.wrap(function*(ctx, docId) {
   }
   return true;
 });
-function* setForceSave(docId, forceSave, cmd, success) {
+function* setForceSave(ctx, docId, forceSave, cmd, success) {
   let forceSaveType = forceSave.getType();
   if (commonDefines.c_oAscForceSaveTypes.Form !== forceSaveType) {
     if (success) {
@@ -1004,7 +1005,7 @@ function* onReplySendStatusDocument(ctx, docId, replyData) {
     yield* publish({type: commonDefines.c_oPublishType.warning, ctx: ctx, docId: docId, description: 'Error on save server subscription!'});
   }
 }
-function* publishCloseUsersConnection(docId, users, isOriginalId, code, description) {
+function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, description) {
   if (Array.isArray(users)) {
     let usersMap = users.reduce(function(map, val) {
       map[val] = 1;
@@ -1027,7 +1028,7 @@ function closeUsersConnection(docId, usersMap, isOriginalId, code, description) 
     }
   }
 }
-function* dropUsersFromDocument(docId, users) {
+function* dropUsersFromDocument(ctx, docId, users) {
   if (Array.isArray(users)) {
     yield* publish({type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: users, description: ''});
   }
@@ -1145,7 +1146,7 @@ function checkJwt(ctx, token, type) {
     switch (type) {
       case commonDefines.c_oAscSecretType.Browser:
       case commonDefines.c_oAscSecretType.Inbox:
-        secret = yield tenantManager.getTenantSecret(ctx);
+        secret = yield tenantManager.getTenantSecret(ctx, true);
         break;
       case commonDefines.c_oAscSecretType.Session:
         secret = utils.getSecretByElem(cfgSecretSession);
@@ -1679,7 +1680,7 @@ exports.install = function(server, callbackFunction) {
           delete lockDocumentsTimerId[docId];
           //todo remove checkEndAuthLock(only needed for lost connections in redis)
           yield* checkEndAuthLock(ctx, true, false, docId, userId);
-          yield* publishCloseUsersConnection(docId, [userId], false, constants.DROP_CODE, constants.DROP_REASON);
+          yield* publishCloseUsersConnection(ctx, docId, [userId], false, constants.DROP_CODE, constants.DROP_REASON);
         } catch (e) {
           ctx.logger.error("lockDocumentsTimerId error: %s", e.stack);
         }
@@ -2118,6 +2119,7 @@ exports.install = function(server, callbackFunction) {
   function* auth(ctx, conn, data) {
     //TODO: Do authorization etc. check md5 or query db
     if (data.token && data.user) {
+      let licenseInfo = yield tenantManager.getTenantLicense(ctx);
       //check jwt
       if (cfgTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
@@ -2240,13 +2242,13 @@ exports.install = function(server, callbackFunction) {
       let isLiveViewer = utils.isLiveViewer(conn);
       if (!conn.user.view || isLiveViewer) {
         //todo
-        let licenceType = conn.licenseType = yield* _checkLicenseAuth(ctx, conn.user.idOriginal, isLiveViewer);
-        if (c_LR.Success !== licenceType && c_LR.SuccessLimit !== licenceType) {
+        let licenseType = conn.licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer);
+        if (c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) {
           conn.user.view = true;
           delete conn.coEditingMode;
         } else {
           //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
-          yield* updateEditUsers(conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
+          yield* updateEditUsers(licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
         }
       }
 
@@ -2982,6 +2984,8 @@ exports.install = function(server, callbackFunction) {
 					}
 				}
 
+				let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+
 				sendData(ctx, conn, {
 					type: 'license', license: {
 						type: licenseInfo.type,
@@ -3003,7 +3007,7 @@ exports.install = function(server, callbackFunction) {
 		});
 	}
 
-  function* _checkLicenseAuth(ctx, userId, isLiveViewer) {
+  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer) {
     let licenseWarningLimitUsers = false;
     let licenseWarningLimitUsersView = false;
     let licenseWarningLimitConnections = false;
@@ -3431,11 +3435,7 @@ exports.install = function(server, callbackFunction) {
   });
 };
 exports.setLicenseInfo = function(data, original ) {
-  licenseInfo = data;
-  licenseOriginal = original;
-};
-exports.getLicenseInfo = function() {
-  return licenseInfo;
+  tenantManager.setDefLicense(data, original);
 };
 exports.healthCheck = function(req, res) {
   return co(function*() {
@@ -3509,11 +3509,15 @@ exports.licenseInfo = function(req, res) {
         byMonth: []
       }
     };
-    Object.assign(output.licenseInfo, licenseInfo);
+
     let ctx = new operationContext.OperationContext();
     try {
       ctx.initFromRequest(req);
       ctx.logger.debug('licenseInfo start');
+
+      let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+      Object.assign(output.licenseInfo, licenseInfo);
+
       var precisionSum = {};
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
@@ -3637,10 +3641,11 @@ exports.licenseInfo = function(req, res) {
     }
   });
 };
-let commandLicense = co.wrap(function*() {
+let commandLicense = co.wrap(function*(ctx) {
   const nowUTC = getLicenseNowUtc();
   let users = yield editorData.getPresenceUniqueUser(nowUTC);
   let users_view = yield editorData.getPresenceUniqueViewUser(nowUTC);
+  let licenseInfo = yield tenantManager.getTenantLicense(ctx);
   return {
     license: licenseOriginal || utils.convertLicenseInfoToFileParams(licenseInfo),
     server: utils.convertLicenseInfoToServerParams(licenseInfo),
@@ -3686,7 +3691,7 @@ exports.commandFromServer = function (req, res) {
               yield* publish({type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: [params.userid], description: params.description});
             } else if (params.users) {
               const users = (typeof params.users === 'string') ? JSON.parse(params.users) : params.users;
-              yield* dropUsersFromDocument(docId, users);
+              yield* dropUsersFromDocument(ctx, docId, users);
             } else {
               result = commonDefines.c_oAscServerCommandErrors.UnknownCommand;
             }
@@ -3716,7 +3721,7 @@ exports.commandFromServer = function (req, res) {
               version = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
             break;
           case 'license':
-              outputLicense = yield commandLicense();
+              outputLicense = yield commandLicense(ctx);
             break;
           default:
             result = commonDefines.c_oAscServerCommandErrors.UnknownCommand;

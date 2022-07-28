@@ -44,6 +44,10 @@ const cfgTenantsBaseDir = config.get('tenants.baseDir');
 const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
 const cfgTenantsFilenameLicense = config.get('tenants.filenameLicense');
 const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
+const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
+
+let licenseInfo;
+let licenseOriginal;
 
 function getTenant(domain) {
   let tenant = "localhost";
@@ -59,7 +63,7 @@ function getTenant(domain) {
 function getTenantPathPrefix(ctx) {
   return isMultitenantMode() ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
 }
-function getTenantSecret(ctx) {
+function getTenantSecret(ctx, isInbox) {
   return co(function*() {
     let res = undefined;
     if (isMultitenantMode()) {
@@ -76,30 +80,35 @@ function getTenantSecret(ctx) {
         }
       }
     } else {
-      res = utils.getSecretByElem(cfgSecretInbox);
+      res = utils.getSecretByElem(isInbox ? cfgSecretInbox : cfgSecretOutbox);
     }
     return res;
   });
 }
-function getTenantLicence(ctx) {
+
+function setDefLicense(data, original) {
+  licenseInfo = data;
+  licenseOriginal = original;
+}
+function getTenantLicense(ctx) {
   return co(function*() {
     let res = undefined;
     if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
       try {
-        ctx.logger.debug('getTenantLicence');
-        res = yield readFile(licensePath, {encoding: 'utf8'});
-        license.readLicense(licensePath);
+        ctx.logger.debug('getTenantLicense');
+        yield readFile(licensePath, {encoding: 'utf8'});
+        [res] =  license.readLicense(licensePath);
       } catch(err) {
         if (err.code === 'ENOENT') {
-          ctx.logger.warn('getTenantLicence error: %s', err.stack);
+          ctx.logger.warn('getTenantLicense error: %s', err.stack);
         } else {
           throw err;
         }
       }
     } else {
-
+      res = licenseInfo;
     }
     return res;
   });
@@ -111,5 +120,6 @@ function isMultitenantMode() {
 exports.getTenant = getTenant;
 exports.getTenantPathPrefix = getTenantPathPrefix;
 exports.getTenantSecret = getTenantSecret;
-exports.getTenantLicence = getTenantLicence;
+exports.getTenantLicense = getTenantLicense;
+exports.setDefLicense = setDefLicense;
 exports.isMultitenantMode = isMultitenantMode;

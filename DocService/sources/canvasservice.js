@@ -50,6 +50,7 @@ var storage = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var operationContext = require('./../../Common/sources/operationContext');
+var tenantManager = require('./../../Common/sources/tenantManager');
 var config = require('config');
 var config_server = config.get('services.CoAuthoring.server');
 var config_utils = config.get('services.CoAuthoring.utils');
@@ -664,7 +665,8 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       }
       for (let i = 0; i < urls.length; ++i) {
         if (utils.canIncludeOutboxAuthorization(urls[i])) {
-          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]}, false)];
+          let secret = yield tenantManager.getTenantSecret(ctx, false);
+          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]}, secret, false)];
         }
       }
     } else {
@@ -1128,7 +1130,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
     }
     }
     if (forceSave) {
-      yield* docsCoServer.setForceSave(docId, forceSave, cmd, isSfcmSuccess && !isError);
+      yield* docsCoServer.setForceSave(ctx, docId, forceSave, cmd, isSfcmSuccess && !isError);
     }
     if (needRetry) {
       let attempt = cmd.getAttempt() || 0;
@@ -1545,7 +1547,8 @@ exports.downloadFile = function(req, res) {
           return;
         }
         if (utils.canIncludeOutboxAuthorization(url)) {
-          authorization = utils.fillJwtForRequest({url: url}, false);
+          let secret = yield tenantManager.getTenantSecret(ctx, false);
+          authorization = utils.fillJwtForRequest({url: url}, secret, false);
         }
       }
       yield utils.downloadUrlPromise(ctx, url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
