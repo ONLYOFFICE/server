@@ -3487,7 +3487,7 @@ exports.licenseInfo = function(req, res) {
             anonymous: 0,
           }
         },
-        byMonth: null
+        byMonth: []
       }
     };
     Object.assign(output.licenseInfo, licenseInfo);
@@ -3582,7 +3582,7 @@ exports.licenseInfo = function(req, res) {
 
       let byMonth = yield editorData.getPresenceUniqueUsersOfMonth();
       let byMonthView = yield editorData.getPresenceUniqueViewUsersOfMonth();
-      let byMonthMerged = yield editorData.getPresenceUniqueViewUsersOfMonth();
+      let byMonthMerged = [];
       for (let i in byMonth) {
         if (byMonth.hasOwnProperty(i)) {
           byMonthMerged[i] = {date: i, users: byMonth[i], usersView: {}};
