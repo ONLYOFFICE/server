@@ -80,7 +80,7 @@ var checkFileExpire = function() {
           ctx.setDocId(docId);
           //todo tenant
           //проверяем что никто не сидит в документе
-          let editorsCount = yield docsCoServer.getEditorsCountPromise(docId);
+          let editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
           if(0 === editorsCount){
             if (yield canvasService.cleanupCache(ctx)) {
               currentRemovedCount++;

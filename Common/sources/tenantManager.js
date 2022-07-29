@@ -45,6 +45,7 @@ const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
 const cfgTenantsFilenameLicense = config.get('tenants.filenameLicense');
 const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
+const cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
 
 let licenseInfo;
 let licenseOriginal;
@@ -59,6 +60,9 @@ function getTenant(domain) {
     tenant = domain;
   }
   return tenant;
+}
+function getTenantRedisPrefix(ctx) {
+  return cfgRedisPrefix + (isMultitenantMode() ? `tenant:${ctx.tenant}:` : '');
 }
 function getTenantPathPrefix(ctx) {
   return isMultitenantMode() ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
@@ -118,6 +122,7 @@ function isMultitenantMode() {
 }
 
 exports.getTenant = getTenant;
+exports.getTenantRedisPrefix = getTenantRedisPrefix;
 exports.getTenantPathPrefix = getTenantPathPrefix;
 exports.getTenantSecret = getTenantSecret;
 exports.getTenantLicense = getTenantLicense;

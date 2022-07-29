@@ -847,7 +847,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
       if (!conn.isEnterCorrectPassword) {
         docsCoServer.modifyConnectionForPassword(ctx, conn, true);
       }
-      yield docsCoServer.resetForceSaveAfterChanges(cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
+      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
       ctx.logger.debug('commandSetPassword sql update error');
       outputData.setStatus('err');
@@ -1039,14 +1039,14 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
         }
       } else {
         //if anybody in document stop save
-        let editorsCount = yield docsCoServer.getEditorsCountPromise(docId);
+        let editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
         ctx.logger.debug('commandSfcCallback presence: count = %d', editorsCount);
         if (0 === editorsCount || (isEncrypted && 1 === editorsCount)) {
           if (!updateIfRes) {
             updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
           }
           if (updateIfRes.affectedRows > 0) {
-            let actualForceSave = yield docsCoServer.editorData.getForceSave(docId);
+            let actualForceSave = yield docsCoServer.editorData.getForceSave(ctx, docId);
             let forceSaveDate = (actualForceSave && actualForceSave.time) ? new Date(actualForceSave.time) : new Date();
             let notModified = actualForceSave && true === actualForceSave.ended;
             outputSfc.setLastSave(forceSaveDate.toISOString());
@@ -1075,7 +1075,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
             var replyData = docsCoServer.parseReplyData(ctx, replyStr);
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error) {
               //в случае comunity server придет запрос в CommandService проверяем результат
-              var savedVal = yield docsCoServer.editorData.getdelSaved(docId);
+              var savedVal = yield docsCoServer.editorData.getdelSaved(ctx, docId);
               requestRes = (null == savedVal || '1' === savedVal);
             }
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
@@ -1655,7 +1655,7 @@ exports.receiveTask = function(data, ack) {
           if (outputData.getStatus()) {
             ctx.logger.debug('receiveTask publish: %s', JSON.stringify(outputData));
             var output = new OutputDataWrap('documentOpen', outputData);
-            yield* docsCoServer.publish({
+            yield* docsCoServer.publish(ctx, {
                                           type: commonDefines.c_oPublishType.receiveTask, ctx: ctx, cmd: cmd, output: output,
                                           needUrlKey: additionalOutput.needUrlKey,
                                           needUrlMethod: additionalOutput.needUrlMethod,

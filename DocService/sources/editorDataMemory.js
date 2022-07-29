@@ -86,13 +86,13 @@ EditorData.prototype._checkAndUnlock = function(name, docId, fencingToken) {
   return Promise.resolve(res);
 };
 
-EditorData.prototype.addPresence = function(docId, userId, userInfo) {
+EditorData.prototype.addPresence = function(ctx, docId, userId, userInfo) {
   return Promise.resolve();
 };
-EditorData.prototype.removePresence = function(docId, userId) {
+EditorData.prototype.removePresence = function(ctx, docId, userId) {
   return Promise.resolve();
 };
-EditorData.prototype.getPresence = function(docId, connections) {
+EditorData.prototype.getPresence = function(ctx, docId, connections) {
   let hvals = [];
   for (let i = 0; i < connections.length; ++i) {
     if (connections[i].docId === docId) {
@@ -102,27 +102,27 @@ EditorData.prototype.getPresence = function(docId, connections) {
   return Promise.resolve(hvals);
 };
 
-EditorData.prototype.lockSave = function(docId, userId, ttl) {
+EditorData.prototype.lockSave = function(ctx, docId, userId, ttl) {
   return this._checkAndLock('lockSave', docId, userId, ttl);
 };
-EditorData.prototype.unlockSave = function(docId, userId) {
+EditorData.prototype.unlockSave = function(ctx, docId, userId) {
   return this._checkAndUnlock('lockSave', docId, userId);
 };
-EditorData.prototype.lockAuth = function(docId, userId, ttl) {
+EditorData.prototype.lockAuth = function(ctx, docId, userId, ttl) {
   return this._checkAndLock('lockAuth', docId, userId, ttl);
 };
-EditorData.prototype.unlockAuth = function(docId, userId) {
+EditorData.prototype.unlockAuth = function(ctx, docId, userId) {
   return this._checkAndUnlock('lockAuth', docId, userId);
 };
 
 EditorData.prototype.getDocumentPresenceExpired = function(now) {
   return Promise.resolve([]);
 };
-EditorData.prototype.removePresenceDocument = function(docId) {
+EditorData.prototype.removePresenceDocument = function(ctx, docId) {
   return Promise.resolve();
 };
 
-EditorData.prototype.addLocks = function(docId, locks) {
+EditorData.prototype.addLocks = function(ctx, docId, locks) {
   let data = this._getDocumentData(docId);
   if (!data.locks) {
     data.locks = [];
@@ -130,17 +130,17 @@ EditorData.prototype.addLocks = function(docId, locks) {
   data.locks = data.locks.concat(locks);
   return Promise.resolve();
 };
-EditorData.prototype.removeLocks = function(docId) {
+EditorData.prototype.removeLocks = function(ctx, docId) {
   let data = this._getDocumentData(docId);
   data.locks = undefined;
   return Promise.resolve();
 };
-EditorData.prototype.getLocks = function(docId) {
+EditorData.prototype.getLocks = function(ctx, docId) {
   let data = this._getDocumentData(docId);
   return Promise.resolve(data.locks || []);
 };
 
-EditorData.prototype.addMessage = function(docId, msg) {
+EditorData.prototype.addMessage = function(ctx, docId, msg) {
   let data = this._getDocumentData(docId);
   if (!data.messages) {
     data.messages = [];
@@ -148,37 +148,37 @@ EditorData.prototype.addMessage = function(docId, msg) {
   data.messages.push(msg);
   return Promise.resolve();
 };
-EditorData.prototype.removeMessages = function(docId) {
+EditorData.prototype.removeMessages = function(ctx, docId) {
   let data = this._getDocumentData(docId);
   data.messages = undefined;
   return Promise.resolve();
 };
-EditorData.prototype.getMessages = function(docId) {
+EditorData.prototype.getMessages = function(ctx, docId) {
   let data = this._getDocumentData(docId);
   return Promise.resolve(data.messages || []);
 };
 
-EditorData.prototype.setSaved = function(docId, status) {
+EditorData.prototype.setSaved = function(ctx, docId, status) {
   let data = this._getDocumentData(docId);
   data.saved = status;
   return Promise.resolve();
 };
-EditorData.prototype.getdelSaved = function(docId) {
+EditorData.prototype.getdelSaved = function(ctx, docId) {
   let data = this._getDocumentData(docId);
   let res = data.saved;
   data.saved = undefined;
   return Promise.resolve(res);
 };
-EditorData.prototype.setForceSave = function(docId, time, index, baseUrl, changeInfo) {
+EditorData.prototype.setForceSave = function(ctx, docId, time, index, baseUrl, changeInfo) {
   let data = this._getDocumentData(docId);
   data.forceSave = {time: time, index: index, baseUrl: baseUrl, changeInfo: changeInfo, started: false, ended: false};
   return Promise.resolve();
 };
-EditorData.prototype.getForceSave = function(docId) {
+EditorData.prototype.getForceSave = function(ctx, docId) {
   let data = this._getDocumentData(docId);
   return Promise.resolve(data.forceSave || null);
 };
-EditorData.prototype.checkAndStartForceSave = function(docId) {
+EditorData.prototype.checkAndStartForceSave = function(ctx, docId) {
   let data = this._getDocumentData(docId);
   let res;
   if (data.forceSave && !data.forceSave.started) {
@@ -188,7 +188,7 @@ EditorData.prototype.checkAndStartForceSave = function(docId) {
   }
   return Promise.resolve(res);
 };
-EditorData.prototype.checkAndSetForceSave = function(docId, time, index, started, ended) {
+EditorData.prototype.checkAndSetForceSave = function(ctx, docId, time, index, started, ended) {
   let data = this._getDocumentData(docId);
   let res;
   if (data.forceSave && time === data.forceSave.time && index === data.forceSave.index) {
@@ -198,19 +198,19 @@ EditorData.prototype.checkAndSetForceSave = function(docId, time, index, started
   }
   return Promise.resolve(res);
 };
-EditorData.prototype.removeForceSave = function(docId) {
+EditorData.prototype.removeForceSave = function(ctx, docId) {
   let data = this._getDocumentData(docId);
   data.forceSave = undefined;
   return Promise.resolve();
 };
 
-EditorData.prototype.cleanDocumentOnExit = function(docId) {
+EditorData.prototype.cleanDocumentOnExit = function(ctx, docId) {
   delete this.data[docId];
   delete this.forceSaveTimer[docId];
   return Promise.resolve();
 };
 
-EditorData.prototype.addForceSaveTimerNX = function(docId, expireAt) {
+EditorData.prototype.addForceSaveTimerNX = function(ctx, docId, expireAt) {
   if (!this.forceSaveTimer[docId]) {
     this.forceSaveTimer[docId] = expireAt;
   }
@@ -229,11 +229,11 @@ EditorData.prototype.getForceSaveTimer = function(now) {
   return Promise.resolve(res);
 };
 
-EditorData.prototype.addPresenceUniqueUser = function(userId, expireAt, userInfo) {
+EditorData.prototype.addPresenceUniqueUser = function(ctx, userId, expireAt, userInfo) {
   this.uniqueUser[userId] = {expireAt: expireAt, userInfo: userInfo};
   return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
+EditorData.prototype.getPresenceUniqueUser = function(ctx, nowUTC) {
   let res = [];
   for (let userId in this.uniqueUser) {
     if (this.uniqueUser.hasOwnProperty(userId)) {
@@ -249,7 +249,7 @@ EditorData.prototype.getPresenceUniqueUser = function(nowUTC) {
   }
   return Promise.resolve(res);
 };
-EditorData.prototype.addPresenceUniqueUsersOfMonth = function(userId, period, userInfo) {
+EditorData.prototype.addPresenceUniqueUsersOfMonth = function(ctx, userId, period, userInfo) {
   if(!this.uniqueUsersOfMonth[period]) {
     let expireAt = Date.now() + cfgExpMonthUniqueUsers;
     this.uniqueUsersOfMonth[period] = {expireAt: expireAt, data: {}};
@@ -257,7 +257,7 @@ EditorData.prototype.addPresenceUniqueUsersOfMonth = function(userId, period, us
   this.uniqueUsersOfMonth[period].data[userId] = userInfo;
   return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueUsersOfMonth = function() {
+EditorData.prototype.getPresenceUniqueUsersOfMonth = function(ctx) {
   let res = {};
   let nowUTC = Date.now();
   for (let periodId in this.uniqueUsersOfMonth) {
@@ -273,11 +273,11 @@ EditorData.prototype.getPresenceUniqueUsersOfMonth = function() {
   return Promise.resolve(res);
 };
 
-EditorData.prototype.addPresenceUniqueViewUser = function(userId, expireAt, userInfo) {
+EditorData.prototype.addPresenceUniqueViewUser = function(ctx, userId, expireAt, userInfo) {
   this.uniqueViewUser[userId] = {expireAt: expireAt, userInfo: userInfo};
   return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueViewUser = function(nowUTC) {
+EditorData.prototype.getPresenceUniqueViewUser = function(ctx, nowUTC) {
   let res = [];
   for (let userId in this.uniqueViewUser) {
     if (this.uniqueViewUser.hasOwnProperty(userId)) {
@@ -293,7 +293,7 @@ EditorData.prototype.getPresenceUniqueViewUser = function(nowUTC) {
   }
   return Promise.resolve(res);
 };
-EditorData.prototype.addPresenceUniqueViewUsersOfMonth = function(userId, period, userInfo) {
+EditorData.prototype.addPresenceUniqueViewUsersOfMonth = function(ctx, userId, period, userInfo) {
   if(!this.uniqueViewUsersOfMonth[period]) {
     let expireAt = Date.now() + cfgExpMonthUniqueUsers;
     this.uniqueViewUsersOfMonth[period] = {expireAt: expireAt, data: {}};
@@ -301,7 +301,7 @@ EditorData.prototype.addPresenceUniqueViewUsersOfMonth = function(userId, period
   this.uniqueViewUsersOfMonth[period].data[userId] = userInfo;
   return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueViewUsersOfMonth = function() {
+EditorData.prototype.getPresenceUniqueViewUsersOfMonth = function(ctx) {
   let res = {};
   let nowUTC = Date.now();
   for (let periodId in this.uniqueViewUsersOfMonth) {
@@ -317,7 +317,7 @@ EditorData.prototype.getPresenceUniqueViewUsersOfMonth = function() {
   return Promise.resolve(res);
 };
 
-EditorData.prototype.setEditorConnections = function(countEdit, countLiveView, countView, now, precision) {
+EditorData.prototype.setEditorConnections = function(ctx, countEdit, countLiveView, countView, now, precision) {
   this.stat.push({time: now, edit: countEdit, liveview: countLiveView, view: countView});
   let i = 0;
   while (i < this.stat.length && this.stat[i] < now - precision[precision.length - 1].val) {
@@ -326,16 +326,16 @@ EditorData.prototype.setEditorConnections = function(countEdit, countLiveView, c
   this.stat.splice(0, i);
   return Promise.resolve();
 };
-EditorData.prototype.getEditorConnections = function() {
+EditorData.prototype.getEditorConnections = function(ctx) {
   return Promise.resolve(this.stat);
 };
-EditorData.prototype.setEditorConnectionsCountByShard = function(shardId, count) {
+EditorData.prototype.setEditorConnectionsCountByShard = function(ctx, shardId, count) {
   return Promise.resolve();
 };
-EditorData.prototype.incrEditorConnectionsCountByShard = function(shardId, count) {
+EditorData.prototype.incrEditorConnectionsCountByShard = function(ctx, shardId, count) {
   return Promise.resolve();
 };
-EditorData.prototype.getEditorConnectionsCount = function(connections) {
+EditorData.prototype.getEditorConnectionsCount = function(ctx, connections) {
   let count = 0;
   for (let i = 0; i < connections.length; ++i) {
     let conn = connections[i];
@@ -345,13 +345,13 @@ EditorData.prototype.getEditorConnectionsCount = function(connections) {
   }
   return Promise.resolve(count);
 };
-EditorData.prototype.setViewerConnectionsCountByShard = function(shardId, count) {
+EditorData.prototype.setViewerConnectionsCountByShard = function(ctx, shardId, count) {
   return Promise.resolve();
 };
-EditorData.prototype.incrViewerConnectionsCountByShard = function(shardId, count) {
+EditorData.prototype.incrViewerConnectionsCountByShard = function(ctx, shardId, count) {
   return Promise.resolve();
 };
-EditorData.prototype.getViewerConnectionsCount = function(connections) {
+EditorData.prototype.getViewerConnectionsCount = function(ctx, connections) {
   let count = 0;
   for (let i = 0; i < connections.length; ++i) {
     let conn = connections[i];
@@ -361,13 +361,13 @@ EditorData.prototype.getViewerConnectionsCount = function(connections) {
   }
   return Promise.resolve(count);
 };
-EditorData.prototype.setLiveViewerConnectionsCountByShard = function(shardId, count) {
+EditorData.prototype.setLiveViewerConnectionsCountByShard = function(ctx, shardId, count) {
   return Promise.resolve();
 };
-EditorData.prototype.incrLiveViewerConnectionsCountByShard = function(shardId, count) {
+EditorData.prototype.incrLiveViewerConnectionsCountByShard = function(ctx, shardId, count) {
   return Promise.resolve();
 };
-EditorData.prototype.getLiveViewerConnectionsCount = function(connections) {
+EditorData.prototype.getLiveViewerConnectionsCount = function(ctx, connections) {
   let count = 0;
   for (let i = 0; i < connections.length; ++i) {
     let conn = connections[i];

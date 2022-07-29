@@ -420,47 +420,47 @@ CRecalcIndex.prototype = {
   }
 };
 
-function updatePresenceCounters(conn, val) {
+function updatePresenceCounters(ctx, conn, val) {
   return co(function* () {
     if (utils.isLiveViewer(conn)) {
-      yield editorData.incrLiveViewerConnectionsCountByShard(SHARD_ID, val);
+      yield editorData.incrLiveViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (clientStatsD) {
-        let countLiveView = yield editorData.getLiveViewerConnectionsCount(connections);
+        let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
       }
     } else if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
-      yield editorData.incrViewerConnectionsCountByShard(SHARD_ID, val);
+      yield editorData.incrViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (clientStatsD) {
-        let countView = yield editorData.getViewerConnectionsCount(connections);
+        let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.view', countView);
       }
     } else {
-      yield editorData.incrEditorConnectionsCountByShard(SHARD_ID, val);
+      yield editorData.incrEditorConnectionsCountByShard(ctx, SHARD_ID, val);
       if (clientStatsD) {
-        let countEditors = yield editorData.getEditorConnectionsCount(connections);
+        let countEditors = yield editorData.getEditorConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.edit', countEditors);
       }
     }
   });
 }
-function addPresence(conn, updateCunters) {
+function addPresence(ctx, conn, updateCunters) {
   return co(function* () {
-    yield editorData.addPresence(conn.docId, conn.user.id, utils.getConnectionInfoStr(conn));
+    yield editorData.addPresence(ctx, conn.docId, conn.user.id, utils.getConnectionInfoStr(conn));
     if (updateCunters) {
-      yield updatePresenceCounters(conn, 1);
+      yield updatePresenceCounters(ctx, conn, 1);
     }
   });
 }
-function removePresence(conn) {
+function removePresence(ctx, conn) {
   return co(function* () {
-    yield editorData.removePresence(conn.docId, conn.user.id);
-    yield updatePresenceCounters(conn, -1);
+    yield editorData.removePresence(ctx, conn.docId, conn.user.id);
+    yield updatePresenceCounters(ctx, conn, -1);
   });
 }
 
 let changeConnectionInfo = co.wrap(function*(ctx, conn, cmd) {
   if (!conn.denyChangeName && conn.user) {
-    yield* publish({type: commonDefines.c_oPublishType.changeConnecitonInfo, ctx: ctx, docId: conn.docId, useridoriginal: conn.user.idOriginal, cmd: cmd});
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.changeConnecitonInfo, ctx: ctx, docId: conn.docId, useridoriginal: conn.user.idOriginal, cmd: cmd});
     return true;
   }
   return false;
@@ -564,7 +564,7 @@ function getParticipantUser(docId, includeUserId) {
 }
 
 
-function* updateEditUsers(licenseInfo, userId, anonym, isLiveViewer) {
+function* updateEditUsers(ctx, licenseInfo, userId, anonym, isLiveViewer) {
   if (!licenseInfo.usersCount) {
     return;
   }
@@ -573,20 +573,20 @@ function* updateEditUsers(licenseInfo, userId, anonym, isLiveViewer) {
       licenseInfo.usersExpire - 1;
   let period = utils.getLicensePeriod(licenseInfo.startDate, now);
   if (isLiveViewer) {
-    yield editorData.addPresenceUniqueViewUser(userId, expireAt, {anonym: anonym});
-    yield editorData.addPresenceUniqueViewUsersOfMonth(userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
+    yield editorData.addPresenceUniqueViewUser(ctx, userId, expireAt, {anonym: anonym});
+    yield editorData.addPresenceUniqueViewUsersOfMonth(ctx, userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
   } else {
-    yield editorData.addPresenceUniqueUser(userId, expireAt, {anonym: anonym});
-    yield editorData.addPresenceUniqueUsersOfMonth(userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
+    yield editorData.addPresenceUniqueUser(ctx, userId, expireAt, {anonym: anonym});
+    yield editorData.addPresenceUniqueUsersOfMonth(ctx, userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
   }
 }
-function* getEditorsCount(docId, opt_hvals) {
+function* getEditorsCount(ctx, docId, opt_hvals) {
   var elem, editorsCount = 0;
   var hvals;
   if(opt_hvals){
     hvals = opt_hvals;
   } else {
-    hvals = yield editorData.getPresence(docId, connections);
+    hvals = yield editorData.getPresence(ctx, docId, connections);
   }
   for (var i = 0; i < hvals.length; ++i) {
     elem = JSON.parse(hvals[i]);
@@ -597,13 +597,13 @@ function* getEditorsCount(docId, opt_hvals) {
   }
   return editorsCount;
 }
-function* hasEditors(docId, opt_hvals) {
-  let editorsCount = yield* getEditorsCount(docId, opt_hvals);
+function* hasEditors(ctx, docId, opt_hvals) {
+  let editorsCount = yield* getEditorsCount(ctx, docId, opt_hvals);
   return editorsCount > 0;
 }
-function* isUserReconnect(docId, userId, connectionId) {
+function* isUserReconnect(ctx, docId, userId, connectionId) {
   var elem;
-  var hvals = yield editorData.getPresence(docId, connections);
+  var hvals = yield editorData.getPresence(ctx, docId, connections);
   for (var i = 0; i < hvals.length; ++i) {
     elem = JSON.parse(hvals[i]);
     if (userId === elem.id && connectionId !== elem.connectionId) {
@@ -612,11 +612,11 @@ function* isUserReconnect(docId, userId, connectionId) {
   }
   return false;
 }
-function* publish(data, optDocId, optUserId, opt_pubsub) {
+function* publish(ctx, data, optDocId, optUserId, opt_pubsub) {
   var needPublish = true;
   if(optDocId && optUserId) {
     needPublish = false;
-    var hvals = yield editorData.getPresence(optDocId, connections);
+    var hvals = yield editorData.getPresence(ctx, optDocId, connections);
     for (var i = 0; i < hvals.length; ++i) {
       var elem = JSON.parse(hvals[i]);
       if(optUserId != elem.id) {
@@ -650,9 +650,9 @@ function* removeResponse(data) {
   yield queue.removeResponse(data);
 }
 
-function* getOriginalParticipantsId(docId) {
+function* getOriginalParticipantsId(ctx, docId) {
   var result = [], tmpObject = {};
-  var hvals = yield editorData.getPresence(docId, connections);
+  var hvals = yield editorData.getPresence(ctx, docId, connections);
   for (var i = 0; i < hvals.length; ++i) {
     var elem = JSON.parse(hvals[i]);
     if (!elem.view && !elem.isCloseCoAuthoring) {
@@ -758,18 +758,18 @@ function* setForceSave(ctx, docId, forceSave, cmd, success) {
   let forceSaveType = forceSave.getType();
   if (commonDefines.c_oAscForceSaveTypes.Form !== forceSaveType) {
     if (success) {
-      yield editorData.checkAndSetForceSave(docId, forceSave.getTime(), forceSave.getIndex(), true, true);
+      yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), true, true);
     } else {
-      yield editorData.checkAndSetForceSave(docId, forceSave.getTime(), forceSave.getIndex(), false, false);
+      yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), false, false);
     }
   }
 
   if (commonDefines.c_oAscForceSaveTypes.Command !== forceSaveType) {
     let data = {type: forceSaveType, time: forceSave.getTime(), success: success};
     if(commonDefines.c_oAscForceSaveTypes.Form === forceSaveType) {
-      yield* publish({type: commonDefines.c_oPublishType.rpc, ctx: ctx, docId: docId, data: data, responseKey: cmd.getResponseKey()}, cmd.getUserConnectionId());
+      yield* publish(ctx, {type: commonDefines.c_oPublishType.rpc, ctx: ctx, docId: docId, data: data, responseKey: cmd.getResponseKey()}, cmd.getUserConnectionId());
     } else {
-      yield* publish({type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId, data: data}, cmd.getUserConnectionId());
+      yield* publish(ctx, {type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId, data: data}, cmd.getUserConnectionId());
     }
   }
 }
@@ -779,15 +779,15 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
   let startedForceSave;
   let hasEncrypted = false;
   if (!shutdownFlag) {
-    let hvals = yield editorData.getPresence(docId, connections);
+    let hvals = yield editorData.getPresence(ctx, docId, connections);
     hasEncrypted = hvals.some((currentValue) => {
       return !!JSON.parse(currentValue).encrypted;
     });
     if (!hasEncrypted) {
       if (commonDefines.c_oAscForceSaveTypes.Form === type) {
-        startedForceSave = yield editorData.getForceSave(docId);
+        startedForceSave = yield editorData.getForceSave(ctx, docId);
       } else {
-        startedForceSave = yield editorData.checkAndStartForceSave(docId);
+        startedForceSave = yield editorData.checkAndStartForceSave(ctx, docId);
       }
     }
   }
@@ -800,7 +800,7 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
     forceSave.setAuthorUserIndex(opt_userIndex);
 
     if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
-      yield* publish({
+      yield* publish(ctx, {
                        type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId,
                        data: {type: type, time: forceSave.getTime(), start: true}
                      }, undefined, undefined, opt_pubsub);
@@ -835,10 +835,10 @@ function getExternalChangeInfo(user, date) {
 let resetForceSaveAfterChanges = co.wrap(function*(docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
   //last save
   if (newChangesLastTime) {
-    yield editorData.setForceSave(docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo);
+    yield editorData.setForceSave(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo);
     if (cfgForceSaveEnable) {
       let expireAt = newChangesLastTime + cfgForceSaveInterval;
-      yield editorData.addForceSaveTimerNX(docId, expireAt);
+      yield editorData.addForceSaveTimerNX(ctx, docId, expireAt);
     }
   }
 });
@@ -885,7 +885,7 @@ function handleDeadLetter(data, ack) {
         ctx.logger.warn('handleDeadLetter start: %s', data);
         let forceSave = cmd.getForceSave();
         if (forceSave && commonDefines.c_oAscForceSaveTypes.Timeout == forceSave.getType()) {
-          let actualForceSave = yield editorData.getForceSave(cmd.getDocId());
+          let actualForceSave = yield editorData.getForceSave(ctx, cmd.getDocId());
           //check that there are no new changes
           if (actualForceSave && forceSave.getTime() === actualForceSave.time && forceSave.getIndex() === actualForceSave.index) {
             //requeue task
@@ -938,7 +938,7 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
   }
 
   var status = c_oAscServerStatus.Editing;
-  var participants = yield* getOriginalParticipantsId(docId);
+  var participants = yield* getOriginalParticipantsId(ctx, docId);
   if (0 === participants.length) {
     let bHasChanges = yield hasChanges(ctx, docId);
     if (!bHasChanges || opt_forceClose) {
@@ -1002,7 +1002,7 @@ function* onReplySendStatusDocument(ctx, docId, replyData) {
   var oData = parseReplyData(ctx, replyData);
   if (!(oData && commonDefines.c_oAscServerCommandErrors.NoError == oData.error)) {
     // Ошибка подписки на callback, посылаем warning
-    yield* publish({type: commonDefines.c_oPublishType.warning, ctx: ctx, docId: docId, description: 'Error on save server subscription!'});
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.warning, ctx: ctx, docId: docId, description: 'Error on save server subscription!'});
   }
 }
 function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, description) {
@@ -1011,7 +1011,7 @@ function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, des
       map[val] = 1;
       return map;
     }, {});
-    yield* publish({
+    yield* publish(ctx, {
                      type: commonDefines.c_oPublishType.closeConnection, ctx: ctx, docId: docId, usersMap: usersMap,
                      isOriginalId: isOriginalId, code: code, description: description
                    });
@@ -1030,7 +1030,7 @@ function closeUsersConnection(docId, usersMap, isOriginalId, code, description) 
 }
 function* dropUsersFromDocument(ctx, docId, users) {
   if (Array.isArray(users)) {
-    yield* publish({type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: users, description: ''});
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: users, description: ''});
   }
 }
 
@@ -1092,7 +1092,7 @@ let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
 });
 function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
-  yield editorData.cleanDocumentOnExit(docId);
+  yield editorData.cleanDocumentOnExit(ctx, docId);
   //remove changes
   if (deleteChanges) {
     yield taskResult.restoreInitialPassword(ctx, docId);
@@ -1227,13 +1227,13 @@ function getLicenseNowUtc() {
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(),
                   now.getUTCMinutes(), now.getUTCSeconds()) / 1000;
 }
-let getParticipantMap = co.wrap(function*(docId, opt_hvals) {
+let getParticipantMap = co.wrap(function*(ctx, docId, opt_hvals) {
   const participantsMap = [];
   let hvals;
   if (opt_hvals) {
     hvals = opt_hvals;
   } else {
-    hvals = yield editorData.getPresence(docId, connections);
+    hvals = yield editorData.getPresence(ctx, docId, connections);
   }
   for (let i = 0; i < hvals.length; ++i) {
     const elem = JSON.parse(hvals[i]);
@@ -1445,22 +1445,22 @@ exports.install = function(server, callbackFunction) {
         return el.id === conn.id;//Delete this connection
       });
       //Check if it's not already reconnected
-      reconnected = yield* isUserReconnect(docId, tmpUser.id, conn.id);
+      reconnected = yield* isUserReconnect(ctx, docId, tmpUser.id, conn.id);
       if (reconnected) {
         ctx.logger.info("reconnected");
       } else {
-        yield removePresence(conn);
-        hvals = yield editorData.getPresence(docId, connections);
+        yield removePresence(ctx, conn);
+        hvals = yield editorData.getPresence(ctx, docId, connections);
         participantsTimestamp = Date.now();
         if (hvals.length <= 0) {
-          yield editorData.removePresenceDocument(docId);
+          yield editorData.removePresenceDocument(ctx, docId);
         }
       }
     } else {
       if (!conn.isCloseCoAuthoring) {
         tmpUser.view = true;
         conn.isCloseCoAuthoring = true;
-        yield addPresence(conn, true);
+        yield addPresence(ctx, conn, true);
         if (cfgTokenEnableBrowser) {
           sendDataRefreshToken(ctx, conn);
         }
@@ -1476,19 +1476,19 @@ exports.install = function(server, callbackFunction) {
       //revert old view to send event
       var tmpView = tmpUser.view;
       tmpUser.view = isView;
-      let participants = yield getParticipantMap(docId, hvals);
+      let participants = yield getParticipantMap(ctx, docId, hvals);
       if (!participantsTimestamp) {
         participantsTimestamp = Date.now();
       }
-      yield* publish({type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participants}, docId, tmpUser.id);
+      yield* publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participants}, docId, tmpUser.id);
       tmpUser.view = tmpView;
 
       // Для данного пользователя снимаем лок с сохранения
-      yield editorData.unlockSave(docId, conn.user.id);
+      yield editorData.unlockSave(ctx, docId, conn.user.id);
 
       // Только если редактируем
       if (false === isView) {
-        bHasEditors = yield* hasEditors(docId, hvals);
+        bHasEditors = yield* hasEditors(ctx, docId, hvals);
         bHasChanges = yield hasChanges(ctx, docId);
 
         let needSendStatus = true;
@@ -1503,11 +1503,11 @@ exports.install = function(server, callbackFunction) {
         }
         //Давайдосвиданья!
         //Release locks
-        userLocks = yield* removeUserLocks(docId, conn.user.id);
+        userLocks = yield* removeUserLocks(ctx, docId, conn.user.id);
         if (0 < userLocks.length) {
           //todo на close себе ничего не шлем
           //sendReleaseLock(conn, userLocks);
-          yield* publish({type: commonDefines.c_oPublishType.releaseLock, ctx: ctx, docId: docId, userId: conn.user.id, locks: userLocks}, docId, conn.user.id);
+          yield* publish(ctx, {type: commonDefines.c_oPublishType.releaseLock, ctx: ctx, docId: docId, userId: conn.user.id, locks: userLocks}, docId, conn.user.id);
         }
 
         // Для данного пользователя снимаем Lock с документа
@@ -1517,7 +1517,7 @@ exports.install = function(server, callbackFunction) {
         // Если у нас нет пользователей, то удаляем все сообщения
         if (!bHasEditors) {
           // На всякий случай снимаем lock
-          yield editorData.unlockSave(docId, tmpUser.id);
+          yield editorData.unlockSave(ctx, docId, tmpUser.id);
 
           let needSaveChanges = bHasChanges;
           if (!needSaveChanges) {
@@ -1559,15 +1559,15 @@ exports.install = function(server, callbackFunction) {
     }
     if (docIdOld !== docIdNew) {
       //remove presence(other data was removed before in closeDocument)
-      yield removePresence(conn);
-      var hvals = yield editorData.getPresence(docIdOld, connections);
+      yield removePresence(ctx, conn);
+      var hvals = yield editorData.getPresence(ctx, docIdOld, connections);
       if (hvals.length <= 0) {
-        yield editorData.removePresenceDocument(docIdOld);
+        yield editorData.removePresenceDocument(ctx, docIdOld);
       }
 
       //apply new
       conn.docId = docIdNew;
-      yield addPresence(conn, true);
+      yield addPresence(ctx, conn, true);
       if (cfgTokenEnableBrowser) {
         sendDataRefreshToken(ctx, conn);
       }
@@ -1592,18 +1592,18 @@ exports.install = function(server, callbackFunction) {
     return objChangesDocument;
   }
 
-  function* getAllLocks(docId) {
+  function* getAllLocks(ctx, docId) {
     var docLockRes = [];
-    var docLock = yield editorData.getLocks(docId);
+    var docLock = yield editorData.getLocks(ctx, docId);
     for (var i = 0; i < docLock.length; ++i) {
       docLockRes.push(docLock[i]);
     }
     return docLockRes;
   }
-  function* removeUserLocks(docId, userId) {
+  function* removeUserLocks(ctx, docId, userId) {
     var userLocks = [], i;
     var toCache = [];
-    var docLock = yield* getAllLocks(docId);
+    var docLock = yield* getAllLocks(ctx, docId);
     for (i = 0; i < docLock.length; ++i) {
       var elem = docLock[i];
       if (elem.user === userId) {
@@ -1613,9 +1613,9 @@ exports.install = function(server, callbackFunction) {
       }
     }
     //remove all
-    yield editorData.removeLocks(docId);
+    yield editorData.removeLocks(ctx, docId);
     //set all
-    yield editorData.addLocks(docId, toCache);
+    yield editorData.addLocks(ctx, docId, toCache);
     return userLocks;
   }
 
@@ -1635,10 +1635,10 @@ exports.install = function(server, callbackFunction) {
     }
 
 		if (unlock) {
-			var unlockRes = yield editorData.unlockAuth(docId, userId);
+			var unlockRes = yield editorData.unlockAuth(ctx, docId, userId);
 			if (commonDefines.c_oAscUnlockRes.Unlocked === unlockRes) {
-				const participantsMap = yield getParticipantMap(docId);
-				yield* publish({
+				const participantsMap = yield getParticipantMap(ctx, docId);
+				yield* publish(ctx, {
 					type: commonDefines.c_oPublishType.auth,
                     ctx: ctx,
 					docId: docId,
@@ -1652,10 +1652,10 @@ exports.install = function(server, callbackFunction) {
 
 		//Release locks
 		if (releaseLocks && conn) {
-			const userLocks = yield* removeUserLocks(docId, userId);
+			const userLocks = yield* removeUserLocks(ctx, docId, userId);
 			if (0 < userLocks.length) {
 				sendReleaseLock(ctx, conn, userLocks);
-				yield* publish({
+				yield* publish(ctx, {
 					type: commonDefines.c_oPublishType.releaseLock,
                     ctx: ctx,
 					docId: docId,
@@ -1722,7 +1722,7 @@ exports.install = function(server, callbackFunction) {
     if (constants.CONN_CLOSED !== conn.readyState) {
       // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
       connections.push(conn);
-      yield addPresence(conn, true);
+      yield addPresence(ctx, conn, true);
 
       sendFileError(ctx, conn, errorId, code);
     }
@@ -2248,7 +2248,7 @@ exports.install = function(server, callbackFunction) {
           delete conn.coEditingMode;
         } else {
           //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
-          yield* updateEditUsers(licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
+          yield* updateEditUsers(ctx, licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
         }
       }
 
@@ -2270,7 +2270,7 @@ exports.install = function(server, callbackFunction) {
         if (constants.CONN_CLOSED !== conn.readyState) {
           // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
           connections.push(conn);
-          yield addPresence(conn, true);
+          yield addPresence(ctx, conn, true);
           // Посылаем формальную авторизацию, чтобы подтвердить соединение
           yield* sendAuthInfo(ctx, conn, bIsRestore, undefined);
           if (cmd) {
@@ -2403,8 +2403,8 @@ exports.install = function(server, callbackFunction) {
     }
     connections.push(conn);
     let firstParticipantNoView, countNoView = 0;
-    yield addPresence(conn, true);
-    let participantsMap = yield getParticipantMap(docId);
+    yield addPresence(ctx, conn, true);
+    let participantsMap = yield getParticipantMap(ctx, docId);
     const participantsTimestamp = Date.now();
     for (let i = 0; i < participantsMap.length; ++i) {
       const elem = participantsMap[i];
@@ -2440,7 +2440,7 @@ exports.install = function(server, callbackFunction) {
     let waitAuthUserId;
     if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
       // Ставим lock на документ
-      const lockRes = yield editorData.lockAuth(docId, firstParticipantNoView.id, 2 * cfgExpLockDoc);
+      const lockRes = yield editorData.lockAuth(ctx, docId, firstParticipantNoView.id, 2 * cfgExpLockDoc);
       if (constants.CONN_CLOSED === conn.readyState) {
         //closing could happen during async action
         return false;
@@ -2480,7 +2480,7 @@ exports.install = function(server, callbackFunction) {
       //closing could happen during async action
       return false;
     }
-    yield* publish({type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participantsMap, waitAuthUserId: waitAuthUserId}, docId, tmpUser.id);
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participantsMap, waitAuthUserId: waitAuthUserId}, docId, tmpUser.id);
     return res;
   }
 
@@ -2543,15 +2543,15 @@ exports.install = function(server, callbackFunction) {
     if(EditorTypes.document == conn.editorType){
       docLock = {};
       let elem;
-      const allLocks = yield* getAllLocks(docId);
+      const allLocks = yield* getAllLocks(ctx, docId);
       for(let i = 0 ; i < allLocks.length; ++i) {
         elem = allLocks[i];
         docLock[elem.block] = elem;
       }
     } else {
-      docLock = yield* getAllLocks(docId);
+      docLock = yield* getAllLocks(ctx, docId);
     }
-    let allMessages = yield editorData.getMessages(docId);
+    let allMessages = yield editorData.getMessages(ctx, docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
     const sendObject = {
       type: 'auth',
@@ -2582,13 +2582,13 @@ exports.install = function(server, callbackFunction) {
     var docId = conn.docId;
     var userId = conn.user.id;
     var msg = {docid: docId, message: data.message, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal, username: conn.user.username};
-    yield editorData.addMessage(docId, msg);
+    yield editorData.addMessage(ctx, docId, msg);
     // insert
     ctx.logger.info("insert message: %j", msg);
 
     var messages = [msg];
     sendDataMessage(ctx, conn, messages);
-    yield* publish({type: commonDefines.c_oPublishType.message, ctx: ctx, docId: docId, userId: userId, messages: messages}, docId, userId);
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.message, ctx: ctx, docId: docId, userId: userId, messages: messages}, docId, userId);
   }
 
   function* onCursor(ctx, conn, data) {
@@ -2599,7 +2599,7 @@ exports.install = function(server, callbackFunction) {
     ctx.logger.info("send cursor: %s", msg);
 
     var messages = [msg];
-    yield* publish({type: commonDefines.c_oPublishType.cursor, ctx: ctx, docId: docId, userId: userId, messages: messages}, docId, userId);
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.cursor, ctx: ctx, docId: docId, userId: userId, messages: messages}, docId, userId);
   }
 
   function* getLock(ctx, conn, data, bIsRestore) {
@@ -2636,13 +2636,13 @@ exports.install = function(server, callbackFunction) {
         documentLocks[block] = elem;
         toCache.push(elem);
       }
-      yield editorData.addLocks(docId, toCache);
+      yield editorData.addLocks(ctx, docId, toCache);
     } else if (bIsRestore) {
       return false;
     }
     //тому кто зделал запрос возвращаем максимально быстро
     sendData(ctx, conn, {type: "getLock", locks: documentLocks});
-    yield* publish({type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
 
@@ -2650,7 +2650,7 @@ exports.install = function(server, callbackFunction) {
   function* getLockExcel(ctx, conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
-    var checkRes = yield* _checkLockExcel(docId, arrayBlocks, userId);
+    var checkRes = yield* _checkLockExcel(ctx, docId, arrayBlocks, userId);
     var documentLocks = checkRes.documentLocks;
     if (checkRes.res) {
       //Ok. take lock
@@ -2661,13 +2661,13 @@ exports.install = function(server, callbackFunction) {
         documentLocks.push(elem);
         toCache.push(elem);
       }
-      yield editorData.addLocks(docId, toCache);
+      yield editorData.addLocks(ctx, docId, toCache);
     } else if (bIsRestore) {
       return false;
     }
     //тому кто зделал запрос возвращаем максимально быстро
     sendData(ctx, conn, {type: "getLock", locks: documentLocks});
-    yield* publish({type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
 
@@ -2675,7 +2675,7 @@ exports.install = function(server, callbackFunction) {
   function* getLockPresentation(ctx, conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
-    var checkRes = yield* _checkLockPresentation(docId, arrayBlocks, userId);
+    var checkRes = yield* _checkLockPresentation(ctx, docId, arrayBlocks, userId);
     var documentLocks = checkRes.documentLocks;
     if (checkRes.res) {
       //Ok. take lock
@@ -2686,13 +2686,13 @@ exports.install = function(server, callbackFunction) {
         documentLocks.push(elem);
         toCache.push(elem);
       }
-      yield editorData.addLocks(docId, toCache);
+      yield editorData.addLocks(ctx, docId, toCache);
     } else if (bIsRestore) {
       return false;
     }
     //тому кто зделал запрос возвращаем максимально быстро
     sendData(ctx, conn, {type: "getLock", locks: documentLocks});
-    yield* publish({type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
+    yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
 
@@ -2707,7 +2707,7 @@ exports.install = function(server, callbackFunction) {
     const docId = conn.docId, userId = conn.user.id;
     ctx.logger.info("Start saveChanges: reSave: %s", data.reSave);
 
-    let lockRes = yield editorData.lockSave(docId, userId, cfgExpSaveLock);
+    let lockRes = yield editorData.lockSave(ctx, docId, userId, cfgExpSaveLock);
     if (!lockRes) {
       //should not be here. cfgExpSaveLock - 60sec, sockjs disconnects after 25sec
       ctx.logger.warn("saveChanges lockSave error");
@@ -2761,14 +2761,14 @@ exports.install = function(server, callbackFunction) {
         const oRecalcIndexRows = _addRecalcIndex(tmpAdditionalInfo["indexRows"]);
         // Теперь нужно пересчитать индексы для lock-элементов
         if (null !== oRecalcIndexColumns || null !== oRecalcIndexRows) {
-          const docLock = yield* getAllLocks(docId);
+          const docLock = yield* getAllLocks(ctx, docId);
           if (_recalcLockArray(userId, docLock, oRecalcIndexColumns, oRecalcIndexRows)) {
             let toCache = [];
             for (let i = 0; i < docLock.length; ++i) {
               toCache.push(docLock[i]);
             }
-            yield editorData.removeLocks(docId);
-            yield editorData.addLocks(docId, toCache);
+            yield editorData.removeLocks(ctx, docId);
+            yield editorData.addLocks(ctx, docId, toCache);
           }
         }
       }
@@ -2776,7 +2776,7 @@ exports.install = function(server, callbackFunction) {
       let userLocks = [];
       if (data.releaseLocks) {
 		  //Release locks
-		  userLocks = yield* removeUserLocks(docId, userId);
+		  userLocks = yield* removeUserLocks(ctx, docId, userId);
       }
       // Для данного пользователя снимаем Lock с документа, если пришел флаг unlock
       const checkEndAuthLockRes = yield* checkEndAuthLock(ctx, data.unlock, false, docId, userId);
@@ -2797,7 +2797,7 @@ exports.install = function(server, callbackFunction) {
             value.time = value.time.getTime();
           })
         }
-        yield* publish({type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
+        yield* publish(ctx, {type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
           changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
           locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo, endSaveChanges: data.endSaveChanges}, docId, userId);
       }
@@ -2805,7 +2805,7 @@ exports.install = function(server, callbackFunction) {
       yield* unSaveLock(ctx, conn, changesIndex, newChangesLastTime);
       //last save
       let changeInfo = getExternalChangeInfo(conn.user, newChangesLastTime);
-      yield resetForceSaveAfterChanges(docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn), changeInfo);
+      yield resetForceSaveAfterChanges(ctx, docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
       let changesToSend = arrNewDocumentChanges;
       if(changesToSend.length > cfgPubSubMaxChanges) {
@@ -2815,20 +2815,20 @@ exports.install = function(server, callbackFunction) {
           value.time = value.time.getTime();
         })
       }
-      let isPublished = yield* publish({type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
+      let isPublished = yield* publish(ctx, {type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
         changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
         locks: [], excelAdditionalInfo: undefined, endSaveChanges: data.endSaveChanges}, docId, userId);
       sendData(ctx, conn, {type: 'savePartChanges', changesIndex: changesIndex});
       if (!isPublished) {
         //stub for lockDocumentsTimerId
-        yield* publish({type: commonDefines.c_oPublishType.changesNotify, ctx: ctx, docId: docId});
+        yield* publish(ctx, {type: commonDefines.c_oPublishType.changesNotify, ctx: ctx, docId: docId});
       }
     }
   }
 
   // Можем ли мы сохранять ?
   function* isSaveLock(ctx, conn) {
-    let lockRes = yield editorData.lockSave(conn.docId, conn.user.id, cfgExpSaveLock);
+    let lockRes = yield editorData.lockSave(ctx, conn.docId, conn.user.id, cfgExpSaveLock);
     ctx.logger.debug("isSaveLock lockRes: %s", lockRes);
 
     // Отправляем только тому, кто спрашивал (всем отправлять нельзя)
@@ -2837,7 +2837,7 @@ exports.install = function(server, callbackFunction) {
 
   // Снимаем лок с сохранения
   function* unSaveLock(ctx, conn, index, time) {
-    var unlockRes = yield editorData.unlockSave(conn.docId, conn.user.id);
+    var unlockRes = yield editorData.unlockSave(ctx, conn.docId, conn.user.id);
     if (commonDefines.c_oAscUnlockRes.Locked !== unlockRes) {
       sendData(ctx, conn, {type: 'unSaveLock', index: index, time: time});
     } else {
@@ -2847,7 +2847,7 @@ exports.install = function(server, callbackFunction) {
 
   // Возвращаем все сообщения для документа
   function* getMessages(ctx, conn) {
-    let allMessages = yield editorData.getMessages(conn.docId);
+    let allMessages = yield editorData.getMessages(ctx, conn.docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
     sendDataMessage(ctx, conn, allMessages);
   }
@@ -2855,7 +2855,7 @@ exports.install = function(server, callbackFunction) {
   function* _checkLock(ctx, docId, arrayBlocks) {
     // Data is array now
     var isLock = false;
-    var allLocks = yield* getAllLocks(docId);
+    var allLocks = yield* getAllLocks(ctx, docId);
     var documentLocks = {};
     for(var i = 0 ; i < allLocks.length; ++i) {
       var elem = allLocks[i];
@@ -2876,13 +2876,13 @@ exports.install = function(server, callbackFunction) {
     return {res: !isLock, documentLocks: documentLocks};
   }
 
-  function* _checkLockExcel(docId, arrayBlocks, userId) {
+  function* _checkLockExcel(ctx, docId, arrayBlocks, userId) {
     // Data is array now
     var documentLock;
     var isLock = false;
     var isExistInArray = false;
     var i, blockRange;
-    var documentLocks = yield* getAllLocks(docId);
+    var documentLocks = yield* getAllLocks(ctx, docId);
     var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
     for (i = 0; i < lengthArray && false === isLock; ++i) {
       blockRange = arrayBlocks[i];
@@ -2936,11 +2936,11 @@ exports.install = function(server, callbackFunction) {
     return {res: !isLock && !isExistInArray, documentLocks: documentLocks};
   }
 
-  function* _checkLockPresentation(docId, arrayBlocks, userId) {
+  function* _checkLockPresentation(ctx, docId, arrayBlocks, userId) {
     // Data is array now
     var isLock = false;
     var i, documentLock, blockRange;
-    var documentLocks = yield* getAllLocks(docId);
+    var documentLocks = yield* getAllLocks(ctx, docId);
     var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
     for (i = 0; i < lengthArray && false === isLock; ++i) {
       blockRange = arrayBlocks[i];
@@ -2973,7 +2973,7 @@ exports.install = function(server, callbackFunction) {
 					// ToDo docId from url ?
 					const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(conn.url);
 					if (docIdParsed && 1 < docIdParsed.length) {
-						const participantsMap = yield getParticipantMap(docIdParsed[1]);
+						const participantsMap = yield getParticipantMap(ctx, docIdParsed[1]);
 						for (let i = 0; i < participantsMap.length; ++i) {
 							const elem = participantsMap[i];
 							if (!elem.view) {
@@ -3018,13 +3018,13 @@ exports.install = function(server, callbackFunction) {
       if (licenseInfo.usersCount) {
         const nowUTC = getLicenseNowUtc();
         if(isLiveViewer) {
-          const arrUsers = yield editorData.getPresenceUniqueViewUser(nowUTC);
+          const arrUsers = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersViewCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
             licenseType = c_LR.UsersViewCount;
           }
           licenseWarningLimitUsersView = licenseInfo.usersViewCount * cfgWarningLimitPercents <= arrUsers.length;
         } else {
-          const arrUsers = yield editorData.getPresenceUniqueUser(nowUTC);
+          const arrUsers = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
             licenseType = c_LR.UsersCount;
           }
@@ -3032,14 +3032,14 @@ exports.install = function(server, callbackFunction) {
         }
       } else if(isLiveViewer) {
         const connectionsLiveCount = licenseInfo.connectionsView;
-        const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
+        const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
         if (liveViewerConnectionsCount >= connectionsLiveCount) {
           licenseType = c_LR.ConnectionsLive;
         }
         licenseWarningLimitConnectionsLive = connectionsLiveCount * cfgWarningLimitPercents <= liveViewerConnectionsCount;
       } else {
         const connectionsCount = licenseInfo.connections;
-        const editConnectionsCount = yield editorData.getEditorConnectionsCount(connections);
+        const editConnectionsCount = yield editorData.getEditorConnectionsCount(ctx, connections);
         if (editConnectionsCount >= connectionsCount) {
           licenseType = c_LR.Connections;
         }
@@ -3274,16 +3274,16 @@ exports.install = function(server, callbackFunction) {
                 hasChanges = true;
                 ctx.logger.debug('changeConnectionInfo: userId = %s', data.useridoriginal);
                 participant.user.username = cmd.getUserName();
-                yield addPresence(participant, false);
+                yield addPresence(ctx, participant, false);
                 if (cfgTokenEnableBrowser) {
                   sendDataRefreshToken(ctx, participant);
                 }
               }
             }
             if (hasChanges) {
-              let participants = yield getParticipantMap(data.docId);
+              let participants = yield getParticipantMap(ctx, data.docId);
               let participantsTimestamp = Date.now();
-              yield* publish({type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: data.docId, userId: null, participantsTimestamp: participantsTimestamp, participants: participants});
+              yield* publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: data.docId, userId: null, participantsTimestamp: participantsTimestamp, participants: participants});
             }
             break;
           case commonDefines.c_oPublishType.rpc:
@@ -3301,9 +3301,9 @@ exports.install = function(server, callbackFunction) {
     });
   }
 
-  function* collectStats(countEdit, countLiveView, countView) {
+  function* collectStats(ctx, countEdit, countLiveView, countView) {
     let now = Date.now();
-    yield editorData.setEditorConnections(countEdit, countLiveView, countView, now, PRECISION);
+    yield editorData.setEditorConnections(ctx, countEdit, countLiveView, countView, now, PRECISION);
   }
   function expireDoc() {
     return co(function* () {
@@ -3348,7 +3348,7 @@ exports.install = function(server, callbackFunction) {
           if (constants.CONN_CLOSED === conn.readyState) {
             ctx.logger.error('expireDoc connection closed');
           }
-          yield addPresence(conn, false);
+          yield addPresence(ctx, conn, false);
           if (utils.isLiveViewer(conn)) {
             countLiveViewByShard++;
           } else if(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
@@ -3357,16 +3357,16 @@ exports.install = function(server, callbackFunction) {
             countEditByShard++;
           }
         }
-        yield* collectStats(countEditByShard, countLiveViewByShard, countViewByShard);
-        yield editorData.setEditorConnectionsCountByShard(SHARD_ID, countEditByShard);
-        yield editorData.setLiveViewerConnectionsCountByShard(SHARD_ID, countLiveViewByShard);
-        yield editorData.setViewerConnectionsCountByShard(SHARD_ID, countViewByShard);
+        yield* collectStats(ctx, countEditByShard, countLiveViewByShard, countViewByShard);
+        yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
+        yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
+        yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, countViewByShard);
         if (clientStatsD) {
-          let countEdit = yield editorData.getEditorConnectionsCount(connections);
+          let countEdit = yield editorData.getEditorConnectionsCount(ctx, connections);
           clientStatsD.gauge('expireDoc.connections.edit', countEdit);
-          let countLiveView = yield editorData.getLiveViewerConnectionsCount(connections);
+          let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
           clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
-          let countView = yield editorData.getViewerConnectionsCount(connections);
+          let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
           clientStatsD.gauge('expireDoc.connections.view', countView);
         }
       } catch (err) {
@@ -3531,7 +3531,7 @@ exports.licenseInfo = function(req, res) {
           view: {min: 0, avr: 0, max: 0}
         };
       }
-      var redisRes = yield editorData.getEditorConnections();
+      var redisRes = yield editorData.getEditorConnections(ctx);
       const now = Date.now();
       if (redisRes.length > 0) {
         let expDocumentsStep95 = expDocumentsStep * 0.95;
@@ -3587,8 +3587,8 @@ exports.licenseInfo = function(req, res) {
       }
       const nowUTC = getLicenseNowUtc();
       let execRes;
-      execRes = yield editorData.getPresenceUniqueUser(nowUTC);
-      output.quota.edit.connectionsCount = yield editorData.getEditorConnectionsCount(connections);
+      execRes = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
+      output.quota.edit.connectionsCount = yield editorData.getEditorConnectionsCount(ctx, connections);
       output.quota.edit.usersCount.unique = execRes.length;
       execRes.forEach(function(elem) {
         if (elem.anonym) {
@@ -3596,8 +3596,8 @@ exports.licenseInfo = function(req, res) {
         }
       });
 
-      execRes = yield editorData.getPresenceUniqueViewUser(nowUTC);
-      output.quota.view.connectionsCount = yield editorData.getLiveViewerConnectionsCount(connections);
+      execRes = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
+      output.quota.view.connectionsCount = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
       output.quota.view.usersCount.unique = execRes.length;
       execRes.forEach(function(elem) {
         if (elem.anonym) {
@@ -3605,8 +3605,8 @@ exports.licenseInfo = function(req, res) {
         }
       });
 
-      let byMonth = yield editorData.getPresenceUniqueUsersOfMonth();
-      let byMonthView = yield editorData.getPresenceUniqueViewUsersOfMonth();
+      let byMonth = yield editorData.getPresenceUniqueUsersOfMonth(ctx);
+      let byMonthView = yield editorData.getPresenceUniqueViewUsersOfMonth(ctx);
       let byMonthMerged = [];
       for (let i in byMonth) {
         if (byMonth.hasOwnProperty(i)) {
@@ -3643,8 +3643,8 @@ exports.licenseInfo = function(req, res) {
 };
 let commandLicense = co.wrap(function*(ctx) {
   const nowUTC = getLicenseNowUtc();
-  let users = yield editorData.getPresenceUniqueUser(nowUTC);
-  let users_view = yield editorData.getPresenceUniqueViewUser(nowUTC);
+  let users = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
+  let users_view = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
   let licenseInfo = yield tenantManager.getTenantLicense(ctx);
   return {
     license: licenseOriginal || utils.convertLicenseInfoToFileParams(licenseInfo),
@@ -3688,7 +3688,7 @@ exports.commandFromServer = function (req, res) {
             break;
           case 'drop':
             if (params.userid) {
-              yield* publish({type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: [params.userid], description: params.description});
+              yield* publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: [params.userid], description: params.description});
             } else if (params.users) {
               const users = (typeof params.users === 'string') ? JSON.parse(params.users) : params.users;
               yield* dropUsersFromDocument(ctx, docId, users);
@@ -3700,7 +3700,7 @@ exports.commandFromServer = function (req, res) {
             // Результат от менеджера документов о статусе обработки сохранения файла после сборки
             if ('1' !== params.status) {
               //запрос saved выполняется синхронно, поэтому заполняем переменную чтобы проверить ее после sendServerRequest
-              yield editorData.setSaved(docId, params.status);
+              yield editorData.setSaved(ctx, docId, params.status);
               ctx.logger.warn('saved corrupted id = %s status = %s conv = %s', docId, params.status, params.conv);
             } else {
               ctx.logger.info('saved id = %s status = %s conv = %s', docId, params.status, params.conv);
@@ -3712,7 +3712,7 @@ exports.commandFromServer = function (req, res) {
             break;
           case 'meta':
             if (params.meta) {
-              yield* publish({type: commonDefines.c_oPublishType.meta, ctx: ctx, docId: docId, meta: params.meta});
+              yield* publish(ctx, {type: commonDefines.c_oPublishType.meta, ctx: ctx, docId: docId, meta: params.meta});
             } else {
               result = commonDefines.c_oAscServerCommandErrors.UnknownCommand;
             }
