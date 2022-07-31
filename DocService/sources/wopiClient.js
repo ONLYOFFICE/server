@@ -266,7 +266,7 @@ function parseWopiCallback(ctx, userAuthStr, opt_url) {
 function checkAndInvalidateCache(ctx, docId, fileInfo) {
   return co(function*() {
     let res = {success: true, lockId: undefined};
-    let selectRes = yield taskResult.select(docId);
+    let selectRes = yield taskResult.select(ctx, docId);
     if (selectRes.length > 0) {
       let row = selectRes[0];
       if (row.callback) {
@@ -289,6 +289,7 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
             ctx.logger.debug('wopiEditor LastModifiedTime fileInfo=%s; cache=%s', fileInfoModified, cacheModified);
             if (fileInfoVersion !== cacheVersion || (fileInfoModified !== cacheModified)) {
               var mask = new taskResult.TaskResultData();
+              mask.tenat = ctx.tenant;
               mask.key = docId;
               mask.last_open_date = row.last_open_date;
               //cleanupRes can be false in case of simultaneous opening. it is OK
@@ -372,7 +373,7 @@ function getEditorHtml(req, res) {
         fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-        yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), 1, commonInfo, fileType);
+        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(req), 1, commonInfo, fileType);
       }
 
       //Lock
@@ -392,7 +393,7 @@ function getEditorHtml(req, res) {
 
       if (cfgTokenEnableBrowser) {
         let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
-        let secret = yield tenantManager.getTenantSecret(ctx, true);
+        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Inbox);
         params.token = jwt.sign(params, secret, options);
       }
     } catch (err) {

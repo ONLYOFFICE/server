@@ -62,11 +62,9 @@ types.setTypeParser(1184, function(stringValue) {
   return new Date(stringValue + '+0000');
 });
 
-var logger = require('./../../Common/sources/logger');
-
 var maxPacketSize = configSql.get('max_allowed_packet');
 
-exports.sqlQuery = function(sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
+exports.sqlQuery = function(ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
   co(function *() {
     var result = null;
     var error = null;
@@ -75,7 +73,7 @@ exports.sqlQuery = function(sqlCommand, callbackFunction, opt_noModifyRes, opt_n
     } catch (err) {
       error = err;
       if (!opt_noLog) {
-        logger.warn('sqlQuery error sqlCommand: %s: %s', sqlCommand.slice(0, 50), err.stack);
+        ctx.logger.warn('sqlQuery error sqlCommand: %s: %s', sqlCommand.slice(0, 50), err.stack);
       }
     } finally {
       if (callbackFunction) {
@@ -112,6 +110,7 @@ function getUpsertString(task, values) {
     userCallback.fromValues(task.userIndex, task.callback);
     cbInsert = userCallback.toSQLInsert();
   }
+  let p0 = addSqlParam(task.tenant, values);
   let p1 = addSqlParam(task.key, values);
   let p2 = addSqlParam(task.status, values);
   let p3 = addSqlParam(task.statusInfo, values);
@@ -123,8 +122,8 @@ function getUpsertString(task, values) {
   if (isSupportOnConflict) {
     let p9 = addSqlParam(dateNow, values);
     //http://stackoverflow.com/questions/34762732/how-to-find-out-if-an-upsert-was-an-update-with-postgresql-9-5-upsert
-    let sqlCommand = "INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)";
-    sqlCommand += ` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8})`;
+    let sqlCommand = "INSERT INTO task_result (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)";
+    sqlCommand += ` VALUES (${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8})`;
     sqlCommand += ` ON CONFLICT (id) DO UPDATE SET last_open_date = ${p9}`;
     if (task.callback) {
       let p10 = addSqlParam(JSON.stringify(task.callback), values);
@@ -138,20 +137,20 @@ function getUpsertString(task, values) {
     sqlCommand += ", user_index = task_result.user_index + 1 RETURNING user_index as userindex;";
     return sqlCommand;
   } else {
-    return `SELECT * FROM merge_db(${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8});`;
+    return `SELECT * FROM merge_db(${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8});`;
   }
 }
-exports.upsert = function(task) {
+exports.upsert = function(ctx, task) {
   return new Promise(function(resolve, reject) {
     let values = [];
     var sqlCommand = getUpsertString(task, values);
-    exports.sqlQuery(sqlCommand, function(error, result) {
+    exports.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         if (isSupportOnConflict && '42601' === error.code) {
           //SYNTAX ERROR
           isSupportOnConflict = false;
-          logger.warn('checkIsSupportOnConflict false');
-          resolve(exports.upsert(task));
+          ctx.logger.warn('checkIsSupportOnConflict false');
+          resolve(exports.upsert(ctx, task));
         } else {
           reject(error);
         }
@@ -167,12 +166,13 @@ exports.upsert = function(task) {
     }, true, undefined, values);
   });
 };
-exports.insertChanges = function(tableChanges, startIndex, objChanges, docId, index, user, callback) {
+exports.insertChanges = function(ctx, tableChanges, startIndex, objChanges, docId, index, user, callback) {
   let i = startIndex;
   if (i >= objChanges.length) {
     return;
   }
   let isSupported = true;
+  let tenant = [];
   let id = [];
   let changeId = [];
   let userId = [];
@@ -181,27 +181,28 @@ exports.insertChanges = function(tableChanges, startIndex, objChanges, docId, in
   let change = [];
   let time = [];
   //Postgres 9.4 multi-argument unnest
-  let sqlCommand = `INSERT INTO ${tableChanges} (id, change_id, user_id, user_id_original, user_name, change_data, change_date) `;
+  let sqlCommand = `INSERT INTO ${tableChanges} (tenant, id, change_id, user_id, user_id_original, user_name, change_data, change_date) `;
   sqlCommand += "SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::timestamp[]);";
-  let values = [id, changeId, userId, userIdOriginal, username, change, time];
+  let values = [tenant, id, changeId, userId, userIdOriginal, username, change, time];
   let curLength = sqlCommand.length;
   for (; i < objChanges.length; ++i) {
     //4 is max utf8 bytes per symbol
     curLength += 4 * (docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + 4 + 8;
     if (curLength >= maxPacketSize && i > startIndex) {
-      exports.sqlQuery(sqlCommand, function(error, output) {
+      exports.sqlQuery(ctx, sqlCommand, function(error, output) {
         if (error && '42883' == error.code) {
           isSupported = false;
-          logger.warn('postgresql does not support UNNEST');
+          ctx.logger.warn('postgresql does not support UNNEST');
         }
         if (error) {
           callback(error, output, isSupported);
         } else {
-          exports.insertChanges(tableChanges, i, objChanges, docId, index, user, callback);
+          exports.insertChanges(ctx, tableChanges, i, objChanges, docId, index, user, callback);
         }
       }, undefined, undefined, values);
       return;
     }
+    tenant.push(ctx.tenat);
     id.push(docId);
     changeId.push(index++);
     userId.push(user.id);
@@ -210,10 +211,10 @@ exports.insertChanges = function(tableChanges, startIndex, objChanges, docId, in
     change.push(objChanges[i].change);
     time.push(objChanges[i].time);
   }
-  exports.sqlQuery(sqlCommand, function(error, output) {
+  exports.sqlQuery(ctx, sqlCommand, function(error, output) {
     if (error && '42883' == error.code) {
       isSupported = false;
-      logger.warn('postgresql does not support UNNEST');
+      ctx.logger.warn('postgresql does not support UNNEST');
     }
     callback(error, output, isSupported);
   }, undefined, undefined, values);

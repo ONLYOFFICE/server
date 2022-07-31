@@ -474,7 +474,6 @@ function needSendChanges (conn){
   return !conn.user?.view || utils.isLiveViewer(conn);
 }
 function fillJwtByConnection(conn) {
-  var docId = conn.docId;
   var payload = {document: {}, editorConfig: {user: {}}};
   var doc = payload.document;
   doc.key = conn.docId;
@@ -669,7 +668,7 @@ function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLe
   ctx.logger.debug('postData request: url = %s;data = %j', uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(uri)) {
-    let secret = yield tenantManager.getTenantSecret(ctx, false);
+    let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
     let bodyToken = utils.fillJwtForRequest(dataObject, secret, true);
     auth = utils.fillJwtForRequest(dataObject, secret, false);
     let authLen = auth.length;
@@ -716,7 +715,7 @@ function* getCallback(ctx, id, opt_userIndex) {
   var callbackUrl = null;
   var baseUrl = null;
   let wopiParams = null;
-  var selectRes = yield taskResult.select(id);
+  var selectRes = yield taskResult.select(ctx, id);
   if (selectRes.length > 0) {
     var row = selectRes[0];
     if (row.callback) {
@@ -733,9 +732,9 @@ function* getCallback(ctx, id, opt_userIndex) {
     return null;
   }
 }
-function* getChangesIndex(docId) {
+function* getChangesIndex(ctx, docId) {
   var res = 0;
-  var getRes = yield sqlBase.getChangesIndexPromise(docId);
+  var getRes = yield sqlBase.getChangesIndexPromise(ctx, docId);
   if (getRes && getRes.length > 0 && null != getRes[0]['change_id']) {
     res = getRes[0]['change_id'] + 1;
   }
@@ -744,9 +743,9 @@ function* getChangesIndex(docId) {
 
 const hasChanges = co.wrap(function*(ctx, docId) {
   //todo check editorData.getForceSave in case of "undo all changes"
-  let puckerIndex = yield* getChangesIndex(docId);
+  let puckerIndex = yield* getChangesIndex(ctx, docId);
   if (0 === puckerIndex) {
-    let selectRes = yield taskResult.select(docId);
+    let selectRes = yield taskResult.select(ctx, docId);
     if (selectRes.length > 0 && selectRes[0].password) {
       return sqlBase.DocumentPassword.prototype.hasPasswordChanges(ctx, selectRes[0].password);
     }
@@ -856,7 +855,7 @@ function* startRPC(ctx, conn, responseKey, data) {
       break;
     case 'wopi_RenameFile':
       let renameRes;
-      let selectRes = yield taskResult.select(docId);
+      let selectRes = yield taskResult.select(ctx, docId);
       let row = selectRes.length > 0 ? selectRes[0] : null;
       if (row) {
         if (row.callback) {
@@ -952,10 +951,11 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
     if (c_oAscChangeBase.All === bChangeBase) {
       //always override callback to avoid expired callbacks
       var updateTask = new taskResult.TaskResultData();
+      updateTask.tenant = ctx.tenant;
       updateTask.key = docId;
       updateTask.callback = opt_callback.href;
       updateTask.baseurl = opt_baseUrl;
-      var updateIfRes = yield taskResult.update(updateTask);
+      var updateIfRes = yield taskResult.update(ctx, updateTask);
       if (updateIfRes.affectedRows > 0) {
         ctx.logger.debug('sendStatusDocument updateIf');
       } else {
@@ -1087,7 +1087,7 @@ let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
     yield wopiClient.unlock(ctx, getRes.wopiParams);
     let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
-    yield canvasService.commandOpenStartPromise(docId, undefined, true, unlockInfo);
+    yield canvasService.commandOpenStartPromise(ctx, docId, undefined, true, unlockInfo);
   }
 });
 function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
@@ -1095,8 +1095,8 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
   yield editorData.cleanDocumentOnExit(ctx, docId);
   //remove changes
   if (deleteChanges) {
-    yield taskResult.restoreInitialPassword(ctx, docId);
-    sqlBase.deleteChanges(docId, null);
+    yield taskResult.restoreInitialPassword(ctx.tenant, docId);
+    sqlBase.deleteChanges(ctx, docId, null);
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(ctx, cfgForgottenFiles + '/' + docId);
   }
@@ -1114,12 +1114,13 @@ function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, op
 function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay) {
   return co(function*(){
     var updateMask = new taskResult.TaskResultData();
+    updateMask.tenant = ctx.tenant;
     updateMask.key = docId;
     updateMask.status = taskResult.FileStatus.Ok;
     var updateTask = new taskResult.TaskResultData();
     updateTask.status = taskResult.FileStatus.SaveVersion;
     updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
-    var updateIfRes = yield taskResult.updateIf(updateTask, updateMask);
+    var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
     if (updateIfRes.affectedRows > 0) {
       if(!opt_noDelay){
         yield utils.sleep(cfgAscSaveTimeOutDelay);
@@ -1142,16 +1143,7 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
 function checkJwt(ctx, token, type) {
   return co(function*() {
     var res = {decoded: null, description: null, code: null, token: token};
-    var secret;
-    switch (type) {
-      case commonDefines.c_oAscSecretType.Browser:
-      case commonDefines.c_oAscSecretType.Inbox:
-        secret = yield tenantManager.getTenantSecret(ctx, true);
-        break;
-      case commonDefines.c_oAscSecretType.Session:
-        secret = utils.getSecretByElem(cfgSecretSession);
-        break;
-    }
+    let secret = yield tenantManager.getTenantSecret(ctx, type);
     if (undefined == secret) {
       ctx.logger.warn('empty secret: token = %s', token);
     }
@@ -1493,7 +1485,7 @@ exports.install = function(server, callbackFunction) {
 
         let needSendStatus = true;
         if (conn.encrypted) {
-          let selectRes = yield taskResult.select(docId);
+          let selectRes = yield taskResult.select(ctx, docId);
           if (selectRes.length > 0) {
             var row = selectRes[0];
             if (taskResult.FileStatus.UpdateVersion === row.status) {
@@ -1576,9 +1568,9 @@ exports.install = function(server, callbackFunction) {
     yield canvasService.openDocument(ctx, conn, cmd, null);
   }
   // Получение изменений для документа (либо из кэша, либо обращаемся к базе, но только если были сохранения)
-  function* getDocumentChanges(docId, optStartIndex, optEndIndex) {
+  function* getDocumentChanges(ctx, docId, optStartIndex, optEndIndex) {
     // Если за тот момент, пока мы ждали из базы ответа, все ушли, то отправлять ничего не нужно
-    var arrayElements = yield sqlBase.getChangesPromise(docId, optStartIndex, optEndIndex);
+    var arrayElements = yield sqlBase.getChangesPromise(ctx, docId, optStartIndex, optEndIndex);
     var j, element;
     var objChangesDocument = new DocumentChanges(docId);
     for (j = 0; j < arrayElements.length; ++j) {
@@ -1623,11 +1615,11 @@ exports.install = function(server, callbackFunction) {
 		let result = false;
 
     if (null != deleteIndex && -1 !== deleteIndex) {
-      let puckerIndex = yield* getChangesIndex(docId);
+      let puckerIndex = yield* getChangesIndex(ctx, docId);
       const deleteCount = puckerIndex - deleteIndex;
       if (0 < deleteCount) {
         puckerIndex -= deleteCount;
-        yield sqlBase.deleteChangesPromise(docId, deleteIndex);
+        yield sqlBase.deleteChangesPromise(ctx, docId, deleteIndex);
       } else if (0 > deleteCount) {
         ctx.logger.error("Error checkEndAuthLock: deleteIndex: %s ; startIndex: %s ; deleteCount: %s",
                      deleteIndex, puckerIndex, deleteCount);
@@ -2186,21 +2178,22 @@ exports.install = function(server, callbackFunction) {
           }
         }
         let format = data.openCmd && data.openCmd.format;
-        upsertRes = yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl, format);
+        upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl, format);
         let isInserted = upsertRes.affectedRows == 1;
         curIndexUser = isInserted ? 1 : upsertRes.insertId;
         if (isInserted && undefined !== data.timezoneOffset) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
           if (false === canvasService.hasAdditionalCol) {
-            let selectRes = yield taskResult.select(docId);
+            let selectRes = yield taskResult.select(ctx, docId);
             canvasService.hasAdditionalCol = selectRes.length > 0 && undefined !== selectRes[0].additional;
           }
           if (canvasService.hasAdditionalCol) {
             let task = new taskResult.TaskResultData();
+            task.tenant = ctx.tenant;
             task.key = docId;
             //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
             task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
-            yield taskResult.update(task);
+            yield taskResult.update(ctx, task);
           } else {
             ctx.logger.warn('auth unknown column "additional"');
           }
@@ -2279,7 +2272,7 @@ exports.install = function(server, callbackFunction) {
         }
         return;
       }
-      let result = yield taskResult.select(docId);
+      let result = yield taskResult.select(ctx, docId);
       let resultRow = result.length > 0 ? result[0] : null;
       if (cmd && resultRow && resultRow.callback) {
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, resultRow.callback, curIndexUser);
@@ -2314,13 +2307,14 @@ exports.install = function(server, callbackFunction) {
           }
           // Обновим статус файла (идет сборка, нужно ее остановить)
           var updateMask = new taskResult.TaskResultData();
+          updateMask.tenant = ctx.tenant;
           updateMask.key = docId;
           updateMask.status = status;
           updateMask.statusInfo = result[0]['status_info'];
           var updateTask = new taskResult.TaskResultData();
           updateTask.status = newStatus;
           updateTask.statusInfo = constants.NO_ERROR;
-          var updateIfRes = yield taskResult.updateIf(updateTask, updateMask);
+          var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
           if (!(updateIfRes.affectedRows > 0)) {
             // error version
             yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
@@ -2347,10 +2341,10 @@ exports.install = function(server, callbackFunction) {
           // Останавливаем сборку (вдруг она началась)
           // Когда переподсоединение, нам нужна проверка на сборку файла
           try {
-            var puckerIndex = yield* getChangesIndex(docId);
+            var puckerIndex = yield* getChangesIndex(ctx, docId);
             var bIsSuccessRestore = true;
             if (puckerIndex > 0) {
-              let objChangesDocument = yield* getDocumentChanges(docId, puckerIndex - 1, puckerIndex);
+              let objChangesDocument = yield* getDocumentChanges(ctx, docId, puckerIndex - 1, puckerIndex);
               var change = objChangesDocument.arrChanges[objChangesDocument.getLength() - 1];
               if (change) {
                 if (change['change']) {
@@ -2490,7 +2484,7 @@ exports.install = function(server, callbackFunction) {
     let changes;
     let changesPrefix = destDir + '/' + constants.CHANGES_NAME + '/' + constants.CHANGES_NAME + '.json.';
     do {
-      changes = yield sqlBase.getChangesPromise(docId, index, index + cfgMaxRequestChanges);
+      changes = yield sqlBase.getChangesPromise(ctx, docId, index, index + cfgMaxRequestChanges);
       if (changes.length > 0) {
         let changesJSON = indexChunk > 1 ? ',[' : '[';
         changesJSON += changes[0].change_data;
@@ -2531,7 +2525,7 @@ exports.install = function(server, callbackFunction) {
     let index = 0;
     let changes;
     do {
-      let objChangesDocument = yield getDocumentChanges(docId, index, index + cfgMaxRequestChanges);
+      let objChangesDocument = yield getDocumentChanges(ctx, docId, index, index + cfgMaxRequestChanges);
       changes = objChangesDocument.arrChanges;
       sendAuthChangesByChunks(ctx, changes, connections);
       index += cfgMaxRequestChanges;
@@ -2714,7 +2708,7 @@ exports.install = function(server, callbackFunction) {
       return;
     }
 
-    let puckerIndex = yield* getChangesIndex(docId);
+    let puckerIndex = yield* getChangesIndex(ctx, docId);
 
     let deleteIndex = -1;
     if (data.startSaveChanges && null != data.deleteIndex) {
@@ -2723,7 +2717,7 @@ exports.install = function(server, callbackFunction) {
         const deleteCount = puckerIndex - deleteIndex;
         if (0 < deleteCount) {
           puckerIndex -= deleteCount;
-          yield sqlBase.deleteChangesPromise(docId, deleteIndex);
+          yield sqlBase.deleteChangesPromise(ctx, docId, deleteIndex);
         } else if (0 > deleteCount) {
           ctx.logger.error("Error saveChanges: deleteIndex: %s ; startIndex: %s ; deleteCount: %s", deleteIndex, puckerIndex, deleteCount);
         }
@@ -2749,7 +2743,7 @@ exports.install = function(server, callbackFunction) {
       }
 
       puckerIndex += arrNewDocumentChanges.length;
-      yield sqlBase.insertChangesPromise(arrNewDocumentChanges, docId, startIndex, conn.user);
+      yield sqlBase.insertChangesPromise(ctx, arrNewDocumentChanges, docId, startIndex, conn.user);
     }
     const changesIndex = (-1 === deleteIndex && data.startSaveChanges) ? startIndex : -1;
     if (data.endSaveChanges) {
@@ -3142,7 +3136,7 @@ exports.install = function(server, callbackFunction) {
             if(participants.length > 0) {
               var changes = data.changes;
               if (null == changes) {
-                objChangesDocument = yield* getDocumentChanges(data.docId, data.startIndex, data.changesIndex);
+                objChangesDocument = yield* getDocumentChanges(ctx, data.docId, data.startIndex, data.changesIndex);
                 changes = objChangesDocument.arrChanges;
               }
               _.each(participants, function(participant) {
@@ -3394,7 +3388,7 @@ exports.install = function(server, callbackFunction) {
           if (undefined === conn.access_token_ttl) {
             continue;
           }
-          let selectRes = yield taskResult.select(docId);
+          let selectRes = yield taskResult.select(ctx, docId);
           if (selectRes.length > 0 && selectRes[0] && selectRes[0].callback) {
             let callback = selectRes[0].callback;
             let callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, callback);
@@ -3446,7 +3440,7 @@ exports.healthCheck = function(req, res) {
       ctx.logger.debug('healthCheck start');
       let promises = [];
       //database
-      promises.push(sqlBase.healthCheck());
+      promises.push(sqlBase.healthCheck(ctx));
       //redis
       if (editorData.isConnected()) {
         promises.push(editorData.ping());
@@ -3679,7 +3673,7 @@ exports.commandFromServer = function (req, res) {
         switch (params.c) {
           case 'info':
             //If no files in the database means they have not been edited.
-            const selectRes = yield taskResult.select(docId);
+            const selectRes = yield taskResult.select(ctx, docId);
             if (selectRes.length > 0) {
               result = yield* bindEvents(ctx, docId, params.callback, utils.getBaseUrlByRequest(req), undefined, params.userdata);
             } else {

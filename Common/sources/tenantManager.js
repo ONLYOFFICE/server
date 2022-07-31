@@ -35,6 +35,7 @@
 const config = require('config');
 const co = require('co');
 const license = require('./../../Common/sources/license');
+const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
 const { readFile } = require('fs/promises');
 const path = require('path');
@@ -43,13 +44,18 @@ const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
 const cfgTenantsBaseDir = config.get('tenants.baseDir');
 const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
 const cfgTenantsFilenameLicense = config.get('tenants.filenameLicense');
+const cfgTenantsDefaultTetant = config.get('tenants.defaultTetant');
 const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
+const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
 const cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
 
 let licenseInfo;
 let licenseOriginal;
 
+function getDefautTenant(domain) {
+  return cfgTenantsDefaultTetant;
+}
 function getTenant(domain) {
   let tenant = "localhost";
   if (domain) {
@@ -67,7 +73,7 @@ function getTenantRedisPrefix(ctx) {
 function getTenantPathPrefix(ctx) {
   return isMultitenantMode() ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
 }
-function getTenantSecret(ctx, isInbox) {
+function getTenantSecret(ctx, type) {
   return co(function*() {
     let res = undefined;
     if (isMultitenantMode()) {
@@ -84,7 +90,18 @@ function getTenantSecret(ctx, isInbox) {
         }
       }
     } else {
-      res = utils.getSecretByElem(isInbox ? cfgSecretInbox : cfgSecretOutbox);
+      switch (type) {
+        case commonDefines.c_oAscSecretType.Browser:
+        case commonDefines.c_oAscSecretType.Inbox:
+          res = utils.getSecretByElem(cfgSecretInbox);
+          break;
+        case commonDefines.c_oAscSecretType.Outbox:
+          res = utils.getSecretByElem(cfgSecretOutbox);
+          break;
+        case commonDefines.c_oAscSecretType.Session:
+          res = utils.getSecretByElem(cfgSecretSession);
+          break;
+      }
     }
     return res;
   });
@@ -121,6 +138,7 @@ function isMultitenantMode() {
   return !!cfgTenantsBaseDir;
 }
 
+exports.getDefautTenant = getDefautTenant;
 exports.getTenant = getTenant;
 exports.getTenantRedisPrefix = getTenantRedisPrefix;
 exports.getTenantPathPrefix = getTenantPathPrefix;

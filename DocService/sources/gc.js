@@ -74,7 +74,7 @@ var checkFileExpire = function() {
       var currentRemovedCount;
       do {
         currentRemovedCount = 0;
-        expired = yield taskResult.getExpired(cfgExpFilesRemovedAtOnce, cfgExpFiles);
+        expired = yield taskResult.getExpired(ctx, cfgExpFilesRemovedAtOnce, cfgExpFiles);
         for (var i = 0; i < expired.length; ++i) {
           var docId = expired[i].id;
           ctx.setDocId(docId);

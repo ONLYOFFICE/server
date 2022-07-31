@@ -51,9 +51,9 @@ let addSqlParam = baseConnector.addSqlParameter;
 var maxPacketSize = config.get('max_allowed_packet'); // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
 
 exports.baseConnector = baseConnector;
-exports.insertChangesPromiseCompatibility = function (objChanges, docId, index, user) {
+exports.insertChangesPromiseCompatibility = function (ctx, objChanges, docId, index, user) {
   return new Promise(function(resolve, reject) {
-    _insertChangesCallback(0, objChanges, docId, index, user, function(error, result) {
+    _insertChangesCallback(ctx, 0, objChanges, docId, index, user, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -62,13 +62,13 @@ exports.insertChangesPromiseCompatibility = function (objChanges, docId, index, 
     });
   });
 };
-exports.insertChangesPromiseFast = function (objChanges, docId, index, user) {
+exports.insertChangesPromiseFast = function (ctx, objChanges, docId, index, user) {
   return new Promise(function(resolve, reject) {
-    baseConnector.insertChanges(tableChanges, 0, objChanges, docId, index, user, function(error, result, isSupported) {
+    baseConnector.insertChanges(ctx, tableChanges, 0, objChanges, docId, index, user, function(error, result, isSupported) {
       isSupportFastInsert = isSupported;
       if (error) {
         if (!isSupportFastInsert) {
-          resolve(exports.insertChangesPromiseCompatibility(objChanges, docId, index, user));
+          resolve(exports.insertChangesPromiseCompatibility(ctx, objChanges, docId, index, user));
         } else {
           reject(error);
         }
@@ -78,11 +78,11 @@ exports.insertChangesPromiseFast = function (objChanges, docId, index, user) {
     });
   });
 };
-exports.insertChangesPromise = function (objChanges, docId, index, user) {
+exports.insertChangesPromise = function (ctx, objChanges, docId, index, user) {
   if (isSupportFastInsert) {
-    return exports.insertChangesPromiseFast(objChanges, docId, index, user);
+    return exports.insertChangesPromiseFast(ctx, objChanges, docId, index, user);
   } else {
-    return exports.insertChangesPromiseCompatibility(objChanges, docId, index, user);
+    return exports.insertChangesPromiseCompatibility(ctx, objChanges, docId, index, user);
   }
 
 };
@@ -92,7 +92,7 @@ function _getDateTime2(oDate) {
 
 exports.getDateTime = _getDateTime2;
 
-function _insertChangesCallback (startIndex, objChanges, docId, index, user, callback) {
+function _insertChangesCallback (ctx, startIndex, objChanges, docId, index, user, callback) {
   var sqlCommand = `INSERT INTO ${tableChanges} VALUES`;
   var i = startIndex, l = objChanges.length, lengthUtf8Current = sqlCommand.length, lengthUtf8Row = 0, values = [];
   if (i === l)
@@ -105,13 +105,14 @@ function _insertChangesCallback (startIndex, objChanges, docId, index, user, cal
     if (lengthUtf8Row + lengthUtf8Current >= maxPacketSize && i > startIndex) {
       sqlCommand += ';';
       (function(tmpStart, tmpIndex) {
-        baseConnector.sqlQuery(sqlCommand, function() {
+        baseConnector.sqlQuery(ctx, sqlCommand, function() {
           // lock не снимаем, а продолжаем добавлять
-          _insertChangesCallback(tmpStart, objChanges, docId, tmpIndex, user, callback);
+          _insertChangesCallback(ctx, tmpStart, objChanges, docId, tmpIndex, user, callback);
         }, undefined, undefined, values);
       })(i, index);
       return;
     }
+    let p0 = addSqlParam(ctx.tenant, values);
     let p1 = addSqlParam(docId, values);
     let p2 = addSqlParam(index, values);
     let p3 = addSqlParam(user.id, values);
@@ -122,27 +123,28 @@ function _insertChangesCallback (startIndex, objChanges, docId, index, user, cal
     if (i > startIndex) {
       sqlCommand += ',';
     }
-    sqlCommand += `(${p1},${p2},${p3},${p4},${p5},${p6},${p7})`;
+    sqlCommand += `(${p0},${p1},${p2},${p3},${p4},${p5},${p6},${p7})`;
     lengthUtf8Current += lengthUtf8Row;
   }
 
   sqlCommand += ';';
-  baseConnector.sqlQuery(sqlCommand, callback, undefined, undefined, values);
+  baseConnector.sqlQuery(ctx, sqlCommand, callback, undefined, undefined, values);
 }
-exports.deleteChangesCallback = function(docId, deleteIndex, callback) {
+exports.deleteChangesCallback = function(ctx, docId, deleteIndex, callback) {
   let sqlCommand, values = [];
-  let sqlParam1 = addSqlParam(docId, values);
+  let p1 = addSqlParam(ctx.tenant, values);
+  let p2 = addSqlParam(docId, values);
   if (null !== deleteIndex) {
     let sqlParam2 = addSqlParam(deleteIndex, values);
-    sqlCommand = `DELETE FROM ${tableChanges} WHERE id=${sqlParam1} AND change_id >= ${sqlParam2};`;
+    sqlCommand = `DELETE FROM ${tableChanges} WHERE tenant=${p1} AND id=${p2} AND change_id >= ${sqlParam2};`;
   } else {
-    sqlCommand = `DELETE FROM ${tableChanges} WHERE id=${sqlParam1};`;
+    sqlCommand = `DELETE FROM ${tableChanges} WHERE tenant=${p1} AND id=${p2};`;
   }
-  baseConnector.sqlQuery(sqlCommand, callback, undefined, undefined, values);
+  baseConnector.sqlQuery(ctx, sqlCommand, callback, undefined, undefined, values);
 };
-exports.deleteChangesPromise = function (docId, deleteIndex) {
+exports.deleteChangesPromise = function (ctx, docId, deleteIndex) {
   return new Promise(function(resolve, reject) {
-    exports.deleteChangesCallback(docId, deleteIndex, function(error, result) {
+    exports.deleteChangesCallback(ctx, docId, deleteIndex, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -151,21 +153,22 @@ exports.deleteChangesPromise = function (docId, deleteIndex) {
     });
   });
 };
-exports.deleteChanges = function (docId, deleteIndex) {
-	lockCriticalSection(docId, function () {_deleteChanges(docId, deleteIndex);});
+exports.deleteChanges = function (ctx, docId, deleteIndex) {
+	lockCriticalSection(docId, function () {_deleteChanges(ctx, docId, deleteIndex);});
 };
-function _deleteChanges (docId, deleteIndex) {
-  exports.deleteChangesCallback(docId, deleteIndex, function () {unLockCriticalSection(docId);});
+function _deleteChanges (ctx, docId, deleteIndex) {
+  exports.deleteChangesCallback(ctx, docId, deleteIndex, function () {unLockCriticalSection(docId);});
 }
-exports.getChangesIndex = function(docId, callback) {
+exports.getChangesIndex = function(ctx, docId, callback) {
   let values = [];
-  let sqlParam = addSqlParam(docId, values);
-  var sqlCommand = `SELECT MAX(change_id) as change_id FROM ${tableChanges} WHERE id=${sqlParam};`;
-  baseConnector.sqlQuery(sqlCommand, callback, undefined, undefined, values);
+  let p1 = addSqlParam(ctx.tenant, values);
+  let p2 = addSqlParam(docId, values);
+  var sqlCommand = `SELECT MAX(change_id) as change_id FROM ${tableChanges} WHERE tenant=${p1} AND id=${p2};`;
+  baseConnector.sqlQuery(ctx, sqlCommand, callback, undefined, undefined, values);
 };
-exports.getChangesIndexPromise = function(docId) {
+exports.getChangesIndexPromise = function(ctx, docId) {
   return new Promise(function(resolve, reject) {
-    exports.getChangesIndex(docId, function(error, result) {
+    exports.getChangesIndex(ctx, docId, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -174,11 +177,13 @@ exports.getChangesIndexPromise = function(docId) {
     });
   });
 };
-exports.getChangesPromise = function (docId, optStartIndex, optEndIndex, opt_time) {
+exports.getChangesPromise = function (ctx, docId, optStartIndex, optEndIndex, opt_time) {
   return new Promise(function(resolve, reject) {
     let values = [];
-    let sqlParam = addSqlParam(docId, values);
-    let sqlWhere = `id=${sqlParam}`;
+    let sqlParam = addSqlParam(ctx.tenant, values);
+    let sqlWhere = `tenant=${sqlParam}`;
+    sqlParam = addSqlParam(docId, values);
+    sqlWhere += ` AND id=${sqlParam}`;
     if (null != optStartIndex) {
       sqlParam = addSqlParam(optStartIndex, values);
       sqlWhere += ` AND change_id>=${sqlParam}`;
@@ -197,30 +202,13 @@ exports.getChangesPromise = function (docId, optStartIndex, optEndIndex, opt_tim
     sqlWhere += ' ORDER BY change_id ASC';
     var sqlCommand = `SELECT * FROM ${tableChanges} WHERE ${sqlWhere};`;
 
-    baseConnector.sqlQuery(sqlCommand, function(error, result) {
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
         resolve(result);
       }
     }, undefined, undefined, values);
-  });
-};
-exports.checkStatusFile = function (docId, callbackFunction) {
-  let values = [];
-  let sqlParam = addSqlParam(docId, values);
-  var sqlCommand = `SELECT status, status_info FROM ${tableResult} WHERE id=${sqlParam};`;
-  baseConnector.sqlQuery(sqlCommand, callbackFunction, undefined, undefined, values);
-};
-exports.checkStatusFilePromise = function (docId) {
-  return new Promise(function(resolve, reject) {
-    exports.checkStatusFile(docId, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    });
   });
 };
 
@@ -248,11 +236,11 @@ function unLockCriticalSection (id) {
 	else
 		delete g_oCriticalSection[id];
 }
-exports.healthCheck = function () {
+exports.healthCheck = function (ctx) {
   return new Promise(function(resolve, reject) {
   	//SELECT 1; usefull for H2, MySQL, Microsoft SQL Server, PostgreSQL, SQLite
   	//http://stackoverflow.com/questions/3668506/efficient-sql-test-query-or-validation-query-that-will-work-across-all-or-most
-    baseConnector.sqlQuery('SELECT 1;', function(error, result) {
+    baseConnector.sqlQuery(ctx, 'SELECT 1;', function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -262,10 +250,10 @@ exports.healthCheck = function () {
   });
 };
 
-exports.getEmptyCallbacks = function() {
+exports.getEmptyCallbacks = function(ctx) {
   return new Promise(function(resolve, reject) {
-    const sqlCommand = "SELECT DISTINCT t1.id FROM doc_changes t1 LEFT JOIN task_result t2 ON t2.id = t1.id WHERE t2.callback = '';";
-    baseConnector.sqlQuery(sqlCommand, function(error, result) {
+    const sqlCommand = "SELECT DISTINCT t1.tenant, t1.id FROM doc_changes t1 LEFT JOIN task_result t2 ON t2.tenant = t1.tenant AND t2.id = t1.id WHERE t2.callback = '';";
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {

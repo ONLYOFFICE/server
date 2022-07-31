@@ -132,11 +132,12 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
   let bCreate = false;
   if (!opt_taskExist) {
     let task = new taskResult.TaskResultData();
+    task.tenant = ctx.tenant;
     task.key = docId;
     task.status = taskResult.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
-    let upsertRes = yield taskResult.upsert(task);
+    let upsertRes = yield taskResult.upsert(ctx, task);
     //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
     //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
     bCreate = upsertRes.affectedRows == 1;
@@ -144,7 +145,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
   var selectRes;
   var status;
   if (!bCreate) {
-    selectRes = yield taskResult.select(docId);
+    selectRes = yield taskResult.select(ctx, docId);
     status = yield* getConvertStatus(ctx, cmd, selectRes, opt_checkPassword);
   } else {
     var queueData = new commonDefines.TaskQueueData();
@@ -166,7 +167,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
         break;
       }
       yield utils.sleep(CONVERT_ASYNC_DELAY);
-      selectRes = yield taskResult.select(docId);
+      selectRes = yield taskResult.select(ctx, docId);
       status = yield* getConvertStatus(ctx, cmd, selectRes, opt_checkPassword);
       waitTime += CONVERT_ASYNC_DELAY;
       if (waitTime > utils.CONVERTION_TIMEOUT) {
@@ -401,7 +402,7 @@ function builderRequest(req, res) {
         cmd.setWithAuthorization(true);
         cmd.setDocId(docId);
         if (!docId) {
-          let task = yield* taskResult.addRandomKeyTask(undefined, 'bld_', 8);
+          let task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'bld_', 8);
           docId = task.key;
           cmd.setDocId(docId);
           if (params.url) {

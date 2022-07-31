@@ -46,22 +46,21 @@ var pool  = mysql.createPool({
 	timezone	: 'Z',
 	flags : '-FOUND_ROWS'
 });
-var logger = require('./../../Common/sources/logger');
 
-exports.sqlQuery = function (sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
+exports.sqlQuery = function (ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
 	pool.getConnection(function(err, connection) {
 		if (err) {
-			logger.error('pool.getConnection error: %s', err);
+			ctx.logger.error('pool.getConnection error: %s', err);
 			if (callbackFunction) callbackFunction(err, null);
 			return;
 		}
 		let queryCallback = function (error, result) {
 			connection.release();
 			if (error) {
-				logger.error('________________________error_____________________');
-				logger.error('sqlQuery: %s sqlCommand: %s', error.code, sqlCommand);
-				logger.error(error);
-				logger.error('_____________________end_error_____________________');
+				ctx.logger.error('________________________error_____________________');
+				ctx.logger.error('sqlQuery: %s sqlCommand: %s', error.code, sqlCommand);
+				ctx.logger.error(error);
+				ctx.logger.error('_____________________end_error_____________________');
 			}
 			if (callbackFunction) callbackFunction(error, result);
 		};
@@ -82,7 +81,7 @@ let concatParams = function (val1, val2) {
 };
 exports.concatParams = concatParams;
 
-exports.upsert = function(task, opt_updateUserIndex) {
+exports.upsert = function(ctx, task, opt_updateUserIndex) {
 	return new Promise(function(resolve, reject) {
 		task.completeDefaults();
 		let dateNow = new Date();
@@ -93,6 +92,7 @@ exports.upsert = function(task, opt_updateUserIndex) {
 			userCallback.fromValues(task.userIndex, task.callback);
 			cbInsert = userCallback.toSQLInsert();
 		}
+		let p0 = addSqlParam(task.tenant, values);
 		let p1 = addSqlParam(task.key, values);
 		let p2 = addSqlParam(task.status, values);
 		let p3 = addSqlParam(task.statusInfo, values);
@@ -102,8 +102,8 @@ exports.upsert = function(task, opt_updateUserIndex) {
 		let p7 = addSqlParam(cbInsert, values);
 		let p8 = addSqlParam(task.baseurl, values);
 		let p9 = addSqlParam(dateNow, values);
-		var sqlCommand = 'INSERT INTO task_result (id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)'+
-			` VALUES (${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}) ON DUPLICATE KEY UPDATE` +
+		var sqlCommand = 'INSERT INTO task_result (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)'+
+			` VALUES (${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}) ON DUPLICATE KEY UPDATE` +
 			` last_open_date = ${p9}`;
 		if (task.callback) {
 			let p10 = addSqlParam(JSON.stringify(task.callback), values);
@@ -118,7 +118,7 @@ exports.upsert = function(task, opt_updateUserIndex) {
 		}
 		sqlCommand += ';';
 
-		exports.sqlQuery(sqlCommand, function(error, result) {
+		exports.sqlQuery(ctx, sqlCommand, function(error, result) {
 			if (error) {
 				reject(error);
 			} else {

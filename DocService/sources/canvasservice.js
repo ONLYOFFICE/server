@@ -173,7 +173,7 @@ function getOpenedAtJSONParams(row) {
 
 var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
   let status, statusInfo, password, creationDate, openedAt, row;
-  let selectRes = yield taskResult.select(key);
+  let selectRes = yield taskResult.select(ctx, key);
   if (selectRes.length > 0) {
     row = selectRes[0];
     status = row.status;
@@ -198,13 +198,14 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
             ctx.logger.warn("UpdateVersion expired");
           }
           var updateMask = new taskResult.TaskResultData();
+          updateMask.tenant = ctx.tenant;
           updateMask.key = key;
           updateMask.status = status;
           updateMask.statusInfo = statusInfo;
           var updateTask = new taskResult.TaskResultData();
           updateTask.status = taskResult.FileStatus.Ok;
           updateTask.statusInfo = constants.NO_ERROR;
-          var updateIfRes = yield taskResult.updateIf(updateTask, updateMask);
+          var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
           if (updateIfRes.affectedRows > 0) {
             outputData.setStatus('ok');
           } else {
@@ -305,8 +306,8 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       break;
   }
 });
-function* addRandomKeyTaskCmd(cmd) {
-  var task = yield* taskResult.addRandomKeyTask(cmd.getDocId());
+function* addRandomKeyTaskCmd(ctx, cmd) {
+  var task = yield* taskResult.addRandomKeyTask(ctx, cmd.getDocId());
   cmd.setSaveKey(task.key);
 }
 function addPasswordToCmd(ctx, cmd, docPasswordStr) {
@@ -344,7 +345,7 @@ function* saveParts(ctx, cmd, filename) {
     filename = pathModule.basename(filename, ext) + saveIndex + ext;
   }
   if ((SAVE_TYPE_PART_START === saveType || SAVE_TYPE_COMPLETE_ALL === saveType) && !cmd.getSaveKey()) {
-    yield* addRandomKeyTaskCmd(cmd);
+    yield* addRandomKeyTaskCmd(ctx, cmd);
   }
   if (cmd.getUrl()) {
     result = true;
@@ -372,8 +373,9 @@ function getSaveTask(ctx, cmd) {
   //}
   return queueData;
 }
-function* getUpdateResponse(cmd) {
+function* getUpdateResponse(ctx, cmd) {
   var updateTask = new taskResult.TaskResultData();
+  updateTask.tenant = ctx.tenant;
   updateTask.key = cmd.getSaveKey() ? cmd.getSaveKey() : cmd.getDocId();
   var statusInfo = cmd.getStatusInfo();
   if (constants.NO_ERROR == statusInfo) {
@@ -381,7 +383,7 @@ function* getUpdateResponse(cmd) {
     let password = cmd.getPassword();
     if (password) {
       if (false === hasPasswordCol) {
-        let selectRes = yield taskResult.select(updateTask.key);
+        let selectRes = yield taskResult.select(ctx, updateTask.key);
         hasPasswordCol = selectRes.length > 0 && undefined !== selectRes[0].password;
       }
       if(hasPasswordCol) {
@@ -413,7 +415,7 @@ var cleanupCache = co.wrap(function* (ctx) {
   var res = false;
   let docId = ctx.docId;
   let list = [];
-  var removeRes = yield taskResult.remove(docId);
+  var removeRes = yield taskResult.remove(ctx, docId);
   if (removeRes.affectedRows > 0) {
     list = yield storage.listObjects(ctx, docId);
     yield storage.deleteObjects(ctx, list);
@@ -426,9 +428,9 @@ var cleanupCacheIf = co.wrap(function* (ctx, mask) {
   //todo redis ?
   var res = false;
   let list = [];
-  var removeRes = yield taskResult.removeIf(mask);
+  var removeRes = yield taskResult.removeIf(ctx, mask);
   if (removeRes.affectedRows > 0) {
-    sqlBase.deleteChanges(mask.key, null);
+    sqlBase.deleteChanges(ctx, mask.key, null);
     list = yield storage.listObjects(ctx, mask.key);
     yield storage.deleteObjects(ctx, list);
     res = true;
@@ -437,8 +439,9 @@ var cleanupCacheIf = co.wrap(function* (ctx, mask) {
   return res;
 });
 
-function commandOpenStartPromise(docId, baseUrl, opt_updateUserIndex, opt_documentCallbackUrl, opt_format) {
+function commandOpenStartPromise(ctx, docId, baseUrl, opt_updateUserIndex, opt_documentCallbackUrl, opt_format) {
   var task = new taskResult.TaskResultData();
+  task.tenant = ctx.tenant;
   task.key = docId;
   //None instead WaitQueue to prevent: conversion task is lost when entering and leaving the editor quickly(that leads to an endless opening)
   task.status = taskResult.FileStatus.None;
@@ -450,14 +453,14 @@ function commandOpenStartPromise(docId, baseUrl, opt_updateUserIndex, opt_docume
   if (opt_format) {
     task.changeId = formatChecker.getFormatFromString(opt_format);
   }
-  return taskResult.upsert(task, opt_updateUserIndex);
+  return taskResult.upsert(ctx, task, opt_updateUserIndex);
 }
 function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
   var upsertRes;
   if (opt_upsertRes) {
     upsertRes = opt_upsertRes;
   } else {
-    upsertRes = yield commandOpenStartPromise(cmd.getDocId(), utils.getBaseUrlByConnection(conn));
+    upsertRes = yield commandOpenStartPromise(ctx, cmd.getDocId(), utils.getBaseUrlByConnection(conn));
   }
   //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
   //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
@@ -474,15 +477,15 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
     }
   } else if (needAddTask) {
     let updateMask = new taskResult.TaskResultData();
+    updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
     updateMask.status = taskResult.FileStatus.None;
 
     let task = new taskResult.TaskResultData();
-    task.key = cmd.getDocId();
     task.status = taskResult.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
-    let updateIfRes = yield taskResult.updateIf(task, updateMask);
+    let updateIfRes = yield taskResult.updateIf(ctx, task, updateMask);
       if (updateIfRes.affectedRows > 0) {
         let forgottenId = cfgForgottenFiles + '/' + cmd.getDocId();
         let forgotten = yield storage.listObjects(ctx, forgottenId);
@@ -521,7 +524,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
   let res = true;
   let isPassword = undefined !== cmd.getPassword();
   if (isPassword) {
-    let selectRes = yield taskResult.select(cmd.getDocId());
+    let selectRes = yield taskResult.select(ctx, cmd.getDocId());
     if (selectRes.length > 0) {
       let row = selectRes[0];
       if (sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password)) {
@@ -534,15 +537,15 @@ function* commandReopen(ctx, conn, cmd, outputData) {
   }
   if (!isPassword || cfgOpenProtectedFile) {
     let updateMask = new taskResult.TaskResultData();
+    updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
     updateMask.status = isPassword ? taskResult.FileStatus.NeedPassword : taskResult.FileStatus.NeedParams;
 
     var task = new taskResult.TaskResultData();
-    task.key = cmd.getDocId();
     task.status = taskResult.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
-    var upsertRes = yield taskResult.updateIf(task, updateMask);
+    var upsertRes = yield taskResult.updateIf(ctx, task, updateMask);
     if (upsertRes.affectedRows > 0) {
       //add task
       cmd.setUrl(null);//url may expire
@@ -591,7 +594,7 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
       //меняем JsonKey и SaveKey, новый key нужет потому что за одну конвертацию делается часть, а json нужен всегда
       mailMergeSend.setJsonKey(cmd.getSaveKey());
       mailMergeSend.setRecordErrorCount(0);
-      yield* addRandomKeyTaskCmd(cmd);
+      yield* addRandomKeyTaskCmd(ctx, cmd);
       var queueData = getSaveTask(ctx, cmd);
       yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
       isErr = false;
@@ -608,12 +611,12 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
   }
 }
 let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration, opt_queue) {
-  var selectRes = yield taskResult.select(cmd.getDocId());
+  var selectRes = yield taskResult.select(ctx, cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
   if (!row) {
     return;
   }
-  yield* addRandomKeyTaskCmd(cmd);
+  yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password);
   let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr));
@@ -665,7 +668,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       }
       for (let i = 0; i < urls.length; ++i) {
         if (utils.canIncludeOutboxAuthorization(urls[i])) {
-          let secret = yield tenantManager.getTenantSecret(ctx, false);
+          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorizations[i] = [utils.fillJwtForRequest({url: urls[i]}, secret, false)];
         }
       }
@@ -807,7 +810,7 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
   if (docPassword.initial) {
     cmd.setPassword(docPassword.initial);
   }
-  yield* addRandomKeyTaskCmd(cmd);
+  yield* addRandomKeyTaskCmd(ctx, cmd);
   var queueData = getSaveTask(ctx, cmd);
   queueData.setFromOrigin(true);
   yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
@@ -816,7 +819,7 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
 }
 function* commandSetPassword(ctx, conn, cmd, outputData) {
   let hasDocumentPassword = false;
-  let selectRes = yield taskResult.select(cmd.getDocId());
+  let selectRes = yield taskResult.select(ctx, cmd.getDocId());
   if (selectRes.length > 0) {
     let row = selectRes[0];
     hasPasswordCol = undefined !== row.password;
@@ -827,6 +830,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
   ctx.logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s, hasPasswordCol=%s', conn.isEnterCorrectPassword, hasDocumentPassword, hasPasswordCol);
   if (cfgOpenProtectedFile && (conn.isEnterCorrectPassword || !hasDocumentPassword) && hasPasswordCol) {
     let updateMask = new taskResult.TaskResultData();
+    updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
     updateMask.status = taskResult.FileStatus.Ok;
 
@@ -834,14 +838,13 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
 
     var task = new taskResult.TaskResultData();
-    task.key = cmd.getDocId();
     task.password = cmd.getPassword() || "";
     let changeInfo = null;
     if (conn.user) {
       changeInfo = task.innerPasswordChange = docsCoServer.getExternalChangeInfo(conn.user, newChangesLastDate.getTime());
     }
 
-    var upsertRes = yield taskResult.updateIf(task, updateMask);
+    var upsertRes = yield taskResult.updateIf(ctx, task, updateMask);
     if (upsertRes.affectedRows > 0) {
       outputData.setStatus('ok');
       if (!conn.isEnterCorrectPassword) {
@@ -899,7 +902,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
     let forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
     let callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
     let uri, baseUrl, wopiParams;
-    let selectRes = yield taskResult.select(docId);
+    let selectRes = yield taskResult.select(ctx, docId);
     let row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
       if (row.callback) {
@@ -931,6 +934,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
     let updateIfRes;
 
     let updateMask = new taskResult.TaskResultData();
+    updateMask.tenant = ctx.tenant;
     updateMask.key = docId;
     if (row) {
       if (isEncrypted) {
@@ -1013,7 +1017,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
         outputSfc.setStatus(statusErr);
       }
       if (isSfcm) {
-        let selectRes = yield taskResult.select(docId);
+        let selectRes = yield taskResult.select(ctx, docId);
         let row = selectRes.length > 0 ? selectRes[0] : null;
         //send only if FileStatus.Ok to prevent forcesave after final save
         if (row && row.status == taskResult.FileStatus.Ok) {
@@ -1043,7 +1047,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
         ctx.logger.debug('commandSfcCallback presence: count = %d', editorsCount);
         if (0 === editorsCount || (isEncrypted && 1 === editorsCount)) {
           if (!updateIfRes) {
-            updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
+            updateIfRes = yield taskResult.updateIf(ctx, updateIfTask, updateMask);
           }
           if (updateIfRes.affectedRows > 0) {
             let actualForceSave = yield docsCoServer.editorData.getForceSave(ctx, docId);
@@ -1104,7 +1108,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
       ctx.logger.debug('commandSfcCallback restore %d status', recoverTask.status);
       updateIfTask.status = recoverTask.status;
       updateIfTask.statusInfo = recoverTask.statusInfo;
-      updateIfRes = yield taskResult.updateIf(updateIfTask, updateMask);
+      updateIfRes = yield taskResult.updateIf(ctx, updateIfTask, updateMask);
       if (updateIfRes.affectedRows > 0) {
         updateMask.status = updateIfTask.status;
         updateMask.statusInfo = updateIfTask.statusInfo;
@@ -1166,7 +1170,7 @@ function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChange
         //collabora nexcloud connector
         if (body.LastModifiedTime) {
           let lastModifiedTimeInfo = wopiClient.getWopiModifiedMarker(wopiParams, body.LastModifiedTime);
-          yield commandOpenStartPromise(docId, undefined, true, lastModifiedTimeInfo);
+          yield commandOpenStartPromise(ctx, docId, undefined, true, lastModifiedTimeInfo);
         }
       } catch (e) {
         ctx.logger.debug('processWopiPutFile error: %s', e.stack);
@@ -1228,7 +1232,7 @@ function* commandSendMMCallback(ctx, cmd) {
   var newRecordFrom = mailMergeSendData.getRecordFrom() + Math.max(files.length, 1);
   if (newRecordFrom <= mailMergeSendData.getRecordTo()) {
     mailMergeSendData.setRecordFrom(newRecordFrom);
-    yield* addRandomKeyTaskCmd(cmd);
+    yield* addRandomKeyTaskCmd(ctx, cmd);
     var queueData = getSaveTask(ctx, cmd);
     yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
   } else {
@@ -1350,7 +1354,7 @@ exports.downloadAs = function(req, res) {
         }
       }
       ctx.setDocId(docId);
-      var selectRes = yield taskResult.select(docId);
+      var selectRes = yield taskResult.select(ctx, docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
       if (!cmd.getWithoutPassword()) {
         addPasswordToCmd(ctx, cmd, row && row.password);
@@ -1428,7 +1432,7 @@ exports.saveFile = function(req, res) {
       }
       ctx.setDocId(docId);
       cmd.setStatusInfo(constants.NO_ERROR);
-      yield* addRandomKeyTaskCmd(cmd);
+      yield* addRandomKeyTaskCmd(ctx, cmd);
       cmd.setOutputPath(constants.OUTPUT_NAME + pathModule.extname(cmd.getOutputPath()));
       yield storage.putObject(ctx, cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
       let replyStr = yield* commandSfcCallback(ctx, cmd, false, true);
@@ -1547,7 +1551,7 @@ exports.downloadFile = function(req, res) {
           return;
         }
         if (utils.canIncludeOutboxAuthorization(url)) {
-          let secret = yield tenantManager.getTenantSecret(ctx, false);
+          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest({url: url}, secret, false);
         }
       }
@@ -1582,10 +1586,8 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         startDate = new Date();
       }
       ctx.logger.debug('Start saveFromChanges');
-      var task = new taskResult.TaskResultData();
-      task.key = docId;
       //делаем select, потому что за время timeout информация могла измениться
-      var selectRes = yield taskResult.select(docId);
+      var selectRes = yield taskResult.select(ctx, docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
       if (row && row.status == taskResult.FileStatus.SaveVersion && row.status_info == statusInfo) {
         if (null == optFormat) {
@@ -1602,7 +1604,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
         cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr));
         addPasswordToCmd(ctx, cmd, row && row.password);
-        yield* addRandomKeyTaskCmd(cmd);
+        yield* addRandomKeyTaskCmd(ctx, cmd);
         var queueData = getSaveTask(ctx, cmd);
         queueData.setFromChanges(true);
         yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_NORMAL, opt_queue);
@@ -1633,8 +1635,8 @@ exports.receiveTask = function(data, ack) {
         var cmd = task.getCmd();
         ctx.initFromTaskQueueData(task);
         ctx.logger.info('receiveTask start: %s', data);
-        var updateTask = yield* getUpdateResponse(cmd);
-        var updateRes = yield taskResult.update(updateTask);
+        var updateTask = yield* getUpdateResponse(ctx, cmd);
+        var updateRes = yield taskResult.update(ctx, updateTask);
         if (updateRes.affectedRows > 0) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();

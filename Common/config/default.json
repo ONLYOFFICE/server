@@ -101,7 +101,8 @@
 		"baseDir": "",
 		"baseDomain": "",
 		"filenameSecret": "secret.key",
-		"filenameLicense": "license.lic"
+		"filenameLicense": "license.lic",
+		"defaultTetant": "tetant"
 	},
 	"services": {
 		"CoAuthoring": {

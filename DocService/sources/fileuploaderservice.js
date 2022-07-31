@@ -73,7 +73,7 @@ exports.uploadTempFile = function(req, res) {
       ctx.setDocId(docId);
       ctx.logger.debug('Start uploadTempFile');
       if (docId && constants.DOC_ID_REGEX.test(docId) && req.body && Buffer.isBuffer(req.body)) {
-        var task = yield* taskResult.addRandomKeyTask(docId);
+        var task = yield* taskResult.addRandomKeyTask(ctx, docId);
         var strPath = task.key + '/' + docId + '.tmp';
         yield storageBase.putObject(ctx, strPath, req.body, req.body.length);
         var url = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(req), strPath,

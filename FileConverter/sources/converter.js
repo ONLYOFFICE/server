@@ -319,7 +319,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
       try {
         let authorization;
         if (utils.canIncludeOutboxAuthorization(uri) && withAuthorization) {
-          let secret = yield tenantManager.getTenantSecret(ctx, false);
+          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest({url: uri}, secret, false);
         }
         let getRes = yield utils.downloadUrlPromise(ctx, uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
@@ -484,7 +484,7 @@ function* processChanges(ctx, tempDirs, cmd, authorProps) {
   while (curIndexStart < curIndexEnd || extChanges) {
     let changes = [];
     if (curIndexStart < curIndexEnd) {
-      changes = yield baseConnector.getChangesPromise(cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+      changes = yield baseConnector.getChangesPromise(ctx, cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
     }
     if (0 === changes.length && extChanges) {
       changes = extChanges;
