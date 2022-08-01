@@ -53,22 +53,24 @@ const cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
 let licenseInfo;
 let licenseOriginal;
 
-function getDefautTenant(domain) {
+function getDefautTenant() {
   return cfgTenantsDefaultTetant;
 }
 function getTenant(domain) {
-  let tenant = "localhost";
+  let tenant = getDefautTenant();
   if (domain) {
-    // let index = domain.indexOf(cfgTenantsBaseDomain);
-    // if (-1 !== index) {
-    //   tenant = domain.substring(0, index);
-    // }
-    tenant = domain;
+    let index = domain.indexOf(cfgTenantsBaseDomain);
+    if (-1 !== index) {
+      tenant = domain.substring(0, index);
+    }
   }
   return tenant;
 }
-function getTenantRedisPrefix(ctx) {
-  return cfgRedisPrefix + (isMultitenantMode() ? `tenant:${ctx.tenant}:` : '');
+function getTenantByConnection(conn) {
+  return isMultitenantMode() ? getTenant(utils.getDomainByConnection(conn)) : getDefautTenant();
+}
+function getTenantByRequest(req) {
+  return isMultitenantMode() ? getTenant(utils.getDomainByRequest(req)) : getDefautTenant();
 }
 function getTenantPathPrefix(ctx) {
   return isMultitenantMode() ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
@@ -135,12 +137,12 @@ function getTenantLicense(ctx) {
   });
 }
 function isMultitenantMode() {
-  return !!cfgTenantsBaseDir;
+  return !!cfgTenantsBaseDir && !!cfgTenantsBaseDomain;
 }
 
 exports.getDefautTenant = getDefautTenant;
-exports.getTenant = getTenant;
-exports.getTenantRedisPrefix = getTenantRedisPrefix;
+exports.getTenantByConnection = getTenantByConnection;
+exports.getTenantByRequest = getTenantByRequest;
 exports.getTenantPathPrefix = getTenantPathPrefix;
 exports.getTenantSecret = getTenantSecret;
 exports.getTenantLicense = getTenantLicense;

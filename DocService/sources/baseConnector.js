@@ -262,6 +262,18 @@ exports.getEmptyCallbacks = function(ctx) {
     });
   });
 };
+exports.getTableColumns = function(ctx, tableName) {
+  return new Promise(function(resolve, reject) {
+    const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = '${tableName}';`;
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+};
 function UserCallback() {
   this.userIndex = undefined;
   this.callback = undefined;

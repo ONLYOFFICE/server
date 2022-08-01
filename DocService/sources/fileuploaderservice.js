@@ -57,7 +57,7 @@ const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 exports.uploadTempFile = function(req, res) {
   return co(function* () {
     var docId = 'uploadTempFile';
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('uploadTempFile start');
@@ -119,7 +119,7 @@ function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
 }
 exports.uploadImageFileOld = function(req, res) {
   return co(function* () {
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     ctx.initFromRequest(req);
     var docId = req.params.docid;
     var userid = req.params.userid;
@@ -211,7 +211,7 @@ exports.uploadImageFile = function(req, res) {
     var docId = 'null';
     let output = {};
     let isValidJwt = true;
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       docId = req.params.docid;

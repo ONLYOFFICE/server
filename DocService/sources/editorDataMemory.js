@@ -35,6 +35,7 @@ const config = require('config');
 const ms = require('ms');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
+const tenantManager = require('./../../Common/sources/tenantManager');
 
 const cfgExpMonthUniqueUsers = ms(config.get('services.CoAuthoring.expire.monthUniqueUsers'));
 
@@ -95,7 +96,7 @@ EditorData.prototype.removePresence = function(ctx, docId, userId) {
 EditorData.prototype.getPresence = function(ctx, docId, connections) {
   let hvals = [];
   for (let i = 0; i < connections.length; ++i) {
-    if (connections[i].docId === docId) {
+    if (connections[i].docId === docId && ctx.tenant === tenantManager.getTenantByConnection(connections[i])) {
       hvals.push(utils.getConnectionInfoStr(connections[i]));
     }
   }

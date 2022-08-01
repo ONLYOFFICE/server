@@ -667,7 +667,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
         urls = [checkJwtRes.decoded.url];
       }
       for (let i = 0; i < urls.length; ++i) {
-        if (utils.canIncludeOutboxAuthorization(urls[i])) {
+        if (utils.canIncludeOutboxAuthorization(ctx, urls[i])) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorizations[i] = [utils.fillJwtForRequest({url: urls[i]}, secret, false)];
         }
@@ -1306,7 +1306,7 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
 exports.downloadAs = function(req, res) {
   return co(function* () {
     var docId = 'null';
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       var startDate = null;
       if(clientStatsD) {
@@ -1396,7 +1396,7 @@ exports.downloadAs = function(req, res) {
 exports.saveFile = function(req, res) {
   return co(function*() {
     let docId = 'null';
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       let startDate = null;
       if (clientStatsD) {
@@ -1468,7 +1468,7 @@ exports.getPrintFileUrl = getPrintFileUrl;
 exports.printFile = function(req, res) {
   return co(function*() {
     let docId = 'null';
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       let startDate = null;
       if (clientStatsD) {
@@ -1518,7 +1518,7 @@ exports.printFile = function(req, res) {
 };
 exports.downloadFile = function(req, res) {
   return co(function*() {
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       let startDate = null;
       if (clientStatsD) {
@@ -1550,7 +1550,7 @@ exports.downloadFile = function(req, res) {
           res.sendStatus(403);
           return;
         }
-        if (utils.canIncludeOutboxAuthorization(url)) {
+        if (utils.canIncludeOutboxAuthorization(ctx, url)) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest({url: url}, secret, false);
         }
@@ -1628,7 +1628,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
 };
 exports.receiveTask = function(data, ack) {
   return co(function* () {
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       var task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {

@@ -77,11 +77,11 @@ const server = http.createServer(app);
 let licenseInfo, licenseOriginal, updatePluginsTime, userPlugins, pluginsLoaded;
 
 const updatePlugins = (eventType, filename) => {
-	console.log('update Folder: %s ; %s', eventType, filename);
+	operationContext.global.logger.info('update Folder: %s ; %s', eventType, filename);
 	if (updatePluginsTime && 1000 >= (new Date() - updatePluginsTime)) {
 		return;
 	}
-	console.log('update Folder true: %s ; %s', eventType, filename);
+	operationContext.global.logger.info('update Folder true: %s ; %s', eventType, filename);
 	updatePluginsTime = new Date();
 	pluginsLoaded = false;
 };
@@ -93,17 +93,17 @@ const updateLicense = () => {
 		try {
 			yield* readLicense();
 			docsCoServer.setLicenseInfo(licenseInfo, licenseOriginal);
-			console.log('End updateLicense');
+			operationContext.global.logger.info('End updateLicense');
 		} catch (err) {
-			logger.error('updateLicense error: %s', err.stack);
+			operationContext.global.logger.error('updateLicense error: %s', err.stack);
 		}
 	});
 };
 
-logger.warn('Express server starting...');
+operationContext.global.logger.warn('Express server starting...');
 
 if (!(cfgTokenEnableBrowser && cfgTokenEnableRequestInbox && cfgTokenEnableRequestOutbox)) {
-	logger.warn('Set services.CoAuthoring.token.enable.browser, services.CoAuthoring.token.enable.request.inbox, ' +
+	operationContext.global.logger.warn('Set services.CoAuthoring.token.enable.browser, services.CoAuthoring.token.enable.request.inbox, ' +
 				'services.CoAuthoring.token.enable.request.outbox in the Document Server config ' +
 				'to prevent an unauthorized access to your documents and the substitution of important parameters in ONLYOFFICE Document Server requests.');
 }
@@ -142,7 +142,7 @@ if (configStorage.has('fs.folderPath')) {
 			const realUrl = req.url.substring(0, index);
 			res.sendFile(realUrl, sendFileOptions, (err) => {
 				if (err) {
-					logger.error(err);
+					operationContext.global.logger.error(err);
 					res.status(400).end();
 				}
 			});
@@ -155,22 +155,22 @@ if (configStorage.has('fs.folderPath')) {
 try {
 	fs.watch(config.get('plugins.path'), updatePlugins);
 } catch (e) {
-	logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability');
+	operationContext.global.logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability');
 }
 
 // Если захочется использовать 'development' и 'production',
 // то с помощью app.settings.env (https://github.com/strongloop/express/issues/936)
 // Если нужна обработка ошибок, то теперь она такая https://github.com/expressjs/errorhandler
 docsCoServer.install(server, () => {
-	console.log('Start callbackFunction');
+	operationContext.global.logger.info('Start callbackFunction');
 
 	server.listen(config.get('server.port'), () => {
-		logger.warn("Express server listening on port %d in %s mode. Version: %s. Build: %s", config.get('server.port'), app.settings.env, commonDefines.buildVersion, commonDefines.buildNumber);
+		operationContext.global.logger.warn("Express server listening on port %d in %s mode. Version: %s. Build: %s", config.get('server.port'), app.settings.env, commonDefines.buildVersion, commonDefines.buildNumber);
 	});
 
 	app.get('/index.html', (req, res) => {
 		return co(function*() {
-			let ctx = new operationContext.OperationContext();
+			let ctx = new operationContext.Context();
 			ctx.initFromRequest(req);
 			let licenseInfo = yield tenantManager.getTenantLicense(ctx);
 			let buildVersion = commonDefines.buildVersion;
@@ -249,7 +249,7 @@ docsCoServer.install(server, () => {
 	}
 
 	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
-		let ctx = new operationContext.OperationContext();
+		let ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
 		ctx.logger.debug(`dummyCallback req.body:%s`, req.body);
 		utils.fillResponseSimple(res, JSON.stringify({error: 0}, "application/json"));
@@ -306,7 +306,7 @@ docsCoServer.install(server, () => {
 	app.get('/themes.json', apicache.middleware("5 minutes"), (req, res) => {
 		return co(function*() {
 			let themes = [];
-			let ctx = new operationContext.OperationContext();
+			let ctx = new operationContext.Context();
 			try {
 				ctx.initFromRequest(req);
 				ctx.logger.info('themes.json start');
@@ -348,8 +348,8 @@ docsCoServer.install(server, () => {
 });
 
 process.on('uncaughtException', (err) => {
-	logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
-	logger.error(err.stack);
+	operationContext.global.logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
+	operationContext.global.logger.error(err.stack);
 	logger.shutdown(() => {
 		process.exit(1);
 	});

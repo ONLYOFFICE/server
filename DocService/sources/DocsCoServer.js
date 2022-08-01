@@ -667,7 +667,7 @@ function* getOriginalParticipantsId(ctx, docId) {
 function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
   ctx.logger.debug('postData request: url = %s;data = %j', uri, dataObject);
   let auth;
-  if (utils.canIncludeOutboxAuthorization(uri)) {
+  if (utils.canIncludeOutboxAuthorization(ctx, uri)) {
     let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
     let bodyToken = utils.fillJwtForRequest(dataObject, secret, true);
     auth = utils.fillJwtForRequest(dataObject, secret, false);
@@ -831,7 +831,7 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
 function getExternalChangeInfo(user, date) {
   return {user_id: user.id, user_id_original: user.idOriginal, user_name: user.username, change_date: date};
 }
-let resetForceSaveAfterChanges = co.wrap(function*(docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
+let resetForceSaveAfterChanges = co.wrap(function*(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
   //last save
   if (newChangesLastTime) {
     yield editorData.setForceSave(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo);
@@ -874,7 +874,7 @@ function* startRPC(ctx, conn, responseKey, data) {
 }
 function handleDeadLetter(data, ack) {
   return co(function*() {
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       var isRequeued = false;
       let task = new commonDefines.TaskQueueData(JSON.parse(data));
@@ -1066,7 +1066,7 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
     oCallbackUrl = parseUrl(ctx, callback);
     bChangeBase = c_oAscChangeBase.All;
     if (null !== oCallbackUrl) {
-      let filterStatus = yield* utils.checkHostFilter(oCallbackUrl.host);
+      let filterStatus = yield* utils.checkHostFilter(ctx, oCallbackUrl.host);
       if (filterStatus > 0) {
         ctx.logger.warn('checkIpFilter error: url = %s', callback);
         //todo add new error type
@@ -1269,10 +1269,10 @@ exports.install = function(server, callbackFunction) {
   var sockjs_echo = sockjs.createServer(cfgSockjs);
 
   sockjs_echo.on('connection', function(conn) {
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     ctx.initFromConnection(conn);
     if (!conn) {
-      logger.error("null == conn");
+      operationContext.global.logger.error("null == conn");
       return;
     }
     if (getIsShutdown()) {
@@ -1286,7 +1286,7 @@ exports.install = function(server, callbackFunction) {
     conn.on('data', function(message) {
       return co(function* () {
       var docId = 'null';
-      let ctx = new operationContext.OperationContext();
+      let ctx = new operationContext.Context();
       try {
         ctx.initFromConnection(conn);
         var startDate = null;
@@ -1396,13 +1396,13 @@ exports.install = function(server, callbackFunction) {
       });
     });
     conn.on('error', function() {
-      let ctx = new operationContext.OperationContext();
+      let ctx = new operationContext.Context();
       ctx.initFromConnection(conn);
       ctx.logger.error("On error");
     });
     conn.on('close', function() {
       return co(function* () {
-        let ctx = new operationContext.OperationContext();
+        let ctx = new operationContext.Context();
         try {
           ctx.initFromConnection(conn);
           yield* closeDocument(ctx, conn, true);
@@ -2170,7 +2170,7 @@ exports.install = function(server, callbackFunction) {
       } else {
         if (data.documentCallbackUrl && !wopiParams) {
           documentCallback = url.parse(data.documentCallbackUrl);
-          let filterStatus = yield* utils.checkHostFilter(documentCallback.hostname);
+          let filterStatus = yield* utils.checkHostFilter(ctx, documentCallback.hostname);
           if (0 !== filterStatus) {
             ctx.logger.warn('checkIpFilter error: url = %s', data.documentCallbackUrl);
             conn.close(constants.DROP_CODE, constants.DROP_REASON);
@@ -3080,13 +3080,13 @@ exports.install = function(server, callbackFunction) {
 
   sockjs_echo.installHandlers(server, {prefix: '/doc/['+constants.DOC_ID_PATTERN+']*/c', log: function(severity, message) {
     //TODO: handle severity
-    logger.info(message);
+    operationContext.global.logger.info(message);
   }});
 
   //publish subscribe message brocker
   function pubsubOnMessage(msg) {
     return co(function* () {
-      let ctx = new operationContext.OperationContext();
+      let ctx = new operationContext.Context();
       try {
         var data = JSON.parse(msg);
         ctx.initFromPubSub(data);
@@ -3301,7 +3301,7 @@ exports.install = function(server, callbackFunction) {
   }
   function expireDoc() {
     return co(function* () {
-      let ctx = new operationContext.OperationContext();
+      let ctx = new operationContext.Context();
       try {
         let countEditByShard = 0;
         let countLiveViewByShard = 0;
@@ -3351,6 +3351,7 @@ exports.install = function(server, callbackFunction) {
             countEditByShard++;
           }
         }
+        ctx.initDefault();
         yield* collectStats(ctx, countEditByShard, countLiveViewByShard, countViewByShard);
         yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
         yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
@@ -3373,7 +3374,7 @@ exports.install = function(server, callbackFunction) {
   setTimeout(expireDoc, expDocumentsStep);
   function refreshWopiLock() {
     return co(function* () {
-      let ctx = new operationContext.OperationContext();
+      let ctx = new operationContext.Context();
       try {
         ctx.logger.info('refreshWopiLock start');
         let docIds = new Map();
@@ -3399,10 +3400,11 @@ exports.install = function(server, callbackFunction) {
             }
           }
         }
+        ctx.initDefault();
+        ctx.logger.info('refreshWopiLock end');
       } catch (err) {
         ctx.logger.error('refreshWopiLock error:%s', err.stack);
       } finally {
-        ctx.logger.info('refreshWopiLock end');
         setTimeout(refreshWopiLock, cfgRefreshLockInterval);
       }
     });
@@ -3413,7 +3415,7 @@ exports.install = function(server, callbackFunction) {
   pubsub.on('message', pubsubOnMessage);
   pubsub.init(function(err) {
     if (null != err) {
-      logger.error('createPubSub error: %s', err.stack);
+      operationContext.global.logger.error('createPubSub error: %s', err.stack);
     }
 
     queue = new queueService();
@@ -3421,10 +3423,34 @@ exports.install = function(server, callbackFunction) {
     queue.on('response', canvasService.receiveTask);
     queue.init(true, true, false, true, true, true, function(err){
       if (null != err) {
-        logger.error('createTaskQueue error: %s', err.stack);
+        operationContext.global.logger.error('createTaskQueue error: %s', err.stack);
       }
       gc.startGC();
-      callbackFunction();
+
+      let tableName = 'task_result';
+      const tableRequiredColumn = 'tenant';
+      sqlBase.getTableColumns(operationContext.global, tableName).then(function(res) {
+        let index = res.findIndex((currentValue) => {
+          for (let key in currentValue) {
+            if (currentValue.hasOwnProperty(key) && 'column_name' === key.toLowerCase()) {
+              return tableRequiredColumn === currentValue[key];
+            }
+          }
+        });
+        if (-1 !== index) {
+          let editorDataArgs = utils.getFunctionArguments(editorData.addPresence);
+          if (editorDataArgs && 'ctx' === editorDataArgs[0]) {
+            callbackFunction();
+          } else {
+            operationContext.global.logger.error('server-lockstorage repository on wrong branch. args: %j', editorDataArgs);
+          }
+        } else {
+          operationContext.global.logger.error('DB table %s does not contain required columns: %s', tableName, tableRequiredColumn);
+        }
+      }).catch(err => {
+        operationContext.global.logger.error('getTableColumns error: %s', err.stack);
+      });
+
     });
   });
 };
@@ -3434,7 +3460,7 @@ exports.setLicenseInfo = function(data, original ) {
 exports.healthCheck = function(req, res) {
   return co(function*() {
     let output = false;
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.debug('healthCheck start');
@@ -3504,7 +3530,7 @@ exports.licenseInfo = function(req, res) {
       }
     };
 
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.debug('licenseInfo start');
@@ -3653,7 +3679,7 @@ exports.commandFromServer = function (req, res) {
     let docId = 'commandFromServer';
     let version = undefined;
     let outputLicense = undefined;
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('commandFromServer start');
@@ -3666,6 +3692,7 @@ exports.commandFromServer = function (req, res) {
       }
       // Ключ id-документа
       docId = params.key;
+      ctx.setDocId(docId);
       if (commonDefines.c_oAscServerCommandErrors.NoError === result && null == docId && 'version' !== params.c && 'license' !== params.c) {
         result = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
       } else if(commonDefines.c_oAscServerCommandErrors.NoError === result) {
@@ -3743,7 +3770,7 @@ exports.commandFromServer = function (req, res) {
 exports.shutdown = function(req, res) {
   return co(function*() {
     let output = false;
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('shutdown start');

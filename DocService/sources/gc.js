@@ -66,7 +66,7 @@ let expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
 var checkFileExpire = function() {
   return co(function* () {
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.logger.info('checkFileExpire start');
       let removedCount = 0;
@@ -76,8 +76,9 @@ var checkFileExpire = function() {
         currentRemovedCount = 0;
         expired = yield taskResult.getExpired(ctx, cfgExpFilesRemovedAtOnce, cfgExpFiles);
         for (var i = 0; i < expired.length; ++i) {
-          var docId = expired[i].id;
-          ctx.setDocId(docId);
+          let tenant = expired[i].tenant;
+          let docId = expired[i].id;
+          ctx.init(tenant, docId, ctx.userId);
           //todo tenant
           //проверяем что никто не сидит в документе
           let editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
@@ -91,6 +92,7 @@ var checkFileExpire = function() {
         }
         removedCount += currentRemovedCount;
       } while (currentRemovedCount > 0);
+      ctx.initDefault();
       ctx.logger.info('checkFileExpire end: removedCount = %d', removedCount);
     } catch (e) {
       ctx.logger.error('checkFileExpire error: %s', e.stack);
@@ -104,7 +106,7 @@ var checkDocumentExpire = function() {
     var queue = null;
     var removedCount = 0;
     var startSaveCount = 0;
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.logger.info('checkDocumentExpire start');
       var now = (new Date()).getTime();
@@ -114,9 +116,10 @@ var checkDocumentExpire = function() {
         yield queue.initPromise(true, false, false, false, false, false);
 
         for (var i = 0; i < expiredKeys.length; ++i) {
-          var docId = expiredKeys[i];
+          let tenant = expiredKeys[i][0];
+          let docId = expiredKeys[i][1];
           if (docId) {
-            ctx.setDocId(docId);
+            ctx.init(tenant, docId, ctx.userId);
             var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
             if (hasChanges) {
               yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
@@ -128,6 +131,8 @@ var checkDocumentExpire = function() {
           }
         }
       }
+      ctx.initDefault();
+      ctx.logger.info('checkDocumentExpire end: startSaveCount = %d, removedCount = %d', startSaveCount, removedCount);
     } catch (e) {
       ctx.logger.error('checkDocumentExpire error: %s', e.stack);
     } finally {
@@ -138,7 +143,6 @@ var checkDocumentExpire = function() {
       } catch (e) {
         ctx.logger.error('checkDocumentExpire error: %s', e.stack);
       }
-      ctx.logger.info('checkDocumentExpire end: startSaveCount = %d, removedCount = %d', startSaveCount, removedCount);
       setTimeout(checkDocumentExpire, expDocumentsStep);
     }
   });
@@ -147,7 +151,7 @@ let forceSaveTimeout = function() {
   return co(function* () {
     let queue = null;
     let pubsub = null;
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.logger.info('forceSaveTimeout start');
       let now = (new Date()).getTime();
@@ -161,9 +165,10 @@ let forceSaveTimeout = function() {
 
         let actions = [];
         for (let i = 0; i < expiredKeys.length; ++i) {
-          let docId = expiredKeys[i];
+          let tenant = expiredKeys[i][0];
+          let docId = expiredKeys[i][1];
           if (docId) {
-            ctx.setDocId(docId);
+            ctx.init(tenant, docId, ctx.userId);
             actions.push(docsCoServer.startForceSave(ctx, docId, commondefines.c_oAscForceSaveTypes.Timeout,
                                                             undefined, undefined, undefined, undefined, undefined, undefined, queue, pubsub));
           }
@@ -171,6 +176,8 @@ let forceSaveTimeout = function() {
         yield Promise.all(actions);
         ctx.logger.debug('forceSaveTimeout actions.length %d', actions.length);
       }
+      ctx.initDefault();
+      ctx.logger.info('forceSaveTimeout end');
     } catch (e) {
       ctx.logger.error('forceSaveTimeout error: %s', e.stack);
     } finally {
@@ -184,7 +191,6 @@ let forceSaveTimeout = function() {
       } catch (e) {
         ctx.logger.error('checkDocumentExpire error: %s', e.stack);
       }
-      ctx.logger.info('forceSaveTimeout end');
       setTimeout(forceSaveTimeout, cfgForceSaveStep);
     }
   });

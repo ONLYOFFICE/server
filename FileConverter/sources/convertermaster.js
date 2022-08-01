@@ -34,6 +34,7 @@
 
 const cluster = require('cluster');
 const logger = require('./../../Common/sources/logger');
+const operationContext = require('./../../Common/sources/operationContext');
 
 if (cluster.isMaster) {
   const fs = require('fs');
@@ -61,7 +62,7 @@ if (cluster.isMaster) {
     if (arrKeyWorkers.length < workersCount) {
       for (i = arrKeyWorkers.length; i < workersCount; ++i) {
         const newWorker = cluster.fork();
-        logger.warn('worker %s started.', newWorker.process.pid);
+        operationContext.global.logger.warn('worker %s started.', newWorker.process.pid);
       }
     } else {
       for (i = workersCount; i < arrKeyWorkers.length; ++i) {
@@ -76,16 +77,16 @@ if (cluster.isMaster) {
     return co(function*() {
       try {
         yield* readLicense();
-        logger.warn('update cluster with %s workers', workersCount);
+        operationContext.global.logger.warn('update cluster with %s workers', workersCount);
         updateWorkers();
       } catch (err) {
-        logger.error('updateLicense error: %s', err.stack);
+        operationContext.global.logger.error('updateLicense error: %s', err.stack);
       }
     });
   };
 
   cluster.on('exit', (worker, code, signal) => {
-    logger.warn('worker %s died (code = %s; signal = %s).', worker.process.pid, code, signal);
+    operationContext.global.logger.warn('worker %s died (code = %s; signal = %s).', worker.process.pid, code, signal);
     updateWorkers();
   });
 
@@ -101,8 +102,8 @@ if (cluster.isMaster) {
 }
 
 process.on('uncaughtException', (err) => {
-  logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
-  logger.error(err.stack);
+  operationContext.global.logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
+  operationContext.global.logger.error(err.stack);
   logger.shutdown(() => {
     process.exit(1);
   });

@@ -313,12 +313,12 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
   var data = null;
   var downloadAttemptCount = 0;
   var urlParsed = url.parse(uri);
-  var filterStatus = yield* utils.checkHostFilter(urlParsed.hostname);
+  var filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
   if (0 == filterStatus) {
     while (constants.NO_ERROR !== res && downloadAttemptCount++ < cfgDownloadAttemptMaxCount) {
       try {
         let authorization;
-        if (utils.canIncludeOutboxAuthorization(uri) && withAuthorization) {
+        if (utils.canIncludeOutboxAuthorization(ctx, uri) && withAuthorization) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest({url: uri}, secret, false);
         }
@@ -393,7 +393,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
     needConcatFiles = true;
   }
-  if (!utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
+  if (!utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
     return constants.CONVERT_PARAMS;
   }
   //mail merge
@@ -748,7 +748,7 @@ function* ExecuteTask(ctx, task) {
   if (cmd.getUrl()) {
     let format = cmd.getFormat();
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + format);
-    if (utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
+    if (utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
       let filterPrivate = !withAuthorization;
@@ -865,7 +865,7 @@ function receiveTask(data, ack) {
   return co(function* () {
     var res = null;
     var task = null;
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
@@ -897,7 +897,7 @@ function receiveTask(data, ack) {
 }
 function simulateErrorResponse(data){
   let task = new commonDefines.TaskQueueData(JSON.parse(data));
-  let ctx = new operationContext.OperationContext();
+  let ctx = new operationContext.Context();
   ctx.initFromTaskQueueData(task);
   //simulate error response
   let cmd = task.getCmd();
@@ -912,7 +912,7 @@ function run() {
   queue.on('task', receiveTask);
   queue.init(true, true, true, false, false, false, function(err) {
     if (null != err) {
-      logger.error('createTaskQueue error: %s', err.stack);
+      operationContext.global.logger.error('createTaskQueue error: %s', err.stack);
     }
   });
 }

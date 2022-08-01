@@ -98,7 +98,7 @@ let mimeTypesByExt = (function() {
 function discovery(req, res) {
   return co(function*() {
     let output = '';
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('wopiDiscovery start');
@@ -196,7 +196,7 @@ function collaboraCapabilities(req, res) {
       "convert-to": {"available": false}, "hasMobileSupport": true, "hasProxyPrefix": false, "hasTemplateSaveAs": false,
       "hasTemplateSource": true, "productVersion": commonDefines.buildVersion
     };
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('collaboraCapabilities start');
@@ -310,9 +310,12 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
 function getEditorHtml(req, res) {
   return co(function*() {
     let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined};
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      let wopiSrc = req.query['wopisrc'];
+      let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
+      ctx.setDocId(fileId);
 
       ctx.logger.info('wopiEditor start');
       ctx.logger.debug(`wopiEditor req.url:%s`, req.url);
@@ -320,7 +323,6 @@ function getEditorHtml(req, res) {
       ctx.logger.debug(`wopiEditor req.body:%j`, req.body);
       params.documentType = req.params.documentType;
       let mode = req.params.mode;
-      let wopiSrc = req.query['wopisrc'];
       let sc = req.query['sc'];
       let hostSessionId = req.query['hid'];
       let access_token = req.body['access_token'] || "";
@@ -339,7 +341,6 @@ function getEditorHtml(req, res) {
       }
       //docId
       let docId = undefined;
-      let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       if ('view' !== mode) {
         docId = `${fileId}`;
       } else {
@@ -642,7 +643,7 @@ function fillStandardHeaders(headers, url, access_token) {
 function checkIpFilter(ctx, uri){
   return co(function* () {
     let urlParsed = new URL(uri);
-    let filterStatus = yield* utils.checkHostFilter(urlParsed.hostname);
+    let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
     if (0 !== filterStatus) {
       ctx.logger.warn('wopi checkIpFilter error: url = %s', uri);
     }

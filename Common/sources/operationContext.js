@@ -37,17 +37,20 @@ const logger = require('./logger');
 const constants = require('./constants');
 const tenantManager = require('./tenantManager');
 
-function OperationContext(){
+function Context(){
   this.logger = logger.getLogger('nodeJS');
-  this.init(constants.DEFAULT_TENANT, constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID);
+  this.initDefault();
 }
-OperationContext.prototype.init = function(tenant, docId, userId) {
+Context.prototype.init = function(tenant, docId, userId) {
   this.setTenant(tenant);
   this.setDocId(docId);
   this.setUserId(userId);
 };
-OperationContext.prototype.initFromConnection = function(conn) {
-  let tenant = tenantManager.getTenant(utils.getDomainByConnection(conn));
+Context.prototype.initDefault = function() {
+  this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID);
+};
+Context.prototype.initFromConnection = function(conn) {
+  let tenant = tenantManager.getTenantByConnection(conn);
   let docId = conn.docid;
   if (!docId) {
     const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(conn.url);
@@ -56,33 +59,33 @@ OperationContext.prototype.initFromConnection = function(conn) {
     }
   }
   let userId = conn.user?.id;
-  this.init(tenant, docId, userId);
+  this.init(tenant, docId || this.docId, userId || this.userId);
 };
-OperationContext.prototype.initFromRequest = function(req) {
-  let tenant = tenantManager.getTenant(utils.getDomainByRequest(req));
+Context.prototype.initFromRequest = function(req) {
+  let tenant = tenantManager.getTenantByRequest(req);
   this.init(tenant, this.docId, this.userId);
 };
-OperationContext.prototype.initFromTaskQueueData = function(task) {
+Context.prototype.initFromTaskQueueData = function(task) {
   let ctx = task.getCtx();
   this.init(ctx.tenant, ctx.docId, ctx.userId);
 };
-OperationContext.prototype.initFromPubSub = function(data) {
+Context.prototype.initFromPubSub = function(data) {
   let ctx = data.ctx;
   this.init(ctx.tenant, ctx.docId, ctx.userId);
 };
 
-OperationContext.prototype.setTenant = function(tenant) {
+Context.prototype.setTenant = function(tenant) {
   this.tenant = tenant;
   this.logger.addContext('TENANT', tenant);
 };
-OperationContext.prototype.setDocId = function(docId) {
+Context.prototype.setDocId = function(docId) {
   this.docId = docId;
   this.logger.addContext('DOCID', docId);
 };
-OperationContext.prototype.setUserId = function(userId) {
+Context.prototype.setUserId = function(userId) {
   this.userId = userId;
   this.logger.addContext('USERID', userId);
 };
 
-exports.OperationContext = OperationContext;
-exports.globalCtx = new OperationContext();
+exports.Context = Context;
+exports.global = new Context();

@@ -765,14 +765,14 @@ function checkIpFilter(ipString, opt_hostname) {
   return status;
 }
 exports.checkIpFilter = checkIpFilter;
-function* checkHostFilter(hostname) {
+function* checkHostFilter(ctx, hostname) {
   let status = 0;
   let hostIp;
   try {
     hostIp = yield dnsLookup(hostname);
   } catch (e) {
     status = cfgIpFilterErrorCode;
-    logger.error('dnsLookup error: hostname = %s %s', hostname, e.stack);
+    ctx.logger.error('dnsLookup error: hostname = %s %s', hostname, e.stack);
   }
   if (0 === status) {
     status = checkIpFilter(hostIp, hostname);
@@ -855,13 +855,13 @@ exports.forwarded = forwarded;
 exports.getIndexFromUserId = function(userId, userIdOriginal){
   return parseInt(userId.substring(userIdOriginal.length));
 };
-exports.checkPathTraversal = function(docId, rootDirectory, filename) {
+exports.checkPathTraversal = function(ctx, docId, rootDirectory, filename) {
   if (filename.indexOf('\0') !== -1) {
-    logger.warn('checkPathTraversal Poison Null Bytes filename=%s', filename);
+    ctx.logger.warn('checkPathTraversal Poison Null Bytes filename=%s', filename);
     return false;
   }
   if (!filename.startsWith(rootDirectory)) {
-    logger.warn('checkPathTraversal Path Traversal filename=%s', filename);
+    ctx.logger.warn('checkPathTraversal Path Traversal filename=%s', filename);
     return false;
   }
   return true;
@@ -886,14 +886,14 @@ exports.getConnectionInfoStr = function(conn){
 exports.isLiveViewer = function(conn){
   return conn.user?.view && "fast" === conn.coEditingMode;
 };
-exports.canIncludeOutboxAuthorization = function (url) {
+exports.canIncludeOutboxAuthorization = function (ctx, url) {
   if (cfgTokenEnableRequestOutbox) {
     if (!outboxUrlExclusionRegex) {
       return true;
     } else if (!outboxUrlExclusionRegex.test(url)) {
       return true;
     } else {
-      logger.debug('canIncludeOutboxAuthorization excluded by token.outbox.urlExclusionRegex url=%s', url);
+      ctx.logger.debug('canIncludeOutboxAuthorization excluded by token.outbox.urlExclusionRegex url=%s', url);
     }
   }
   return false;
@@ -1007,3 +1007,11 @@ exports.getLicensePeriod = function(startDate, now) {
 exports.removeIllegalCharacters = function(filename) {
   return filename?.replace(/[/\\?%*:|"<>]/g, '-') || filename;
 }
+exports.getFunctionArguments = function(func) {
+  return func.toString().
+    replace(/[\r\n\s]+/g, ' ').
+    match(/(?:function\s*\w*)?\s*(?:\((.*?)\)|([^\s]+))/).
+    slice(1, 3).
+    join('').
+    split(/\s*,\s*/);
+};

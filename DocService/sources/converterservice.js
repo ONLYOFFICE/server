@@ -226,7 +226,7 @@ function parseIntParam(val){
 
 function convertRequest(req, res, isJson) {
   return co(function* () {
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('convertRequest start');
@@ -376,7 +376,7 @@ function convertRequestXml(req, res) {
 
 function builderRequest(req, res) {
   return co(function* () {
-    let ctx = new operationContext.OperationContext();
+    let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('builderRequest start');

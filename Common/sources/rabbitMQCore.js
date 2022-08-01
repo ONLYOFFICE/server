@@ -34,6 +34,7 @@
 var config = require('config');
 var amqp = require('amqplib/callback_api');
 var logger = require('./logger');
+const operationContext = require('./operationContext');
 
 var cfgRabbitUrl = config.get('rabbitmq.url');
 var cfgRabbitSocketOptions = config.get('rabbitmq.socketOptions');
@@ -45,7 +46,7 @@ function connetPromise(reconnectOnConnectionError, closeCallback) {
     function startConnect() {
       amqp.connect(cfgRabbitUrl, cfgRabbitSocketOptions, function(err, conn) {
         if (null != err) {
-          logger.error('[AMQP] %s', err.stack);
+          operationContext.global.logger.error('[AMQP] %s', err.stack);
           if (reconnectOnConnectionError) {
             setTimeout(startConnect, RECONNECT_TIMEOUT);
           } else {
@@ -53,16 +54,16 @@ function connetPromise(reconnectOnConnectionError, closeCallback) {
           }
         } else {
           conn.on('error', function(err) {
-            logger.error('[AMQP] conn error', err.stack);
+            operationContext.global.logger.error('[AMQP] conn error', err.stack);
           });
           var closeEventCallback = function() {
             //in some case receive multiple close events
             conn.removeListener('close', closeEventCallback);
-            logger.debug('[AMQP] conn close');
+            operationContext.global.logger.debug('[AMQP] conn close');
             closeCallback();
           };
           conn.on('close', closeEventCallback);
-          logger.debug('[AMQP] connected');
+          operationContext.global.logger.debug('[AMQP] connected');
           resolve(conn);
         }
       });
