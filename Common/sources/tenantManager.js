@@ -35,11 +35,13 @@
 const config = require('config');
 const co = require('co');
 const license = require('./../../Common/sources/license');
+const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
 const { readFile } = require('fs/promises');
 const path = require('path');
 
+const oPackageType = config.get('license.packageType');
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
 const cfgTenantsBaseDir = config.get('tenants.baseDir');
 const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
@@ -48,7 +50,6 @@ const cfgTenantsDefaultTetant = config.get('tenants.defaultTetant');
 const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
-const cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
 
 let licenseInfo;
 let licenseOriginal;
@@ -56,21 +57,25 @@ let licenseOriginal;
 function getDefautTenant() {
   return cfgTenantsDefaultTetant;
 }
-function getTenant(domain) {
+function getTenant(ctx, domain) {
   let tenant = getDefautTenant();
   if (domain) {
-    let index = domain.indexOf(cfgTenantsBaseDomain);
+    //remove port
+    domain = domain.substring(0, domain.indexOf(':'));
+    let index = domain.indexOf('.' + cfgTenantsBaseDomain);
     if (-1 !== index) {
       tenant = domain.substring(0, index);
+    } else {
+      ctx.logger.warn('getTenant invalid domain=%s', domain);
     }
   }
   return tenant;
 }
-function getTenantByConnection(conn) {
-  return isMultitenantMode() ? getTenant(utils.getDomainByConnection(conn)) : getDefautTenant();
+function getTenantByConnection(ctx, conn) {
+  return isMultitenantMode() ? getTenant(ctx, utils.getDomainByConnection(ctx, conn)) : getDefautTenant();
 }
-function getTenantByRequest(req) {
-  return isMultitenantMode() ? getTenant(utils.getDomainByRequest(req)) : getDefautTenant();
+function getTenantByRequest(ctx, req) {
+  return isMultitenantMode() ? getTenant(ctx, utils.getDomainByRequest(ctx, req)) : getDefautTenant();
 }
 function getTenantPathPrefix(ctx) {
   return isMultitenantMode() ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
@@ -81,16 +86,8 @@ function getTenantSecret(ctx, type) {
     if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
-      try {
-        ctx.logger.debug('getTenantSecret');
-        res = yield readFile(secretPath, {encoding: 'utf8'});
-      } catch(err) {
-        if (err.code === 'ENOENT') {
-          ctx.logger.warn('getTenantSecret error: %s', err.stack);
-        } else {
-          throw err;
-        }
-      }
+      ctx.logger.debug('getTenantSecret path=%s', secretPath);
+      res = yield readFile(secretPath, {encoding: 'utf8'});
     } else {
       switch (type) {
         case commonDefines.c_oAscSecretType.Browser:
@@ -119,17 +116,8 @@ function getTenantLicense(ctx) {
     if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
-      try {
-        ctx.logger.debug('getTenantLicense');
-        yield readFile(licensePath, {encoding: 'utf8'});
-        [res] =  license.readLicense(licensePath);
-      } catch(err) {
-        if (err.code === 'ENOENT') {
-          ctx.logger.warn('getTenantLicense error: %s', err.stack);
-        } else {
-          throw err;
-        }
-      }
+      ctx.logger.debug('getTenantLicense path=%s', licensePath);
+      [res] = yield* license.readLicense(licensePath);
     } else {
       res = licenseInfo;
     }

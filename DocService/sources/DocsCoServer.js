@@ -3429,6 +3429,7 @@ exports.install = function(server, callbackFunction) {
 
       let tableName = 'task_result';
       const tableRequiredColumn = 'tenant';
+      //check data base compatibility
       sqlBase.getTableColumns(operationContext.global, tableName).then(function(res) {
         let index = res.findIndex((currentValue) => {
           for (let key in currentValue) {
@@ -3438,6 +3439,7 @@ exports.install = function(server, callbackFunction) {
           }
         });
         if (-1 !== index) {
+          //check redis storage compatibility
           let editorDataArgs = utils.getFunctionArguments(editorData.addPresence);
           if (editorDataArgs && 'ctx' === editorDataArgs[0]) {
             callbackFunction();
@@ -3445,7 +3447,7 @@ exports.install = function(server, callbackFunction) {
             operationContext.global.logger.error('server-lockstorage repository on wrong branch. args: %j', editorDataArgs);
           }
         } else {
-          operationContext.global.logger.error('DB table %s does not contain required columns: %s', tableName, tableRequiredColumn);
+          operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
         }
       }).catch(err => {
         operationContext.global.logger.error('getTableColumns error: %s', err.stack);

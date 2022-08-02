@@ -235,6 +235,7 @@ function convertRequest(req, res, isJson) {
       if(authRes.code === constants.NO_ERROR){
         params = authRes.params;
       } else {
+        ctx.logger.warn('convertRequest auth failed %j', authRes);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(authRes.code), isJson);
         return;
       }

@@ -50,7 +50,7 @@ Context.prototype.initDefault = function() {
   this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID);
 };
 Context.prototype.initFromConnection = function(conn) {
-  let tenant = tenantManager.getTenantByConnection(conn);
+  let tenant = tenantManager.getTenantByConnection(this, conn);
   let docId = conn.docid;
   if (!docId) {
     const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(conn.url);
@@ -62,7 +62,7 @@ Context.prototype.initFromConnection = function(conn) {
   this.init(tenant, docId || this.docId, userId || this.userId);
 };
 Context.prototype.initFromRequest = function(req) {
-  let tenant = tenantManager.getTenantByRequest(req);
+  let tenant = tenantManager.getTenantByRequest(this, req);
   this.init(tenant, this.docId, this.userId);
 };
 Context.prototype.initFromTaskQueueData = function(task) {

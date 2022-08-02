@@ -71,7 +71,12 @@ exports.copyPath = function(ctx, sourcePath, destinationPath) {
   });
 };
 exports.listObjects = function(ctx, strPath) {
-  return storage.listObjects(getStoragePath(ctx, strPath)).catch(function(e) {
+  let prefix = getStoragePath(ctx, "");
+  return storage.listObjects(getStoragePath(ctx, strPath)).then(function(list) {
+    return list.map((currentValue) => {
+      return currentValue.substring(prefix.length);
+    });
+  }).catch(function(e) {
     ctx.logger.error('storage.listObjects: %s', e.stack);
     return [];
   });

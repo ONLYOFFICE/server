@@ -680,10 +680,16 @@ function getBaseUrlByRequest(req) {
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
-function getDomainByConnection(conn) {
-  return getDomain(conn.headers['host'], conn.headers['x-forwarded-host']);
+function getDomainByConnection(ctx, conn) {
+  let host = conn.headers['host'];
+  let forwardedHost = conn.headers['x-forwarded-host'];
+  ctx.logger.debug("getDomainByConnection headers['host']=%s headers['x-forwarded-host']=%s", host, forwardedHost);
+  return getDomain(host, forwardedHost);
 }
-function getDomainByRequest(req) {
+function getDomainByRequest(ctx, req) {
+  let host = req.get('host');
+  let forwardedHost = req.get('x-forwarded-host');
+  ctx.logger.debug("getDomainByRequest headers['host']=%s headers['x-forwarded-host']=%s", host, forwardedHost);
   return getDomain(req.get('host'), req.get('x-forwarded-host'));
 }
 exports.getDomainByConnection = getDomainByConnection;

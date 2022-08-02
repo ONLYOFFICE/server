@@ -47,8 +47,8 @@ exports.ONLY_OFFICE_URL_PARAM = 'ooname';
 exports.DISPLAY_PREFIX = 'display';
 exports.CHANGES_NAME = 'changes';
 exports.VIEWER_ONLY = /^(?:(pdf|djvu|xps|oxps))$/;
-exports.DEFAULT_DOC_ID = 'DOC_ID';
-exports.DEFAULT_USER_ID = 'USER_ID';
+exports.DEFAULT_DOC_ID = 'docId';
+exports.DEFAULT_USER_ID = 'userId';
 
 exports.RIGHTS = {
   None    : 0,

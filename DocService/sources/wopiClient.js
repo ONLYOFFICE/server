@@ -289,7 +289,7 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
             ctx.logger.debug('wopiEditor LastModifiedTime fileInfo=%s; cache=%s', fileInfoModified, cacheModified);
             if (fileInfoVersion !== cacheVersion || (fileInfoModified !== cacheModified)) {
               var mask = new taskResult.TaskResultData();
-              mask.tenat = ctx.tenant;
+              mask.tenant = ctx.tenant;
               mask.key = docId;
               mask.last_open_date = row.last_open_date;
               //cleanupRes can be false in case of simultaneous opening. it is OK
