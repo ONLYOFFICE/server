@@ -30,9 +30,6 @@
  *
  */
 
-//ctx
-//id - cmd.getSaveKey(), mailMergeSend.getJsonKey()
-
 'use strict';
 var os = require('os');
 var path = require('path');
