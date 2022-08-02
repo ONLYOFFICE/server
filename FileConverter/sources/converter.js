@@ -53,6 +53,8 @@ const wopiClient = require('./../../DocService/sources/wopiClient');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const formatChecker = require('./../../Common/sources/formatchecker');
+const operationContext = require('./../../Common/sources/operationContext');
+const tenantManager = require('./../../Common/sources/tenantManager');
 
 var cfgDownloadMaxBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
 var cfgDownloadTimeout = configConverter.has('downloadTimeout') ? configConverter.get('downloadTimeout') : 60;
@@ -278,7 +280,7 @@ function getTempDir() {
   fs.mkdirSync(resultDir);
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
-function* replaceEmptyFile(docId, fileFrom, ext, _lcid) {
+function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
     let locale = 'en-US';
     if (_lcid) {
@@ -288,11 +290,11 @@ function* replaceEmptyFile(docId, fileFrom, ext, _lcid) {
         if (fs.existsSync(path.join(cfgNewFileTemplate, localeNew))) {
           locale = localeNew;
         } else {
-          logger.debug('replaceEmptyFile empty locale dir locale=%s (id=%s)', localeNew, docId);
+          ctx.logger.debug('replaceEmptyFile empty locale dir locale=%s', localeNew);
         }
       }
     }
-    logger.debug('replaceEmptyFile format=%s locale=%s (id=%s)', ext, locale, docId);
+    ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
     let format = formatChecker.getFormatFromString(ext);
     if (formatChecker.isDocumentFormat(format)) {
       fs.copyFileSync(path.join(cfgNewFileTemplate, locale, 'new.docx'), fileFrom);
@@ -303,25 +305,26 @@ function* replaceEmptyFile(docId, fileFrom, ext, _lcid) {
     }
   }
 }
-function* downloadFile(docId, uri, fileFrom, withAuthorization, filterPrivate, opt_headers) {
+function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt_headers) {
   var res = constants.CONVERT_DOWNLOAD;
   var data = null;
   var downloadAttemptCount = 0;
   var urlParsed = url.parse(uri);
-  var filterStatus = yield* utils.checkHostFilter(urlParsed.hostname);
+  var filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
   if (0 == filterStatus) {
     while (constants.NO_ERROR !== res && downloadAttemptCount++ < cfgDownloadAttemptMaxCount) {
       try {
         let authorization;
-        if (utils.canIncludeOutboxAuthorization(uri) && withAuthorization) {
-          authorization = utils.fillJwtForRequest({url: uri}, false);
+        if (utils.canIncludeOutboxAuthorization(ctx, uri) && withAuthorization) {
+          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+          authorization = utils.fillJwtForRequest({url: uri}, secret, false);
         }
-        let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
+        let getRes = yield utils.downloadUrlPromise(ctx, uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
-        logger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s;(id=%s)\r\n%s', uri, downloadAttemptCount, err.code, err.connect, docId, err.stack);
+        ctx.logger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s %s', uri, downloadAttemptCount, err.code, err.connect, err.stack);
         //not continue attempts if timeout
         if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
           break;
@@ -334,18 +337,18 @@ function* downloadFile(docId, uri, fileFrom, withAuthorization, filterPrivate, o
       }
     }
     if (constants.NO_ERROR === res) {
-      logger.debug('downloadFile complete filesize=%d (id=%s)', data.length, docId);
+      ctx.logger.debug('downloadFile complete filesize=%d', data.length);
       fs.writeFileSync(fileFrom, data);
     }
   } else {
-    logger.error('checkIpFilter error:url=%s;code:%s;(id=%s)', uri, filterStatus, docId);
+    ctx.logger.error('checkIpFilter error:url=%s;code:%s;', uri, filterStatus);
     res = constants.CONVERT_DOWNLOAD;
   }
   return res;
 }
-function* downloadFileFromStorage(id, strPath, dir) {
-  var list = yield storage.listObjects(strPath);
-  logger.debug('downloadFileFromStorage list %s (id=%s)', list.toString(), id);
+function* downloadFileFromStorage(ctx, strPath, dir) {
+  var list = yield storage.listObjects(ctx, strPath);
+  ctx.logger.debug('downloadFileFromStorage list %s', list.toString());
   //create dirs
   var dirsToCreate = [];
   var dirStruct = {};
@@ -371,36 +374,36 @@ function* downloadFileFromStorage(id, strPath, dir) {
   for (var i = 0; i < list.length; ++i) {
     var file = list[i];
     var fileRel = storage.getRelativePath(strPath, file);
-    var data = yield storage.getObject(file);
+    var data = yield storage.getObject(ctx, file);
     fs.writeFileSync(path.join(dir, fileRel), data);
   }
 }
-function* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorProps) {
+function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, authorProps) {
   let res = constants.NO_ERROR;
   let needConcatFiles = false;
   if (task.getFromOrigin() || task.getFromSettings()) {
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
     //перезаписываем некоторые файлы из m_sKey(например Editor.bin или changes)
-    yield* downloadFileFromStorage(cmd.getSaveKey(), cmd.getSaveKey(), tempDirs.source);
+    yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), tempDirs.source);
     let format = cmd.getFormat() || 'bin';
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
     needConcatFiles = true;
   }
-  if (!utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
+  if (!utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
     return constants.CONVERT_PARAMS;
   }
   //mail merge
   let mailMergeSend = cmd.getMailMergeSend();
   if (mailMergeSend) {
-    yield* downloadFileFromStorage(mailMergeSend.getJsonKey(), mailMergeSend.getJsonKey(), tempDirs.source);
+    yield* downloadFileFromStorage(ctx, mailMergeSend.getJsonKey(), tempDirs.source);
     needConcatFiles = true;
   }
   if (needConcatFiles) {
     yield* concatFiles(tempDirs.source);
   }
   if (task.getFromChanges()) {
-    res = yield* processChanges(tempDirs, cmd, authorProps);
+    res = yield* processChanges(ctx, tempDirs, cmd, authorProps);
   }
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
@@ -443,7 +446,7 @@ function* concatFiles(source) {
   }
 }
 
-function* processChanges(tempDirs, cmd, authorProps) {
+function* processChanges(ctx, tempDirs, cmd, authorProps) {
   let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
@@ -472,13 +475,13 @@ function* processChanges(tempDirs, cmd, authorProps) {
     }];
   }
 
-  let streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
+  let streamObj = yield* streamCreate(ctx, changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
   let curIndexStart = 0;
   let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
   while (curIndexStart < curIndexEnd || extChanges) {
     let changes = [];
     if (curIndexStart < curIndexEnd) {
-      changes = yield baseConnector.getChangesPromise(cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+      changes = yield baseConnector.getChangesPromise(ctx, cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
     }
     if (0 === changes.length && extChanges) {
       changes = extChanges;
@@ -487,7 +490,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
     for (let i = 0; i < changes.length; ++i) {
       let change = changes[i];
       if (change.change_data.startsWith('ENCRYPTED;')) {
-        logger.warn('processChanges encrypted changes (id=%s)', cmd.getDocId());
+        ctx.logger.warn('processChanges encrypted changes');
         //todo sql request instead?
         res = constants.EDITOR_CHANGES;
         break;
@@ -495,7 +498,7 @@ function* processChanges(tempDirs, cmd, authorProps) {
       if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
           yield* streamEnd(streamObj, ']');
-          streamObj = yield* streamCreate(cmd.getDocId(), changesDir, indexFile++);
+          streamObj = yield* streamCreate(ctx, changesDir, indexFile++);
         }
         let strDate = baseConnector.getDateTime(change.change_date);
         changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
@@ -537,13 +540,13 @@ function* processChanges(tempDirs, cmd, authorProps) {
   return res;
 }
 
-function* streamCreate(docId, changesDir, indexFile, opt_options) {
+function* streamCreate(ctx, changesDir, indexFile, opt_options) {
   let fileName = constants.CHANGES_NAME + indexFile + '.json';
   let filePath = path.join(changesDir, fileName);
   let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
   writeStream.on('error', function(err) {
     //todo integrate error handle in main thread (probable: set flag here and check it in main thread)
-    logger.error('WriteStreamError (id=%s)\r\n%s', docId, err.stack);
+    ctx.logger.error('WriteStreamError %s', err.stack);
   });
   return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
 }
@@ -558,41 +561,41 @@ function* streamEnd(streamObj, text) {
   streamObj.writeStream.end(text, 'utf8');
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
-function* processUploadToStorage(dir, storagePath) {
+function* processUploadToStorage(ctx, dir, storagePath) {
   var list = yield utils.listObjects(dir);
   if (list.length < MAX_OPEN_FILES) {
-    yield* processUploadToStorageChunk(list, dir, storagePath);
+    yield* processUploadToStorageChunk(ctx, list, dir, storagePath);
   } else {
     for (var i = 0, j = list.length; i < j; i += MAX_OPEN_FILES) {
-      yield* processUploadToStorageChunk(list.slice(i, i + MAX_OPEN_FILES), dir, storagePath);
+      yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath);
     }
   }
 }
-function* processUploadToStorageChunk(list, dir, storagePath) {
+function* processUploadToStorageChunk(ctx, list, dir, storagePath) {
   yield Promise.all(list.map(function (curValue) {
     let localValue = storagePath + '/' + curValue.substring(dir.length + 1);
-    return storage.uploadObject(localValue, curValue);
+    return storage.uploadObject(ctx, localValue, curValue);
   }));
 }
-function writeProcessOutputToLog(docId, childRes, isDebug) {
+function writeProcessOutputToLog(ctx, childRes, isDebug) {
   if (childRes) {
     if (undefined !== childRes.stdout) {
       if (isDebug) {
-        logger.debug('stdout (id=%s):%s', docId, childRes.stdout);
+        ctx.logger.debug('stdout:%s', childRes.stdout);
       } else {
-        logger.error('stdout (id=%s):%s', docId, childRes.stdout);
+        ctx.logger.error('stdout:%s', childRes.stdout);
       }
     }
     if (undefined !== childRes.stderr) {
       if (isDebug) {
-        logger.debug('stderr (id=%s):%s', docId, childRes.stderr);
+        ctx.logger.debug('stderr:%s', childRes.stderr);
       } else {
-        logger.error('stderr (id=%s):%s', docId, childRes.stderr);
+        ctx.logger.error('stderr:%s', childRes.stderr);
       }
     }
   }
 }
-function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
+function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
   var exitCode = 0;
   var exitSignal = null;
   if(childRes) {
@@ -608,23 +611,23 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
       error = constants.CONVERT;
     }
     if (-1 !== exitCodesMinorError.indexOf(error)) {
-      writeProcessOutputToLog(dataConvert.key, childRes, true);
-      logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
+      writeProcessOutputToLog(ctx, childRes, true);
+      ctx.logger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
     } else {
-      writeProcessOutputToLog(dataConvert.key, childRes, false);
-      logger.error('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
+      writeProcessOutputToLog(ctx, childRes, false);
+      ctx.logger.error('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
       if (cfgErrorFiles) {
-        yield* processUploadToStorage(tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
-        logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
+        yield* processUploadToStorage(ctx, tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
+        ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
       }
     }
   } else {
-    writeProcessOutputToLog(dataConvert.key, childRes, true);
-    logger.debug('ExitCode (code=%d;signal=%s;error:%d;id=%s)', exitCode, exitSignal, error, dataConvert.key);
+    writeProcessOutputToLog(ctx, childRes, true);
+    ctx.logger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
   }
   if (-1 !== exitCodesUpload.indexOf(error)) {
-    yield* processUploadToStorage(tempDirs.result, dataConvert.key);
-    logger.debug('processUploadToStorage complete(id=%s)', dataConvert.key);
+    yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key);
+    ctx.logger.debug('processUploadToStorage complete');
   }
   cmd.setStatusInfo(error);
   var existFile = false;
@@ -651,13 +654,14 @@ function* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
     cmd.setTitle(cmd.getOutputPath());
   }
 
-  var res = new commonDefines.TaskQueueData();
-  res.setCmd(cmd);
-  logger.debug('output (data=%s;id=%s)', JSON.stringify(res), dataConvert.key);
-  return res;
+  var queueData = new commonDefines.TaskQueueData();
+  queueData.setCtx(ctx);
+  queueData.setCmd(cmd);
+  ctx.logger.debug('output (data=%j)', queueData);
+  return queueData;
 }
 
-function* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task, cmd) {
+function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task) {
   let childRes, isTimeout = false;
   let childArgs;
   if (cfgArgs.length > 0) {
@@ -707,8 +711,11 @@ function* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTim
     }, waitMS);
     childRes = yield spawnAsyncPromise;
   } catch (err) {
-    let fLog = null === err.status ? logger.error : logger.debug;
-    fLog.call(logger, 'error spawnAsync(id=%s)\r\n%s', cmd.getDocId(), err.stack);
+    if (null === err.status) {
+      ctx.logger.error('error spawnAsync %s', err.stack);
+    } else {
+      ctx.logger.debug('error spawnAsync %s', err.stack);
+    }
     childRes = err;
   }
   if (undefined !== timeoutId) {
@@ -717,7 +724,7 @@ function* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTim
   return {childRes: childRes, isTimeout: isTimeout};
 }
 
-function* ExecuteTask(task) {
+function* ExecuteTask(ctx, task) {
   var startDate = null;
   var curDate = null;
   if(clientStatsD) {
@@ -728,7 +735,7 @@ function* ExecuteTask(task) {
   var getTaskTime = new Date();
   var cmd = task.getCmd();
   var dataConvert = new TaskQueueDataConvert(task);
-  logger.debug('Start Task(id=%s)', dataConvert.key);
+  ctx.logger.info('Start Task');
   var error = constants.NO_ERROR;
   tempDirs = getTempDir();
   let fileTo = task.getToFile();
@@ -738,7 +745,7 @@ function* ExecuteTask(task) {
   if (cmd.getUrl()) {
     let format = cmd.getFormat();
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + format);
-    if (utils.checkPathTraversal(dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
+    if (utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
       let filterPrivate = !withAuthorization;
@@ -760,13 +767,13 @@ function* ExecuteTask(task) {
           headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes, 'X-WOPI-ItemVersion': fileInfo.Version};
           wopiClient.fillStandardHeaders(headers, url, userAuth.access_token);
         }
-        logger.debug('wopi url=%s; headers=%j(id=%s)', url, headers, dataConvert.key);
+        ctx.logger.debug('wopi url=%s; headers=%j', url, headers);
       }
       if (undefined === fileSize || fileSize > 0) {
-        error = yield* downloadFile(dataConvert.key, url, dataConvert.fileFrom, withAuthorization, filterPrivate, headers);
+        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, filterPrivate, headers);
       }
       if (constants.NO_ERROR === error) {
-        yield* replaceEmptyFile(dataConvert.key, dataConvert.fileFrom, format, cmd.getLCID());
+        yield* replaceEmptyFile(ctx, dataConvert.fileFrom, format, cmd.getLCID());
       }
       if(clientStatsD) {
         clientStatsD.timing('conv.downloadFile', new Date() - curDate);
@@ -776,16 +783,16 @@ function* ExecuteTask(task) {
       error = constants.CONVERT_PARAMS;
     }
   } else if (cmd.getSaveKey()) {
-    yield* downloadFileFromStorage(cmd.getDocId(), cmd.getDocId(), tempDirs.source);
-    logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
+    yield* downloadFileFromStorage(ctx, cmd.getDocId(), tempDirs.source);
+    ctx.logger.debug('downloadFileFromStorage complete');
     if(clientStatsD) {
       clientStatsD.timing('conv.downloadFileFromStorage', new Date() - curDate);
       curDate = new Date();
     }
-    error = yield* processDownloadFromStorage(dataConvert, cmd, task, tempDirs, authorProps);
+    error = yield* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, authorProps);
   } else if (cmd.getForgotten()) {
-    yield* downloadFileFromStorage(cmd.getDocId(), cmd.getForgotten(), tempDirs.source);
-    logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
+    yield* downloadFileFromStorage(ctx, cmd.getForgotten(), tempDirs.source);
+    ctx.logger.debug('downloadFileFromStorage complete');
     let list = yield utils.listObjects(tempDirs.source, false);
     if (list.length > 0) {
       dataConvert.fileFrom = list[0];
@@ -797,8 +804,8 @@ function* ExecuteTask(task) {
     }
   } else if (isBuilder) {
     //in cause script in POST body
-    yield* downloadFileFromStorage(cmd.getDocId(), cmd.getDocId(), tempDirs.source);
-    logger.debug('downloadFileFromStorage complete(id=%s)', dataConvert.key);
+    yield* downloadFileFromStorage(ctx, cmd.getDocId(), tempDirs.source);
+    ctx.logger.debug('downloadFileFromStorage complete');
     let list = yield utils.listObjects(tempDirs.source, false);
     if (list.length > 0) {
       dataConvert.fileFrom = list[0];
@@ -813,16 +820,16 @@ function* ExecuteTask(task) {
       //todo заглушка.вся конвертация на клиенте, но нет простого механизма сохранения на клиенте
       yield utils.pipeFiles(dataConvert.fileFrom, dataConvert.fileTo);
     } else {
-      ({childRes, isTimeout} = yield* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task, cmd));
+      ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
       if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
         && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
         && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
-        logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s (id=%s)', formatChecker.getStringFromFormat(dataConvert.formatTo), dataConvert.key);
+        ctx.logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s', formatChecker.getStringFromFormat(dataConvert.formatTo));
         let extOld = path.extname(dataConvert.fileTo);
         let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
         dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
         dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
-        ({childRes, isTimeout} = yield* spawnProcess(isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task, cmd));
+        ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
       }
     }
     if(clientStatsD) {
@@ -830,15 +837,15 @@ function* ExecuteTask(task) {
       curDate = new Date();
     }
   }
-  resData = yield* postProcess(cmd, dataConvert, tempDirs, childRes, error, isTimeout);
-  logger.debug('postProcess (id=%s)', dataConvert.key);
+  resData = yield* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeout);
+  ctx.logger.debug('postProcess');
   if(clientStatsD) {
     clientStatsD.timing('conv.postProcess', new Date() - curDate);
     curDate = new Date();
   }
   if (tempDirs) {
     fs.rmSync(tempDirs.temp, { recursive: true, force: true });
-    logger.debug('deleteFolderRecursive (id=%s)', dataConvert.key);
+    ctx.logger.debug('deleteFolderRecursive');
     if(clientStatsD) {
       clientStatsD.timing('conv.deleteFolderRecursive', new Date() - curDate);
       curDate = new Date();
@@ -847,6 +854,7 @@ function* ExecuteTask(task) {
   if(clientStatsD) {
     clientStatsD.timing('conv.allconvert', new Date() - startDate);
   }
+  ctx.logger.info('End Task');
   return resData;
 }
 
@@ -854,13 +862,15 @@ function receiveTask(data, ack) {
   return co(function* () {
     var res = null;
     var task = null;
+    let ctx = new operationContext.Context();
     try {
       task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
-        res = yield* ExecuteTask(task);
+        ctx.initFromTaskQueueData(task);
+        res = yield* ExecuteTask(ctx, task);
       }
     } catch (err) {
-      logger.error(err);
+      ctx.logger.error(err);
     } finally {
       try {
         if (!res && task) {
@@ -868,13 +878,14 @@ function receiveTask(data, ack) {
           var cmd = task.getCmd();
           cmd.setStatusInfo(constants.CONVERT);
           res = new commonDefines.TaskQueueData();
+          res.setCtx(ctx);
           res.setCmd(cmd);
         }
         if (res) {
           yield queue.addResponse(res);
         }
       } catch (err) {
-        logger.error(err);
+        ctx.logger.error(err);
       } finally {
         ack();
       }
@@ -883,10 +894,13 @@ function receiveTask(data, ack) {
 }
 function simulateErrorResponse(data){
   let task = new commonDefines.TaskQueueData(JSON.parse(data));
+  let ctx = new operationContext.Context();
+  ctx.initFromTaskQueueData(task);
   //simulate error response
   let cmd = task.getCmd();
   cmd.setStatusInfo(constants.CONVERT);
   let res = new commonDefines.TaskQueueData();
+  task.setCtx(ctx);
   res.setCmd(cmd);
   return res;
 }
@@ -895,7 +909,7 @@ function run() {
   queue.on('task', receiveTask);
   queue.init(true, true, true, false, false, false, function(err) {
     if (null != err) {
-      logger.error('createTaskQueue error :\r\n%s', err.stack);
+      operationContext.global.logger.error('createTaskQueue error: %s', err.stack);
     }
   });
 }

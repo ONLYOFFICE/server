@@ -34,6 +34,7 @@
 
 const cluster = require('cluster');
 const logger = require('./../../Common/sources/logger');
+const operationContext = require('./../../Common/sources/operationContext');
 
 if (cluster.isMaster) {
   const fs = require('fs');
@@ -42,12 +43,18 @@ if (cluster.isMaster) {
   const configCommon = require('config');
   const config = configCommon.get('FileConverter.converter');
   const license = require('./../../Common/sources/license');
+  const tenantManager = require('./../../Common/sources/tenantManager');
+
+  const cfgLicenseFile = configCommon.get('license.license_file');
 
   const cfgMaxProcessCount = config.get('maxprocesscount');
-  var licenseInfo, workersCount = 0;
+  var workersCount = 0;
   const readLicense = function* () {
-    [licenseInfo] = yield* license.readLicense();
-    workersCount = Math.min(licenseInfo.count, Math.ceil(numCPUs * cfgMaxProcessCount));
+    workersCount = Math.ceil(numCPUs * cfgMaxProcessCount);
+    if (!tenantManager.isMultitenantMode()) {
+      let [licenseInfo] = yield* license.readLicense(cfgLicenseFile);
+      workersCount = Math.min(licenseInfo.count, workersCount);
+    }
   };
   const updateWorkers = () => {
     var i;
@@ -55,7 +62,7 @@ if (cluster.isMaster) {
     if (arrKeyWorkers.length < workersCount) {
       for (i = arrKeyWorkers.length; i < workersCount; ++i) {
         const newWorker = cluster.fork();
-        logger.warn('worker %s started.', newWorker.process.pid);
+        operationContext.global.logger.warn('worker %s started.', newWorker.process.pid);
       }
     } else {
       for (i = workersCount; i < arrKeyWorkers.length; ++i) {
@@ -70,31 +77,33 @@ if (cluster.isMaster) {
     return co(function*() {
       try {
         yield* readLicense();
-        logger.warn('update cluster with %s workers', workersCount);
+        operationContext.global.logger.warn('update cluster with %s workers', workersCount);
         updateWorkers();
       } catch (err) {
-        logger.error('updateLicense error:\r\n%s', err.stack);
+        operationContext.global.logger.error('updateLicense error: %s', err.stack);
       }
     });
   };
 
   cluster.on('exit', (worker, code, signal) => {
-    logger.warn('worker %s died (code = %s; signal = %s).', worker.process.pid, code, signal);
+    operationContext.global.logger.warn('worker %s died (code = %s; signal = %s).', worker.process.pid, code, signal);
     updateWorkers();
   });
 
   updateLicense();
 
-  fs.watchFile(configCommon.get('license').get('license_file'), updateLicense);
-  setInterval(updateLicense, 86400000);
+  if (!tenantManager.isMultitenantMode()) {
+    fs.watchFile(cfgLicenseFile, updateLicense);
+    setInterval(updateLicense, 86400000);
+  }
 } else {
   const converter = require('./converter');
   converter.run();
 }
 
 process.on('uncaughtException', (err) => {
-  logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
-  logger.error(err.stack);
+  operationContext.global.logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
+  operationContext.global.logger.error(err.stack);
   logger.shutdown(() => {
     process.exit(1);
   });

@@ -34,7 +34,6 @@
 
 var path = require('path');
 var constants = require('./constants');
-var logger = require('./logger');
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
@@ -500,7 +499,7 @@ exports.getStringFromFormat = function(format) {
       return '';
   }
 };
-exports.getImageFormat = function(buffer, optExt) {
+exports.getImageFormat = function(ctx, buffer, optExt) {
   var format = constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   try {
     //signature
@@ -519,8 +518,7 @@ exports.getImageFormat = function(buffer, optExt) {
     }
   }
   catch (e) {
-    logger.error(optExt);
-    logger.error('error getImageFormat:\r\n%s', e.stack);
+    ctx.logger.error('error getImageFormat ext=%s: %s', optExt, e.stack);
   }
   return format;
 };
@@ -540,7 +538,6 @@ exports.isPresentationFormat = function(format) {
     format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
 };
 exports.isOOXFormat = function(format) {
-  console.log('isOOXFormat'+format);
   return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX === format
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM === format
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX === format
