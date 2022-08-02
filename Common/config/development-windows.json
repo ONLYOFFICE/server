@@ -61,8 +61,6 @@
       "presentationThemesDir": "../../sdkjs/slide/themes",
       "x2tPath": "../FileConverter/Bin/x2t.exe",
       "docbuilderPath": "../FileConverter/Bin/docbuilder.exe",
-      "docbuilderAllFontsPath": "../App_Data/docbuilder/AllFonts.js",
-      "docbuilderCoreFontsPath": "../../core-fonts",
       "errorfiles": "error"
     }
   },

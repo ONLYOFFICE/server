@@ -40,7 +40,6 @@ const commonDefines = require('./../../Common/sources/commondefines');
 var utils = require('./../../Common/sources/utils');
 var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 var activeMQCore = require('./../../Common/sources/activeMQCore');
-const logger = require('./../../Common/sources/logger');
 
 const cfgQueueType = config.get('queue.type');
 var cfgRabbitExchangePubSub = config.get('rabbitmq.exchangepubsub');

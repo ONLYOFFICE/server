@@ -44,13 +44,14 @@ const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
+const operationContext = require('./../../Common/sources/operationContext');
+const tenantManager = require('./../../Common/sources/tenantManager');
 const sqlBase = require('./baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
 
 const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
-const cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
@@ -97,8 +98,10 @@ let mimeTypesByExt = (function() {
 function discovery(req, res) {
   return co(function*() {
     let output = '';
+    let ctx = new operationContext.Context();
     try {
-      logger.info('wopiDiscovery start');
+      ctx.initFromRequest(req);
+      ctx.logger.info('wopiDiscovery start');
       let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
@@ -179,11 +182,11 @@ function discovery(req, res) {
       }
       output += `</net-zone>${proofKey}</wopi-discovery>`;
     } catch (err) {
-      logger.error('wopiDiscovery error:%s', err.stack);
+      ctx.logger.error('wopiDiscovery error:%s', err.stack);
     } finally {
       res.setHeader('Content-Type', 'text/xml');
       res.send(output);
-      logger.info('wopiDiscovery end');
+      ctx.logger.info('wopiDiscovery end');
     }
   });
 }
@@ -193,13 +196,15 @@ function collaboraCapabilities(req, res) {
       "convert-to": {"available": false}, "hasMobileSupport": true, "hasProxyPrefix": false, "hasTemplateSaveAs": false,
       "hasTemplateSource": true, "productVersion": commonDefines.buildVersion
     };
+    let ctx = new operationContext.Context();
     try {
-    logger.info('collaboraCapabilities start');
+      ctx.initFromRequest(req);
+      ctx.logger.info('collaboraCapabilities start');
     } catch (err) {
-      logger.error('collaboraCapabilities error:%s', err.stack);
+      ctx.logger.error('collaboraCapabilities error:%s', err.stack);
     } finally {
       utils.fillResponseSimple(res, JSON.stringify(output), "application/json");
-      logger.info('collaboraCapabilities end');
+      ctx.logger.info('collaboraCapabilities end');
     }
   });
 }
@@ -233,7 +238,7 @@ function getLastModifiedTimeFromCallbacks(callbacks) {
 function isCorrectUserAuth(userAuth) {
   return undefined !== userAuth.wopiSrc;
 }
-function parseWopiCallback(docId, userAuthStr, opt_url) {
+function parseWopiCallback(ctx, userAuthStr, opt_url) {
   let wopiParams = null;
   if (isWopiCallback(userAuthStr)) {
     let userAuth = JSON.parse(userAuthStr);
@@ -243,58 +248,59 @@ function parseWopiCallback(docId, userAuthStr, opt_url) {
     let commonInfo = null;
     let lastModifiedTime = null;
     if (opt_url) {
-      let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, opt_url, 1);
+      let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, opt_url, 1);
       if (isWopiCallback(commonInfoStr)) {
         commonInfo = JSON.parse(commonInfoStr);
         lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
         if (lastModifiedTime) {
-          let callbacks = sqlBase.UserCallback.prototype.getCallbacks(docId, opt_url);
+          let callbacks = sqlBase.UserCallback.prototype.getCallbacks(ctx, opt_url);
           lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
         }
       }
     }
     wopiParams = {commonInfo: commonInfo, userAuth: userAuth, LastModifiedTime: lastModifiedTime};
-    logger.debug('parseWopiCallback wopiParams:%j', wopiParams);
+    ctx.logger.debug('parseWopiCallback wopiParams:%j', wopiParams);
   }
   return wopiParams;
 }
-function checkAndInvalidateCache(docId, fileInfo) {
+function checkAndInvalidateCache(ctx, docId, fileInfo) {
   return co(function*() {
     let res = {success: true, lockId: undefined};
-    let selectRes = yield taskResult.select(docId);
+    let selectRes = yield taskResult.select(ctx, docId);
     if (selectRes.length > 0) {
       let row = selectRes[0];
       if (row.callback) {
-        let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback, 1);
+        let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, 1);
         if (isWopiCallback(commonInfoStr)) {
           let commonInfo = JSON.parse(commonInfoStr);
           res.lockId = commonInfo.lockId;
-          logger.debug('wopiEditor lockId from DB lockId=%s', res.lockId);
-          let unlockMarkStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(docId, row.callback);
-          logger.debug('wopiEditor commonInfoStr=%s', commonInfoStr);
-          logger.debug('wopiEditor unlockMarkStr=%s', unlockMarkStr);
+          ctx.logger.debug('wopiEditor lockId from DB lockId=%s', res.lockId);
+          let unlockMarkStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
+          ctx.logger.debug('wopiEditor commonInfoStr=%s', commonInfoStr);
+          ctx.logger.debug('wopiEditor unlockMarkStr=%s', unlockMarkStr);
           let hasUnlockMarker = isWopiUnlockMarker(unlockMarkStr);
-          logger.debug('wopiEditor hasUnlockMarker=%s', hasUnlockMarker);
+          ctx.logger.debug('wopiEditor hasUnlockMarker=%s', hasUnlockMarker);
           if (hasUnlockMarker) {
             let fileInfoVersion = fileInfo.Version;
             let cacheVersion = commonInfo.fileInfo.Version;
             let fileInfoModified = fileInfo.LastModifiedTime;
             let cacheModified = commonInfo.fileInfo.LastModifiedTime;
-            logger.debug('wopiEditor version fileInfo=%s; cache=%s', fileInfoVersion, cacheVersion);
-            logger.debug('wopiEditor LastModifiedTime fileInfo=%s; cache=%s', fileInfoModified, cacheModified);
+            ctx.logger.debug('wopiEditor version fileInfo=%s; cache=%s', fileInfoVersion, cacheVersion);
+            ctx.logger.debug('wopiEditor LastModifiedTime fileInfo=%s; cache=%s', fileInfoModified, cacheModified);
             if (fileInfoVersion !== cacheVersion || (fileInfoModified !== cacheModified)) {
               var mask = new taskResult.TaskResultData();
+              mask.tenant = ctx.tenant;
               mask.key = docId;
               mask.last_open_date = row.last_open_date;
               //cleanupRes can be false in case of simultaneous opening. it is OK
-              let cleanupRes = yield canvasService.cleanupCacheIf(mask);
-              logger.debug('wopiEditor cleanupRes=%s', cleanupRes);
+              let cleanupRes = yield canvasService.cleanupCacheIf(ctx, mask);
+              ctx.logger.debug('wopiEditor cleanupRes=%s', cleanupRes);
               res.lockId = undefined;
             }
           }
         } else {
           res.success = false;
-          logger.warn('wopiEditor attempt to open not wopi record');
+          ctx.logger.warn('wopiEditor attempt to open not wopi record');
         }
       }
     }
@@ -304,14 +310,19 @@ function checkAndInvalidateCache(docId, fileInfo) {
 function getEditorHtml(req, res) {
   return co(function*() {
     let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined};
+    let ctx = new operationContext.Context();
     try {
-      logger.info('wopiEditor start');
-      logger.debug(`wopiEditor req.url:%s`, req.url);
-      logger.debug(`wopiEditor req.query:%j`, req.query);
-      logger.debug(`wopiEditor req.body:%j`, req.body);
+      ctx.initFromRequest(req);
+      let wopiSrc = req.query['wopisrc'];
+      let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
+      ctx.setDocId(fileId);
+
+      ctx.logger.info('wopiEditor start');
+      ctx.logger.debug(`wopiEditor req.url:%s`, req.url);
+      ctx.logger.debug(`wopiEditor req.query:%j`, req.query);
+      ctx.logger.debug(`wopiEditor req.body:%j`, req.body);
       params.documentType = req.params.documentType;
       let mode = req.params.mode;
-      let wopiSrc = req.query['wopisrc'];
       let sc = req.query['sc'];
       let hostSessionId = req.query['hid'];
       let access_token = req.body['access_token'] || "";
@@ -319,7 +330,7 @@ function getEditorHtml(req, res) {
 
       let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
 
-      let fileInfo = params.fileInfo = yield checkFileInfo(uri, access_token, sc);
+      let fileInfo = params.fileInfo = yield checkFileInfo(ctx, uri, access_token, sc);
       if (!fileInfo) {
         params.fileInfo = {};
         return;
@@ -330,7 +341,6 @@ function getEditorHtml(req, res) {
       }
       //docId
       let docId = undefined;
-      let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       if ('view' !== mode) {
         docId = `${fileId}`;
       } else {
@@ -344,7 +354,7 @@ function getEditorHtml(req, res) {
         }
       }
       docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
-      logger.debug(`wopiEditor docId=%s`, docId);
+      ctx.logger.debug(`wopiEditor`);
       params.key = docId;
       let userAuth = params.userAuth = {
         wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl,
@@ -352,7 +362,7 @@ function getEditorHtml(req, res) {
       };
 
       //check and invalidate cache
-      let checkRes = yield checkAndInvalidateCache(docId, fileInfo);
+      let checkRes = yield checkAndInvalidateCache(ctx, docId, fileInfo);
       let lockId = checkRes.lockId;
       if (!checkRes.success) {
         params.fileInfo = {};
@@ -364,12 +374,12 @@ function getEditorHtml(req, res) {
         fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-        yield canvasService.commandOpenStartPromise(docId, utils.getBaseUrlByRequest(req), 1, commonInfo, fileType);
+        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(req), 1, commonInfo, fileType);
       }
 
       //Lock
       if ('view' !== mode) {
-        let lockRes = yield lock('LOCK', lockId, fileInfo, userAuth);
+        let lockRes = yield lock(ctx, 'LOCK', lockId, fileInfo, userAuth);
         if (!lockRes) {
           params.fileInfo = {};
           return;
@@ -384,36 +394,36 @@ function getEditorHtml(req, res) {
 
       if (cfgTokenEnableBrowser) {
         let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
-        let secret = utils.getSecretByElem(cfgSignatureSecretOutbox);
+        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Inbox);
         params.token = jwt.sign(params, secret, options);
       }
     } catch (err) {
-      logger.error('wopiEditor error:%s', err.stack);
+      ctx.logger.error('wopiEditor error:%s', err.stack);
       params.fileInfo = {};
     } finally {
-      logger.debug('wopiEditor render params=%j', params);
+      ctx.logger.debug('wopiEditor render params=%j', params);
       try {
         res.render("editor-wopi", params);
       } catch (err) {
-        logger.error('wopiEditor error:%s', err.stack);
+        ctx.logger.error('wopiEditor error:%s', err.stack);
         res.sendStatus(400);
       }
-      logger.info('wopiEditor end');
+      ctx.logger.info('wopiEditor end');
     }
   });
 }
-function putFile(wopiParams, data, dataStream, dataSize, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
+function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   return co(function* () {
     let postRes = null;
     try {
-      logger.info('wopi PutFile start');
+      ctx.logger.info('wopi PutFile start');
       if (!wopiParams.userAuth) {
         return postRes;
       }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       let userAuth = wopiParams.userAuth;
       let uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
-      let filterStatus = yield checkIpFilter(uri);
+      let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return postRes;
       }
@@ -432,33 +442,33 @@ function putFile(wopiParams, data, dataStream, dataSize, userLastChangeId, isMod
           headers['X-LOOL-WOPI-Timestamp'] = wopiParams.LastModifiedTime;
         }
 
-        logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
+        ctx.logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
         postRes = yield utils.postRequestPromise(uri, data, dataStream, dataSize, cfgCallbackRequestTimeout, undefined, headers);
-        logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
-        logger.debug('wopi PutFile response body:%s', postRes.body);
+        ctx.logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
+        ctx.logger.debug('wopi PutFile response body:%s', postRes.body);
       } else {
-        logger.warn('wopi SupportsUpdate = false or UserCanWrite = false');
+        ctx.logger.warn('wopi SupportsUpdate = false or UserCanWrite = false');
       }
     } catch (err) {
-      logger.error('wopi error PutFile:%s', err.stack);
+      ctx.logger.error('wopi error PutFile:%s', err.stack);
     } finally {
-      logger.info('wopi PutFile end');
+      ctx.logger.info('wopi PutFile end');
     }
     return postRes;
   });
 }
-function renameFile(wopiParams, name) {
+function renameFile(ctx, wopiParams, name) {
   return co(function* () {
-    let res;
+    let res = undefined;
     try {
-      logger.info('wopi RenameFile start');
+      ctx.logger.info('wopi RenameFile start');
       if (!wopiParams.userAuth) {
         return res;
       }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       let userAuth = wopiParams.userAuth;
       let uri = `${userAuth.wopiSrc}?access_token=${userAuth.access_token}`;
-      let filterStatus = yield checkIpFilter(uri);
+      let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return res;
       }
@@ -471,9 +481,9 @@ function renameFile(wopiParams, name) {
         let headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
         fillStandardHeaders(headers, uri, userAuth.access_token);
 
-        logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
+        ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
-        logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
+        ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
         if (postRes.body) {
           res = JSON.parse(postRes.body);
         } else {
@@ -481,22 +491,22 @@ function renameFile(wopiParams, name) {
           res = {"Name": name};
         }
       } else {
-        logger.info('wopi SupportsRename = false');
+        ctx.logger.info('wopi SupportsRename = false');
       }
     } catch (err) {
-      logger.error('wopi error RenameFile:%s', err.stack);
+      ctx.logger.error('wopi error RenameFile:%s', err.stack);
     } finally {
-      logger.info('wopi RenameFile end');
+      ctx.logger.info('wopi RenameFile end');
     }
     return res;
   });
 }
-function checkFileInfo(uri, access_token, sc) {
+function checkFileInfo(ctx, uri, access_token, sc) {
   return co(function* () {
-    let fileInfo;
+    let fileInfo = undefined;
     try {
-      logger.info('wopi checkFileInfo start');
-      let filterStatus = yield checkIpFilter(uri);
+      ctx.logger.info('wopi checkFileInfo start');
+      let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return fileInfo;
       }
@@ -505,23 +515,23 @@ function checkFileInfo(uri, access_token, sc) {
         headers['X-WOPI-SessionContext'] = sc;
       }
       fillStandardHeaders(headers, uri, access_token);
-      logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-      let getRes = yield utils.downloadUrlPromise(uri, cfgDownloadTimeout, undefined, undefined, false, headers);
-      logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
+      ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
+      let getRes = yield utils.downloadUrlPromise(ctx, uri, cfgDownloadTimeout, undefined, undefined, false, headers);
+      ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
       fileInfo = JSON.parse(getRes.body);
     } catch (err) {
-      logger.error('wopi error checkFileInfo:%s', err.stack);
+      ctx.logger.error('wopi error checkFileInfo:%s', err.stack);
     } finally {
-      logger.info('wopi checkFileInfo end');
+      ctx.logger.info('wopi checkFileInfo end');
     }
     return fileInfo;
   });
 }
-function lock(command, lockId, fileInfo, userAuth) {
+function lock(ctx, command, lockId, fileInfo, userAuth) {
   return co(function* () {
     let res = true;
     try {
-      logger.info('wopi %s start', command);
+      ctx.logger.info('wopi %s start', command);
       if (fileInfo && fileInfo.SupportsLocks) {
         if (!userAuth) {
           return false;
@@ -529,32 +539,32 @@ function lock(command, lockId, fileInfo, userAuth) {
         let wopiSrc = userAuth.wopiSrc;
         let access_token = userAuth.access_token;
         let uri = `${wopiSrc}?access_token=${access_token}`;
-        let filterStatus = yield checkIpFilter(uri);
+        let filterStatus = yield checkIpFilter(ctx, uri);
         if (0 !== filterStatus) {
           return false;
         }
 
         let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
-        logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
+        ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
         let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
-        logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
+        ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
       } else {
-        logger.info('wopi %s SupportsLocks = false', command);
+        ctx.logger.info('wopi %s SupportsLocks = false', command);
       }
     } catch (err) {
       res = false;
-      logger.error('wopi error %s:%s', command, err.stack);
+      ctx.logger.error('wopi error %s:%s', command, err.stack);
     } finally {
-      logger.info('wopi %s end', command);
+      ctx.logger.info('wopi %s end', command);
     }
     return res;
   });
 }
-function unlock(wopiParams) {
+function unlock(ctx, wopiParams) {
   return co(function* () {
     try {
-      logger.info('wopi Unlock start');
+      ctx.logger.info('wopi Unlock start');
       let fileInfo = wopiParams.commonInfo.fileInfo;
       if (fileInfo && fileInfo.SupportsLocks) {
         if (!wopiParams.userAuth) {
@@ -564,23 +574,23 @@ function unlock(wopiParams) {
         let lockId = wopiParams.commonInfo.lockId;
         let access_token = wopiParams.userAuth.access_token;
         let uri = `${wopiSrc}?access_token=${access_token}`;
-        let filterStatus = yield checkIpFilter(uri);
+        let filterStatus = yield checkIpFilter(ctx, uri);
         if (0 !== filterStatus) {
           return;
         }
 
         let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
-        logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
+        ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
-        logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
+        ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
       } else {
-        logger.info('wopi SupportsLocks = false');
+        ctx.logger.info('wopi SupportsLocks = false');
       }
     } catch (err) {
-      logger.error('wopi error Unlock:%s', err.stack);
+      ctx.logger.error('wopi error Unlock:%s', err.stack);
     } finally {
-      logger.info('wopi Unlock end');
+      ctx.logger.info('wopi Unlock end');
     }
   });
 }
@@ -630,12 +640,12 @@ function fillStandardHeaders(headers, url, access_token) {
   headers['Authorization'] = `Bearer ${access_token}`;
 }
 
-function checkIpFilter(uri){
+function checkIpFilter(ctx, uri){
   return co(function* () {
     let urlParsed = new URL(uri);
-    let filterStatus = yield* utils.checkHostFilter(urlParsed.hostname);
+    let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
     if (0 !== filterStatus) {
-      logger.warn('wopi checkIpFilter error: url = %s', uri);
+      ctx.logger.warn('wopi checkIpFilter error: url = %s', uri);
     }
     return filterStatus;
   });

@@ -41,6 +41,7 @@ var rabbitMQCore = require('./rabbitMQCore');
 var activeMQCore = require('./activeMQCore');
 const logger = require('./logger');
 const commonDefines = require('./commondefines');
+const operationContext = require('./operationContext');
 
 const cfgMaxRedeliveredCount = config.get('FileConverter.converter.maxRedeliveredCount');
 const cfgQueueType = config.get('queue.type');
@@ -253,7 +254,7 @@ function clear(taskqueue) {
 function* pushBackRedeliveredRabbit(taskqueue, message, ack) {
   if (message?.fields?.redelivered) {
     try {
-      logger.warn('checkRedelivered redelivered data=%j', message);
+      operationContext.global.logger.warn('checkRedelivered redelivered data=%j', message);
       //remove current task and add new into tail of queue to remove redelivered flag
       let data = message.content.toString();
       let redeliveredCount = message.properties.headers['x-redelivered-count'];
@@ -264,7 +265,7 @@ function* pushBackRedeliveredRabbit(taskqueue, message, ack) {
         yield taskqueue.addResponse(taskqueue.simulateErrorResponse(data));
       }
     } catch (err) {
-      logger.error('checkRedelivered error: %s', err.stack);
+      operationContext.global.logger.error('checkRedelivered error: %s', err.stack);
     } finally{
       ack();
     }
@@ -274,14 +275,14 @@ function* pushBackRedeliveredRabbit(taskqueue, message, ack) {
 }
 function* pushBackRedeliveredActive(taskqueue, context, ack) {
   if (undefined !== context.message.delivery_count) {
-    logger.warn('checkRedelivered redelivered data=%j', context.message);
+    operationContext.global.logger.warn('checkRedelivered redelivered data=%j', context.message);
     if (context.message.delivery_count > cfgMaxRedeliveredCount) {
       try {
         if (taskqueue.simulateErrorResponse) {
           yield taskqueue.addResponse(taskqueue.simulateErrorResponse(context.message.body));
         }
       } catch (err) {
-        logger.error('checkRedelivered error: %s', err.stack);
+        operationContext.global.logger.error('checkRedelivered error: %s', err.stack);
       } finally {
         ack();
       }

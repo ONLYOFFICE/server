@@ -35,6 +35,7 @@
 exports.DOC_ID_PATTERN = '0-9-.a-zA-Z_=';
 exports.DOC_ID_REGEX = new RegExp("^[" + exports.DOC_ID_PATTERN + "]*$", 'i');
 exports.DOC_ID_REPLACE_REGEX = new RegExp("[^" + exports.DOC_ID_PATTERN + "]", 'g');
+exports.DOC_ID_SOCKET_PATTERN = new RegExp("^/doc/([" + exports.DOC_ID_PATTERN + "]*)/c.+", 'i');
 exports.DOC_ID_MAX_LENGTH = 240;
 exports.USER_ID_MAX_LENGTH = 240;//255-240=15 symbols to make user id unique
 exports.USER_NAME_MAX_LENGTH = 255;
@@ -46,6 +47,8 @@ exports.ONLY_OFFICE_URL_PARAM = 'ooname';
 exports.DISPLAY_PREFIX = 'display';
 exports.CHANGES_NAME = 'changes';
 exports.VIEWER_ONLY = /^(?:(pdf|djvu|xps|oxps))$/;
+exports.DEFAULT_DOC_ID = 'docId';
+exports.DEFAULT_USER_ID = 'userId';
 
 exports.RIGHTS = {
   None    : 0,
