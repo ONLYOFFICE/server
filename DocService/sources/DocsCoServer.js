@@ -1265,6 +1265,37 @@ exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
+function encryptPasswordParams(ctx, data) {
+  return co(function*(){
+    let dataWithPassword;
+    if (data.type === 'openDocument' && data.message) {
+      dataWithPassword = data.message;
+    } else if (data.type === 'auth' && data.openCmd) {
+      dataWithPassword = data.openCmd;
+    } else if (data.c === 'savefromorigin') {
+      dataWithPassword = data;
+    }
+    if (dataWithPassword && dataWithPassword.password) {
+      if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
+        //todo send back error
+        ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
+        dataWithPassword.password = null;
+      } else {
+        dataWithPassword.password = yield utils.encryptPassword(dataWithPassword.password);
+      }
+    }
+    if (dataWithPassword && dataWithPassword.savepassword) {
+      if (dataWithPassword.savepassword.length > constants.PASSWORD_MAX_LENGTH) {
+        //todo send back error
+        ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.savepassword.length, constants.PASSWORD_MAX_LENGTH);
+        dataWithPassword.savepassword = null;
+      } else {
+        dataWithPassword.savepassword = yield utils.encryptPassword(dataWithPassword.savepassword);
+      }
+    }
+  });
+}
+exports.encryptPasswordParams = encryptPasswordParams;
 exports.install = function(server, callbackFunction) {
   var sockjs_echo = sockjs.createServer(cfgSockjs);
 
@@ -1314,7 +1345,7 @@ exports.install = function(server, callbackFunction) {
           conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
           return;
         }
-        yield* encryptPasswordParams(ctx, data);
+        yield encryptPasswordParams(ctx, data);
         switch (data.type) {
           case 'auth'          :
             yield* auth(ctx, conn, data);
@@ -2087,24 +2118,6 @@ exports.install = function(server, callbackFunction) {
     } else {
       cmd.setUrl(decoded.url);
       cmd.setDocId(decoded.key);
-    }
-  }
-
-  function* encryptPasswordParams(ctx, data) {
-    let dataWithPassword;
-    if (data.type === 'openDocument' && data.message) {
-      dataWithPassword = data.message;
-    } else if (data.type === 'auth' && data.openCmd) {
-      dataWithPassword = data.openCmd;
-    }
-    if (dataWithPassword && dataWithPassword.password) {
-      if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
-        //todo send back error
-        ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
-        dataWithPassword.password = null;
-      } else {
-        dataWithPassword.password = yield utils.encryptPassword(dataWithPassword.password);
-      }
     }
   }
 
@@ -3439,13 +3452,7 @@ exports.install = function(server, callbackFunction) {
           }
         });
         if (-1 !== index) {
-          //check redis storage compatibility
-          let editorDataArgs = utils.getFunctionArguments(editorData.addPresence);
-          if (editorDataArgs && 'ctx' === editorDataArgs[0]) {
-            callbackFunction();
-          } else {
-            operationContext.global.logger.error('server-lockstorage repository on wrong branch. args: %j', editorDataArgs);
-          }
+          callbackFunction();
         } else {
           operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
         }
