@@ -3452,13 +3452,7 @@ exports.install = function(server, callbackFunction) {
           }
         });
         if (-1 !== index) {
-          //check redis storage compatibility
-          let editorDataArgs = utils.getFunctionArguments(editorData.addPresence);
-          if (editorDataArgs && 'ctx' === editorDataArgs[0]) {
-            callbackFunction();
-          } else {
-            operationContext.global.logger.error('server-lockstorage repository on wrong branch. args: %j', editorDataArgs);
-          }
+          callbackFunction();
         } else {
           operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
         }
