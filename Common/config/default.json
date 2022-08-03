@@ -102,7 +102,7 @@
 		"baseDomain": "",
 		"filenameSecret": "secret.key",
 		"filenameLicense": "license.lic",
-		"defaultTetant": "tetant"
+		"defaultTenant": "localhost"
 	},
 	"services": {
 		"CoAuthoring": {

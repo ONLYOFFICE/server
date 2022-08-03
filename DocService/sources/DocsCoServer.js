@@ -1300,12 +1300,12 @@ exports.install = function(server, callbackFunction) {
   var sockjs_echo = sockjs.createServer(cfgSockjs);
 
   sockjs_echo.on('connection', function(conn) {
-    let ctx = new operationContext.Context();
-    ctx.initFromConnection(conn);
     if (!conn) {
       operationContext.global.logger.error("null == conn");
       return;
     }
+    let ctx = new operationContext.Context();
+    ctx.initFromConnection(conn);
     if (getIsShutdown()) {
       sendFileError(ctx, conn, 'Server shutdow');
       return;

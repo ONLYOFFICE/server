@@ -46,7 +46,7 @@ const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
 const cfgTenantsBaseDir = config.get('tenants.baseDir');
 const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
 const cfgTenantsFilenameLicense = config.get('tenants.filenameLicense');
-const cfgTenantsDefaultTetant = config.get('tenants.defaultTetant');
+const cfgTenantsDefaultTenant = config.get('tenants.defaultTenant');
 const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
@@ -55,7 +55,7 @@ let licenseInfo;
 let licenseOriginal;
 
 function getDefautTenant() {
-  return cfgTenantsDefaultTetant;
+  return cfgTenantsDefaultTenant;
 }
 function getTenant(ctx, domain) {
   let tenant = getDefautTenant();
@@ -66,7 +66,7 @@ function getTenant(ctx, domain) {
     if (-1 !== index) {
       tenant = domain.substring(0, index);
     } else {
-      ctx.logger.warn('getTenant invalid domain=%s', domain);
+      tenant = domain;
     }
   }
   return tenant;
