@@ -816,21 +816,16 @@ function* ExecuteTask(ctx, task) {
   let childRes = null;
   let isTimeout = false;
   if (constants.NO_ERROR === error) {
-    if(constants.AVS_OFFICESTUDIO_FILE_OTHER_HTMLZIP === dataConvert.formatTo && cmd.getSaveKey() && !dataConvert.mailMergeSend) {
-      //todo заглушка.вся конвертация на клиенте, но нет простого механизма сохранения на клиенте
-      yield utils.pipeFiles(dataConvert.fileFrom, dataConvert.fileTo);
-    } else {
+    ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
+    if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
+      && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
+      && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
+      ctx.logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s', formatChecker.getStringFromFormat(dataConvert.formatTo));
+      let extOld = path.extname(dataConvert.fileTo);
+      let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
+      dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
+      dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
       ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
-      if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
-        && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
-        && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
-        ctx.logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s', formatChecker.getStringFromFormat(dataConvert.formatTo));
-        let extOld = path.extname(dataConvert.fileTo);
-        let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
-        dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
-        dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
-        ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
-      }
     }
     if(clientStatsD) {
       clientStatsD.timing('conv.spawnSync', new Date() - curDate);
