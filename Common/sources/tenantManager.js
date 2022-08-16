@@ -61,12 +61,13 @@ function getTenant(ctx, domain) {
   let tenant = getDefautTenant();
   if (domain) {
     //remove port
-    domain = domain.substring(0, domain.indexOf(':'));
-    let index = domain.indexOf('.' + cfgTenantsBaseDomain);
-    if (-1 !== index) {
-      tenant = domain.substring(0, index);
-    } else {
-      tenant = domain;
+    domain = domain.replace(/\:.*$/, '');
+    tenant = domain;
+    if (cfgTenantsBaseDomain) {
+      let index = domain.indexOf('.' + cfgTenantsBaseDomain);
+      if (-1 !== index) {
+        tenant = domain.substring(0, index);
+      }
     }
   }
   return tenant;
@@ -125,7 +126,7 @@ function getTenantLicense(ctx) {
   });
 }
 function isMultitenantMode() {
-  return !!cfgTenantsBaseDir && !!cfgTenantsBaseDomain;
+  return !!cfgTenantsBaseDir;
 }
 
 exports.getDefautTenant = getDefautTenant;

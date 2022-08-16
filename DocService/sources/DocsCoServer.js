@@ -2975,6 +2975,7 @@ exports.install = function(server, callbackFunction) {
 	function _checkLicense(ctx, conn) {
 		return co(function* () {
 			try {
+				ctx.logger.info('_checkLicense start');
 				let rights = constants.RIGHTS.Edit;
 				if (config.get('server.edit_singleton')) {
 					// ToDo docId from url ?
@@ -3008,6 +3009,7 @@ exports.install = function(server, callbackFunction) {
 						plugins: licenseInfo.plugins
 					}
 				});
+				ctx.logger.info('_checkLicense end');
 			} catch (err) {
 				ctx.logger.error('_checkLicense error: %s', err.stack);
 			}
