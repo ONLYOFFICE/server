@@ -137,7 +137,6 @@ const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
 const cfgTokenInboxHeader = config.get('token.inbox.header');
 const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
 const cfgTokenVerifyOptions = config.get('token.verifyOptions');
-const cfgSecretSession = config.get('secret.session');
 const cfgForceSaveEnable = config.get('autoAssembly.enable');
 const cfgForceSaveInterval = ms(config.get('autoAssembly.interval'));
 const cfgForceSaveStep = ms(config.get('autoAssembly.step'));
@@ -465,41 +464,45 @@ let changeConnectionInfo = co.wrap(function*(ctx, conn, cmd) {
   }
   return false;
 });
-function signToken(payload, algorithm, expiresIn, secretElem) {
-  var options = {algorithm: algorithm, expiresIn: expiresIn};
-  var secret = utils.getSecretByElem(secretElem);
-  return jwt.sign(payload, secret, options);
+function signToken(ctx, payload, algorithm, expiresIn, secretElem) {
+  return co(function*() {
+    var options = {algorithm: algorithm, expiresIn: expiresIn};
+    let secret = yield tenantManager.getTenantSecret(ctx, secretElem);
+    return jwt.sign(payload, secret, options);
+  });
 }
 function needSendChanges (conn){
   return !conn.user?.view || utils.isLiveViewer(conn);
 }
-function fillJwtByConnection(conn) {
-  var payload = {document: {}, editorConfig: {user: {}}};
-  var doc = payload.document;
-  doc.key = conn.docId;
-  doc.permissions = conn.permissions;
-  doc.ds_encrypted = conn.encrypted;
-  var edit = payload.editorConfig;
-  //todo
-  //edit.callbackUrl = callbackUrl;
-  //edit.lang = conn.lang;
-  //edit.mode = conn.mode;
-  var user = edit.user;
-  user.id = conn.user.idOriginal;
-  user.name = conn.user.username;
-  user.index = conn.user.indexUser;
-  if (conn.coEditingMode) {
-    edit.coEditing = {mode: conn.coEditingMode};
-  }
-  //no standart
-  edit.ds_view = conn.user.view;
-  edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
-  edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
-  // presenter viewer opens with same session jwt. do not put sessionId to jwt
-  // edit.ds_sessionId = conn.sessionId;
-  edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
+function fillJwtByConnection(ctx, conn) {
+  return co(function*() {
+    var payload = {document: {}, editorConfig: {user: {}}};
+    var doc = payload.document;
+    doc.key = conn.docId;
+    doc.permissions = conn.permissions;
+    doc.ds_encrypted = conn.encrypted;
+    var edit = payload.editorConfig;
+    //todo
+    //edit.callbackUrl = callbackUrl;
+    //edit.lang = conn.lang;
+    //edit.mode = conn.mode;
+    var user = edit.user;
+    user.id = conn.user.idOriginal;
+    user.name = conn.user.username;
+    user.index = conn.user.indexUser;
+    if (conn.coEditingMode) {
+      edit.coEditing = {mode: conn.coEditingMode};
+    }
+    //no standart
+    edit.ds_view = conn.user.view;
+    edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
+    edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
+    // presenter viewer opens with same session jwt. do not put sessionId to jwt
+    // edit.ds_sessionId = conn.sessionId;
+    edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
 
-  return signToken(payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, cfgSecretSession);
+    return yield signToken(ctx, payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
+  });
 }
 
 function sendData(ctx, conn, data) {
@@ -526,8 +529,8 @@ function sendDataMeta(ctx, conn, msg) {
 function sendDataSession(ctx, conn, msg) {
   sendData(ctx, conn, {type: "session", messages: msg});
 }
-function sendDataRefreshToken(ctx, conn) {
-  sendData(ctx, conn, {type: "refreshToken", messages: fillJwtByConnection(conn)});
+function sendDataRefreshToken(ctx, conn, msg) {
+  sendData(ctx, conn, {type: "refreshToken", messages: msg});
 }
 function sendDataRpc(ctx, conn, responseKey, data) {
   sendData(ctx, conn, {type: "rpc", responseKey: responseKey, data: data});
@@ -543,12 +546,15 @@ function sendReleaseLock(ctx, conn, userLocks) {
   })});
 }
 function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
-  if (isEnterCorrectPassword) {
-    conn.isEnterCorrectPassword = true;
-    if (cfgTokenEnableBrowser) {
-      sendDataRefreshToken(ctx, conn);
+  return co(function*() {
+    if (isEnterCorrectPassword) {
+      conn.isEnterCorrectPassword = true;
+      if (cfgTokenEnableBrowser) {
+        let sessionToken = yield fillJwtByConnection(ctx, conn);
+        sendDataRefreshToken(ctx, conn, sessionToken);
+      }
     }
-  }
+  });
 }
 function getParticipants(docId, excludeClosed, excludeUserId, excludeViewer) {
   return _.filter(connections, function(el) {
@@ -1485,7 +1491,8 @@ exports.install = function(server, callbackFunction) {
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
         if (cfgTokenEnableBrowser) {
-          sendDataRefreshToken(ctx, conn);
+          let sessionToken = yield fillJwtByConnection(ctx, conn);
+          sendDataRefreshToken(ctx, conn, sessionToken);
         }
       }
     }
@@ -1592,7 +1599,8 @@ exports.install = function(server, callbackFunction) {
       conn.docId = docIdNew;
       yield addPresence(ctx, conn, true);
       if (cfgTokenEnableBrowser) {
-        sendDataRefreshToken(ctx, conn);
+        let sessionToken = yield fillJwtByConnection(ctx, conn);
+        sendDataRefreshToken(ctx, conn, sessionToken);
       }
     }
     //open
@@ -2560,6 +2568,10 @@ exports.install = function(server, callbackFunction) {
     }
     let allMessages = yield editorData.getMessages(ctx, docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
+    let sessionToken;
+    if (cfgTokenEnableBrowser && !bIsRestore) {
+      sessionToken = yield fillJwtByConnection(ctx, conn);
+    }
     const sendObject = {
       type: 'auth',
       result: 1,
@@ -2570,7 +2582,7 @@ exports.install = function(server, callbackFunction) {
       locks: docLock,
       indexUser: conn.user.indexUser,
       hasForgotten: opt_hasForgotten,
-      jwt: (!bIsRestore && cfgTokenEnableBrowser) ? fillJwtByConnection(conn) : undefined,
+      jwt: sessionToken,
       g_cAscSpellCheckUrl: cfgEditor["spellcheckerUrl"],
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
@@ -3215,7 +3227,7 @@ exports.install = function(server, callbackFunction) {
                 } else {
                   let url;
                   if (cmd.getInline()) {
-                    url = canvasService.getPrintFileUrl(data.needUrlKey, participant.baseUrl, cmd.getTitle());
+                    url = yield canvasService.getPrintFileUrl(ctx, data.needUrlKey, participant.baseUrl, cmd.getTitle());
                     outputData.setExtName('.pdf');
                   } else {
                     url = yield storage.getSignedUrl(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), data.creationDate);
@@ -3226,7 +3238,7 @@ exports.install = function(server, callbackFunction) {
                 if (undefined !== data.openedAt) {
                   outputData.setOpenedAt(data.openedAt);
                 }
-                modifyConnectionForPassword(ctx, participant, data.needUrlIsCorrectPassword);
+                yield modifyConnectionForPassword(ctx, participant, data.needUrlIsCorrectPassword);
               }
               sendData(ctx, participant, output);
             }
@@ -3285,7 +3297,8 @@ exports.install = function(server, callbackFunction) {
                 participant.user.username = cmd.getUserName();
                 yield addPresence(ctx, participant, false);
                 if (cfgTokenEnableBrowser) {
-                  sendDataRefreshToken(ctx, participant);
+                  let sessionToken = yield fillJwtByConnection(ctx, participant);
+                  sendDataRefreshToken(ctx, participant, sessionToken);
                 }
               }
             }

@@ -63,7 +63,6 @@ var cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
 var cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenSessionAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
 const cfgTokenSessionExpires = ms(config.get('services.CoAuthoring.token.session.expires'));
-const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
 const cfgForgottenFiles = config_server.get('forgottenfiles');
 const cfgForgottenFilesName = config_server.get('forgottenfilesname');
 const cfgOpenProtectedFile = config_server.get('openProtectedFile');
@@ -221,7 +220,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         if (optConn) {
           let url;
           if(cmd.getInline()) {
-            url = getPrintFileUrl(key, optConn.baseUrl, cmd.getTitle());
+            url = yield getPrintFileUrl(ctx, key, optConn.baseUrl, cmd.getTitle());
           } else {
             url = yield storage.getSignedUrl(ctx, optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary,
                                                  cmd.getTitle());
@@ -530,7 +529,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
       if (sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password)) {
         ctx.logger.debug('commandReopen has password');
         yield* commandOpenFillOutput(ctx, conn, cmd, outputData, false);
-        docsCoServer.modifyConnectionForPassword(ctx, conn, constants.FILE_STATUS_OK === outputData.getStatus());
+        yield docsCoServer.modifyConnectionForPassword(ctx, conn, constants.FILE_STATUS_OK === outputData.getStatus());
         return res;
       }
     }
@@ -848,7 +847,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     if (upsertRes.affectedRows > 0) {
       outputData.setStatus('ok');
       if (!conn.isEnterCorrectPassword) {
-        docsCoServer.modifyConnectionForPassword(ctx, conn, true);
+        yield docsCoServer.modifyConnectionForPassword(ctx, conn, true);
       }
       yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
     } else {
@@ -1453,17 +1452,19 @@ exports.saveFile = function(req, res) {
     }
   });
 };
-function getPrintFileUrl(docId, baseUrl, filename) {
-  baseUrl = utils.checkBaseUrl(baseUrl);
-  let token = '';
-  if (cfgTokenEnableBrowser) {
-    let payload = {document: {key: docId}};
-    token = docsCoServer.signToken(payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, cfgSecretSession);
-  }
-  //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
-  //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
-  var userFriendlyName = encodeURIComponent(filename.replace(/\//g, "%2f"));
-  return `${baseUrl}/printfile/${encodeURIComponent(docId)}/${userFriendlyName}?token=${encodeURIComponent(token)}&filename=${userFriendlyName}`;
+function getPrintFileUrl(ctx, docId, baseUrl, filename) {
+  return co(function*() {
+    baseUrl = utils.checkBaseUrl(baseUrl);
+    let token = '';
+    if (cfgTokenEnableBrowser) {
+      let payload = {document: {key: docId}};
+      token = yield docsCoServer.signToken(ctx, payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
+    }
+    //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
+    //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
+    var userFriendlyName = encodeURIComponent(filename.replace(/\//g, "%2f"));
+    return `${baseUrl}/printfile/${encodeURIComponent(docId)}/${userFriendlyName}?token=${encodeURIComponent(token)}&filename=${userFriendlyName}`;
+  });
 }
 exports.getPrintFileUrl = getPrintFileUrl;
 exports.printFile = function(req, res) {
