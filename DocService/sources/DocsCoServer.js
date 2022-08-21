@@ -3331,6 +3331,7 @@ exports.install = function(server, callbackFunction) {
     return co(function* () {
       let ctx = new operationContext.Context();
       try {
+        let tenants = {};
         let countEditByShard = 0;
         let countLiveViewByShard = 0;
         let countViewByShard = 0;
@@ -3340,6 +3341,10 @@ exports.install = function(server, callbackFunction) {
         for (var i = 0; i < connections.length; ++i) {
           var conn = connections[i];
           ctx.initFromConnection(conn);
+          let tenant = tenants[ctx.tenant];
+          if (!tenant) {
+            tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
+          }
           //wopi access_token_ttl;
           if (cfgExpSessionAbsolute > 0 || conn.access_token_ttl) {
             if ((cfgExpSessionAbsolute > 0 && maxMs - conn.sessionTimeConnect > cfgExpSessionAbsolute ||
@@ -3372,26 +3377,33 @@ exports.install = function(server, callbackFunction) {
           }
           yield addPresence(ctx, conn, false);
           if (utils.isLiveViewer(conn)) {
-            countLiveViewByShard++;
+            tenant.countLiveViewByShard++;
           } else if(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
-            countViewByShard++;
+            tenant.countViewByShard++;
           } else {
-            countEditByShard++;
+            tenant.countEditByShard++;
+          }
+        }
+        for (let tenantId in tenants) {
+          if(tenants.hasOwnProperty(tenantId)) {
+            ctx.setTenant(tenantId);
+            let tenant = tenants[tenantId];
+            yield* collectStats(ctx, tenant.countEditByShard, tenant.countLiveViewByShard, tenant.countViewByShard);
+            yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, tenant.countEditByShard);
+            yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countLiveViewByShard);
+            yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countViewByShard);
+            if (clientStatsD) {
+              //todo with multitenant
+              let countEdit = yield editorData.getEditorConnectionsCount(ctx, connections);
+              clientStatsD.gauge('expireDoc.connections.edit', countEdit);
+              let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
+              clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
+              let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
+              clientStatsD.gauge('expireDoc.connections.view', countView);
+            }
           }
         }
         ctx.initDefault();
-        yield* collectStats(ctx, countEditByShard, countLiveViewByShard, countViewByShard);
-        yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
-        yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
-        yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, countViewByShard);
-        if (clientStatsD) {
-          let countEdit = yield editorData.getEditorConnectionsCount(ctx, connections);
-          clientStatsD.gauge('expireDoc.connections.edit', countEdit);
-          let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
-          clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
-          let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
-          clientStatsD.gauge('expireDoc.connections.view', countView);
-        }
       } catch (err) {
         ctx.logger.error('expireDoc error: %s', err.stack);
       } finally {
