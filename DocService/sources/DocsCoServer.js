@@ -3018,6 +3018,7 @@ exports.install = function(server, callbackFunction) {
 						liveViewerSupport: (licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0 ),
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
+						advancedApi: licenseInfo.advancedApi,
 						plugins: licenseInfo.plugins
 					}
 				});
