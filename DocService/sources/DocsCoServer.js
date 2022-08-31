@@ -1104,7 +1104,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
     yield taskResult.restoreInitialPassword(ctx.tenant, docId);
     sqlBase.deleteChanges(ctx, docId, null);
     //delete forgotten after successful send on callbackUrl
-    yield storage.deletePath(ctx, cfgForgottenFiles + '/' + docId);
+    yield storage.deletePath(ctx, docId, cfgForgottenFiles);
   }
   yield unlockWopiDoc(ctx, docId, opt_userIndex);
 }
@@ -1397,8 +1397,8 @@ exports.install = function(server, callbackFunction) {
           case 'changesError':
             ctx.logger.error("changesError: %s", data.stack);
             if (cfgErrorFiles && docId) {
-              let destDir = cfgErrorFiles + '/browser/' + docId;
-              yield storage.copyPath(ctx, docId, destDir);
+              let destDir = 'browser/' + docId;
+              yield storage.copyPath(ctx, docId, destDir, undefined, cfgErrorFiles);
               yield* saveErrorChanges(ctx, docId, destDir);
             }
             break;
@@ -1553,7 +1553,7 @@ exports.install = function(server, callbackFunction) {
           if (!needSaveChanges) {
             //start save changes if forgotten file exists.
             //more effective to send file without sfc, but this method is simpler by code
-            let forgotten = yield storage.listObjects(ctx, cfgForgottenFiles + '/' + docId);
+            let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
             needSaveChanges = forgotten.length > 0;
             ctx.logger.debug('closeDocument hasForgotten %s', needSaveChanges);
           }
@@ -2132,6 +2132,7 @@ exports.install = function(server, callbackFunction) {
   function* auth(ctx, conn, data) {
     //TODO: Do authorization etc. check md5 or query db
     if (data.token && data.user) {
+      ctx.setUserId(data.user.id);
       let licenseInfo = yield tenantManager.getTenantLicense(ctx);
       //check jwt
       if (cfgTokenEnableBrowser) {
@@ -2170,6 +2171,7 @@ exports.install = function(server, callbackFunction) {
           return;
         }
       }
+      ctx.setUserId(data.user.id);
 
       let docId = data.docid;
       const user = data.user;
@@ -2441,7 +2443,7 @@ exports.install = function(server, callbackFunction) {
       let callback = yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
       if (!callback && !bIsRestore) {
         //check forgotten file
-        let forgotten = yield storage.listObjects(ctx, cfgForgottenFiles + '/' + docId);
+        let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
         hasForgotten = forgotten.length > 0;
         ctx.logger.debug('endAuth hasForgotten %s', hasForgotten);
       }
@@ -2515,7 +2517,7 @@ exports.install = function(server, callbackFunction) {
         }
         changesJSON += ']\r\n';
         let buffer = Buffer.from(changesJSON, 'utf8');
-        yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length);
+        yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, cfgErrorFiles);
       }
       index += cfgMaxRequestChanges;
     } while (changes && cfgMaxRequestChanges === changes.length);

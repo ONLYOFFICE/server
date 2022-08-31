@@ -486,13 +486,12 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
 
     let updateIfRes = yield taskResult.updateIf(ctx, task, updateMask);
       if (updateIfRes.affectedRows > 0) {
-        let forgottenId = cfgForgottenFiles + '/' + cmd.getDocId();
-        let forgotten = yield storage.listObjects(ctx, forgottenId);
+        let forgotten = yield storage.listObjects(ctx, cmd.getDocId(), cfgForgottenFiles);
         //replace url with forgotten file because it absorbed all lost changes
         if (forgotten.length > 0) {
           ctx.logger.debug("commandOpen from forgotten");
           cmd.setUrl(undefined);
-          cmd.setForgotten(forgottenId);
+          cmd.setForgotten(cmd.getDocId());
         }
         //add task
         cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
@@ -978,8 +977,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
       outputSfc.setUserData(cmd.getUserData());
       if (!isError || isErrorCorrupted) {
         try {
-          let forgottenId = cfgForgottenFiles + '/' + docId;
-          let forgotten = yield storage.listObjects(ctx, forgottenId);
+          let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
           let isSendHistory = 0 === forgotten.length;
           if (!isSendHistory) {
             //check indicator file to determine if opening was from the forgotten file
@@ -1119,7 +1117,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
       try {
         ctx.logger.warn("storeForgotten");
         let forgottenName = cfgForgottenFilesName + pathModule.extname(cmd.getOutputPath());
-        yield storage.copyObject(ctx, savePathDoc, cfgForgottenFiles + '/' + docId + '/' + forgottenName);
+        yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, cfgForgottenFiles);
       } catch (err) {
         ctx.logger.error('Error storeForgotten: %s', err.stack);
       }
