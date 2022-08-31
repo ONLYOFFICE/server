@@ -34,6 +34,7 @@
 
 const config = require('config');
 const co = require('co');
+const NodeCache = require( "node-cache" );
 const license = require('./../../Common/sources/license');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
@@ -47,12 +48,29 @@ const cfgTenantsBaseDir = config.get('tenants.baseDir');
 const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
 const cfgTenantsFilenameLicense = config.get('tenants.filenameLicense');
 const cfgTenantsDefaultTenant = config.get('tenants.defaultTenant');
+const cfgTenantsCache = config.get('tenants.cache');
 const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
 
 let licenseInfo;
 let licenseOriginal;
+
+const nodeCache = new NodeCache(cfgTenantsCache);
+
+function readTextFileWithCache(ctx, path, type) {
+  return co(function*() {
+    let text = nodeCache.get(path);
+    if (!text) {
+      text = yield readFile(path, {encoding: 'utf8'});
+      nodeCache.set(path, text);
+      ctx.logger.debug('%s path=%s from file', type, path);
+    } else {
+      ctx.logger.debug('%s path=%s from cache', type, path);
+    }
+    return text;
+  });
+}
 
 function getDefautTenant() {
   return cfgTenantsDefaultTenant;
@@ -87,8 +105,7 @@ function getTenantSecret(ctx, type) {
     if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
-      ctx.logger.debug('getTenantSecret path=%s', secretPath);
-      res = yield readFile(secretPath, {encoding: 'utf8'});
+      res = yield readTextFileWithCache(ctx, secretPath, 'getTenantSecret');
     } else {
       switch (type) {
         case commonDefines.c_oAscSecretType.Browser:
@@ -117,8 +134,8 @@ function getTenantLicense(ctx) {
     if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
-      ctx.logger.debug('getTenantLicense path=%s', licensePath);
-      [res] = yield* license.readLicense(licensePath);
+      let licenseText = yield readTextFileWithCache(ctx, licensePath, 'getTenantLicense');
+      [res] = yield* license.readLicense(licenseText);
     } else {
       res = licenseInfo;
     }
