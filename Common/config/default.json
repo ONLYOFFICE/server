@@ -27,6 +27,7 @@
 		"endpoint": "http://localhost/s3",
 		"bucketName": "cache",
 		"storageFolderName": "files",
+		"cacheFolderName": "data",
 		"urlExpires": 604800,
 		"accessKeyId": "AKID",
 		"secretAccessKey": "SECRET",

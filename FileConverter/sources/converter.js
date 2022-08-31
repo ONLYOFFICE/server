@@ -74,6 +74,7 @@ var cfgInputLimits = configConverter.get('inputLimits');
 const cfgStreamWriterBufferSize = configConverter.get('streamWriterBufferSize');
 //cfgMaxRequestChanges was obtained as a result of the test: 84408 changes - 5,16 MB
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
+const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 
@@ -346,8 +347,8 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
   }
   return res;
 }
-function* downloadFileFromStorage(ctx, strPath, dir) {
-  var list = yield storage.listObjects(ctx, strPath);
+function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
+  var list = yield storage.listObjects(ctx, strPath, opt_specialDir);
   ctx.logger.debug('downloadFileFromStorage list %s', list.toString());
   //create dirs
   var dirsToCreate = [];
@@ -374,7 +375,7 @@ function* downloadFileFromStorage(ctx, strPath, dir) {
   for (var i = 0; i < list.length; ++i) {
     var file = list[i];
     var fileRel = storage.getRelativePath(strPath, file);
-    var data = yield storage.getObject(ctx, file);
+    var data = yield storage.getObject(ctx, file, opt_specialDir);
     fs.writeFileSync(path.join(dir, fileRel), data);
   }
 }
@@ -617,7 +618,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
       writeProcessOutputToLog(ctx, childRes, false);
       ctx.logger.error('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
       if (cfgErrorFiles) {
-        yield* processUploadToStorage(ctx, tempDirs.temp, cfgErrorFiles + '/' + dataConvert.key);
+        yield* processUploadToStorage(ctx, tempDirs.temp, dataConvert.key, cfgErrorFiles);
         ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
       }
     }
@@ -791,7 +792,7 @@ function* ExecuteTask(ctx, task) {
     }
     error = yield* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, authorProps);
   } else if (cmd.getForgotten()) {
-    yield* downloadFileFromStorage(ctx, cmd.getForgotten(), tempDirs.source);
+    yield* downloadFileFromStorage(ctx, cmd.getForgotten(), tempDirs.source, cfgForgottenFiles);
     ctx.logger.debug('downloadFileFromStorage complete');
     let list = yield utils.listObjects(tempDirs.source, false);
     if (list.length > 0) {
