@@ -106,7 +106,8 @@
 		"defaultTenant": "localhost",
 		"cache" : {
 			"stdTTL": 300,
-			"checkperiod": 60
+			"checkperiod": 60,
+			"useClones": false
 		}
 	},
 	"services": {
@@ -263,7 +264,7 @@
 			"sockjs": {
 				"sockjs_url": "",
 				"disable_cors": true,
-				"websocket": false
+				"websocket": true
 			},
 			"callbackBackoffOptions": {
 				"retries": 0,
