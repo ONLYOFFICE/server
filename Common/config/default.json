@@ -103,7 +103,11 @@
 		"baseDomain": "",
 		"filenameSecret": "secret.key",
 		"filenameLicense": "license.lic",
-		"defaultTenant": "localhost"
+		"defaultTenant": "localhost",
+		"cache" : {
+			"stdTTL": 300,
+			"checkperiod": 60
+		}
 	},
 	"services": {
 		"CoAuthoring": {
