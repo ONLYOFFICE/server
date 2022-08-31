@@ -258,7 +258,8 @@
 			},
 			"sockjs": {
 				"sockjs_url": "",
-				"websocket": true
+				"disable_cors": true,
+				"websocket": false
 			},
 			"callbackBackoffOptions": {
 				"retries": 0,
