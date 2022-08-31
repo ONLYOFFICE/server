@@ -58,20 +58,6 @@ let licenseOriginal;
 
 const nodeCache = new NodeCache(cfgTenantsCache);
 
-function readTextFileWithCache(ctx, path, type) {
-  return co(function*() {
-    let text = nodeCache.get(path);
-    if (!text) {
-      text = yield readFile(path, {encoding: 'utf8'});
-      nodeCache.set(path, text);
-      ctx.logger.debug('%s path=%s from file', type, path);
-    } else {
-      ctx.logger.debug('%s path=%s from cache', type, path);
-    }
-    return text;
-  });
-}
-
 function getDefautTenant() {
   return cfgTenantsDefaultTenant;
 }
@@ -105,7 +91,14 @@ function getTenantSecret(ctx, type) {
     if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
-      res = yield readTextFileWithCache(ctx, secretPath, 'getTenantSecret');
+      res = nodeCache.get(secretPath);
+      if (res) {
+        ctx.logger.debug('getTenantSecret from cache');
+      } else {
+        res = yield readFile(secretPath, {encoding: 'utf8'});
+        nodeCache.set(secretPath, res);
+        ctx.logger.debug('getTenantSecret from %s', secretPath);
+      }
     } else {
       switch (type) {
         case commonDefines.c_oAscSecretType.Browser:
@@ -134,8 +127,14 @@ function getTenantLicense(ctx) {
     if (isMultitenantMode()) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
-      let licenseText = yield readTextFileWithCache(ctx, licensePath, 'getTenantLicense');
-      [res] = yield* license.readLicense(licenseText);
+      res = nodeCache.get(licensePath);
+      if (res) {
+        ctx.logger.debug('getTenantLicense from cache');
+      } else {
+        [res] = yield* license.readLicense(licensePath);
+        nodeCache.set(licensePath, res);
+        ctx.logger.debug('getTenantLicense from %s', licensePath);
+      }
     } else {
       res = licenseInfo;
     }
