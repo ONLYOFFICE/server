@@ -3362,7 +3362,7 @@ exports.install = function(server, callbackFunction) {
               continue;
             }
           }
-          if (cfgExpSessionIdle > 0) {
+          if (cfgExpSessionIdle > 0 && !conn.user?.view) {
             if (maxMs - conn.sessionTimeLastAction > cfgExpSessionIdle && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
               sendDataSession(ctx, conn, {
