@@ -193,7 +193,7 @@ function discovery(req, res) {
 function collaboraCapabilities(req, res) {
   return co(function*() {
     let output = {
-      "convert-to": {"available": false}, "hasMobileSupport": true, "hasProxyPrefix": false, "hasTemplateSaveAs": false,
+      "convert-to": {"available": true, "endpoint":"/lool/convert-to"}, "hasMobileSupport": true, "hasProxyPrefix": false, "hasTemplateSaveAs": false,
       "hasTemplateSource": true, "productVersion": commonDefines.buildVersion
     };
     let ctx = new operationContext.Context();

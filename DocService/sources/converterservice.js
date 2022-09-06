@@ -36,6 +36,7 @@ const path = require('path');
 var config = require('config');
 var co = require('co');
 const locale = require('windows-locale');
+const mime = require('mime');
 var taskResult = require('./taskresult');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
@@ -439,8 +440,87 @@ function builderRequest(req, res) {
     }
   });
 }
+function convertTo(req, res) {
+  return co(function*() {
+    let ctx = new operationContext.Context();
+    try {
+      ctx.initFromRequest(req);
+      ctx.logger.info('convert-to start');
+      let format = req.body['format'];
+      if (req.params.format) {
+        format = req.params.format;
+      }
+      let outputFormat = formatChecker.getFormatFromString(format);
+      if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
+        ctx.logger.warn('convert-to unexpected format = %s', format);
+        res.sendStatus(400);
+        return;
+      }
+      //todo https://github.com/CollaboraOnline/online/blob/4d6ca688f98d217866b9ea49113a356134dfba3a/wsd/COOLWSD.cpp
+      //req.body['options'], req.body['FullSheetPreview'], req.body['PDFVer']
 
+      let docId, fileTo, status, originalname;
+      if (req.file && req.file.originalname && req.file.buffer) {
+        originalname = req.file.originalname;
+        let filetype = path.extname(req.file.originalname).substring(1);
+        if (filetype && !constants.EXTENTION_REGEX.test(filetype)) {
+          ctx.logger.warn('convertRequest unexpected filetype = %s', filetype);
+          res.sendStatus(400);
+          return;
+        }
+
+        let task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'conv_', 8);
+        docId = task.key;
+        ctx.setDocId(docId);
+
+        //todo stream
+        let buffer = req.file.buffer;
+        yield storageBase.putObject(ctx, docId + '/origin.' + filetype, buffer, buffer.length);
+
+        let cmd = new commonDefines.InputCommand();
+        cmd.setCommand('conv');
+        cmd.setDocId(docId);
+        cmd.setSaveKey(docId);
+        cmd.setFormat(filetype);
+        cmd.setOutputFormat(outputFormat);
+
+        fileTo = constants.OUTPUT_NAME;
+        let outputExt = formatChecker.getStringFromFormat(outputFormat);
+        if (outputExt) {
+          fileTo += '.' + outputExt;
+        }
+
+        let queueData = new commonDefines.TaskQueueData();
+        queueData.setCtx(ctx);
+        queueData.setCmd(cmd);
+        queueData.setToFile(fileTo);
+        queueData.setFromOrigin(true);
+        yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
+
+        let async = false;
+        status = yield* convertByCmd(ctx, cmd, async, fileTo);
+      }
+      if (status && status.end && constants.NO_ERROR === status.err) {
+        let filename = path.basename(originalname, path.extname(originalname)) + path.extname(fileTo);
+        let streamObj = yield storage.createReadStream(ctx, `${docId}/${fileTo}`);
+        res.setHeader('Content-Disposition', utils.getContentDisposition(filename, null, constants.CONTENT_DISPOSITION_INLINE));
+        res.setHeader('Content-Length', streamObj.contentLength);
+        res.setHeader('Content-Type', mime.getType(filename));
+        yield utils.pipeStreams(streamObj.readStream, res, true);
+      } else {
+        ctx.logger.error('convert-to error status:%j', status);
+        res.sendStatus(400);
+      }
+    } catch (err) {
+      ctx.logger.error('convert-to error:%s', err.stack);
+      res.sendStatus(400);
+    } finally {
+      ctx.logger.info('convert-to end');
+    }
+  });
+}
 exports.convertFromChanges = convertFromChanges;
 exports.convertJson = convertRequestJson;
 exports.convertXml = convertRequestXml;
+exports.convertTo = convertTo;
 exports.builder = builderRequest;
