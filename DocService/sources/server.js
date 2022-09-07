@@ -66,7 +66,7 @@ const cfgTokenEnableBrowser = configCommon.get('services.CoAuthoring.token.enabl
 const cfgTokenEnableRequestInbox = configCommon.get('services.CoAuthoring.token.enable.request.inbox');
 const cfgTokenEnableRequestOutbox = configCommon.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgLicenseFile = configCommon.get('license.license_file');
-const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
+const cfgDownloadMaxBytes = configCommon.get('FileConverter.converter.maxDownloadBytes');
 
 const app = express();
 app.disable('x-powered-by');
