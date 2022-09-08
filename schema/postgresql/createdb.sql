@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS "public"."task_result" (
 "id" varchar(255) COLLATE "default" NOT NULL,
 "status" int2 NOT NULL,
 "status_info" int4 NOT NULL,
-"created_at" timestamp without time zone DEFAULT NOW(),
+"created_at" timestamp without time zone DEFAULT (NOW() at time zone 'utc'),
 "last_open_date" timestamp without time zone NOT NULL,
 "user_index" int4 NOT NULL DEFAULT 1,
 "change_id" int4 NOT NULL DEFAULT 0,
