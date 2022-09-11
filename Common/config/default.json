@@ -27,6 +27,7 @@
 		"endpoint": "http://localhost/s3",
 		"bucketName": "cache",
 		"storageFolderName": "files",
+		"cacheFolderName": "data",
 		"urlExpires": 604800,
 		"accessKeyId": "AKID",
 		"secretAccessKey": "SECRET",
@@ -103,7 +104,12 @@
 		"baseDomain": "",
 		"filenameSecret": "secret.key",
 		"filenameLicense": "license.lic",
-		"defaultTetant": "tetant"
+		"defaultTenant": "localhost",
+		"cache" : {
+			"stdTTL": 300,
+			"checkperiod": 60,
+			"useClones": false
+		}
 	},
 	"services": {
 		"CoAuthoring": {
@@ -258,6 +264,7 @@
 			},
 			"sockjs": {
 				"sockjs_url": "",
+				"disable_cors": true,
 				"websocket": true
 			},
 			"callbackBackoffOptions": {

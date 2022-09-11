@@ -137,7 +137,6 @@ const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
 const cfgTokenInboxHeader = config.get('token.inbox.header');
 const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
 const cfgTokenVerifyOptions = config.get('token.verifyOptions');
-const cfgSecretSession = config.get('secret.session');
 const cfgForceSaveEnable = config.get('autoAssembly.enable');
 const cfgForceSaveInterval = ms(config.get('autoAssembly.interval'));
 const cfgForceSaveStep = ms(config.get('autoAssembly.step'));
@@ -465,41 +464,45 @@ let changeConnectionInfo = co.wrap(function*(ctx, conn, cmd) {
   }
   return false;
 });
-function signToken(payload, algorithm, expiresIn, secretElem) {
-  var options = {algorithm: algorithm, expiresIn: expiresIn};
-  var secret = utils.getSecretByElem(secretElem);
-  return jwt.sign(payload, secret, options);
+function signToken(ctx, payload, algorithm, expiresIn, secretElem) {
+  return co(function*() {
+    var options = {algorithm: algorithm, expiresIn: expiresIn};
+    let secret = yield tenantManager.getTenantSecret(ctx, secretElem);
+    return jwt.sign(payload, secret, options);
+  });
 }
 function needSendChanges (conn){
   return !conn.user?.view || utils.isLiveViewer(conn);
 }
-function fillJwtByConnection(conn) {
-  var payload = {document: {}, editorConfig: {user: {}}};
-  var doc = payload.document;
-  doc.key = conn.docId;
-  doc.permissions = conn.permissions;
-  doc.ds_encrypted = conn.encrypted;
-  var edit = payload.editorConfig;
-  //todo
-  //edit.callbackUrl = callbackUrl;
-  //edit.lang = conn.lang;
-  //edit.mode = conn.mode;
-  var user = edit.user;
-  user.id = conn.user.idOriginal;
-  user.name = conn.user.username;
-  user.index = conn.user.indexUser;
-  if (conn.coEditingMode) {
-    edit.coEditing = {mode: conn.coEditingMode};
-  }
-  //no standart
-  edit.ds_view = conn.user.view;
-  edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
-  edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
-  // presenter viewer opens with same session jwt. do not put sessionId to jwt
-  // edit.ds_sessionId = conn.sessionId;
-  edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
+function fillJwtByConnection(ctx, conn) {
+  return co(function*() {
+    var payload = {document: {}, editorConfig: {user: {}}};
+    var doc = payload.document;
+    doc.key = conn.docId;
+    doc.permissions = conn.permissions;
+    doc.ds_encrypted = conn.encrypted;
+    var edit = payload.editorConfig;
+    //todo
+    //edit.callbackUrl = callbackUrl;
+    //edit.lang = conn.lang;
+    //edit.mode = conn.mode;
+    var user = edit.user;
+    user.id = conn.user.idOriginal;
+    user.name = conn.user.username;
+    user.index = conn.user.indexUser;
+    if (conn.coEditingMode) {
+      edit.coEditing = {mode: conn.coEditingMode};
+    }
+    //no standart
+    edit.ds_view = conn.user.view;
+    edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
+    edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
+    // presenter viewer opens with same session jwt. do not put sessionId to jwt
+    // edit.ds_sessionId = conn.sessionId;
+    edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
 
-  return signToken(payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, cfgSecretSession);
+    return yield signToken(ctx, payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
+  });
 }
 
 function sendData(ctx, conn, data) {
@@ -526,8 +529,8 @@ function sendDataMeta(ctx, conn, msg) {
 function sendDataSession(ctx, conn, msg) {
   sendData(ctx, conn, {type: "session", messages: msg});
 }
-function sendDataRefreshToken(ctx, conn) {
-  sendData(ctx, conn, {type: "refreshToken", messages: fillJwtByConnection(conn)});
+function sendDataRefreshToken(ctx, conn, msg) {
+  sendData(ctx, conn, {type: "refreshToken", messages: msg});
 }
 function sendDataRpc(ctx, conn, responseKey, data) {
   sendData(ctx, conn, {type: "rpc", responseKey: responseKey, data: data});
@@ -543,12 +546,15 @@ function sendReleaseLock(ctx, conn, userLocks) {
   })});
 }
 function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
-  if (isEnterCorrectPassword) {
-    conn.isEnterCorrectPassword = true;
-    if (cfgTokenEnableBrowser) {
-      sendDataRefreshToken(ctx, conn);
+  return co(function*() {
+    if (isEnterCorrectPassword) {
+      conn.isEnterCorrectPassword = true;
+      if (cfgTokenEnableBrowser) {
+        let sessionToken = yield fillJwtByConnection(ctx, conn);
+        sendDataRefreshToken(ctx, conn, sessionToken);
+      }
     }
-  }
+  });
 }
 function getParticipants(docId, excludeClosed, excludeUserId, excludeViewer) {
   return _.filter(connections, function(el) {
@@ -1098,7 +1104,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
     yield taskResult.restoreInitialPassword(ctx.tenant, docId);
     sqlBase.deleteChanges(ctx, docId, null);
     //delete forgotten after successful send on callbackUrl
-    yield storage.deletePath(ctx, cfgForgottenFiles + '/' + docId);
+    yield storage.deletePath(ctx, docId, cfgForgottenFiles);
   }
   yield unlockWopiDoc(ctx, docId, opt_userIndex);
 }
@@ -1300,12 +1306,12 @@ exports.install = function(server, callbackFunction) {
   var sockjs_echo = sockjs.createServer(cfgSockjs);
 
   sockjs_echo.on('connection', function(conn) {
-    let ctx = new operationContext.Context();
-    ctx.initFromConnection(conn);
     if (!conn) {
       operationContext.global.logger.error("null == conn");
       return;
     }
+    let ctx = new operationContext.Context();
+    ctx.initFromConnection(conn);
     if (getIsShutdown()) {
       sendFileError(ctx, conn, 'Server shutdow');
       return;
@@ -1391,8 +1397,8 @@ exports.install = function(server, callbackFunction) {
           case 'changesError':
             ctx.logger.error("changesError: %s", data.stack);
             if (cfgErrorFiles && docId) {
-              let destDir = cfgErrorFiles + '/browser/' + docId;
-              yield storage.copyPath(ctx, docId, destDir);
+              let destDir = 'browser/' + docId;
+              yield storage.copyPath(ctx, docId, destDir, undefined, cfgErrorFiles);
               yield* saveErrorChanges(ctx, docId, destDir);
             }
             break;
@@ -1485,7 +1491,8 @@ exports.install = function(server, callbackFunction) {
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
         if (cfgTokenEnableBrowser) {
-          sendDataRefreshToken(ctx, conn);
+          let sessionToken = yield fillJwtByConnection(ctx, conn);
+          sendDataRefreshToken(ctx, conn, sessionToken);
         }
       }
     }
@@ -1546,7 +1553,7 @@ exports.install = function(server, callbackFunction) {
           if (!needSaveChanges) {
             //start save changes if forgotten file exists.
             //more effective to send file without sfc, but this method is simpler by code
-            let forgotten = yield storage.listObjects(ctx, cfgForgottenFiles + '/' + docId);
+            let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
             needSaveChanges = forgotten.length > 0;
             ctx.logger.debug('closeDocument hasForgotten %s', needSaveChanges);
           }
@@ -1592,7 +1599,8 @@ exports.install = function(server, callbackFunction) {
       conn.docId = docIdNew;
       yield addPresence(ctx, conn, true);
       if (cfgTokenEnableBrowser) {
-        sendDataRefreshToken(ctx, conn);
+        let sessionToken = yield fillJwtByConnection(ctx, conn);
+        sendDataRefreshToken(ctx, conn, sessionToken);
       }
     }
     //open
@@ -2124,6 +2132,7 @@ exports.install = function(server, callbackFunction) {
   function* auth(ctx, conn, data) {
     //TODO: Do authorization etc. check md5 or query db
     if (data.token && data.user) {
+      ctx.setUserId(data.user.id);
       let licenseInfo = yield tenantManager.getTenantLicense(ctx);
       //check jwt
       if (cfgTokenEnableBrowser) {
@@ -2162,6 +2171,7 @@ exports.install = function(server, callbackFunction) {
           return;
         }
       }
+      ctx.setUserId(data.user.id);
 
       let docId = data.docid;
       const user = data.user;
@@ -2433,7 +2443,7 @@ exports.install = function(server, callbackFunction) {
       let callback = yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
       if (!callback && !bIsRestore) {
         //check forgotten file
-        let forgotten = yield storage.listObjects(ctx, cfgForgottenFiles + '/' + docId);
+        let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
         hasForgotten = forgotten.length > 0;
         ctx.logger.debug('endAuth hasForgotten %s', hasForgotten);
       }
@@ -2507,7 +2517,7 @@ exports.install = function(server, callbackFunction) {
         }
         changesJSON += ']\r\n';
         let buffer = Buffer.from(changesJSON, 'utf8');
-        yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length);
+        yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, cfgErrorFiles);
       }
       index += cfgMaxRequestChanges;
     } while (changes && cfgMaxRequestChanges === changes.length);
@@ -2560,6 +2570,10 @@ exports.install = function(server, callbackFunction) {
     }
     let allMessages = yield editorData.getMessages(ctx, docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
+    let sessionToken;
+    if (cfgTokenEnableBrowser && !bIsRestore) {
+      sessionToken = yield fillJwtByConnection(ctx, conn);
+    }
     const sendObject = {
       type: 'auth',
       result: 1,
@@ -2570,7 +2584,7 @@ exports.install = function(server, callbackFunction) {
       locks: docLock,
       indexUser: conn.user.indexUser,
       hasForgotten: opt_hasForgotten,
-      jwt: (!bIsRestore && cfgTokenEnableBrowser) ? fillJwtByConnection(conn) : undefined,
+      jwt: sessionToken,
       g_cAscSpellCheckUrl: cfgEditor["spellcheckerUrl"],
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
@@ -2975,6 +2989,7 @@ exports.install = function(server, callbackFunction) {
 	function _checkLicense(ctx, conn) {
 		return co(function* () {
 			try {
+				ctx.logger.info('_checkLicense start');
 				let rights = constants.RIGHTS.Edit;
 				if (config.get('server.edit_singleton')) {
 					// ToDo docId from url ?
@@ -3005,9 +3020,11 @@ exports.install = function(server, callbackFunction) {
 						liveViewerSupport: (licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0 ),
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
+						advancedApi: licenseInfo.advancedApi,
 						plugins: licenseInfo.plugins
 					}
 				});
+				ctx.logger.info('_checkLicense end');
 			} catch (err) {
 				ctx.logger.error('_checkLicense error: %s', err.stack);
 			}
@@ -3213,7 +3230,7 @@ exports.install = function(server, callbackFunction) {
                 } else {
                   let url;
                   if (cmd.getInline()) {
-                    url = canvasService.getPrintFileUrl(data.needUrlKey, participant.baseUrl, cmd.getTitle());
+                    url = yield canvasService.getPrintFileUrl(ctx, data.needUrlKey, participant.baseUrl, cmd.getTitle());
                     outputData.setExtName('.pdf');
                   } else {
                     url = yield storage.getSignedUrl(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, cmd.getTitle(), data.creationDate);
@@ -3224,7 +3241,7 @@ exports.install = function(server, callbackFunction) {
                 if (undefined !== data.openedAt) {
                   outputData.setOpenedAt(data.openedAt);
                 }
-                modifyConnectionForPassword(ctx, participant, data.needUrlIsCorrectPassword);
+                yield modifyConnectionForPassword(ctx, participant, data.needUrlIsCorrectPassword);
               }
               sendData(ctx, participant, output);
             }
@@ -3283,7 +3300,8 @@ exports.install = function(server, callbackFunction) {
                 participant.user.username = cmd.getUserName();
                 yield addPresence(ctx, participant, false);
                 if (cfgTokenEnableBrowser) {
-                  sendDataRefreshToken(ctx, participant);
+                  let sessionToken = yield fillJwtByConnection(ctx, participant);
+                  sendDataRefreshToken(ctx, participant, sessionToken);
                 }
               }
             }
@@ -3316,6 +3334,7 @@ exports.install = function(server, callbackFunction) {
     return co(function* () {
       let ctx = new operationContext.Context();
       try {
+        let tenants = {};
         let countEditByShard = 0;
         let countLiveViewByShard = 0;
         let countViewByShard = 0;
@@ -3325,6 +3344,10 @@ exports.install = function(server, callbackFunction) {
         for (var i = 0; i < connections.length; ++i) {
           var conn = connections[i];
           ctx.initFromConnection(conn);
+          let tenant = tenants[ctx.tenant];
+          if (!tenant) {
+            tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
+          }
           //wopi access_token_ttl;
           if (cfgExpSessionAbsolute > 0 || conn.access_token_ttl) {
             if ((cfgExpSessionAbsolute > 0 && maxMs - conn.sessionTimeConnect > cfgExpSessionAbsolute ||
@@ -3339,7 +3362,7 @@ exports.install = function(server, callbackFunction) {
               continue;
             }
           }
-          if (cfgExpSessionIdle > 0) {
+          if (cfgExpSessionIdle > 0 && !conn.user?.view) {
             if (maxMs - conn.sessionTimeLastAction > cfgExpSessionIdle && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
               sendDataSession(ctx, conn, {
@@ -3357,26 +3380,33 @@ exports.install = function(server, callbackFunction) {
           }
           yield addPresence(ctx, conn, false);
           if (utils.isLiveViewer(conn)) {
-            countLiveViewByShard++;
+            tenant.countLiveViewByShard++;
           } else if(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
-            countViewByShard++;
+            tenant.countViewByShard++;
           } else {
-            countEditByShard++;
+            tenant.countEditByShard++;
+          }
+        }
+        for (let tenantId in tenants) {
+          if(tenants.hasOwnProperty(tenantId)) {
+            ctx.setTenant(tenantId);
+            let tenant = tenants[tenantId];
+            yield* collectStats(ctx, tenant.countEditByShard, tenant.countLiveViewByShard, tenant.countViewByShard);
+            yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, tenant.countEditByShard);
+            yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countLiveViewByShard);
+            yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countViewByShard);
+            if (clientStatsD) {
+              //todo with multitenant
+              let countEdit = yield editorData.getEditorConnectionsCount(ctx, connections);
+              clientStatsD.gauge('expireDoc.connections.edit', countEdit);
+              let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
+              clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
+              let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
+              clientStatsD.gauge('expireDoc.connections.view', countView);
+            }
           }
         }
         ctx.initDefault();
-        yield* collectStats(ctx, countEditByShard, countLiveViewByShard, countViewByShard);
-        yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
-        yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
-        yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, countViewByShard);
-        if (clientStatsD) {
-          let countEdit = yield editorData.getEditorConnectionsCount(ctx, connections);
-          clientStatsD.gauge('expireDoc.connections.edit', countEdit);
-          let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
-          clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
-          let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
-          clientStatsD.gauge('expireDoc.connections.view', countView);
-        }
       } catch (err) {
         ctx.logger.error('expireDoc error: %s', err.stack);
       } finally {

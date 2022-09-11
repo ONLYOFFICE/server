@@ -122,22 +122,20 @@ exports.uploadImageFileOld = function(req, res) {
     let ctx = new operationContext.Context();
     ctx.initFromRequest(req);
     var docId = req.params.docid;
-    var userid = req.params.userid;
-    ctx.init(ctx.tenant, docId, userid);
+    ctx.setDocId(docId);
     ctx.logger.debug('Start uploadImageFileOld');
     if (cfgTokenEnableBrowser) {
       var checkJwtRes = yield* checkJwtUpload(ctx, 'uploadImageFileOld', req.query['token']);
       if(!checkJwtRes.err){
         docId = checkJwtRes.docId || docId;
-        userid = checkJwtRes.userid || userid;
+        ctx.setDocId(docId);
+        ctx.setUserId(checkJwtRes.userid);
       } else {
         res.sendStatus(403);
         return;
       }
     }
-    ctx.init(ctx.tenant, docId, userid);
     var listImages = [];
-    //todo userid
     if (docId) {
       var isError = false;
       var form = new multiparty.Form();
@@ -176,7 +174,7 @@ exports.uploadImageFileOld = function(req, res) {
           ctx.logger.error('Error parsing form part:%s', err.toString());
         });
       });
-      form.on('close', function() {
+      form.once('close', function() {
         if (isError) {
           res.sendStatus(400);
         } else {
@@ -193,8 +191,8 @@ exports.uploadImageFileOld = function(req, res) {
                                                                                         ctx.logger.debug('End uploadImageFileOld:%s', output);
                                                                                       }
           ).catch(function(err) {
+            ctx.logger.error('error getSignedUrlsByArray:%s', err.stack);
             res.sendStatus(400);
-            ctx.logger.error('upload getSignedUrlsByArray:%s', err.stack);
           });
         }
       });
@@ -229,11 +227,12 @@ exports.uploadImageFile = function(req, res) {
         if (!transformedRes.err) {
           docId = transformedRes.docId || docId;
           encrypted = transformedRes.encrypted;
+          ctx.setDocId(docId);
+          ctx.setUserId(transformedRes.userid);
         } else {
           isValidJwt = false;
         }
       }
-      ctx.setDocId(docId);
 
       if (isValidJwt && docId && req.body && Buffer.isBuffer(req.body)) {
         let buffer = req.body;

@@ -904,7 +904,7 @@ function OutputMailMerge(mailMergeSendData) {
     this['title'] = mailMergeSendData.getFileName();
     const mailFormat = mailMergeSendData.getMailFormat();
     switch (mailFormat) {
-      case constants.AVS_OFFICESTUDIO_FILE_OTHER_HTMLZIP :
+      case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML :
         this['type'] = 0;
         break;
       case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX :
