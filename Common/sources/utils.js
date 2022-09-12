@@ -684,6 +684,7 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
   return url;
 }
 function getBaseUrlByConnection(conn) {
+  conn = conn.request;
   return getBaseUrl('', conn.headers['host'], conn.headers['x-forwarded-proto'], conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
 }
 function getBaseUrlByRequest(req) {

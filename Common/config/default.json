@@ -268,6 +268,15 @@
 				"disable_cors": true,
 				"websocket": true
 			},
+			"socketio": {
+				"connection": {
+					"path": "/doc/socket.io/",
+					"serveClient": false,
+					"pingTimeout": 20000,
+					"pingInterval": 25000,
+					"maxHttpBufferSize": 1e8
+				}
+			},
 			"callbackBackoffOptions": {
 				"retries": 0,
 				"timeout":{
