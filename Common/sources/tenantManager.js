@@ -77,7 +77,7 @@ function getTenant(ctx, domain) {
   return tenant;
 }
 function getTenantByConnection(ctx, conn) {
-  return isMultitenantMode() ? getTenant(ctx, utils.getDomainByConnection(ctx, conn)) : getDefautTenant();
+  return isMultitenantMode() ? getTenant(ctx, utils.getDomainByConnection(ctx, conn.request)) : getDefautTenant();
 }
 function getTenantByRequest(ctx, req) {
   return isMultitenantMode() ? getTenant(ctx, utils.getDomainByRequest(ctx, req)) : getDefautTenant();
