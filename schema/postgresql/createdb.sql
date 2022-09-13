@@ -61,7 +61,7 @@ BEGIN
 		-- if someone else inserts the same key concurrently,
 		-- we could get a unique-key failure
 		BEGIN
-			INSERT INTO "public"."task_result"(id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) VALUES(_tenant, _id, _status, _status_info, _last_open_date, _user_index, _change_id, _callback, _baseurl) RETURNING user_index into userindex;
+			INSERT INTO "public"."task_result"(tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) VALUES(_tenant, _id, _status, _status_info, _last_open_date, _user_index, _change_id, _callback, _baseurl) RETURNING user_index into userindex;
 			isupdate := 'false';
 			RETURN;
 		EXCEPTION WHEN unique_violation THEN
