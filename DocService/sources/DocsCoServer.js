@@ -1354,7 +1354,13 @@ exports.install = function(server, callbackFunction) {
         yield encryptPasswordParams(ctx, data);
         switch (data.type) {
           case 'auth'          :
-            yield* auth(ctx, conn, data);
+            try {
+              yield* auth(ctx, conn, data);
+            } catch(err){
+              ctx.logger.error('auth error: %s', err.stack);
+              conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+              return;
+            }
             break;
           case 'message'        :
             yield* onMessage(ctx, conn, data);
