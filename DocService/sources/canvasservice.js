@@ -1113,13 +1113,15 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
         ctx.logger.debug('commandSfcCallback restore %d status failed', recoverTask.status);
       }
     }
-    if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
-      try {
-        ctx.logger.warn("storeForgotten");
-        let forgottenName = cfgForgottenFilesName + pathModule.extname(cmd.getOutputPath());
-        yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, cfgForgottenFiles);
-      } catch (err) {
-        ctx.logger.error('Error storeForgotten: %s', err.stack);
+    if (storeForgotten && !needRetry && !isEncrypted) {
+      if ((!isError || isErrorCorrupted)) {
+        try {
+          ctx.logger.warn("storeForgotten");
+          let forgottenName = cfgForgottenFilesName + pathModule.extname(cmd.getOutputPath());
+          yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, cfgForgottenFiles);
+        } catch (err) {
+          ctx.logger.error('Error storeForgotten: %s', err.stack);
+        }
       }
       if (!isSfcm) {
         //todo simultaneous opening
