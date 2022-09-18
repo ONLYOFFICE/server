@@ -270,7 +270,7 @@
 			},
 			"socketio": {
 				"connection": {
-					"path": "/doc/socket.io/",
+					"path": "/doc/",
 					"serveClient": false,
 					"pingTimeout": 20000,
 					"pingInterval": 25000,

@@ -508,7 +508,7 @@ function fillJwtByConnection(ctx, conn) {
 }
 
 function sendData(ctx, conn, data) {
-  conn.write(JSON.stringify(data));
+  conn.emit('message', JSON.stringify(data));
   const type = data ? data.type : null;
   ctx.logger.debug('sendData: type = %s', type);
 }
@@ -1031,12 +1031,13 @@ function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, des
   }
 }
 function closeUsersConnection(docId, usersMap, isOriginalId, code, description) {
-  let elConnection;
+  //close
+  let conn;
   for (let i = connections.length - 1; i >= 0; --i) {
-    elConnection = connections[i];
-    if (elConnection.docId === docId) {
-      if (isOriginalId ? usersMap[elConnection.user.idOriginal] : usersMap[elConnection.user.id]) {
-        elConnection.close(code, description);
+    conn = connections[i];
+    if (conn.docId === docId) {
+      if (isOriginalId ? usersMap[conn.user.idOriginal] : usersMap[conn.user.id]) {
+        conn.close(code, description);
       }
     }
   }
@@ -1329,8 +1330,6 @@ exports.install = function(server, callbackFunction) {
         ctx.logger.info('io.use end');
         next(checkJwtRes.decoded ? undefined : new Error("not authorized"));
       }
-
-
     });
   });
 
@@ -1456,7 +1455,7 @@ exports.install = function(server, callbackFunction) {
             delete conn.authChangesAck;
             break;
           default:
-            ctx.logger.debug("unknown command %d", data);
+            ctx.logger.debug("unknown command %j", data);
             break;
         }
         if(clientStatsD) {
@@ -1789,7 +1788,7 @@ exports.install = function(server, callbackFunction) {
       return el.sessionId === sessionId;//Delete this connection
     });
     //closing could happen during async action
-    if (constants.CONN_CLOSED !== conn.readyState) {
+    if (constants.CONN_CLOSED !== conn.conn.readyState) {
       // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
       connections.push(conn);
       yield addPresence(ctx, conn, true);
@@ -2261,7 +2260,7 @@ exports.install = function(server, callbackFunction) {
           }
         }
       }
-      if (constants.CONN_CLOSED === conn.readyState) {
+      if (constants.CONN_CLOSED === conn.conn.readyState) {
         //closing could happen during async action
         return;
       }
@@ -2323,7 +2322,7 @@ exports.install = function(server, callbackFunction) {
           return el.sessionId === data.sessionId;//Delete this connection
         });
         //closing could happen during async action
-        if (constants.CONN_CLOSED !== conn.readyState) {
+        if (constants.CONN_CLOSED !== conn.conn.readyState) {
           // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
           connections.push(conn);
           yield addPresence(ctx, conn, true);
@@ -2454,7 +2453,7 @@ exports.install = function(server, callbackFunction) {
     const docId = conn.docId;
     const tmpUser = conn.user;
     let hasForgotten;
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2472,7 +2471,7 @@ exports.install = function(server, callbackFunction) {
         }
       }
     }
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2489,7 +2488,7 @@ exports.install = function(server, callbackFunction) {
       }
     }
 
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2498,7 +2497,7 @@ exports.install = function(server, callbackFunction) {
     if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
       // Ставим lock на документ
       const lockRes = yield editorData.lockAuth(ctx, docId, firstParticipantNoView.id, 2 * cfgExpLockDoc);
-      if (constants.CONN_CLOSED === conn.readyState) {
+      if (constants.CONN_CLOSED === conn.conn.readyState) {
         //closing could happen during async action
         return false;
       }
@@ -2512,7 +2511,7 @@ exports.install = function(server, callbackFunction) {
         yield* setLockDocumentTimer(ctx, docId, lockDocument.id);
       }
     }
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2527,13 +2526,13 @@ exports.install = function(server, callbackFunction) {
       if (!bIsRestore && needSendChanges(conn)) {
         yield* sendAuthChanges(ctx, conn.docId, [conn]);
       }
-      if (constants.CONN_CLOSED === conn.readyState) {
+      if (constants.CONN_CLOSED === conn.conn.readyState) {
         //closing could happen during async action
         return false;
       }
       yield* sendAuthInfo(ctx, conn, bIsRestore, participantsMap, hasForgotten, opt_openedAt);
     }
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -3055,7 +3054,8 @@ exports.install = function(server, callbackFunction) {
 				let rights = constants.RIGHTS.Edit;
 				if (config.get('server.edit_singleton')) {
 					// ToDo docId from url ?
-					const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(conn.url);
+					let handshake = conn.handshake;
+					const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(handshake.url);
 					if (docIdParsed && 1 < docIdParsed.length) {
 						const participantsMap = yield getParticipantMap(ctx, docIdParsed[1]);
 						for (let i = 0; i < participantsMap.length; ++i) {
@@ -3437,7 +3437,7 @@ exports.install = function(server, callbackFunction) {
               continue;
             }
           }
-          if (constants.CONN_CLOSED === conn.readyState) {
+          if (constants.CONN_CLOSED === conn.conn.readyState) {
             ctx.logger.error('expireDoc connection closed');
           }
           yield addPresence(ctx, conn, false);

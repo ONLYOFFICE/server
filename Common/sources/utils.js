@@ -693,8 +693,9 @@ function getBaseUrlByRequest(req) {
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
 function getDomainByConnection(ctx, conn) {
-  let host = conn.headers['host'];
-  let forwardedHost = conn.headers['x-forwarded-host'];
+  let incomingMessage = conn.request;
+  let host = incomingMessage.headers['host'];
+  let forwardedHost = incomingMessage.headers['x-forwarded-host'];
   ctx.logger.debug("getDomainByConnection headers['host']=%s headers['x-forwarded-host']=%s", host, forwardedHost);
   return getDomain(host, forwardedHost);
 }
