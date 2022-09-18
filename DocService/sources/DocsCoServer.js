@@ -72,7 +72,6 @@
 
 'use strict';
 
-const sockjs = require('sockjs');
 const { Server } = require("socket.io");
 const _ = require('underscore');
 const url = require('url');
@@ -131,7 +130,6 @@ const cfgExpSessionIdle = ms(config.get('expire.sessionidle'));
 const cfgExpSessionAbsolute = ms(config.get('expire.sessionabsolute'));
 const cfgExpSessionCloseCommand = ms(config.get('expire.sessionclosecommand'));
 const cfgExpUpdateVersionStatus = ms(config.get('expire.updateVersionStatus'));
-const cfgSockjs = config.get('sockjs');
 const cfgTokenEnableBrowser = config.get('token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('token.enable.request.inbox');
 const cfgTokenSessionAlgorithm = config.get('token.session.algorithm');
@@ -3169,11 +3167,6 @@ exports.install = function(server, callbackFunction) {
     }
     return licenseType;
   }
-
-  // sockjs_echo.installHandlers(server, {prefix: '/doc/['+constants.DOC_ID_PATTERN+']*/c', log: function(severity, message) {
-  //   //TODO: handle severity
-  //   operationContext.global.logger.info(message);
-  // }});
 
   //publish subscribe message brocker
   function pubsubOnMessage(msg) {
