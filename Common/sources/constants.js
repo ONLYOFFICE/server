@@ -295,7 +295,7 @@ exports.RESTORE = 'no cache';
 exports.CONTENT_DISPOSITION_INLINE = 'inline';
 exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';
 
-exports.CONN_CLOSED = 3;
+exports.CONN_CLOSED = "closed";
 
 exports.FILE_STATUS_OK = 'ok';
 exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';
