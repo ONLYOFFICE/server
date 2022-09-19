@@ -397,30 +397,33 @@ function builderRequest(req, res) {
       let error = authRes.code;
       let urls;
       let end = false;
-      if (error === constants.NO_ERROR &&
-        (params.key || params.url || (req.body && Buffer.isBuffer(req.body) && req.body.length > 0))) {
+      let needCreateId = !docId;
+      let isInBody = req.body && Buffer.isBuffer(req.body) && req.body.length > 0;
+      if (error === constants.NO_ERROR && (params.key || params.url || isInBody)) {
+        if (needCreateId) {
+          let task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'bld_', 8);
+          docId = task.key;
+          ctx.setDocId(docId);
+        }
         let cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
         cmd.setIsBuilder(true);
         cmd.setWithAuthorization(true);
         cmd.setDocId(docId);
-        if (!docId) {
-          let task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'bld_', 8);
-          docId = task.key;
-          cmd.setDocId(docId);
-          if (params.url) {
-            cmd.setUrl(params.url);
-            cmd.setFormat('docbuilder');
-          } else {
-            yield storageBase.putObject(ctx, docId + '/script.docbuilder', req.body, req.body.length);
-          }
+        if (params.url) {
+          cmd.setUrl(params.url);
+          cmd.setFormat('docbuilder');
+        } else if (isInBody) {
+          yield storageBase.putObject(ctx, docId + '/script.docbuilder', req.body, req.body.length);
+        }
+        if (needCreateId) {
           let queueData = new commonDefines.TaskQueueData();
           queueData.setCtx(ctx);
           queueData.setCmd(cmd);
           yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
         }
         let async = (typeof params.async === 'string') ? 'true' === params.async : params.async;
-        let status = yield* convertByCmd(ctx, cmd, async, utils.getBaseUrlByRequest(req), undefined, true);
+        let status = yield* convertByCmd(ctx, cmd, async, undefined, undefined, constants.QUEUE_PRIORITY_LOW);
         end = status.end;
         error = status.err;
         if (end) {
