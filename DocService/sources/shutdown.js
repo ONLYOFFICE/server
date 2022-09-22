@@ -47,11 +47,11 @@ var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.CONVERTION_TIMEOUT;
 
-exports.shutdown = function(editorData, status) {
+exports.shutdown = function(ctx, editorData, status) {
   return co(function*() {
     var res = true;
     try {
-      logger.debug('shutdown start:' + EXEC_TIMEOUT);
+      ctx.logger.debug('shutdown start:' + EXEC_TIMEOUT);
 
       //redisKeyShutdown не простой счетчик, чтобы его не уменьшала сборка, которая началась перед запуском Shutdown
       //сбрасываем redisKeyShutdown на всякий случай, если предыдущий запуск не дошел до конца
@@ -60,24 +60,24 @@ exports.shutdown = function(editorData, status) {
       var pubsub = new pubsubService();
       yield pubsub.initPromise();
       //inner ping to update presence
-      logger.debug('shutdown pubsub shutdown message');
-      pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, status: status}));
+      ctx.logger.debug('shutdown pubsub shutdown message');
+      pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx: ctx, status: status}));
       //wait while pubsub deliver and start conversion
-      logger.debug('shutdown start wait pubsub deliver');
+      ctx.logger.debug('shutdown start wait pubsub deliver');
       var startTime = new Date().getTime();
       var isStartWait = true;
       while (true) {
         var curTime = new Date().getTime() - startTime;
         if (isStartWait && curTime >= WAIT_TIMEOUT) {
           isStartWait = false;
-          logger.debug('shutdown stop wait pubsub deliver');
+          ctx.logger.debug('shutdown stop wait pubsub deliver');
         } else if (curTime >= EXEC_TIMEOUT) {
           res = false;
-          logger.debug('shutdown timeout');
+          ctx.logger.debug('shutdown timeout');
           break;
         }
         var remainingFiles = yield editorData.getShutdownCount(redisKeyShutdown);
-        logger.debug('shutdown remaining files:%d', remainingFiles);
+        ctx.logger.debug('shutdown remaining files:%d', remainingFiles);
         if (!isStartWait && remainingFiles <= 0) {
           break;
         }
@@ -88,10 +88,10 @@ exports.shutdown = function(editorData, status) {
       yield editorData.cleanupShutdown(redisKeyShutdown);
       yield pubsub.close();
 
-      logger.debug('shutdown end');
+      ctx.logger.debug('shutdown end');
     } catch (e) {
       res = false;
-      logger.error('shutdown error:\r\n%s', e.stack);
+      ctx.logger.error('shutdown error: %s', e.stack);
     }
     return res;
   });

@@ -35,6 +35,7 @@
 exports.DOC_ID_PATTERN = '0-9-.a-zA-Z_=';
 exports.DOC_ID_REGEX = new RegExp("^[" + exports.DOC_ID_PATTERN + "]*$", 'i');
 exports.DOC_ID_REPLACE_REGEX = new RegExp("[^" + exports.DOC_ID_PATTERN + "]", 'g');
+exports.DOC_ID_SOCKET_PATTERN = new RegExp("^/doc/([" + exports.DOC_ID_PATTERN + "]*)/c.+", 'i');
 exports.DOC_ID_MAX_LENGTH = 240;
 exports.USER_ID_MAX_LENGTH = 240;//255-240=15 symbols to make user id unique
 exports.USER_NAME_MAX_LENGTH = 255;
@@ -45,6 +46,9 @@ exports.OUTPUT_NAME = 'output';
 exports.ONLY_OFFICE_URL_PARAM = 'ooname';
 exports.DISPLAY_PREFIX = 'display';
 exports.CHANGES_NAME = 'changes';
+exports.VIEWER_ONLY = /^(?:(pdf|djvu|xps|oxps))$/;
+exports.DEFAULT_DOC_ID = 'docId';
+exports.DEFAULT_USER_ID = 'userId';
 
 exports.RIGHTS = {
   None    : 0,
@@ -72,7 +76,11 @@ exports.LICENSE_RESULT = {
   UsersCount    : 8,
   ConnectionsOS : 9,
   UsersCountOS  : 10,
-  ExpiredLimited: 11
+  ExpiredLimited: 11,
+  ConnectionsLiveOS: 12,
+  ConnectionsLive: 13,
+  UsersViewCount: 14,
+  UsersViewCountOS: 15
 };
 
 exports.LICENSE_CONNECTIONS = 20;
@@ -239,6 +247,9 @@ exports.REDIS_KEY_PRESENCE_SET = 'presence:set:';
 exports.REDIS_KEY_PRESENCE_UNIQUE_USERS = 'presence:unique:users';
 exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_HASH = 'presence:unique:users:hash';
 exports.REDIS_KEY_PRESENCE_MONTH_UNIQUE_USERS_HASH = 'presence:unique:users:month';
+exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_VIEW = 'presence:unique:usersview';
+exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_VIEW_HASH = 'presence:unique:usersview:hash';
+exports.REDIS_KEY_PRESENCE_MONTH_UNIQUE_USERS_VIEW_HASH = 'presence:unique:usersview:month';
 exports.REDIS_KEY_LOCKS = 'locks:';
 exports.REDIS_KEY_LOCK_DOCUMENT = 'lockdocument:';
 exports.REDIS_KEY_MESSAGE = 'message:';
@@ -255,6 +266,8 @@ exports.REDIS_KEY_LICENSE_T = 'licenseT';
 exports.REDIS_KEY_EDITOR_CONNECTIONS = 'editorconnections';
 exports.REDIS_KEY_SHARD_CONNECTIONS_EDIT_ZSET = 'shardconnections:edit:zset';
 exports.REDIS_KEY_SHARD_CONNECTIONS_EDIT_HASH = 'shardconnections:edit:hash';
+exports.REDIS_KEY_SHARD_CONNECTIONS_LIVE_VIEW_ZSET = 'shardconnections:liveview:zset';
+exports.REDIS_KEY_SHARD_CONNECTIONS_LIVE_VIEW_HASH = 'shardconnections:liveview:hash';
 exports.REDIS_KEY_SHARD_CONNECTIONS_VIEW_ZSET = 'shardconnections:view:zset';
 exports.REDIS_KEY_SHARD_CONNECTIONS_VIEW_HASH = 'shardconnections:view:hash';
 
@@ -276,6 +289,8 @@ exports.UPDATE_VERSION_CODE = 4008;
 exports.UPDATE_VERSION = 'update version';
 exports.NO_CACHE_CODE = 4009;
 exports.NO_CACHE = 'no cache';
+exports.RESTORE_CODE = 4010;
+exports.RESTORE = 'no cache';
 
 exports.CONTENT_DISPOSITION_INLINE = 'inline';
 exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';

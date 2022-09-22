@@ -72,7 +72,6 @@ var cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header'
 var cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
 var cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 var cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
-var cfgSignatureSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 var cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
 var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
 var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
@@ -261,13 +260,13 @@ function raiseErrorObj(ro, error) {
 function isRedirectResponse(response) {
   return response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location');
 }
-function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
+function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   //todo replace deprecated request module
   const maxRedirects = (undefined !== cfgRequestDefaults.maxRedirects) ? cfgRequestDefaults.maxRedirects : 10;
   const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
   var redirectsFollowed = 0;
   let doRequest = function(curUrl) {
-    return downloadUrlPromiseWithoutRedirect(curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
+    return downloadUrlPromiseWithoutRedirect(ctx, curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
       .catch(function(err) {
         let response = err.response;
         if (isRedirectResponse(response)) {
@@ -277,7 +276,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_fi
               redirectTo = url.resolve(err.request.uri.href, redirectTo)
             }
 
-            logger.debug('downloadUrlPromise redirectsFollowed:%d redirectTo: %s', redirectsFollowed, redirectTo);
+            ctx.logger.debug('downloadUrlPromise redirectsFollowed:%d redirectTo: %s', redirectsFollowed, redirectTo);
             redirectsFollowed++;
             return doRequest(redirectTo);
           }
@@ -287,7 +286,7 @@ function downloadUrlPromise(uri, optTimeout, optLimit, opt_Authorization, opt_fi
   };
   return doRequest(uri);
 }
-function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
+function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   return new Promise(function (resolve, reject) {
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
@@ -323,7 +322,7 @@ function downloadUrlPromiseWithoutRedirect(uri, optTimeout, optLimit, opt_Author
         } else {
           var contentLength = response.caseless.get('content-length');
           if (contentLength && body.length !== (contentLength - 0)) {
-            logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
+            ctx.logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
           resolve({response: response, body: body});
         }
@@ -654,6 +653,9 @@ function containsAllAsciiNP(str) {
   return /^[\040-\176]*$/.test(str);//non-printing characters
 }
 exports.containsAllAsciiNP = containsAllAsciiNP;
+function getDomain(hostHeader, forwardedHostHeader) {
+  return forwardedHostHeader || hostHeader || 'localhost';
+};
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
   if (forwardedProtoHeader) {
@@ -664,13 +666,7 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
     url += 'http';
   }
   url += '://';
-  if (forwardedHostHeader) {
-    url += forwardedHostHeader;
-  } else if (hostHeader) {
-    url += hostHeader;
-  } else {
-    url += 'localhost';
-  }
+  url += getDomain(hostHeader, forwardedHostHeader);
   if (forwardedPrefixHeader) {
     url += forwardedPrefixHeader;
   }
@@ -684,6 +680,20 @@ function getBaseUrlByRequest(req) {
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
+function getDomainByConnection(ctx, conn) {
+  let host = conn.headers['host'];
+  let forwardedHost = conn.headers['x-forwarded-host'];
+  ctx.logger.debug("getDomainByConnection headers['host']=%s headers['x-forwarded-host']=%s", host, forwardedHost);
+  return getDomain(host, forwardedHost);
+}
+function getDomainByRequest(ctx, req) {
+  let host = req.get('host');
+  let forwardedHost = req.get('x-forwarded-host');
+  ctx.logger.debug("getDomainByRequest headers['host']=%s headers['x-forwarded-host']=%s", host, forwardedHost);
+  return getDomain(req.get('host'), req.get('x-forwarded-host'));
+}
+exports.getDomainByConnection = getDomainByConnection;
+exports.getDomainByRequest = getDomainByRequest;
 function stream2Buffer(stream) {
   return new Promise(function(resolve, reject) {
     if (!stream.readable) {
@@ -761,14 +771,14 @@ function checkIpFilter(ipString, opt_hostname) {
   return status;
 }
 exports.checkIpFilter = checkIpFilter;
-function* checkHostFilter(hostname) {
+function* checkHostFilter(ctx, hostname) {
   let status = 0;
   let hostIp;
   try {
     hostIp = yield dnsLookup(hostname);
   } catch (e) {
     status = cfgIpFilterErrorCode;
-    logger.error('dnsLookup error: hostname = %s\r\n%s', hostname, e.stack);
+    ctx.logger.error('dnsLookup error: hostname = %s %s', hostname, e.stack);
   }
   if (0 === status) {
     status = checkIpFilter(hostIp, hostname);
@@ -832,29 +842,7 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
-function getSecret(docId, secretElem, opt_iss, opt_token) {
-  if (!isEmptyObject(secretElem.tenants)) {
-    var iss;
-    if (opt_token) {
-      //look for issuer
-      var decodedTemp = jwt.decode(opt_token);
-      if (decodedTemp && decodedTemp.iss) {
-        iss = decodedTemp.iss;
-      }
-    } else {
-      iss = opt_iss;
-    }
-    if (iss) {
-      secretElem = secretElem.tenants[iss];
-      if (!secretElem) {
-        logger.error('getSecret unknown issuer: docId = %s iss = %s', docId, iss);
-      }
-    }
-  }
-  return getSecretByElem(secretElem);
-}
-exports.getSecret = getSecret;
-function fillJwtForRequest(payload, opt_inBody) {
+function fillJwtForRequest(payload, secret, opt_inBody) {
   //todo refuse prototypes in payload(they are simple getter/setter).
   //JSON.parse/stringify is more universal but Object.assign is enough for our inputs
   payload = Object.assign(Object.create(null), payload);
@@ -866,7 +854,6 @@ function fillJwtForRequest(payload, opt_inBody) {
   }
 
   let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
-  let secret = getSecretByElem(cfgSignatureSecretOutbox);
   return jwt.sign(data, secret, options);
 }
 exports.fillJwtForRequest = fillJwtForRequest;
@@ -874,13 +861,13 @@ exports.forwarded = forwarded;
 exports.getIndexFromUserId = function(userId, userIdOriginal){
   return parseInt(userId.substring(userIdOriginal.length));
 };
-exports.checkPathTraversal = function(docId, rootDirectory, filename) {
+exports.checkPathTraversal = function(ctx, docId, rootDirectory, filename) {
   if (filename.indexOf('\0') !== -1) {
-    logger.warn('checkPathTraversal Poison Null Bytes docId=%s filename=%s', docId, filename);
+    ctx.logger.warn('checkPathTraversal Poison Null Bytes filename=%s', filename);
     return false;
   }
   if (!filename.startsWith(rootDirectory)) {
-    logger.warn('checkPathTraversal Path Traversal docId=%s filename=%s', docId, filename);
+    ctx.logger.warn('checkPathTraversal Path Traversal filename=%s', filename);
     return false;
   }
   return true;
@@ -895,6 +882,7 @@ exports.getConnectionInfo = function(conn){
       view: user.view,
       connectionId: conn.id,
       isCloseCoAuthoring: conn.isCloseCoAuthoring,
+      isLiveViewer: exports.isLiveViewer(conn),
       encrypted: conn.encrypted
     };
     return data;
@@ -902,14 +890,17 @@ exports.getConnectionInfo = function(conn){
 exports.getConnectionInfoStr = function(conn){
   return JSON.stringify(exports.getConnectionInfo(conn));
 };
-exports.canIncludeOutboxAuthorization = function (url) {
+exports.isLiveViewer = function(conn){
+  return conn.user?.view && "fast" === conn.coEditingMode;
+};
+exports.canIncludeOutboxAuthorization = function (ctx, url) {
   if (cfgTokenEnableRequestOutbox) {
     if (!outboxUrlExclusionRegex) {
       return true;
     } else if (!outboxUrlExclusionRegex.test(url)) {
       return true;
     } else {
-      logger.debug('canIncludeOutboxAuthorization excluded by token.outbox.urlExclusionRegex url=%s', url);
+      ctx.logger.debug('canIncludeOutboxAuthorization excluded by token.outbox.urlExclusionRegex url=%s', url);
     }
   }
   return false;
@@ -955,9 +946,12 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.light = licenseInfo.light;
   license.branding = licenseInfo.branding;
   license.customization = licenseInfo.customization;
+  license.advanced_api = licenseInfo.advancedApi;
   license.plugins = licenseInfo.plugins;
   license.connections = licenseInfo.connections;
+  license.connections_view = licenseInfo.connectionsView;
   license.users_count = licenseInfo.usersCount;
+  license.users_view_count = licenseInfo.usersViewCount;
   license.users_expire = licenseInfo.usersExpire / constants.LICENSE_EXPIRE_USERS_ONE_DAY;
   return license;
 };
@@ -976,8 +970,7 @@ exports.checkBaseUrl = function(baseUrl) {
 };
 exports.resolvePath = function(object, path, defaultValue) {
   return path.split('.').reduce((o, p) => o ? o[p] : defaultValue, object);
-}
-
+};
 Date.isLeapYear = function (year) {
   return (((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0));
 };
@@ -1017,4 +1010,16 @@ exports.getLicensePeriod = function(startDate, now) {
   }
   startDate.setUTCHours(0,0,0,0);
   return startDate.getTime();
+};
+
+exports.removeIllegalCharacters = function(filename) {
+  return filename?.replace(/[/\\?%*:|"<>]/g, '-') || filename;
+}
+exports.getFunctionArguments = function(func) {
+  return func.toString().
+    replace(/[\r\n\s]+/g, ' ').
+    match(/(?:function\s*\w*)?\s*(?:\((.*?)\)|([^\s]+))/).
+    slice(1, 3).
+    join('').
+    split(/\s*,\s*/);
 };

@@ -33,84 +33,102 @@
 'use strict';
 var config = require('config');
 var utils = require('./utils');
-var logger = require('./logger');
 
 var storage = require('./' + config.get('storage.name'));
-function getStoragePath(strPath) {
-  return strPath.replace(/\\/g, '/');
+var tenantManager = require('./tenantManager');
+
+const cfgCacheFolderName = config.get('storage.cacheFolderName');
+
+function getStoragePath(ctx, strPath, opt_specialDir) {
+  opt_specialDir = opt_specialDir || cfgCacheFolderName;
+  return opt_specialDir + '/' + tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/')
 }
-exports.headObject = function(strPath) {
-  return storage.headObject(getStoragePath(strPath));
+
+exports.headObject = function(ctx, strPath, opt_specialDir) {
+  return storage.headObject(getStoragePath(ctx, strPath, opt_specialDir));
 };
-exports.getObject = function(strPath) {
-  return storage.getObject(getStoragePath(strPath));
+exports.getObject = function(ctx, strPath, opt_specialDir) {
+  return storage.getObject(getStoragePath(ctx, strPath, opt_specialDir));
 };
-exports.createReadStream = function(strPath) {
-  return storage.createReadStream(getStoragePath(strPath));
+exports.createReadStream = function(ctx, strPath, opt_specialDir) {
+  return storage.createReadStream(getStoragePath(ctx, strPath, opt_specialDir));
 };
-exports.putObject = function(strPath, buffer, contentLength) {
-  return storage.putObject(getStoragePath(strPath), buffer, contentLength);
+exports.putObject = function(ctx, strPath, buffer, contentLength, opt_specialDir) {
+  return storage.putObject(getStoragePath(ctx, strPath, opt_specialDir), buffer, contentLength);
 };
-exports.uploadObject = function(strPath, filePath) {
-  return storage.uploadObject(strPath, filePath);
+exports.uploadObject = function(ctx, strPath, filePath, opt_specialDir) {
+  return storage.uploadObject(getStoragePath(ctx, strPath, opt_specialDir), filePath);
 };
-exports.copyObject = function(sourceKey, destinationKey) {
-  return storage.copyObject(sourceKey, destinationKey);
+exports.copyObject = function(ctx, sourceKey, destinationKey, opt_specialDirSrc, opt_specialDirDst) {
+  let storageSrc = getStoragePath(ctx, sourceKey, opt_specialDirSrc);
+  let storageDst = getStoragePath(ctx, destinationKey, opt_specialDirDst);
+  return storage.copyObject(storageSrc, storageDst);
 };
-exports.copyPath = function(sourcePath, destinationPath) {
-  return exports.listObjects(getStoragePath(sourcePath)).then(function(list) {
+exports.copyPath = function(ctx, sourcePath, destinationPath, opt_specialDirSrc, opt_specialDirDst) {
+  let storageSrc = getStoragePath(ctx, sourcePath, opt_specialDirSrc);
+  let storageDst = getStoragePath(ctx, destinationPath, opt_specialDirDst);
+  return storage.listObjects(storageSrc).then(function(list) {
     return Promise.all(list.map(function(curValue) {
-      return exports.copyObject(curValue, destinationPath + '/' + exports.getRelativePath(sourcePath, curValue));
+      return storage.copyObject(curValue, storageDst + '/' + exports.getRelativePath(storageSrc, curValue));
     }));
   });
 };
-exports.listObjects = function(strPath) {
-  return storage.listObjects(getStoragePath(strPath)).catch(function(e) {
-    logger.error('storage.listObjects:\r\n%s', e.stack);
+exports.listObjects = function(ctx, strPath, opt_specialDir) {
+  let prefix = getStoragePath(ctx, "", opt_specialDir);
+  return storage.listObjects(getStoragePath(ctx, strPath, opt_specialDir)).then(function(list) {
+    return list.map((currentValue) => {
+      return currentValue.substring(prefix.length);
+    });
+  }).catch(function(e) {
+    ctx.logger.error('storage.listObjects: %s', e.stack);
     return [];
   });
 };
-exports.deleteObject = function(strPath) {
-  return storage.deleteObject(getStoragePath(strPath));
+exports.deleteObject = function(ctx, strPath, opt_specialDir) {
+  return storage.deleteObject(getStoragePath(ctx, strPath, opt_specialDir));
 };
-exports.deleteObjects = function(strPaths) {
+exports.deleteObjects = function(ctx, strPaths, opt_specialDir) {
   var StoragePaths = strPaths.map(function(curValue) {
-    return getStoragePath(curValue);
+    return getStoragePath(ctx, curValue, opt_specialDir);
   });
   return storage.deleteObjects(StoragePaths);
 };
-exports.deletePath = function(strPath) {
-  return exports.listObjects(getStoragePath(strPath)).then(function(list) {
-    return exports.deleteObjects(list);
+exports.deletePath = function(ctx, strPath, opt_specialDir) {
+  let storageSrc = getStoragePath(ctx, strPath, opt_specialDir);
+  return storage.listObjects(storageSrc).then(function(list) {
+    return storage.deleteObjects(list);
   });
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-  return storage.getSignedUrl(baseUrl, getStoragePath(strPath), urlType, optFilename, opt_creationDate);
+exports.getSignedUrl = function(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir) {
+  return storage.getSignedUrl(baseUrl, getStoragePath(ctx, strPath, opt_specialDir), urlType, optFilename, opt_creationDate);
 };
-exports.getSignedUrls = function(baseUrl, strPath, urlType, opt_creationDate) {
-  return exports.listObjects(getStoragePath(strPath)).then(function(list) {
+exports.getSignedUrls = function(ctx, baseUrl, strPath, urlType, opt_creationDate, opt_specialDir) {
+  let storageSrc = getStoragePath(ctx, strPath, opt_specialDir);
+  return storage.listObjects(storageSrc).then(function(list) {
     return Promise.all(list.map(function(curValue) {
-      return exports.getSignedUrl(baseUrl, curValue, urlType, undefined, opt_creationDate);
+      return storage.getSignedUrl(baseUrl, curValue, urlType, undefined, opt_creationDate);
     })).then(function(urls) {
       var outputMap = {};
       for (var i = 0; i < list.length && i < urls.length; ++i) {
-        outputMap[exports.getRelativePath(strPath, list[i])] = urls[i];
+        outputMap[exports.getRelativePath(storageSrc, list[i])] = urls[i];
       }
       return outputMap;
     });
   });
 };
-exports.getSignedUrlsArrayByArray = function(baseUrl, list, urlType) {
-  return Promise.all(list.map(function(curValue) {
-    return exports.getSignedUrl(baseUrl, curValue, urlType, undefined);
+exports.getSignedUrlsArrayByArray = function(ctx, baseUrl, list, urlType, opt_specialDir) {
+    return Promise.all(list.map(function(curValue) {
+    let storageSrc = getStoragePath(ctx, curValue, opt_specialDir);
+    return storage.getSignedUrl(baseUrl, storageSrc, urlType, undefined);
   }));
 };
-exports.getSignedUrlsByArray = function(baseUrl, list, optPath, urlType) {
-  return exports.getSignedUrlsArrayByArray(baseUrl, list, urlType).then(function(urls) {
+exports.getSignedUrlsByArray = function(ctx, baseUrl, list, optPath, urlType, opt_specialDir) {
+  return exports.getSignedUrlsArrayByArray(ctx, baseUrl, list, urlType, opt_specialDir).then(function(urls) {
     var outputMap = {};
     for (var i = 0; i < list.length && i < urls.length; ++i) {
       if (optPath) {
-        outputMap[exports.getRelativePath(optPath, list[i])] = urls[i];
+        let storageSrc = getStoragePath(ctx, optPath, opt_specialDir);
+        outputMap[exports.getRelativePath(storageSrc, list[i])] = urls[i];
       } else {
         outputMap[list[i]] = urls[i];
       }

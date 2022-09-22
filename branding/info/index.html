@@ -31,6 +31,7 @@
             min-width: 600px;
             width: 100%;
             padding-top: 4px;
+            flex-shrink: 0;
         }
 
         header img {
@@ -40,7 +41,7 @@
         table {
             table-layout: fixed;
             border-spacing: 0;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         td {
@@ -54,6 +55,10 @@
             padding-bottom: 4px;
         }
 
+        .td-caption-main:last-child {
+            width: 208px;
+        }
+
         .td-value-main {
             font-size: 32px;
             line-height: 28px;
@@ -63,25 +68,56 @@
         .td-caption {
             font-size: 16px;
             padding-bottom: 4px;
+            background: #EFEFEF;
+            border-radius: 1px;
+        }
+
+        .td-caption-small {
+            font-size: 12px;
+            padding-bottom: 4px;
+            font-weight: 600;
         }
 
         .td-value {
             font-size: 26px;
             line-height: 28px;
             padding-bottom: 8px;
+            width: 150px;
+        }
+
+        .td-value:last-child {
+            width: 224px;
         }
 
         .td-separator {
             padding-left: 0;
-            padding-right: 24px;
+        }
+
+        .td-separator:not(:last-child) {
+            padding-right: 20px;
+        }
+
+        .td-separator-vert {
+            padding: 0 10px;
         }
 
         .td-last {
-            padding-bottom: 30px;
+            padding-bottom: 15px;
+        }
+
+        .td-link {
+            padding: 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .td-link.current {
+            font-weight: 700;
         }
 
         .main-panel {
             margin: 40px auto 16px;
+            padding-left: calc(100vw - 100%);
             width: 672px;
         }
 
@@ -98,6 +134,7 @@
             font-size: 16px;
             font-weight: 600;
             padding-bottom: 25px;
+            text-align: center;
         }
 
         #doc-server-wait {
@@ -142,6 +179,13 @@
             border-top: 1px solid #dadada;
         }
 
+        .separator-vert {
+            display: inline;
+            width: 0;
+            height: 100%;
+            border-left: 1px dotted #333333;
+        }
+
     </style>
 </head>
 <body>
@@ -167,98 +211,40 @@
                 <tr>
                     <td id="build-type">Type:</td>
                     <td><span id="lic-valid-type">Valid: </span><span id="lic-valid"></span></td>
-                    <td rowspan="3" id="lic-limit" class="td-value-main"></td>
+                    <td id="lic-limit-edit"></td>
                 </tr>
                 <tr>
                     <td id="build-version">Version:</td>
                     <td id="trial"></td>
+                    <td id="lic-limit-view"></td>
                 </tr>
                 <tr>
                     <td id="build-date">Release date:</td>
                     <td></td>
+                    <td></td>
+                </tr>
+            </table>
+            <table style="margin-left: 15px;">
+                <tr>
+                    <td class="td-link" value="all">All</td>
+                    <td class="td-separator-vert"><div class="separator-vert"></div></td>
+                    <td class="td-link" value="edit">Editors</td>
+                    <td class="td-separator-vert"><div class="separator-vert"></div></td>
+                    <td class="td-link" value="view">Live Viewer</td>
+                </tr>
+                <tr>
+                    <td class="td-separator" colspan="5"></td>
                 </tr>
             </table>
             <table id="user-activity-info" class="hidden">
-                <tr>
-                    <td colspan="4" class="td-caption" id="user-activity-info-caption">User activity in the last 10 days</td>
-                </tr>
-                <tr>
-                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
-                </tr>
-                <tr>
-                    <td id="cell-use-up" class="td-value" width="150">0</td>
-                    <td id="cell-internal" class="td-value" width="150">0</td>
-                    <td id="cell-external" class="td-value" width="150">0</td>
-                    <td id="cell-left" class="td-value" width="224">0</td>
-                </tr>
-                <tr>
-                    <td>Use up</td>
-                    <td>Internal</td>
-                    <td>External</td>
-                    <td>Left</td>
-                </tr>
             </table>
             <table id="connection-activity-info" class="hidden">
-                <tr>
-                    <td colspan="4" class="td-caption">Current connections</td>
-                </tr>
-                <tr>
-                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
-                </tr>
-                <tr>
-                    <td id="cell-conn-use-up" class="td-value" width="150">0</td>
-                    <td id="cell-conn-left" class="td-value" width="150">0</td>
-                    <td class="td-value" width="150"></td>
-                    <td class="td-value" width="224"></td>
-                </tr>
-                <tr>
-                    <td>Use up</td>
-                    <td>Left</td>
-                    <td></td>
-                    <td></td>
-                </tr>
             </table>
             <table id="connections-peaks" class="hidden">
-                <tr>
-                    <td colspan="4" class="td-caption">Peaks</td>
-                </tr>
-                <tr>
-                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
-                </tr>
-                <tr>
-                    <td id="cell-hour-max" class="td-value" width="150">0</td>
-                    <td id="cell-day-max" class="td-value" width="150">0</td>
-                    <td id="cell-week-max" class="td-value" width="150">0</td>
-                    <td id="cell-month-max" class="td-value" width="224">0</td>
-                </tr>
-                <tr>
-                    <td>Last Hour</td>
-                    <td>24 Hours</td>
-                    <td>Week</td>
-                    <td>Month</td>
-                </tr>
             </table>
             <table id="connections-average" class="hidden">
-                <tr>
-                    <td colspan="4" class="td-caption">Average</td>
-                </tr>
-                <tr>
-                    <td class="td-separator" colspan="4"><div class="separator"></div></td>
-                </tr>
-                <tr>
-                    <td id="cell-hour-avr" class="td-value" width="150">0</td>
-                    <td id="cell-day-avr" class="td-value" width="150">0</td>
-                    <td id="cell-week-avr" class="td-value" width="150">0</td>
-                    <td id="cell-month-avr" class="td-value" width="224">0</td>
-                </tr>
-                <tr>
-                    <td>Last Hour</td>
-                    <td>24 Hours</td>
-                    <td>Week</td>
-                    <td>Month</td>
-                </tr>
             </table>
-            <div id="user-statistics-caption" class="header2 hidden">Usage statistics for the reporting period:</div>
+            <div id="user-statistics-caption" class="header2 hidden">Usage statistics for the reporting period</div>
             <table id="user-statistics" class="hidden">
             </table>
         </div>
@@ -307,8 +293,12 @@
             elem = document.getElementById('limit-type');
             elem.innerText = (licenseInfo.usersCount>0) ? 'Users limit' : 'Connections limit' ;
 
-            elem = document.getElementById('lic-limit');
-			elem.innerText = (licenseInfo.usersCount || licenseInfo.connections);
+            elem = document.getElementById('lic-limit-edit');
+			elem.innerText = 'Editors: ' + (licenseInfo.usersCount || licenseInfo.connections);
+
+            elem = document.getElementById('lic-limit-view');
+            elem.innerText = 'Live Viewer: ' + (licenseInfo.usersViewCount || licenseInfo.connectionsView);
+
             if (licenseInfo.endDate===null) {
                 elem = document.getElementById('lic-valid-type');
                 elem.innerText = 'No license';
@@ -326,38 +316,42 @@
                 elem.innerText = (licenseInfo.mode & 4) ? 'Trial' : '';
             }
 
-            var quota = info.quota;
+            var quotaEdit = info.quota.edit,
+                quotaView = info.quota.view;
 
             if (licenseInfo.usersCount>0) { // users limit
+                var days = parseInt(licenseInfo.usersExpire/86400) || 1;
+                var value = licenseInfo.usersCount - quotaEdit.usersCount.unique;
+                var editor = [
+                    [quotaEdit.usersCount.unique, ''],
+                    [quotaEdit.usersCount.unique - quotaEdit.usersCount.anonymous, ''],
+                    [quotaEdit.usersCount.anonymous, ''],
+                    [value, value > licenseInfo.usersCount * 0.1 ? "normal" : "critical"]
+                ];
+                value = licenseInfo.usersViewCount - quotaView.usersCount.unique;
+                var viewer = [
+                    [quotaView.usersCount.unique, ''],
+                    [quotaView.usersCount.unique - quotaView.usersCount.anonymous, ''],
+                    [quotaView.usersCount.anonymous, ''],
+                    [value, value > licenseInfo.usersViewCount * 0.1 ? "normal" : "critical"]
+                ];
                 elem = document.getElementById('user-activity-info');
                 elem.classList.remove('hidden');
-
-                elem = document.getElementById('user-activity-info-caption');
-                var days = parseInt(licenseInfo.usersExpire/86400) || 1;
-                elem.innerText = 'User activity in the last ' + days + (days>1 ? ' days' : ' day');
-
-                elem = document.getElementById('cell-use-up');
-                elem.innerText = quota.uniqueUserCount;
-                elem = document.getElementById('cell-external');
-                elem.innerText = quota.anonymousUserCount;
-                elem = document.getElementById('cell-internal');
-                elem.innerText = quota.uniqueUserCount - quota.anonymousUserCount;
-                elem = document.getElementById('cell-left');
-
-                var value = licenseInfo.usersCount - quota.uniqueUserCount;
-                elem.innerText = value;
-                elem.classList.add(value > licenseInfo.usersCount * 0.1 ? "normal" : "critical");
+                createInfoTable(elem, 'User activity in the last ' + days + (days>1 ? ' days' : ' day'), editor, viewer, ['Active', 'Internal', 'External', 'Remaining']);
             } else { // connections limit
+                var value = licenseInfo.connections - (quotaEdit.connectionsCount || 0);
+                var editor = [
+                    [quotaEdit.connectionsCount || 0, ''],
+                    [value, value > licenseInfo.connections * 0.1 ? "normal" : "critical"]
+                ];
+                value = licenseInfo.connectionsView - (quotaView.connectionsCount || 0);
+                var viewer = [
+                    [quotaView.connectionsCount || 0, ''],
+                    [value, value > licenseInfo.connectionsView * 0.1 ? "normal" : "critical"]
+                ];
                 elem = document.getElementById('connection-activity-info');
                 elem.classList.remove('hidden');
-
-                elem = document.getElementById('cell-conn-use-up');
-                elem.innerText = (quota.editorConnectionsCount || 0);
-                elem = document.getElementById('cell-conn-left');
-
-                var value = licenseInfo.connections - (quota.editorConnectionsCount || 0);
-                elem.innerText = value;
-                elem.classList.add(value > licenseInfo.connections * 0.1 ? "normal" : "critical");
+                createInfoTable(elem, 'Current connections', editor, viewer, ['Active', 'Remaining']);
             }
         }
         function fillConnections(info) {
@@ -365,22 +359,36 @@
 
             if (licenseInfo.usersCount>0) return;
 
-            var limit = licenseInfo.connections;
-            document.getElementById('connections-peaks').classList.remove('hidden');
-            document.getElementById('connections-average').classList.remove('hidden');
+            var limitEdit = licenseInfo.connections,
+                limitView = licenseInfo.connectionsView,
+                peaksEdit = [], peaksView = [], avrEdit = [], avrView = [], // value and class
+                desc = ['Last Hour', '24 Hours', 'Week', 'Month'];
 
-            for (var precision in info.connectionsStat) {
-                for (var agregate in info.connectionsStat[precision].edit) {
-                    var value = info.connectionsStat[precision].edit[agregate];
-                    var elem = document.getElementById('cell-' + precision + '-' + agregate);
-                    if (elem) {
-                        elem.innerText = value;
-                        if (value >= limit) {
-                            elem.classList.add("critical");
-                        }
+            ['hour', 'day', 'week', 'month'].forEach(function(item, index){
+                item = info.connectionsStat[item];
+                if (item) {
+                    if (item.edit) {
+                        var value = item.edit['max'] || 0;
+                        peaksEdit[index] = [value, value >= limitEdit ? "critical" : "" ];
+                        value = item.edit['avr'] || 0;
+                        avrEdit[index] = [value, value >= limitEdit ? "critical" : "" ];
+                    }
+                    if (item.liveview) {
+                        var value = item.liveview['max'] || 0;
+                        peaksView[index] = [value, value >= limitView ? "critical" : "" ];
+                        value = item.liveview['avr'] || 0;
+                        avrView[index] = [value, value >= limitView ? "critical" : "" ];
                     }
                 }
-            }
+            });
+
+            var elem = document.getElementById('connections-peaks');
+            elem.classList.remove('hidden');
+            createInfoTable(elem, 'Peaks', peaksEdit, peaksView, desc);
+
+            elem = document.getElementById('connections-average');
+            elem.classList.remove('hidden');
+            createInfoTable(elem, 'Average', avrEdit, avrView, desc);
         }
 
         function fillStatistic(info) {
@@ -396,18 +404,26 @@
             byMonth.forEach(function(item){
                 var date = item.date,
                     users = item.users,
-                    internal = 0,
-                    external = 0;
+                    internalEdit = 0, internalView = 0,
+                    externalEdit = 0, externalView = 0;
                 if (date && users) {
                     for (var uid in users) {
                         if (users.hasOwnProperty(uid)) {
-                            users[uid].anonym ? external++ : internal++;
+                            users[uid].anonym ? externalEdit++ : internalEdit++;
+                        }
+                    }
+                    users = item.usersView;
+                    for (var uid in users) {
+                        if (users.hasOwnProperty(uid)) {
+                            users[uid].anonym ? externalView++ : internalView++;
                         }
                     }
                     arr.push({
                         startDate: new Date(date),
-                        internal: internal,
-                        external: external
+                        internalEdit: internalEdit,
+                        externalEdit: externalEdit,
+                        internalView: internalView,
+                        externalView: externalView
                     });
                     if (arr.length>1) {
                         arr[arr.length-2].endDate = new Date(new Date(date) - 86400000);
@@ -417,28 +433,87 @@
 
             for (var i=0; i<arr.length; i++) {
                 var item = arr[arr.length-i-1];
-                var tr = document.createElement("tr");
-                tr.innerHTML = '<td colspan="4" class="td-caption">' + (item.endDate ? item.startDate.toLocaleDateString() + ' - ' + item.endDate.toLocaleDateString(): 'From ' + item.startDate.toLocaleDateString()) + '</td>';
-                elem.appendChild(tr);
+                createInfoTable(elem, item.endDate ? item.startDate.toLocaleDateString() + ' - ' + item.endDate.toLocaleDateString(): 'From ' + item.startDate.toLocaleDateString(),
+                                [[item.internalEdit, ''], [item.externalEdit, ''], [item.internalEdit + item.externalEdit, '']],
+                                [[item.internalView, ''], [item.externalView, ''], [item.internalView + item.externalView, '']],
+                                ['Internal', 'External', 'Active', ''])
+            }
+        }
 
-                tr = document.createElement("tr");
-                tr.innerHTML = '<td class="td-separator" colspan="4"><div class="separator"></div></td>';
-                elem.appendChild(tr);
+        function createInfoTableSection(elem, caption, cls, values, desc) {
+            var tr = document.createElement("tr"); tr.classList.add('all-info');
+            tr.innerHTML = '<td colspan="4" class="td-caption-small">' + caption + '</td>';
+            elem.appendChild(tr);
+            tr = document.createElement("tr"); tr.classList.add('all-info');
+            tr.innerHTML = '<td class="td-separator" colspan="4"><div class="separator"></div></td>';
+            elem.appendChild(tr);
 
-                tr = document.createElement("tr");
-                tr.innerHTML = '<td class="td-value" width="150">' + item.internal + '</td>' +
-                                '<td class="td-value" width="150">' + item.external + '</td>' +
-                                '<td class="td-value" width="150">' + (item.internal + item.external) + '</td>' +
-                                '<td class="td-value" width="224"></td>';
-                elem.appendChild(tr);
+            tr = document.createElement("tr"); tr.classList.add(cls); tr.innerHTML = '';
+            for (var i=0; i<4; i++) {
+                var value = values[i];
+                tr.innerHTML +=  '<td class="td-value ' + (value && value[1] ? value[1] : '') + '">' + (value && (value[0]!==undefined) ? value[0] : '')  + '</td>';
+            }
+            elem.appendChild(tr);
 
-                tr = document.createElement("tr");
-                tr.innerHTML = '<td class="td-last">Internal</td>' +
-                                '<td class="td-last">External</td>' +
-                                '<td class="td-last">Active</td>' +
-                                '<td class="td-last"></td>';
-                elem.appendChild(tr);
+            tr = document.createElement("tr"); tr.classList.add(cls); tr.innerHTML = '';
+            for (var i=0; i<4; i++)
+                tr.innerHTML +=  '<td class="td-last">' + (desc[i] || '') + '</td>';
+            elem.appendChild(tr);
+
+            tr = document.createElement("tr"); tr.classList.add('all-info');
+            tr.innerHTML = '<td class="td-separator" colspan="4"></div></td>';
+            elem.appendChild(tr);
+        }
+
+        function createInfoTable(elem, caption, editor, viewer, desc) {
+            var tr = document.createElement("tr");
+            tr.innerHTML = '<td colspan="4" class="td-caption">' + caption + '</td>';
+            elem.appendChild(tr);
+            tr = document.createElement("tr");
+            tr.innerHTML = '<td class="td-separator" colspan="4"></div></td>';
+            elem.appendChild(tr);
+
+            createInfoTableSection(elem, 'EDITORS', 'editor-info', editor, desc);
+            createInfoTableSection(elem, 'LIVE VIEWER', 'viewer-info', viewer, desc);
+        }
+
+        function applyMode() {
+            var current = document.querySelector('.td-link.current').getAttribute('value') || 'all';
+            var arr = document.getElementsByClassName('editor-info');
+            for (var i=0; i < arr.length; i++) {
+                (current==='view') ? arr[i].classList.add("hidden") : arr[i].classList.remove("hidden");
+            }
+            arr = document.getElementsByClassName('viewer-info');
+            for (var i=0; i < arr.length; i++) {
+                (current==='edit') ? arr[i].classList.add("hidden") : arr[i].classList.remove("hidden");
+            }
+            arr = document.getElementsByClassName('all-info');
+            for (var i=0; i < arr.length; i++) {
+                (current==='all') ? arr[i].classList.remove("hidden") : arr[i].classList.add("hidden");
+            }
+        }
+
+        function initEvents() {
+            var arr = document.getElementsByClassName('td-link');
+            var onClick = function (evt) {
+                for (var i=0; i < arr.length; i++) {
+                    arr[i].classList.remove("current");
+                }
+                evt.target.classList.add('current');
+                window.localStorage && window.localStorage.setItem('server-info-display-mode', evt.target.getAttribute('value'));
+                applyMode();
             };
+
+            for (var i=0; i < arr.length; i++) {
+                if (arr[i].addEventListener) {
+                    arr[i].addEventListener("click", onClick)
+                } else if (arr[i].attachEvent) {
+                    arr[i].attachEvent("click", onClick);
+                }
+            }
+
+            var value = window.localStorage ? window.localStorage.getItem('server-info-display-mode') || 'all' : 'all';
+            document.querySelector('.td-link[value=' + value + ']').classList.add('current');
         }
 
         (function(){
@@ -457,6 +532,8 @@
                                 fillInfo(info);
                                 fillConnections(info);
                                 fillStatistic(info);
+                                initEvents();
+                                applyMode();
                             } else {
 								document.getElementById('doc-server-err').classList.remove("hidden");
                             }

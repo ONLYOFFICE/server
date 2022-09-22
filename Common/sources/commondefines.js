@@ -708,6 +708,7 @@ CMailMergeSendData.prototype.setIsJsonKey = function(v) {
 };
 function TaskQueueData(data) {
   if (data) {
+    this['ctx'] = data['ctx'];
     this['cmd'] = new InputCommand(data['cmd'], true);
     this['toFile'] = data['toFile'];
     this['fromOrigin'] = data['fromOrigin'];
@@ -718,6 +719,7 @@ function TaskQueueData(data) {
     this['dataKey'] = data['dataKey'];
     this['visibilityTimeout'] = data['visibilityTimeout'];
   } else {
+    this['ctx'] = undefined;
     this['cmd'] = undefined;
     this['toFile'] = undefined;
     this['fromOrigin'] = undefined;
@@ -730,6 +732,12 @@ function TaskQueueData(data) {
   }
 }
 TaskQueueData.prototype = {
+  getCtx : function() {
+    return this['ctx'];
+  },
+  setCtx : function(data) {
+    return this['ctx'] = data;
+  },
   getCmd : function() {
     return this['cmd'];
   },
@@ -896,7 +904,7 @@ function OutputMailMerge(mailMergeSendData) {
     this['title'] = mailMergeSendData.getFileName();
     const mailFormat = mailMergeSendData.getMailFormat();
     switch (mailFormat) {
-      case constants.AVS_OFFICESTUDIO_FILE_OTHER_HTMLZIP :
+      case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML :
         this['type'] = 0;
         break;
       case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX :
