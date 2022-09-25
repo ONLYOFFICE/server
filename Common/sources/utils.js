@@ -59,7 +59,13 @@ const logger = require('./logger');
 const forwarded = require('forwarded');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const openpgp = require('openpgp');
-require('win-ca');
+const https = require('https');
+const ca = require('win-ca/api');
+
+if(!ca.disabled) {
+  ca({inject: true});
+}
+
 const contentDisposition = require('content-disposition');
 
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
@@ -80,7 +86,7 @@ const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.o
 const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
 const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
 const cfgPasswordConfig = config.get('openpgpjs.config');
-const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
+const cfgRequesFilteringAgent = Object.assign({}, https.globalAgent.options, config.get('services.CoAuthoring.request-filtering-agent'));
 const cfgStorageExternalHost = config.get('storage.externalHost');
 
 Object.assign(openpgp.config, cfgPasswordConfig);
@@ -298,6 +304,9 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false};
     if (opt_filterPrivate) {
       options.agent = getRequestFilterAgent(uri, cfgRequesFilteringAgent);
+    } else {
+      //baseRequest creates new agent(win-ca injects in globalAgent)
+      options.agentOptions = https.globalAgent.options;
     }
     if (opt_Authorization) {
       options.headers = {};
@@ -392,6 +401,8 @@ function postRequestPromise(uri, postData, postDataStream, postDataSize, optTime
     }
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     var options = {uri: urlParsed, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
+    //baseRequest creates new agent(win-ca injects in globalAgent)
+    options.agentOptions = https.globalAgent.options;
     if (postData) {
       options.body = postData;
     }
