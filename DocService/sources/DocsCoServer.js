@@ -3487,7 +3487,7 @@ exports.install = function(server, callbackFunction) {
             }
           }
         });
-        if (-1 !== index) {
+        if (-1 !== index || 0 === res.length) {
           callbackFunction();
         } else {
           operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
