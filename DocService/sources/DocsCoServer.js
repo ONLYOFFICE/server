@@ -875,6 +875,11 @@ function* startRPC(ctx, conn, responseKey, data) {
       }
       sendDataRpc(ctx, conn, responseKey, renameRes);
       break;
+    case 'pathurls':
+      let outputData = new canvasService.OutputData(data.type);
+      yield* canvasService.commandPathUrls(ctx, conn, data.data, outputData);
+      sendDataRpc(ctx, conn, responseKey, outputData);
+      break;
   }
   ctx.logger.debug('startRPC end');
 }
