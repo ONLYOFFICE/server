@@ -538,6 +538,7 @@ function* processChanges(ctx, tempDirs, cmd, authorProps) {
   cmd.setUserId(changesAuthor);
   cmd.setUserIndex(changesIndex);
   fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
+  ctx.logger.debug('processChanges end');
   return res;
 }
 
@@ -853,52 +854,79 @@ function* ExecuteTask(ctx, task) {
   ctx.logger.info('End Task');
   return resData;
 }
-
+function ackTask(ctx, res, task, ack) {
+  return co(function*() {
+    try {
+      if (!res) {
+        res = createErrorResponse(ctx, task);
+      }
+      if (res) {
+        yield queue.addResponse(res);
+        ctx.logger.info('ackTask addResponse');
+      }
+    } catch (err) {
+      ctx.logger.error('ackTask %s', err.stack);
+    } finally {
+      ack();
+      ctx.logger.info('ackTask ack');
+    }
+  });
+}
+function receiveTaskSetTimeout(ctx, task, ack, outParams) {
+  let delay = 1.1 * task.getVisibilityTimeout() * 1000;
+  return setTimeout(function() {
+    return co(function*() {
+      outParams.isAck = true;
+      ctx.logger.error('receiveTask timeout %d', delay);
+      yield ackTask(ctx, null, task, ack);
+      yield queue.closeOrWait();
+      process.exit(1);
+    });
+  }, delay);
+}
 function receiveTask(data, ack) {
   return co(function* () {
     var res = null;
     var task = null;
+    let outParams = {isAck: false};
+    let timeoutId = undefined;
     let ctx = new operationContext.Context();
     try {
       task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
         ctx.initFromTaskQueueData(task);
+        timeoutId = receiveTaskSetTimeout(ctx, task, ack, outParams);
         res = yield* ExecuteTask(ctx, task);
       }
     } catch (err) {
       ctx.logger.error(err);
     } finally {
-      try {
-        if (!res && task) {
-          //если все упало так что даже нет res, все равно пытаемся отдать ошибку.
-          var cmd = task.getCmd();
-          cmd.setStatusInfo(constants.CONVERT);
-          res = new commonDefines.TaskQueueData();
-          res.setCtx(ctx);
-          res.setCmd(cmd);
-        }
-        if (res) {
-          yield queue.addResponse(res);
-        }
-      } catch (err) {
-        ctx.logger.error(err);
-      } finally {
-        ack();
+      ctx.logger.error('clearTimeout timeout');
+      clearTimeout(timeoutId);
+      if (!outParams.isAck) {
+        yield ackTask(ctx, res, task, ack);
       }
     }
   });
+}
+function createErrorResponse(ctx, task){
+  if (!task) {
+    return null;
+  }
+  ctx.logger.debug('createErrorResponse');
+  //simulate error response
+  let cmd = task.getCmd();
+  cmd.setStatusInfo(constants.CONVERT);
+  let res = new commonDefines.TaskQueueData();
+  res.setCtx(ctx);
+  res.setCmd(cmd);
+  return res;
 }
 function simulateErrorResponse(data){
   let task = new commonDefines.TaskQueueData(JSON.parse(data));
   let ctx = new operationContext.Context();
   ctx.initFromTaskQueueData(task);
-  //simulate error response
-  let cmd = task.getCmd();
-  cmd.setStatusInfo(constants.CONVERT);
-  let res = new commonDefines.TaskQueueData();
-  task.setCtx(ctx);
-  res.setCmd(cmd);
-  return res;
+  return createErrorResponse(ctx, task);
 }
 function run() {
   queue = new queueService(simulateErrorResponse);
