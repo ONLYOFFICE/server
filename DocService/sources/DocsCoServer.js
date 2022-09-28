@@ -2562,8 +2562,11 @@ exports.install = function(server, callbackFunction) {
       let objChangesDocument = yield getDocumentChanges(ctx, docId, index, index + cfgMaxRequestChanges);
       changes = objChangesDocument.arrChanges;
       sendAuthChangesByChunks(ctx, changes, connections);
+      connections = connections.filter((conn) => {
+        return constants.CONN_CLOSED !== conn.readyState;
+      });
       index += cfgMaxRequestChanges;
-    } while (changes && cfgMaxRequestChanges === changes.length);
+    } while (connections.length > 0 && changes && cfgMaxRequestChanges === changes.length);
   }
   function* sendAuthInfo(ctx, conn, bIsRestore, participantsMap, opt_hasForgotten, opt_openedAt) {
     const docId = conn.docId;
