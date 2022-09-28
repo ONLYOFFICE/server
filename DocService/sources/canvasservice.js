@@ -782,8 +782,8 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
     outputData.setData({error: errorCode, urls: outputUrls});
   }
 }
-function* commandPathUrls(ctx, conn, cmd, outputData) {
-  let listImages = cmd.getData().map(function callback(currentValue) {
+function* commandPathUrls(ctx, conn, data, outputData) {
+  let listImages = data.map(function callback(currentValue) {
     return conn.docId + '/' + currentValue;
   });
   let urls = yield storage.getSignedUrlsArrayByArray(ctx, conn.baseUrl, listImages, commonDefines.c_oAscUrlTypes.Session);
@@ -1263,7 +1263,7 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
           yield* commandPathUrl(ctx, conn, cmd, outputData);
           break;
         case 'pathurls':
-          yield* commandPathUrls(ctx, conn, cmd, outputData);
+          yield* commandPathUrls(ctx, conn, cmd.getData(), outputData);
           break;
         case 'setpassword':
           yield* commandSetPassword(ctx, conn, cmd, outputData);
@@ -1683,5 +1683,6 @@ exports.cleanupCacheIf = cleanupCacheIf;
 exports.getOpenedAt = getOpenedAt;
 exports.commandSfctByCmd = commandSfctByCmd;
 exports.commandOpenStartPromise = commandOpenStartPromise;
+exports.commandPathUrls = commandPathUrls;
 exports.OutputDataWrap = OutputDataWrap;
 exports.OutputData = OutputData;
