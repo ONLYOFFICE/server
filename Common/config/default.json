@@ -132,6 +132,7 @@
 				"edit_singleton": false,
 				"forgottenfiles": "forgotten",
 				"forgottenfilesname": "output",
+				"userfiles": "user",
 				"maxRequestChanges": 20000,
 				"openProtectedFile": true,
 				"editorDataStorage": "editorDataMemory",
