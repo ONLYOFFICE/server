@@ -901,7 +901,6 @@ function receiveTask(data, ack) {
     } catch (err) {
       ctx.logger.error(err);
     } finally {
-      ctx.logger.error('clearTimeout timeout');
       clearTimeout(timeoutId);
       if (!outParams.isAck) {
         yield ackTask(ctx, res, task, ack);
