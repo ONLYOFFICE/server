@@ -143,6 +143,7 @@ const cfgForceSaveStep = ms(config.get('autoAssembly.step'));
 const cfgQueueType = configCommon.get('queue.type');
 const cfgQueueRetentionPeriod = configCommon.get('queue.retentionPeriod');
 const cfgForgottenFiles = config.get('server.forgottenfiles');
+const cfgUserFiles = config.get('server.userfiles');
 const cfgMaxRequestChanges = config.get('server.maxRequestChanges');
 const cfgWarningLimitPercents = configCommon.get('license.warning_limit_percents') / 100;
 const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
@@ -875,6 +876,34 @@ function* startRPC(ctx, conn, responseKey, data) {
       }
       sendDataRpc(ctx, conn, responseKey, renameRes);
       break;
+    case 'ls.get': {
+      if (conn.user) {
+        let userId = utils.removeIllegalCharacters(conn.user.idOriginal);
+        let key = utils.removeIllegalCharacters(data.key);
+        let path = `${userId}/${key}`;
+        let value = yield storage.getObject(ctx, path, cfgUserFiles);
+        sendDataRpc(ctx, conn, responseKey, value.toString('utf-8'));
+      } else {
+        ctx.logger.debug('ls.get no user');
+        sendDataRpc(ctx, conn, responseKey);
+  }
+      break;
+    }
+      break;
+    case 'ls.set': {
+      if (conn.user) {
+        let userId = utils.removeIllegalCharacters(conn.user.idOriginal);
+        let key = utils.removeIllegalCharacters(data.key);
+        let path = `${userId}/${key}`;
+        let value = Buffer.from(data.value, 'utf8');
+        yield storage.putObject(ctx, path, value, value.length, cfgUserFiles);
+        sendDataRpc(ctx, conn, responseKey, 'ok');
+      } else {
+        ctx.logger.debug('ls.set no user');
+        sendDataRpc(ctx, conn, responseKey);
+      }
+      break;
+    }
   }
   ctx.logger.debug('startRPC end');
 }
@@ -1416,7 +1445,12 @@ exports.install = function(server, callbackFunction) {
             sendData(ctx, conn, {type: "forceSaveStart", messages: forceSaveRes});
             break;
           case 'rpc' :
+            try {
             yield* startRPC(ctx, conn, data.responseKey, data.data);
+            } catch (error) {
+              ctx.logger.debug("startRPC error %s", error.stack);
+              sendDataRpc(ctx, conn, data.responseKey);
+            }
             break;
           default:
             ctx.logger.debug("unknown command %s", message);
