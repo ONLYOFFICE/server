@@ -112,6 +112,7 @@ const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
 cfgEditor['reconnection']['delay'] = ms(cfgEditor['reconnection']['delay']);
 cfgEditor['websocketMaxPayloadSize'] = bytes.parse(cfgEditor['websocketMaxPayloadSize']);
+cfgEditor['maxChangesSize'] = bytes.parse(cfgEditor['maxChangesSize']);
 //websocket payload size is limited by https://github.com/faye/faye-websocket-node#initialization-options (64 MiB)
 //xhr payload size is limited by nginx param client_max_body_size (current 100MB)
 //"1.5MB" is choosen to avoid disconnect(after 25s) while downloading/uploading oversized changes with 0.5Mbps connection
