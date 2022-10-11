@@ -260,7 +260,7 @@
 					"delay": "2s"
 				},
 				"websocketMaxPayloadSize": "1.5MB",
-				"maxChangesSize": "50mb"
+				"maxChangesSize": "0mb"
 			},
 			"sockjs": {
 				"sockjs_url": "",
