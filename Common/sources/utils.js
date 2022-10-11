@@ -904,6 +904,9 @@ exports.getConnectionInfoStr = function(conn){
 exports.isLiveViewer = function(conn){
   return conn.user?.view && "fast" === conn.coEditingMode;
 };
+exports.isLiveViewerSupport = function(licenseInfo){
+  return licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0;
+};
 exports.canIncludeOutboxAuthorization = function (ctx, url) {
   if (cfgTokenEnableRequestOutbox) {
     if (!outboxUrlExclusionRegex) {
