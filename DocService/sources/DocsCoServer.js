@@ -2250,7 +2250,7 @@ exports.install = function(server, callbackFunction) {
         indexUser: curIndexUser,
         view: !isEditMode(data.permissions, data.mode)
       };
-      if (conn.user.view) {
+      if (conn.user.view && utils.isLiveViewerSupport(licenseInfo)) {
         conn.coEditingMode = data.coEditingMode;
       }
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
@@ -3032,7 +3032,7 @@ exports.install = function(server, callbackFunction) {
 						buildVersion: commonDefines.buildVersion,
 						buildNumber: commonDefines.buildNumber,
 						protectionSupport: cfgOpenProtectedFile, //todo find a better place
-						liveViewerSupport: (licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0 ),
+						liveViewerSupport: utils.isLiveViewerSupport(licenseInfo),
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
 						advancedApi: licenseInfo.advancedApi,
