@@ -893,6 +893,7 @@ exports.getConnectionInfo = function(conn){
       view: user.view,
       connectionId: conn.id,
       isCloseCoAuthoring: conn.isCloseCoAuthoring,
+      isLiveViewer: exports.isLiveViewer(conn),
       encrypted: conn.encrypted
     };
     return data;

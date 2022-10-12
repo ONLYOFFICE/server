@@ -172,19 +172,24 @@ docsCoServer.install(server, () => {
 	app.get('/index.html', (req, res) => {
 		return co(function*() {
 			let ctx = new operationContext.Context();
-			ctx.initFromRequest(req);
-			let licenseInfo = yield tenantManager.getTenantLicense(ctx);
-			let buildVersion = commonDefines.buildVersion;
-			let buildNumber = commonDefines.buildNumber;
-			let buildDate, packageType, customerId = "";
-			if (licenseInfo) {
-				buildDate = licenseInfo.buildDate.toISOString();
-				packageType = licenseInfo.packageType;
-				customerId = licenseInfo.customerId;
+			try {
+				ctx.initFromRequest(req);
+				let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+				let buildVersion = commonDefines.buildVersion;
+				let buildNumber = commonDefines.buildNumber;
+				let buildDate, packageType, customerId = "";
+				if (licenseInfo) {
+					buildDate = licenseInfo.buildDate.toISOString();
+					packageType = licenseInfo.packageType;
+					customerId = licenseInfo.customerId;
+				}
+				let output = `Server is functioning normally. Version: ${buildVersion}. Build: ${buildNumber}`;
+				output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}`;
+				res.send(output);
+			} catch (err) {
+				ctx.logger.error('index.html error: %s', err.stack);
+				res.sendStatus(400);
 			}
-			let output = `Server is functioning normally. Version: ${buildVersion}. Build: ${buildNumber}`;
-			output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}`;
-			res.send(output);
 		});
 	});
 	const rawFileParser = bodyParser.raw(
