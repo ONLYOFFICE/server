@@ -1429,6 +1429,9 @@ exports.install = function(server, callbackFunction) {
           case 'rpc' :
             yield* startRPC(ctx, conn, data.responseKey, data.data);
             break;
+          case 'authChangesAck' :
+            delete conn.authChangesAck;
+            break;
           default:
             ctx.logger.debug("unknown command %s", message);
             break;
@@ -2263,6 +2266,7 @@ exports.install = function(server, callbackFunction) {
         conn.sessionTimeLastAction = new Date().getTime() - data.sessionTimeIdle;
       }
       conn.encrypted = data.encrypted;
+      conn.supportAuthChangesAck = data.supportAuthChangesAck;
 
       const c_LR = constants.LICENSE_RESULT;
       conn.licenseType = c_LR.Success;
@@ -2535,25 +2539,44 @@ exports.install = function(server, callbackFunction) {
   }
 
   function sendAuthChangesByChunks(ctx, changes, connections) {
-    let startIndex = 0;
-    let endIndex = 0;
-    while (endIndex < changes.length) {
-      startIndex = endIndex;
-      let curBytes = 0;
-      for (; endIndex < changes.length && curBytes < cfgWebsocketMaxPayloadSize; ++endIndex) {
-        curBytes += JSON.stringify(changes[endIndex]).length + 24;//24 - for JSON overhead
-      }
-      //todo simplify 'authChanges' format to reduce message size and JSON overhead
-      const sendObject = {
-        type: 'authChanges',
-        changes: changes.slice(startIndex, endIndex)
-      };
-      for (let i = 0; i < connections.length; ++i) {
-        if(needSendChanges(connections[i])) {
-          sendData(ctx, connections[i], sendObject);//Or 0 if fails
+    return co(function* () {
+      let startIndex = 0;
+      let endIndex = 0;
+      while (endIndex < changes.length) {
+        startIndex = endIndex;
+        let curBytes = 0;
+        for (; endIndex < changes.length && curBytes < cfgWebsocketMaxPayloadSize; ++endIndex) {
+          curBytes += JSON.stringify(changes[endIndex]).length + 24;//24 - for JSON overhead
+        }
+        //todo simplify 'authChanges' format to reduce message size and JSON overhead
+        const sendObject = {
+          type: 'authChanges',
+          changes: changes.slice(startIndex, endIndex)
+        };
+        for (let i = 0; i < connections.length; ++i) {
+          let conn = connections[i];
+          if (needSendChanges(conn)) {
+            if (conn.supportAuthChangesAck) {
+              conn.authChangesAck = true;
+            }
+            sendData(ctx, conn, sendObject);
+          }
+        }
+        //todo use emit callback
+        //wait ack
+        let time = 0;
+        let interval = 100;
+        let limit = 30000;
+        for (let i = 0; i < connections.length; ++i) {
+          let conn = connections[i];
+          while (constants.CONN_CLOSED !== conn.readyState && needSendChanges(conn) && conn.authChangesAck && time < limit) {
+            yield utils.sleep(interval);
+            time += interval;
+          }
+          delete conn.authChangesAck;
         }
       }
-    }
+    });
   }
   function* sendAuthChanges(ctx, docId, connections) {
     let index = 0;
@@ -2561,7 +2584,7 @@ exports.install = function(server, callbackFunction) {
     do {
       let objChangesDocument = yield getDocumentChanges(ctx, docId, index, index + cfgMaxRequestChanges);
       changes = objChangesDocument.arrChanges;
-      sendAuthChangesByChunks(ctx, changes, connections);
+      yield sendAuthChangesByChunks(ctx, changes, connections);
       connections = connections.filter((conn) => {
         return constants.CONN_CLOSED !== conn.readyState;
       });
