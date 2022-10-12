@@ -165,7 +165,6 @@ let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
 let queue;
 let f = {type: constants.LICENSE_RESULT.Error, light: false, branding: false, customization: false, plugins: false};
-let licenseOriginal = null;
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
@@ -3721,7 +3720,7 @@ let commandLicense = co.wrap(function*(ctx) {
   let users_view = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
   let licenseInfo = yield tenantManager.getTenantLicense(ctx);
   return {
-    license: licenseOriginal || utils.convertLicenseInfoToFileParams(licenseInfo),
+    license: utils.convertLicenseInfoToFileParams(licenseInfo),
     server: utils.convertLicenseInfoToServerParams(licenseInfo),
     quota: {users: users, users_view: users_view}
   };

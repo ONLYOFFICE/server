@@ -60,7 +60,8 @@ exports.readLicense = function*() {
 		buildDate: oBuildDate,
 		startDate: startDate,
 		endDate: null,
-		customerId: ""
+		customerId: "",
+		alias: ""
 	}, null];
 };
 
