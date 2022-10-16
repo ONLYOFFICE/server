@@ -241,7 +241,7 @@ function convertRequest(req, res, isJson) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(authRes.code), isJson);
         return;
       }
-      let outputtype = params.outputtype || '';
+      let outputtype = params.outputtype || params.outputType || '';
       let docId = 'conv_' + params.key + '_' + outputtype;
       ctx.setDocId(docId);
 
