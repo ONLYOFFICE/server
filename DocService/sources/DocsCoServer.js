@@ -3635,28 +3635,33 @@ exports.licenseInfo = function(req, res) {
         var precisionIndex = 0;
         for (let i = redisRes.length - 1; i >= 0; i--) {
           let elem = redisRes[i];
-          //skip duplicates in cluster
-          if (prevTime - elem.time >= expDocumentsStep95) {
-            for (let j = precisionIndex; j < PRECISION.length; ++j) {
-              if (now - elem.time < PRECISION[j].val) {
-                let precision = precisionSum[PRECISION[j].name];
-                precision.edit.min = Math.min(precision.edit.min, elem.edit);
-                precision.edit.max = Math.max(precision.edit.max, elem.edit);
-                precision.edit.sum += elem.edit;
-                precision.edit.count++;
-                precision.view.min = Math.min(precision.view.min, elem.view);
-                precision.view.max = Math.max(precision.view.max, elem.view);
-                precision.view.sum += elem.view;
-                precision.view.count++;
-                if (elem.liveview) {
-                  precision.liveview.min = Math.min(precision.liveview.min, elem.liveview);
-                  precision.liveview.max = Math.max(precision.liveview.max, elem.liveview);
-                  precision.liveview.sum += elem.liveview;
-                  precision.liveview.count++;
-                }
-              } else {
-                precisionIndex = j + 1;
-              }
+          let edit = elem.edit || 0;
+          let view = elem.view || 0;
+          let liveview = elem.liveview || 0;
+          //for cluster
+          while (i > 0 && elem.time - redisRes[i - 1].time < expDocumentsStep95) {
+            edit += elem.edit || 0;
+            view += elem.view || 0;
+            liveview += elem.liveview || 0;
+            i--;
+          }
+          for (let j = precisionIndex; j < PRECISION.length; ++j) {
+            if (now - elem.time < PRECISION[j].val) {
+              let precision = precisionSum[PRECISION[j].name];
+              precision.edit.min = Math.min(precision.edit.min, edit);
+              precision.edit.max = Math.max(precision.edit.max, edit);
+              precision.edit.sum += edit
+              precision.edit.count++;
+              precision.view.min = Math.min(precision.view.min, view);
+              precision.view.max = Math.max(precision.view.max, view);
+              precision.view.sum += view;
+              precision.view.count++;
+              precision.liveview.min = Math.min(precision.liveview.min, liveview);
+              precision.liveview.max = Math.max(precision.liveview.max, liveview);
+              precision.liveview.sum += liveview;
+              precision.liveview.count++;
+            } else {
+              precisionIndex = j + 1;
             }
           }
           prevTime = elem.time;
