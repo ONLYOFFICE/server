@@ -458,8 +458,40 @@ TaskQueueRabbitMQ.prototype.addDelayed = function (task, ttl) {
   });
 };
 TaskQueueRabbitMQ.prototype.close = function () {
-  this.isClose = true;
-  return close(this.connection);
+  let t = this;
+  return co(function* () {
+    t.isClose = true;
+    if (t.channelConvertTask) {
+      yield close(t.channelConvertTask);
+    }
+    if (t.channelConvertTaskReceive) {
+      yield close(t.channelConvertTaskReceive);
+    }
+    if (t.channelConvertDead) {
+      yield close(t.channelConvertDead);
+    }
+    if (t.channelConvertResponse) {
+      yield close(t.channelConvertResponse);
+    }
+    if (t.channelConvertResponseReceive) {
+      yield close(t.channelConvertResponseReceive);
+    }
+    if (t.channelDelayed) {
+      yield close(t.channelDelayed);
+    }
+    yield close(t.connection);
+  });
+};
+TaskQueueRabbitMQ.prototype.closeOrWait = function() {
+  if (commonDefines.c_oAscQueueType.rabbitmq === cfgQueueType) {
+    return this.close();
+  } else {
+    //todo remove sleep
+    //sleep to wait acknowledge
+    return this.close().then(() => {
+      return utils.sleep(1000);
+    });
+  }
 };
 
 module.exports = TaskQueueRabbitMQ;
