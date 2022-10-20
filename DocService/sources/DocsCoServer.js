@@ -112,6 +112,7 @@ const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.
 let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
 cfgEditor['reconnection']['delay'] = ms(cfgEditor['reconnection']['delay']);
 cfgEditor['websocketMaxPayloadSize'] = bytes.parse(cfgEditor['websocketMaxPayloadSize']);
+cfgEditor['maxChangesSize'] = bytes.parse(cfgEditor['maxChangesSize']);
 //websocket payload size is limited by https://github.com/faye/faye-websocket-node#initialization-options (64 MiB)
 //xhr payload size is limited by nginx param client_max_body_size (current 100MB)
 //"1.5MB" is choosen to avoid disconnect(after 25s) while downloading/uploading oversized changes with 0.5Mbps connection
@@ -164,7 +165,6 @@ let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
 let queue;
 let f = {type: constants.LICENSE_RESULT.Error, light: false, branding: false, customization: false, plugins: false};
-let licenseOriginal = null;
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
@@ -875,6 +875,11 @@ function* startRPC(ctx, conn, responseKey, data) {
       }
       sendDataRpc(ctx, conn, responseKey, renameRes);
       break;
+    case 'pathurls':
+      let outputData = new canvasService.OutputData(data.type);
+      yield* canvasService.commandPathUrls(ctx, conn, data.data, outputData);
+      sendDataRpc(ctx, conn, responseKey, outputData);
+      break;
   }
   ctx.logger.debug('startRPC end');
 }
@@ -1423,6 +1428,9 @@ exports.install = function(server, callbackFunction) {
             break;
           case 'rpc' :
             yield* startRPC(ctx, conn, data.responseKey, data.data);
+            break;
+          case 'authChangesAck' :
+            delete conn.authChangesAck;
             break;
           default:
             ctx.logger.debug("unknown command %s", message);
@@ -2244,7 +2252,7 @@ exports.install = function(server, callbackFunction) {
         indexUser: curIndexUser,
         view: !isEditMode(data.permissions, data.mode)
       };
-      if (conn.user.view) {
+      if (conn.user.view && utils.isLiveViewerSupport(licenseInfo)) {
         conn.coEditingMode = data.coEditingMode;
       }
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
@@ -2258,6 +2266,7 @@ exports.install = function(server, callbackFunction) {
         conn.sessionTimeLastAction = new Date().getTime() - data.sessionTimeIdle;
       }
       conn.encrypted = data.encrypted;
+      conn.supportAuthChangesAck = data.supportAuthChangesAck;
 
       const c_LR = constants.LICENSE_RESULT;
       conn.licenseType = c_LR.Success;
@@ -2530,25 +2539,44 @@ exports.install = function(server, callbackFunction) {
   }
 
   function sendAuthChangesByChunks(ctx, changes, connections) {
-    let startIndex = 0;
-    let endIndex = 0;
-    while (endIndex < changes.length) {
-      startIndex = endIndex;
-      let curBytes = 0;
-      for (; endIndex < changes.length && curBytes < cfgWebsocketMaxPayloadSize; ++endIndex) {
-        curBytes += JSON.stringify(changes[endIndex]).length + 24;//24 - for JSON overhead
-      }
-      //todo simplify 'authChanges' format to reduce message size and JSON overhead
-      const sendObject = {
-        type: 'authChanges',
-        changes: changes.slice(startIndex, endIndex)
-      };
-      for (let i = 0; i < connections.length; ++i) {
-        if(needSendChanges(connections[i])) {
-          sendData(ctx, connections[i], sendObject);//Or 0 if fails
+    return co(function* () {
+      let startIndex = 0;
+      let endIndex = 0;
+      while (endIndex < changes.length) {
+        startIndex = endIndex;
+        let curBytes = 0;
+        for (; endIndex < changes.length && curBytes < cfgWebsocketMaxPayloadSize; ++endIndex) {
+          curBytes += JSON.stringify(changes[endIndex]).length + 24;//24 - for JSON overhead
+        }
+        //todo simplify 'authChanges' format to reduce message size and JSON overhead
+        const sendObject = {
+          type: 'authChanges',
+          changes: changes.slice(startIndex, endIndex)
+        };
+        for (let i = 0; i < connections.length; ++i) {
+          let conn = connections[i];
+          if (needSendChanges(conn)) {
+            if (conn.supportAuthChangesAck) {
+              conn.authChangesAck = true;
+            }
+            sendData(ctx, conn, sendObject);
+          }
+        }
+        //todo use emit callback
+        //wait ack
+        let time = 0;
+        let interval = 100;
+        let limit = 30000;
+        for (let i = 0; i < connections.length; ++i) {
+          let conn = connections[i];
+          while (constants.CONN_CLOSED !== conn.readyState && needSendChanges(conn) && conn.authChangesAck && time < limit) {
+            yield utils.sleep(interval);
+            time += interval;
+          }
+          delete conn.authChangesAck;
         }
       }
-    }
+    });
   }
   function* sendAuthChanges(ctx, docId, connections) {
     let index = 0;
@@ -2556,9 +2584,12 @@ exports.install = function(server, callbackFunction) {
     do {
       let objChangesDocument = yield getDocumentChanges(ctx, docId, index, index + cfgMaxRequestChanges);
       changes = objChangesDocument.arrChanges;
-      sendAuthChangesByChunks(ctx, changes, connections);
+      yield sendAuthChangesByChunks(ctx, changes, connections);
+      connections = connections.filter((conn) => {
+        return constants.CONN_CLOSED !== conn.readyState;
+      });
       index += cfgMaxRequestChanges;
-    } while (changes && cfgMaxRequestChanges === changes.length);
+    } while (connections.length > 0 && changes && cfgMaxRequestChanges === changes.length);
   }
   function* sendAuthInfo(ctx, conn, bIsRestore, participantsMap, opt_hasForgotten, opt_openedAt) {
     const docId = conn.docId;
@@ -3023,7 +3054,7 @@ exports.install = function(server, callbackFunction) {
 						buildVersion: commonDefines.buildVersion,
 						buildNumber: commonDefines.buildNumber,
 						protectionSupport: cfgOpenProtectedFile, //todo find a better place
-						liveViewerSupport: (licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0 ),
+						liveViewerSupport: utils.isLiveViewerSupport(licenseInfo),
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
 						advancedApi: licenseInfo.advancedApi,
@@ -3487,7 +3518,7 @@ exports.install = function(server, callbackFunction) {
             }
           }
         });
-        if (-1 !== index) {
+        if (-1 !== index || 0 === res.length) {
           callbackFunction();
         } else {
           operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
@@ -3712,7 +3743,7 @@ let commandLicense = co.wrap(function*(ctx) {
   let users_view = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
   let licenseInfo = yield tenantManager.getTenantLicense(ctx);
   return {
-    license: licenseOriginal || utils.convertLicenseInfoToFileParams(licenseInfo),
+    license: utils.convertLicenseInfoToFileParams(licenseInfo),
     server: utils.convertLicenseInfoToServerParams(licenseInfo),
     quota: {users: users, users_view: users_view}
   };

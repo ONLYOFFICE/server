@@ -135,6 +135,10 @@ function getTenantLicense(ctx) {
         nodeCache.set(licensePath, res);
         ctx.logger.debug('getTenantLicense from %s', licensePath);
       }
+      if (!res.alias) {
+        res.type = constants.LICENSE_RESULT.Error;
+        ctx.logger.error('getTenantLicense error: missing "alias" field');
+      }
     } else {
       res = licenseInfo;
     }

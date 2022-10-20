@@ -51,6 +51,7 @@ exports.readLicense = function*() {
 		connections: constants.LICENSE_CONNECTIONS,
 		connectionsView: constants.LICENSE_CONNECTIONS,
 		customization: false,
+		advancedApi: false,
 		usersCount: 0,
 		usersViewCount: 0,
 		usersExpire: constants.LICENSE_EXPIRE_USERS_ONE_DAY,
@@ -59,7 +60,8 @@ exports.readLicense = function*() {
 		buildDate: oBuildDate,
 		startDate: startDate,
 		endDate: null,
-		customerId: ""
+		customerId: "",
+		alias: ""
 	}, null];
 };
 
