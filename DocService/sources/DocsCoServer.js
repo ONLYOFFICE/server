@@ -1652,7 +1652,7 @@ exports.install = function(server, callbackFunction) {
       element = arrayElements[j];
 
       // Добавляем GMT, т.к. в базу данных мы пишем UTC, но сохраняется туда строка без UTC и при зачитывании будет неправильное время
-      objChangesDocument.push({docid: docId, change: element['change_data'],
+      objChangesDocument.push({docid: docId, change: element['change_data'].data,
         time: element['change_date'].getTime(), user: element['user_id'],
         useridoriginal: element['user_id_original']});
     }
@@ -2813,7 +2813,7 @@ exports.install = function(server, callbackFunction) {
     // Стартовый индекс изменения при добавлении
     const startIndex = puckerIndex;
 
-    const newChanges = JSON.parse(data.changes);
+    const newChanges = data.changes;
     let newChangesLastDate = new Date();
     newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
     let newChangesLastTime = newChangesLastDate.getTime();
@@ -2824,7 +2824,7 @@ exports.install = function(server, callbackFunction) {
 
       for (let i = 0; i < newChanges.length; ++i) {
         oElement = newChanges[i];
-        arrNewDocumentChanges.push({docid: docId, change: JSON.stringify(oElement), time: newChangesLastDate,
+        arrNewDocumentChanges.push({docid: docId, change: oElement, time: newChangesLastDate,
           user: userId, useridoriginal: conn.user.idOriginal});
       }
 
