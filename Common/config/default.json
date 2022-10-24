@@ -180,7 +180,7 @@
 				"options": {}
 			},
 			"pubsub": {
-				"maxChanges": 1000
+				"maxChanges": 0
 			},
 			"expire": {
 				"saveLock": 60,
