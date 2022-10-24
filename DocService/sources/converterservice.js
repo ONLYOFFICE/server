@@ -241,6 +241,7 @@ function convertRequest(req, res, isJson) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(authRes.code), isJson);
         return;
       }
+      let filetype = params.filetype || params.fileType || '';
       let outputtype = params.outputtype || params.outputType || '';
       let docId = 'conv_' + params.key + '_' + outputtype;
       ctx.setDocId(docId);
@@ -250,8 +251,8 @@ function convertRequest(req, res, isJson) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
-      if (params.filetype && !constants.EXTENTION_REGEX.test(params.filetype)) {
-        ctx.logger.warn('convertRequest unexpected filetype = %s', params.filetype);
+      if (filetype && !constants.EXTENTION_REGEX.test(filetype)) {
+        ctx.logger.warn('convertRequest unexpected filetype = %s', filetype);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
@@ -265,7 +266,7 @@ function convertRequest(req, res, isJson) {
       cmd.setCommand('conv');
       cmd.setUrl(params.url);
       cmd.setEmbeddedFonts(false);//params.embeddedfonts'];
-      cmd.setFormat(params.filetype);
+      cmd.setFormat(filetype);
       cmd.setDocId(docId);
       cmd.setOutputFormat(outputFormat);
 
