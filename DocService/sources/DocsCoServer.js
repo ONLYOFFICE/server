@@ -506,7 +506,7 @@ function fillJwtByConnection(ctx, conn) {
 }
 
 function sendData(ctx, conn, data) {
-  conn.emit('message', JSON.stringify(data));
+  conn.emit('message', data);
   const type = data ? data.type : null;
   ctx.logger.debug('sendData: type = %s', type);
 }
@@ -1652,7 +1652,7 @@ exports.install = function(server, callbackFunction) {
       element = arrayElements[j];
 
       // Добавляем GMT, т.к. в базу данных мы пишем UTC, но сохраняется туда строка без UTC и при зачитывании будет неправильное время
-      objChangesDocument.push({docid: docId, change: element['change_data'].data,
+      objChangesDocument.push({docid: docId, change: element['change_data'],
         time: element['change_date'].getTime(), user: element['user_id'],
         useridoriginal: element['user_id_original']});
     }

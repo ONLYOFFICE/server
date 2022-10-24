@@ -182,7 +182,7 @@ exports.insertChanges = function(ctx, tableChanges, startIndex, objChanges, docI
   let time = [];
   //Postgres 9.4 multi-argument unnest
   let sqlCommand = `INSERT INTO ${tableChanges} (tenant, id, change_id, user_id, user_id_original, user_name, change_data, change_date) `;
-  sqlCommand += "SELECT * FROM UNNEST ($1::text[], $2::text[], $3::int[], $4::text[], $5::text[], $6::text[], $7::text[], $8::timestamp[]);";
+  sqlCommand += "SELECT * FROM UNNEST ($1::text[], $2::text[], $3::int[], $4::text[], $5::text[], $6::text[], $7::bytea[], $8::timestamp[]);";
   let values = [tenant, id, changeId, userId, userIdOriginal, username, change, time];
   let curLength = sqlCommand.length;
   for (; i < objChanges.length; ++i) {
