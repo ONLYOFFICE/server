@@ -482,7 +482,7 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
   let extChanges;
   if (extChangeInfo) {
     extChanges = [{
-      id: cmd.getDocId(), change_id: 0, change_data: "", user_id: extChangeInfo.user_id,
+      id: cmd.getDocId(), change_id: 0, change_data: Buffer.alloc(0), user_id: extChangeInfo.user_id,
       user_id_original: extChangeInfo.user_id_original, user_name: extChangeInfo.user_name,
       change_date: new Date(extChangeInfo.change_date)
     }];
@@ -495,7 +495,7 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
     let changes = [];
     if (curIndexStart < curIndexEnd) {
       changes = yield baseConnector.getChangesPromise(ctx, cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
-      if (changes.length > 0 && changes[0].change_data.startsWith('ENCRYPTED;')) {
+      if (changes.length > 0 && changes[0].change_data.subarray(0, 'ENCRYPTED;'.length).includes('ENCRYPTED;')) {
         ctx.logger.warn('processChanges encrypted changes');
         //todo sql request instead?
         res = constants.EDITOR_CHANGES;
@@ -518,9 +518,6 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
         }
         let strDate = baseConnector.getDateTime(change.change_date);
         changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
-        yield* streamWrite(streamObj, '[');
-      } else {
-        yield* streamWrite(streamObj, ',');
       }
       changesAuthor = change.user_id_original;
       changesAuthorUnique = change.user_id;
@@ -538,7 +535,7 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
       break;
     }
   }
-  yield* streamEnd(streamObj, ']');
+  yield* streamEnd(streamObj);
   if (streamObj.isNoChangesInFile) {
     fs.unlinkSync(streamObj.filePath);
   }
@@ -558,7 +555,7 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
 }
 
 function* streamCreate(ctx, changesDir, indexFile, opt_options) {
-  let fileName = constants.CHANGES_NAME + indexFile + '.json';
+  let fileName = constants.CHANGES_NAME + indexFile + '.bin';
   let filePath = path.join(changesDir, fileName);
   let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
   writeStream.on('error', function(err) {
@@ -568,14 +565,14 @@ function* streamCreate(ctx, changesDir, indexFile, opt_options) {
   return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
 }
 
-function* streamWrite(streamObj, text) {
-  if (!streamObj.writeStream.write(text, 'utf8')) {
+function* streamWrite(streamObj, buf) {
+  if (!streamObj.writeStream.write(buf)) {
     yield utils.promiseWaitDrain(streamObj.writeStream);
   }
 }
 
-function* streamEnd(streamObj, text) {
-  streamObj.writeStream.end(text, 'utf8');
+function* streamEnd(streamObj) {
+  streamObj.writeStream.end();
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
 function* processUploadToStorage(ctx, dir, storagePath) {
