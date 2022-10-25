@@ -1039,3 +1039,7 @@ exports.getFunctionArguments = function(func) {
     join('').
     split(/\s*,\s*/);
 };
+exports.isUselesSfc = function(row, cmd) {
+  return !(row && commonDefines.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info);
+};
+

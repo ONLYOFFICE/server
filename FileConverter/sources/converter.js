@@ -50,6 +50,7 @@ var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
 var baseConnector = require('./../../DocService/sources/baseConnector');
 const wopiClient = require('./../../DocService/sources/wopiClient');
+const taskResult = require('./../../DocService/sources/taskresult');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const formatChecker = require('./../../Common/sources/formatchecker');
@@ -281,6 +282,17 @@ function getTempDir() {
   fs.mkdirSync(resultDir);
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
+function* isUselessConvertion(ctx, task, cmd) {
+  if (task.getFromChanges()) {
+    let selectRes = yield taskResult.select(ctx, cmd.getDocId());
+    let row = selectRes.length > 0 ? selectRes[0] : null;
+    if (utils.isUselesSfc(row, cmd)) {
+      ctx.logger.warn('isUselessConvertion return true. row=%j', row);
+      return constants.CONVERT_PARAMS;
+    }
+  }
+  return constants.NO_ERROR;
+}
 function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
     let locale = 'en-US';
@@ -404,7 +416,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     yield* concatFiles(tempDirs.source);
   }
   if (task.getFromChanges()) {
-    res = yield* processChanges(ctx, tempDirs, cmd, authorProps);
+    res = yield* processChanges(ctx, tempDirs, task, cmd, authorProps);
   }
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
@@ -447,7 +459,7 @@ function* concatFiles(source) {
   }
 }
 
-function* processChanges(ctx, tempDirs, cmd, authorProps) {
+function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
   let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
@@ -483,6 +495,15 @@ function* processChanges(ctx, tempDirs, cmd, authorProps) {
     let changes = [];
     if (curIndexStart < curIndexEnd) {
       changes = yield baseConnector.getChangesPromise(ctx, cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+      if (changes.length > 0 && changes[0].change_data.startsWith('ENCRYPTED;')) {
+        ctx.logger.warn('processChanges encrypted changes');
+        //todo sql request instead?
+        res = constants.EDITOR_CHANGES;
+      }
+      res = yield* isUselessConvertion(ctx, task, cmd);
+      if (constants.NO_ERROR !== res) {
+        break;
+      }
     }
     if (0 === changes.length && extChanges) {
       changes = extChanges;
@@ -490,12 +511,6 @@ function* processChanges(ctx, tempDirs, cmd, authorProps) {
     extChanges = undefined;
     for (let i = 0; i < changes.length; ++i) {
       let change = changes[i];
-      if (change.change_data.startsWith('ENCRYPTED;')) {
-        ctx.logger.warn('processChanges encrypted changes');
-        //todo sql request instead?
-        res = constants.EDITOR_CHANGES;
-        break;
-      }
       if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
           yield* streamEnd(streamObj, ']');
@@ -744,7 +759,10 @@ function* ExecuteTask(ctx, task) {
   dataConvert.fileTo = fileTo ? path.join(tempDirs.result, fileTo) : '';
   let isBuilder = cmd.getIsBuilder();
   let authorProps = {lastModifiedBy: null, modified: null};
-  if (cmd.getUrl()) {
+  error = yield* isUselessConvertion(ctx, task, cmd);
+  if (constants.NO_ERROR !== error) {
+    ;
+  } else if (cmd.getUrl()) {
     let format = cmd.getFormat();
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + format);
     if (utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {

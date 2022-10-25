@@ -1127,9 +1127,9 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
     var updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = docId;
-    updateMask.status = taskResult.FileStatus.Ok;
+    updateMask.status = commonDefines.FileStatus.Ok;
     var updateTask = new taskResult.TaskResultData();
-    updateTask.status = taskResult.FileStatus.SaveVersion;
+    updateTask.status = commonDefines.FileStatus.SaveVersion;
     updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
     var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
     if (updateIfRes.affectedRows > 0) {
@@ -1540,7 +1540,7 @@ exports.install = function(server, callbackFunction) {
           let selectRes = yield taskResult.select(ctx, docId);
           if (selectRes.length > 0) {
             var row = selectRes[0];
-            if (taskResult.FileStatus.UpdateVersion === row.status) {
+            if (commonDefines.FileStatus.UpdateVersion === row.status) {
               needSendStatus = false;
             }
           }
@@ -2332,16 +2332,16 @@ exports.install = function(server, callbackFunction) {
       }
       if (!conn.user.view) {
         var status = result && result.length > 0 ? result[0]['status'] : null;
-        if (taskResult.FileStatus.Ok === status) {
+        if (commonDefines.FileStatus.Ok === status) {
           // Все хорошо, статус обновлять не нужно
-        } else if (taskResult.FileStatus.SaveVersion === status ||
-          (!bIsRestore && taskResult.FileStatus.UpdateVersion === status &&
+        } else if (commonDefines.FileStatus.SaveVersion === status ||
+          (!bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
           Date.now() - result[0]['status_info'] * 60000 > cfgExpUpdateVersionStatus)) {
-          let newStatus = taskResult.FileStatus.Ok;
-          if (taskResult.FileStatus.UpdateVersion === status) {
+          let newStatus = commonDefines.FileStatus.Ok;
+          if (commonDefines.FileStatus.UpdateVersion === status) {
             ctx.logger.warn("UpdateVersion expired");
             //FileStatus.None to open file again from new url
-            newStatus = taskResult.FileStatus.None;
+            newStatus = commonDefines.FileStatus.None;
           }
           // Обновим статус файла (идет сборка, нужно ее остановить)
           var updateMask = new taskResult.TaskResultData();
@@ -2358,11 +2358,11 @@ exports.install = function(server, callbackFunction) {
             yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
             return;
           }
-        } else if (bIsRestore && taskResult.FileStatus.UpdateVersion === status) {
+        } else if (bIsRestore && commonDefines.FileStatus.UpdateVersion === status) {
           // error version
           yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
           return;
-        } else if (taskResult.FileStatus.None === status && conn.encrypted) {
+        } else if (commonDefines.FileStatus.None === status && conn.encrypted) {
           //ok
         } else if (bIsRestore) {
           // Other error

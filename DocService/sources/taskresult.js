@@ -36,24 +36,13 @@ const crypto = require('crypto');
 var sqlBase = require('./baseConnector');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
+var commonDefines = require('./../../Common/sources/commondefines');
 var tenantManager = require('./../../Common/sources/tenantManager');
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
 let concatParams = sqlBase.baseConnector.concatParams;
 
 var RANDOM_KEY_MAX = 10000;
-
-var FileStatus = {
-  None: 0,
-  Ok: 1,
-  WaitQueue: 2,
-  NeedParams: 3,
-  Err: 5,
-  ErrToReload: 6,
-  SaveVersion: 7,
-  UpdateVersion: 8,
-  NeedPassword: 9
-};
 
 function TaskResultData() {
   this.tenant = null;
@@ -79,7 +68,7 @@ TaskResultData.prototype.completeDefaults = function() {
     this.key = '';
   }
   if (!this.status) {
-    this.status = FileStatus.None;
+    this.status = commonDefines.FileStatus.None;
   }
   if (!this.statusInfo) {
     this.statusInfo = constants.NO_ERROR;
@@ -267,7 +256,7 @@ function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
   var task = new TaskResultData();
   task.tenant = ctx.tenant;
   task.key = key;
-  task.status = FileStatus.WaitQueue;
+  task.status = commonDefines.FileStatus.WaitQueue;
   //nTryCount чтобы не зависнуть если реально будут проблемы с DB
   var nTryCount = RANDOM_KEY_MAX;
   var addRes = null;
@@ -340,7 +329,6 @@ function getExpired(ctx, maxCount, expireSeconds) {
   });
 }
 
-exports.FileStatus = FileStatus;
 exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
 exports.select = select;

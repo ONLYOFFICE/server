@@ -1110,6 +1110,17 @@ const c_oAscUnlockRes = {
   Unlocked: 1,
   Empty: 2
 };
+const FileStatus = {
+  None: 0,
+  Ok: 1,
+  WaitQueue: 2,
+  NeedParams: 3,
+  Err: 5,
+  ErrToReload: 6,
+  SaveVersion: 7,
+  UpdateVersion: 8,
+  NeedPassword: 9
+};
 
 const buildVersion = '4.1.2';
 const buildNumber = 37;
@@ -1136,5 +1147,6 @@ exports.c_oAscUrlTypes = c_oAscUrlTypes;
 exports.c_oAscSecretType = c_oAscSecretType;
 exports.c_oAscQueueType = c_oAscQueueType;
 exports.c_oAscUnlockRes = c_oAscUnlockRes;
+exports.FileStatus = FileStatus;
 exports.buildVersion = buildVersion;
 exports.buildNumber = buildNumber;

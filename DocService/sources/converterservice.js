@@ -63,7 +63,7 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
     var row = selectRes[0];
     let password = opt_checkPassword && sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
     switch (row.status) {
-      case taskResult.FileStatus.Ok:
+      case commonDefines.FileStatus.Ok:
         if (password) {
           let isCorrectPassword;
           if (encryptedUserPassword) {
@@ -82,17 +82,17 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
           status.end = true;
         }
         break;
-      case taskResult.FileStatus.Err:
-      case taskResult.FileStatus.ErrToReload:
-      case taskResult.FileStatus.NeedPassword:
+      case commonDefines.FileStatus.Err:
+      case commonDefines.FileStatus.ErrToReload:
+      case commonDefines.FileStatus.NeedPassword:
         status.err = row.status_info;
-        if (taskResult.FileStatus.ErrToReload == row.status || taskResult.FileStatus.NeedPassword == row.status) {
+        if (commonDefines.FileStatus.ErrToReload == row.status || commonDefines.FileStatus.NeedPassword == row.status) {
           yield canvasService.cleanupCache(ctx);
         }
         break;
-      case taskResult.FileStatus.NeedParams:
-      case taskResult.FileStatus.SaveVersion:
-      case taskResult.FileStatus.UpdateVersion:
+      case commonDefines.FileStatus.NeedParams:
+      case commonDefines.FileStatus.SaveVersion:
+      case commonDefines.FileStatus.UpdateVersion:
         status.err = constants.UNKNOWN;
         break;
     }
@@ -136,7 +136,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
     let task = new taskResult.TaskResultData();
     task.tenant = ctx.tenant;
     task.key = docId;
-    task.status = taskResult.FileStatus.WaitQueue;
+    task.status = commonDefines.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
     let upsertRes = yield taskResult.upsert(ctx, task);
