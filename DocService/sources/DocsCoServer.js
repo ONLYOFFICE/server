@@ -2546,14 +2546,8 @@ exports.install = function(server, callbackFunction) {
     do {
       changes = yield sqlBase.getChangesPromise(ctx, docId, index, index + cfgMaxRequestChanges);
       if (changes.length > 0) {
-        let changesJSON = indexChunk > 1 ? ',[' : '[';
-        changesJSON += changes[0].change_data;
-        for (let i = 1; i < changes.length; ++i) {
-          changesJSON += ',';
-          changesJSON += changes[i].change_data;
-        }
-        changesJSON += ']\r\n';
-        let buffer = Buffer.from(changesJSON, 'utf8');
+        let buffers = changes.map(elem => elem.change_data);
+        let buffer = Buffer.concat(buffers);
         yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, cfgErrorFiles);
       }
       index += cfgMaxRequestChanges;
