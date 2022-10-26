@@ -38,6 +38,10 @@ var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 var commonDefines = require('./../../Common/sources/commondefines');
 var tenantManager = require('./../../Common/sources/tenantManager');
+var config = require('config');
+
+const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
+const cfgTableChanges = config.get('services.CoAuthoring.sql.tableChanges');
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
 let concatParams = sqlBase.baseConnector.concatParams;
@@ -102,7 +106,7 @@ function select(ctx, docId) {
     let values = [];
     let p1 = addSqlParam(ctx.tenant, values);
     let p2 = addSqlParam(docId, values);
-    let sqlCommand = `SELECT * FROM task_result WHERE tenant=${p1} AND id=${p2};`;
+    let sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE tenant=${p1} AND id=${p2};`;
     sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
@@ -171,7 +175,7 @@ function update(ctx, task, setPassword) {
     let sqlSet = updateElems.join(', ');
     let p1 = addSqlParam(task.tenant, values);
     let p2 = addSqlParam(task.key, values);
-    let sqlCommand = `UPDATE task_result SET ${sqlSet} WHERE tenant=${p1} AND id=${p2};`;
+    let sqlCommand = `UPDATE ${cfgTableResult} SET ${sqlSet} WHERE tenant=${p1} AND id=${p2};`;
     sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
@@ -191,7 +195,7 @@ function updateIf(ctx, task, mask) {
     commandArgMask.push('id=' + addSqlParam(mask.key, values));
     let sqlSet = commandArg.join(', ');
     let sqlWhere = commandArgMask.join(' AND ');
-    let sqlCommand = `UPDATE task_result SET ${sqlSet} WHERE ${sqlWhere};`;
+    let sqlCommand = `UPDATE ${cfgTableResult} SET ${sqlSet} WHERE ${sqlWhere};`;
     sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
@@ -241,7 +245,7 @@ function addRandomKey(ctx, task, opt_prefix, opt_size) {
     let p6 = addSqlParam(task.changeId, values);
     let p7 = addSqlParam(task.callback, values);
     let p8 = addSqlParam(task.baseurl, values);
-    let sqlCommand = 'INSERT INTO task_result (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)' +
+    let sqlCommand = 'INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)' +
       ` VALUES (${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8});`;
     sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
@@ -283,7 +287,7 @@ function remove(ctx, docId) {
     let values = [];
     let p1 = addSqlParam(ctx.tenant, values);
     let p2 = addSqlParam(docId, values);
-    const sqlCommand = `DELETE FROM task_result WHERE tenant=${p1} AND id=${p2};`;
+    const sqlCommand = `DELETE FROM ${cfgTableResult} WHERE tenant=${p1} AND id=${p2};`;
     sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
@@ -300,7 +304,7 @@ function removeIf(ctx, mask) {
     commandArgMask.push('tenant=' + addSqlParam(mask.tenant, values));
     commandArgMask.push('id=' + addSqlParam(mask.key, values));
     let sqlWhere = commandArgMask.join(' AND ');
-    const sqlCommand = `DELETE FROM task_result WHERE ${sqlWhere};`;
+    const sqlCommand = `DELETE FROM ${cfgTableResult} WHERE ${sqlWhere};`;
     sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
@@ -317,8 +321,8 @@ function getExpired(ctx, maxCount, expireSeconds) {
     utils.addSeconds(expireDate, -expireSeconds);
     let sqlParam1 = addSqlParam(expireDate, values);
     let sqlParam2 = addSqlParam(maxCount, values);
-    let sqlCommand = `SELECT * FROM task_result WHERE last_open_date <= ${sqlParam1}` +
-      ` AND NOT EXISTS(SELECT tenant, id FROM doc_changes WHERE doc_changes.tenant = task_result.tenant AND doc_changes.id = task_result.id LIMIT 1) LIMIT ${sqlParam2};`;
+    let sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${sqlParam1}` +
+      ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${sqlParam2};`;
     sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);

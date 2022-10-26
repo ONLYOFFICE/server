@@ -34,7 +34,11 @@
 
 var mysql = require('mysql2');
 var sqlBase = require('./baseConnector');
-var configSql = require('config').get('services.CoAuthoring.sql');
+const config = require('config');
+
+const configSql = config.get('services.CoAuthoring.sql');
+const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
+
 var pool  = mysql.createPool({
 	host		: configSql.get('dbHost'),
 	port		: configSql.get('dbPort'),
@@ -102,7 +106,7 @@ exports.upsert = function(ctx, task, opt_updateUserIndex) {
 		let p7 = addSqlParam(cbInsert, values);
 		let p8 = addSqlParam(task.baseurl, values);
 		let p9 = addSqlParam(dateNow, values);
-		var sqlCommand = 'INSERT INTO task_result (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)'+
+		var sqlCommand = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)`+
 			` VALUES (${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8}) ON DUPLICATE KEY UPDATE` +
 			` last_open_date = ${p9}`;
 		if (task.callback) {
