@@ -150,6 +150,7 @@ const cfgOpenProtectedFile = config.get('server.openProtectedFile');
 const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
 const cfgTokenRequiredParams = config.get('server.tokenRequiredParams');
 const cfgSocketIoConnection = configCommon.get('services.CoAuthoring.socketio.connection');
+const cfgTableResult = configCommon.get('services.CoAuthoring.sql.tableResult');
 
 const EditorTypes = {
   document : 0,
@@ -3519,7 +3520,7 @@ exports.install = function(server, callbackFunction) {
       }
       gc.startGC();
 
-      let tableName = 'task_result';
+      let tableName = cfgTableResult;
       const tableRequiredColumn = 'tenant';
       //check data base compatibility
       sqlBase.getTableColumns(operationContext.global, tableName).then(function(res) {

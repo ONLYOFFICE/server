@@ -42,8 +42,8 @@ var config = require('config').get('services.CoAuthoring.sql');
 var baseConnector = (sqlDataBaseType.mySql === config.get('type') || sqlDataBaseType.mariaDB === config.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
 let constants = require('./../../Common/sources/constants');
 
-const tableChanges = config.get('tableChanges'),
-	tableResult = config.get('tableResult');
+const cfgTableResult = config.get('tableResult');
+const cfgTableChanges = config.get('tableChanges');
 
 var g_oCriticalSection = {};
 let isSupportFastInsert = !!baseConnector.insertChanges;
@@ -64,7 +64,7 @@ exports.insertChangesPromiseCompatibility = function (ctx, objChanges, docId, in
 };
 exports.insertChangesPromiseFast = function (ctx, objChanges, docId, index, user) {
   return new Promise(function(resolve, reject) {
-    baseConnector.insertChanges(ctx, tableChanges, 0, objChanges, docId, index, user, function(error, result, isSupported) {
+    baseConnector.insertChanges(ctx, cfgTableChanges, 0, objChanges, docId, index, user, function(error, result, isSupported) {
       isSupportFastInsert = isSupported;
       if (error) {
         if (!isSupportFastInsert) {
@@ -93,7 +93,7 @@ function _getDateTime2(oDate) {
 exports.getDateTime = _getDateTime2;
 
 function _insertChangesCallback (ctx, startIndex, objChanges, docId, index, user, callback) {
-  var sqlCommand = `INSERT INTO ${tableChanges} VALUES`;
+  var sqlCommand = `INSERT INTO ${cfgTableChanges} VALUES`;
   var i = startIndex, l = objChanges.length, lengthUtf8Current = sqlCommand.length, lengthUtf8Row = 0, values = [];
   if (i === l)
     return;
@@ -136,9 +136,9 @@ exports.deleteChangesCallback = function(ctx, docId, deleteIndex, callback) {
   let p2 = addSqlParam(docId, values);
   if (null !== deleteIndex) {
     let sqlParam2 = addSqlParam(deleteIndex, values);
-    sqlCommand = `DELETE FROM ${tableChanges} WHERE tenant=${p1} AND id=${p2} AND change_id >= ${sqlParam2};`;
+    sqlCommand = `DELETE FROM ${cfgTableChanges} WHERE tenant=${p1} AND id=${p2} AND change_id >= ${sqlParam2};`;
   } else {
-    sqlCommand = `DELETE FROM ${tableChanges} WHERE tenant=${p1} AND id=${p2};`;
+    sqlCommand = `DELETE FROM ${cfgTableChanges} WHERE tenant=${p1} AND id=${p2};`;
   }
   baseConnector.sqlQuery(ctx, sqlCommand, callback, undefined, undefined, values);
 };
@@ -163,7 +163,7 @@ exports.getChangesIndex = function(ctx, docId, callback) {
   let values = [];
   let p1 = addSqlParam(ctx.tenant, values);
   let p2 = addSqlParam(docId, values);
-  var sqlCommand = `SELECT MAX(change_id) as change_id FROM ${tableChanges} WHERE tenant=${p1} AND id=${p2};`;
+  var sqlCommand = `SELECT MAX(change_id) as change_id FROM ${cfgTableChanges} WHERE tenant=${p1} AND id=${p2};`;
   baseConnector.sqlQuery(ctx, sqlCommand, callback, undefined, undefined, values);
 };
 exports.getChangesIndexPromise = function(ctx, docId) {
@@ -200,7 +200,7 @@ exports.getChangesPromise = function (ctx, docId, optStartIndex, optEndIndex, op
       sqlWhere += ` AND change_date<=${sqlParam}`;
     }
     sqlWhere += ' ORDER BY change_id ASC';
-    var sqlCommand = `SELECT * FROM ${tableChanges} WHERE ${sqlWhere};`;
+    var sqlCommand = `SELECT * FROM ${cfgTableChanges} WHERE ${sqlWhere};`;
 
     baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
@@ -252,7 +252,7 @@ exports.healthCheck = function (ctx) {
 
 exports.getEmptyCallbacks = function(ctx) {
   return new Promise(function(resolve, reject) {
-    const sqlCommand = "SELECT DISTINCT t1.tenant, t1.id FROM doc_changes t1 LEFT JOIN task_result t2 ON t2.tenant = t1.tenant AND t2.id = t1.id WHERE t2.callback = '';";
+    const sqlCommand = `SELECT DISTINCT t1.tenant, t1.id FROM ${cfgTableChanges} t1 LEFT JOIN ${cfgTableResult} t2 ON t2.tenant = t1.tenant AND t2.id = t1.id WHERE t2.callback = '';`;
     baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
