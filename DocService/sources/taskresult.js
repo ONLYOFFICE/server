@@ -245,7 +245,7 @@ function addRandomKey(ctx, task, opt_prefix, opt_size) {
     let p6 = addSqlParam(task.changeId, values);
     let p7 = addSqlParam(task.callback, values);
     let p8 = addSqlParam(task.baseurl, values);
-    let sqlCommand = 'INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)' +
+    let sqlCommand = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)` +
       ` VALUES (${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8});`;
     sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {

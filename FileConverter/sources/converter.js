@@ -35,7 +35,6 @@ var os = require('os');
 var path = require('path');
 var fs = require('fs');
 var url = require('url');
-var childProcess = require('child_process');
 var co = require('co');
 var config = require('config');
 var spawnAsync = require('@expo/spawn-async');
@@ -78,6 +77,7 @@ const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestC
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
+const cfgEditor = config.get('services.CoAuthoring.editor');
 
 //windows limit 512(2048) https://msdn.microsoft.com/en-us/library/6e3b887c.aspx
 //Ubuntu 14.04 limit 4096 http://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors.html
@@ -416,7 +416,11 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     yield* concatFiles(tempDirs.source);
   }
   if (task.getFromChanges()) {
-    res = yield* processChanges(ctx, tempDirs, task, cmd, authorProps);
+    if(cfgEditor['binaryChanges']) {
+      res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps);
+    } else {
+      res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps);
+    }
   }
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
@@ -458,8 +462,7 @@ function* concatFiles(source) {
     }
   }
 }
-
-function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
+function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
   let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
@@ -488,7 +491,8 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
     }];
   }
 
-  let streamObj = yield* streamCreate(ctx, changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
+  let streamObj = yield* streamCreateBin(ctx, changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
+  yield* streamWriteBin(streamObj, Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
   let curIndexStart = 0;
   let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
   while (curIndexStart < curIndexEnd || extChanges) {
@@ -513,11 +517,131 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
       let change = changes[i];
       if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
+          yield* streamEndBin(streamObj);
+          streamObj = yield* streamCreateBin(ctx, changesDir, indexFile++);
+          yield* streamWriteBin(streamObj, Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
+        }
+        let strDate = baseConnector.getDateTime(change.change_date);
+        changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
+      }
+      changesAuthor = change.user_id_original;
+      changesAuthorUnique = change.user_id;
+      yield* streamWriteBin(streamObj, change.change_data);
+      streamObj.isNoChangesInFile = false;
+    }
+    if (changes.length > 0) {
+      authorProps.lastModifiedBy = changes[changes.length - 1].user_name;
+      authorProps.modified = changes[changes.length - 1].change_date.toISOString().slice(0, 19) + 'Z';
+    }
+    if (changes.length === curIndexEnd - curIndexStart) {
+      curIndexStart += cfgMaxRequestChanges;
+      curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
+    } else {
+      break;
+    }
+  }
+  yield* streamEndBin(streamObj);
+  if (streamObj.isNoChangesInFile) {
+    fs.unlinkSync(streamObj.filePath);
+  }
+  if (null !== changesAuthorUnique) {
+    changesIndex = utils.getIndexFromUserId(changesAuthorUnique, changesAuthor);
+  }
+  if (null == changesAuthor && null == changesIndex && forceSave && undefined !== forceSave.getAuthorUserId() &&
+    undefined !== forceSave.getAuthorUserIndex()) {
+    changesAuthor = forceSave.getAuthorUserId();
+    changesIndex = forceSave.getAuthorUserIndex();
+  }
+  cmd.setUserId(changesAuthor);
+  cmd.setUserIndex(changesIndex);
+  fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
+  ctx.logger.debug('processChanges end');
+  return res;
+}
+
+function* streamCreateBin(ctx, changesDir, indexFile, opt_options) {
+  let fileName = constants.CHANGES_NAME + indexFile + '.bin';
+  let filePath = path.join(changesDir, fileName);
+  let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
+  writeStream.on('error', function(err) {
+    //todo integrate error handle in main thread (probable: set flag here and check it in main thread)
+    ctx.logger.error('WriteStreamError %s', err.stack);
+  });
+  return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
+}
+
+function* streamWriteBin(streamObj, buf) {
+  if (!streamObj.writeStream.write(buf)) {
+    yield utils.promiseWaitDrain(streamObj.writeStream);
+  }
+}
+
+function* streamEndBin(streamObj) {
+  streamObj.writeStream.end();
+  yield utils.promiseWaitClose(streamObj.writeStream);
+}
+function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
+  let res = constants.NO_ERROR;
+  let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
+  fs.mkdirSync(changesDir);
+  let indexFile = 0;
+  let changesAuthor = null;
+  let changesAuthorUnique = null;
+  let changesIndex = null;
+  let changesHistory = {
+    serverVersion: commonDefines.buildVersion,
+    changes: []
+  };
+  let forceSave = cmd.getForceSave();
+  let forceSaveTime;
+  let forceSaveIndex = Number.MAX_VALUE;
+  if (forceSave && undefined !== forceSave.getTime() && undefined !== forceSave.getIndex()) {
+    forceSaveTime = forceSave.getTime();
+    forceSaveIndex = forceSave.getIndex();
+  }
+  let extChangeInfo = cmd.getExternalChangeInfo();
+  let extChanges;
+  if (extChangeInfo) {
+    extChanges = [{
+      id: cmd.getDocId(), change_id: 0, change_data: "", user_id: extChangeInfo.user_id,
+      user_id_original: extChangeInfo.user_id_original, user_name: extChangeInfo.user_name,
+      change_date: new Date(extChangeInfo.change_date)
+    }];
+  }
+
+  let streamObj = yield* streamCreate(ctx, changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
+  let curIndexStart = 0;
+  let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
+  while (curIndexStart < curIndexEnd || extChanges) {
+    let changes = [];
+    if (curIndexStart < curIndexEnd) {
+      changes = yield baseConnector.getChangesPromise(ctx, cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+      if (changes.length > 0 && changes[0].change_data.startsWith('ENCRYPTED;')) {
+        ctx.logger.warn('processChanges encrypted changes');
+        //todo sql request instead?
+        res = constants.EDITOR_CHANGES;
+      }
+      res = yield* isUselessConvertion(ctx, task, cmd);
+      if (constants.NO_ERROR !== res) {
+        break;
+      }
+    }
+    if (0 === changes.length && extChanges) {
+      changes = extChanges;
+    }
+    extChanges = undefined;
+    for (let i = 0; i < changes.length; ++i) {
+      let change = changes[i];
+      if (null === changesAuthor || changesAuthor !== change.user_id_original) {
+        if (null !== changesAuthor) {
           yield* streamEnd(streamObj, ']');
           streamObj = yield* streamCreate(ctx, changesDir, indexFile++);
         }
         let strDate = baseConnector.getDateTime(change.change_date);
         changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
+        yield* streamWrite(streamObj, '[');
+      } else {
+        yield* streamWrite(streamObj, ',');
       }
       changesAuthor = change.user_id_original;
       changesAuthorUnique = change.user_id;
@@ -535,7 +659,7 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
       break;
     }
   }
-  yield* streamEnd(streamObj);
+  yield* streamEnd(streamObj, ']');
   if (streamObj.isNoChangesInFile) {
     fs.unlinkSync(streamObj.filePath);
   }
@@ -555,7 +679,7 @@ function* processChanges(ctx, tempDirs, task, cmd, authorProps) {
 }
 
 function* streamCreate(ctx, changesDir, indexFile, opt_options) {
-  let fileName = constants.CHANGES_NAME + indexFile + '.bin';
+  let fileName = constants.CHANGES_NAME + indexFile + '.json';
   let filePath = path.join(changesDir, fileName);
   let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
   writeStream.on('error', function(err) {
@@ -565,14 +689,14 @@ function* streamCreate(ctx, changesDir, indexFile, opt_options) {
   return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
 }
 
-function* streamWrite(streamObj, buf) {
-  if (!streamObj.writeStream.write(buf)) {
+function* streamWrite(streamObj, text) {
+  if (!streamObj.writeStream.write(text, 'utf8')) {
     yield utils.promiseWaitDrain(streamObj.writeStream);
   }
 }
 
-function* streamEnd(streamObj) {
-  streamObj.writeStream.end();
+function* streamEnd(streamObj, text) {
+  streamObj.writeStream.end(text, 'utf8');
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
 function* processUploadToStorage(ctx, dir, storagePath) {

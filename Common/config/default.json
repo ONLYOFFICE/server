@@ -260,6 +260,7 @@
 					"attempts": 50,
 					"delay": "2s"
 				},
+				"binaryChanges": false,
 				"websocketMaxPayloadSize": "1.5MB",
 				"maxChangesSize": "0mb"
 			},

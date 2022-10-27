@@ -1482,10 +1482,10 @@ exports.install = function(server, callbackFunction) {
     _checkLicense(ctx, conn);
   });
   io.engine.on("connection_error", (err) => {
-    console.log(err.req);      // the request object
-    console.log(err.code);     // the error code, for example 1
-    console.log(err.message);  // the error message, for example "Session ID unknown"
-    console.log(err.context);  // some additional error context
+    operationContext.global.logger.warn(err.req);      // the request object
+    operationContext.global.logger.warn(err.code);     // the error code, for example 1
+    operationContext.global.logger.warn(err.message);  // the error message, for example "Session ID unknown"
+    operationContext.global.logger.warn(err.context);  // some additional error context
   });
   /**
    *
@@ -2547,8 +2547,21 @@ exports.install = function(server, callbackFunction) {
     do {
       changes = yield sqlBase.getChangesPromise(ctx, docId, index, index + cfgMaxRequestChanges);
       if (changes.length > 0) {
-        let buffers = changes.map(elem => elem.change_data);
-        let buffer = Buffer.concat(buffers);
+        let buffer;
+        if (cfgEditor['binaryChanges']) {
+          let buffers = changes.map(elem => elem.change_data);
+          buffers.unshift(Buffer.from(utils.getChangesFileHeader(), 'utf-8'))
+          buffer = Buffer.concat(buffers);
+        } else {
+          let changesJSON = indexChunk > 1 ? ',[' : '[';
+          changesJSON += changes[0].change_data;
+          for (let i = 1; i < changes.length; ++i) {
+            changesJSON += ',';
+            changesJSON += changes[i].change_data;
+          }
+          changesJSON += ']\r\n';
+          buffer = Buffer.from(changesJSON, 'utf8');
+        }
         yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, cfgErrorFiles);
       }
       index += cfgMaxRequestChanges;
@@ -2808,7 +2821,7 @@ exports.install = function(server, callbackFunction) {
     // Стартовый индекс изменения при добавлении
     const startIndex = puckerIndex;
 
-    const newChanges = data.changes;
+    const newChanges = cfgEditor['binaryChanges'] ? data.changes : JSON.parse(data.changes);
     let newChangesLastDate = new Date();
     newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
     let newChangesLastTime = newChangesLastDate.getTime();
@@ -2819,7 +2832,8 @@ exports.install = function(server, callbackFunction) {
 
       for (let i = 0; i < newChanges.length; ++i) {
         oElement = newChanges[i];
-        arrNewDocumentChanges.push({docid: docId, change: oElement, time: newChangesLastDate,
+        let change = cfgEditor['binaryChanges'] ? oElement : JSON.stringify(oElement);
+        arrNewDocumentChanges.push({docid: docId, change: change, time: newChangesLastDate,
           user: userId, useridoriginal: conn.user.idOriginal});
       }
 
