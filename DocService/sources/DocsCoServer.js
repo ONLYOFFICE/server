@@ -1327,7 +1327,7 @@ exports.install = function(server, callbackFunction) {
         ctx.logger.info('io.use error: %s', err.stack);
       } finally {
         ctx.logger.info('io.use end');
-        next(checkJwtRes.decoded ? undefined : new Error("not authorized"));
+        next((checkJwtRes && !checkJwtRes.decoded) ? new Error("not authorized") : undefined);
       }
     });
   });
