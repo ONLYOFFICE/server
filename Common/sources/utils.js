@@ -1045,5 +1045,5 @@ exports.isUselesSfc = function(row, cmd) {
   return !(row && commonDefines.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info);
 };
 exports.getChangesFileHeader = function() {
-  return `CHANGES|${commonDefines.buildVersion};`;
+  return `CHANGES\t${commonDefines.buildVersion}\n`;
 };
