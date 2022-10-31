@@ -38,17 +38,27 @@ var sqlDataBaseType = {
 	postgreSql	: 'postgres'
 };
 
-var config = require('config').get('services.CoAuthoring.sql');
-var baseConnector = (sqlDataBaseType.mySql === config.get('type') || sqlDataBaseType.mariaDB === config.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
+var bottleneck = require("bottleneck");
+var config = require('config');
+var configSql = config.get('services.CoAuthoring.sql');
+var baseConnector = (sqlDataBaseType.mySql === configSql.get('type') || sqlDataBaseType.mariaDB === configSql.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
 let constants = require('./../../Common/sources/constants');
 
-const cfgTableResult = config.get('tableResult');
-const cfgTableChanges = config.get('tableChanges');
+const cfgTableResult = configSql.get('tableResult');
+const cfgTableChanges = configSql.get('tableChanges');
 
 var g_oCriticalSection = {};
 let isSupportFastInsert = !!baseConnector.insertChanges;
 let addSqlParam = baseConnector.addSqlParameter;
-var maxPacketSize = config.get('max_allowed_packet'); // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
+var maxPacketSize = configSql.get('max_allowed_packet'); // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
+const cfgBottleneckGetChanges = config.get('bottleneck.getChanges');
+
+let reservoirMaximum = cfgBottleneckGetChanges.reservoirIncreaseMaximum || cfgBottleneckGetChanges.reservoirRefreshAmount;
+let group = new bottleneck.Group(cfgBottleneckGetChanges);
+
+function getChangesSize(changes) {
+  return changes.reduce((accumulator, currentValue) => accumulator + currentValue.change_data.length, 0);
+}
 
 exports.baseConnector = baseConnector;
 exports.insertChangesPromiseCompatibility = function (ctx, objChanges, docId, index, user) {
@@ -178,37 +188,47 @@ exports.getChangesIndexPromise = function(ctx, docId) {
   });
 };
 exports.getChangesPromise = function (ctx, docId, optStartIndex, optEndIndex, opt_time) {
-  return new Promise(function(resolve, reject) {
-    let values = [];
-    let sqlParam = addSqlParam(ctx.tenant, values);
-    let sqlWhere = `tenant=${sqlParam}`;
-    sqlParam = addSqlParam(docId, values);
-    sqlWhere += ` AND id=${sqlParam}`;
-    if (null != optStartIndex) {
-      sqlParam = addSqlParam(optStartIndex, values);
-      sqlWhere += ` AND change_id>=${sqlParam}`;
-    }
-    if (null != optEndIndex) {
-      sqlParam = addSqlParam(optEndIndex, values);
-      sqlWhere += ` AND change_id<${sqlParam}`;
-    }
-    if (null != opt_time) {
-      if (!(opt_time instanceof Date)) {
-        opt_time = new Date(opt_time);
+  let limiter = group.key(`${ctx.tenant}\t${docId}\tchanges`);
+  return limiter.schedule(() => {
+    return new Promise(function(resolve, reject) {
+      let values = [];
+      let sqlParam = addSqlParam(ctx.tenant, values);
+      let sqlWhere = `tenant=${sqlParam}`;
+      sqlParam = addSqlParam(docId, values);
+      sqlWhere += ` AND id=${sqlParam}`;
+      if (null != optStartIndex) {
+        sqlParam = addSqlParam(optStartIndex, values);
+        sqlWhere += ` AND change_id>=${sqlParam}`;
       }
-      sqlParam = addSqlParam(opt_time, values);
-      sqlWhere += ` AND change_date<=${sqlParam}`;
-    }
-    sqlWhere += ' ORDER BY change_id ASC';
-    var sqlCommand = `SELECT * FROM ${cfgTableChanges} WHERE ${sqlWhere};`;
+      if (null != optEndIndex) {
+        sqlParam = addSqlParam(optEndIndex, values);
+        sqlWhere += ` AND change_id<${sqlParam}`;
+      }
+      if (null != opt_time) {
+        if (!(opt_time instanceof Date)) {
+          opt_time = new Date(opt_time);
+        }
+        sqlParam = addSqlParam(opt_time, values);
+        sqlWhere += ` AND change_date<=${sqlParam}`;
+      }
+      sqlWhere += ' ORDER BY change_id ASC';
+      var sqlCommand = `SELECT * FROM ${cfgTableChanges} WHERE ${sqlWhere};`;
 
-    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+      baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+        if (error) {
+          reject(error);
+        } else {
+          if (reservoirMaximum > 0) {
+            let size = Math.min(getChangesSize(result), reservoirMaximum);
+            let cur = limiter.incrementReservoir(-size).then((cur) => {
+              resolve(result);
+            });
+          } else {
+            resolve(result);
+          }
+        }
+      }, undefined, undefined, values);
+    });
   });
 };
 

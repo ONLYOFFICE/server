@@ -108,6 +108,11 @@
         }
       }
     },
+    "bottleneck": {
+      "version": "2.19.5",
+      "resolved": "https://registry.npmjs.org/bottleneck/-/bottleneck-2.19.5.tgz",
+      "integrity": "sha512-VHiNCbI1lKdl44tGrhNfU3lup0Tj/ZBMJB5/2ZbNXRCPuRCO7ed2mgcK4r17y+KB2EfuYuRaVlwNbAeaWGSpbw=="
+    },
     "buffer-equal-constant-time": {
       "version": "1.0.1",
       "resolved": "https://registry.npmjs.org/buffer-equal-constant-time/-/buffer-equal-constant-time-1.0.1.tgz",
