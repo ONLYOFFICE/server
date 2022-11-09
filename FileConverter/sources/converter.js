@@ -699,20 +699,20 @@ function* streamEnd(streamObj, text) {
   streamObj.writeStream.end(text, 'utf8');
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
-function* processUploadToStorage(ctx, dir, storagePath) {
+function* processUploadToStorage(ctx, dir, storagePath, opt_specialDirDst) {
   var list = yield utils.listObjects(dir);
   if (list.length < MAX_OPEN_FILES) {
-    yield* processUploadToStorageChunk(ctx, list, dir, storagePath);
+    yield* processUploadToStorageChunk(ctx, list, dir, storagePath, opt_specialDirDst);
   } else {
     for (var i = 0, j = list.length; i < j; i += MAX_OPEN_FILES) {
-      yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath);
+      yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath, opt_specialDirDst);
     }
   }
 }
-function* processUploadToStorageChunk(ctx, list, dir, storagePath) {
+function* processUploadToStorageChunk(ctx, list, dir, storagePath, opt_specialDirDst) {
   yield Promise.all(list.map(function (curValue) {
     let localValue = storagePath + '/' + curValue.substring(dir.length + 1);
-    return storage.uploadObject(ctx, localValue, curValue);
+    return storage.uploadObject(ctx, localValue, curValue, opt_specialDirDst);
   }));
 }
 function writeProcessOutputToLog(ctx, childRes, isDebug) {
