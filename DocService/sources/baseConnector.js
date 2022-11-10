@@ -221,6 +221,7 @@ exports.getChangesPromise = function (ctx, docId, optStartIndex, optEndIndex, op
           if (reservoirMaximum > 0) {
             let size = Math.min(getChangesSize(result), reservoirMaximum);
             let cur = limiter.incrementReservoir(-size).then((cur) => {
+              ctx.logger.debug("getChangesPromise bottleneck reservoir cur=%s", cur);
               resolve(result);
             });
           } else {
