@@ -283,7 +283,7 @@ function getTempDir() {
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
 function* isUselessConvertion(ctx, task, cmd) {
-  if (task.getFromChanges()) {
+  if (task.getFromChanges() && 'sfc' === cmd.getCommand()) {
     let selectRes = yield taskResult.select(ctx, cmd.getDocId());
     let row = selectRes.length > 0 ? selectRes[0] : null;
     if (utils.isUselesSfc(row, cmd)) {
