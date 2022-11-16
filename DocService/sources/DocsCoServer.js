@@ -1426,9 +1426,12 @@ exports.install = function(server, callbackFunction) {
             yield canvasService.openDocument(ctx, conn, cmd);
             break;
           }
-          case 'changesError':
-            ctx.logger.error("changesError: %s", data.stack);
-            if (cfgErrorFiles && docId) {
+          case 'clientLog':
+            let level = data.level?.toLowerCase();
+            if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
+              ctx.logger[level]("clientLog: %s", data.msg);
+            }
+            if ("error" === level && cfgErrorFiles && docId) {
               let destDir = 'browser/' + docId;
               yield storage.copyPath(ctx, docId, destDir, undefined, cfgErrorFiles);
               yield* saveErrorChanges(ctx, docId, destDir);
@@ -2168,6 +2171,7 @@ exports.install = function(server, callbackFunction) {
 
   function* auth(ctx, conn, data) {
     //TODO: Do authorization etc. check md5 or query db
+    ctx.logger.debug('auth time: %d', data.time);
     if (data.token && data.user) {
       ctx.setUserId(data.user.id);
       let licenseInfo = yield tenantManager.getTenantLicense(ctx);
