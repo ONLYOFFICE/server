@@ -1100,7 +1100,9 @@ let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
     yield wopiClient.unlock(ctx, getRes.wopiParams);
     let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
-    yield canvasService.commandOpenStartPromise(ctx, docId, undefined, true, unlockInfo);
+    if (unlockInfo) {
+      yield canvasService.commandOpenStartPromise(ctx, docId, undefined, true, unlockInfo);
+    }
   }
 });
 function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
@@ -2345,8 +2347,8 @@ exports.install = function(server, callbackFunction) {
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
-          if (!wopiParams.userAuth) {
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Wopi without userAuth');
+          if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, `invalid wopi callback (maybe postgres<9.5) ${JSON.stringify(wopiParams)}`);
             return;
           }
         }
@@ -3505,7 +3507,7 @@ exports.install = function(server, callbackFunction) {
             let callback = selectRes[0].callback;
             let callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, callback);
             let wopiParams = wopiClient.parseWopiCallback(ctx, callbackUrl, callback);
-            if (wopiParams) {
+            if (wopiParams && wopiParams.commonInfo) {
               yield wopiClient.lock(ctx, 'REFRESH_LOCK', wopiParams.commonInfo.lockId,
                                     wopiParams.commonInfo.fileInfo, wopiParams.userAuth);
             }

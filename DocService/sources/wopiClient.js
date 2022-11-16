@@ -235,6 +235,9 @@ function isWopiModifiedMarker(url) {
   }
 }
 function getWopiUnlockMarker(wopiParams) {
+  if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+    return;
+  }
   return JSON.stringify(Object.assign({unlockId: wopiParams.commonInfo.lockId}, wopiParams.userAuth));
 }
 function getWopiModifiedMarker(wopiParams, lastModifiedTime) {
@@ -265,10 +268,14 @@ function parseWopiCallback(ctx, userAuthStr, opt_url) {
       let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, opt_url, 1);
       if (isWopiCallback(commonInfoStr)) {
         commonInfo = JSON.parse(commonInfoStr);
-        lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
-        if (lastModifiedTime) {
-          let callbacks = sqlBase.UserCallback.prototype.getCallbacks(ctx, opt_url);
-          lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
+        if (commonInfo.fileInfo) {
+          lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
+          if (lastModifiedTime) {
+            let callbacks = sqlBase.UserCallback.prototype.getCallbacks(ctx, opt_url);
+            lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
+          }
+        } else {
+          commonInfo = null;
         }
       }
     }
@@ -488,7 +495,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
     let postRes = null;
     try {
       ctx.logger.info('wopi PutFile start');
-      if (!wopiParams.userAuth) {
+      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
         return postRes;
       }
       let fileInfo = wopiParams.commonInfo.fileInfo;
@@ -561,7 +568,7 @@ function renameFile(ctx, wopiParams, name) {
     let res = undefined;
     try {
       ctx.logger.info('wopi RenameFile start');
-      if (!wopiParams.userAuth) {
+      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
         return res;
       }
       let fileInfo = wopiParams.commonInfo.fileInfo;
@@ -665,11 +672,11 @@ function unlock(ctx, wopiParams) {
   return co(function* () {
     try {
       ctx.logger.info('wopi Unlock start');
+      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+        return;
+      }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       if (fileInfo && fileInfo.SupportsLocks) {
-        if (!wopiParams.userAuth) {
-          return;
-        }
         let wopiSrc = wopiParams.userAuth.wopiSrc;
         let lockId = wopiParams.commonInfo.lockId;
         let access_token = wopiParams.userAuth.access_token;

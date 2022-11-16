@@ -896,16 +896,17 @@ function* ExecuteTask(ctx, task) {
       if (wopiParams) {
         withAuthorization = false;
         filterPrivate = false;
-        let fileInfo = wopiParams.commonInfo.fileInfo;
+        let fileInfo = wopiParams.commonInfo?.fileInfo;
         let userAuth = wopiParams.userAuth;
-        fileSize = fileInfo.Size;
-        if (fileInfo.FileUrl) {
+        fileSize = fileInfo?.Size;
+        if (fileInfo?.FileUrl) {
+          //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
           url = fileInfo.FileUrl;
-        } else if (fileInfo.TemplateSource) {
+        } else if (fileInfo?.TemplateSource) {
           url = fileInfo.TemplateSource;
         } else if (userAuth) {
           url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
-          headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes, 'X-WOPI-ItemVersion': fileInfo.Version};
+          headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes};
           wopiClient.fillStandardHeaders(headers, url, userAuth.access_token);
         }
         ctx.logger.debug('wopi url=%s; headers=%j', url, headers);
