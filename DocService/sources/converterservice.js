@@ -455,14 +455,20 @@ function convertTo(req, res) {
       if (req.params.format) {
         format = req.params.format;
       }
+      let pdfVer = req.body['PDFVer'];
+      if (pdfVer && pdfVer.startsWith("PDF/A") && 'pdf' === format) {
+        format = 'pdfa';
+      }
+      let fullSheetPreview = req.body['FullSheetPreview'];
+      let lang = req.body['lang'];
       let outputFormat = formatChecker.getFormatFromString(format);
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
         ctx.logger.warn('convert-to unexpected format = %s', format);
         res.sendStatus(400);
         return;
       }
-      //todo https://github.com/CollaboraOnline/online/blob/4d6ca688f98d217866b9ea49113a356134dfba3a/wsd/COOLWSD.cpp
-      //req.body['options'], req.body['FullSheetPreview'], req.body['PDFVer']
+      //todo https://github.com/CollaboraOnline/online/blob/master/wsd/COOLWSD.cpp
+      //req.body['options']
 
       let docId, fileTo, status, originalname;
       if (req.file && req.file.originalname && req.file.buffer) {
@@ -488,6 +494,23 @@ function convertTo(req, res) {
         cmd.setSaveKey(docId);
         cmd.setFormat(filetype);
         cmd.setOutputFormat(outputFormat);
+        if (lang && locale[lang.toLowerCase()]) {
+          cmd.setLCID(locale[lang.toLowerCase()].id);
+        }
+        if (fullSheetPreview) {
+          cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': {
+            "ignorePrintArea": true,
+            "fitToWidth": 1,
+            "fitToHeight": 1
+          }}));
+        } else {
+          cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': {
+            "ignorePrintArea": true,
+            "fitToWidth": 0,
+            "fitToHeight": 0,
+            "scale": 100
+          }}));
+        }
 
         fileTo = constants.OUTPUT_NAME;
         let outputExt = formatChecker.getStringFromFormat(outputFormat);
