@@ -3401,6 +3401,7 @@ exports.install = function(server, callbackFunction) {
                 reason: constants.SESSION_ABSOLUTE_REASON
               });
             } else if (nowMs - conn.sessionTimeConnect > cfgExpSessionAbsolute) {
+              ctx.logger.debug('expireDoc close absolute session');
               conn.close(constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
               continue;
             }
@@ -3414,6 +3415,7 @@ exports.install = function(server, callbackFunction) {
                 interval: cfgExpSessionIdle
               });
             } else if (nowMs - conn.sessionTimeLastAction > cfgExpSessionIdle) {
+              ctx.logger.debug('expireDoc close idle session');
               conn.close(constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
               continue;
             }
