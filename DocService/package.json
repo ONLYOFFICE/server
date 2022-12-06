@@ -37,7 +37,8 @@
     "socket.io": "^4.5.2",
     "underscore": "^1.13.1",
     "utf7": "^1.0.2",
-    "windows-locale": "^1.0.1"
+    "windows-locale": "^1.0.1",
+    "xmlbuilder2": "^3.0.2"
   },
   "pkg": {
     "scripts": [

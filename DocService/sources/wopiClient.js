@@ -40,6 +40,7 @@ const jwt = require('jsonwebtoken');
 const config = require('config');
 const utf7 = require('utf7');
 const mimeDB = require('mime-db');
+const xmlbuilder2 = require('xmlbuilder2');
 const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
@@ -100,6 +101,7 @@ let mimeTypesByExt = (function() {
 function discovery(req, res) {
   return co(function*() {
     let output = '';
+    const xml = xmlbuilder2.create({version: '1.0', encoding: 'utf-8'});
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
@@ -119,7 +121,7 @@ function discovery(req, res) {
       templateEnd += `&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;`;
       templateEnd += `&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;`;
       let documentTypes = [`word`, `cell`, `slide`];
-      output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="${cfgWopiWopiZone}">`;
+      let xmlZone = xml.ele('wopi-discovery').ele('net-zone', { name: cfgWopiWopiZone });
       //start section for MS WOPI connectors
       for(let i = 0; i < names.length; ++i) {
         let name = names[i];
@@ -131,25 +133,25 @@ function discovery(req, res) {
         let urlTemplateView = `${templateStart}/${documentTypes[i]}/view?${templateEnd}`;
         let urlTemplateEmbedView = `${templateStart}/${documentTypes[i]}/view?embed=1${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
-        output +=`<app name="${name}" favIconUrl="${favIconUrl}">`;
+        let xmlApp = xmlZone.ele('app', {name: name, favIconUrl: favIconUrl});
         for (let j = 0; j < ext.view.length; ++j) {
-          output += `<action name="view" ext="${ext.view[j]}" urlsrc="${urlTemplateView}" />`;
-          output += `<action name="embedview" ext="${ext.view[j]}" urlsrc="${urlTemplateEmbedView}" />`;
+          xmlApp.ele('action', {name: 'view', ext: ext.view[j], urlsrc: urlTemplateView}).up();
+          xmlApp.ele('action', {name: 'embedview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
           if (-1 === cfgWopiPdfView.indexOf(ext.view[j])) {
             let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
-            output += `<action name="convert" ext="${ext.view[j]}" targetext="${ext.targetext}" requires="update" urlsrc="${urlConvert}" />`;
+            xmlApp.ele('action', {name: 'convert', ext: ext.view[j], targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
           }
         }
         for (let j = 0; j < ext.edit.length; ++j) {
-          output += `<action name="view" ext="${ext.edit[j]}" urlsrc="${urlTemplateView}" />`;
-          output += `<action name="embedview" ext="${ext.edit[j]}" urlsrc="${urlTemplateEmbedView}" />`;
+          xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
+          xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           if ("oform" !== ext.edit[j]) {
             //todo config
-            output += `<action name="editnew" ext="${ext.edit[j]}" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+            xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
-          output += `<action name="edit" ext="${ext.edit[j]}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+          xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
         }
-        output +=`</app>`;
+        xmlApp.up();
       }
       //end section for MS WOPI connectors
       //start section for collabora nexcloud connectors
@@ -162,14 +164,14 @@ function discovery(req, res) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
-              output += `<app name="${value}">`;
-              output += `<action name="view" ext="" default="true" urlsrc="${urlTemplateView}" />`;
-              output += `<action name="embedview" ext="" urlsrc="${urlTemplateEmbedView}" />`;
+              let xmlApp = xmlZone.ele('app', {name: value});
+              xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
+              xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
               if (-1 === cfgWopiPdfView.indexOf(ext.view[j])) {
                 let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
-                output += `<action name="convert" ext="" targetext="${ext.targetext}" requires="update" urlsrc="${urlConvert}" />`;
+                xmlApp.ele('action', {name: 'convert', ext: '', targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
               }
-              output += `</app>`;
+              xmlApp.up();
             });
           }
         }
@@ -177,29 +179,30 @@ function discovery(req, res) {
           let mimeTypes = mimeTypesByExt[ext.edit[j]];
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
-              output +=`<app name="${value}">`;
-              output += `<action name="edit" ext="" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
-              output +=`</app>`;
+              let xmlApp = xmlZone.ele('app', {name: value});
+              xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              xmlApp.up();
             });
           }
         }
       }
-      output += `<app name="Capabilities">`;
-      output += `<action ext="" name="getinfo" urlsrc="${baseUrl}/hosting/capabilities"/>`;
-      output += `</app>`;
+      let xmlApp = xmlZone.ele('app', {name: 'Capabilities'});
+      xmlApp.ele('action', {ext: '', name: 'getinfo', urlsrc: 'locks,update', urlsrc: `${baseUrl}/hosting/capabilities`}).up();
+      xmlApp.up();
       //end section for collabora nexcloud connectors
-      let proofKey = ``;
+      let xmlDiscovery = xmlZone.up();
       if (cfgWopiPublicKeyOld && cfgWopiPublicKey) {
-        proofKey += `<proof-key oldvalue="${cfgWopiPublicKeyOld}" oldmodulus="${cfgWopiModulusOld}" `;
-        proofKey += `oldexponent="${cfgWopiExponentOld}" value="${cfgWopiPublicKey}" modulus="${cfgWopiModulus}" `;
-        proofKey += `exponent="${cfgWopiExponent}"/>`;
+        xmlDiscovery.ele('proof-key', {
+          oldvalue: cfgWopiPublicKeyOld, oldmodulus: cfgWopiModulusOld, oldexponent: cfgWopiExponentOld,
+          value: cfgWopiPublicKey, modulus: cfgWopiModulus, exponent: cfgWopiExponent
+        }).up();
       }
-      output += `</net-zone>${proofKey}</wopi-discovery>`;
+      xmlDiscovery.up();
     } catch (err) {
       ctx.logger.error('wopiDiscovery error:%s', err.stack);
     } finally {
       res.setHeader('Content-Type', 'text/xml');
-      res.send(output);
+      res.send(xml.end());
       ctx.logger.info('wopiDiscovery end');
     }
   });
