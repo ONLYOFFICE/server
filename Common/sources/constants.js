@@ -49,6 +49,7 @@ exports.CHANGES_NAME = 'changes';
 exports.VIEWER_ONLY = /^(?:(pdf|djvu|xps|oxps))$/;
 exports.DEFAULT_DOC_ID = 'docId';
 exports.DEFAULT_USER_ID = 'userId';
+exports.ALLOWED_PROTO = /^https?$/i;
 
 exports.RIGHTS = {
   None    : 0,

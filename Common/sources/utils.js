@@ -669,9 +669,9 @@ function getDomain(hostHeader, forwardedHostHeader) {
 };
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
-  if (forwardedProtoHeader) {
+  if (forwardedProtoHeader && constants.ALLOWED_PROTO.test(forwardedProtoHeader)) {
     url += forwardedProtoHeader;
-  } else if (protocol) {
+  } else if (protocol && constants.ALLOWED_PROTO.test(protocol)) {
     url += protocol;
   } else {
     url += 'http';
