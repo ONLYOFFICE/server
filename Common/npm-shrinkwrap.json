@@ -228,9 +228,9 @@
       "integrity": "sha512-7P3FyqDcfeznLZp2b+OMitV9Sz2lUnsT87WaTat9nVwqsBkTzPG3lPLNwW3en6F4pHUiWzr6vb8CLhjdK9bcxQ=="
     },
     "debug": {
-      "version": "3.2.6",
-      "resolved": "https://registry.npmjs.org/debug/-/debug-3.2.6.tgz",
-      "integrity": "sha512-mel+jf7nrtEl5Pn1Qx46zARXKDpBbvzezse7p7LqINmdoIk8PYP5SySaxEmYv6TZ0JyEKA1hsCId6DIhgITtWQ==",
+      "version": "3.2.7",
+      "resolved": "https://registry.npmjs.org/debug/-/debug-3.2.7.tgz",
+      "integrity": "sha512-CFjzYYAi4ThfiQvizrFQevTTXHtnCqWfe7x1AhgEscTz6ZbLbfoLRLPugTQyBth6f8ZERVUSyWHFD/7Wu4t1XQ==",
       "requires": {
         "ms": "^2.1.1"
       }
@@ -782,9 +782,9 @@
       "integrity": "sha512-V2hovdzFbOi77/WajaSMXk2OLm+xNIeQdMMuB7icj7bk6zi2F8GGAxigcnDFpJHbNyNcgyJDiP+8nOrY5cZGrA=="
     },
     "rhea": {
-      "version": "0.3.9",
-      "resolved": "https://registry.npmjs.org/rhea/-/rhea-0.3.9.tgz",
-      "integrity": "sha512-16mqaARtj9ZgiYmD5F9uwcgvy5pOB64mWIbkBgrje4zEByIBjHdYB25EyeWb3baiI9OYAYMWb2rnqBfyv5weOg==",
+      "version": "1.0.24",
+      "resolved": "https://registry.npmjs.org/rhea/-/rhea-1.0.24.tgz",
+      "integrity": "sha512-PEl62U2EhxCO5wMUZ2/bCBcXAVKN9AdMSNQOrp3+R5b77TEaOSiy16MQ0sIOmzj/iqsgIAgPs1mt3FYfu1vIXA==",
       "requires": {
         "debug": "0.8.0 - 3.5.0"
       }
