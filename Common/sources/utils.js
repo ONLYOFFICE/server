@@ -685,10 +685,12 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
 }
 function getBaseUrlByConnection(conn) {
   conn = conn.request;
-  return getBaseUrl('', conn.headers['host'], conn.headers['x-forwarded-proto'], conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
+  let proto = conn.headers['x-forwarded-proto'] || conn.headers['cloudfront-forwarded-proto'];
+  return getBaseUrl('', conn.headers['host'], proto, conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
 }
 function getBaseUrlByRequest(req) {
-  return getBaseUrl(req.protocol, req.get('host'), req.get('x-forwarded-proto'), req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
+  let proto = req.get('x-forwarded-proto') || req.get('cloudfront-forwarded-proto');
+  return getBaseUrl(req.protocol, req.get('host'), proto, req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
