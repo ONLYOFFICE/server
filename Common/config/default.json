@@ -174,7 +174,8 @@
 				"charset": "utf8",
 				"connectionlimit": 10,
 				"max_allowed_packet": 1048575,
-				"pgPoolExtraOptions": {}
+				"pgPoolExtraOptions": {},
+				"damengExtraOptions": {}
 			},
 			"redis": {
 				"name": "redis",
