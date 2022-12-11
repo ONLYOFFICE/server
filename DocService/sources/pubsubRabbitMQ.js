@@ -92,9 +92,24 @@ function initActive(pubsub, callback) {
         }
       });
       pubsub.connection = conn;
-      pubsub.channelPublish = yield activeMQCore.openSenderPromise(conn, cfgActiveTopicPubSub);
+      //https://github.com/amqp/rhea/issues/251#issuecomment-535076570
+      let optionsPubSubSender = {
+        target: {
+          address: cfgActiveTopicPubSub,
+          capabilities: ['topic']
+        }
+      };
+      pubsub.channelPublish = yield activeMQCore.openSenderPromise(conn, optionsPubSubSender);
 
-      let receiver = yield activeMQCore.openReceiverPromise(conn, cfgActiveTopicPubSub, false);
+      let optionsPubSubReceiver = {
+        source: {
+          address: cfgActiveTopicPubSub,
+          capabilities: ['topic']
+        },
+        credit_window: 0,
+        autoaccept: false
+      };
+      let receiver = yield activeMQCore.openReceiverPromise(conn, optionsPubSubReceiver);
       //todo ?consumer.dispatchAsync=false&consumer.prefetchSize=1
       receiver.add_credit(1);
       receiver.on("message", function(context) {
