@@ -45,19 +45,15 @@ const cfgConnectionlimit = config.get('services.CoAuthoring.sql.connectionlimit'
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
 var cfgDamengExtraOptions = config.get('services.CoAuthoring.sql.damengExtraOptions');
 
-var pool = null;
+let pool = null;
 let connectString = `dm://${cfgDbUser}:${cfgDbPass}@${cfgDbHost}:${cfgDbPort}`;
 let connectionConfig = {
   connectString: connectString,
   poolMax: cfgConnectionlimit,
   poolMin: 0,
-  localTimezone: 0//todo check utc timezone
+  localTimezone: 0
 };
 config.util.extendDeep(connectionConfig, cfgDamengExtraOptions);
-//todo create promise interface for other DB
-db.createPool(connectionConfig).then(function(_pool) {
-  pool = _pool;
-});
 
 function readLob(lob) {
   return new Promise(function(resolve, reject) {
@@ -97,17 +93,30 @@ function formatResult(result) {
     return res;
   });
 }
-exports.sqlQuery = function (ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
-  co(function *() {
-    ctx.logger.warn('sqlCommand: %s', sqlCommand);
-    ctx.logger.warn(`sqlCommand: %j`, opt_values);
-
+exports.sqlQuery = function(ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
+  return co(function *() {
     var result = null;
+    var output = null;
     var error = null;
-	let conn;
     try {
-      conn = yield pool.getConnection();
+      if (!pool) {
+        pool = yield db.createPool(connectionConfig);
+      }
+      let conn = yield pool.getConnection();
       result = yield conn.execute(sqlCommand, opt_values, {resultSet: false});
+      if (conn) {
+        yield conn.close();
+      }
+      output = result;
+      if (!opt_noModifyRes) {
+        if (result?.rows) {
+          output = yield formatResult(result);
+        } else if (result?.rowsAffected) {
+          output = {affectedRows: result.rowsAffected};
+        } else {
+          output = {rows: [], affectedRows: 0};
+        }
+      }
     } catch (err) {
       error = err;
       if (!opt_noLog) {
@@ -115,19 +124,6 @@ exports.sqlQuery = function (ctx, sqlCommand, callbackFunction, opt_noModifyRes,
       }
     } finally {
       if (callbackFunction) {
-		  if (conn) {
-			  yield conn.close();
-		  }
-        var output = result;
-        if(!opt_noModifyRes) {
-          if (result?.rows) {
-            output = yield formatResult(result);
-          } else if(result?.rowsAffected){
-            output = {affectedRows: result.rowsAffected};
-          } else {
-            output = {rows: [], affectedRows: 0};
-          }
-        }
         callbackFunction(error, output);
       }
     }
