@@ -1443,12 +1443,6 @@ exports.install = function(server, callbackFunction) {
             conn.sessionIsSendWarning = false;
             conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
             break;
-          case 'clientLog':
-            let level = data.level?.toLowerCase();
-            if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
-              ctx.logger[level]("clientLog: %s", data.msg);
-            }
-            break;
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
