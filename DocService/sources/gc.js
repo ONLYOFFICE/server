@@ -120,7 +120,7 @@ var checkDocumentExpire = function() {
           let docId = expiredKeys[i][1];
           if (docId) {
             ctx.init(tenant, docId, ctx.userId);
-            var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
+            var hasChanges = yield docsCoServer.isNeedDocumentAssembly(ctx, docId);
             if (hasChanges) {
               yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
               startSaveCount++;

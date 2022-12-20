@@ -748,17 +748,25 @@ function* getChangesIndex(ctx, docId) {
   return res;
 }
 
-const hasChanges = co.wrap(function*(ctx, docId) {
+const isNeedDocumentAssembly = co.wrap(function*(ctx, docId) {
   //todo check editorData.getForceSave in case of "undo all changes"
-  let puckerIndex = yield* getChangesIndex(ctx, docId);
-  if (0 === puckerIndex) {
-    let selectRes = yield taskResult.select(ctx, docId);
-    if (selectRes.length > 0 && selectRes[0].password) {
-      return sqlBase.DocumentPassword.prototype.hasPasswordChanges(ctx, selectRes[0].password);
-    }
-    return false;
+  let selectRes = yield taskResult.select(ctx, docId);
+  let row = selectRes[0];
+  if (!row) {
+    return false
   }
-  return true;
+  let puckerIndex = yield* getChangesIndex(ctx, docId);
+  let hasChanges = puckerIndex > 0;
+  let hasPasswordChanges = sqlBase.DocumentPassword.prototype.hasPasswordChanges(ctx, row.password);
+  let isFormEditing = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === row.change_id;
+  let needDocumentAssembly;
+  if (hasChanges) {
+    //oform assembles in browser
+    return !isFormEditing;
+  } else {
+    //password changes in task_result
+    return hasPasswordChanges;
+  }
 });
 function* setForceSave(ctx, docId, forceSave, cmd, success) {
   let forceSaveType = forceSave.getType();
@@ -951,7 +959,7 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
   var status = c_oAscServerStatus.Editing;
   var participants = yield* getOriginalParticipantsId(ctx, docId);
   if (0 === participants.length) {
-    let bHasChanges = yield hasChanges(ctx, docId);
+    let bHasChanges = yield isNeedDocumentAssembly(ctx, docId);
     if (!bHasChanges || opt_forceClose) {
       status = c_oAscServerStatus.Closed;
     }
@@ -1269,7 +1277,7 @@ exports.hasEditors = hasEditors;
 exports.getEditorsCountPromise = co.wrap(getEditorsCount);
 exports.getCallback = getCallback;
 exports.getIsShutdown = getIsShutdown;
-exports.hasChanges = hasChanges;
+exports.isNeedDocumentAssembly = isNeedDocumentAssembly;
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
 exports.unlockWopiDoc = unlockWopiDoc;
@@ -1499,7 +1507,7 @@ exports.install = function(server, callbackFunction) {
    * @param reason - the reason of the disconnection (either client or server-side)
    */
   function* closeDocument(ctx, conn, reason) {
-    var userLocks, reconnected = false, bHasEditors, bHasChanges;
+    var userLocks, reconnected = false, bHasEditors, needDocumentAssembly;
     var docId = conn.docId;
     if (null == docId) {
       return;
@@ -1561,10 +1569,12 @@ exports.install = function(server, callbackFunction) {
       // Только если редактируем
       if (false === isView) {
         bHasEditors = yield* hasEditors(ctx, docId, hvals);
-        bHasChanges = yield hasChanges(ctx, docId);
+        needDocumentAssembly = yield isNeedDocumentAssembly(ctx, docId);
 
         let needSendStatus = true;
         if (conn.encrypted) {
+          //todo forgotten
+          needDocumentAssembly = false;
           let selectRes = yield taskResult.select(ctx, docId);
           if (selectRes.length > 0) {
             var row = selectRes[0];
@@ -1591,15 +1601,14 @@ exports.install = function(server, callbackFunction) {
           // На всякий случай снимаем lock
           yield editorData.unlockSave(ctx, docId, tmpUser.id);
 
-          let needSaveChanges = bHasChanges;
-          if (!needSaveChanges) {
+          if (!needDocumentAssembly) {
             //start save changes if forgotten file exists.
             //more effective to send file without sfc, but this method is simpler by code
             let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
-            needSaveChanges = forgotten.length > 0;
-            ctx.logger.debug('closeDocument hasForgotten %s', needSaveChanges);
+            needDocumentAssembly = forgotten.length > 0;
+            ctx.logger.debug('closeDocument hasForgotten %s', needDocumentAssembly);
           }
-          if (needSaveChanges && !conn.encrypted) {
+          if (needDocumentAssembly) {
             // Send changes to save server
             yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex);
           } else if (needSendStatus) {
