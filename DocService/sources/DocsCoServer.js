@@ -1417,6 +1417,12 @@ exports.install = function(server, callbackFunction) {
             conn.sessionIsSendWarning = false;
             conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
             break;
+          case 'clientLog':
+            let level = data.level?.toLowerCase();
+            if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
+              ctx.logger[level]("clientLog: %s", data.msg);
+            }
+            break;
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
@@ -3395,6 +3401,7 @@ exports.install = function(server, callbackFunction) {
                 reason: constants.SESSION_ABSOLUTE_REASON
               });
             } else if (nowMs - conn.sessionTimeConnect > cfgExpSessionAbsolute) {
+              ctx.logger.debug('expireDoc close absolute session');
               conn.close(constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
               continue;
             }
@@ -3408,6 +3415,7 @@ exports.install = function(server, callbackFunction) {
                 interval: cfgExpSessionIdle
               });
             } else if (nowMs - conn.sessionTimeLastAction > cfgExpSessionIdle) {
+              ctx.logger.debug('expireDoc close idle session');
               conn.close(constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
               continue;
             }
