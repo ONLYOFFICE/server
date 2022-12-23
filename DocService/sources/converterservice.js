@@ -408,7 +408,7 @@ function builderRequest(req, res) {
         }
         let cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
-        cmd.setIsBuilder(true);
+        cmd.setBuilderParams({argument: params.argument});
         cmd.setWithAuthorization(true);
         cmd.setDocId(docId);
         if (params.url) {

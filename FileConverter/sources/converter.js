@@ -799,7 +799,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
   return queueData;
 }
 
-function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task) {
+function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task) {
   let childRes, isTimeout = false;
   let childArgs;
   if (cfgArgs.length > 0) {
@@ -808,7 +808,7 @@ function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTa
     childArgs = [];
   }
   let processPath;
-  if (!isBuilder) {
+  if (!builderParams) {
     processPath = cfgX2tPath;
     let paramsFile = path.join(tempDirs.temp, 'params.xml');
     dataConvert.serialize(paramsFile);
@@ -822,6 +822,9 @@ function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTa
     processPath = cfgDocbuilderPath;
     childArgs.push('--check-fonts=0');
     childArgs.push('--save-use-only-names=' + tempDirs.result + '/output');
+    if (builderParams.argument) {
+      childArgs.push(`--argument=${JSON.stringify(builderParams.argument)}`);
+    }
     childArgs.push(dataConvert.fileFrom);
   }
   let timeoutId;
@@ -878,7 +881,7 @@ function* ExecuteTask(ctx, task) {
   tempDirs = getTempDir();
   let fileTo = task.getToFile();
   dataConvert.fileTo = fileTo ? path.join(tempDirs.result, fileTo) : '';
-  let isBuilder = cmd.getIsBuilder();
+  let builderParams = cmd.getBuilderParams();
   let authorProps = {lastModifiedBy: null, modified: null};
   error = yield* isUselessConvertion(ctx, task, cmd);
   if (constants.NO_ERROR !== error) {
@@ -944,7 +947,7 @@ function* ExecuteTask(ctx, task) {
     } else {
       error = constants.UNKNOWN;
     }
-  } else if (isBuilder) {
+  } else if (builderParams) {
     //in cause script in POST body
     yield* downloadFileFromStorage(ctx, cmd.getDocId(), tempDirs.source);
     ctx.logger.debug('downloadFileFromStorage complete');
@@ -958,7 +961,7 @@ function* ExecuteTask(ctx, task) {
   let childRes = null;
   let isTimeout = false;
   if (constants.NO_ERROR === error) {
-    ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
+    ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task));
     if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
       && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
       && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
@@ -967,7 +970,7 @@ function* ExecuteTask(ctx, task) {
       let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
       dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
       dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
-      ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
+      ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task));
     }
     if(clientStatsD) {
       clientStatsD.timing('conv.spawnSync', new Date() - curDate);
