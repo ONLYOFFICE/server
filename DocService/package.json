@@ -21,7 +21,7 @@
     "ejs": "~2.5.1",
     "express": "^4.17.1",
     "fakeredis": "^2.0.0",
-    "jsonwebtoken": "^8.3.0",
+    "jsonwebtoken": "^9.0.0",
     "jwa": "^1.1.6",
     "mime": "^2.3.1",
     "mime-db": "^1.49.0",
