@@ -1317,6 +1317,7 @@ exports.install = function(server, callbackFunction) {
   io.use((socket, next) => {
     co(function*(){
       let ctx = new operationContext.Context();
+      let res;
       let checkJwtRes;
       try {
         ctx.initFromConnection(socket);
@@ -1324,12 +1325,16 @@ exports.install = function(server, callbackFunction) {
         let handshake = socket.handshake;
         if (cfgTokenEnableBrowser) {
           checkJwtRes = yield checkJwt(ctx, handshake?.auth?.token, commonDefines.c_oAscSecretType.Browser);
+          if (!checkJwtRes.decoded) {
+            res = new Error("not authorized");
+            res.data = { code: checkJwtRes.code, description: checkJwtRes.description };
+          }
         }
       } catch (err) {
-        ctx.logger.info('io.use error: %s', err.stack);
+        ctx.logger.error('io.use error: %s', err.stack);
       } finally {
         ctx.logger.info('io.use end');
-        next((checkJwtRes && !checkJwtRes.decoded) ? new Error("not authorized") : undefined);
+        next(res);
       }
     });
   });
