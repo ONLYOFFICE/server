@@ -536,6 +536,13 @@ function sendDataRefreshToken(ctx, conn, msg) {
 function sendDataRpc(ctx, conn, responseKey, data) {
   sendData(ctx, conn, {type: "rpc", responseKey: responseKey, data: data});
 }
+function sendDataDrop(ctx, conn, code, description) {
+  sendData(ctx, conn, {type: "drop", code: code, description: description});
+}
+function sendDataDisconnectReason(ctx, conn, code, description) {
+  sendData(ctx, conn, {type: "disconnectReason", code: code, description: description});
+}
+
 function sendReleaseLock(ctx, conn, userLocks) {
   sendData(ctx, conn, {type: "releaseLock", locks: _.map(userLocks, function(e) {
     return {
@@ -1029,14 +1036,15 @@ function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, des
                    });
   }
 }
-function closeUsersConnection(docId, usersMap, isOriginalId, code, description) {
+function closeUsersConnection(ctx, docId, usersMap, isOriginalId, code, description) {
   //close
   let conn;
   for (let i = connections.length - 1; i >= 0; --i) {
     conn = connections[i];
     if (conn.docId === docId) {
       if (isOriginalId ? usersMap[conn.user.idOriginal] : usersMap[conn.user.id]) {
-        conn.disconnect(code, description);
+        sendDataDisconnectReason(ctx, conn, code, description);
+        conn.disconnect(true);
       }
     }
   }
@@ -1052,11 +1060,7 @@ function dropUserFromDocument(ctx, docId, userId, description) {
   for (var i = 0, length = connections.length; i < length; ++i) {
     elConnection = connections[i];
     if (elConnection.docId === docId && userId === elConnection.user.idOriginal && !elConnection.isCloseCoAuthoring) {
-      sendData(ctx, elConnection,
-        {
-          type: "drop",
-          description: description
-        });//Or 0 if fails
+      sendDataDrop(ctx, elConnection, description);
     }
   }
 }
@@ -1375,13 +1379,15 @@ exports.install = function(server, callbackFunction) {
         if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
             'isSaveLock' == data.type)) {
           ctx.logger.warn("conn.isCiriticalError send command: type = %s", data.type);
-          conn.disconnect(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          conn.disconnect(true);
           return;
         }
         if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
             ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
           ctx.logger.warn("conn.user.view||isCloseCoAuthoring access deny: type = %s", data.type);
-          conn.disconnect(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          conn.disconnect(true);
           return;
         }
         yield encryptPasswordParams(ctx, data);
@@ -1391,7 +1397,8 @@ exports.install = function(server, callbackFunction) {
               yield* auth(ctx, conn, data);
             } catch(err){
               ctx.logger.error('auth error: %s', err.stack);
-              conn.disconnect(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+              conn.disconnect(true);
               return;
             }
             break;
@@ -2202,7 +2209,8 @@ exports.install = function(server, callbackFunction) {
               fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
             } else if (cfgTokenRequiredParams) {
               ctx.logger.error("auth missing required parameter %s (since 7.1 version)", validationErr);
-              conn.disconnect(constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              conn.disconnect(true);
               return;
             } else {
               ctx.logger.warn("auth missing required parameter %s (since 7.1 version)", validationErr);
@@ -2211,11 +2219,13 @@ exports.install = function(server, callbackFunction) {
           }
           if(!fillDataFromJwtRes) {
             ctx.logger.warn("fillDataFromJwt return false");
-            conn.disconnect(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+            sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+            conn.disconnect(true);
             return;
           }
         } else {
-          conn.disconnect(checkJwtRes.code, checkJwtRes.description);
+          sendDataDisconnectReason(ctx, conn, checkJwtRes.code, checkJwtRes.description);
+          conn.disconnect(true);
           return;
         }
       }
@@ -2244,7 +2254,8 @@ exports.install = function(server, callbackFunction) {
           let filterStatus = yield* utils.checkHostFilter(ctx, documentCallback.hostname);
           if (0 !== filterStatus) {
             ctx.logger.warn('checkIpFilter error: url = %s', data.documentCallbackUrl);
-            conn.disconnect(constants.DROP_CODE, constants.DROP_REASON);
+            sendDataDisconnectReason(ctx, conn, constants.DROP_CODE, constants.DROP_REASON);
+            conn.disconnect(true);
             return;
           }
         }
@@ -3208,7 +3219,7 @@ exports.install = function(server, callbackFunction) {
             }
             break;
           case commonDefines.c_oPublishType.closeConnection:
-            closeUsersConnection(data.docId, data.usersMap, data.isOriginalId, data.code, data.description);
+            closeUsersConnection(ctx, data.docId, data.usersMap, data.isOriginalId, data.code, data.description);
             break;
           case commonDefines.c_oPublishType.releaseLock:
             participants = getParticipants(data.docId, true, data.userId, true);
@@ -3434,7 +3445,9 @@ exports.install = function(server, callbackFunction) {
               });
             } else if (nowMs - conn.sessionTimeConnect > cfgExpSessionAbsolute) {
               ctx.logger.debug('expireDoc close absolute session');
-              conn.disconnect(constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);              continue;
+              sendDataDisconnectReason(ctx, conn, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
+              conn.disconnect(true);
+              continue;
             }
           }
           if (cfgExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
@@ -3447,7 +3460,9 @@ exports.install = function(server, callbackFunction) {
               });
             } else if (nowMs - conn.sessionTimeLastAction > cfgExpSessionIdle) {
               ctx.logger.debug('expireDoc close idle session');
-              conn.disconnect(constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);              continue;
+              sendDataDisconnectReason(ctx, conn, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
+              conn.disconnect(true);
+              continue;
             }
           }
           if (constants.CONN_CLOSED === conn.conn.readyState) {
