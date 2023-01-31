@@ -669,9 +669,9 @@ function getDomain(hostHeader, forwardedHostHeader) {
 };
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
-  if (forwardedProtoHeader) {
+  if (forwardedProtoHeader && constants.ALLOWED_PROTO.test(forwardedProtoHeader)) {
     url += forwardedProtoHeader;
-  } else if (protocol) {
+  } else if (protocol && constants.ALLOWED_PROTO.test(protocol)) {
     url += protocol;
   } else {
     url += 'http';
@@ -684,16 +684,22 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
   return url;
 }
 function getBaseUrlByConnection(conn) {
-  return getBaseUrl('', conn.headers['host'], conn.headers['x-forwarded-proto'], conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
+  conn = conn.request;
+  //Header names are lower-cased. https://nodejs.org/api/http.html#messageheaders
+  let proto = conn.headers['x-forwarded-proto'] || conn.headers['cloudfront-forwarded-proto'];
+  return getBaseUrl('', conn.headers['host'], proto, conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
 }
 function getBaseUrlByRequest(req) {
-  return getBaseUrl(req.protocol, req.get('host'), req.get('x-forwarded-proto'), req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
+  //case-insensitive match. https://expressjs.com/en/api.html#req.get
+  let proto = req.get('x-forwarded-proto') || req.get('cloudfront-forwarded-proto');
+  return getBaseUrl(req.protocol, req.get('host'), proto, req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
 function getDomainByConnection(ctx, conn) {
-  let host = conn.headers['host'];
-  let forwardedHost = conn.headers['x-forwarded-host'];
+  let incomingMessage = conn.request;
+  let host = incomingMessage.headers['host'];
+  let forwardedHost = incomingMessage.headers['x-forwarded-host'];
   ctx.logger.debug("getDomainByConnection headers['host']=%s headers['x-forwarded-host']=%s", host, forwardedHost);
   return getDomain(host, forwardedHost);
 }
@@ -1038,4 +1044,10 @@ exports.getFunctionArguments = function(func) {
     slice(1, 3).
     join('').
     split(/\s*,\s*/);
+};
+exports.isUselesSfc = function(row, cmd) {
+  return !(row && commonDefines.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info);
+};
+exports.getChangesFileHeader = function() {
+  return `CHANGES\t${commonDefines.buildVersion}\n`;
 };

@@ -53,7 +53,8 @@ Context.prototype.initFromConnection = function(conn) {
   let tenant = tenantManager.getTenantByConnection(this, conn);
   let docId = conn.docid;
   if (!docId) {
-    const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(conn.url);
+    let handshake = conn.handshake;
+    const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(handshake.url);
     if (docIdParsed && 1 < docIdParsed.length) {
       docId = docIdParsed[1];
     }

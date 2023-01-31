@@ -72,7 +72,7 @@
 
 'use strict';
 
-const sockjs = require('sockjs');
+const { Server } = require("socket.io");
 const _ = require('underscore');
 const url = require('url');
 const os = require('os');
@@ -130,7 +130,6 @@ const cfgExpSessionIdle = ms(config.get('expire.sessionidle'));
 const cfgExpSessionAbsolute = ms(config.get('expire.sessionabsolute'));
 const cfgExpSessionCloseCommand = ms(config.get('expire.sessionclosecommand'));
 const cfgExpUpdateVersionStatus = ms(config.get('expire.updateVersionStatus'));
-const cfgSockjs = config.get('sockjs');
 const cfgTokenEnableBrowser = config.get('token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('token.enable.request.inbox');
 const cfgTokenSessionAlgorithm = config.get('token.session.algorithm');
@@ -150,6 +149,8 @@ const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('server.openProtectedFile');
 const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
 const cfgTokenRequiredParams = config.get('server.tokenRequiredParams');
+const cfgSocketIoConnection = configCommon.get('services.CoAuthoring.socketio.connection');
+const cfgTableResult = configCommon.get('services.CoAuthoring.sql.tableResult');
 
 const EditorTypes = {
   document : 0,
@@ -506,7 +507,7 @@ function fillJwtByConnection(ctx, conn) {
 }
 
 function sendData(ctx, conn, data) {
-  conn.write(JSON.stringify(data));
+  conn.emit('message', data);
   const type = data ? data.type : null;
   ctx.logger.debug('sendData: type = %s', type);
 }
@@ -535,6 +536,13 @@ function sendDataRefreshToken(ctx, conn, msg) {
 function sendDataRpc(ctx, conn, responseKey, data) {
   sendData(ctx, conn, {type: "rpc", responseKey: responseKey, data: data});
 }
+function sendDataDrop(ctx, conn, code, description) {
+  sendData(ctx, conn, {type: "drop", code: code, description: description});
+}
+function sendDataDisconnectReason(ctx, conn, code, description) {
+  sendData(ctx, conn, {type: "disconnectReason", code: code, description: description});
+}
+
 function sendReleaseLock(ctx, conn, userLocks) {
   sendData(ctx, conn, {type: "releaseLock", locks: _.map(userLocks, function(e) {
     return {
@@ -1028,13 +1036,15 @@ function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, des
                    });
   }
 }
-function closeUsersConnection(docId, usersMap, isOriginalId, code, description) {
-  let elConnection;
+function closeUsersConnection(ctx, docId, usersMap, isOriginalId, code, description) {
+  //close
+  let conn;
   for (let i = connections.length - 1; i >= 0; --i) {
-    elConnection = connections[i];
-    if (elConnection.docId === docId) {
-      if (isOriginalId ? usersMap[elConnection.user.idOriginal] : usersMap[elConnection.user.id]) {
-        elConnection.close(code, description);
+    conn = connections[i];
+    if (conn.docId === docId) {
+      if (isOriginalId ? usersMap[conn.user.idOriginal] : usersMap[conn.user.id]) {
+        sendDataDisconnectReason(ctx, conn, code, description);
+        conn.disconnect(true);
       }
     }
   }
@@ -1050,11 +1060,7 @@ function dropUserFromDocument(ctx, docId, userId, description) {
   for (var i = 0, length = connections.length; i < length; ++i) {
     elConnection = connections[i];
     if (elConnection.docId === docId && userId === elConnection.user.idOriginal && !elConnection.isCloseCoAuthoring) {
-      sendData(ctx, elConnection,
-        {
-          type: "drop",
-          description: description
-        });//Or 0 if fails
+      sendDataDrop(ctx, elConnection, description);
     }
   }
 }
@@ -1098,7 +1104,9 @@ let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
     yield wopiClient.unlock(ctx, getRes.wopiParams);
     let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
-    yield canvasService.commandOpenStartPromise(ctx, docId, undefined, true, unlockInfo);
+    if (unlockInfo) {
+      yield canvasService.commandOpenStartPromise(ctx, docId, undefined, true, unlockInfo);
+    }
   }
 });
 function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
@@ -1106,7 +1114,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
   yield editorData.cleanDocumentOnExit(ctx, docId);
   //remove changes
   if (deleteChanges) {
-    yield taskResult.restoreInitialPassword(ctx.tenant, docId);
+    yield taskResult.restoreInitialPassword(ctx, docId);
     sqlBase.deleteChanges(ctx, docId, null);
     //delete forgotten after successful send on callbackUrl
     yield storage.deletePath(ctx, docId, cfgForgottenFiles);
@@ -1127,9 +1135,9 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
     var updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = docId;
-    updateMask.status = taskResult.FileStatus.Ok;
+    updateMask.status = commonDefines.FileStatus.Ok;
     var updateTask = new taskResult.TaskResultData();
-    updateTask.status = taskResult.FileStatus.SaveVersion;
+    updateTask.status = commonDefines.FileStatus.SaveVersion;
     updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
     var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
     if (updateIfRes.affectedRows > 0) {
@@ -1308,9 +1316,34 @@ function encryptPasswordParams(ctx, data) {
 }
 exports.encryptPasswordParams = encryptPasswordParams;
 exports.install = function(server, callbackFunction) {
-  var sockjs_echo = sockjs.createServer(cfgSockjs);
+  const io = new Server(server, cfgSocketIoConnection);
 
-  sockjs_echo.on('connection', function(conn) {
+  io.use((socket, next) => {
+    co(function*(){
+      let ctx = new operationContext.Context();
+      let res;
+      let checkJwtRes;
+      try {
+        ctx.initFromConnection(socket);
+        ctx.logger.info('io.use start');
+        let handshake = socket.handshake;
+        if (cfgTokenEnableBrowser) {
+          checkJwtRes = yield checkJwt(ctx, handshake?.auth?.token, commonDefines.c_oAscSecretType.Browser);
+          if (!checkJwtRes.decoded) {
+            res = new Error("not authorized");
+            res.data = { code: checkJwtRes.code, description: checkJwtRes.description };
+          }
+        }
+      } catch (err) {
+        ctx.logger.error('io.use error: %s', err.stack);
+      } finally {
+        ctx.logger.info('io.use end');
+        next(res);
+      }
+    });
+  });
+
+  io.on('connection', function(conn) {
     if (!conn) {
       operationContext.global.logger.error("null == conn");
       return;
@@ -1325,7 +1358,7 @@ exports.install = function(server, callbackFunction) {
     conn.sessionIsSendWarning = false;
     conn.sessionTimeConnect = conn.sessionTimeLastAction = new Date().getTime();
 
-    conn.on('data', function(message) {
+    conn.on('message', function(data) {
       return co(function* () {
       var docId = 'null';
       let ctx = new operationContext.Context();
@@ -1336,7 +1369,6 @@ exports.install = function(server, callbackFunction) {
           startDate = new Date();
         }
 
-        var data = JSON.parse(message);
         docId = conn.docId;
         ctx.logger.info('data.type = %s', data.type);
         if(getIsShutdown())
@@ -1347,13 +1379,15 @@ exports.install = function(server, callbackFunction) {
         if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
             'isSaveLock' == data.type)) {
           ctx.logger.warn("conn.isCiriticalError send command: type = %s", data.type);
-          conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          conn.disconnect(true);
           return;
         }
         if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
             ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
           ctx.logger.warn("conn.user.view||isCloseCoAuthoring access deny: type = %s", data.type);
-          conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          conn.disconnect(true);
           return;
         }
         yield encryptPasswordParams(ctx, data);
@@ -1363,7 +1397,8 @@ exports.install = function(server, callbackFunction) {
               yield* auth(ctx, conn, data);
             } catch(err){
               ctx.logger.error('auth error: %s', err.stack);
-              conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+              conn.disconnect(true);
               return;
             }
             break;
@@ -1392,7 +1427,7 @@ exports.install = function(server, callbackFunction) {
             yield* checkEndAuthLock(ctx, data.unlock, data.isSave, docId, conn.user.id, data.releaseLocks, data.deleteIndex, conn);
             break;
           case 'close':
-            yield* closeDocument(ctx, conn, false);
+            yield* closeDocument(ctx, conn);
             break;
           case 'versionHistory'          : {
             let cmd = new commonDefines.InputCommand(data.cmd);
@@ -1405,9 +1440,12 @@ exports.install = function(server, callbackFunction) {
             yield canvasService.openDocument(ctx, conn, cmd);
             break;
           }
-          case 'changesError':
-            ctx.logger.error("changesError: %s", data.stack);
-            if (cfgErrorFiles && docId) {
+          case 'clientLog':
+            let level = data.level?.toLowerCase();
+            if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
+              ctx.logger[level]("clientLog: %s", data.msg);
+            }
+            if ("error" === level && cfgErrorFiles && docId) {
               let destDir = 'browser/' + docId;
               yield storage.copyPath(ctx, docId, destDir, undefined, cfgErrorFiles);
               yield* saveErrorChanges(ctx, docId, destDir);
@@ -1416,12 +1454,6 @@ exports.install = function(server, callbackFunction) {
           case 'extendSession' :
             conn.sessionIsSendWarning = false;
             conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
-            break;
-          case 'clientLog':
-            let level = data.level?.toLowerCase();
-            if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
-              ctx.logger[level]("clientLog: %s", data.msg);
-            }
             break;
           case 'forceSaveStart' :
             var forceSaveRes;
@@ -1439,7 +1471,7 @@ exports.install = function(server, callbackFunction) {
             delete conn.authChangesAck;
             break;
           default:
-            ctx.logger.debug("unknown command %s", message);
+            ctx.logger.debug("unknown command %j", data);
             break;
         }
         if(clientStatsD) {
@@ -1452,17 +1484,12 @@ exports.install = function(server, callbackFunction) {
       }
       });
     });
-    conn.on('error', function() {
-      let ctx = new operationContext.Context();
-      ctx.initFromConnection(conn);
-      ctx.logger.error("On error");
-    });
-    conn.on('close', function() {
+    conn.on("disconnect", function(reason) {
       return co(function* () {
         let ctx = new operationContext.Context();
         try {
           ctx.initFromConnection(conn);
-          yield* closeDocument(ctx, conn, true);
+          yield* closeDocument(ctx, conn, reason);
         } catch (err) {
           ctx.logger.error('Error conn close: %s', err.stack);
         }
@@ -1471,12 +1498,19 @@ exports.install = function(server, callbackFunction) {
 
     _checkLicense(ctx, conn);
   });
+  io.engine.on("connection_error", (err) => {
+    operationContext.global.logger.warn(err.req);      // the request object
+    operationContext.global.logger.warn(err.code);     // the error code, for example 1
+    operationContext.global.logger.warn(err.message);  // the error message, for example "Session ID unknown"
+    operationContext.global.logger.warn(err.context);  // some additional error context
+  });
   /**
    *
+   * @param ctx
    * @param conn
-   * @param isCloseConnection - закрываем ли мы окончательно соединение
+   * @param reason - the reason of the disconnection (either client or server-side)
    */
-  function* closeDocument(ctx, conn, isCloseConnection) {
+  function* closeDocument(ctx, conn, reason) {
     var userLocks, reconnected = false, bHasEditors, bHasChanges;
     var docId = conn.docId;
     if (null == docId) {
@@ -1486,9 +1520,9 @@ exports.install = function(server, callbackFunction) {
     let participantsTimestamp;
     var tmpUser = conn.user;
     var isView = tmpUser.view;
-    ctx.logger.info("Connection closed or timed out: isCloseConnection = %s", isCloseConnection);
+    ctx.logger.info("Connection closed or timed out: reason = %s", reason);
     var isCloseCoAuthoringTmp = conn.isCloseCoAuthoring;
-    if (isCloseConnection) {
+    if (reason) {
       //Notify that participant has gone
       connections = _.reject(connections, function(el) {
         return el.id === conn.id;//Delete this connection
@@ -1546,7 +1580,7 @@ exports.install = function(server, callbackFunction) {
           let selectRes = yield taskResult.select(ctx, docId);
           if (selectRes.length > 0) {
             var row = selectRes[0];
-            if (taskResult.FileStatus.UpdateVersion === row.status) {
+            if (commonDefines.FileStatus.UpdateVersion === row.status) {
               needSendStatus = false;
             }
           }
@@ -1770,7 +1804,7 @@ exports.install = function(server, callbackFunction) {
       return el.sessionId === sessionId;//Delete this connection
     });
     //closing could happen during async action
-    if (constants.CONN_CLOSED !== conn.readyState) {
+    if (constants.CONN_CLOSED !== conn.conn.readyState) {
       // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
       connections.push(conn);
       yield addPresence(ctx, conn, true);
@@ -2151,6 +2185,7 @@ exports.install = function(server, callbackFunction) {
 
   function* auth(ctx, conn, data) {
     //TODO: Do authorization etc. check md5 or query db
+    ctx.logger.debug('auth time: %d', data.time);
     if (data.token && data.user) {
       ctx.setUserId(data.user.id);
       let licenseInfo = yield tenantManager.getTenantLicense(ctx);
@@ -2174,7 +2209,8 @@ exports.install = function(server, callbackFunction) {
               fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
             } else if (cfgTokenRequiredParams) {
               ctx.logger.error("auth missing required parameter %s (since 7.1 version)", validationErr);
-              conn.close(constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              conn.disconnect(true);
               return;
             } else {
               ctx.logger.warn("auth missing required parameter %s (since 7.1 version)", validationErr);
@@ -2183,11 +2219,13 @@ exports.install = function(server, callbackFunction) {
           }
           if(!fillDataFromJwtRes) {
             ctx.logger.warn("fillDataFromJwt return false");
-            conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+            sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+            conn.disconnect(true);
             return;
           }
         } else {
-          conn.close(checkJwtRes.code, checkJwtRes.description);
+          sendDataDisconnectReason(ctx, conn, checkJwtRes.code, checkJwtRes.description);
+          conn.disconnect(true);
           return;
         }
       }
@@ -2216,7 +2254,8 @@ exports.install = function(server, callbackFunction) {
           let filterStatus = yield* utils.checkHostFilter(ctx, documentCallback.hostname);
           if (0 !== filterStatus) {
             ctx.logger.warn('checkIpFilter error: url = %s', data.documentCallbackUrl);
-            conn.close(constants.DROP_CODE, constants.DROP_REASON);
+            sendDataDisconnectReason(ctx, conn, constants.DROP_CODE, constants.DROP_REASON);
+            conn.disconnect(true);
             return;
           }
         }
@@ -2242,7 +2281,7 @@ exports.install = function(server, callbackFunction) {
           }
         }
       }
-      if (constants.CONN_CLOSED === conn.readyState) {
+      if (constants.CONN_CLOSED === conn.conn.readyState) {
         //closing could happen during async action
         return;
       }
@@ -2304,7 +2343,7 @@ exports.install = function(server, callbackFunction) {
           return el.sessionId === data.sessionId;//Delete this connection
         });
         //closing could happen during async action
-        if (constants.CONN_CLOSED !== conn.readyState) {
+        if (constants.CONN_CLOSED !== conn.conn.readyState) {
           // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
           connections.push(conn);
           yield addPresence(ctx, conn, true);
@@ -2324,8 +2363,8 @@ exports.install = function(server, callbackFunction) {
         cmd.setWopiParams(wopiParams);
         if (wopiParams) {
           documentCallback = null;
-          if (!wopiParams.userAuth) {
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Wopi without userAuth');
+          if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, `invalid wopi callback (maybe postgres<9.5) ${JSON.stringify(wopiParams)}`);
             return;
           }
         }
@@ -2338,16 +2377,16 @@ exports.install = function(server, callbackFunction) {
       }
       if (!conn.user.view) {
         var status = result && result.length > 0 ? result[0]['status'] : null;
-        if (taskResult.FileStatus.Ok === status) {
+        if (commonDefines.FileStatus.Ok === status) {
           // Все хорошо, статус обновлять не нужно
-        } else if (taskResult.FileStatus.SaveVersion === status ||
-          (!bIsRestore && taskResult.FileStatus.UpdateVersion === status &&
+        } else if (commonDefines.FileStatus.SaveVersion === status ||
+          (!bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
           Date.now() - result[0]['status_info'] * 60000 > cfgExpUpdateVersionStatus)) {
-          let newStatus = taskResult.FileStatus.Ok;
-          if (taskResult.FileStatus.UpdateVersion === status) {
+          let newStatus = commonDefines.FileStatus.Ok;
+          if (commonDefines.FileStatus.UpdateVersion === status) {
             ctx.logger.warn("UpdateVersion expired");
             //FileStatus.None to open file again from new url
-            newStatus = taskResult.FileStatus.None;
+            newStatus = commonDefines.FileStatus.None;
           }
           // Обновим статус файла (идет сборка, нужно ее остановить)
           var updateMask = new taskResult.TaskResultData();
@@ -2364,11 +2403,11 @@ exports.install = function(server, callbackFunction) {
             yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
             return;
           }
-        } else if (bIsRestore && taskResult.FileStatus.UpdateVersion === status) {
+        } else if (bIsRestore && commonDefines.FileStatus.UpdateVersion === status) {
           // error version
           yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
           return;
-        } else if (taskResult.FileStatus.None === status && conn.encrypted) {
+        } else if (commonDefines.FileStatus.None === status && conn.encrypted) {
           //ok
         } else if (bIsRestore) {
           // Other error
@@ -2435,7 +2474,7 @@ exports.install = function(server, callbackFunction) {
     const docId = conn.docId;
     const tmpUser = conn.user;
     let hasForgotten;
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2453,7 +2492,7 @@ exports.install = function(server, callbackFunction) {
         }
       }
     }
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2470,7 +2509,7 @@ exports.install = function(server, callbackFunction) {
       }
     }
 
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2479,7 +2518,7 @@ exports.install = function(server, callbackFunction) {
     if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
       // Ставим lock на документ
       const lockRes = yield editorData.lockAuth(ctx, docId, firstParticipantNoView.id, 2 * cfgExpLockDoc);
-      if (constants.CONN_CLOSED === conn.readyState) {
+      if (constants.CONN_CLOSED === conn.conn.readyState) {
         //closing could happen during async action
         return false;
       }
@@ -2493,7 +2532,7 @@ exports.install = function(server, callbackFunction) {
         yield* setLockDocumentTimer(ctx, docId, lockDocument.id);
       }
     }
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2508,13 +2547,13 @@ exports.install = function(server, callbackFunction) {
       if (!bIsRestore && needSendChanges(conn)) {
         yield* sendAuthChanges(ctx, conn.docId, [conn]);
       }
-      if (constants.CONN_CLOSED === conn.readyState) {
+      if (constants.CONN_CLOSED === conn.conn.readyState) {
         //closing could happen during async action
         return false;
       }
       yield* sendAuthInfo(ctx, conn, bIsRestore, participantsMap, hasForgotten, opt_openedAt);
     }
-    if (constants.CONN_CLOSED === conn.readyState) {
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
       //closing could happen during async action
       return false;
     }
@@ -2530,14 +2569,21 @@ exports.install = function(server, callbackFunction) {
     do {
       changes = yield sqlBase.getChangesPromise(ctx, docId, index, index + cfgMaxRequestChanges);
       if (changes.length > 0) {
-        let changesJSON = indexChunk > 1 ? ',[' : '[';
-        changesJSON += changes[0].change_data;
-        for (let i = 1; i < changes.length; ++i) {
-          changesJSON += ',';
-          changesJSON += changes[i].change_data;
+        let buffer;
+        if (cfgEditor['binaryChanges']) {
+          let buffers = changes.map(elem => elem.change_data);
+          buffers.unshift(Buffer.from(utils.getChangesFileHeader(), 'utf-8'))
+          buffer = Buffer.concat(buffers);
+        } else {
+          let changesJSON = indexChunk > 1 ? ',[' : '[';
+          changesJSON += changes[0].change_data;
+          for (let i = 1; i < changes.length; ++i) {
+            changesJSON += ',';
+            changesJSON += changes[i].change_data;
+          }
+          changesJSON += ']\r\n';
+          buffer = Buffer.from(changesJSON, 'utf8');
         }
-        changesJSON += ']\r\n';
-        let buffer = Buffer.from(changesJSON, 'utf8');
         yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, cfgErrorFiles);
       }
       index += cfgMaxRequestChanges;
@@ -2797,7 +2843,7 @@ exports.install = function(server, callbackFunction) {
     // Стартовый индекс изменения при добавлении
     const startIndex = puckerIndex;
 
-    const newChanges = JSON.parse(data.changes);
+    const newChanges = cfgEditor['binaryChanges'] ? data.changes : JSON.parse(data.changes);
     let newChangesLastDate = new Date();
     newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
     let newChangesLastTime = newChangesLastDate.getTime();
@@ -2808,7 +2854,8 @@ exports.install = function(server, callbackFunction) {
 
       for (let i = 0; i < newChanges.length; ++i) {
         oElement = newChanges[i];
-        arrNewDocumentChanges.push({docid: docId, change: JSON.stringify(oElement), time: newChangesLastDate,
+        let change = cfgEditor['binaryChanges'] ? oElement : JSON.stringify(oElement);
+        arrNewDocumentChanges.push({docid: docId, change: change, time: newChangesLastDate,
           user: userId, useridoriginal: conn.user.idOriginal});
       }
 
@@ -3036,7 +3083,8 @@ exports.install = function(server, callbackFunction) {
 				let rights = constants.RIGHTS.Edit;
 				if (config.get('server.edit_singleton')) {
 					// ToDo docId from url ?
-					const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(conn.url);
+					let handshake = conn.handshake;
+					const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(handshake.url);
 					if (docIdParsed && 1 < docIdParsed.length) {
 						const participantsMap = yield getParticipantMap(ctx, docIdParsed[1]);
 						for (let i = 0; i < participantsMap.length; ++i) {
@@ -3151,11 +3199,6 @@ exports.install = function(server, callbackFunction) {
     return licenseType;
   }
 
-  sockjs_echo.installHandlers(server, {prefix: '/doc/['+constants.DOC_ID_PATTERN+']*/c', log: function(severity, message) {
-    //TODO: handle severity
-    operationContext.global.logger.info(message);
-  }});
-
   //publish subscribe message brocker
   function pubsubOnMessage(msg) {
     return co(function* () {
@@ -3176,7 +3219,7 @@ exports.install = function(server, callbackFunction) {
             }
             break;
           case commonDefines.c_oPublishType.closeConnection:
-            closeUsersConnection(data.docId, data.usersMap, data.isOriginalId, data.code, data.description);
+            closeUsersConnection(ctx, data.docId, data.usersMap, data.isOriginalId, data.code, data.description);
             break;
           case commonDefines.c_oPublishType.releaseLock:
             participants = getParticipants(data.docId, true, data.userId, true);
@@ -3402,11 +3445,12 @@ exports.install = function(server, callbackFunction) {
               });
             } else if (nowMs - conn.sessionTimeConnect > cfgExpSessionAbsolute) {
               ctx.logger.debug('expireDoc close absolute session');
-              conn.close(constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
+              conn.disconnect(true);
               continue;
             }
           }
-          if (cfgExpSessionIdle > 0 && !conn.user?.view) {
+          if (cfgExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
             if (maxMs - conn.sessionTimeLastAction > cfgExpSessionIdle && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
               sendDataSession(ctx, conn, {
@@ -3416,11 +3460,12 @@ exports.install = function(server, callbackFunction) {
               });
             } else if (nowMs - conn.sessionTimeLastAction > cfgExpSessionIdle) {
               ctx.logger.debug('expireDoc close idle session');
-              conn.close(constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
+              conn.disconnect(true);
               continue;
             }
           }
-          if (constants.CONN_CLOSED === conn.readyState) {
+          if (constants.CONN_CLOSED === conn.conn.readyState) {
             ctx.logger.error('expireDoc connection closed');
           }
           yield addPresence(ctx, conn, false);
@@ -3482,7 +3527,7 @@ exports.install = function(server, callbackFunction) {
             let callback = selectRes[0].callback;
             let callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, callback);
             let wopiParams = wopiClient.parseWopiCallback(ctx, callbackUrl, callback);
-            if (wopiParams) {
+            if (wopiParams && wopiParams.commonInfo) {
               yield wopiClient.lock(ctx, 'REFRESH_LOCK', wopiParams.commonInfo.lockId,
                                     wopiParams.commonInfo.fileInfo, wopiParams.userAuth);
             }
@@ -3515,7 +3560,7 @@ exports.install = function(server, callbackFunction) {
       }
       gc.startGC();
 
-      let tableName = 'task_result';
+      let tableName = cfgTableResult;
       const tableRequiredColumn = 'tenant';
       //check data base compatibility
       sqlBase.getTableColumns(operationContext.global, tableName).then(function(res) {
@@ -3643,28 +3688,33 @@ exports.licenseInfo = function(req, res) {
         var precisionIndex = 0;
         for (let i = redisRes.length - 1; i >= 0; i--) {
           let elem = redisRes[i];
-          //skip duplicates in cluster
-          if (prevTime - elem.time >= expDocumentsStep95) {
-            for (let j = precisionIndex; j < PRECISION.length; ++j) {
-              if (now - elem.time < PRECISION[j].val) {
-                let precision = precisionSum[PRECISION[j].name];
-                precision.edit.min = Math.min(precision.edit.min, elem.edit);
-                precision.edit.max = Math.max(precision.edit.max, elem.edit);
-                precision.edit.sum += elem.edit;
-                precision.edit.count++;
-                precision.view.min = Math.min(precision.view.min, elem.view);
-                precision.view.max = Math.max(precision.view.max, elem.view);
-                precision.view.sum += elem.view;
-                precision.view.count++;
-                if (elem.liveview) {
-                  precision.liveview.min = Math.min(precision.liveview.min, elem.liveview);
-                  precision.liveview.max = Math.max(precision.liveview.max, elem.liveview);
-                  precision.liveview.sum += elem.liveview;
-                  precision.liveview.count++;
-                }
-              } else {
-                precisionIndex = j + 1;
-              }
+          let edit = elem.edit || 0;
+          let view = elem.view || 0;
+          let liveview = elem.liveview || 0;
+          //for cluster
+          while (i > 0 && elem.time - redisRes[i - 1].time < expDocumentsStep95) {
+            edit += elem.edit || 0;
+            view += elem.view || 0;
+            liveview += elem.liveview || 0;
+            i--;
+          }
+          for (let j = precisionIndex; j < PRECISION.length; ++j) {
+            if (now - elem.time < PRECISION[j].val) {
+              let precision = precisionSum[PRECISION[j].name];
+              precision.edit.min = Math.min(precision.edit.min, edit);
+              precision.edit.max = Math.max(precision.edit.max, edit);
+              precision.edit.sum += edit
+              precision.edit.count++;
+              precision.view.min = Math.min(precision.view.min, view);
+              precision.view.max = Math.max(precision.view.max, view);
+              precision.view.sum += view;
+              precision.view.count++;
+              precision.liveview.min = Math.min(precision.liveview.min, liveview);
+              precision.liveview.max = Math.max(precision.liveview.max, liveview);
+              precision.liveview.sum += liveview;
+              precision.liveview.count++;
+            } else {
+              precisionIndex = j + 1;
             }
           }
           prevTime = elem.time;

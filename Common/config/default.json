@@ -73,6 +73,10 @@
 			"passwords": ["verysecretstring"]
 		}
 	},
+	"bottleneck": {
+		"getChanges": {
+		}
+	},
 	"wopi": {
 		"enable": false,
 		"host" : "",
@@ -82,7 +86,8 @@
 		"favIconUrlCell" : "/web-apps/apps/spreadsheeteditor/main/resources/img/favicon.ico",
 		"favIconUrlSlide" : "/web-apps/apps/presentationeditor/main/resources/img/favicon.ico",
 		"fileInfoBlockList" : ["FileUrl"],
-		"wordView": ["pdf", "djvu", "xps", "oxps", "doc", "dotx", "dotm", "dot", "fodt", "ott", "rtf", "mht", "html", "htm", "xml", "epub", "fb2"],
+		"pdfView": ["pdf", "djvu", "xps", "oxps"],
+		"wordView": ["doc", "dotx", "dotm", "dot", "fodt", "ott", "rtf", "mht", "html", "htm", "xml", "epub", "fb2"],
 		"wordEdit": ["docx", "docm", "docxf", "oform", "odt", "txt"],
 		"cellView": ["xls", "xlsb", "xltx", "xltm", "xlt", "fods", "ots"],
 		"cellEdit": ["xlsx", "xlsm", "ods", "csv"],
@@ -136,7 +141,7 @@
 				"editorDataStorage": "editorDataMemory",
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
-				"downloadFileAllowExt": ["pdf"],
+				"downloadFileAllowExt": ["pdf", "xlsx"],
 				"tokenRequiredParams": true
 			},
 			"requestDefaults": {
@@ -179,7 +184,7 @@
 				"options": {}
 			},
 			"pubsub": {
-				"maxChanges": 1000
+				"maxChanges": 0
 			},
 			"expire": {
 				"saveLock": 60,
@@ -259,6 +264,7 @@
 					"attempts": 50,
 					"delay": "2s"
 				},
+				"binaryChanges": false,
 				"websocketMaxPayloadSize": "1.5MB",
 				"maxChangesSize": "0mb"
 			},
@@ -266,6 +272,15 @@
 				"sockjs_url": "",
 				"disable_cors": true,
 				"websocket": true
+			},
+			"socketio": {
+				"connection": {
+					"path": "/doc/",
+					"serveClient": false,
+					"pingTimeout": 20000,
+					"pingInterval": 25000,
+					"maxHttpBufferSize": 1e8
+				}
 			},
 			"callbackBackoffOptions": {
 				"retries": 0,

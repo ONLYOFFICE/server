@@ -35,7 +35,6 @@ var os = require('os');
 var path = require('path');
 var fs = require('fs');
 var url = require('url');
-var childProcess = require('child_process');
 var co = require('co');
 var config = require('config');
 var spawnAsync = require('@expo/spawn-async');
@@ -50,6 +49,7 @@ var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
 var baseConnector = require('./../../DocService/sources/baseConnector');
 const wopiClient = require('./../../DocService/sources/wopiClient');
+const taskResult = require('./../../DocService/sources/taskresult');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const formatChecker = require('./../../Common/sources/formatchecker');
@@ -77,6 +77,7 @@ const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestC
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
+const cfgEditor = config.get('services.CoAuthoring.editor');
 
 //windows limit 512(2048) https://msdn.microsoft.com/en-us/library/6e3b887c.aspx
 //Ubuntu 14.04 limit 4096 http://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors.html
@@ -281,6 +282,17 @@ function getTempDir() {
   fs.mkdirSync(resultDir);
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
+function* isUselessConvertion(ctx, task, cmd) {
+  if (task.getFromChanges() && 'sfc' === cmd.getCommand()) {
+    let selectRes = yield taskResult.select(ctx, cmd.getDocId());
+    let row = selectRes.length > 0 ? selectRes[0] : null;
+    if (utils.isUselesSfc(row, cmd)) {
+      ctx.logger.warn('isUselessConvertion return true. row=%j', row);
+      return constants.CONVERT_PARAMS;
+    }
+  }
+  return constants.NO_ERROR;
+}
 function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
     let locale = 'en-US';
@@ -404,7 +416,11 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     yield* concatFiles(tempDirs.source);
   }
   if (task.getFromChanges()) {
-    res = yield* processChanges(ctx, tempDirs, cmd, authorProps);
+    if(cfgEditor['binaryChanges']) {
+      res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps);
+    } else {
+      res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps);
+    }
   }
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
@@ -446,8 +462,125 @@ function* concatFiles(source) {
     }
   }
 }
+function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
+  let res = constants.NO_ERROR;
+  let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
+  fs.mkdirSync(changesDir);
+  let indexFile = 0;
+  let changesAuthor = null;
+  let changesAuthorUnique = null;
+  let changesIndex = null;
+  let changesHistory = {
+    serverVersion: commonDefines.buildVersion,
+    changes: []
+  };
+  let forceSave = cmd.getForceSave();
+  let forceSaveTime;
+  let forceSaveIndex = Number.MAX_VALUE;
+  if (forceSave && undefined !== forceSave.getTime() && undefined !== forceSave.getIndex()) {
+    forceSaveTime = forceSave.getTime();
+    forceSaveIndex = forceSave.getIndex();
+  }
+  let extChangeInfo = cmd.getExternalChangeInfo();
+  let extChanges;
+  if (extChangeInfo) {
+    extChanges = [{
+      id: cmd.getDocId(), change_id: 0, change_data: Buffer.alloc(0), user_id: extChangeInfo.user_id,
+      user_id_original: extChangeInfo.user_id_original, user_name: extChangeInfo.user_name,
+      change_date: new Date(extChangeInfo.change_date)
+    }];
+  }
 
-function* processChanges(ctx, tempDirs, cmd, authorProps) {
+  let streamObj = yield* streamCreateBin(ctx, changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
+  yield* streamWriteBin(streamObj, Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
+  let curIndexStart = 0;
+  let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
+  while (curIndexStart < curIndexEnd || extChanges) {
+    let changes = [];
+    if (curIndexStart < curIndexEnd) {
+      changes = yield baseConnector.getChangesPromise(ctx, cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+      if (changes.length > 0 && changes[0].change_data.subarray(0, 'ENCRYPTED;'.length).includes('ENCRYPTED;')) {
+        ctx.logger.warn('processChanges encrypted changes');
+        //todo sql request instead?
+        res = constants.EDITOR_CHANGES;
+      }
+      res = yield* isUselessConvertion(ctx, task, cmd);
+      if (constants.NO_ERROR !== res) {
+        break;
+      }
+    }
+    if (0 === changes.length && extChanges) {
+      changes = extChanges;
+    }
+    extChanges = undefined;
+    for (let i = 0; i < changes.length; ++i) {
+      let change = changes[i];
+      if (null === changesAuthor || changesAuthor !== change.user_id_original) {
+        if (null !== changesAuthor) {
+          yield* streamEndBin(streamObj);
+          streamObj = yield* streamCreateBin(ctx, changesDir, indexFile++);
+          yield* streamWriteBin(streamObj, Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
+        }
+        let strDate = baseConnector.getDateTime(change.change_date);
+        changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
+      }
+      changesAuthor = change.user_id_original;
+      changesAuthorUnique = change.user_id;
+      yield* streamWriteBin(streamObj, change.change_data);
+      streamObj.isNoChangesInFile = false;
+    }
+    if (changes.length > 0) {
+      authorProps.lastModifiedBy = changes[changes.length - 1].user_name;
+      authorProps.modified = changes[changes.length - 1].change_date.toISOString().slice(0, 19) + 'Z';
+    }
+    if (changes.length === curIndexEnd - curIndexStart) {
+      curIndexStart += cfgMaxRequestChanges;
+      curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
+    } else {
+      break;
+    }
+  }
+  yield* streamEndBin(streamObj);
+  if (streamObj.isNoChangesInFile) {
+    fs.unlinkSync(streamObj.filePath);
+  }
+  if (null !== changesAuthorUnique) {
+    changesIndex = utils.getIndexFromUserId(changesAuthorUnique, changesAuthor);
+  }
+  if (null == changesAuthor && null == changesIndex && forceSave && undefined !== forceSave.getAuthorUserId() &&
+    undefined !== forceSave.getAuthorUserIndex()) {
+    changesAuthor = forceSave.getAuthorUserId();
+    changesIndex = forceSave.getAuthorUserIndex();
+  }
+  cmd.setUserId(changesAuthor);
+  cmd.setUserIndex(changesIndex);
+  fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
+  ctx.logger.debug('processChanges end');
+  return res;
+}
+
+function* streamCreateBin(ctx, changesDir, indexFile, opt_options) {
+  let fileName = constants.CHANGES_NAME + indexFile + '.bin';
+  let filePath = path.join(changesDir, fileName);
+  let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
+  writeStream.on('error', function(err) {
+    //todo integrate error handle in main thread (probable: set flag here and check it in main thread)
+    ctx.logger.error('WriteStreamError %s', err.stack);
+  });
+  return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
+}
+
+function* streamWriteBin(streamObj, buf) {
+  if (!streamObj.writeStream.write(buf)) {
+    yield utils.promiseWaitDrain(streamObj.writeStream);
+  }
+}
+
+function* streamEndBin(streamObj) {
+  streamObj.writeStream.end();
+  yield utils.promiseWaitClose(streamObj.writeStream);
+}
+function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
   let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
@@ -483,6 +616,15 @@ function* processChanges(ctx, tempDirs, cmd, authorProps) {
     let changes = [];
     if (curIndexStart < curIndexEnd) {
       changes = yield baseConnector.getChangesPromise(ctx, cmd.getDocId(), curIndexStart, curIndexEnd, forceSaveTime);
+      if (changes.length > 0 && changes[0].change_data.startsWith('ENCRYPTED;')) {
+        ctx.logger.warn('processChanges encrypted changes');
+        //todo sql request instead?
+        res = constants.EDITOR_CHANGES;
+      }
+      res = yield* isUselessConvertion(ctx, task, cmd);
+      if (constants.NO_ERROR !== res) {
+        break;
+      }
     }
     if (0 === changes.length && extChanges) {
       changes = extChanges;
@@ -490,12 +632,6 @@ function* processChanges(ctx, tempDirs, cmd, authorProps) {
     extChanges = undefined;
     for (let i = 0; i < changes.length; ++i) {
       let change = changes[i];
-      if (change.change_data.startsWith('ENCRYPTED;')) {
-        ctx.logger.warn('processChanges encrypted changes');
-        //todo sql request instead?
-        res = constants.EDITOR_CHANGES;
-        break;
-      }
       if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
           yield* streamEnd(streamObj, ']');
@@ -744,7 +880,10 @@ function* ExecuteTask(ctx, task) {
   dataConvert.fileTo = fileTo ? path.join(tempDirs.result, fileTo) : '';
   let isBuilder = cmd.getIsBuilder();
   let authorProps = {lastModifiedBy: null, modified: null};
-  if (cmd.getUrl()) {
+  error = yield* isUselessConvertion(ctx, task, cmd);
+  if (constants.NO_ERROR !== error) {
+    ;
+  } else if (cmd.getUrl()) {
     let format = cmd.getFormat();
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + format);
     if (utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
@@ -757,16 +896,17 @@ function* ExecuteTask(ctx, task) {
       if (wopiParams) {
         withAuthorization = false;
         filterPrivate = false;
-        let fileInfo = wopiParams.commonInfo.fileInfo;
+        let fileInfo = wopiParams.commonInfo?.fileInfo;
         let userAuth = wopiParams.userAuth;
-        fileSize = fileInfo.Size;
-        if (fileInfo.FileUrl) {
+        fileSize = fileInfo?.Size;
+        if (fileInfo?.FileUrl) {
+          //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
           url = fileInfo.FileUrl;
-        } else if (fileInfo.TemplateSource) {
+        } else if (fileInfo?.TemplateSource) {
           url = fileInfo.TemplateSource;
         } else if (userAuth) {
           url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
-          headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes, 'X-WOPI-ItemVersion': fileInfo.Version};
+          headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes};
           wopiClient.fillStandardHeaders(headers, url, userAuth.access_token);
         }
         ctx.logger.debug('wopi url=%s; headers=%j', url, headers);

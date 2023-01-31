@@ -182,18 +182,18 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
     openedAt = getOpenedAt(row);
   }
   switch (status) {
-    case taskResult.FileStatus.SaveVersion:
-    case taskResult.FileStatus.UpdateVersion:
-    case taskResult.FileStatus.Ok:
-      if(taskResult.FileStatus.Ok == status) {
+    case commonDefines.FileStatus.SaveVersion:
+    case commonDefines.FileStatus.UpdateVersion:
+    case commonDefines.FileStatus.Ok:
+      if(commonDefines.FileStatus.Ok == status) {
         outputData.setStatus('ok');
-      } else if (taskResult.FileStatus.SaveVersion == status ||
-        (!opt_bIsRestore && taskResult.FileStatus.UpdateVersion === status &&
+      } else if (commonDefines.FileStatus.SaveVersion == status ||
+        (!opt_bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
         Date.now() - statusInfo * 60000 > cfgExpUpdateVersionStatus)) {
         if (optConn && (optConn.user.view || optConn.isCloseCoAuthoring)) {
           outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
         } else {
-          if (taskResult.FileStatus.UpdateVersion === status) {
+          if (commonDefines.FileStatus.UpdateVersion === status) {
             ctx.logger.warn("UpdateVersion expired");
           }
           var updateMask = new taskResult.TaskResultData();
@@ -202,7 +202,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
           updateMask.status = status;
           updateMask.statusInfo = statusInfo;
           var updateTask = new taskResult.TaskResultData();
-          updateTask.status = taskResult.FileStatus.Ok;
+          updateTask.status = commonDefines.FileStatus.Ok;
           updateTask.statusInfo = constants.NO_ERROR;
           var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
           if (updateIfRes.affectedRows > 0) {
@@ -264,7 +264,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         }
       }
       break;
-    case taskResult.FileStatus.NeedParams:
+    case commonDefines.FileStatus.NeedParams:
       outputData.setStatus('needparams');
       var settingsPath = key + '/' + 'origin.' + cmd.getFormat();
       if (optConn) {
@@ -276,15 +276,15 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         optAdditionalOutput.needUrlType = commonDefines.c_oAscUrlTypes.Temporary;
       }
       break;
-    case taskResult.FileStatus.NeedPassword:
+    case commonDefines.FileStatus.NeedPassword:
       outputData.setStatus('needpassword');
       outputData.setData(statusInfo);
       break;
-    case taskResult.FileStatus.Err:
-    case taskResult.FileStatus.ErrToReload:
+    case commonDefines.FileStatus.Err:
+    case commonDefines.FileStatus.ErrToReload:
       outputData.setStatus('err');
       outputData.setData(statusInfo);
-      if (taskResult.FileStatus.ErrToReload == status) {
+      if (commonDefines.FileStatus.ErrToReload == status) {
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
         let wopiParams = wopiClient.parseWopiCallback(ctx, userAuthStr);
         if (!wopiParams) {
@@ -293,10 +293,10 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         }
       }
       break;
-    case taskResult.FileStatus.None:
+    case commonDefines.FileStatus.None:
       outputData.setStatus('none');
       break;
-    case taskResult.FileStatus.WaitQueue:
+    case commonDefines.FileStatus.WaitQueue:
       //task in the queue. response will be after convertion
       break;
     default:
@@ -378,7 +378,7 @@ function* getUpdateResponse(ctx, cmd) {
   updateTask.key = cmd.getSaveKey() ? cmd.getSaveKey() : cmd.getDocId();
   var statusInfo = cmd.getStatusInfo();
   if (constants.NO_ERROR == statusInfo) {
-    updateTask.status = taskResult.FileStatus.Ok;
+    updateTask.status = commonDefines.FileStatus.Ok;
     let password = cmd.getPassword();
     if (password) {
       if (false === hasPasswordCol) {
@@ -390,21 +390,21 @@ function* getUpdateResponse(ctx, cmd) {
       }
     }
   } else if (constants.CONVERT_DOWNLOAD == statusInfo) {
-    updateTask.status = taskResult.FileStatus.ErrToReload;
+    updateTask.status = commonDefines.FileStatus.ErrToReload;
   } else if (constants.CONVERT_NEED_PARAMS == statusInfo) {
-    updateTask.status = taskResult.FileStatus.NeedParams;
+    updateTask.status = commonDefines.FileStatus.NeedParams;
   } else if (constants.CONVERT_DRM == statusInfo || constants.CONVERT_PASSWORD == statusInfo) {
     if (cfgOpenProtectedFile) {
-      updateTask.status = taskResult.FileStatus.NeedPassword;
+      updateTask.status = commonDefines.FileStatus.NeedPassword;
     } else {
-      updateTask.status = taskResult.FileStatus.Err;
+      updateTask.status = commonDefines.FileStatus.Err;
     }
   } else if (constants.CONVERT_DRM_UNSUPPORTED == statusInfo) {
-    updateTask.status = taskResult.FileStatus.Err;
+    updateTask.status = commonDefines.FileStatus.Err;
   } else if (constants.CONVERT_DEAD_LETTER == statusInfo) {
-    updateTask.status = taskResult.FileStatus.ErrToReload;
+    updateTask.status = commonDefines.FileStatus.ErrToReload;
   } else {
-    updateTask.status = taskResult.FileStatus.Err;
+    updateTask.status = commonDefines.FileStatus.Err;
   }
   updateTask.statusInfo = statusInfo;
   return updateTask;
@@ -443,7 +443,7 @@ function commandOpenStartPromise(ctx, docId, baseUrl, opt_updateUserIndex, opt_d
   task.tenant = ctx.tenant;
   task.key = docId;
   //None instead WaitQueue to prevent: conversion task is lost when entering and leaving the editor quickly(that leads to an endless opening)
-  task.status = taskResult.FileStatus.None;
+  task.status = commonDefines.FileStatus.None;
   task.statusInfo = constants.NO_ERROR;
   task.baseurl = baseUrl;
   if (opt_documentCallbackUrl) {
@@ -478,10 +478,10 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
     let updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
-    updateMask.status = taskResult.FileStatus.None;
+    updateMask.status = commonDefines.FileStatus.None;
 
     let task = new taskResult.TaskResultData();
-    task.status = taskResult.FileStatus.WaitQueue;
+    task.status = commonDefines.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
     let updateIfRes = yield taskResult.updateIf(ctx, task, updateMask);
@@ -537,10 +537,10 @@ function* commandReopen(ctx, conn, cmd, outputData) {
     let updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
-    updateMask.status = isPassword ? taskResult.FileStatus.NeedPassword : taskResult.FileStatus.NeedParams;
+    updateMask.status = isPassword ? commonDefines.FileStatus.NeedPassword : commonDefines.FileStatus.NeedParams;
 
     var task = new taskResult.TaskResultData();
-    task.status = taskResult.FileStatus.WaitQueue;
+    task.status = commonDefines.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
     var upsertRes = yield taskResult.updateIf(ctx, task, updateMask);
@@ -617,7 +617,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password);
   let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
-  cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr));
+  cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
   cmd.setOutputFormat(changeFormatByOrigin(ctx, row, cmd.getOutputFormat()));
   cmd.setJsonParams(getOpenedAtJSONParams(row));
   var queueData = getSaveTask(ctx, cmd);
@@ -821,7 +821,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
   if (selectRes.length > 0) {
     let row = selectRes[0];
     hasPasswordCol = undefined !== row.password;
-    if (taskResult.FileStatus.Ok === row.status && sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password)) {
+    if (commonDefines.FileStatus.Ok === row.status && sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password)) {
       hasDocumentPassword = true;
     }
   }
@@ -830,7 +830,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     let updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
-    updateMask.status = taskResult.FileStatus.Ok;
+    updateMask.status = commonDefines.FileStatus.Ok;
 
     let newChangesLastDate = new Date();
     newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
@@ -924,10 +924,10 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
       statusErr = docsCoServer.c_oAscServerStatus.Corrupted;
     }
     let recoverTask = new taskResult.TaskResultData();
-    recoverTask.status = taskResult.FileStatus.Ok;
+    recoverTask.status = commonDefines.FileStatus.Ok;
     recoverTask.statusInfo = constants.NO_ERROR;
     let updateIfTask = new taskResult.TaskResultData();
-    updateIfTask.status = taskResult.FileStatus.UpdateVersion;
+    updateIfTask.status = commonDefines.FileStatus.UpdateVersion;
     updateIfTask.statusInfo = Math.floor(Date.now() / 60000);//minutes
     let updateIfRes;
 
@@ -938,12 +938,12 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
       if (isEncrypted) {
         recoverTask.status = updateMask.status = row.status;
         recoverTask.statusInfo = updateMask.statusInfo = row.status_info;
-      } else if ((taskResult.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info) ||
-        taskResult.FileStatus.UpdateVersion === row.status) {
-        if (taskResult.FileStatus.UpdateVersion === row.status) {
+      } else if ((commonDefines.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info) ||
+        commonDefines.FileStatus.UpdateVersion === row.status) {
+        if (commonDefines.FileStatus.UpdateVersion === row.status) {
           updateIfRes = {affectedRows: 1};
         }
-        recoverTask.status = taskResult.FileStatus.SaveVersion;
+        recoverTask.status = commonDefines.FileStatus.SaveVersion;
         recoverTask.statusInfo = cmd.getStatusInfoIn();
         updateMask.status = row.status;
         updateMask.statusInfo = row.status_info;
@@ -1017,7 +1017,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
         let selectRes = yield taskResult.select(ctx, docId);
         let row = selectRes.length > 0 ? selectRes[0] : null;
         //send only if FileStatus.Ok to prevent forcesave after final save
-        if (row && row.status == taskResult.FileStatus.Ok) {
+        if (row && row.status == commonDefines.FileStatus.Ok) {
           if (forceSave) {
             let forceSaveDate = forceSave.getTime() ? new Date(forceSave.getTime()): new Date();
             outputSfc.setForceSaveType(forceSaveType);
@@ -1539,6 +1539,8 @@ exports.downloadFile = function(req, res) {
             url = decoded.changesUrl;
           } else if (decoded.document && -1 !== cfgDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
             url = decoded.document.url;
+          } else if (decoded.url && -1 !== cfgDownloadFileAllowExt.indexOf(decoded.fileType)) {
+            url = decoded.url;
           } else {
             errorDescription = 'access deny';
           }
@@ -1589,7 +1591,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
       //делаем select, потому что за время timeout информация могла измениться
       var selectRes = yield taskResult.select(ctx, docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row && row.status == taskResult.FileStatus.SaveVersion && row.status_info == statusInfo) {
+      if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo) {
         if (null == optFormat) {
           optFormat = changeFormatByOrigin(ctx, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
           }
@@ -1602,7 +1604,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         cmd.setUserActionIndex(opt_userIndex);
         cmd.setJsonParams(getOpenedAtJSONParams(row));
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
-        cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr));
+        cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
         addPasswordToCmd(ctx, cmd, row && row.password);
         yield* addRandomKeyTaskCmd(ctx, cmd);
         var queueData = getSaveTask(ctx, cmd);

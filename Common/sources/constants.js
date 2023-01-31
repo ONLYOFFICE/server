@@ -49,6 +49,7 @@ exports.CHANGES_NAME = 'changes';
 exports.VIEWER_ONLY = /^(?:(pdf|djvu|xps|oxps))$/;
 exports.DEFAULT_DOC_ID = 'docId';
 exports.DEFAULT_USER_ID = 'userId';
+exports.ALLOWED_PROTO = /^https?$/i;
 
 exports.RIGHTS = {
   None    : 0,
@@ -295,7 +296,7 @@ exports.RESTORE = 'no cache';
 exports.CONTENT_DISPOSITION_INLINE = 'inline';
 exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';
 
-exports.CONN_CLOSED = 3;
+exports.CONN_CLOSED = "closed";
 
 exports.FILE_STATUS_OK = 'ok';
 exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';

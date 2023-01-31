@@ -41,6 +41,12 @@
       },
       "sockjs": {
         "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
+      },
+      "socketio": {
+        "connection": {
+          "pingTimeout": 86400000,
+          "pingInterval": 86400000
+        }
       }
     }
   },

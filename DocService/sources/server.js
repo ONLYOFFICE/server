@@ -66,6 +66,7 @@ const cfgTokenEnableBrowser = configCommon.get('services.CoAuthoring.token.enabl
 const cfgTokenEnableRequestInbox = configCommon.get('services.CoAuthoring.token.enable.request.inbox');
 const cfgTokenEnableRequestOutbox = configCommon.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgLicenseFile = configCommon.get('license.license_file');
+const cfgDownloadMaxBytes = configCommon.get('FileConverter.converter.maxDownloadBytes');
 
 const app = express();
 app.disable('x-powered-by');
@@ -250,9 +251,15 @@ docsCoServer.install(server, () => {
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 
 	if (cfgWopiEnable) {
+		//todo dest
+		let fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 		app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
 		app.get('/hosting/capabilities', utils.checkClientIp, wopiClient.collaboraCapabilities);
+		app.post('/lool/convert-to/:format?', utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
+		app.post('/cool/convert-to/:format?', utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
 		app.post('/hosting/wopi/:documentType/:mode', urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
+		app.post('/hosting/wopi/convert-and-edit/:ext/:targetext', urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getConverterHtml);
+		app.get('/hosting/wopi/convert-and-edit-handler', utils.lowercaseQueryString, converterService.getConverterHtmlHandler);
 	}
 
 	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){

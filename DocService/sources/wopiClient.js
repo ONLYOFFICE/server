@@ -40,6 +40,7 @@ const jwt = require('jsonwebtoken');
 const config = require('config');
 const utf7 = require('utf7');
 const mimeDB = require('mime-db');
+const xmlbuilder2 = require('xmlbuilder2');
 const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
@@ -49,6 +50,7 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const sqlBase = require('./baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
+const converterService = require('./converterservice');
 
 const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
@@ -57,6 +59,7 @@ const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callba
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
+const cfgWopiPdfView = config.get('wopi.pdfView');
 const cfgWopiWordView = config.get('wopi.wordView');
 const cfgWopiWordEdit = config.get('wopi.wordEdit');
 const cfgWopiCellView = config.get('wopi.cellView');
@@ -98,6 +101,7 @@ let mimeTypesByExt = (function() {
 function discovery(req, res) {
   return co(function*() {
     let output = '';
+    const xml = xmlbuilder2.create({version: '1.0', encoding: 'utf-8'});
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
@@ -105,15 +109,19 @@ function discovery(req, res) {
       let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
-      let exts = [{view: cfgWopiWordView, edit: cfgWopiWordEdit}, {view: cfgWopiCellView, edit: cfgWopiCellEdit},
-        {view: cfgWopiSlideView, edit: cfgWopiSlideEdit}];
+      let exts = [
+        {targetext: 'docx', view: cfgWopiPdfView.concat(cfgWopiWordView), edit: cfgWopiWordEdit},
+        {targetext: 'xlsx', view: cfgWopiCellView, edit: cfgWopiCellEdit},
+        {targetext: 'pptx', view: cfgWopiSlideView, edit: cfgWopiSlideEdit}
+      ];
+
       let templateStart = `${baseUrl}/hosting/wopi`;
       let templateEnd = `&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;`;
       templateEnd += `&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;`;
       templateEnd += `&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;`;
       templateEnd += `&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;`;
       let documentTypes = [`word`, `cell`, `slide`];
-      output += `<?xml version="1.0" encoding="utf-8"?><wopi-discovery><net-zone name="${cfgWopiWopiZone}">`;
+      let xmlZone = xml.ele('wopi-discovery').ele('net-zone', { name: cfgWopiWopiZone });
       //start section for MS WOPI connectors
       for(let i = 0; i < names.length; ++i) {
         let name = names[i];
@@ -125,21 +133,25 @@ function discovery(req, res) {
         let urlTemplateView = `${templateStart}/${documentTypes[i]}/view?${templateEnd}`;
         let urlTemplateEmbedView = `${templateStart}/${documentTypes[i]}/view?embed=1${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
-        output +=`<app name="${name}" favIconUrl="${favIconUrl}">`;
+        let xmlApp = xmlZone.ele('app', {name: name, favIconUrl: favIconUrl});
         for (let j = 0; j < ext.view.length; ++j) {
-          output += `<action name="view" ext="${ext.view[j]}" urlsrc="${urlTemplateView}" />`;
-          output += `<action name="embedview" ext="${ext.view[j]}" urlsrc="${urlTemplateEmbedView}" />`;
+          xmlApp.ele('action', {name: 'view', ext: ext.view[j], urlsrc: urlTemplateView}).up();
+          xmlApp.ele('action', {name: 'embedview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
+          if (-1 === cfgWopiPdfView.indexOf(ext.view[j])) {
+            let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
+            xmlApp.ele('action', {name: 'convert', ext: ext.view[j], targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
+          }
         }
         for (let j = 0; j < ext.edit.length; ++j) {
-          output += `<action name="view" ext="${ext.edit[j]}" urlsrc="${urlTemplateView}" />`;
-          output += `<action name="embedview" ext="${ext.edit[j]}" urlsrc="${urlTemplateEmbedView}" />`;
+          xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
+          xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           if ("oform" !== ext.edit[j]) {
             //todo config
-            output += `<action name="editnew" ext="${ext.edit[j]}" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+            xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
-          output += `<action name="edit" ext="${ext.edit[j]}" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
+          xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
         }
-        output +=`</app>`;
+        xmlApp.up();
       }
       //end section for MS WOPI connectors
       //start section for collabora nexcloud connectors
@@ -152,10 +164,14 @@ function discovery(req, res) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
-              output += `<app name="${value}">`;
-              output += `<action name="view" ext="" default="true" urlsrc="${urlTemplateView}" />`;
-              output += `<action name="embedview" ext="" urlsrc="${urlTemplateEmbedView}" />`;
-              output += `</app>`;
+              let xmlApp = xmlZone.ele('app', {name: value});
+              xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
+              xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
+              if (-1 === cfgWopiPdfView.indexOf(ext.view[j])) {
+                let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
+                xmlApp.ele('action', {name: 'convert', ext: '', targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
+              }
+              xmlApp.up();
             });
           }
         }
@@ -163,29 +179,30 @@ function discovery(req, res) {
           let mimeTypes = mimeTypesByExt[ext.edit[j]];
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
-              output +=`<app name="${value}">`;
-              output += `<action name="edit" ext="" default="true" requires="locks,update" urlsrc="${urlTemplateEdit}" />`;
-              output +=`</app>`;
+              let xmlApp = xmlZone.ele('app', {name: value});
+              xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              xmlApp.up();
             });
           }
         }
       }
-      output += `<app name="Capabilities">`;
-      output += `<action ext="" name="getinfo" urlsrc="${baseUrl}/hosting/capabilities"/>`;
-      output += `</app>`;
+      let xmlApp = xmlZone.ele('app', {name: 'Capabilities'});
+      xmlApp.ele('action', {ext: '', name: 'getinfo', requires: 'locks,update', urlsrc: `${baseUrl}/hosting/capabilities`}).up();
+      xmlApp.up();
       //end section for collabora nexcloud connectors
-      let proofKey = ``;
+      let xmlDiscovery = xmlZone.up();
       if (cfgWopiPublicKeyOld && cfgWopiPublicKey) {
-        proofKey += `<proof-key oldvalue="${cfgWopiPublicKeyOld}" oldmodulus="${cfgWopiModulusOld}" `;
-        proofKey += `oldexponent="${cfgWopiExponentOld}" value="${cfgWopiPublicKey}" modulus="${cfgWopiModulus}" `;
-        proofKey += `exponent="${cfgWopiExponent}"/>`;
+        xmlDiscovery.ele('proof-key', {
+          oldvalue: cfgWopiPublicKeyOld, oldmodulus: cfgWopiModulusOld, oldexponent: cfgWopiExponentOld,
+          value: cfgWopiPublicKey, modulus: cfgWopiModulus, exponent: cfgWopiExponent
+        }).up();
       }
-      output += `</net-zone>${proofKey}</wopi-discovery>`;
+      xmlDiscovery.up();
     } catch (err) {
       ctx.logger.error('wopiDiscovery error:%s', err.stack);
     } finally {
       res.setHeader('Content-Type', 'text/xml');
-      res.send(output);
+      res.send(xml.end());
       ctx.logger.info('wopiDiscovery end');
     }
   });
@@ -193,7 +210,7 @@ function discovery(req, res) {
 function collaboraCapabilities(req, res) {
   return co(function*() {
     let output = {
-      "convert-to": {"available": false}, "hasMobileSupport": true, "hasProxyPrefix": false, "hasTemplateSaveAs": false,
+      "convert-to": {"available": true, "endpoint":"/lool/convert-to"}, "hasMobileSupport": true, "hasProxyPrefix": false, "hasTemplateSaveAs": false,
       "hasTemplateSource": true, "productVersion": commonDefines.buildVersion
     };
     let ctx = new operationContext.Context();
@@ -221,6 +238,9 @@ function isWopiModifiedMarker(url) {
   }
 }
 function getWopiUnlockMarker(wopiParams) {
+  if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+    return;
+  }
   return JSON.stringify(Object.assign({unlockId: wopiParams.commonInfo.lockId}, wopiParams.userAuth));
 }
 function getWopiModifiedMarker(wopiParams, lastModifiedTime) {
@@ -251,10 +271,14 @@ function parseWopiCallback(ctx, userAuthStr, opt_url) {
       let commonInfoStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, opt_url, 1);
       if (isWopiCallback(commonInfoStr)) {
         commonInfo = JSON.parse(commonInfoStr);
-        lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
-        if (lastModifiedTime) {
-          let callbacks = sqlBase.UserCallback.prototype.getCallbacks(ctx, opt_url);
-          lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
+        if (commonInfo.fileInfo) {
+          lastModifiedTime = commonInfo.fileInfo.LastModifiedTime;
+          if (lastModifiedTime) {
+            let callbacks = sqlBase.UserCallback.prototype.getCallbacks(ctx, opt_url);
+            lastModifiedTime = getLastModifiedTimeFromCallbacks(callbacks);
+          }
+        } else {
+          commonInfo = null;
         }
       }
     }
@@ -328,9 +352,8 @@ function getEditorHtml(req, res) {
       let access_token = req.body['access_token'] || "";
       let access_token_ttl = parseInt(req.body['access_token_ttl']) || 0;
 
-      let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
 
-      let fileInfo = params.fileInfo = yield checkFileInfo(ctx, uri, access_token, sc);
+      let fileInfo = params.fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token, sc);
       if (!fileInfo) {
         params.fileInfo = {};
         return;
@@ -394,7 +417,7 @@ function getEditorHtml(req, res) {
 
       if (cfgTokenEnableBrowser) {
         let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
-        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Inbox);
+        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
         params.token = jwt.sign(params, secret, options);
       }
     } catch (err) {
@@ -412,12 +435,70 @@ function getEditorHtml(req, res) {
     }
   });
 }
+function getConverterHtml(req, res) {
+  return co(function*() {
+    let params = {statusHandler: undefined};
+    let ctx = new operationContext.Context();
+    try {
+      ctx.initFromRequest(req);
+      let wopiSrc = req.query['wopisrc'];
+      let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
+      ctx.setDocId(fileId);
+      ctx.logger.info('convert-and-edit start');
+
+      let access_token = req.body['access_token'] || "";
+      let access_token_ttl = parseInt(req.body['access_token_ttl']) || 0;
+      let ext = req.params.ext;
+      let targetext = req.params.targetext;
+
+      if (!(wopiSrc && access_token && access_token_ttl && ext && targetext)) {
+        ctx.logger.debug('convert-and-edit invalid params: wopiSrc=%s; access_token=%s; access_token_ttl=%s; ext=%s; targetext=%s', wopiSrc, access_token, access_token_ttl, ext, targetext);
+        return;
+      }
+
+      let fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token);
+      if (!fileInfo) {
+        ctx.logger.info('convert-and-edit checkFileInfo error');
+        return;
+      }
+
+      let wopiParams = getWopiParams(null, fileInfo, wopiSrc, access_token, access_token_ttl);
+
+      let docId = yield converterService.convertAndEdit(ctx, wopiParams, ext, targetext);
+      if (docId) {
+        let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
+        params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
+        params.statusHandler += `?wopiSrc=${encodeURI(wopiSrc)}&access_token=${encodeURI(access_token)}`;
+        params.statusHandler += `&targetext=${encodeURI(targetext)}&docId=${encodeURI(docId)}`;
+        if (cfgTokenEnableBrowser) {
+          let tokenData = {docId: docId};
+          let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
+          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
+          let token = jwt.sign(tokenData, secret, options);
+
+          params.statusHandler += `&token=${encodeURI(token)}`;
+        }
+      }
+    } catch (err) {
+      ctx.logger.error('convert-and-edit error:%s', err.stack);
+    } finally {
+      ctx.logger.debug('convert-and-edit render params=%j', params);
+      try {
+        res.render("convert-and-edit-wopi", params);
+      } catch (err) {
+        ctx.logger.error('convert-and-edit error:%s', err.stack);
+        res.sendStatus(400);
+      }
+      ctx.logger.info('convert-and-edit end');
+    }
+  });
+}
 function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   return co(function* () {
     let postRes = null;
     try {
       ctx.logger.info('wopi PutFile start');
-      if (!wopiParams.userAuth) {
+      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
         return postRes;
       }
       let fileInfo = wopiParams.commonInfo.fileInfo;
@@ -457,12 +538,40 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
     return postRes;
   });
 }
+function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize, suggestedTarget, isFileConversion) {
+  return co(function* () {
+    let postRes = null;
+    try {
+      ctx.logger.info('wopi putRelativeFile start');
+
+      let uri = `${wopiSrc}?access_token=${access_token}`;
+      let filterStatus = yield checkIpFilter(ctx, uri);
+      if (0 !== filterStatus) {
+        return postRes;
+      }
+
+      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget),
+      'X-WOPI-FileConversion': isFileConversion};
+      fillStandardHeaders(headers, uri, access_token);
+
+      ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
+      postRes = yield utils.postRequestPromise(uri, data, dataStream, dataSize, cfgCallbackRequestTimeout, undefined, headers);
+      ctx.logger.debug('wopi putRelativeFile response headers=%j', postRes.response.headers);
+      ctx.logger.debug('wopi putRelativeFile response body:%s', postRes.body);
+    } catch (err) {
+      ctx.logger.error('wopi error putRelativeFile:%s', err.stack);
+    } finally {
+      ctx.logger.info('wopi putRelativeFile end');
+    }
+    return postRes;
+  });
+}
 function renameFile(ctx, wopiParams, name) {
   return co(function* () {
     let res = undefined;
     try {
       ctx.logger.info('wopi RenameFile start');
-      if (!wopiParams.userAuth) {
+      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
         return res;
       }
       let fileInfo = wopiParams.commonInfo.fileInfo;
@@ -501,18 +610,19 @@ function renameFile(ctx, wopiParams, name) {
     return res;
   });
 }
-function checkFileInfo(ctx, uri, access_token, sc) {
+function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
   return co(function* () {
     let fileInfo = undefined;
     try {
       ctx.logger.info('wopi checkFileInfo start');
+      let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
       let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return fileInfo;
       }
       let headers = {};
-      if (sc) {
-        headers['X-WOPI-SessionContext'] = sc;
+      if (opt_sc) {
+        headers['X-WOPI-SessionContext'] = opt_sc;
       }
       fillStandardHeaders(headers, uri, access_token);
       ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
@@ -565,11 +675,11 @@ function unlock(ctx, wopiParams) {
   return co(function* () {
     try {
       ctx.logger.info('wopi Unlock start');
+      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+        return;
+      }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       if (fileInfo && fileInfo.SupportsLocks) {
-        if (!wopiParams.userAuth) {
-          return;
-        }
         let wopiSrc = wopiParams.userAuth.wopiSrc;
         let lockId = wopiParams.commonInfo.lockId;
         let access_token = wopiParams.userAuth.access_token;
@@ -650,12 +760,22 @@ function checkIpFilter(ctx, uri){
     return filterStatus;
   });
 }
+function getWopiParams(lockId, fileInfo, wopiSrc, access_token, access_token_ttl) {
+  let commonInfo = {lockId: lockId, fileInfo: fileInfo};
+  let userAuth = {
+    wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl,
+    hostSessionId: null, userSessionId: null, mode: null
+  };
+  return {commonInfo: commonInfo, userAuth: userAuth, LastModifiedTime: null};
+};
 
 exports.discovery = discovery;
 exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;
 exports.getEditorHtml = getEditorHtml;
+exports.getConverterHtml = getConverterHtml;
 exports.putFile = putFile;
+exports.putRelativeFile = putRelativeFile;
 exports.renameFile = renameFile;
 exports.lock = lock;
 exports.unlock = unlock;
