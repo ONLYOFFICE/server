@@ -141,7 +141,7 @@
 				"editorDataStorage": "editorDataMemory",
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
-				"downloadFileAllowExt": ["pdf"],
+				"downloadFileAllowExt": ["pdf", "xlsx"],
 				"tokenRequiredParams": true
 			},
 			"requestDefaults": {

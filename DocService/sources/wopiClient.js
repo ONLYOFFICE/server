@@ -187,7 +187,7 @@ function discovery(req, res) {
         }
       }
       let xmlApp = xmlZone.ele('app', {name: 'Capabilities'});
-      xmlApp.ele('action', {ext: '', name: 'getinfo', urlsrc: 'locks,update', urlsrc: `${baseUrl}/hosting/capabilities`}).up();
+      xmlApp.ele('action', {ext: '', name: 'getinfo', requires: 'locks,update', urlsrc: `${baseUrl}/hosting/capabilities`}).up();
       xmlApp.up();
       //end section for collabora nexcloud connectors
       let xmlDiscovery = xmlZone.up();

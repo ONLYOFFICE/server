@@ -536,6 +536,13 @@ function sendDataRefreshToken(ctx, conn, msg) {
 function sendDataRpc(ctx, conn, responseKey, data) {
   sendData(ctx, conn, {type: "rpc", responseKey: responseKey, data: data});
 }
+function sendDataDrop(ctx, conn, code, description) {
+  sendData(ctx, conn, {type: "drop", code: code, description: description});
+}
+function sendDataDisconnectReason(ctx, conn, code, description) {
+  sendData(ctx, conn, {type: "disconnectReason", code: code, description: description});
+}
+
 function sendReleaseLock(ctx, conn, userLocks) {
   sendData(ctx, conn, {type: "releaseLock", locks: _.map(userLocks, function(e) {
     return {
@@ -1029,14 +1036,15 @@ function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, des
                    });
   }
 }
-function closeUsersConnection(docId, usersMap, isOriginalId, code, description) {
+function closeUsersConnection(ctx, docId, usersMap, isOriginalId, code, description) {
   //close
   let conn;
   for (let i = connections.length - 1; i >= 0; --i) {
     conn = connections[i];
     if (conn.docId === docId) {
       if (isOriginalId ? usersMap[conn.user.idOriginal] : usersMap[conn.user.id]) {
-        conn.close(code, description);
+        sendDataDisconnectReason(ctx, conn, code, description);
+        conn.disconnect(true);
       }
     }
   }
@@ -1052,11 +1060,7 @@ function dropUserFromDocument(ctx, docId, userId, description) {
   for (var i = 0, length = connections.length; i < length; ++i) {
     elConnection = connections[i];
     if (elConnection.docId === docId && userId === elConnection.user.idOriginal && !elConnection.isCloseCoAuthoring) {
-      sendData(ctx, elConnection,
-        {
-          type: "drop",
-          description: description
-        });//Or 0 if fails
+      sendDataDrop(ctx, elConnection, description);
     }
   }
 }
@@ -1317,6 +1321,7 @@ exports.install = function(server, callbackFunction) {
   io.use((socket, next) => {
     co(function*(){
       let ctx = new operationContext.Context();
+      let res;
       let checkJwtRes;
       try {
         ctx.initFromConnection(socket);
@@ -1324,12 +1329,16 @@ exports.install = function(server, callbackFunction) {
         let handshake = socket.handshake;
         if (cfgTokenEnableBrowser) {
           checkJwtRes = yield checkJwt(ctx, handshake?.auth?.token, commonDefines.c_oAscSecretType.Browser);
+          if (!checkJwtRes.decoded) {
+            res = new Error("not authorized");
+            res.data = { code: checkJwtRes.code, description: checkJwtRes.description };
+          }
         }
       } catch (err) {
-        ctx.logger.info('io.use error: %s', err.stack);
+        ctx.logger.error('io.use error: %s', err.stack);
       } finally {
         ctx.logger.info('io.use end');
-        next((checkJwtRes && !checkJwtRes.decoded) ? new Error("not authorized") : undefined);
+        next(res);
       }
     });
   });
@@ -1370,13 +1379,15 @@ exports.install = function(server, callbackFunction) {
         if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
             'isSaveLock' == data.type)) {
           ctx.logger.warn("conn.isCiriticalError send command: type = %s", data.type);
-          conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          conn.disconnect(true);
           return;
         }
         if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
             ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
           ctx.logger.warn("conn.user.view||isCloseCoAuthoring access deny: type = %s", data.type);
-          conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+          conn.disconnect(true);
           return;
         }
         yield encryptPasswordParams(ctx, data);
@@ -1386,7 +1397,8 @@ exports.install = function(server, callbackFunction) {
               yield* auth(ctx, conn, data);
             } catch(err){
               ctx.logger.error('auth error: %s', err.stack);
-              conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+              conn.disconnect(true);
               return;
             }
             break;
@@ -2197,7 +2209,8 @@ exports.install = function(server, callbackFunction) {
               fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
             } else if (cfgTokenRequiredParams) {
               ctx.logger.error("auth missing required parameter %s (since 7.1 version)", validationErr);
-              conn.close(constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+              conn.disconnect(true);
               return;
             } else {
               ctx.logger.warn("auth missing required parameter %s (since 7.1 version)", validationErr);
@@ -2206,11 +2219,13 @@ exports.install = function(server, callbackFunction) {
           }
           if(!fillDataFromJwtRes) {
             ctx.logger.warn("fillDataFromJwt return false");
-            conn.close(constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+            sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+            conn.disconnect(true);
             return;
           }
         } else {
-          conn.close(checkJwtRes.code, checkJwtRes.description);
+          sendDataDisconnectReason(ctx, conn, checkJwtRes.code, checkJwtRes.description);
+          conn.disconnect(true);
           return;
         }
       }
@@ -2239,7 +2254,8 @@ exports.install = function(server, callbackFunction) {
           let filterStatus = yield* utils.checkHostFilter(ctx, documentCallback.hostname);
           if (0 !== filterStatus) {
             ctx.logger.warn('checkIpFilter error: url = %s', data.documentCallbackUrl);
-            conn.close(constants.DROP_CODE, constants.DROP_REASON);
+            sendDataDisconnectReason(ctx, conn, constants.DROP_CODE, constants.DROP_REASON);
+            conn.disconnect(true);
             return;
           }
         }
@@ -3203,7 +3219,7 @@ exports.install = function(server, callbackFunction) {
             }
             break;
           case commonDefines.c_oPublishType.closeConnection:
-            closeUsersConnection(data.docId, data.usersMap, data.isOriginalId, data.code, data.description);
+            closeUsersConnection(ctx, data.docId, data.usersMap, data.isOriginalId, data.code, data.description);
             break;
           case commonDefines.c_oPublishType.releaseLock:
             participants = getParticipants(data.docId, true, data.userId, true);
@@ -3429,7 +3445,8 @@ exports.install = function(server, callbackFunction) {
               });
             } else if (nowMs - conn.sessionTimeConnect > cfgExpSessionAbsolute) {
               ctx.logger.debug('expireDoc close absolute session');
-              conn.close(constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
+              conn.disconnect(true);
               continue;
             }
           }
@@ -3443,7 +3460,8 @@ exports.install = function(server, callbackFunction) {
               });
             } else if (nowMs - conn.sessionTimeLastAction > cfgExpSessionIdle) {
               ctx.logger.debug('expireDoc close idle session');
-              conn.close(constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
+              sendDataDisconnectReason(ctx, conn, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
+              conn.disconnect(true);
               continue;
             }
           }

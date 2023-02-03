@@ -1539,6 +1539,8 @@ exports.downloadFile = function(req, res) {
             url = decoded.changesUrl;
           } else if (decoded.document && -1 !== cfgDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
             url = decoded.document.url;
+          } else if (decoded.url && -1 !== cfgDownloadFileAllowExt.indexOf(decoded.fileType)) {
+            url = decoded.url;
           } else {
             errorDescription = 'access deny';
           }
