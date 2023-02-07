@@ -44,12 +44,10 @@ For the document service to work correctly it is necessary to install the follow
            login and password introduced during installation, then enter commands:  
 
             ```sql
-            CREATE DATABASE onlyoffice;
             CREATE USER onlyoffice WITH PASSWORD 'onlyoffice';
+            CREATE DATABASE onlyoffice OWNER onlyoffice;
             \c onlyoffice
             \i 'schema/postgresql/createdb.sql';
-            GRANT ALL PRIVILEGES ON DATABASE onlyoffice to onlyoffice;
-            GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO onlyoffice;
             ```
 
         2. Delete from `server\Common\config\development-windows.json` option `sql`.
