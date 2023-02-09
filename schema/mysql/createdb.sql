@@ -46,29 +46,6 @@ CREATE TABLE IF NOT EXISTS `doc_changes` (
 
 
 --
--- Definition of table `doc_changes`
---
-
-CREATE TABLE IF NOT EXISTS `doc_changes2` (
-  `tenant` varchar(255) NOT NULL,
-  `id` varchar(255) NOT NULL,
-  `change_id` int(10) unsigned NOT NULL,
-  `user_id` varchar(255) NOT NULL,
-  `user_id_original` varchar(255) NOT NULL,
-  `user_name` varchar(255) NOT NULL,
-  `change_data` longblob NOT NULL,
-  `change_date` datetime NOT NULL,
-  PRIMARY KEY (`tenant`, `id`,`change_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
---
--- Dumping data for table `doc_changes`
---
-
-/*!40000 ALTER TABLE `doc_changes2` DISABLE KEYS */;
-/*!40000 ALTER TABLE `doc_changes2` ENABLE KEYS */;
-
---
 -- Definition of table `task_result`
 --
 

@@ -21,22 +21,6 @@ PRIMARY KEY ("tenant", "id", "change_id")
 WITH (OIDS=FALSE);
 
 -- ----------------------------
--- Table structure for doc_changes2
--- ----------------------------
-CREATE TABLE IF NOT EXISTS "public"."doc_changes2" (
-"tenant" varchar(255) COLLATE "default" NOT NULL,
-"id" varchar(255) COLLATE "default" NOT NULL,
-"change_id" int4 NOT NULL,
-"user_id" varchar(255) COLLATE "default" NOT NULL,
-"user_id_original" varchar(255) COLLATE "default" NOT NULL,
-"user_name" varchar(255) COLLATE "default" NOT NULL,
-"change_data" bytea NOT NULL,
-"change_date" timestamp without time zone NOT NULL,
-PRIMARY KEY ("tenant", "id", "change_id")
-)
-WITH (OIDS=FALSE);
-
--- ----------------------------
 -- Table structure for task_result
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS "public"."task_result" (
