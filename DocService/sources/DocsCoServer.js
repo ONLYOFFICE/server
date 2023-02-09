@@ -1452,6 +1452,7 @@ exports.install = function(server, callbackFunction) {
             }
             break;
           case 'extendSession' :
+            ctx.logger.debug("extendSession idletime: %d", data.idletime);
             conn.sessionIsSendWarning = false;
             conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
             break;
