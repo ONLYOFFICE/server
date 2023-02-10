@@ -1328,7 +1328,9 @@ exports.install = function(server, callbackFunction) {
         ctx.logger.info('io.use start');
         let handshake = socket.handshake;
         if (cfgTokenEnableBrowser) {
-          checkJwtRes = yield checkJwt(ctx, handshake?.auth?.token, commonDefines.c_oAscSecretType.Browser);
+          let secretType = !!(handshake?.auth?.session) ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
+          let token = handshake?.auth?.session || handshake?.auth?.token;
+          checkJwtRes = yield checkJwt(ctx, token, secretType);
           if (!checkJwtRes.decoded) {
             res = new Error("not authorized");
             res.data = { code: checkJwtRes.code, description: checkJwtRes.description };
