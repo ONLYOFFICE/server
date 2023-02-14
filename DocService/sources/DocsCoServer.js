@@ -3357,7 +3357,8 @@ exports.install = function(server, callbackFunction) {
               var connectionsTmp = connections.slice();
               //destroy all open connections
               for (i = 0; i < connectionsTmp.length; ++i) {
-                connectionsTmp[i].close(constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
+                sendDataDisconnectReason(ctx, connectionsTmp[i], constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
+                connectionsTmp[i].disconnect(true);
               }
             }
             ctx.logger.warn('end shutdown');
