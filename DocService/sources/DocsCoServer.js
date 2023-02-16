@@ -2942,6 +2942,9 @@ exports.install = function(server, callbackFunction) {
 
   // Можем ли мы сохранять ?
   function* isSaveLock(ctx, conn) {
+    if (!conn.user) {
+      return;
+    }
     let lockRes = yield editorData.lockSave(ctx, conn.docId, conn.user.id, cfgExpSaveLock);
     ctx.logger.debug("isSaveLock lockRes: %s", lockRes);
 
