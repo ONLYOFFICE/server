@@ -81,7 +81,8 @@ exports.LICENSE_RESULT = {
   ConnectionsLiveOS: 12,
   ConnectionsLive: 13,
   UsersViewCount: 14,
-  UsersViewCountOS: 15
+  UsersViewCountOS: 15,
+  NotBefore: 16
 };
 
 exports.LICENSE_CONNECTIONS = 20;
