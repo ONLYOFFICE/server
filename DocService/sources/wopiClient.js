@@ -134,6 +134,7 @@ function discovery(req, res) {
         let urlTemplateEmbedView = `${templateStart}/${documentTypes[i]}/view?embed=1${templateEnd}`;
         let urlTemplateMobileView = `${templateStart}/${documentTypes[i]}/view?mobile=1${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
+        let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1${templateEnd}`;
         let xmlApp = xmlZone.ele('app', {name: name, favIconUrl: favIconUrl});
         for (let j = 0; j < ext.view.length; ++j) {
           xmlApp.ele('action', {name: 'view', ext: ext.view[j], urlsrc: urlTemplateView}).up();
@@ -153,6 +154,7 @@ function discovery(req, res) {
             xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
           xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
         }
         xmlApp.up();
       }
@@ -164,6 +166,7 @@ function discovery(req, res) {
         let urlTemplateEmbedView = `${templateStart}/${documentTypes[i]}/view?embed=1${templateEnd}`;
         let urlTemplateMobileView = `${templateStart}/${documentTypes[i]}/view?mobile=1${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
+        let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1${templateEnd}`;
         for (let j = 0; j < ext.view.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
@@ -186,6 +189,7 @@ function discovery(req, res) {
             mimeTypes.forEach((value) => {
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              xmlApp.ele('action', {name: 'mobileEdit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
               xmlApp.up();
             });
           }
