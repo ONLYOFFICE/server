@@ -1811,7 +1811,10 @@ exports.install = function(server, callbackFunction) {
       // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
       connections.push(conn);
       yield addPresence(ctx, conn, true);
-
+      if (cfgTokenEnableBrowser) {
+        let sessionToken = yield fillJwtByConnection(ctx, conn);
+        sendDataRefreshToken(ctx, conn, sessionToken);
+      }
       sendFileError(ctx, conn, errorId, code);
     }
   }
