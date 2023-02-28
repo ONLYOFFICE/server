@@ -213,6 +213,7 @@ exports.getFormatFromString = function(ext) {
     case 'html':
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML;
     case 'mht':
+    case 'mhtml':
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_MHT;
     case 'epub':
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_EPUB;
