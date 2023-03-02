@@ -321,6 +321,7 @@ function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
 function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt_headers) {
   var res = constants.CONVERT_DOWNLOAD;
   var data = null;
+  var sha256 = null;
   var downloadAttemptCount = 0;
   var urlParsed = url.parse(uri);
   var filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
@@ -334,6 +335,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
         }
         let getRes = yield utils.downloadUrlPromise(ctx, uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;
+        sha256 = getRes.sha256;
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
@@ -350,7 +352,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
       }
     }
     if (constants.NO_ERROR === res) {
-      ctx.logger.debug('downloadFile complete filesize=%d', data.length);
+      ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', data.length, sha256);
       fs.writeFileSync(fileFrom, data);
     }
   } else {
@@ -699,21 +701,30 @@ function* streamEnd(streamObj, text) {
   streamObj.writeStream.end(text, 'utf8');
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
-function* processUploadToStorage(ctx, dir, storagePath, opt_specialDirDst) {
+function* processUploadToStorage(ctx, dir, storagePath, calcChecksum, opt_specialDirDst) {
   var list = yield utils.listObjects(dir);
   if (list.length < MAX_OPEN_FILES) {
-    yield* processUploadToStorageChunk(ctx, list, dir, storagePath, opt_specialDirDst);
+    yield* processUploadToStorageChunk(ctx, list, dir, storagePath, calcChecksum, opt_specialDirDst);
   } else {
     for (var i = 0, j = list.length; i < j; i += MAX_OPEN_FILES) {
-      yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath, opt_specialDirDst);
+      yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath, calcChecksum, opt_specialDirDst);
     }
   }
 }
-function* processUploadToStorageChunk(ctx, list, dir, storagePath, opt_specialDirDst) {
-  yield Promise.all(list.map(function (curValue) {
+function* processUploadToStorageChunk(ctx, list, dir, storagePath, calcChecksum, opt_specialDirDst) {
+  let promises = list.reduce(function(r, curValue) {
     let localValue = storagePath + '/' + curValue.substring(dir.length + 1);
-    return storage.uploadObject(ctx, localValue, curValue, opt_specialDirDst);
-  }));
+    let checksum;
+    if (calcChecksum) {
+      checksum = utils.checksumFile('sha256', curValue).then(result => {
+        ctx.logger.debug('processUploadToStorageChunk path=%s; sha256=%s', localValue, result);
+      });
+    }
+    let upload = storage.uploadObject(ctx, localValue, curValue, opt_specialDirDst);
+    r.push(checksum, upload);
+    return r;
+  }, []);
+  yield Promise.all(promises);
 }
 function writeProcessOutputToLog(ctx, childRes, isDebug) {
   if (childRes) {
@@ -755,7 +766,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
       writeProcessOutputToLog(ctx, childRes, false);
       ctx.logger.error('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
       if (cfgErrorFiles) {
-        yield* processUploadToStorage(ctx, tempDirs.temp, dataConvert.key, cfgErrorFiles);
+        yield* processUploadToStorage(ctx, tempDirs.temp, dataConvert.key, false, cfgErrorFiles);
         ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
       }
     }
@@ -764,7 +775,9 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     ctx.logger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
   }
   if (-1 !== exitCodesUpload.indexOf(error)) {
-    yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key);
+    //todo clarify calcChecksum conditions
+    let calcChecksum = (0 === (constants.AVS_OFFICESTUDIO_FILE_CANVAS & cmd.getOutputFormat()));
+    yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key, calcChecksum);
     ctx.logger.debug('processUploadToStorage complete');
   }
   cmd.setStatusInfo(error);

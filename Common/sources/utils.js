@@ -38,6 +38,7 @@ require("tls").DEFAULT_ECDH_CURVE = "auto";
 var config = require('config');
 var fs = require('fs');
 var path = require('path');
+const crypto = require('crypto');
 var url = require('url');
 var request = require('request');
 var co = require('co');
@@ -299,6 +300,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     var urlParsed = url.parse(uri);
     let sizeLimit = optLimit || Number.MAX_VALUE;
     let bufferLength = 0;
+    let hash = crypto.createHash('sha256');
     //if you expect binary data, you should set encoding: null
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false};
@@ -333,7 +335,8 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
           if (contentLength && body.length !== (contentLength - 0)) {
             ctx.logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
-          resolve({response: response, body: body});
+          let sha256 = hash.digest('hex');
+          resolve({response: response, body: body, sha256: sha256});
         }
       };
     }
@@ -364,6 +367,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       }
     };
     let fData = function(chunk) {
+      hash.update(chunk);
       bufferLength += chunk.length;
       if (bufferLength > sizeLimit) {
         raiseError(this, 'EMSGSIZE', 'Error response body.length');
@@ -1050,4 +1054,14 @@ exports.isUselesSfc = function(row, cmd) {
 };
 exports.getChangesFileHeader = function() {
   return `CHANGES\t${commonDefines.buildVersion}\n`;
+};
+exports.checksumFile = function(hashName, path) {
+  //https://stackoverflow.com/a/44643479
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash(hashName);
+    const stream = fs.createReadStream(path);
+    stream.on('error', err => reject(err));
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
 };
