@@ -182,7 +182,8 @@
 				"prefix": "ds:",
 				"host": "localhost",
 				"port": 6379,
-				"options": {}
+				"options": {},
+				"iooptions": {}
 			},
 			"pubsub": {
 				"maxChanges": 0
