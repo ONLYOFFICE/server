@@ -49,7 +49,9 @@ function EditorData() {
   this.shutdown = {};
   this.stat = {};
 }
-
+EditorData.prototype.connect = function() {
+  return Promise.resolve();
+};
 EditorData.prototype._getDocumentData = function(ctx, docId) {
   let tenantData = this.data[ctx.tenant];
   if (!tenantData) {
@@ -475,11 +477,17 @@ EditorData.prototype.setLicense = function(key, val) {
 EditorData.prototype.getLicense = function(key) {
   return Promise.resolve(null);
 };
+EditorData.prototype.removeLicense = function(key) {
+  return Promise.resolve();
+};
 
 EditorData.prototype.isConnected = function() {
   return true;
 };
 EditorData.prototype.ping = function() {
+  return Promise.resolve();
+};
+EditorData.prototype.close = function() {
   return Promise.resolve();
 };
 
