@@ -3573,7 +3573,9 @@ exports.install = function(server, callbackFunction) {
           }
         });
         if (-1 !== index || 0 === res.length) {
-          callbackFunction();
+          return editorData.connect().then(function() {
+            callbackFunction();
+          });
         } else {
           operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
         }
@@ -3597,7 +3599,7 @@ exports.healthCheck = function(req, res) {
       let promises = [];
       //database
       promises.push(sqlBase.healthCheck(ctx));
-      //redis
+      //check redis connection
       if (editorData.isConnected()) {
         promises.push(editorData.ping());
         yield Promise.all(promises);
