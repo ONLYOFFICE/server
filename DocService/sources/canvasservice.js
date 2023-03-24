@@ -1525,7 +1525,7 @@ exports.downloadFile = function(req, res) {
         startDate = new Date();
       }
       ctx.initFromRequest(req);
-      let url = req.get('x-url');
+      let url = decodeURI(req.get('x-url'));
       ctx.setDocId(req.params.docid);
       ctx.logger.info('Start downloadFile');
 

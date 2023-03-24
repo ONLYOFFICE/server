@@ -140,7 +140,7 @@ if (configStorage.has('fs.folderPath')) {
 				const filename = decodeURIComponent(path.basename(urlParsed.pathname));
 				sendFileOptions.headers['Content-Type'] = mime.getType(filename);
 			}
-			const realUrl = req.url.substring(0, index);
+			const realUrl = decodeURI(req.url.substring(0, index));
 			res.sendFile(realUrl, sendFileOptions, (err) => {
 				if (err) {
 					operationContext.global.logger.error(err);
