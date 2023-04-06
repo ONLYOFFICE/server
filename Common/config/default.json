@@ -216,8 +216,8 @@
 				"errorcode": 403
 			},
 			"request-filtering-agent" : {
-				"allowPrivateIPAddress": true,
-				"allowMetaIPAddress": true
+				"allowPrivateIPAddress": false,
+				"allowMetaIPAddress": false
 			},
 			"secret": {
 				"inbox": {"string": "secret", "file": ""},
