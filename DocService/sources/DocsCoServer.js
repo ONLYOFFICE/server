@@ -103,8 +103,6 @@ const shutdown = require('./shutdown');
 const pubsubService = require('./pubsubRabbitMQ');
 const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
-const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
-const activeMQCore = require('./../../Common/sources/activeMQCore');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 
@@ -140,7 +138,6 @@ const cfgTokenVerifyOptions = config.get('token.verifyOptions');
 const cfgForceSaveEnable = config.get('autoAssembly.enable');
 const cfgForceSaveInterval = ms(config.get('autoAssembly.interval'));
 const cfgForceSaveStep = ms(config.get('autoAssembly.step'));
-const cfgQueueType = configCommon.get('queue.type');
 const cfgQueueRetentionPeriod = configCommon.get('queue.retentionPeriod');
 const cfgForgottenFiles = config.get('server.forgottenfiles');
 const cfgMaxRequestChanges = config.get('server.maxRequestChanges');
@@ -3595,25 +3592,31 @@ exports.healthCheck = function(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
-      ctx.logger.debug('healthCheck start');
-      let promises = [];
+      ctx.logger.info('healthCheck start');
       //database
-      promises.push(sqlBase.healthCheck(ctx));
+      yield sqlBase.healthCheck(ctx);
+      ctx.logger.debug('healthCheck database');
       //check redis connection
       if (editorData.isConnected()) {
-        promises.push(editorData.ping());
-        yield Promise.all(promises);
+        yield editorData.ping();
+        ctx.logger.debug('healthCheck editorData');
       } else {
         throw new Error('redis disconnected');
       }
-      //rabbitMQ
-      if (commonDefines.c_oAscQueueType.rabbitmq === cfgQueueType) {
-        let conn = yield rabbitMQCore.connetPromise(false, function() {});
-        yield rabbitMQCore.closePromise(conn);
+
+      const healthPubsub = yield pubsub.healthCheck();
+      if (healthPubsub) {
+        ctx.logger.debug('healthCheck pubsub');
       } else {
-        let conn = yield activeMQCore.connetPromise(false, function() {});
-        yield activeMQCore.closePromise(conn);
+        throw new Error('pubsub');
       }
+      const healthQueue = yield queue.healthCheck();
+      if (healthQueue) {
+        ctx.logger.debug('healthCheck queue');
+      } else {
+        throw new Error('queue');
+      }
+
       //storage
       const clusterId = cluster.isWorker ? cluster.worker.id : '';
       const tempName = 'hc_' + os.hostname() + '_' + clusterId + '_' + Math.round(Math.random() * HEALTH_CHECK_KEY_MAX);
@@ -3626,9 +3629,10 @@ exports.healthCheck = function(req, res) {
       } catch (err) {
         ctx.logger.warn('healthCheck error %s', err.stack);
       }
+      ctx.logger.debug('healthCheck storage');
 
       output = true;
-      ctx.logger.debug('healthCheck end');
+      ctx.logger.info('healthCheck end');
     } catch (err) {
       ctx.logger.error('healthCheck error %s', err.stack);
     } finally {

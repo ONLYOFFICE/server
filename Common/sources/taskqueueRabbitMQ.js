@@ -57,6 +57,7 @@ var cfgActiveQueueConvertResponse = constants.ACTIVEMQ_QUEUE_PREFIX + config.get
 var cfgActiveQueueConvertDead = constants.ACTIVEMQ_QUEUE_PREFIX + config.get('activemq.queueconvertdead');
 var cfgActiveQueueDelayed = constants.ACTIVEMQ_QUEUE_PREFIX + config.get('activemq.queuedelayed');
 
+const optionsExchnangeDead = {durable: true};
 function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, callback) {
   return co(function* () {
     var e = null;
@@ -138,7 +139,7 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
       if (isEmitDead) {
         taskqueue.channelConvertDead = yield rabbitMQCore.createChannelPromise(conn);
         yield rabbitMQCore.assertExchangePromise(taskqueue.channelConvertDead, cfgRabbitExchangeConvertDead, 'fanout',
-                                                 {durable: true});
+          optionsExchnangeDead);
         var queue = yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertDead, cfgRabbitQueueConvertDead,
                                                           {durable: true});
 
@@ -413,23 +414,47 @@ function addDelayedActive(taskqueue, content, ttl, callback) {
   callback();
 }
 
+function healthCheckRabbit(taskqueue) {
+  return co(function* () {
+    if (!taskqueue.channelConvertDead) {
+      return false;
+    }
+    const exchange = yield rabbitMQCore.assertExchangePromise(taskqueue.channelConvertDead, cfgRabbitExchangeConvertDead,
+      'fanout', optionsExchnangeDead);
+    return !!exchange;
+  });
+}
+function healthCheckActive(taskqueue) {
+  return co(function* () {
+    //todo better check
+    if (!taskqueue.connection) {
+      return false;
+    }
+    return taskqueue.connection.is_open();
+  });
+}
+
+
 let init;
 let addTask;
 let addResponse;
 let close;
 let addDelayed;
+let healthCheck;
 if (commonDefines.c_oAscQueueType.rabbitmq === cfgQueueType) {
   init = initRabbit;
   addTask = addTaskRabbit;
   addResponse = addResponseRabbit;
   close = closeRabbit;
   addDelayed = addDelayedRabbit;
+  healthCheck = healthCheckRabbit;
 } else {
   init = initActive;
   addTask = addTaskActive;
   addResponse = addResponseActive;
   close = closeActive;
   addDelayed = addDelayedActive;
+  healthCheck = healthCheckActive;
 }
 
 function TaskQueueRabbitMQ(simulateErrorResponse) {
@@ -535,6 +560,9 @@ TaskQueueRabbitMQ.prototype.closeOrWait = function() {
       return utils.sleep(1000);
     });
   }
+};
+TaskQueueRabbitMQ.prototype.healthCheck = function() {
+  return healthCheck(this);
 };
 
 module.exports = TaskQueueRabbitMQ;

@@ -45,6 +45,7 @@ const cfgQueueType = config.get('queue.type');
 var cfgRabbitExchangePubSub = config.get('rabbitmq.exchangepubsub');
 var cfgActiveTopicPubSub = constants.ACTIVEMQ_TOPIC_PREFIX + config.get('activemq.topicpubsub');
 
+const optionsExchange = {durable: true};
 function initRabbit(pubsub, callback) {
   return co(function* () {
     var e = null;
@@ -145,6 +146,7 @@ function publishRabbit(pubsub, data) {
   pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
 }
 function publishActive(pubsub, data) {
+  //todo sendable
   pubsub.channelPublish.send({durable: true, body: data});
 }
 function closeRabbit(conn) {
@@ -154,17 +156,39 @@ function closeActive(conn) {
   return activeMQCore.closePromise(conn);
 }
 
+function healthCheckRabbit(pubsub) {
+  return co(function* () {
+    if (!pubsub.channelPublish) {
+      return false;
+    }
+    const exchange = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub,
+      'fanout', optionsExchange);
+    return !!exchange;
+  });
+}
+function healthCheckActive(pubsub) {
+  return co(function* () {
+    if (!pubsub.connection) {
+      return false;
+    }
+    return pubsub.connection.is_open();
+  });
+}
+
 let init;
 let publish;
 let close;
+let healthCheck;
 if (commonDefines.c_oAscQueueType.rabbitmq === cfgQueueType) {
   init = initRabbit;
   publish = publishRabbit;
   close = closeRabbit;
+  healthCheck = healthCheckRabbit;
 } else {
   init = initActive;
   publish = publishActive;
   close = closeActive;
+  healthCheck = healthCheckActive;
 }
 
 function PubsubRabbitMQ() {
@@ -202,6 +226,9 @@ PubsubRabbitMQ.prototype.publish = function (message) {
 PubsubRabbitMQ.prototype.close = function() {
   this.isClose = true;
   return close(this.connection);
+};
+PubsubRabbitMQ.prototype.healthCheck = function() {
+  return healthCheck(this);
 };
 
 module.exports = PubsubRabbitMQ;
