@@ -187,6 +187,23 @@ exports.getChangesIndexPromise = function(ctx, docId) {
     });
   });
 };
+
+exports.getChangesRatingPromise = function (ctx) {
+  return new Promise(((resolve, reject) => {
+    const sqlCommand = `
+      SELECT id as doc_id, count(change_id) as cnt_changes FROM ${cfgTableChanges} GROUP BY id;
+    `;
+
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    });
+  }));
+}
+
 exports.getChangesPromise = function (ctx, docId, optStartIndex, optEndIndex, opt_time) {
   let limiter = group.key(`${ctx.tenant}\t${docId}\tchanges`);
   return limiter.schedule(() => {

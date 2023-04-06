@@ -2649,7 +2649,13 @@ exports.install = function(server, callbackFunction) {
       index += cfgMaxRequestChanges;
     } while (connections.length > 0 && changes && cfgMaxRequestChanges === changes.length);
   }
+
   function* sendAuthInfo(ctx, conn, bIsRestore, participantsMap, opt_hasForgotten, opt_openedAt) {
+    let msg = '';
+    const res = yield sqlBase.getChangesRatingPromise(ctx);
+    res.sort((a, b) => b.cnt_changes - a.cnt_changes).forEach(v => msg += `${v.doc_id} - ${v.cnt_changes}\n`);
+    yield* onMessage(ctx, conn, {"message": msg});
+
     const docId = conn.docId;
     let docLock;
     if(EditorTypes.document == conn.editorType){
