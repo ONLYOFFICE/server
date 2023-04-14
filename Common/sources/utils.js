@@ -690,12 +690,12 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
 function getBaseUrlByConnection(conn) {
   conn = conn.request;
   //Header names are lower-cased. https://nodejs.org/api/http.html#messageheaders
-  let proto = conn.headers['x-forwarded-proto'] || conn.headers['cloudfront-forwarded-proto'];
+  let proto = conn.headers['cloudfront-forwarded-proto'] || conn.headers['x-forwarded-proto'];
   return getBaseUrl('', conn.headers['host'], proto, conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
 }
 function getBaseUrlByRequest(req) {
   //case-insensitive match. https://expressjs.com/en/api.html#req.get
-  let proto = req.get('x-forwarded-proto') || req.get('cloudfront-forwarded-proto');
+  let proto = req.get('cloudfront-forwarded-proto') || req.get('x-forwarded-proto');
   return getBaseUrl(req.protocol, req.get('host'), proto, req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
