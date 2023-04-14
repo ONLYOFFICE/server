@@ -354,7 +354,7 @@ function convertRequest(req, res, isJson) {
         if (status.end) {
           let fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
-          status.setUrl(yield* getConvertUrl(ctx, utils.getBaseUrlByRequest(req), fileToPath, cmd.getTitle()));
+          status.setUrl(yield* getConvertUrl(ctx, utils.getBaseUrlByRequest(ctx, req), fileToPath, cmd.getTitle()));
           ctx.logger.debug('convertRequest: url = %s', status.url);
         }
         utils.fillResponse(req, res, status, isJson);
@@ -428,7 +428,7 @@ function builderRequest(req, res) {
         end = status.end;
         error = status.err;
         if (end) {
-          urls = yield storageBase.getSignedUrls(ctx, utils.getBaseUrlByRequest(req), docId + '/output',
+          urls = yield storageBase.getSignedUrls(ctx, utils.getBaseUrlByRequest(ctx, req), docId + '/output',
                                                  commonDefines.c_oAscUrlTypes.Temporary);
         }
       } else if (error === constants.NO_ERROR) {

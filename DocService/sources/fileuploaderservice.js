@@ -76,7 +76,7 @@ exports.uploadTempFile = function(req, res) {
         var task = yield* taskResult.addRandomKeyTask(ctx, docId);
         var strPath = task.key + '/' + docId + '.tmp';
         yield storageBase.putObject(ctx, strPath, req.body, req.body.length);
-        var url = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(req), strPath,
+        var url = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
                                                  commonDefines.c_oAscUrlTypes.Temporary);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.NO_ERROR, url), false);
       } else {
@@ -178,7 +178,7 @@ exports.uploadImageFileOld = function(req, res) {
         if (isError) {
           res.sendStatus(400);
         } else {
-          storageBase.getSignedUrlsByArray(ctx, utils.getBaseUrlByRequest(req), listImages, docId,
+          storageBase.getSignedUrlsByArray(ctx, utils.getBaseUrlByRequest(ctx, req), listImages, docId,
                                            commonDefines.c_oAscUrlTypes.Session).then(function(urls) {
                                                                                         var outputData = {'type': 0, 'error': constants.NO_ERROR, 'urls': urls, 'input': req.query};
                                                                                         var output = '<html><head><script type="text/javascript">function load(){ parent.postMessage("';
@@ -250,7 +250,7 @@ exports.uploadImageFile = function(req, res) {
             var strPathRel = 'media/' + strImageName + '.' + formatStr;
             var strPath = docId + '/' + strPathRel;
             yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
-            output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(req), strPath,
+            output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
                                                                 commonDefines.c_oAscUrlTypes.Session);
             isError = false;
           } else {

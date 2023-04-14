@@ -235,7 +235,13 @@ docsCoServer.install(server, () => {
 	app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
 	app.get('/baseurl', (req, res) => {
-		res.send(utils.getBaseUrlByRequest(req));
+		let ctx = new operationContext.Context();
+		try {
+			ctx.initFromRequest(req);
+			res.send(utils.getBaseUrlByRequest(ctx, req));
+		} catch (err) {
+			ctx.logger.error('baseurl error: %s', err.stack);
+		}
 	});
 
 	app.get('/robots.txt', (req, res) => {

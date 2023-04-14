@@ -687,16 +687,31 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
   }
   return url;
 }
-function getBaseUrlByConnection(conn) {
+function getBaseUrlByConnection(ctx, conn) {
   conn = conn.request;
   //Header names are lower-cased. https://nodejs.org/api/http.html#messageheaders
-  let proto = conn.headers['cloudfront-forwarded-proto'] || conn.headers['x-forwarded-proto'];
-  return getBaseUrl('', conn.headers['host'], proto, conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
+  let cloudfrontForwardedProto = conn.headers['cloudfront-forwarded-proto'];
+  let forwardedProto = conn.headers['x-forwarded-proto'];
+  let forwardedHost = conn.headers['x-forwarded-host'];
+  let forwardedPrefix = conn.headers['x-forwarded-prefix'];
+  let host = conn.headers['host'];
+  let proto = cloudfrontForwardedProto || forwardedProto;
+  ctx.logger.debug(`getBaseUrlByConnection host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
+      host, forwardedHost, forwardedProto, forwardedPrefix, cloudfrontForwardedProto);
+  return getBaseUrl('', host, proto, forwardedHost, forwardedPrefix);
 }
-function getBaseUrlByRequest(req) {
+function getBaseUrlByRequest(ctx, req) {
   //case-insensitive match. https://expressjs.com/en/api.html#req.get
-  let proto = req.get('cloudfront-forwarded-proto') || req.get('x-forwarded-proto');
-  return getBaseUrl(req.protocol, req.get('host'), proto, req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
+  let cloudfrontForwardedProto = req.get('cloudfront-forwarded-proto');
+  let forwardedProto = req.get('x-forwarded-proto');
+  let forwardedHost = req.get('x-forwarded-host');
+  let forwardedPrefix = req.get('x-forwarded-prefix');
+  let host = req.get('host');
+  let protocol = req.protocol;
+  let proto = cloudfrontForwardedProto || forwardedProto;
+  ctx.logger.debug(`getBaseUrlByRequest protocol=%s host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
+      protocol, host, forwardedHost, forwardedProto, forwardedPrefix, cloudfrontForwardedProto);
+  return getBaseUrl(protocol, host, proto, forwardedHost, forwardedPrefix);
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;

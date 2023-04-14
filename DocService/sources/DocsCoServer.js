@@ -1351,7 +1351,7 @@ exports.install = function(server, callbackFunction) {
       sendFileError(ctx, conn, 'Server shutdow');
       return;
     }
-    conn.baseUrl = utils.getBaseUrlByConnection(conn);
+    conn.baseUrl = utils.getBaseUrlByConnection(ctx, conn);
     conn.sessionIsSendWarning = false;
     conn.sessionTimeConnect = conn.sessionTimeLastAction = new Date().getTime();
 
@@ -2257,7 +2257,7 @@ exports.install = function(server, callbackFunction) {
           }
         }
         let format = data.openCmd && data.openCmd.format;
-        upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(conn), true, data.documentCallbackUrl, format);
+        upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), true, data.documentCallbackUrl, format);
         let isInserted = upsertRes.affectedRows == 1;
         curIndexUser = isInserted ? 1 : upsertRes.insertId;
         if (isInserted && undefined !== data.timezoneOffset) {
@@ -2913,7 +2913,7 @@ exports.install = function(server, callbackFunction) {
       yield* unSaveLock(ctx, conn, changesIndex, newChangesLastTime);
       //last save
       let changeInfo = getExternalChangeInfo(conn.user, newChangesLastTime);
-      yield resetForceSaveAfterChanges(ctx, docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(conn), changeInfo);
+      yield resetForceSaveAfterChanges(ctx, docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
     } else {
       let changesToSend = arrNewDocumentChanges;
       if(changesToSend.length > cfgPubSubMaxChanges) {
@@ -3843,7 +3843,7 @@ exports.commandFromServer = function (req, res) {
             //If no files in the database means they have not been edited.
             const selectRes = yield taskResult.select(ctx, docId);
             if (selectRes.length > 0) {
-              result = yield* bindEvents(ctx, docId, params.callback, utils.getBaseUrlByRequest(req), undefined, params.userdata);
+              result = yield* bindEvents(ctx, docId, params.callback, utils.getBaseUrlByRequest(ctx, req), undefined, params.userdata);
             } else {
               result = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
             }
@@ -3869,7 +3869,7 @@ exports.commandFromServer = function (req, res) {
             }
             break;
           case 'forcesave':
-            let forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(req));
+            let forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(ctx, req));
             result = forceSaveRes.code;
             break;
           case 'meta':

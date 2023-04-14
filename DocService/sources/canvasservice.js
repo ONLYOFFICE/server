@@ -459,7 +459,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
   if (opt_upsertRes) {
     upsertRes = opt_upsertRes;
   } else {
-    upsertRes = yield commandOpenStartPromise(ctx, cmd.getDocId(), utils.getBaseUrlByConnection(conn));
+    upsertRes = yield commandOpenStartPromise(ctx, cmd.getDocId(), utils.getBaseUrlByConnection(ctx, conn));
   }
   //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
   //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
@@ -848,7 +848,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
       if (!conn.isEnterCorrectPassword) {
         yield docsCoServer.modifyConnectionForPassword(ctx, conn, true);
       }
-      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
+      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
     } else {
       ctx.logger.debug('commandSetPassword sql update error');
       outputData.setStatus('err');
