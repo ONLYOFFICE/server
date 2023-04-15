@@ -289,7 +289,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         let wopiParams = wopiClient.parseWopiCallback(ctx, userAuthStr);
         if (!wopiParams) {
           //todo rework ErrToReload to clean up on next open
-          yield cleanupCache(ctx);
+          yield cleanupCache(ctx, key);
         }
       }
       break;
@@ -409,10 +409,9 @@ function* getUpdateResponse(ctx, cmd) {
   updateTask.statusInfo = statusInfo;
   return updateTask;
 }
-var cleanupCache = co.wrap(function* (ctx) {
+var cleanupCache = co.wrap(function* (ctx, docId) {
   //todo redis ?
   var res = false;
-  let docId = ctx.docId;
   let list = [];
   var removeRes = yield taskResult.remove(ctx, docId);
   if (removeRes.affectedRows > 0) {
@@ -420,7 +419,7 @@ var cleanupCache = co.wrap(function* (ctx) {
     yield storage.deleteObjects(ctx, list);
     res = true;
   }
-  ctx.logger.debug("cleanupCache db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
+  ctx.logger.debug("cleanupCache docId=%s db.affectedRows=%d list.length=%d", docId, removeRes.affectedRows, list.length);
   return res;
 });
 var cleanupCacheIf = co.wrap(function* (ctx, mask) {
@@ -1087,7 +1086,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
               yield docsCoServer.cleanDocumentOnExitPromise(ctx, docId, true, callbackUserIndex);
               if (isOpenFromForgotten) {
                 //remove forgotten file in cache
-                yield cleanupCache(ctx);
+                yield cleanupCache(ctx, docId);
               }
             } else {
               storeForgotten = true;

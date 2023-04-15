@@ -87,7 +87,7 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
       case commonDefines.FileStatus.NeedPassword:
         status.err = row.status_info;
         if (commonDefines.FileStatus.ErrToReload == row.status || commonDefines.FileStatus.NeedPassword == row.status) {
-          yield canvasService.cleanupCache(ctx);
+          yield canvasService.cleanupCache(ctx, docId);
         }
         break;
       case commonDefines.FileStatus.NeedParams:
