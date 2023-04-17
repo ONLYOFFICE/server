@@ -2841,6 +2841,11 @@ exports.install = function(server, callbackFunction) {
 
     let puckerIndex = yield* getChangesIndex(ctx, docId);
 
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
+      //closing could happen during async action
+      return;
+    }
+
     let deleteIndex = -1;
     if (data.startSaveChanges && null != data.deleteIndex) {
       deleteIndex = data.deleteIndex;
@@ -2853,6 +2858,11 @@ exports.install = function(server, callbackFunction) {
           ctx.logger.error("Error saveChanges: deleteIndex: %s ; startIndex: %s ; deleteCount: %s", deleteIndex, puckerIndex, deleteCount);
         }
       }
+    }
+
+    if (constants.CONN_CLOSED === conn.conn.readyState) {
+      //closing could happen during async action
+      return;
     }
 
     // Стартовый индекс изменения при добавлении
