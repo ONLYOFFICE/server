@@ -622,23 +622,31 @@ function* isUserReconnect(ctx, docId, userId, connectionId) {
   }
   return false;
 }
+
+let pubsubOnMessage = null;//todo move function
 function* publish(ctx, data, optDocId, optUserId, opt_pubsub) {
   var needPublish = true;
-  if(optDocId && optUserId) {
+  let hvals;
+  if (optDocId && optUserId) {
     needPublish = false;
-    var hvals = yield editorData.getPresence(ctx, optDocId, connections);
+    hvals = yield editorData.getPresence(ctx, optDocId, connections);
     for (var i = 0; i < hvals.length; ++i) {
       var elem = JSON.parse(hvals[i]);
-      if(optUserId != elem.id) {
+      if (optUserId != elem.id) {
         needPublish = true;
         break;
       }
     }
   }
-  if(needPublish) {
+  if (needPublish) {
     var msg = JSON.stringify(data);
     var realPubsub = opt_pubsub ? opt_pubsub : pubsub;
-    if (realPubsub) {
+    //don't use pubsub if all connections are local
+    if (pubsubOnMessage && hvals && hvals.length === getLocalConnectionCount(ctx, optDocId)) {
+      ctx.logger.debug("pubsub locally");
+      //todo send connections from getLocalConnectionCount to pubsubOnMessage
+      pubsubOnMessage(msg);
+    } else if(realPubsub) {
       realPubsub.publish(msg);
     }
   }
@@ -1060,6 +1068,15 @@ function dropUserFromDocument(ctx, docId, userId, description) {
       sendDataDrop(ctx, elConnection, description);
     }
   }
+}
+function getLocalConnectionCount(ctx, docId) {
+  let tenant = ctx.tenant;
+  return connections.reduce(function(count, conn) {
+    if (conn.docId === docId && conn.tenant === ctx.tenant) {
+      count++;
+    }
+    return count;
+  }, 0);
 }
 
 // Подписка на эвенты:
@@ -2285,6 +2302,7 @@ exports.install = function(server, callbackFunction) {
 
       const curUserIdOriginal = String(user.id);
       const curUserId = curUserIdOriginal + curIndexUser;
+      conn.tenant = tenantManager.getTenantByConnection(ctx, conn);
       conn.docId = data.docid;
       conn.permissions = data.permissions;
       conn.user = {
@@ -3197,7 +3215,7 @@ exports.install = function(server, callbackFunction) {
   }
 
   //publish subscribe message brocker
-  function pubsubOnMessage(msg) {
+  pubsubOnMessage = function(msg) {
     return co(function* () {
       let ctx = new operationContext.Context();
       try {
