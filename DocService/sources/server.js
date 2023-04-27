@@ -345,8 +345,13 @@ docsCoServer.install(server, () => {
 						ctx.logger.debug('themes.json themesList:%j', themesList);
 						for (let j = 0; j < themesList.length; ++j) {
 							if (themesList[j].endsWith('.json')) {
-								let data = yield utils.readFile(themesList[j], true);
-								themes.push(JSON.parse(data.toString('utf-8')));
+								try {
+									let data = yield utils.readFile(themesList[j], true);
+									let text = new TextDecoder('utf-8', {ignoreBOM: false}).decode(data);
+									themes.push(JSON.parse(text));
+								} catch (err) {
+									ctx.logger.error('themes.json file:%s error:%s', themesList[j], err.stack);
+								}
 							}
 						}
 						break;
