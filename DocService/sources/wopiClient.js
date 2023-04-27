@@ -154,7 +154,7 @@ function discovery(req, res) {
             xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
           xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
-          xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
+          xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
         }
         xmlApp.up();
       }
@@ -189,7 +189,7 @@ function discovery(req, res) {
             mimeTypes.forEach((value) => {
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
-              xmlApp.ele('action', {name: 'mobileEdit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
+              xmlApp.ele('action', {name: 'mobileEdit', ext: '', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
               xmlApp.up();
             });
           }
