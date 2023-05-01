@@ -1432,7 +1432,7 @@ exports.install = function(server, callbackFunction) {
             yield* isSaveLock(ctx, conn, data);
             break;
           case 'unSaveLock'      :
-            yield* unSaveLock(ctx, conn, -1, -1);
+            yield* unSaveLock(ctx, conn, -1, -1, -1);
             break;	// Индекс отправляем -1, т.к. это экстренное снятие без сохранения
           case 'getMessages'      :
             yield* getMessages(ctx, conn, data);
@@ -1765,7 +1765,7 @@ exports.install = function(server, callbackFunction) {
 		}
 		if (isSave && conn) {
 			// Автоматически снимаем lock сами
-			yield* unSaveLock(ctx, conn, -1, -1);
+			yield* unSaveLock(ctx, conn, -1, -1, -1);
 		}
 
 		return result;
@@ -2325,6 +2325,7 @@ exports.install = function(server, callbackFunction) {
       if (data.sessionTimeIdle >= 0) {
         conn.sessionTimeLastAction = new Date().getTime() - data.sessionTimeIdle;
       }
+      conn.unsyncTime = null;
       conn.encrypted = data.encrypted;
       conn.supportAuthChangesAck = data.supportAuthChangesAck;
 
@@ -2934,11 +2935,11 @@ exports.install = function(server, callbackFunction) {
           })
         }
         yield* publish(ctx, {type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
-          changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
+          changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex, syncChangesIndex: puckerIndex,
           locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo, endSaveChanges: data.endSaveChanges}, docId, userId);
       }
       // Автоматически снимаем lock сами и посылаем индекс для сохранения
-      yield* unSaveLock(ctx, conn, changesIndex, newChangesLastTime);
+      yield* unSaveLock(ctx, conn, changesIndex, newChangesLastTime, puckerIndex);
       //last save
       let changeInfo = getExternalChangeInfo(conn.user, newChangesLastTime);
       yield resetForceSaveAfterChanges(ctx, docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
@@ -2952,9 +2953,9 @@ exports.install = function(server, callbackFunction) {
         })
       }
       let isPublished = yield* publish(ctx, {type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
-        changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
+        changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex, syncChangesIndex: puckerIndex,
         locks: [], excelAdditionalInfo: undefined, endSaveChanges: data.endSaveChanges}, docId, userId);
-      sendData(ctx, conn, {type: 'savePartChanges', changesIndex: changesIndex});
+      sendData(ctx, conn, {type: 'savePartChanges', changesIndex: changesIndex, syncChangesIndex: puckerIndex});
       if (!isPublished) {
         //stub for lockDocumentsTimerId
         yield* publish(ctx, {type: commonDefines.c_oPublishType.changesNotify, ctx: ctx, docId: docId});
@@ -2963,8 +2964,28 @@ exports.install = function(server, callbackFunction) {
   }
 
   // Можем ли мы сохранять ?
-  function* isSaveLock(ctx, conn) {
-    let lockRes = yield editorData.lockSave(ctx, conn.docId, conn.user.id, cfgExpSaveLock);
+  function* isSaveLock(ctx, conn, data) {
+    let lockRes = true;
+    //check changesIndex for compatibility or 0 in case of first save
+    if (data.syncChangesIndex) {
+      let forceSave = yield editorData.getForceSave(ctx, conn.docId);
+      if (forceSave && forceSave.index !== data.syncChangesIndex) {
+        if (!conn.unsyncTime) {
+          conn.unsyncTime = new Date();
+        }
+        if (Date.now() - conn.unsyncTime.getTime() < cfgExpSaveLock * 1000) {
+          lockRes = false;
+          ctx.logger.debug("isSaveLock editor unsynced since %j serverIndex:%s clientIndex:%s ", conn.unsyncTime, forceSave.index, data.syncChangesIndex);
+          sendData(ctx, conn, {type: "saveLock", saveLock: !lockRes});
+          return;
+        } else {
+          ctx.logger.warn("isSaveLock editor unsynced since %j serverIndex:%s clientIndex:%s ", conn.unsyncTime, forceSave.index, data.syncChangesIndex);
+        }
+      }
+    }
+    conn.unsyncTime = null;
+
+    lockRes = yield editorData.lockSave(ctx, conn.docId, conn.user.id, cfgExpSaveLock);
     ctx.logger.debug("isSaveLock lockRes: %s", lockRes);
 
     // Отправляем только тому, кто спрашивал (всем отправлять нельзя)
@@ -2972,10 +2993,10 @@ exports.install = function(server, callbackFunction) {
   }
 
   // Снимаем лок с сохранения
-  function* unSaveLock(ctx, conn, index, time) {
+  function* unSaveLock(ctx, conn, index, time, syncChangesIndex) {
     var unlockRes = yield editorData.unlockSave(ctx, conn.docId, conn.user.id);
     if (commonDefines.c_oAscUnlockRes.Locked !== unlockRes) {
-      sendData(ctx, conn, {type: 'unSaveLock', index: index, time: time});
+      sendData(ctx, conn, {type: 'unSaveLock', index, time, syncChangesIndex});
     } else {
       ctx.logger.warn("unSaveLock failure");
     }
@@ -3285,7 +3306,7 @@ exports.install = function(server, callbackFunction) {
                   return;
                 }
                 sendData(ctx, participant, {type: 'saveChanges', changes: changes,
-                  changesIndex: data.changesIndex, endSaveChanges:  data.endSaveChanges,
+                  changesIndex: data.changesIndex, syncChangesIndex: data.syncChangesIndex, endSaveChanges:  data.endSaveChanges,
                   locks: data.locks, excelAdditionalInfo: data.excelAdditionalInfo});
               });
             }
