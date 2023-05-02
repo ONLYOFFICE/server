@@ -186,7 +186,7 @@
 				"iooptions": {}
 			},
 			"pubsub": {
-				"maxChanges": 0
+				"maxChanges": 1000
 			},
 			"expire": {
 				"saveLock": 60,
@@ -220,6 +220,7 @@
 				"allowMetaIPAddress": false
 			},
 			"secret": {
+				"browser": {"string": "secret", "file": ""},
 				"inbox": {"string": "secret", "file": ""},
 				"outbox": {"string": "secret", "file": ""},
 				"session": {"string": "secret", "file": ""}
@@ -231,6 +232,9 @@
 						"inbox": false,
 						"outbox": false
 					}
+				},
+				"browser": {
+					"secretFromInbox": true
 				},
 				"inbox": {
 					"header": "Authorization",

@@ -123,7 +123,7 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
           function (message) {
             if (message) {
               taskqueue.emit('response', message.content.toString(), function() {
-                taskqueue.channelConvertResponseReceive.ack(message);
+                taskqueue.channelConvertResponseReceive && taskqueue.channelConvertResponseReceive.ack(message);
               });
             }
           }, optionsReceive);

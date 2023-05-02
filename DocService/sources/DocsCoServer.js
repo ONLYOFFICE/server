@@ -1342,7 +1342,9 @@ exports.install = function(server, callbackFunction) {
         ctx.logger.info('io.use start');
         let handshake = socket.handshake;
         if (cfgTokenEnableBrowser) {
-          checkJwtRes = yield checkJwt(ctx, handshake?.auth?.token, commonDefines.c_oAscSecretType.Browser);
+          let secretType = !!(handshake?.auth?.session) ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
+          let token = handshake?.auth?.session || handshake?.auth?.token;
+          checkJwtRes = yield checkJwt(ctx, token, secretType);
           if (!checkJwtRes.decoded) {
             res = new Error("not authorized");
             res.data = { code: checkJwtRes.code, description: checkJwtRes.description };
@@ -1466,6 +1468,7 @@ exports.install = function(server, callbackFunction) {
             }
             break;
           case 'extendSession' :
+            ctx.logger.debug("extendSession idletime: %d", data.idletime);
             conn.sessionIsSendWarning = false;
             conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
             break;
@@ -1822,7 +1825,10 @@ exports.install = function(server, callbackFunction) {
       // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
       connections.push(conn);
       yield addPresence(ctx, conn, true);
-
+      if (cfgTokenEnableBrowser) {
+        let sessionToken = yield fillJwtByConnection(ctx, conn);
+        sendDataRefreshToken(ctx, conn, sessionToken);
+      }
       sendFileError(ctx, conn, errorId, code);
     }
   }
@@ -2965,6 +2971,9 @@ exports.install = function(server, callbackFunction) {
 
   // Можем ли мы сохранять ?
   function* isSaveLock(ctx, conn, data) {
+    if (!conn.user) {
+      return;
+    }
     let lockRes = true;
     //check changesIndex for compatibility or 0 in case of first save
     if (data.syncChangesIndex) {
