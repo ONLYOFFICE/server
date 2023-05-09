@@ -45,6 +45,20 @@
         "allowPrivateIPAddress": true,
         "allowMetaIPAddress": true
       },
+      "secret": {
+        "inbox": {"string": "VD41mPziRLGJzneaVdSBZZVOfVIl7vOO", "file": ""},
+        "outbox": {"string": "VD41mPziRLGJzneaVdSBZZVOfVIl7vOO", "file": ""},
+        "session": {"string": "VD41mPziRLGJzneaVdSBZZVOfVIl7vOO", "file": ""}
+      },
+      "token": {
+        "enable": {
+          "browser": true,
+          "request": {
+            "inbox": true,
+            "outbox": true
+          }
+        }
+      },
       "sockjs": {
         "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
       },
