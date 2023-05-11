@@ -72,7 +72,7 @@ const contentDisposition = require('content-disposition');
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
 var cfgIpFilterErrorCode = configIpFilter.get('errorcode');
-const cfgIpFilterEseForRequest = configIpFilter.get('useforrequest');
+const cfgIpFilterUseForRequest = configIpFilter.get('useforrequest');
 var cfgExpPemStdTtl = config.get('services.CoAuthoring.expire.pemStdTTL');
 var cfgExpPemCheckPeriod = config.get('services.CoAuthoring.expire.pemCheckPeriod');
 var cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
@@ -824,7 +824,7 @@ function* checkHostFilter(ctx, hostname) {
 exports.checkHostFilter = checkHostFilter;
 function checkClientIp(req, res, next) {
 	let status = 0;
-	if (cfgIpFilterEseForRequest) {
+	if (cfgIpFilterUseForRequest) {
 		const addresses = forwarded(req);
 		const ipString = addresses[addresses.length - 1];
 		status = checkIpFilter(ipString);

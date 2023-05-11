@@ -703,6 +703,13 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
         }
       } else if (urlSource) {
         try {
+          if (authorizations[i]) {
+            let urlParsed = urlModule.parse(urlSource);
+            let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+            if (0 !== filterStatus) {
+              throw Error('checkIpFilter');
+            }
+          }
           //todo stream
           let getRes = yield utils.downloadUrlPromise(ctx, urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], !authorizations[i]);
           data = getRes.body;
@@ -1555,6 +1562,13 @@ exports.downloadFile = function(req, res) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest({url: url}, secret, false);
         }
+      }
+      let urlParsed = urlModule.parse(url);
+      let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+      if (0 !== filterStatus) {
+        ctx.logger.warn('Error downloadFile checkIpFilter error: url = %s', url);
+        res.sendStatus(filterStatus);
+        return;
       }
       yield utils.downloadUrlPromise(ctx, url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
 
