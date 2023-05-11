@@ -1211,7 +1211,7 @@ function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
 }
 function getRequestParams(ctx, req, opt_isNotInBody) {
   return co(function*(){
-    let res = {code: constants.NO_ERROR, params: undefined};
+    let res = {code: constants.NO_ERROR, isDecoded: false, params: undefined};
     if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
       res.params = JSON.parse(req.body.toString('utf8'));
     } else {
@@ -1228,6 +1228,7 @@ function getRequestParams(ctx, req, opt_isNotInBody) {
       if (checkJwtRes) {
         if (checkJwtRes.decoded) {
           res.code = constants.NO_ERROR;
+          res.isDecoded = true;
           if (cfgTokenRequiredParams) {
             res.params = {};
           }
@@ -2209,11 +2210,13 @@ exports.install = function(server, callbackFunction) {
     if (data.token && data.user) {
       ctx.setUserId(data.user.id);
       let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+      let isDecoded = false;
       //check jwt
       if (cfgTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
         const checkJwtRes = yield checkJwt(ctx, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
+          isDecoded = true;
           let decoded = checkJwtRes.decoded;
           let fillDataFromJwtRes = false;
           if (decoded.fileInfo) {
@@ -2354,7 +2357,9 @@ exports.install = function(server, callbackFunction) {
       if (data.openCmd) {
         cmd = new commonDefines.InputCommand(data.openCmd);
         cmd.fillFromConnection(conn);
-        cmd.setWithAuthorization(true);
+        if (isDecoded) {
+          cmd.setWithAuthorization(true);
+        }
       }
 
       // Ситуация, когда пользователь уже отключен от совместного редактирования

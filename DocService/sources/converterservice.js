@@ -292,7 +292,9 @@ function convertRequest(req, res, isJson) {
         let encryptedPassword = yield utils.encryptPassword(params.password);
         cmd.setPassword(encryptedPassword);
       }
-      cmd.setWithAuthorization(true);
+      if (authRes.isDecoded) {
+        cmd.setWithAuthorization(true);
+      }
       var thumbnail = params.thumbnail;
       if (thumbnail) {
         if (typeof thumbnail === 'string') {
@@ -409,7 +411,9 @@ function builderRequest(req, res) {
         let cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
         cmd.setBuilderParams({argument: params.argument});
-        cmd.setWithAuthorization(true);
+        if (authRes.isDecoded) {
+          cmd.setWithAuthorization(true);
+        }
         cmd.setDocId(docId);
         if (params.url) {
           cmd.setUrl(params.url);
