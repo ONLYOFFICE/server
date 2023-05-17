@@ -62,10 +62,12 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
   return co(function* () {
     var e = null;
     try {
-      var conn = yield rabbitMQCore.connetPromise(true, function() {
+      var conn = yield rabbitMQCore.connetPromise(function() {
         clear(taskqueue);
         if (!taskqueue.isClose) {
-          init(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, null);
+          setTimeout(() => {
+            init(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, null);
+          }, rabbitMQCore.RECONNECT_TIMEOUT);
         }
       });
       taskqueue.connection = conn;
@@ -169,10 +171,12 @@ function initActive(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
   return co(function*() {
     var e = null;
     try {
-      var conn = yield activeMQCore.connetPromise(true, function() {
+      var conn = yield activeMQCore.connetPromise(function() {
         clear(taskqueue);
         if (!taskqueue.isClose) {
-          init(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, null);
+          setTimeout(() => {
+            init(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, null);
+          }, activeMQCore.RECONNECT_TIMEOUT);
         }
       });
       taskqueue.connection = conn;

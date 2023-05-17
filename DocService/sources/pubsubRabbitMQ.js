@@ -50,10 +50,12 @@ function initRabbit(pubsub, callback) {
   return co(function* () {
     var e = null;
     try {
-      var conn = yield rabbitMQCore.connetPromise(true, function() {
+      var conn = yield rabbitMQCore.connetPromise(function() {
         clear(pubsub);
         if (!pubsub.isClose) {
-          init(pubsub, null);
+          setTimeout(() => {
+            init(pubsub, null);
+          }, rabbitMQCore.RECONNECT_TIMEOUT);
         }
       });
       pubsub.connection = conn;
@@ -86,10 +88,12 @@ function initActive(pubsub, callback) {
   return co(function*() {
     var e = null;
     try {
-      var conn = yield activeMQCore.connetPromise(true, function() {
+      var conn = yield activeMQCore.connetPromise(function() {
         clear(pubsub);
         if (!pubsub.isClose) {
-          init(pubsub, null);
+          setTimeout(() => {
+            init(pubsub, null);
+          }, activeMQCore.RECONNECT_TIMEOUT);
         }
       });
       pubsub.connection = conn;

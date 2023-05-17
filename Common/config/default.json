@@ -49,7 +49,6 @@
 		"connectOptions": {
 			"port": 5672,
 			"host": "localhost",
-			"name": "admin",
 			"reconnect": false
 		},
 		"queueconverttask": "ds.converttask",
