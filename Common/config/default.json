@@ -303,7 +303,8 @@
 	"license" : {
 		"license_file": "",
 		"warning_limit_percents": 70,
-		"packageType": 0
+		"packageType": 0,
+		"prohibitAnonymousUsers": true
 	},
 	"FileConverter": {
 		"converter": {
