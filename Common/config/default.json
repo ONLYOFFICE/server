@@ -137,6 +137,7 @@
 				"forgottenfilesname": "output",
 				"maxRequestChanges": 20000,
 				"openProtectedFile": true,
+				"isAnonymousSupport": true,
 				"editorDataStorage": "editorDataMemory",
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",

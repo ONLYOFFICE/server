@@ -144,6 +144,7 @@ const cfgMaxRequestChanges = config.get('server.maxRequestChanges');
 const cfgWarningLimitPercents = configCommon.get('license.warning_limit_percents') / 100;
 const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('server.openProtectedFile');
+const cfgIsAnonymousSupport = config.get('server.isAnonymousSupport');
 const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
 const cfgTokenRequiredParams = config.get('server.tokenRequiredParams');
 const cfgSocketIoConnection = configCommon.get('services.CoAuthoring.socketio.connection');
@@ -2344,7 +2345,11 @@ exports.install = function(server, callbackFunction) {
       if (!conn.user.view || isLiveViewer) {
         //todo
         let licenseType = conn.licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer);
-        if (c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) {
+        if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!cfgIsAnonymousSupport && data.IsAnonymousUser)) {
+          if (!cfgIsAnonymousSupport && data.IsAnonymousUser) {
+            //do not modify the licenseType because this information is already sent in _checkLicense
+            ctx.logger.error('auth: access to editor or live viewer is denied for anonymous users');
+          }
           conn.user.view = true;
           delete conn.coEditingMode;
         } else {
@@ -3168,6 +3173,7 @@ exports.install = function(server, callbackFunction) {
 						buildVersion: commonDefines.buildVersion,
 						buildNumber: commonDefines.buildNumber,
 						protectionSupport: cfgOpenProtectedFile, //todo find a better place
+						isAnonymousSupport: cfgIsAnonymousSupport, //todo find a better place
 						liveViewerSupport: utils.isLiveViewerSupport(licenseInfo),
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
