@@ -205,10 +205,9 @@ exports.uploadImageFileOld = function(req, res) {
 };
 exports.uploadImageFile = function(req, res) {
   return co(function* () {
-    var isError = true;
+    let httpStatus = 200;
     var docId = 'null';
     let output = {};
-    let isValidJwt = true;
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
@@ -230,11 +229,11 @@ exports.uploadImageFile = function(req, res) {
           ctx.setDocId(docId);
           ctx.setUserId(transformedRes.userid);
         } else {
-          isValidJwt = false;
+          httpStatus = 403;
         }
       }
 
-      if (isValidJwt && docId && req.body && Buffer.isBuffer(req.body)) {
+      if (200 === httpStatus && docId && req.body && Buffer.isBuffer(req.body)) {
         let buffer = req.body;
         if (buffer.length <= cfgImageSize) {
           var format = formatChecker.getImageFormat(ctx, buffer);
@@ -252,26 +251,27 @@ exports.uploadImageFile = function(req, res) {
             yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
             output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
                                                                 commonDefines.c_oAscUrlTypes.Session);
-            isError = false;
           } else {
+            httpStatus = 415;
             ctx.logger.debug('uploadImageFile format is not supported');
           }
         } else {
+          httpStatus = 413;
           ctx.logger.debug('uploadImageFile size limit exceeded: buffer.length = %d', buffer.length);
         }
       }
     } catch (e) {
-      isError = true;
+      httpStatus = 400;
       ctx.logger.error('Error uploadImageFile:%s', e.stack);
     } finally {
       try {
-        if (!isError) {
+        if (200 === httpStatus) {
           res.setHeader('Content-Type', 'application/json');
           res.send(JSON.stringify(output));
         } else {
-          res.sendStatus(isValidJwt ? 400 : 403);
+          res.sendStatus(httpStatus);
         }
-        ctx.logger.debug('End uploadImageFile: isError = %s', isError);
+        ctx.logger.debug('End uploadImageFile: httpStatus = %d', httpStatus);
       } catch (e) {
         ctx.logger.error('Error uploadImageFile:%s', e.stack);
       }
