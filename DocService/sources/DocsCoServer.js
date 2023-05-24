@@ -149,6 +149,8 @@ const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
 const cfgTokenRequiredParams = config.get('server.tokenRequiredParams');
 const cfgSocketIoConnection = configCommon.get('services.CoAuthoring.socketio.connection');
 const cfgTableResult = configCommon.get('services.CoAuthoring.sql.tableResult');
+const cfgImageSize = config.get('server.limits_image_size');
+const cfgTypesUpload = config.get('utils.limits_image_types_upload');
 
 const EditorTypes = {
   document : 0,
@@ -2695,6 +2697,9 @@ exports.install = function(server, callbackFunction) {
     if (cfgTokenEnableBrowser && !bIsRestore) {
       sessionToken = yield fillJwtByConnection(ctx, conn);
     }
+    let settings = Object.assign({}, cfgEditor);
+    settings["limits_image_size"] = cfgImageSize;
+    settings["limits_image_types_upload"] = cfgTypesUpload;
     const sendObject = {
       type: 'auth',
       result: 1,
@@ -2710,7 +2715,7 @@ exports.install = function(server, callbackFunction) {
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
-      settings: cfgEditor,
+      settings: settings,
       openedAt: opt_openedAt
     };
     sendData(ctx, conn, sendObject);//Or 0 if fails
