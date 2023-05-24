@@ -189,6 +189,7 @@ function initActive(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
           }
         };
         taskqueue.channelConvertTask = yield activeMQCore.openSenderPromise(conn, optionsConvertTask);
+        initSenderActive(taskqueue.channelConvertTask, taskqueue.channelConvertTaskData);
       }
       if (isAddResponse) {
         let optionsConvertResponse = {
@@ -198,6 +199,7 @@ function initActive(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
           }
         };
         taskqueue.channelConvertResponse = yield activeMQCore.openSenderPromise(conn, optionsConvertResponse);
+        initSenderActive(taskqueue.channelConvertResponse, taskqueue.channelConvertResponseData);
       }
       if (isAddTaskReceive) {
         let optionsConvertTask = {
@@ -257,6 +259,7 @@ function initActive(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
           }
         };
         taskqueue.channelDelayed = yield activeMQCore.openSenderPromise(conn, optionsDelayed);
+        initSenderActive(taskqueue.channelDelayed, taskqueue.channelDelayedData);
       }
       if (isEmitDead) {
         let optionsConvertDead = {
@@ -298,6 +301,10 @@ function clear(taskqueue) {
   taskqueue.channelConvertResponse = null;
   taskqueue.channelConvertResponseReceive = null;
   taskqueue.channelDelayed = null;
+  //todo clear all listeners
+  taskqueue.channelConvertTaskData = {};
+  taskqueue.channelConvertResponseData = {};
+  taskqueue.channelDelayedData = {};
 }
 function* pushBackRedeliveredRabbit(taskqueue, message, ack) {
   if (message?.fields?.redelivered) {
@@ -369,9 +376,10 @@ function addTaskActive(taskqueue, content, priority, callback, opt_expiration, o
   if (undefined !== opt_expiration) {
     msg.ttl = opt_expiration;
   }
-  //todo confirm
-  taskqueue.channelConvertTask.send(msg);
-  callback();
+  let delivery = taskqueue.channelConvertTask.send(msg);
+  if (delivery) {
+    taskqueue.channelConvertTaskData[delivery.id] = callback;
+  }
 }
 function addTaskString(taskqueue, task, priority, opt_expiration, opt_headers) {
   //todo confirmation mode
@@ -397,9 +405,10 @@ function addResponseRabbit(taskqueue, content, callback) {
 }
 function addResponseActive(taskqueue, content, callback) {
   var msg = {durable: true, body: content};
-  //todo confirm
-  taskqueue.channelConvertResponse.send(msg);
-  callback();
+  let delivery = taskqueue.channelConvertResponse.send(msg);
+  if (delivery) {
+    taskqueue.channelConvertResponseData[delivery.id] = callback;
+  }
 }
 function closeRabbit(conn) {
   return rabbitMQCore.closePromise(conn);
@@ -413,9 +422,10 @@ function addDelayedRabbit(taskqueue, content, ttl, callback) {
 }
 function addDelayedActive(taskqueue, content, ttl, callback) {
   var msg = {durable: true, body: content, ttl: ttl};
-  //todo confirm
-  taskqueue.channelDelayed.send(msg);
-  callback();
+  let delivery = taskqueue.channelDelayed.send(msg);
+  if (delivery) {
+    taskqueue.channelDelayedData[delivery.id] = callback;
+  }
 }
 
 function healthCheckRabbit(taskqueue) {
@@ -438,6 +448,36 @@ function healthCheckActive(taskqueue) {
   });
 }
 
+function initSenderActive(sender, senderData) {
+  let processEvent = function (context, res) {
+    let id = context?.delivery?.id;
+    let callback = senderData[id];
+    if (callback) {
+      delete senderData[id];
+      callback(res);
+    }
+  }
+
+  sender.on('accepted', (context) => {
+    processEvent(context, null);
+  });
+  sender.on('rejected ', (context) => {
+    const error = context.delivery?.remote_state?.error;
+    processEvent(context, new Error("[AMQP] message is rejected (error=" + error + ")"));
+  });
+  sender.on('released', (context) => {
+    const delivery_failed = context.delivery?.remote_state?.delivery_failed;
+    const undeliverable_here = context.delivery?.remote_state?.undeliverable_here;
+    const err = new Error("[AMQP] message is released (delivery_failed=" + delivery_failed + ", undeliverable_here=" + undeliverable_here + ")");
+    processEvent(context, err);
+  });
+  sender.on('modified ', (context) => {
+    const delivery_failed = context.delivery?.remote_state?.delivery_failed;
+    const undeliverable_here = context.delivery?.remote_state?.undeliverable_here;
+    const err = new Error("[AMQP] message is modified (delivery_failed=" + delivery_failed + ", undeliverable_here=" + undeliverable_here + ")");
+    processEvent(context, err);
+  });
+}
 
 let init;
 let addTask;
@@ -472,6 +512,9 @@ function TaskQueueRabbitMQ(simulateErrorResponse) {
   this.channelDelayed = null;
   this.addTaskStore = [];
   this.addDelayedStore = [];
+  this.channelConvertTaskData = {};
+  this.channelConvertResponseData = {};
+  this.channelDelayedData = {};
   this.simulateErrorResponse = simulateErrorResponse;
 }
 util.inherits(TaskQueueRabbitMQ, events.EventEmitter);
