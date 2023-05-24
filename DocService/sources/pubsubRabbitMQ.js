@@ -75,7 +75,7 @@ function initRabbit(pubsub, callback) {
         }
       }, {noAck: false});
       //process messages received while reconnection time
-      repeat(pubsub);
+      yield repeat(pubsub);
     } catch (err) {
       e = err;
     }
@@ -126,7 +126,7 @@ function initActive(pubsub, callback) {
         receiver.add_credit(1);
       });
       //process messages received while reconnection time
-      repeat(pubsub);
+      yield repeat(pubsub);
     } catch (err) {
       e = err;
     }
@@ -141,17 +141,41 @@ function clear(pubsub) {
   pubsub.channelReceive = null;
 }
 function repeat(pubsub) {
-  for (var i = 0; i < pubsub.publishStore.length; ++i) {
-    publish(pubsub, pubsub.publishStore[i]);
-  }
-  pubsub.publishStore.length = 0;
+  return co(function*() {
+    for (var i = 0; i < pubsub.publishStore.length; ++i) {
+      yield publish(pubsub, pubsub.publishStore[i]);
+    }
+    pubsub.publishStore.length = 0;
+  });
+
 }
 function publishRabbit(pubsub, data) {
-  pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
+  return new Promise(function (resolve, reject) {
+    //Channels act like stream.Writable when you call publish or sendToQueue: they return either true, meaning “keep sending”, or false, meaning “please wait for a ‘drain’ event”.
+    let keepSending = pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
+    if (!keepSending) {
+      //todo (node:4308) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 drain listeners added to [Sender]. Use emitter.setMaxListeners() to increase limit
+      pubsub.channelPublish.once('drain', resolve);
+    } else {
+      resolve();
+    }
+  });
 }
+
 function publishActive(pubsub, data) {
-  //todo sendable
-  pubsub.channelPublish.send({durable: true, body: data});
+  return new Promise(function (resolve, reject) {
+    //Returns true if the sender has available credits for sending a message. Otherwise it returns false.
+    let sendable = pubsub.channelPublish.sendable();
+    if (!sendable) {
+      //todo (node:4308) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 sendable listeners added to [Sender]. Use emitter.setMaxListeners() to increase limit
+      pubsub.channelPublish.once('sendable', () => {
+        resolve(publishActive(pubsub, data));
+      });
+    } else {
+      pubsub.channelPublish.send({durable: true, body: data});
+      resolve();
+    }
+  });
 }
 function closeRabbit(conn) {
   return rabbitMQCore.closePromise(conn);
@@ -220,11 +244,12 @@ PubsubRabbitMQ.prototype.initPromise = function() {
   });
 };
 PubsubRabbitMQ.prototype.publish = function (message) {
-  var data = Buffer.from(message);
+  const data = Buffer.from(message);
   if (null != this.channelPublish) {
-    publish(this, data);
+    return publish(this, data);
   } else {
     this.publishStore.push(data);
+    return Promise.resolve();
   }
 };
 PubsubRabbitMQ.prototype.close = function() {

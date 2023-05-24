@@ -650,7 +650,7 @@ function* publish(ctx, data, optDocId, optUserId, opt_pubsub) {
       //todo send connections from getLocalConnectionCount to pubsubOnMessage
       pubsubOnMessage(msg);
     } else if(realPubsub) {
-      realPubsub.publish(msg);
+      yield realPubsub.publish(msg);
     }
   }
   return needPublish;
