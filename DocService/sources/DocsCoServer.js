@@ -3133,78 +3133,85 @@ exports.install = function(server, callbackFunction) {
 	}
 
   function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer, isAnonymousUser) {
+    let licenseWarningLimitUsers = false;
+    let licenseWarningLimitUsersView = false;
+    let licenseWarningLimitConnections = false;
+    let licenseWarningLimitConnectionsLive = false;
     const c_LR = constants.LICENSE_RESULT;
-    const licenseType = licenseInfo.type;
+    let licenseType = licenseInfo.type;
+    if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
+      if (isAnonymousUser && cfgProhibitAnonymousUsers) {
+        ctx.logger.error('License: Anonymous users are prohibited!!!');
 
-    const typeMap = {
-      [c_LR.UsersCount]: c_LR.UsersCountOS,
-      [c_LR.UsersViewCount]: c_LR.UsersViewCountOS,
-      [c_LR.Connections]: c_LR.ConnectionsOS,
-      [c_LR.ConnectionsLive]: c_LR.ConnectionsLiveOS
-    };
-    const licenseTypeTransform = (type) => !licenseInfo.hasLicense ? typeMap[type] : type;
+        return c_LR.UnknownUser;
+      }
 
-    if (licenseType !== c_LR.Success && licenseType !== c_LR.SuccessLimit) {
-      return licenseType;
-    }
-
-    if (isAnonymousUser && cfgProhibitAnonymousUsers) {
-      ctx.logger.error('License: Anonymous users are prohibited!!!');
-
-      return c_LR.UnknownUser;
-    }
-
-    if (licenseInfo.usersCount) {
-      const nowUTC = getLicenseNowUtc();
-      if(isLiveViewer) {
-        const arrUsers = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
-        if (arrUsers.length >= licenseInfo.usersViewCount && !arrUsers.find(user => user.userid === userId)) {
-          ctx.logger.error('License: User Live Viewer limit exceeded!!!');
-
-          return licenseTypeTransform(c_LR.UsersViewCount);
+      if (licenseInfo.usersCount) {
+        const nowUTC = getLicenseNowUtc();
+        if(isLiveViewer) {
+          const arrUsers = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
+          if (arrUsers.length >= licenseInfo.usersViewCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
+            licenseType = c_LR.UsersViewCount;
+          }
+          licenseWarningLimitUsersView = licenseInfo.usersViewCount * cfgWarningLimitPercents <= arrUsers.length;
+        } else {
+          const arrUsers = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
+          if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
+            licenseType = c_LR.UsersCount;
+          }
+          licenseWarningLimitUsers = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
         }
-
-        if (licenseInfo.usersViewCount * cfgWarningLimitPercents <= arrUsers.length) {
-          ctx.logger.warn('License: Warning User Live Viewer limit exceeded!!!');
+      } else if(isLiveViewer) {
+        const connectionsLiveCount = licenseInfo.connectionsView;
+        const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
+        if (liveViewerConnectionsCount >= connectionsLiveCount) {
+          licenseType = c_LR.ConnectionsLive;
         }
+        licenseWarningLimitConnectionsLive = connectionsLiveCount * cfgWarningLimitPercents <= liveViewerConnectionsCount;
       } else {
-        const arrUsers = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
-        if (arrUsers.length >= licenseInfo.usersCount && !arrUsers.find(user => user.userid === userId)) {
-          ctx.logger.error('License: User limit exceeded!!!');
-
-          return licenseTypeTransform(c_LR.UsersCount);
+        const connectionsCount = licenseInfo.connections;
+        const editConnectionsCount = yield editorData.getEditorConnectionsCount(ctx, connections);
+        if (editConnectionsCount >= connectionsCount) {
+          licenseType = c_LR.Connections;
         }
-
-        if (licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length) {
-          ctx.logger.warn('License: Warning User limit exceeded!!!');
-        }
+        licenseWarningLimitConnections = connectionsCount * cfgWarningLimitPercents <= editConnectionsCount;
       }
-    } else if(isLiveViewer) {
-      const connectionsLiveCount = licenseInfo.connectionsView;
-      const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
-      if (liveViewerConnectionsCount >= connectionsLiveCount) {
-        ctx.logger.error('License: Connection Live Viewer limit exceeded!!!');
+    }
 
-        return licenseTypeTransform(c_LR.ConnectionsLive);
+    if (c_LR.UsersCount === licenseType) {
+      if (!licenseInfo.hasLicense) {
+        licenseType = c_LR.UsersCountOS;
       }
-
-      if (connectionsLiveCount * cfgWarningLimitPercents <= liveViewerConnectionsCount) {
-        ctx.logger.warn('License: Warning Connection Live Viewer limit exceeded!!!');
+      ctx.logger.error('License: User limit exceeded!!!');
+    } else if (c_LR.UsersViewCount === licenseType) {
+      if (!licenseInfo.hasLicense) {
+        licenseType = c_LR.UsersViewCountOS;
       }
+      ctx.logger.error('License: User Live Viewer limit exceeded!!!');
+    } else if (c_LR.Connections === licenseType) {
+      if (!licenseInfo.hasLicense) {
+        licenseType = c_LR.ConnectionsOS;
+      }
+      ctx.logger.error('License: Connection limit exceeded!!!');
+    } else if (c_LR.ConnectionsLive === licenseType) {
+      if (!licenseInfo.hasLicense) {
+        licenseType = c_LR.ConnectionsLiveOS;
+      }
+      ctx.logger.error('License: Connection Live Viewer limit exceeded!!!');
     } else {
-      const connectionsCount = licenseInfo.connections;
-      const editConnectionsCount = yield editorData.getEditorConnectionsCount(ctx, connections);
-      if (editConnectionsCount >= connectionsCount) {
-        ctx.logger.error('License: Connection limit exceeded!!!');
-
-        return licenseTypeTransform(c_LR.Connections);
+      if (licenseWarningLimitUsers) {
+        ctx.logger.warn('License: Warning User limit exceeded!!!');
       }
-
-      if (connectionsCount * cfgWarningLimitPercents <= editConnectionsCount) {
+      if (licenseWarningLimitUsersView) {
+        ctx.logger.warn('License: Warning User Live Viewer limit exceeded!!!');
+      }
+      if (licenseWarningLimitConnections) {
         ctx.logger.warn('License: Warning Connection limit exceeded!!!');
       }
+      if (licenseWarningLimitConnectionsLive) {
+        ctx.logger.warn('License: Warning Connection Live Viewer limit exceeded!!!');
+      }
     }
-
     return licenseType;
   }
 
