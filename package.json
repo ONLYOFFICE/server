@@ -61,5 +61,14 @@
     "grunt-contrib-copy": "^1.0.0",
     "grunt-mkdir": "^1.1.0",
     "grunt-stripcomments": "^0.7.2"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.5.0",
+    "jest": "^29.5.0"
+  },
+  "scripts": {
+    "unit tests": "cd ./DocService && jest unit --config=../tests/jest.config.js",
+    "integration tests": "cd ./DocService && jest integration --config=../tests/jest.config.js",
+    "tests": "cd ./DocService && jest --config=../tests/jest.config.js"
   }
 }
