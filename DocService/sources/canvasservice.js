@@ -878,7 +878,7 @@ function checkAndFixAuthorizationLength(authorization, data){
   }
   return res;
 }
-function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
+const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
   var docId = cmd.getDocId();
   ctx.logger.debug('Start commandSfcCallback');
   var statusInfo = cmd.getStatusInfo();
@@ -1023,19 +1023,24 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
             outputSfc.setForceSaveType(forceSaveType);
             outputSfc.setLastSave(forceSaveDate.toISOString());
           }
-          try {
-            if (wopiParams) {
-              replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, true, forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button, false);
-            } else {
-              replyStr = yield* docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
+          if (forceSave && forceSaveType === commonDefines.c_oAscForceSaveTypes.Internal) {
+            //send to browser only if internal forcesave
+            isSfcmSuccess = true;
+          } else {
+            try {
+              if (wopiParams) {
+                replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, true, forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button, false);
+              } else {
+                replyStr = yield* docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
+              }
+              let replyData = docsCoServer.parseReplyData(ctx, replyStr);
+              isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
+              if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
+                ctx.logger.warn('sendServerRequest returned an error: data = %s', replyStr);
+              }
+            } catch (err) {
+              ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
             }
-            let replyData = docsCoServer.parseReplyData(ctx, replyStr);
-            isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
-            if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
-              ctx.logger.warn('sendServerRequest returned an error: data = %s', replyStr);
-            }
-          } catch (err) {
-            ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
           }
         }
       } else {
@@ -1131,7 +1136,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
     }
     }
     if (forceSave) {
-      yield* docsCoServer.setForceSave(ctx, docId, forceSave, cmd, isSfcmSuccess && !isError);
+      yield* docsCoServer.setForceSave(ctx, docId, forceSave, cmd, isSfcmSuccess && !isError, outputSfc.getUrl());
     }
     if (needRetry) {
       let attempt = cmd.getAttempt() || 0;
@@ -1154,7 +1159,7 @@ function* commandSfcCallback(ctx, cmd, isSfcm, isEncrypted) {
   }
   ctx.logger.debug('End commandSfcCallback');
   return replyStr;
-}
+});
 function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   let res = '{"error": 1}';
   let metadata = yield storage.headObject(ctx, savePathDoc);
@@ -1433,7 +1438,7 @@ exports.saveFile = function(req, res) {
       yield* addRandomKeyTaskCmd(ctx, cmd);
       cmd.setOutputPath(constants.OUTPUT_NAME + pathModule.extname(cmd.getOutputPath()));
       yield storage.putObject(ctx, cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
-      let replyStr = yield* commandSfcCallback(ctx, cmd, false, true);
+      let replyStr = yield commandSfcCallback(ctx, cmd, false, true);
       if (replyStr) {
         utils.fillResponseSimple(res, replyStr, 'application/json');
       } else {
@@ -1648,9 +1653,9 @@ exports.receiveTask = function(data, ack) {
           } else if ('save' == command || 'savefromorigin' == command || 'sfct' == command) {
             yield getOutputData(ctx, cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
           } else if ('sfcm' == command) {
-            yield* commandSfcCallback(ctx, cmd, true);
+            yield commandSfcCallback(ctx, cmd, true);
           } else if ('sfc' == command) {
-            yield* commandSfcCallback(ctx, cmd, false);
+            yield commandSfcCallback(ctx, cmd, false);
           } else if ('sendmm' == command) {
             yield* commandSendMMCallback(ctx, cmd);
           } else if ('conv' == command) {
@@ -1686,5 +1691,6 @@ exports.getOpenedAt = getOpenedAt;
 exports.commandSfctByCmd = commandSfctByCmd;
 exports.commandOpenStartPromise = commandOpenStartPromise;
 exports.commandPathUrls = commandPathUrls;
+exports.commandSfcCallback = commandSfcCallback;
 exports.OutputDataWrap = OutputDataWrap;
 exports.OutputData = OutputData;

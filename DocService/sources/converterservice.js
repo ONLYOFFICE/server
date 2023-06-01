@@ -185,7 +185,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
 }
 
 let convertFromChanges = co.wrap(function*(ctx, docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_userConnectionId,
-                             opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey) {
+                                           opt_userConnectionDocId, opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
@@ -200,6 +200,9 @@ let convertFromChanges = co.wrap(function*(ctx, docId, baseUrl, forceSave, exter
   }
   if (opt_userConnectionId) {
     cmd.setUserConnectionId(opt_userConnectionId);
+  }
+  if (opt_userConnectionDocId) {
+    cmd.setUserConnectionDocId(opt_userConnectionDocId);
   }
   if (opt_responseKey) {
     cmd.setResponseKey(opt_responseKey);

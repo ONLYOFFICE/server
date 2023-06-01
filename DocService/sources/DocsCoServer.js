@@ -768,28 +768,85 @@ const hasChanges = co.wrap(function*(ctx, docId) {
   }
   return true;
 });
-function* setForceSave(ctx, docId, forceSave, cmd, success) {
+function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   let forceSaveType = forceSave.getType();
-  if (commonDefines.c_oAscForceSaveTypes.Form !== forceSaveType) {
-    if (success) {
-      yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), true, true);
-    } else {
-      yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), false, false);
-    }
-  }
+  const end = success && commonDefines.c_oAscForceSaveTypes.Form !== forceSaveType && commonDefines.c_oAscForceSaveTypes.Internal !== forceSaveType;
+  yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), true, end, cmd);
 
   if (commonDefines.c_oAscForceSaveTypes.Command !== forceSaveType) {
     let data = {type: forceSaveType, time: forceSave.getTime(), success: success};
-    if(commonDefines.c_oAscForceSaveTypes.Form === forceSaveType) {
-      yield* publish(ctx, {type: commonDefines.c_oPublishType.rpc, ctx: ctx, docId: docId, data: data, responseKey: cmd.getResponseKey()}, cmd.getUserConnectionId());
+    if(commonDefines.c_oAscForceSaveTypes.Form === forceSaveType || commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
+      data = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
+      if (commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
+        data.url = url;
+      }
+      let userId = cmd.getUserConnectionId();
+      docId = cmd.getUserConnectionDocId() || docId;
+      yield* publish(ctx, {type: commonDefines.c_oPublishType.rpc, ctx, docId, userId, data, responseKey: cmd.getResponseKey()});
     } else {
       yield* publish(ctx, {type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId, data: data}, cmd.getUserConnectionId());
     }
   }
 }
-let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
+let checkForceSaveCache= co.wrap (function* (ctx, convertInfo) {
+  let res = {hasCache: false, hasValidCache: false,  cmd: null};
+  if (convertInfo) {
+    res.hasCache = true;
+    let cmd = new commonDefines.InputCommand(convertInfo, true);
+    const saveKey = cmd.getSaveKey();
+    const outputPath = cmd.getOutputPath();
+    if (saveKey && outputPath) {
+      const savePathDoc = saveKey + '/' + outputPath;
+      const metadata  = yield storage.headObject(ctx, savePathDoc);
+      res.hasValidCache = !!metadata;
+      res.cmd = cmd;
+    }
+  }
+  return res;
+});
+let applyForceSaveCache = co.wrap (function* (ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey) {
+  let res = {ok: false, notModified: false, inProgress: false, startedForceSave: null};
+  if (!forceSave) {
+    res.notModified = true;
+    return res;
+  }
+  if (!forceSave.started) {
+    res.startedForceSave = yield editorData.checkAndStartForceSave(ctx, docId);
+    res.ok = !!res.startedForceSave;
+    return res;
+  }
+  let forceSaveCache = yield checkForceSaveCache(ctx, forceSave.convertInfo);
+  if (forceSaveCache.hasCache || forceSave.ended) {
+    if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type || !forceSave.ended) {
+      if (forceSaveCache.hasValidCache) {
+        let cmd = forceSaveCache.cmd;
+        if (commonDefines.c_oAscForceSaveTypes.Internal === type) {
+          cmd.setUserConnectionDocId(opt_userConnectionDocId);
+          cmd.setUserConnectionId(opt_userConnectionId);
+          cmd.setResponseKey(opt_responseKey);
+        }
+        //todo timeout because commandSfcCallback make request?
+        yield canvasService.commandSfcCallback(ctx, cmd, true, false);
+        res.ok = true;
+      } else {
+        yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), false, false, null);
+        res.startedForceSave = yield editorData.checkAndStartForceSave(ctx, docId);
+        res.ok = !!res.startedForceSave;
+      }
+    } else {
+      res.notModified = true;
+    }
+  } else if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type) {
+    res.ok = true;
+    res.inProgress = true;
+  } else {
+    res.notModified = true;
+  }
+  return res;
+});
+let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
   ctx.logger.debug('startForceSave start');
-  let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null};
+  let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
   let startedForceSave;
   let hasEncrypted = false;
   if (!shutdownFlag) {
@@ -798,14 +855,21 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
       return !!JSON.parse(currentValue).encrypted;
     });
     if (!hasEncrypted) {
-      if (commonDefines.c_oAscForceSaveTypes.Form === type) {
-        startedForceSave = yield editorData.getForceSave(ctx, docId);
-      } else {
-        startedForceSave = yield editorData.checkAndStartForceSave(ctx, docId);
+      let forceSave = yield editorData.getForceSave(ctx, docId);
+      // let forceSaveCache = yield checkForceSaveCache(ctx, forceSave);
+      // let applyCacheRes = yield applyForceSaveCache(ctx, docId, forceSave, forceSaveCache, type);
+      let applyCacheRes = yield applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey);
+      startedForceSave = applyCacheRes.startedForceSave;
+      if (applyCacheRes.notModified) {
+        res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
+      } else if (!applyCacheRes.ok) {
+        res.code = commonDefines.c_oAscServerCommandErrors.UnknownError;
       }
+      res.inProgress = applyCacheRes.inProgress;
     }
   }
-  ctx.logger.debug('startForceSave canStart: hasEncrypted = %s; startedForceSave = %j', hasEncrypted, startedForceSave);
+
+  ctx.logger.debug('startForceSave canStart: hasEncrypted = %s; applyCacheRes = %j; startedForceSave = %j', hasEncrypted, res, startedForceSave);
   if (startedForceSave) {
     let baseUrl = opt_baseUrl || startedForceSave.baseUrl;
     let forceSave = new commonDefines.CForceSaveData(startedForceSave);
@@ -829,16 +893,14 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
       priority = constants.QUEUE_PRIORITY_LOW;
     }
     //start new convert
-    let status = yield converterService.convertFromChanges(ctx, docId, baseUrl, forceSave, startedForceSave.changeInfo, opt_userdata,
-                                                            opt_userConnectionId, opt_responseKey, priority, expiration, opt_queue);
+    let status = yield converterService.convertFromChanges(ctx, docId, baseUrl, forceSave, startedForceSave.changeInfo,
+      opt_userdata, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, priority, expiration, opt_queue);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
     } else {
       res.code = commonDefines.c_oAscServerCommandErrors.UnknownError;
     }
     ctx.logger.debug('startForceSave convertFromChanges: status = %d', status.err);
-  } else {
-    res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
   }
   ctx.logger.debug('startForceSave end');
   return res;
@@ -849,25 +911,52 @@ function getExternalChangeInfo(user, date) {
 let resetForceSaveAfterChanges = co.wrap(function*(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
   //last save
   if (newChangesLastTime) {
-    yield editorData.setForceSave(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo);
+    yield editorData.setForceSave(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo, null);
     if (cfgForceSaveEnable) {
       let expireAt = newChangesLastTime + cfgForceSaveInterval;
       yield editorData.addForceSaveTimerNX(ctx, docId, expireAt);
     }
   }
 });
+let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
+  let docId = data.docId;
+  let token = data.token;
+  let forceSaveRes;
+  if (cfgTokenEnableBrowser) {
+    docId = null;
+    let checkJwtRes = yield checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
+    if (checkJwtRes.decoded) {
+      docId = checkJwtRes.decoded.key;
+    } else {
+      ctx.logger.warn('Error saveRelativeFromChanges jwt: %s', checkJwtRes.description);
+      forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.Token, time: null, inProgress: false};
+    }
+  }
+  if (!forceSaveRes) {
+    forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey);
+  }
+  if (commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
+    sendDataRpc(ctx, conn, responseKey, forceSaveRes);
+  }
+})
 function* startRPC(ctx, conn, responseKey, data) {
   let docId = conn.docId;
   ctx.logger.debug('startRPC start responseKey:%s , %j', responseKey, data);
   switch (data.type) {
-    case 'sendForm':
-      var forceSaveRes;
+    case 'sendForm': {
+      let forceSaveRes;
       if (conn.user) {
-        forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser, responseKey);
-      } else {
-        sendDataRpc(ctx, conn, responseKey);
+        forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser, responseKey);
+      }
+      if (!forceSaveRes || commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
+        sendDataRpc(ctx, conn, responseKey, forceSaveRes);
       }
       break;
+    }
+    case 'saveRelativeFromChanges': {
+      yield saveRelativeFromChanges(ctx, conn, responseKey, data);
+      break;
+    }
     case 'wopi_RenameFile':
       let renameRes;
       let selectRes = yield taskResult.select(ctx, docId);
@@ -1462,7 +1551,7 @@ exports.install = function(server, callbackFunction) {
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
-              forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, conn.user.indexUser);
+              forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser);
             } else {
               forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
             }
@@ -3409,7 +3498,7 @@ exports.install = function(server, callbackFunction) {
             }
             break;
           case commonDefines.c_oPublishType.rpc:
-            participants = getParticipants(data.docId, true, data.userId, true);
+            participants = getParticipantUser(data.docId, data.userId);
             _.each(participants, function(participant) {
                 sendDataRpc(ctx, participant, data.responseKey, data.data);
             });
@@ -3910,7 +3999,7 @@ function* commandHandle(ctx, params, req, output) {
       break;
     }
     case 'forcesave': {
-      let forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(req));
+      let forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(req));
       output.error = forceSaveRes.code;
       break;
     }

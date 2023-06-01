@@ -40,6 +40,7 @@ function InputCommand(data, copyExplicit) {
   this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
   this['wopiParams'] = undefined;
   this['builderParams'] = undefined;
+  this['userconnectiondocid'] = undefined;
   if (data) {
     this['c'] = data['c'];
     this['id'] = data['id'];
@@ -111,6 +112,7 @@ function InputCommand(data, copyExplicit) {
       this['externalChangeInfo'] = data['externalChangeInfo'];
       this['wopiParams'] = data['wopiParams'];
       this['builderParams'] = data['builderParams'];
+      this['userconnectiondocid'] = data['userconnectiondocid'];
     }
   } else {
     this['c'] = undefined;//string command
@@ -329,6 +331,12 @@ InputCommand.prototype = {
   },
   setUserConnectionId: function(data) {
     this['userconnectionid'] = data;
+  },
+  getUserConnectionDocId: function() {
+    return this['userconnectiondocid'];
+  },
+  setUserConnectionDocId: function(data) {
+    this['userconnectiondocid'] = data;
   },
   getResponseKey: function() {
     return this['responsekey'];
@@ -1089,7 +1097,8 @@ const c_oAscForceSaveTypes = {
   Command: 0,
   Button: 1,
   Timeout: 2,
-  Form: 3
+  Form: 3,
+  Internal: 4
 };
 const c_oAscUrlTypes = {
   Session: 0,
