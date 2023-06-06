@@ -106,7 +106,7 @@ function discovery(req, res) {
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('wopiDiscovery start');
-      let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
+      let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(ctx, req);
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
       let exts = [
@@ -154,7 +154,7 @@ function discovery(req, res) {
             xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
           xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
-          xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
+          xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
         }
         xmlApp.up();
       }
@@ -189,7 +189,7 @@ function discovery(req, res) {
             mimeTypes.forEach((value) => {
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
-              xmlApp.ele('action', {name: 'mobileEdit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
+              xmlApp.ele('action', {name: 'mobileEdit', ext: '', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
               xmlApp.up();
             });
           }
@@ -406,7 +406,7 @@ function getEditorHtml(req, res) {
         fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(req), 1, commonInfo, fileType);
+        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), 1, commonInfo, fileType);
       }
 
       //Lock
@@ -475,7 +475,7 @@ function getConverterHtml(req, res) {
 
       let docId = yield converterService.convertAndEdit(ctx, wopiParams, ext, targetext);
       if (docId) {
-        let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
+        let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(ctx, req);
         params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
         params.statusHandler += `?wopiSrc=${encodeURI(wopiSrc)}&access_token=${encodeURI(access_token)}`;
         params.statusHandler += `&targetext=${encodeURI(targetext)}&docId=${encodeURI(docId)}`;

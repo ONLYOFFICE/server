@@ -61,7 +61,7 @@ exports.shutdown = function(ctx, editorData, status) {
       yield pubsub.initPromise();
       //inner ping to update presence
       ctx.logger.debug('shutdown pubsub shutdown message');
-      pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx: ctx, status: status}));
+      yield pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx: ctx, status: status}));
       //wait while pubsub deliver and start conversion
       ctx.logger.debug('shutdown start wait pubsub deliver');
       var startTime = new Date().getTime();

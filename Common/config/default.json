@@ -49,7 +49,6 @@
 		"connectOptions": {
 			"port": 5672,
 			"host": "localhost",
-			"name": "admin",
 			"reconnect": false
 		},
 		"queueconverttask": "ds.converttask",
@@ -138,6 +137,7 @@
 				"forgottenfilesname": "output",
 				"maxRequestChanges": 20000,
 				"openProtectedFile": true,
+				"isAnonymousSupport": true,
 				"editorDataStorage": "editorDataMemory",
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
@@ -216,8 +216,8 @@
 				"errorcode": 403
 			},
 			"request-filtering-agent" : {
-				"allowPrivateIPAddress": true,
-				"allowMetaIPAddress": true
+				"allowPrivateIPAddress": false,
+				"allowMetaIPAddress": false
 			},
 			"secret": {
 				"browser": {"string": "secret", "file": ""},

@@ -289,7 +289,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         let wopiParams = wopiClient.parseWopiCallback(ctx, userAuthStr);
         if (!wopiParams) {
           //todo rework ErrToReload to clean up on next open
-          yield cleanupCache(ctx);
+          yield cleanupCache(ctx, key);
         }
       }
       break;
@@ -409,10 +409,9 @@ function* getUpdateResponse(ctx, cmd) {
   updateTask.statusInfo = statusInfo;
   return updateTask;
 }
-var cleanupCache = co.wrap(function* (ctx) {
+var cleanupCache = co.wrap(function* (ctx, docId) {
   //todo redis ?
   var res = false;
-  let docId = ctx.docId;
   let list = [];
   var removeRes = yield taskResult.remove(ctx, docId);
   if (removeRes.affectedRows > 0) {
@@ -420,7 +419,7 @@ var cleanupCache = co.wrap(function* (ctx) {
     yield storage.deleteObjects(ctx, list);
     res = true;
   }
-  ctx.logger.debug("cleanupCache db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
+  ctx.logger.debug("cleanupCache docId=%s db.affectedRows=%d list.length=%d", docId, removeRes.affectedRows, list.length);
   return res;
 });
 var cleanupCacheIf = co.wrap(function* (ctx, mask) {
@@ -459,7 +458,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
   if (opt_upsertRes) {
     upsertRes = opt_upsertRes;
   } else {
-    upsertRes = yield commandOpenStartPromise(ctx, cmd.getDocId(), utils.getBaseUrlByConnection(conn));
+    upsertRes = yield commandOpenStartPromise(ctx, cmd.getDocId(), utils.getBaseUrlByConnection(ctx, conn));
   }
   //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
   //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
@@ -704,6 +703,13 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
         }
       } else if (urlSource) {
         try {
+          if (authorizations[i]) {
+            let urlParsed = urlModule.parse(urlSource);
+            let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+            if (0 !== filterStatus) {
+              throw Error('checkIpFilter');
+            }
+          }
           //todo stream
           let getRes = yield utils.downloadUrlPromise(ctx, urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], !authorizations[i]);
           data = getRes.body;
@@ -848,7 +854,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
       if (!conn.isEnterCorrectPassword) {
         yield docsCoServer.modifyConnectionForPassword(ctx, conn, true);
       }
-      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(conn), changeInfo);
+      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
     } else {
       ctx.logger.debug('commandSetPassword sql update error');
       outputData.setStatus('err');
@@ -1092,7 +1098,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
               yield docsCoServer.cleanDocumentOnExitPromise(ctx, docId, true, callbackUserIndex);
               if (isOpenFromForgotten) {
                 //remove forgotten file in cache
-                yield cleanupCache(ctx);
+                yield cleanupCache(ctx, docId);
               }
             } else {
               storeForgotten = true;
@@ -1530,7 +1536,7 @@ exports.downloadFile = function(req, res) {
         startDate = new Date();
       }
       ctx.initFromRequest(req);
-      let url = req.get('x-url');
+      let url = decodeURI(req.get('x-url'));
       ctx.setDocId(req.params.docid);
       ctx.logger.info('Start downloadFile');
 
@@ -1561,6 +1567,13 @@ exports.downloadFile = function(req, res) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest({url: url}, secret, false);
         }
+      }
+      let urlParsed = urlModule.parse(url);
+      let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+      if (0 !== filterStatus) {
+        ctx.logger.warn('Error downloadFile checkIpFilter error: url = %s', url);
+        res.sendStatus(filterStatus);
+        return;
       }
       yield utils.downloadUrlPromise(ctx, url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
 

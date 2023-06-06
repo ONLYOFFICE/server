@@ -140,7 +140,7 @@ if (configStorage.has('fs.folderPath')) {
 				const filename = decodeURIComponent(path.basename(urlParsed.pathname));
 				sendFileOptions.headers['Content-Type'] = mime.getType(filename);
 			}
-			const realUrl = req.url.substring(0, index);
+			const realUrl = decodeURI(req.url.substring(0, index));
 			res.sendFile(realUrl, sendFileOptions, (err) => {
 				if (err) {
 					operationContext.global.logger.error(err);
@@ -235,7 +235,13 @@ docsCoServer.install(server, () => {
 	app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
 	app.get('/baseurl', (req, res) => {
-		res.send(utils.getBaseUrlByRequest(req));
+		let ctx = new operationContext.Context();
+		try {
+			ctx.initFromRequest(req);
+			res.send(utils.getBaseUrlByRequest(ctx, req));
+		} catch (err) {
+			ctx.logger.error('baseurl error: %s', err.stack);
+		}
 	});
 
 	app.get('/robots.txt', (req, res) => {
@@ -339,8 +345,13 @@ docsCoServer.install(server, () => {
 						ctx.logger.debug('themes.json themesList:%j', themesList);
 						for (let j = 0; j < themesList.length; ++j) {
 							if (themesList[j].endsWith('.json')) {
-								let data = yield utils.readFile(themesList[j], true);
-								themes.push(JSON.parse(data.toString('utf-8')));
+								try {
+									let data = yield utils.readFile(themesList[j], true);
+									let text = new TextDecoder('utf-8', {ignoreBOM: false}).decode(data);
+									themes.push(JSON.parse(text));
+								} catch (err) {
+									ctx.logger.error('themes.json file:%s error:%s', themesList[j], err.stack);
+								}
 							}
 						}
 						break;

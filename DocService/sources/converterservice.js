@@ -87,7 +87,7 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
       case commonDefines.FileStatus.NeedPassword:
         status.err = row.status_info;
         if (commonDefines.FileStatus.ErrToReload == row.status || commonDefines.FileStatus.NeedPassword == row.status) {
-          yield canvasService.cleanupCache(ctx);
+          yield canvasService.cleanupCache(ctx, docId);
         }
         break;
       case commonDefines.FileStatus.NeedParams:
@@ -295,7 +295,9 @@ function convertRequest(req, res, isJson) {
         let encryptedPassword = yield utils.encryptPassword(params.password);
         cmd.setPassword(encryptedPassword);
       }
-      cmd.setWithAuthorization(true);
+      if (authRes.isDecoded) {
+        cmd.setWithAuthorization(true);
+      }
       var thumbnail = params.thumbnail;
       if (thumbnail) {
         if (typeof thumbnail === 'string') {
@@ -357,7 +359,7 @@ function convertRequest(req, res, isJson) {
         if (status.end) {
           let fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
-          status.setUrl(yield* getConvertUrl(ctx, utils.getBaseUrlByRequest(req), fileToPath, cmd.getTitle()));
+          status.setUrl(yield* getConvertUrl(ctx, utils.getBaseUrlByRequest(ctx, req), fileToPath, cmd.getTitle()));
           ctx.logger.debug('convertRequest: url = %s', status.url);
         }
         utils.fillResponse(req, res, status, isJson);
@@ -412,7 +414,9 @@ function builderRequest(req, res) {
         let cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
         cmd.setBuilderParams({argument: params.argument});
-        cmd.setWithAuthorization(true);
+        if (authRes.isDecoded) {
+          cmd.setWithAuthorization(true);
+        }
         cmd.setDocId(docId);
         if (params.url) {
           cmd.setUrl(params.url);
@@ -431,7 +435,7 @@ function builderRequest(req, res) {
         end = status.end;
         error = status.err;
         if (end) {
-          urls = yield storageBase.getSignedUrls(ctx, utils.getBaseUrlByRequest(req), docId + '/output',
+          urls = yield storageBase.getSignedUrls(ctx, utils.getBaseUrlByRequest(ctx, req), docId + '/output',
                                                  commonDefines.c_oAscUrlTypes.Temporary);
         }
       } else if (error === constants.NO_ERROR) {
