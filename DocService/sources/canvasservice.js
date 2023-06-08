@@ -73,6 +73,7 @@ const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callba
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgDownloadFileAllowExt = config.get('services.CoAuthoring.server.downloadFileAllowExt');
+const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -711,7 +712,8 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
             }
           }
           //todo stream
-          let getRes = yield utils.downloadUrlPromise(ctx, urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], !authorizations[i]);
+          const filterPrivate = !authorizations[i] || !cfgAllowPrivateIPAddressForSignedRequests;
+          let getRes = yield utils.downloadUrlPromise(ctx, urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], filterPrivate);
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -1575,6 +1577,7 @@ exports.downloadFile = function(req, res) {
         res.sendStatus(filterStatus);
         return;
       }
+      const filterPrivate = !authorization || !cfgAllowPrivateIPAddressForSignedRequests;
       yield utils.downloadUrlPromise(ctx, url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
 
       if (clientStatsD) {
