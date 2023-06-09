@@ -109,11 +109,9 @@ if (!(cfgTokenEnableBrowser && cfgTokenEnableRequestInbox && cfgTokenEnableReque
 				'to prevent an unauthorized access to your documents and the substitution of important parameters in ONLYOFFICE Document Server requests.');
 }
 
-if (!tenantManager.isMultitenantMode()) {
-	updateLicense();
-	fs.watchFile(cfgLicenseFile, updateLicense);
-	setInterval(updateLicense, 86400000);
-}
+updateLicense();
+fs.watchFile(cfgLicenseFile, updateLicense);
+setInterval(updateLicense, 86400000);
 
 if (config.has('server.static_content')) {
 	const staticContent = config.get('server.static_content');

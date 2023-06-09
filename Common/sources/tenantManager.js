@@ -74,18 +74,18 @@ function getTenant(ctx, domain) {
   return tenant;
 }
 function getTenantByConnection(ctx, conn) {
-  return isMultitenantMode() ? getTenant(ctx, utils.getDomainByConnection(ctx, conn)) : getDefautTenant();
+  return isMultitenantMode(ctx) ? getTenant(ctx, utils.getDomainByConnection(ctx, conn)) : getDefautTenant();
 }
 function getTenantByRequest(ctx, req) {
-  return isMultitenantMode() ? getTenant(ctx, utils.getDomainByRequest(ctx, req)) : getDefautTenant();
+  return isMultitenantMode(ctx) ? getTenant(ctx, utils.getDomainByRequest(ctx, req)) : getDefautTenant();
 }
 function getTenantPathPrefix(ctx) {
-  return isMultitenantMode() ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
+  return isMultitenantMode(ctx) ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
 }
 function getTenantSecret(ctx, type) {
   return co(function*() {
     let res = undefined;
-    if (isMultitenantMode()) {
+    if (isMultitenantMode(ctx)) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
       res = nodeCache.get(secretPath);
@@ -125,29 +125,32 @@ function setDefLicense(data, original) {
 }
 function getTenantLicense(ctx) {
   return co(function*() {
-    let res = undefined;
-    if (isMultitenantMode()) {
+    let res = licenseInfo;
+    if (isMultitenantMode(ctx) && licenseInfo.alias) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
-      res = nodeCache.get(licensePath);
-      if (res) {
+      let licenseInfoTenant = nodeCache.get(licensePath);
+      if (licenseInfoTenant) {
         ctx.logger.debug('getTenantLicense from cache');
       } else {
-        [res] = yield* license.readLicense(licensePath);
-        nodeCache.set(licensePath, res);
+        [licenseInfoTenant] = yield* license.readLicense(licensePath, true);
+        nodeCache.set(licensePath, licenseInfoTenant);
         ctx.logger.debug('getTenantLicense from %s', licensePath);
       }
-      if (!res.alias) {
-        res.type = constants.LICENSE_RESULT.Error;
-        ctx.logger.error('getTenantLicense error: missing "alias" field');
-      }
-    } else {
-      res = licenseInfo;
+      res = {...res, ...licenseInfoTenant};
+    } else if(!licenseInfo.alias) {
+      res.type = constants.LICENSE_RESULT.Error;
+      ctx.logger.error('getTenantLicense error: missing "alias" field');
     }
     return res;
   });
 }
-function isMultitenantMode() {
+function getServerLicense(ctx) {
+  return co(function*() {
+    return licenseInfo;
+  });
+}
+function isMultitenantMode(ctx) {
   return !!cfgTenantsBaseDir;
 }
 
@@ -157,5 +160,6 @@ exports.getTenantByRequest = getTenantByRequest;
 exports.getTenantPathPrefix = getTenantPathPrefix;
 exports.getTenantSecret = getTenantSecret;
 exports.getTenantLicense = getTenantLicense;
+exports.getServerLicense = getServerLicense;
 exports.setDefLicense = setDefLicense;
 exports.isMultitenantMode = isMultitenantMode;
