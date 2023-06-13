@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2019
+ * (c) Copyright Ascensio System SIA 2010-2023
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -12,7 +12,7 @@
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
  * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA at 20A-12 Ernesta Birznieka-Upisha
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
  * street, Riga, Latvia, EU, LV-1050.
  *
  * The  interactive user interfaces in modified source and object code versions
@@ -106,7 +106,7 @@ function discovery(req, res) {
     try {
       ctx.initFromRequest(req);
       ctx.logger.info('wopiDiscovery start');
-      let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
+      let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(ctx, req);
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [cfgWopiFavIconUrlWord, cfgWopiFavIconUrlCell, cfgWopiFavIconUrlSlide];
       let exts = [
@@ -132,11 +132,14 @@ function discovery(req, res) {
         let ext = exts[i];
         let urlTemplateView = `${templateStart}/${documentTypes[i]}/view?${templateEnd}`;
         let urlTemplateEmbedView = `${templateStart}/${documentTypes[i]}/view?embed=1${templateEnd}`;
+        let urlTemplateMobileView = `${templateStart}/${documentTypes[i]}/view?mobile=1${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
+        let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1${templateEnd}`;
         let xmlApp = xmlZone.ele('app', {name: name, favIconUrl: favIconUrl});
         for (let j = 0; j < ext.view.length; ++j) {
           xmlApp.ele('action', {name: 'view', ext: ext.view[j], urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
+          xmlApp.ele('action', {name: 'mobileView', ext: ext.view[j], urlsrc: urlTemplateMobileView}).up();
           if (-1 === cfgWopiPdfView.indexOf(ext.view[j])) {
             let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
             xmlApp.ele('action', {name: 'convert', ext: ext.view[j], targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
@@ -145,11 +148,13 @@ function discovery(req, res) {
         for (let j = 0; j < ext.edit.length; ++j) {
           xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
+          xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
           if ("oform" !== ext.edit[j]) {
             //todo config
             xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
           xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
         }
         xmlApp.up();
       }
@@ -159,7 +164,9 @@ function discovery(req, res) {
         let ext = exts[i];
         let urlTemplateView = `${templateStart}/${documentTypes[i]}/view?${templateEnd}`;
         let urlTemplateEmbedView = `${templateStart}/${documentTypes[i]}/view?embed=1${templateEnd}`;
+        let urlTemplateMobileView = `${templateStart}/${documentTypes[i]}/view?mobile=1${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
+        let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1${templateEnd}`;
         for (let j = 0; j < ext.view.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
@@ -167,6 +174,7 @@ function discovery(req, res) {
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
               xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
+              xmlApp.ele('action', {name: 'mobileView', ext: '', urlsrc: urlTemplateMobileView}).up();
               if (-1 === cfgWopiPdfView.indexOf(ext.view[j])) {
                 let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
                 xmlApp.ele('action', {name: 'convert', ext: '', targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
@@ -181,6 +189,7 @@ function discovery(req, res) {
             mimeTypes.forEach((value) => {
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              xmlApp.ele('action', {name: 'mobileEdit', ext: '', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
               xmlApp.up();
             });
           }
@@ -397,7 +406,7 @@ function getEditorHtml(req, res) {
         fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(req), 1, commonInfo, fileType);
+        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), 1, commonInfo, fileType);
       }
 
       //Lock
@@ -466,7 +475,7 @@ function getConverterHtml(req, res) {
 
       let docId = yield converterService.convertAndEdit(ctx, wopiParams, ext, targetext);
       if (docId) {
-        let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(req);
+        let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(ctx, req);
         params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
         params.statusHandler += `?wopiSrc=${encodeURI(wopiSrc)}&access_token=${encodeURI(access_token)}`;
         params.statusHandler += `&targetext=${encodeURI(targetext)}&docId=${encodeURI(docId)}`;

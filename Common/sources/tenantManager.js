@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2019
+ * (c) Copyright Ascensio System SIA 2010-2023
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -12,7 +12,7 @@
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
  * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA at 20A-12 Ernesta Birznieka-Upisha
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
  * street, Riga, Latvia, EU, LV-1050.
  *
  * The  interactive user interfaces in modified source and object code versions
@@ -67,11 +67,8 @@ function getTenant(ctx, domain) {
     //remove port
     domain = domain.replace(/\:.*$/, '');
     tenant = domain;
-    if (cfgTenantsBaseDomain) {
-      let index = domain.indexOf('.' + cfgTenantsBaseDomain);
-      if (-1 !== index) {
-        tenant = domain.substring(0, index);
-      }
+    if (cfgTenantsBaseDomain && domain.endsWith('.' + cfgTenantsBaseDomain)) {
+      tenant = domain.substring(0, domain.length - cfgTenantsBaseDomain.length - 1);
     }
   }
   return tenant;
@@ -95,7 +92,12 @@ function getTenantSecret(ctx, type) {
       if (res) {
         ctx.logger.debug('getTenantSecret from cache');
       } else {
-        res = yield readFile(secretPath, {encoding: 'utf8'});
+        let secret = yield readFile(secretPath, {encoding: 'utf8'});
+        //trim whitespace plus line terminators from string (newline is common on Posix systems)
+        res = secret.trim();
+        if (res.length !== secret.length) {
+          ctx.logger.warn('getTenantSecret secret in %s contains a leading or trailing whitespace that has been trimmed', secretPath);
+        }
         nodeCache.set(secretPath, res);
         ctx.logger.debug('getTenantSecret from %s', secretPath);
       }

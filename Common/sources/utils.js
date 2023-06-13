@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2019
+ * (c) Copyright Ascensio System SIA 2010-2023
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -12,7 +12,7 @@
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
  * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA at 20A-12 Ernesta Birznieka-Upisha
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
  * street, Riga, Latvia, EU, LV-1050.
  *
  * The  interactive user interfaces in modified source and object code versions
@@ -38,6 +38,7 @@ require("tls").DEFAULT_ECDH_CURVE = "auto";
 var config = require('config');
 var fs = require('fs');
 var path = require('path');
+const crypto = require('crypto');
 var url = require('url');
 var request = require('request');
 var co = require('co');
@@ -71,7 +72,7 @@ const contentDisposition = require('content-disposition');
 var configIpFilter = config.get('services.CoAuthoring.ipfilter');
 var cfgIpFilterRules = configIpFilter.get('rules');
 var cfgIpFilterErrorCode = configIpFilter.get('errorcode');
-const cfgIpFilterEseForRequest = configIpFilter.get('useforrequest');
+const cfgIpFilterUseForRequest = configIpFilter.get('useforrequest');
 var cfgExpPemStdTtl = config.get('services.CoAuthoring.expire.pemStdTTL');
 var cfgExpPemCheckPeriod = config.get('services.CoAuthoring.expire.pemCheckPeriod');
 var cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
@@ -299,6 +300,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     var urlParsed = url.parse(uri);
     let sizeLimit = optLimit || Number.MAX_VALUE;
     let bufferLength = 0;
+    let hash = crypto.createHash('sha256');
     //if you expect binary data, you should set encoding: null
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false};
@@ -333,7 +335,8 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
           if (contentLength && body.length !== (contentLength - 0)) {
             ctx.logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
-          resolve({response: response, body: body});
+          let sha256 = hash.digest('hex');
+          resolve({response: response, body: body, sha256: sha256});
         }
       };
     }
@@ -364,6 +367,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       }
     };
     let fData = function(chunk) {
+      hash.update(chunk);
       bufferLength += chunk.length;
       if (bufferLength > sizeLimit) {
         raiseError(this, 'EMSGSIZE', 'Error response body.length');
@@ -683,16 +687,31 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
   }
   return url;
 }
-function getBaseUrlByConnection(conn) {
+function getBaseUrlByConnection(ctx, conn) {
   conn = conn.request;
   //Header names are lower-cased. https://nodejs.org/api/http.html#messageheaders
-  let proto = conn.headers['x-forwarded-proto'] || conn.headers['cloudfront-forwarded-proto'];
-  return getBaseUrl('', conn.headers['host'], proto, conn.headers['x-forwarded-host'], conn.headers['x-forwarded-prefix']);
+  let cloudfrontForwardedProto = conn.headers['cloudfront-forwarded-proto'];
+  let forwardedProto = conn.headers['x-forwarded-proto'];
+  let forwardedHost = conn.headers['x-forwarded-host'];
+  let forwardedPrefix = conn.headers['x-forwarded-prefix'];
+  let host = conn.headers['host'];
+  let proto = cloudfrontForwardedProto || forwardedProto;
+  ctx.logger.debug(`getBaseUrlByConnection host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
+      host, forwardedHost, forwardedProto, forwardedPrefix, cloudfrontForwardedProto);
+  return getBaseUrl('', host, proto, forwardedHost, forwardedPrefix);
 }
-function getBaseUrlByRequest(req) {
+function getBaseUrlByRequest(ctx, req) {
   //case-insensitive match. https://expressjs.com/en/api.html#req.get
-  let proto = req.get('x-forwarded-proto') || req.get('cloudfront-forwarded-proto');
-  return getBaseUrl(req.protocol, req.get('host'), proto, req.get('x-forwarded-host'), req.get('x-forwarded-prefix'));
+  let cloudfrontForwardedProto = req.get('cloudfront-forwarded-proto');
+  let forwardedProto = req.get('x-forwarded-proto');
+  let forwardedHost = req.get('x-forwarded-host');
+  let forwardedPrefix = req.get('x-forwarded-prefix');
+  let host = req.get('host');
+  let protocol = req.protocol;
+  let proto = cloudfrontForwardedProto || forwardedProto;
+  ctx.logger.debug(`getBaseUrlByRequest protocol=%s host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
+      protocol, host, forwardedHost, forwardedProto, forwardedPrefix, cloudfrontForwardedProto);
+  return getBaseUrl(protocol, host, proto, forwardedHost, forwardedPrefix);
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
@@ -805,7 +824,7 @@ function* checkHostFilter(ctx, hostname) {
 exports.checkHostFilter = checkHostFilter;
 function checkClientIp(req, res, next) {
 	let status = 0;
-	if (cfgIpFilterEseForRequest) {
+	if (cfgIpFilterUseForRequest) {
 		const addresses = forwarded(req);
 		const ipString = addresses[addresses.length - 1];
 		status = checkIpFilter(ipString);
@@ -1050,4 +1069,14 @@ exports.isUselesSfc = function(row, cmd) {
 };
 exports.getChangesFileHeader = function() {
   return `CHANGES\t${commonDefines.buildVersion}\n`;
+};
+exports.checksumFile = function(hashName, path) {
+  //https://stackoverflow.com/a/44643479
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash(hashName);
+    const stream = fs.createReadStream(path);
+    stream.on('error', err => reject(err));
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
 };

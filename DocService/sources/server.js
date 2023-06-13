@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2019
+ * (c) Copyright Ascensio System SIA 2010-2023
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -12,7 +12,7 @@
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
  * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA at 20A-12 Ernesta Birznieka-Upisha
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
  * street, Riga, Latvia, EU, LV-1050.
  *
  * The  interactive user interfaces in modified source and object code versions
@@ -140,7 +140,7 @@ if (configStorage.has('fs.folderPath')) {
 				const filename = decodeURIComponent(path.basename(urlParsed.pathname));
 				sendFileOptions.headers['Content-Type'] = mime.getType(filename);
 			}
-			const realUrl = req.url.substring(0, index);
+			const realUrl = decodeURI(req.url.substring(0, index));
 			res.sendFile(realUrl, sendFileOptions, (err) => {
 				if (err) {
 					operationContext.global.logger.error(err);
@@ -235,7 +235,13 @@ docsCoServer.install(server, () => {
 	app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
 	app.get('/baseurl', (req, res) => {
-		res.send(utils.getBaseUrlByRequest(req));
+		let ctx = new operationContext.Context();
+		try {
+			ctx.initFromRequest(req);
+			res.send(utils.getBaseUrlByRequest(ctx, req));
+		} catch (err) {
+			ctx.logger.error('baseurl error: %s', err.stack);
+		}
 	});
 
 	app.get('/robots.txt', (req, res) => {
@@ -339,8 +345,13 @@ docsCoServer.install(server, () => {
 						ctx.logger.debug('themes.json themesList:%j', themesList);
 						for (let j = 0; j < themesList.length; ++j) {
 							if (themesList[j].endsWith('.json')) {
-								let data = yield utils.readFile(themesList[j], true);
-								themes.push(JSON.parse(data.toString('utf-8')));
+								try {
+									let data = yield utils.readFile(themesList[j], true);
+									let text = new TextDecoder('utf-8', {ignoreBOM: false}).decode(data);
+									themes.push(JSON.parse(text));
+								} catch (err) {
+									ctx.logger.error('themes.json file:%s error:%s', themesList[j], err.stack);
+								}
 							}
 						}
 						break;

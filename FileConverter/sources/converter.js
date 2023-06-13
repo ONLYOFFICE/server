@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2019
+ * (c) Copyright Ascensio System SIA 2010-2023
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -12,7 +12,7 @@
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
  * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA at 20A-12 Ernesta Birznieka-Upisha
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
  * street, Riga, Latvia, EU, LV-1050.
  *
  * The  interactive user interfaces in modified source and object code versions
@@ -321,6 +321,7 @@ function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
 function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt_headers) {
   var res = constants.CONVERT_DOWNLOAD;
   var data = null;
+  var sha256 = null;
   var downloadAttemptCount = 0;
   var urlParsed = url.parse(uri);
   var filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
@@ -334,6 +335,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
         }
         let getRes = yield utils.downloadUrlPromise(ctx, uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;
+        sha256 = getRes.sha256;
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
@@ -350,7 +352,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
       }
     }
     if (constants.NO_ERROR === res) {
-      ctx.logger.debug('downloadFile complete filesize=%d', data.length);
+      ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', data.length, sha256);
       fs.writeFileSync(fileFrom, data);
     }
   } else {
@@ -699,21 +701,30 @@ function* streamEnd(streamObj, text) {
   streamObj.writeStream.end(text, 'utf8');
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
-function* processUploadToStorage(ctx, dir, storagePath, opt_specialDirDst) {
+function* processUploadToStorage(ctx, dir, storagePath, calcChecksum, opt_specialDirDst) {
   var list = yield utils.listObjects(dir);
   if (list.length < MAX_OPEN_FILES) {
-    yield* processUploadToStorageChunk(ctx, list, dir, storagePath, opt_specialDirDst);
+    yield* processUploadToStorageChunk(ctx, list, dir, storagePath, calcChecksum, opt_specialDirDst);
   } else {
     for (var i = 0, j = list.length; i < j; i += MAX_OPEN_FILES) {
-      yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath, opt_specialDirDst);
+      yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath, calcChecksum, opt_specialDirDst);
     }
   }
 }
-function* processUploadToStorageChunk(ctx, list, dir, storagePath, opt_specialDirDst) {
-  yield Promise.all(list.map(function (curValue) {
+function* processUploadToStorageChunk(ctx, list, dir, storagePath, calcChecksum, opt_specialDirDst) {
+  let promises = list.reduce(function(r, curValue) {
     let localValue = storagePath + '/' + curValue.substring(dir.length + 1);
-    return storage.uploadObject(ctx, localValue, curValue, opt_specialDirDst);
-  }));
+    let checksum;
+    if (calcChecksum) {
+      checksum = utils.checksumFile('sha256', curValue).then(result => {
+        ctx.logger.debug('processUploadToStorageChunk path=%s; sha256=%s', localValue, result);
+      });
+    }
+    let upload = storage.uploadObject(ctx, localValue, curValue, opt_specialDirDst);
+    r.push(checksum, upload);
+    return r;
+  }, []);
+  yield Promise.all(promises);
 }
 function writeProcessOutputToLog(ctx, childRes, isDebug) {
   if (childRes) {
@@ -755,7 +766,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
       writeProcessOutputToLog(ctx, childRes, false);
       ctx.logger.error('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
       if (cfgErrorFiles) {
-        yield* processUploadToStorage(ctx, tempDirs.temp, dataConvert.key, cfgErrorFiles);
+        yield* processUploadToStorage(ctx, tempDirs.temp, dataConvert.key, false, cfgErrorFiles);
         ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
       }
     }
@@ -764,7 +775,9 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     ctx.logger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
   }
   if (-1 !== exitCodesUpload.indexOf(error)) {
-    yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key);
+    //todo clarify calcChecksum conditions
+    let calcChecksum = (0 === (constants.AVS_OFFICESTUDIO_FILE_CANVAS & cmd.getOutputFormat()));
+    yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key, calcChecksum);
     ctx.logger.debug('processUploadToStorage complete');
   }
   cmd.setStatusInfo(error);
@@ -799,7 +812,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
   return queueData;
 }
 
-function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task) {
+function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task) {
   let childRes, isTimeout = false;
   let childArgs;
   if (cfgArgs.length > 0) {
@@ -808,7 +821,7 @@ function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTa
     childArgs = [];
   }
   let processPath;
-  if (!isBuilder) {
+  if (!builderParams) {
     processPath = cfgX2tPath;
     let paramsFile = path.join(tempDirs.temp, 'params.xml');
     dataConvert.serialize(paramsFile);
@@ -822,6 +835,9 @@ function* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTa
     processPath = cfgDocbuilderPath;
     childArgs.push('--check-fonts=0');
     childArgs.push('--save-use-only-names=' + tempDirs.result + '/output');
+    if (builderParams.argument) {
+      childArgs.push(`--argument=${JSON.stringify(builderParams.argument)}`);
+    }
     childArgs.push(dataConvert.fileFrom);
   }
   let timeoutId;
@@ -878,7 +894,7 @@ function* ExecuteTask(ctx, task) {
   tempDirs = getTempDir();
   let fileTo = task.getToFile();
   dataConvert.fileTo = fileTo ? path.join(tempDirs.result, fileTo) : '';
-  let isBuilder = cmd.getIsBuilder();
+  let builderParams = cmd.getBuilderParams();
   let authorProps = {lastModifiedBy: null, modified: null};
   error = yield* isUselessConvertion(ctx, task, cmd);
   if (constants.NO_ERROR !== error) {
@@ -944,7 +960,7 @@ function* ExecuteTask(ctx, task) {
     } else {
       error = constants.UNKNOWN;
     }
-  } else if (isBuilder) {
+  } else if (builderParams) {
     //in cause script in POST body
     yield* downloadFileFromStorage(ctx, cmd.getDocId(), tempDirs.source);
     ctx.logger.debug('downloadFileFromStorage complete');
@@ -958,7 +974,7 @@ function* ExecuteTask(ctx, task) {
   let childRes = null;
   let isTimeout = false;
   if (constants.NO_ERROR === error) {
-    ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
+    ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task));
     if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
       && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
       && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
@@ -967,7 +983,7 @@ function* ExecuteTask(ctx, task) {
       let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
       dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
       dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
-      ({childRes, isTimeout} = yield* spawnProcess(ctx, isBuilder, tempDirs, dataConvert, authorProps, getTaskTime, task));
+      ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task));
     }
     if(clientStatsD) {
       clientStatsD.timing('conv.spawnSync', new Date() - curDate);

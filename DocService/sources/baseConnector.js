@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2019
+ * (c) Copyright Ascensio System SIA 2010-2023
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -12,7 +12,7 @@
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
  * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA at 20A-12 Ernesta Birznieka-Upisha
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
  * street, Riga, Latvia, EU, LV-1050.
  *
  * The  interactive user interfaces in modified source and object code versions
@@ -35,13 +35,27 @@
 var sqlDataBaseType = {
 	mySql		: 'mysql',
 	mariaDB		: 'mariadb',
-	postgreSql	: 'postgres'
+	postgreSql	: 'postgres',
+	dameng	: 'dameng'
 };
 
 var bottleneck = require("bottleneck");
 var config = require('config');
 var configSql = config.get('services.CoAuthoring.sql');
-var baseConnector = (sqlDataBaseType.mySql === configSql.get('type') || sqlDataBaseType.mariaDB === configSql.get('type')) ? require('./mySqlBaseConnector') : require('./postgreSqlBaseConnector');
+
+var baseConnector;
+switch (configSql.get('type')) {
+  case sqlDataBaseType.mySql:
+  case sqlDataBaseType.mariaDB:
+    baseConnector = require('./mySqlBaseConnector');
+    break;
+  case sqlDataBaseType.dameng:
+    baseConnector = require('./damengBaseConnector');
+    break;
+  default:
+    baseConnector = require('./postgreSqlBaseConnector');
+    break;
+}
 let constants = require('./../../Common/sources/constants');
 
 const cfgTableResult = configSql.get('tableResult');
@@ -284,16 +298,20 @@ exports.getEmptyCallbacks = function(ctx) {
   });
 };
 exports.getTableColumns = function(ctx, tableName) {
-  return new Promise(function(resolve, reject) {
-    const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = '${tableName}';`;
-    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
+  if (baseConnector.getTableColumns) {
+    return baseConnector.getTableColumns(ctx, tableName);
+  } else {
+    return new Promise(function(resolve, reject) {
+      const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = '${tableName}';`;
+      baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      });
     });
-  });
+  }
 };
 function UserCallback() {
   this.userIndex = undefined;

@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2019
+ * (c) Copyright Ascensio System SIA 2010-2023
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -12,7 +12,7 @@
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
  * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA at 20A-12 Ernesta Birznieka-Upisha
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
  * street, Riga, Latvia, EU, LV-1050.
  *
  * The  interactive user interfaces in modified source and object code versions
@@ -37,9 +37,9 @@ const constants = require('./constants');
 function InputCommand(data, copyExplicit) {
   //must be set explicitly to prevent vulnerability(downloadAs(with url) creates request to integrator with authorization)
   this['withAuthorization'] = undefined;//bool
-  this['isbuilder'] = undefined;//bool
   this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
   this['wopiParams'] = undefined;
+  this['builderParams'] = undefined;
   if (data) {
     this['c'] = data['c'];
     this['id'] = data['id'];
@@ -108,9 +108,9 @@ function InputCommand(data, copyExplicit) {
     this['convertToOrigin'] = data['convertToOrigin'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
-      this['isbuilder'] = data['isbuilder'];
       this['externalChangeInfo'] = data['externalChangeInfo'];
       this['wopiParams'] = data['wopiParams'];
+      this['builderParams'] = data['builderParams'];
     }
   } else {
     this['c'] = undefined;//string command
@@ -432,12 +432,6 @@ InputCommand.prototype = {
   setNoBase64: function(data) {
     this['nobase64'] = data;
   },
-  getIsBuilder: function() {
-    return this['isbuilder'];
-  },
-  setIsBuilder: function(data) {
-    this['isbuilder'] = data;
-  },
   getStatusInfoIn: function() {
     return this['status_info_in'];
   },
@@ -461,6 +455,12 @@ InputCommand.prototype = {
   },
   setExternalChangeInfo: function(data) {
     this['externalChangeInfo'] = data;
+  },
+  getBuilderParams: function() {
+    return this['builderParams'];
+  },
+  setBuilderParams: function(data) {
+    this['builderParams'] = data;
   },
   getWopiParams: function() {
     return this['wopiParams'];

@@ -107,7 +107,7 @@ function shutdown() {
       yield pubsub.initPromise();
       //inner ping to update presence
       ctx.logger.debug('shutdown pubsub shutdown message');
-      pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx: ctx, status: true}));
+      yield pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx: ctx, status: true}));
       ctx.logger.debug('shutdown start wait pubsub deliver');
       yield utils.sleep(LOOP_TIMEOUT);
 
