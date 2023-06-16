@@ -1361,6 +1361,11 @@
         "ee-first": "1.1.1"
       }
     },
+    "oracledb": {
+      "version": "6.0.1",
+      "resolved": "https://registry.npmjs.org/oracledb/-/oracledb-6.0.1.tgz",
+      "integrity": "sha512-N5/Y4IkCFQCumqjEXi3snrclDKjDMMeawq/z/5Ydm5+BxjV3kg9wCaTAp++JTLlCWASb4JMXqK70PctmAkZh3g=="
+    },
     "packet-reader": {
       "version": "1.0.0",
       "resolved": "https://registry.npmjs.org/packet-reader/-/packet-reader-1.0.0.tgz",
