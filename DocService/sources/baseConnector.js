@@ -283,7 +283,7 @@ exports.healthCheck = function (ctx) {
     let sql;
     switch (dbType) {
       case sqlDataBaseType.oracle: {
-        sql = 'SELECT 1 FROM DUAL;';
+        sql = 'SELECT 1 FROM DUAL';
         break;
       }
       default: {
