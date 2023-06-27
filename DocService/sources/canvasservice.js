@@ -854,7 +854,9 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
       if (!conn.isEnterCorrectPassword) {
         yield docsCoServer.modifyConnectionForPassword(ctx, conn, true);
       }
-      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), 0, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
+      let forceSave = yield docsCoServer.editorData.getForceSave(ctx, cmd.getDocId());
+      let index = forceSave?.index || 0;
+      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), index, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
     } else {
       ctx.logger.debug('commandSetPassword sql update error');
       outputData.setStatus('err');
