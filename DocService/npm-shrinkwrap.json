@@ -218,9 +218,9 @@
       }
     },
     "apicache": {
-      "version": "1.6.2",
-      "resolved": "https://registry.npmjs.org/apicache/-/apicache-1.6.2.tgz",
-      "integrity": "sha512-3z5e+1E2qwZoqzFVgdx5l9nGhSG0kHv3v2G170vnJSz5uj4mCLVZfRw0o37aWwV8pTPXSkB8OBZz3TIur4H26g=="
+      "version": "1.6.3",
+      "resolved": "https://registry.npmjs.org/apicache/-/apicache-1.6.3.tgz",
+      "integrity": "sha512-jS3VfUFpQ9BesFQZcdd1vVYg3ZsO2kGPmTJHqycIYPAQs54r74CRiyj8DuzJpwzLwIfCBYzh4dy9Jt8xYbo27w=="
     },
     "append-field": {
       "version": "1.0.0",
