@@ -133,12 +133,13 @@ function getTenantLicense(ctx) {
       if (licenseInfoTenant) {
         ctx.logger.debug('getTenantLicense from cache');
       } else {
-        [licenseInfoTenant] = yield* license.readLicense(licensePath, true);
+        [licenseInfoTenant] = yield* license.readLicense(licensePath, licenseInfo);
         nodeCache.set(licensePath, licenseInfoTenant);
         ctx.logger.debug('getTenantLicense from %s', licensePath);
       }
-      res = {...res, ...licenseInfoTenant};
+      res = licenseInfoTenant;
     } else if(!licenseInfo.alias) {
+      res = {...res};
       res.type = constants.LICENSE_RESULT.Error;
       ctx.logger.error('getTenantLicense error: missing "alias" field');
     }
@@ -146,9 +147,7 @@ function getTenantLicense(ctx) {
   });
 }
 function getServerLicense(ctx) {
-  return co(function*() {
-    return licenseInfo;
-  });
+  return licenseInfo;
 }
 function isMultitenantMode(ctx) {
   return !!cfgTenantsBaseDir;

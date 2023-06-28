@@ -2451,17 +2451,20 @@ exports.install = function(server, callbackFunction) {
       conn.licenseType = c_LR.Success;
       let isLiveViewer = utils.isLiveViewer(conn);
       if (!conn.user.view || isLiveViewer) {
-        //todo
-        let licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer);
+        let logPrefixTenant = 'License of tenant: ';
+        let logPrefixServer = 'License: ';
+        let logPrefix = tenantManager.isMultitenantMode(ctx) ? logPrefixTenant : logPrefixServer;
+
+        let licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer, logPrefix);
         let aggregationCtx, licenseInfoAggregation;
         if ((c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) && tenantManager.isMultitenantMode(ctx)) {
           //check server aggregation license
           aggregationCtx = new operationContext.Context();
           aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
-          let licenseInfoAggregation = tenantManager.getServerLicense();
-          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, isLiveViewer);
+          licenseInfoAggregation = tenantManager.getServerLicense();
+          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, isLiveViewer, logPrefixServer);
         }
-        conn.licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer);
+        conn.licenseType = licenseType;
         if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!cfgIsAnonymousSupport && data.IsAnonymousUser)) {
           if (!cfgIsAnonymousSupport && data.IsAnonymousUser) {
             //do not modify the licenseType because this information is already sent in _checkLicense
@@ -3312,7 +3315,7 @@ exports.install = function(server, callbackFunction) {
 		});
 	}
 
-  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer) {
+  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer, logPrefix) {
     let licenseWarningLimitUsers = false;
     let licenseWarningLimitUsersView = false;
     let licenseWarningLimitConnections = false;
@@ -3356,34 +3359,34 @@ exports.install = function(server, callbackFunction) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.UsersCountOS;
       }
-      ctx.logger.error('License: User limit exceeded!!!');
+      ctx.logger.error(logPrefix + 'User limit exceeded!!!');
     } else if (c_LR.UsersViewCount === licenseType) {
         if (!licenseInfo.hasLicense) {
           licenseType = c_LR.UsersViewCountOS;
         }
-        ctx.logger.error('License: User Live Viewer limit exceeded!!!');
+        ctx.logger.error(logPrefix + 'User Live Viewer limit exceeded!!!');
     } else if (c_LR.Connections === licenseType) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.ConnectionsOS;
       }
-      ctx.logger.error('License: Connection limit exceeded!!!');
+      ctx.logger.error(logPrefix + 'Connection limit exceeded!!!');
     } else if (c_LR.ConnectionsLive === licenseType) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.ConnectionsLiveOS;
       }
-      ctx.logger.error('License: Connection Live Viewer limit exceeded!!!');
+      ctx.logger.error(logPrefix + 'Connection Live Viewer limit exceeded!!!');
     } else {
       if (licenseWarningLimitUsers) {
-        ctx.logger.warn('License: Warning User limit exceeded!!!');
+        ctx.logger.warn(logPrefix + 'Warning User limit exceeded!!!');
       }
       if (licenseWarningLimitUsersView) {
-        ctx.logger.warn('License: Warning User Live Viewer limit exceeded!!!');
+        ctx.logger.warn(logPrefix + 'Warning User Live Viewer limit exceeded!!!');
       }
       if (licenseWarningLimitConnections) {
-        ctx.logger.warn('License: Warning Connection limit exceeded!!!');
+        ctx.logger.warn(logPrefix + 'Warning Connection limit exceeded!!!');
       }
       if (licenseWarningLimitConnectionsLive) {
-        ctx.logger.warn('License: Warning Connection Live Viewer limit exceeded!!!');
+        ctx.logger.warn(logPrefix + 'Warning Connection Live Viewer limit exceeded!!!');
       }
     }
     return licenseType;
