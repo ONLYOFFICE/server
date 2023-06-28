@@ -152,6 +152,7 @@ const cfgSocketIoConnection = configCommon.get('services.CoAuthoring.socketio.co
 const cfgTableResult = configCommon.get('services.CoAuthoring.sql.tableResult');
 const cfgImageSize = config.get('server.limits_image_size');
 const cfgTypesUpload = config.get('utils.limits_image_types_upload');
+const cfgTenantsAggregationTenant = configCommon.get('tenants.aggregationTenant');
 
 const EditorTypes = {
   document : 0,
@@ -423,20 +424,35 @@ CRecalcIndex.prototype = {
 
 function updatePresenceCounters(ctx, conn, val) {
   return co(function* () {
+    let aggregationCtx;
+    if (tenantManager.isMultitenantMode(ctx)) {
+      //aggregated server stats
+      aggregationCtx = new operationContext.Context();
+      aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+    }
     if (utils.isLiveViewer(conn)) {
       yield editorData.incrLiveViewerConnectionsCountByShard(ctx, SHARD_ID, val);
+      if (aggregationCtx) {
+        yield editorData.incrLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
+      }
       if (clientStatsD) {
         let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
       }
     } else if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
       yield editorData.incrViewerConnectionsCountByShard(ctx, SHARD_ID, val);
+      if (aggregationCtx) {
+        yield editorData.incrViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
+      }
       if (clientStatsD) {
         let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.view', countView);
       }
     } else {
       yield editorData.incrEditorConnectionsCountByShard(ctx, SHARD_ID, val);
+      if (aggregationCtx) {
+        yield editorData.incrEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
+      }
       if (clientStatsD) {
         let countEditors = yield editorData.getEditorConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.edit', countEditors);
@@ -2435,8 +2451,20 @@ exports.install = function(server, callbackFunction) {
       conn.licenseType = c_LR.Success;
       let isLiveViewer = utils.isLiveViewer(conn);
       if (!conn.user.view || isLiveViewer) {
-        //todo
-        let licenseType = conn.licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer);
+        let logPrefixTenant = 'License of tenant: ';
+        let logPrefixServer = 'License: ';
+        let logPrefix = tenantManager.isMultitenantMode(ctx) ? logPrefixTenant : logPrefixServer;
+
+        let licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer, logPrefix);
+        let aggregationCtx, licenseInfoAggregation;
+        if ((c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) && tenantManager.isMultitenantMode(ctx)) {
+          //check server aggregation license
+          aggregationCtx = new operationContext.Context();
+          aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+          licenseInfoAggregation = tenantManager.getServerLicense();
+          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, isLiveViewer, logPrefixServer);
+        }
+        conn.licenseType = licenseType;
         if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!cfgIsAnonymousSupport && data.IsAnonymousUser)) {
           if (!cfgIsAnonymousSupport && data.IsAnonymousUser) {
             //do not modify the licenseType because this information is already sent in _checkLicense
@@ -2447,6 +2475,10 @@ exports.install = function(server, callbackFunction) {
         } else {
           //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
           yield* updateEditUsers(ctx, licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
+          if (aggregationCtx && licenseInfoAggregation) {
+            //update server aggregation license
+            yield* updateEditUsers(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
+          }
         }
       }
 
@@ -3283,7 +3315,7 @@ exports.install = function(server, callbackFunction) {
 		});
 	}
 
-  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer) {
+  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer, logPrefix) {
     let licenseWarningLimitUsers = false;
     let licenseWarningLimitUsersView = false;
     let licenseWarningLimitConnections = false;
@@ -3327,34 +3359,34 @@ exports.install = function(server, callbackFunction) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.UsersCountOS;
       }
-      ctx.logger.error('License: User limit exceeded!!!');
+      ctx.logger.error(logPrefix + 'User limit exceeded!!!');
     } else if (c_LR.UsersViewCount === licenseType) {
         if (!licenseInfo.hasLicense) {
           licenseType = c_LR.UsersViewCountOS;
         }
-        ctx.logger.error('License: User Live Viewer limit exceeded!!!');
+        ctx.logger.error(logPrefix + 'User Live Viewer limit exceeded!!!');
     } else if (c_LR.Connections === licenseType) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.ConnectionsOS;
       }
-      ctx.logger.error('License: Connection limit exceeded!!!');
+      ctx.logger.error(logPrefix + 'Connection limit exceeded!!!');
     } else if (c_LR.ConnectionsLive === licenseType) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.ConnectionsLiveOS;
       }
-      ctx.logger.error('License: Connection Live Viewer limit exceeded!!!');
+      ctx.logger.error(logPrefix + 'Connection Live Viewer limit exceeded!!!');
     } else {
       if (licenseWarningLimitUsers) {
-        ctx.logger.warn('License: Warning User limit exceeded!!!');
+        ctx.logger.warn(logPrefix + 'Warning User limit exceeded!!!');
       }
       if (licenseWarningLimitUsersView) {
-        ctx.logger.warn('License: Warning User Live Viewer limit exceeded!!!');
+        ctx.logger.warn(logPrefix + 'Warning User Live Viewer limit exceeded!!!');
       }
       if (licenseWarningLimitConnections) {
-        ctx.logger.warn('License: Warning Connection limit exceeded!!!');
+        ctx.logger.warn(logPrefix + 'Warning Connection limit exceeded!!!');
       }
       if (licenseWarningLimitConnectionsLive) {
-        ctx.logger.warn('License: Warning Connection Live Viewer limit exceeded!!!');
+        ctx.logger.warn(logPrefix + 'Warning Connection Live Viewer limit exceeded!!!');
       }
     }
     return licenseType;
@@ -3632,10 +3664,13 @@ exports.install = function(server, callbackFunction) {
           }
           yield addPresence(ctx, conn, false);
           if (utils.isLiveViewer(conn)) {
+            countViewByShard++;
             tenant.countLiveViewByShard++;
           } else if(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+            countLiveViewByShard++;
             tenant.countViewByShard++;
           } else {
+            countEditByShard++;
             tenant.countEditByShard++;
           }
         }
@@ -3657,6 +3692,14 @@ exports.install = function(server, callbackFunction) {
               clientStatsD.gauge('expireDoc.connections.view', countView);
             }
           }
+        }
+        if (tenantManager.isMultitenantMode(ctx)) {
+          //aggregated tenant stats
+          let aggregationCtx = new operationContext.Context();
+          aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+          yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
+          yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
+          yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, countViewByShard);
         }
         ctx.initDefault();
       } catch (err) {
