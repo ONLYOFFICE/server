@@ -126,22 +126,24 @@ function setDefLicense(data, original) {
 function getTenantLicense(ctx) {
   return co(function*() {
     let res = licenseInfo;
-    if (isMultitenantMode(ctx) && licenseInfo.alias) {
-      let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-      let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
-      let licenseInfoTenant = nodeCache.get(licensePath);
-      if (licenseInfoTenant) {
-        ctx.logger.debug('getTenantLicense from cache');
+    if (isMultitenantMode(ctx)) {
+      if (licenseInfo.alias) {
+        let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+        let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
+        let licenseInfoTenant = nodeCache.get(licensePath);
+        if (licenseInfoTenant) {
+          ctx.logger.debug('getTenantLicense from cache');
+        } else {
+          [licenseInfoTenant] = yield* license.readLicense(licensePath, licenseInfo);
+          nodeCache.set(licensePath, licenseInfoTenant);
+          ctx.logger.debug('getTenantLicense from %s', licensePath);
+        }
+        res = licenseInfoTenant;
       } else {
-        [licenseInfoTenant] = yield* license.readLicense(licensePath, licenseInfo);
-        nodeCache.set(licensePath, licenseInfoTenant);
-        ctx.logger.debug('getTenantLicense from %s', licensePath);
+        res = {...res};
+        res.type = constants.LICENSE_RESULT.Error;
+        ctx.logger.error('getTenantLicense error: missing "alias" field');
       }
-      res = licenseInfoTenant;
-    } else if(!licenseInfo.alias) {
-      res = {...res};
-      res.type = constants.LICENSE_RESULT.Error;
-      ctx.logger.error('getTenantLicense error: missing "alias" field');
     }
     return res;
   });
