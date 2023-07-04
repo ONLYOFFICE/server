@@ -113,7 +113,6 @@ exports.insertChangesPromise = function (ctx, objChanges, docId, index, user) {
   } else {
     return exports.insertChangesPromiseCompatibility(ctx, objChanges, docId, index, user);
   }
-
 };
 function _getDateTime2(oDate) {
   return oDate.toISOString().slice(0, 19).replace('T', ' ');
@@ -127,10 +126,12 @@ function _insertChangesCallback (ctx, startIndex, objChanges, docId, index, user
   if (i === l)
     return;
 
+  const indexBytes = 4;
+  const timeBytes = 8;
   for (; i < l; ++i, ++index) {
-    //44 - length of "($1001,... $1007),"
+    //49 - length of "($1001,... $1008),"
     //4 is max utf8 bytes per symbol
-    lengthUtf8Row = 44 + 4 * (docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + 4 + 8;
+    lengthUtf8Row = 49 + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + indexBytes + timeBytes;
     if (lengthUtf8Row + lengthUtf8Current >= maxPacketSize && i > startIndex) {
       sqlCommand += ';';
       (function(tmpStart, tmpIndex) {
