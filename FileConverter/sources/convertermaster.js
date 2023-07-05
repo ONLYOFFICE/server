@@ -39,7 +39,7 @@ const operationContext = require('./../../Common/sources/operationContext');
 if (cluster.isMaster) {
   const fs = require('fs');
   const co = require('co');
-  const numCPUs = require('os').cpus().length;
+  const os = require('os');
   const configCommon = require('config');
   const config = configCommon.get('FileConverter.converter');
   const license = require('./../../Common/sources/license');
@@ -49,7 +49,10 @@ if (cluster.isMaster) {
   const cfgMaxProcessCount = config.get('maxprocesscount');
   var workersCount = 0;
   const readLicense = function* () {
-    workersCount = Math.ceil(numCPUs * cfgMaxProcessCount);
+    const numCPUs = os.cpus().length;
+    const availableParallelism = os.availableParallelism?.();
+    operationContext.global.logger.warn('num of CPUs: %d; availableParallelism: %s', numCPUs, availableParallelism);
+    workersCount = Math.ceil((availableParallelism || numCPUs) * cfgMaxProcessCount);
     let [licenseInfo] = yield* license.readLicense(cfgLicenseFile);
     workersCount = Math.min(licenseInfo.count, workersCount);
     //todo send license to workers for multi-tenancy
