@@ -63,7 +63,7 @@ function removeEmptyParent(strPath, done) {
   } else {
     fs.readdir(strPath, function(err, list) {
       if (err) {
-        //не реагируем на ошибку, потому скорее всего эта папка удалилась в соседнем потоке
+        //we do not react to the error, because most likely this folder was deleted in a neighboring thread
         done();
       } else {
         if (list.length > 0) {
@@ -71,7 +71,7 @@ function removeEmptyParent(strPath, done) {
         } else {
           fs.rmdir(strPath, function(err) {
             if (err) {
-              //не реагируем на ошибку, потому скорее всего эта папка удалилась в соседнем потоке
+              //we do not react to the error, because most likely this folder was deleted in a neighboring thread
               done();
             } else {
               removeEmptyParent(path.dirname(strPath), function(err) {

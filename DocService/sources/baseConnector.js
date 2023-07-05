@@ -64,7 +64,7 @@ const cfgTableChanges = configSql.get('tableChanges');
 var g_oCriticalSection = {};
 let isSupportFastInsert = !!baseConnector.insertChanges;
 let addSqlParam = baseConnector.addSqlParameter;
-var maxPacketSize = configSql.get('max_allowed_packet'); // Размер по умолчанию для запроса в базу данных 1Mb - 1 (т.к. он не пишет 1048575, а пишет 1048574)
+var maxPacketSize = configSql.get('max_allowed_packet'); // The default size for a query to the database is 1Mb - 1 (because it does not write 1048575, but writes 1048574)
 const cfgBottleneckGetChanges = config.get('bottleneck.getChanges');
 
 let reservoirMaximum = cfgBottleneckGetChanges.reservoirIncreaseMaximum || cfgBottleneckGetChanges.reservoirRefreshAmount;
@@ -130,7 +130,7 @@ function _insertChangesCallback (ctx, startIndex, objChanges, docId, index, user
       sqlCommand += ';';
       (function(tmpStart, tmpIndex) {
         baseConnector.sqlQuery(ctx, sqlCommand, function() {
-          // lock не снимаем, а продолжаем добавлять
+          // do not remove lock, but we continue to add
           _insertChangesCallback(ctx, tmpStart, objChanges, docId, tmpIndex, user, callback);
         }, undefined, undefined, values);
       })(i, index);
@@ -251,14 +251,14 @@ exports.isLockCriticalSection = function (id) {
 	return !!(g_oCriticalSection[id]);
 };
 
-// Критическая секция
+// critical section
 function lockCriticalSection (id, callback) {
 	if (g_oCriticalSection[id]) {
-		// Ждем
+		// wait
 		g_oCriticalSection[id].push(callback);
 		return;
 	}
-	// Ставим lock
+	// lock
 	g_oCriticalSection[id] = [];
 	g_oCriticalSection[id].push(callback);
 	callback();

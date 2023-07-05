@@ -53,8 +53,8 @@ exports.shutdown = function(ctx, editorData, status) {
     try {
       ctx.logger.debug('shutdown start:' + EXEC_TIMEOUT);
 
-      //redisKeyShutdown не простой счетчик, чтобы его не уменьшала сборка, которая началась перед запуском Shutdown
-      //сбрасываем redisKeyShutdown на всякий случай, если предыдущий запуск не дошел до конца
+      //redisKeyShutdown is not a simple counter, so it doesn't get decremented by a build that started before Shutdown started
+      //reset redisKeyShutdown just in case the previous run didn't finish
       yield editorData.cleanupShutdown(redisKeyShutdown);
 
       var pubsub = new pubsubService();
@@ -83,7 +83,7 @@ exports.shutdown = function(ctx, editorData, status) {
         }
         yield utils.sleep(LOOP_TIMEOUT);
       }
-      //todo надо проверять очереди, потому что могут быть долгие конвертации запущенные до Shutdown
+      //todo need to check the queues, because there may be long conversions running before Shutdown
       //clean up
       yield editorData.cleanupShutdown(redisKeyShutdown);
       yield pubsub.close();

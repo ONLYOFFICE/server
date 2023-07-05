@@ -187,7 +187,7 @@ function getImageFormatBySignature(buffer) {
   }
 
   //svg
-  //работает для svg сделаных в редакторе, внешние svg могуть быть с пробелами в начале
+  //works for svgs created in the editor, external svgs can be with spaces at the beginning
   if (0 == startText.indexOf('<svg')) {
     return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG;
   }
@@ -505,12 +505,12 @@ exports.getImageFormat = function(ctx, buffer, optExt) {
   try {
     //signature
     format = getImageFormatBySignature(buffer);
-    //возвращаем тип по расширению
+    //return type by extension
     if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN == format && optExt) {
       if ('.svg' == optExt) {
         format = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG;
       } else {
-        //пробуем по расширению
+        //try by extension
         if (optExt.length > 0 && '.' == optExt[0]) {
           optExt = optExt.substring(1);
         }

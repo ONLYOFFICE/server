@@ -155,7 +155,7 @@ exports.uploadImageFileOld = function(req, res) {
           if (isError) {
             part.resume();
           } else {
-            //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
+            //a hash is written at the beginning to avoid errors during parallel upload in co-editing
             var strImageName = crypto.randomBytes(16).toString("hex");
             var strPath = docId + '/media/' + strImageName + '.jpg';
             listImages.push(strPath);
@@ -244,7 +244,7 @@ exports.uploadImageFile = function(req, res) {
           var supportedFormats = cfgTypesUpload || 'jpg';
           let formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
           if (formatLimit) {
-            //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
+            //a hash is written at the beginning to avoid errors during parallel upload in co-editing
             var strImageName = crypto.randomBytes(16).toString("hex");
             var strPathRel = 'media/' + strImageName + '.' + formatStr;
             var strPath = docId + '/' + strPathRel;

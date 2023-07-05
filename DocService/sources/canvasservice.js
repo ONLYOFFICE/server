@@ -589,7 +589,7 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
     if (getRes && !getRes.wopiParams) {
       mailMergeSend.setUrl(getRes.server.href);
       mailMergeSend.setBaseUrl(getRes.baseUrl);
-      //меняем JsonKey и SaveKey, новый key нужет потому что за одну конвертацию делается часть, а json нужен всегда
+      //we change JsonKey and SaveKey, a new key is needed because a part is done in one conversion, and json is always needed
       mailMergeSend.setJsonKey(cmd.getSaveKey());
       mailMergeSend.setRecordErrorCount(0);
       yield* addRandomKeyTaskCmd(ctx, cmd);
@@ -632,7 +632,7 @@ function* commandSfct(ctx, cmd, outputData) {
 function isDisplayedImage(strName) {
   var res = 0;
   if (strName) {
-    //шаблон display[N]image.ext
+    //template display[N]image.ext
     var findStr = constants.DISPLAY_PREFIX;
     var index = strName.indexOf(findStr);
     if (-1 != index) {
@@ -1090,7 +1090,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
             var requestRes = false;
             var replyData = docsCoServer.parseReplyData(ctx, replyStr);
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error) {
-              //в случае comunity server придет запрос в CommandService проверяем результат
+              //in the case of a community server, a request will come to the Command Service, check the result
               var savedVal = yield docsCoServer.editorData.getdelSaved(ctx, docId);
               requestRes = (null == savedVal || '1' === savedVal);
             }
@@ -1611,7 +1611,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         startDate = new Date();
       }
       ctx.logger.debug('Start saveFromChanges');
-      //делаем select, потому что за время timeout информация могла измениться
+      //we do a select, because during the timeout the information could change
       var selectRes = yield taskResult.select(ctx, docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
       if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo) {

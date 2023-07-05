@@ -400,7 +400,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   if (task.getFromOrigin() || task.getFromSettings()) {
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
-    //перезаписываем некоторые файлы из m_sKey(например Editor.bin или changes)
+    //overwrite some files from m_sKey (for example Editor.bin or changes)
     yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), tempDirs.source);
     let format = cmd.getFormat() || 'bin';
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
@@ -789,7 +789,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     existFile = false;
   }
   if (!existFile) {
-    //todo пересмотреть. загрулка в случае AVS_OFFICESTUDIO_FILE_OTHER_OOXML x2t меняет расширение у файла.
+    //todo review. the stub in the case of AVS_OFFICESTUDIO_FILE_OTHER_OOXML x2t changes the file extension.
     var fileToBasename = path.basename(dataConvert.fileTo, path.extname(dataConvert.fileTo));
     var fileToDir = path.dirname(dataConvert.fileTo);
     var files = fs.readdirSync(fileToDir);

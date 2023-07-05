@@ -31,43 +31,43 @@
  */
 
 /*
- ----------------------------------------------------view-режим---------------------------------------------------------
- * 1) Для view-режима обновляем страницу (без быстрого перехода), чтобы пользователь не считался за редактируемого и не
- * 	держал документ для сборки (если не ждать, то непонятен быстрый переход из view в edit, когда документ уже собрался)
- * 2) Если пользователь во view-режиме, то он не участвует в редактировании (только в chat-е). При открытии он получает
- * 	все актуальные изменения в документе на момент открытия. Для view-режима не принимаем изменения и не отправляем их
- * 	view-пользователям (т.к. непонятно что делать в ситуации, когда 1-пользователь наделал изменений,
- * 	сохранил и сделал undo).
- *-----------------------------------------------------------------------------------------------------------------------
- *------------------------------------------------Схема сохранения-------------------------------------------------------
- * а) Один пользователь - первый раз приходят изменения без индекса, затем изменения приходят с индексом, можно делать
- * 	undo-redo (история не трется). Если автосохранение включено, то оно на любое действие (не чаще 5-ти секунд).
- * b) Как только заходит второй пользователь, начинается совместное редактирование. На документ ставится lock, чтобы
- * 	первый пользователь успел сохранить документ (либо прислать unlock)
- * c) Когда пользователей 2 или больше, каждое сохранение трет историю и присылается целиком (без индекса). Если
- * 	автосохранение включено, то сохраняется не чаще раз в 10-минут.
- * d) Когда пользователь остается один, после принятия чужих изменений начинается пункт 'а'
- *-----------------------------------------------------------------------------------------------------------------------
- *--------------------------------------------Схема работы с сервером----------------------------------------------------
- * а) Когда все уходят, спустя время cfgAscSaveTimeOutDelay на сервер документов шлется команда на сборку.
- * b) Если приходит статус '1' на CommandService.ashx, то удалось сохранить и поднять версию. Очищаем callback-и и
- * 	изменения из базы и из памяти.
- * с) Если приходит статус, отличный от '1'(сюда можно отнести как генерацию файла, так и работа внешнего подписчика
- * 	с готовым результатом), то трем callback-и, а изменения оставляем. Т.к. можно будет зайти в старую
- * 	версию и получить несобранные изменения. Также сбрасываем статус у файла на несобранный, чтобы его можно было
- * 	открывать без сообщения об ошибке версии.
- *-----------------------------------------------------------------------------------------------------------------------
- *------------------------------------------------Старт сервера----------------------------------------------------------
- * 1) Загружаем информацию о сборщике
- * 2) Загружаем информацию о callback-ах
- * 3) Собираем только те файлы, у которых есть callback и информация для сборки
- *-----------------------------------------------------------------------------------------------------------------------
- *------------------------------------------Переподключение при разрыве соединения---------------------------------------
- * 1) Проверяем файл на сборку. Если она началась, то останавливаем.
- * 2) Если сборка уже завершилась, то отправляем пользователю уведомление о невозможности редактировать дальше
- * 3) Далее проверяем время последнего сохранения и lock-и пользователя. Если кто-то уже успел сохранить или
- * 		заблокировать объекты, то мы не можем дальше редактировать.
- *-----------------------------------------------------------------------------------------------------------------------
+ -------------------------------------------------- --view-mode----------------------------------------------------- ------------
+ * 1) For the view mode, we update the page (without a quick transition) so that the user is not considered editable and does not
+ * held the document for assembly (if you do not wait, then the quick transition from view to edit is incomprehensible when the document has already been assembled)
+ * 2) If the user is in view mode, then he does not participate in editing (only in chat). When opened, it receives
+ * all current changes in the document at the time of opening. For view-mode we do not accept changes and do not send them
+ * view-users (because it is not clear what to do in a situation where 1-user has made changes,
+ * saved and made undo).
+ *---------------------------------------------------------------- -------------------------------------------------- --------------------
+ *------------------------------------------------Scheme save------------------------------------------------- ------
+ * a) One user - the first time changes come without an index, then changes come with an index, you can do
+ * undo-redo (history is not rubbed). If autosave is enabled, then it is for any action (no more than 5 seconds).
+ * b) As soon as the second user enters, co-editing begins. A lock is placed on the document so that
+ * the first user managed to save the document (or send unlock)
+ * c) When there are 2 or more users, each save rubs the history and is sent in its entirety (no index). If
+ * autosave is enabled, it is saved no more than once every 10 minutes.
+ * d) When the user is left alone, after accepting someone else's changes, point 'a' begins
+ *---------------------------------------------------------------- -------------------------------------------------- --------------------
+ *-------------------------------------------- Scheme of working with the server- -------------------------------------------------- -
+ * a) When everyone leaves, after the cfgAscSaveTimeOutDelay time, the assembly command is sent to the document server.
+ * b) If the status '1' comes to CommandService.ashx, then it was possible to save and raise the version. Clear callbacks and
+ * changes from base and from memory.
+ * c) If a status other than '1' arrives (this can include both the generation of the file and the work of an external subscriber
+ * with the finished result), then three callbacks, and leave the changes. Because you can go to the old
+ * version and get uncompiled changes. We also reset the status of the file to unassembled so that it can be
+ * open without version error message.
+ *---------------------------------------------------------------- -------------------------------------------------- --------------------
+ *------------------------------------------------Start server------------------------------------------------- ---------
+ * 1) Loading information about the collector
+ * 2) Loading information about callbacks
+ * 3) We collect only those files that have a callback and information for building
+ *---------------------------------------------------------------- -------------------------------------------------- --------------------
+ *------------------------------------------------Reconnect when disconnected--- ------------------------------------
+ * 1) Check the file for assembly. If it starts, then stop.
+ * 2) If the assembly has already completed, then we send the user a notification that it is impossible to edit further
+ * 3) Next, check the time of the last save and lock-and user. If someone has already managed to save or
+ * lock objects, then we can't edit further.
+ *---------------------------------------------------------------- -------------------------------------------------- --------------------
  * */
 
 'use strict';
@@ -160,10 +160,10 @@ const EditorTypes = {
   presentation : 2
 };
 
-const defaultHttpPort = 80, defaultHttpsPort = 443;	// Порты по умолчанию (для http и https)
+const defaultHttpPort = 80, defaultHttpsPort = 443;	// Default ports (for http and https)
 const editorData = new editorDataStorage();
 const clientStatsD = statsDClient.getClient();
-let connections = []; // Активные соединения
+let connections = []; // Active connections
 let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
 let queue;
@@ -224,7 +224,7 @@ const c_oAscChangeBase = {
   All: 2
 };
 
-const c_oAscLockTimeOutDelay = 500;	// Время ожидания для сохранения, когда зажата база данных
+const c_oAscLockTimeOutDelay = 500;	// Timeout to save when database is clamped
 
 const c_oAscRecalcIndexTypes = {
   RecalcIndexAdd: 1,
@@ -236,11 +236,11 @@ const c_oAscRecalcIndexTypes = {
  * @const
  */
 const c_oAscLockTypes = {
-  kLockTypeNone: 1, // никто не залочил данный объект
-  kLockTypeMine: 2, // данный объект залочен текущим пользователем
-  kLockTypeOther: 3, // данный объект залочен другим(не текущим) пользователем
-  kLockTypeOther2: 4, // данный объект залочен другим(не текущим) пользователем (обновления уже пришли)
-  kLockTypeOther3: 5  // данный объект был залочен (обновления пришли) и снова стал залочен
+  kLockTypeNone: 1, // no one has locked this object
+  kLockTypeMine: 2, // this object is locked by the current user
+  kLockTypeOther: 3, // this object is locked by another (not the current) user
+  kLockTypeOther2: 4, // this object is locked by another (not the current) user (updates have already arrived)
+  kLockTypeOther3: 5 // this object has been locked (updates have arrived) and is now locked again
 };
 
 const c_oAscLockTypeElem = {
@@ -267,10 +267,10 @@ function CRecalcIndexElement(recalcType, position, bIsSaveIndex) {
     return new CRecalcIndexElement(recalcType, position, bIsSaveIndex);
   }
 
-  this._recalcType = recalcType;		// Тип изменений (удаление или добавление)
-  this._position = position;			// Позиция, в которой произошли изменения
-  this._count = 1;				// Считаем все изменения за простейшие
-  this.m_bIsSaveIndex = !!bIsSaveIndex;	// Это индексы из изменений других пользователей (которые мы еще не применили)
+  this._recalcType = recalcType; // Type of changes (removal or addition)
+  this_position = position; // The position where the changes happened
+  this._count = 1; // We consider all changes as the simplest
+  this.m_bIsSaveIndex = !!bIsSaveIndex; // These are indexes from other users' changes (that we haven't applied yet)
 
   return this;
 }
@@ -278,20 +278,20 @@ function CRecalcIndexElement(recalcType, position, bIsSaveIndex) {
 CRecalcIndexElement.prototype = {
   constructor: CRecalcIndexElement,
 
-  // Пересчет для других
+  // recalculate for others
   getLockOther: function(position, type) {
     var inc = (c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType) ? +1 : -1;
     if (position === this._position && c_oAscRecalcIndexTypes.RecalcIndexRemove === this._recalcType &&
       true === this.m_bIsSaveIndex) {
-      // Мы еще не применили чужие изменения (поэтому для insert не нужно отрисовывать)
-      // RecalcIndexRemove (потому что перевертываем для правильной отработки, от другого пользователя
-      // пришло RecalcIndexAdd
+      // We haven't applied someone else's changes yet (so insert doesn't need to be rendered)
+      // RecalcIndexRemove (because we flip it for proper processing, from another user
+      // RecalcIndexAdd arrived
       return null;
     } else if (position === this._position &&
       c_oAscRecalcIndexTypes.RecalcIndexRemove === this._recalcType &&
       c_oAscLockTypes.kLockTypeMine === type && false === this.m_bIsSaveIndex) {
-      // Для пользователя, который удалил столбец, рисовать залоченные ранее в данном столбце ячейки
-      // не нужно
+      // For the user who deleted the column, draw previously locked cells in this column
+      // no need
       return null;
     } else if (position < this._position) {
       return position;
@@ -300,7 +300,7 @@ CRecalcIndexElement.prototype = {
       return (position + inc);
     }
   },
-  // Пересчет для других (только для сохранения)
+  // Recalculation for others (save only)
   getLockSaveOther: function(position, type) {
     if (this.m_bIsSaveIndex) {
       return position;
@@ -309,15 +309,15 @@ CRecalcIndexElement.prototype = {
     var inc = (c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType) ? +1 : -1;
     if (position === this._position && c_oAscRecalcIndexTypes.RecalcIndexRemove === this._recalcType &&
       true === this.m_bIsSaveIndex) {
-      // Мы еще не применили чужие изменения (поэтому для insert не нужно отрисовывать)
-      // RecalcIndexRemove (потому что перевертываем для правильной отработки, от другого пользователя
-      // пришло RecalcIndexAdd
+      // We haven't applied someone else's changes yet (so insert doesn't need to be rendered)
+      // RecalcIndexRemove (because we flip it for proper processing, from another user
+      // RecalcIndexAdd arrived
       return null;
     } else if (position === this._position &&
       c_oAscRecalcIndexTypes.RecalcIndexRemove === this._recalcType &&
       c_oAscLockTypes.kLockTypeMine === type && false === this.m_bIsSaveIndex) {
-      // Для пользователя, который удалил столбец, рисовать залоченные ранее в данном столбце ячейки
-      // не нужно
+      // For the user who deleted the column, draw previously locked cells in this column
+      // no need
       return null;
     } else if (position < this._position) {
       return position;
@@ -326,7 +326,7 @@ CRecalcIndexElement.prototype = {
       return (position + inc);
     }
   },
-  // Пересчет для себя
+  // recalculate for ourselves
   getLockMe: function(position) {
     var inc = (c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType) ? -1 : +1;
     if (position < this._position) {
@@ -336,7 +336,7 @@ CRecalcIndexElement.prototype = {
       return (position + inc);
     }
   },
-  // Только когда от других пользователей изменения (для пересчета)
+  // Only when other users change (for recalculation)
   getLockMe2: function(position) {
     var inc = (c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType) ? -1 : +1;
     if (true !== this.m_bIsSaveIndex || position < this._position) {
@@ -353,7 +353,7 @@ function CRecalcIndex() {
     return new CRecalcIndex();
   }
 
-  this._arrElements = [];		// Массив CRecalcIndexElement
+  this._arrElements = [];		// CRecalcIndexElement array
 
   return this;
 }
@@ -368,7 +368,6 @@ CRecalcIndex.prototype = {
     this._arrElements.length = 0;
   },
 
-  // Пересчет для других
   getLockOther: function(position, type) {
     var newPosition = position;
     var count = this._arrElements.length;
@@ -381,7 +380,7 @@ CRecalcIndex.prototype = {
 
     return newPosition;
   },
-  // Пересчет для других (только для сохранения)
+  // Recalculation for others (save only)
   getLockSaveOther: function(position, type) {
     var newPosition = position;
     var count = this._arrElements.length;
@@ -394,7 +393,7 @@ CRecalcIndex.prototype = {
 
     return newPosition;
   },
-  // Пересчет для себя
+  // recalculate for ourselves
   getLockMe: function(position) {
     var newPosition = position;
     var count = this._arrElements.length;
@@ -407,7 +406,7 @@ CRecalcIndex.prototype = {
 
     return newPosition;
   },
-  // Только когда от других пользователей изменения (для пересчета)
+  // Only when other users change (for recalculation)
   getLockMe2: function(position) {
     var newPosition = position;
     var count = this._arrElements.length;
@@ -722,12 +721,11 @@ function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLe
   return postRes.body;
 }
 
-// Парсинг ссылки
 function parseUrl(ctx, callbackUrl) {
   var result = null;
   try {
-    //делать decodeURIComponent не нужно http://expressjs.com/en/4x/api.html#app.settings.table
-    //по умолчанию express использует 'query parser' = 'extended', но даже в 'simple' версии делается decode
+    //no need to do decodeURIComponent http://expressjs.com/en/4x/api.html#app.settings.table
+    //by default express uses 'query parser' = 'extended', but even in 'simple' version decode is done
     //percent-encoded characters within the query string will be assumed to use UTF-8 encoding
     var parseObject = url.parse(callbackUrl);
     var isHttps = 'https:' === parseObject.protocol;
@@ -1045,7 +1043,7 @@ function handleDeadLetter(data, ack) {
   });
 }
 /**
- * Отправка статуса, чтобы знать когда документ начал редактироваться, а когда закончился
+ * Sending status to know when the document started editing and when it ended
  * @param docId
  * @param {number} bChangeBase
  * @param callback
@@ -1134,7 +1132,7 @@ function parseReplyData(ctx, replyData) {
 function* onReplySendStatusDocument(ctx, docId, replyData) {
   var oData = parseReplyData(ctx, replyData);
   if (!(oData && commonDefines.c_oAscServerCommandErrors.NoError == oData.error)) {
-    // Ошибка подписки на callback, посылаем warning
+    // Error subscribing to callback, send warning
     yield* publish(ctx, {type: commonDefines.c_oPublishType.warning, ctx: ctx, docId: docId, description: 'Error on save server subscription!'});
   }
 }
@@ -1188,12 +1186,12 @@ function getLocalConnectionCount(ctx, docId) {
   }, 0);
 }
 
-// Подписка на эвенты:
+// Event subscription:
 function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData) {
-  // Подписка на эвенты:
-  // - если пользователей нет и изменений нет, то отсылаем статус "закрыто" и в базу не добавляем
-  // - если пользователей нет, а изменения есть, то отсылаем статус "редактируем" без пользователей, но добавляем в базу
-  // - если есть пользователи, то просто добавляем в базу
+  // Subscribe to events:
+  // - if there are no users and no changes, then send the status "closed" and do not add to the database
+  // - if there are no users, but there are changes, then send the "editing" status without users, but add it to the database
+  // - if there are users, then just add to the database
   var bChangeBase;
   var oCallbackUrl;
   if (!callback) {
@@ -1246,10 +1244,10 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
 }
 function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
-  // Отправляем, что все ушли и нет изменений (чтобы выставить статус на сервере об окончании редактирования)
+  // We send that everyone is gone and there are no changes (to set the status on the server about the end of editing)
   yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
-  //если пользователь зашел в документ, соединение порвалось, на сервере удалилась вся информация,
-  //при восстановлении соединения userIndex сохранится и он совпадет с userIndex следующего пользователя
+  //if the user entered the document, the connection was broken, all information was deleted on the server,
+  //when the connection is restored, the userIndex will be saved and it will match the userIndex of the next user
   yield* cleanDocumentOnExit(ctx, docId, false, opt_userIndex);
 }
 
@@ -1275,8 +1273,8 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
         yield utils.sleep(c_oAscLockTimeOutDelay);
       }
     } else {
-      //если не получилось - значит FileStatus=SaveVersion(кто-то другой начал сборку) или UpdateVersion(сборка закончена)
-      //в этом случае ничего делать не надо
+      //if it didn't work, it means FileStatus=SaveVersion(someone else started building) or UpdateVersion(build completed)
+      // in this case, nothing needs to be done
       ctx.logger.debug('createSaveTimer updateIf no effect');
     }
   });
@@ -1545,7 +1543,7 @@ exports.install = function(server, callbackFunction) {
             break;
           case 'unSaveLock'      :
             yield* unSaveLock(ctx, conn, -1, -1, -1);
-            break;	// Индекс отправляем -1, т.к. это экстренное снятие без сохранения
+            break;	// The index is sent -1, because this is an emergency withdrawal without saving
           case 'getMessages'      :
             yield* getMessages(ctx, conn, data);
             break;
@@ -1694,10 +1692,10 @@ exports.install = function(server, callbackFunction) {
       yield* publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participants}, docId, tmpUser.id);
       tmpUser.view = tmpView;
 
-      // Для данного пользователя снимаем лок с сохранения
+      // For this user, we remove the lock from saving
       yield editorData.unlockSave(ctx, docId, conn.user.id);
 
-      // Только если редактируем
+      // editors only
       if (false === isView) {
         bHasEditors = yield* hasEditors(ctx, docId, hvals);
         bHasChanges = yield hasChanges(ctx, docId);
@@ -1712,22 +1710,21 @@ exports.install = function(server, callbackFunction) {
             }
           }
         }
-        //Давайдосвиданья!
         //Release locks
         userLocks = yield* removeUserLocks(ctx, docId, conn.user.id);
         if (0 < userLocks.length) {
-          //todo на close себе ничего не шлем
+          //todo send nothing in case of close document
           //sendReleaseLock(conn, userLocks);
           yield* publish(ctx, {type: commonDefines.c_oPublishType.releaseLock, ctx: ctx, docId: docId, userId: conn.user.id, locks: userLocks}, docId, conn.user.id);
         }
 
-        // Для данного пользователя снимаем Lock с документа
+        // For this user, remove the Lock from the document
         yield* checkEndAuthLock(ctx, true, false, docId, conn.user.id);
 
         let userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
-        // Если у нас нет пользователей, то удаляем все сообщения
+        // If we do not have users, then delete all messages
         if (!bHasEditors) {
-          // На всякий случай снимаем lock
+          // Just in case, remove the lock
           yield editorData.unlockSave(ctx, docId, tmpUser.id);
 
           let needSaveChanges = bHasChanges;
@@ -1787,16 +1784,16 @@ exports.install = function(server, callbackFunction) {
     //open
     yield canvasService.openDocument(ctx, conn, cmd, null);
   }
-  // Получение изменений для документа (либо из кэша, либо обращаемся к базе, но только если были сохранения)
+  // Getting changes for the document (either from the cache or accessing the database, but only if there were saves)
   function* getDocumentChanges(ctx, docId, optStartIndex, optEndIndex) {
-    // Если за тот момент, пока мы ждали из базы ответа, все ушли, то отправлять ничего не нужно
+    // If during that moment, while we were waiting for a response from the database, everyone left, then nothing needs to be sent
     var arrayElements = yield sqlBase.getChangesPromise(ctx, docId, optStartIndex, optEndIndex);
     var j, element;
     var objChangesDocument = new DocumentChanges(docId);
     for (j = 0; j < arrayElements.length; ++j) {
       element = arrayElements[j];
 
-      // Добавляем GMT, т.к. в базу данных мы пишем UTC, но сохраняется туда строка без UTC и при зачитывании будет неправильное время
+      // We add GMT, because. we write UTC to the database, but the string without UTC is saved there and the time will be wrong when reading
       objChangesDocument.push({docid: docId, change: element['change_data'],
         time: element['change_date'].getTime(), user: element['user_id'],
         useridoriginal: element['user_id_original']});
@@ -1877,7 +1874,7 @@ exports.install = function(server, callbackFunction) {
 			}
 		}
 		if (isSave && conn) {
-			// Автоматически снимаем lock сами
+			// Automatically remove the lock ourselves
 			yield* unSaveLock(ctx, conn, -1, -1, -1);
 		}
 
@@ -1932,7 +1929,7 @@ exports.install = function(server, callbackFunction) {
     });
     //closing could happen during async action
     if (constants.CONN_CLOSED !== conn.conn.readyState) {
-      // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
+      // We put it in an array, because we need to send data to open/save the document
       connections.push(conn);
       yield addPresence(ctx, conn, true);
       if (cfgTokenEnableBrowser) {
@@ -1943,7 +1940,7 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  // Пересчет только для чужих Lock при сохранении на клиенте, который добавлял/удалял строки или столбцы
+  // Recalculation only for foreign Lock when saving on a client that added/deleted rows or columns
   function _recalcLockArray(userId, _locks, oRecalcIndexColumns, oRecalcIndexRows) {
     if (null == _locks) {
       return false;
@@ -1954,7 +1951,7 @@ exports.install = function(server, callbackFunction) {
     var sheetId = -1;
     var isModify = false;
     for (i = 0; i < count; ++i) {
-      // Для самого себя не пересчитываем
+      // we do not count for ourselves
       if (userId === _locks[i].user) {
         continue;
       }
@@ -1969,13 +1966,13 @@ exports.install = function(server, callbackFunction) {
       oRangeOrObjectId = element["rangeOrObjectId"];
 
       if (oRecalcIndexColumns && oRecalcIndexColumns.hasOwnProperty(sheetId)) {
-        // Пересчет колонок
+        // Column index recalculation
         oRangeOrObjectId["c1"] = oRecalcIndexColumns[sheetId].getLockMe2(oRangeOrObjectId["c1"]);
         oRangeOrObjectId["c2"] = oRecalcIndexColumns[sheetId].getLockMe2(oRangeOrObjectId["c2"]);
         isModify = true;
       }
       if (oRecalcIndexRows && oRecalcIndexRows.hasOwnProperty(sheetId)) {
-        // Пересчет строк
+        // row index recalculation
         oRangeOrObjectId["r1"] = oRecalcIndexRows[sheetId].getLockMe2(oRangeOrObjectId["r1"]);
         oRangeOrObjectId["r2"] = oRecalcIndexRows[sheetId].getLockMe2(oRangeOrObjectId["r2"]);
         isModify = true;
@@ -2005,7 +2002,7 @@ exports.install = function(server, callbackFunction) {
           }
           nRecalcType = (c_oAscRecalcIndexTypes.RecalcIndexAdd === oRecalcIndexElement._recalcType) ?
             c_oAscRecalcIndexTypes.RecalcIndexRemove : c_oAscRecalcIndexTypes.RecalcIndexAdd;
-          // Дублируем для возврата результата (нам нужно пересчитать только по последнему индексу
+          // Duplicate to return the result (we only need to recalculate by the last index
           oRecalcIndexResult[sheetId].add(nRecalcType, oRecalcIndexElement._position,
             oRecalcIndexElement._count, /*bIsSaveIndex*/true);
         }
@@ -2016,12 +2013,12 @@ exports.install = function(server, callbackFunction) {
   }
 
   function compareExcelBlock(newBlock, oldBlock) {
-    // Это lock для удаления или добавления строк/столбцов
+    // This is a lock to remove or add rows/columns
     if (null !== newBlock.subType && null !== oldBlock.subType) {
       return true;
     }
 
-    // Не учитываем lock от ChangeProperties (только если это не lock листа)
+    // Ignore lock from ChangeProperties (only if it's not a leaf lock)
     if ((c_oAscLockTypeElemSubType.ChangeProperties === oldBlock.subType &&
       c_oAscLockTypeElem.Sheet !== newBlock.type) ||
       (c_oAscLockTypeElemSubType.ChangeProperties === newBlock.subType &&
@@ -2032,7 +2029,7 @@ exports.install = function(server, callbackFunction) {
     var resultLock = false;
     if (newBlock.type === c_oAscLockTypeElem.Range) {
       if (oldBlock.type === c_oAscLockTypeElem.Range) {
-        // Не учитываем lock от Insert
+        // We do not take into account lock from Insert
         if (c_oAscLockTypeElemSubType.InsertRows === oldBlock.subType || c_oAscLockTypeElemSubType.InsertColumns === oldBlock.subType) {
           resultLock = false;
         } else if (isInterSection(newBlock.rangeOrObjectId, oldBlock.rangeOrObjectId)) {
@@ -2060,7 +2057,6 @@ exports.install = function(server, callbackFunction) {
     return true;
   }
 
-  // Сравнение для презентаций
   function comparePresentationBlock(newBlock, oldBlock) {
     var resultLock = false;
 
@@ -2378,7 +2374,7 @@ exports.install = function(server, callbackFunction) {
       let upsertRes = null;
       let curIndexUser, documentCallback;
       if (bIsRestore) {
-        // Если восстанавливаем, индекс тоже восстанавливаем
+        // If we restore, we also restore the index
         curIndexUser = user.indexUser;
       } else {
         if (data.documentCallbackUrl && !wopiParams) {
@@ -2491,19 +2487,19 @@ exports.install = function(server, callbackFunction) {
         }
       }
 
-      // Ситуация, когда пользователь уже отключен от совместного редактирования
+      // Situation when the user is already disabled from co-authoring
       if (bIsRestore && data.isCloseCoAuthoring) {
         conn.sessionId = data.sessionId;//restore old
-        // Удаляем предыдущие соединения
+        // delete previous connections
         connections = _.reject(connections, function(el) {
           return el.sessionId === data.sessionId;//Delete this connection
         });
         //closing could happen during async action
         if (constants.CONN_CLOSED !== conn.conn.readyState) {
-          // Кладем в массив, т.к. нам нужно отправлять данные для открытия/сохранения документа
+          // We put it in an array, because we need to send data to open/save the document
           connections.push(conn);
           yield addPresence(ctx, conn, true);
-          // Посылаем формальную авторизацию, чтобы подтвердить соединение
+          // Sending a formal authorization to confirm the connection
           yield* sendAuthInfo(ctx, conn, bIsRestore, undefined);
           if (cmd) {
             yield canvasService.openDocument(ctx, conn, cmd, upsertRes, bIsRestore);
@@ -2534,7 +2530,7 @@ exports.install = function(server, callbackFunction) {
       if (!conn.user.view) {
         var status = result && result.length > 0 ? result[0]['status'] : null;
         if (commonDefines.FileStatus.Ok === status) {
-          // Все хорошо, статус обновлять не нужно
+          // Everything is fine, the status does not need to be updated
         } else if (commonDefines.FileStatus.SaveVersion === status ||
           (!bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
           Date.now() - result[0]['status_info'] * 60000 > cfgExpUpdateVersionStatus)) {
@@ -2544,7 +2540,7 @@ exports.install = function(server, callbackFunction) {
             //FileStatus.None to open file again from new url
             newStatus = commonDefines.FileStatus.None;
           }
-          // Обновим статус файла (идет сборка, нужно ее остановить)
+          // Update the status of the file (the build is in progress, you need to stop it)
           var updateMask = new taskResult.TaskResultData();
           updateMask.tenant = ctx.tenant;
           updateMask.key = docId;
@@ -2577,8 +2573,8 @@ exports.install = function(server, callbackFunction) {
         ctx.logger.info("restored old session: id = %s", data.sessionId);
 
         if (!conn.user.view) {
-          // Останавливаем сборку (вдруг она началась)
-          // Когда переподсоединение, нам нужна проверка на сборку файла
+          // Stop the assembly (suddenly it started)
+          // When reconnecting, we need to check for file assembly
           try {
             var puckerIndex = yield* getChangesIndex(ctx, docId);
             var bIsSuccessRestore = true;
@@ -2597,7 +2593,7 @@ exports.install = function(server, callbackFunction) {
             }
 
             if (bIsSuccessRestore) {
-              // Проверяем lock-и
+              // check locks
               var arrayBlocks = data['block'];
               var getLockRes = yield* getLock(ctx, conn, data, true);
               if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
@@ -2652,7 +2648,7 @@ exports.install = function(server, callbackFunction) {
       //closing could happen during async action
       return false;
     }
-    // Отправляем на внешний callback только для тех, кто редактирует
+    // Sending to an external callback only for those who edit
     if (!tmpUser.view) {
       const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
       const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
@@ -2672,7 +2668,7 @@ exports.install = function(server, callbackFunction) {
     let lockDocument = null;
     let waitAuthUserId;
     if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
-      // Ставим lock на документ
+      // lock a document
       const lockRes = yield editorData.lockAuth(ctx, docId, firstParticipantNoView.id, 2 * cfgExpLockDoc);
       if (constants.CONN_CLOSED === conn.conn.readyState) {
         //closing could happen during async action
@@ -2693,7 +2689,7 @@ exports.install = function(server, callbackFunction) {
       return false;
     }
     if (lockDocument && !tmpUser.view) {
-      // Для view не ждем снятия lock-а
+      // waiting for the editor to switch to co-editing mode
       const sendObject = {
         type: "waitAuth",
         lockDocument: lockDocument
@@ -2909,13 +2905,13 @@ exports.install = function(server, callbackFunction) {
     } else if (bIsRestore) {
       return false;
     }
-    //тому кто зделал запрос возвращаем максимально быстро
+    //to the one who made the request we return as quickly as possible
     sendData(ctx, conn, {type: "getLock", locks: documentLocks});
     yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
 
-  // Для Excel block теперь это объект { sheetId, type, rangeOrObjectId, guid }
+  // For Excel block is now object { sheetId, type, rangeOrObjectId, guid }
   function* getLockExcel(ctx, conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
@@ -2934,13 +2930,13 @@ exports.install = function(server, callbackFunction) {
     } else if (bIsRestore) {
       return false;
     }
-    //тому кто зделал запрос возвращаем максимально быстро
+    //to the one who made the request we return as quickly as possible
     sendData(ctx, conn, {type: "getLock", locks: documentLocks});
     yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
 
-  // Для презентаций это объект { type, val } или { type, slideId, objId }
+  // For presentations, this is an object { type, val } or { type, slideId, objId }
   function* getLockPresentation(ctx, conn, data, bIsRestore) {
     var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
     var i;
@@ -2959,7 +2955,7 @@ exports.install = function(server, callbackFunction) {
     } else if (bIsRestore) {
       return false;
     }
-    //тому кто зделал запрос возвращаем максимально быстро
+    //to the one who made the request we return as quickly as possible
     sendData(ctx, conn, {type: "getLock", locks: documentLocks});
     yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
@@ -2971,7 +2967,7 @@ exports.install = function(server, callbackFunction) {
     });
   }
 
-  // Для Excel необходимо делать пересчет lock-ов при добавлении/удалении строк/столбцов
+  // For Excel, it is necessary to recalculate locks when adding / deleting rows / columns
   function* saveChanges(ctx, conn, data) {
     const docId = conn.docId, userId = conn.user.id;
     ctx.logger.info("Start saveChanges: reSave: %s", data.reSave);
@@ -3009,7 +3005,7 @@ exports.install = function(server, callbackFunction) {
       return;
     }
 
-    // Стартовый индекс изменения при добавлении
+    // Starting index change when adding
     const startIndex = puckerIndex;
 
     const newChanges = cfgEditor['binaryChanges'] ? data.changes : JSON.parse(data.changes);
@@ -3033,13 +3029,13 @@ exports.install = function(server, callbackFunction) {
     }
     const changesIndex = (-1 === deleteIndex && data.startSaveChanges) ? startIndex : -1;
     if (data.endSaveChanges) {
-      // Для Excel нужно пересчитать индексы для lock-ов
+      // For Excel, you need to recalculate indexes for locks
       if (data.isExcel && false !== data.isCoAuthoring && data.excelAdditionalInfo) {
         const tmpAdditionalInfo = JSON.parse(data.excelAdditionalInfo);
-        // Это мы получили recalcIndexColumns и recalcIndexRows
+        // This is what we got recalcIndexColumns and recalcIndexRows
         const oRecalcIndexColumns = _addRecalcIndex(tmpAdditionalInfo["indexCols"]);
         const oRecalcIndexRows = _addRecalcIndex(tmpAdditionalInfo["indexRows"]);
-        // Теперь нужно пересчитать индексы для lock-элементов
+        // Now we need to recalculate indexes for lock elements
         if (null !== oRecalcIndexColumns || null !== oRecalcIndexRows) {
           const docLock = yield* getAllLocks(ctx, docId);
           if (_recalcLockArray(userId, docLock, oRecalcIndexColumns, oRecalcIndexRows)) {
@@ -3058,7 +3054,7 @@ exports.install = function(server, callbackFunction) {
 		  //Release locks
 		  userLocks = yield* removeUserLocks(ctx, docId, userId);
       }
-      // Для данного пользователя снимаем Lock с документа, если пришел флаг unlock
+      // For this user, we remove Lock from the document if the unlock flag has arrived
       const checkEndAuthLockRes = yield* checkEndAuthLock(ctx, data.unlock, false, docId, userId);
       if (!checkEndAuthLockRes) {
         const arrLocks = _.map(userLocks, function(e) {
@@ -3081,7 +3077,7 @@ exports.install = function(server, callbackFunction) {
           changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex, syncChangesIndex: puckerIndex,
           locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo, endSaveChanges: data.endSaveChanges}, docId, userId);
       }
-      // Автоматически снимаем lock сами и посылаем индекс для сохранения
+      // Automatically remove the lock ourselves and send the index to save
       yield* unSaveLock(ctx, conn, changesIndex, newChangesLastTime, puckerIndex);
       //last save
       let changeInfo = getExternalChangeInfo(conn.user, newChangesLastTime);
@@ -3106,7 +3102,7 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  // Можем ли мы сохранять ?
+  // Can we save?
   function* isSaveLock(ctx, conn, data) {
     if (!conn.user) {
       return;
@@ -3134,11 +3130,11 @@ exports.install = function(server, callbackFunction) {
     lockRes = yield editorData.lockSave(ctx, conn.docId, conn.user.id, cfgExpSaveLock);
     ctx.logger.debug("isSaveLock lockRes: %s", lockRes);
 
-    // Отправляем только тому, кто спрашивал (всем отправлять нельзя)
+    // We send only to the one who asked (you can not send to everyone)
     sendData(ctx, conn, {type: "saveLock", saveLock: !lockRes});
   }
 
-  // Снимаем лок с сохранения
+  // Removing lock from save
   function* unSaveLock(ctx, conn, index, time, syncChangesIndex) {
     var unlockRes = yield editorData.unlockSave(ctx, conn.docId, conn.user.id);
     if (commonDefines.c_oAscUnlockRes.Locked !== unlockRes) {
@@ -3148,7 +3144,7 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  // Возвращаем все сообщения для документа
+  // Returning all messages for a document
   function* getMessages(ctx, conn) {
     let allMessages = yield editorData.getMessages(ctx, conn.docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
@@ -3197,7 +3193,7 @@ exports.install = function(server, callbackFunction) {
           continue;
         }
         documentLock = documentLocks[keyLockInArray];
-        // Проверка вхождения объекта в массив (текущий пользователь еще раз прислал lock)
+        // Checking if an object is in an array (the current user sent a lock again)
         if (documentLock.user === userId &&
           blockRange.sheetId === documentLock.block.sheetId &&
           blockRange.type === c_oAscLockTypeElem.Object &&
@@ -3209,18 +3205,17 @@ exports.install = function(server, callbackFunction) {
 
         if (c_oAscLockTypeElem.Sheet === blockRange.type &&
           c_oAscLockTypeElem.Sheet === documentLock.block.type) {
-          // Если текущий пользователь прислал lock текущего листа, то не заносим в массив, а если нового, то заносим
+          // If the current user sent a lock of the current sheet, then we do not enter it into the array, and if a new one, then we enter it
           if (documentLock.user === userId) {
             if (blockRange.sheetId === documentLock.block.sheetId) {
-              // уже есть в массиве
               isExistInArray = true;
               break;
             } else {
-              // новый лист
+              // new sheet
               continue;
             }
           } else {
-            // Если кто-то залочил sheet, то больше никто не может лочить sheet-ы (иначе можно удалить все листы)
+            // If someone has locked a sheet, then no one else can lock sheets (otherwise you can delete all sheets)
             isLock = true;
             break;
           }
@@ -3543,8 +3538,8 @@ exports.install = function(server, callbackFunction) {
             ctx.logger.warn('start shutdown:%b', shutdownFlag);
             if (shutdownFlag) {
               ctx.logger.warn('active connections: %d', connections.length);
-              //не останавливаем сервер, т.к. будут недоступны сокеты и все запросы
-              //плохо тем, что может понадобится конвертация выходного файла и то что не будут обработаны запросы на CommandService
+              //do not stop the server, because sockets and all requests will be unavailable
+              //bad because you may need to convert the output file and the fact that requests for the CommandService will not be processed
               //server.close();
               //in the cycle we will remove elements so copy array
               var connectionsTmp = connections.slice();
@@ -4100,9 +4095,9 @@ function* commandHandle(ctx, params, req, output) {
       break;
     }
     case 'saved': {
-      // Результат от менеджера документов о статусе обработки сохранения файла после сборки
+      // Result from document manager about file save processing status after assembly
       if ('1' !== params.status) {
-        //запрос saved выполняется синхронно, поэтому заполняем переменную чтобы проверить ее после sendServerRequest
+        //"saved" request is done synchronously so populate a variable to check it after sendServerRequest
         yield editorData.setSaved(ctx, docId, params.status);
         ctx.logger.warn('saved corrupted id = %s status = %s conv = %s', docId, params.status, params.conv);
       } else {
@@ -4172,7 +4167,7 @@ function* commandHandle(ctx, params, req, output) {
   Object.assign(output, forgottenData);
 }
 
-// Команда с сервера (в частности teamlab)
+// Command from the server (specifically teamlab)
 exports.commandFromServer = function (req, res) {
   return co(function* () {
     const output = { key: 'commandFromServer', error: commonDefines.c_oAscServerCommandErrors.NoError, version: undefined };
@@ -4182,7 +4177,7 @@ exports.commandFromServer = function (req, res) {
       ctx.logger.info('commandFromServer start');
       const authRes = yield getRequestParams(ctx, req);
       const params = authRes.params;
-      // Ключ id-документа
+      // Key is document id
       output.key = params.key;
       output.error = validateInputParams(ctx, authRes, params);
       if (output.error === commonDefines.c_oAscServerCommandErrors.NoError) {

@@ -157,9 +157,9 @@ try {
 	operationContext.global.logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability');
 }
 
-// Если захочется использовать 'development' и 'production',
-// то с помощью app.settings.env (https://github.com/strongloop/express/issues/936)
-// Если нужна обработка ошибок, то теперь она такая https://github.com/expressjs/errorhandler
+// If you want to use 'development' and 'production',
+// then with app.settings.env (https://github.com/strongloop/express/issues/936)
+// If error handling is needed, now it's like this https://github.com/expressjs/errorhandler
 docsCoServer.install(server, () => {
 	operationContext.global.logger.info('Start callbackFunction');
 

@@ -80,7 +80,7 @@ var checkFileExpire = function() {
           let docId = expired[i].id;
           ctx.init(tenant, docId, ctx.userId);
           //todo tenant
-          //проверяем что никто не сидит в документе
+          //check that no one is in the document
           let editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
           if(0 === editorsCount){
             if (yield canvasService.cleanupCache(ctx, docId)) {
