@@ -234,6 +234,7 @@ function convertRequest(req, res, isJson) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('convertRequest start');
       let params;
       let authRes = yield docsCoServer.getRequestParams(ctx, req);
@@ -388,6 +389,7 @@ function builderRequest(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('builderRequest start');
       let authRes;
       if (!utils.isEmptyObject(req.query)) {
@@ -457,6 +459,7 @@ function convertTo(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('convert-to start');
       let format = req.body['format'];
       if (req.params.format) {
@@ -603,6 +606,7 @@ function getConverterHtmlHandler(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('convert-and-edit-handler start');
 
       let wopiSrc = req.query['wopisrc'];

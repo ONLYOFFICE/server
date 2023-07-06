@@ -428,6 +428,7 @@ function updatePresenceCounters(ctx, conn, val) {
       //aggregated server stats
       aggregationCtx = new operationContext.Context();
       aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+      //yield ctx.initTenantCache(); //no need.only global config
     }
     if (utils.isLiveViewer(conn)) {
       yield editorData.incrLiveViewerConnectionsCountByShard(ctx, SHARD_ID, val);
@@ -1015,6 +1016,7 @@ function handleDeadLetter(data, ack) {
       let task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
         ctx.initFromTaskQueueData(task);
+        yield ctx.initTenantCache();
         let cmd = task.getCmd();
         ctx.logger.warn('handleDeadLetter start: %s', data);
         let forceSave = cmd.getForceSave();
@@ -1451,6 +1453,7 @@ exports.install = function(server, callbackFunction) {
       let checkJwtRes;
       try {
         ctx.initFromConnection(socket);
+        yield ctx.initTenantCache();
         ctx.logger.info('io.use start');
         let handshake = socket.handshake;
         if (cfgTokenEnableBrowser) {
@@ -1478,6 +1481,8 @@ exports.install = function(server, callbackFunction) {
     }
     let ctx = new operationContext.Context();
     ctx.initFromConnection(conn);
+    //todo
+    //yield ctx.initTenantCache();
     if (getIsShutdown()) {
       sendFileError(ctx, conn, 'Server shutdow');
       return;
@@ -1492,6 +1497,7 @@ exports.install = function(server, callbackFunction) {
       let ctx = new operationContext.Context();
       try {
         ctx.initFromConnection(conn);
+        yield ctx.initTenantCache();
         var startDate = null;
         if(clientStatsD) {
           startDate = new Date();
@@ -1618,6 +1624,7 @@ exports.install = function(server, callbackFunction) {
         let ctx = new operationContext.Context();
         try {
           ctx.initFromConnection(conn);
+          yield ctx.initTenantCache();
           yield* closeDocument(ctx, conn, reason);
         } catch (err) {
           ctx.logger.error('Error conn close: %s', err.stack);
@@ -2461,6 +2468,7 @@ exports.install = function(server, callbackFunction) {
           //check server aggregation license
           aggregationCtx = new operationContext.Context();
           aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+          //yield ctx.initTenantCache(); //no need
           licenseInfoAggregation = tenantManager.getServerLicense();
           licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, isLiveViewer, logPrefixServer);
         }
@@ -3398,6 +3406,7 @@ exports.install = function(server, callbackFunction) {
       try {
         var data = JSON.parse(msg);
         ctx.initFromPubSub(data);
+        yield ctx.initTenantCache();
         ctx.logger.debug('pubsub message start:%s', msg);
         var participants;
         var participant;
@@ -3623,6 +3632,8 @@ exports.install = function(server, callbackFunction) {
         for (var i = 0; i < connections.length; ++i) {
           var conn = connections[i];
           ctx.initFromConnection(conn);
+          //todo group by tenant
+          yield ctx.initTenantCache();
           let tenant = tenants[ctx.tenant];
           if (!tenant) {
             tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
@@ -3696,6 +3707,7 @@ exports.install = function(server, callbackFunction) {
           //aggregated tenant stats
           let aggregationCtx = new operationContext.Context();
           aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+          //yield ctx.initTenantCache();//no need
           yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
           yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
           yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, countViewByShard);
@@ -3718,6 +3730,8 @@ exports.install = function(server, callbackFunction) {
         for (let i = 0; i < connections.length; ++i) {
           let conn = connections[i];
           ctx.initFromConnection(conn);
+          //todo group by tenant
+          yield ctx.initTenantCache();
           let docId = conn.docId;
           if ((conn.user && conn.user.view) || docIds.has(docId)) {
             continue;
@@ -3798,6 +3812,7 @@ exports.healthCheck = function(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('healthCheck start');
       //database
       yield sqlBase.healthCheck(ctx);
@@ -3875,6 +3890,7 @@ exports.licenseInfo = function(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.debug('licenseInfo start');
 
       let licenseInfo = yield tenantManager.getTenantLicense(ctx);
@@ -4178,6 +4194,7 @@ exports.commandFromServer = function (req, res) {
     const ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('commandFromServer start');
       const authRes = yield getRequestParams(ctx, req);
       const params = authRes.params;
@@ -4207,6 +4224,7 @@ exports.shutdown = function(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('shutdown start');
       output = yield shutdown.shutdown(ctx, editorData, req.method === 'PUT');
     } catch (err) {

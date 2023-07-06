@@ -45,6 +45,10 @@ Context.prototype.init = function(tenant, docId, userId) {
   this.setTenant(tenant);
   this.setDocId(docId);
   this.setUserId(userId);
+
+  this.config = null;
+  this.secret = null;
+  this.license = null;
 };
 Context.prototype.initDefault = function() {
   this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID);
@@ -74,6 +78,10 @@ Context.prototype.initFromPubSub = function(data) {
   let ctx = data.ctx;
   this.init(ctx.tenant, ctx.docId, ctx.userId);
 };
+Context.prototype.initTenantCache = async function() {
+  this.config = await tenantManager.getTenantConfig(this);
+  //todo license and secret
+};
 
 Context.prototype.setTenant = function(tenant) {
   this.tenant = tenant;
@@ -86,6 +94,38 @@ Context.prototype.setDocId = function(docId) {
 Context.prototype.setUserId = function(userId) {
   this.userId = userId;
   this.logger.addContext('USERID', userId);
+};
+
+Context.prototype.getCfg = function(property, defaultValue) {
+  if (this.config){
+    return getImpl(this.config, property) ?? defaultValue;
+  }
+  return defaultValue;
+};
+
+/**
+ * Underlying get mechanism
+ *
+ * @private
+ * @method getImpl
+ * @param object {object} - Object to get the property for
+ * @param property {string | array[string]} - The property name to get (as an array or '.' delimited string)
+ * @return value {*} - Property value, including undefined if not defined.
+ */
+function getImpl(object, property) {
+  //from https://github.com/node-config/node-config/blob/a8b91ac86b499d11b90974a2c9915ce31266044a/lib/config.js#L137
+  var t = this,
+    elems = Array.isArray(property) ? property : property.split('.'),
+    name = elems[0],
+    value = object[name];
+  if (elems.length <= 1) {
+    return value;
+  }
+  // Note that typeof null === 'object'
+  if (value === null || typeof value !== 'object') {
+    return undefined;
+  }
+  return getImpl(value, elems.slice(1));
 };
 
 exports.Context = Context;

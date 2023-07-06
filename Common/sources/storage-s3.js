@@ -68,8 +68,8 @@ var configS3 = {
   region: cfgRegion,
   endpoint: cfgEndpoint,
   credentials : {
-    accessKeyId: cfgAccessKeyId,
-    secretAccessKey: cfgSecretAccessKey
+  accessKeyId: cfgAccessKeyId,
+  secretAccessKey: cfgSecretAccessKey
   }
 };
 
@@ -97,23 +97,23 @@ function joinListObjects(inputArray, outputArray) {
 }
 async function listObjectsExec(output, params) {
   const data = await client.send(new ListObjectsCommand(params));
-  joinListObjects(data.Contents, output);
+      joinListObjects(data.Contents, output);
   if (data.IsTruncated && (data.NextMarker || (data.Contents && data.Contents.length > 0))) {
-    params.Marker = data.NextMarker || data.Contents[data.Contents.length - 1].Key;
+        params.Marker = data.NextMarker || data.Contents[data.Contents.length - 1].Key;
     return await listObjectsExec(output, params);
-  } else {
+      } else {
     return output;
-  }
+      }
 }
 async function deleteObjectsHelp(aKeys) {
-  //By default, the operation uses verbose mode in which the response includes the result of deletion of each key in your request.
-  //In quiet mode the response includes only keys where the delete operation encountered an error.
+    //By default, the operation uses verbose mode in which the response includes the result of deletion of each key in your request.
+    //In quiet mode the response includes only keys where the delete operation encountered an error.
   const input = {
     Bucket: cfgBucketName,
     Delete: {
       Objects: aKeys,
       Quiet: true
-    }
+      }
   };
   const command = new DeleteObjectsCommand(input);
   return await client.send(command);
@@ -141,7 +141,7 @@ exports.createReadStream = async function(strPath) {
   const input = {
     Bucket: cfgBucketName,
     Key: getFilePath(strPath)
-  };
+          };
   const command = new GetObjectCommand(input);
   const output = await client.send(command);
   return {
@@ -150,7 +150,7 @@ exports.createReadStream = async function(strPath) {
   };
 };
 exports.putObject = async function(strPath, buffer, contentLength) {
-  //todo рассмотреть Expires
+    //todo consider Expires
   const input = {
     Bucket: cfgBucketName,
     Key: getFilePath(strPath),
@@ -184,8 +184,8 @@ exports.copyObject = function(sourceKey, destinationKey) {
   return client.send(command);
 };
 exports.listObjects = async function(strPath) {
-  var params = {Bucket: cfgBucketName, Prefix: getFilePath(strPath)};
-  var output = [];
+    var params = {Bucket: cfgBucketName, Prefix: getFilePath(strPath)};
+    var output = [];
   return await listObjectsExec(output, params);
 };
 exports.deleteObject = function(strPath) {
@@ -207,11 +207,11 @@ exports.deleteObjects = function(strPaths) {
   return Promise.all(deletePromises);
 };
 exports.getSignedUrl = async function (baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-  var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : cfgStorageUrlExpires) || 31536000;
+    var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : cfgStorageUrlExpires) || 31536000;
   // Signature version 4 presigned URLs must have an expiration date less than one week in the future
   expires = Math.min(expires, 604800);
-  var userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
-  var contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
+    var userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
+    var contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
 
   const input = {
     Bucket: cfgBucketName,
@@ -219,10 +219,10 @@ exports.getSignedUrl = async function (baseUrl, strPath, urlType, optFilename, o
     ResponseContentDisposition: contentDisposition
   };
   const command = new GetObjectCommand(input);
-  //default Expires 900 seconds
+    //default Expires 900 seconds
   var options = {
     expiresIn: expires
-  };
+    };
   return await getSignedUrl(client, command, options);
   //extra query params cause SignatureDoesNotMatch
   //https://stackoverflow.com/questions/55503009/amazon-s3-signature-does-not-match-when-extra-query-params-ga-added-in-url

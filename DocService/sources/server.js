@@ -172,6 +172,7 @@ docsCoServer.install(server, () => {
 			let ctx = new operationContext.Context();
 			try {
 				ctx.initFromRequest(req);
+				yield ctx.initTenantCache();
 				let licenseInfo = yield tenantManager.getTenantLicense(ctx);
 				let buildVersion = commonDefines.buildVersion;
 				let buildNumber = commonDefines.buildNumber;
@@ -236,6 +237,8 @@ docsCoServer.install(server, () => {
 		let ctx = new operationContext.Context();
 		try {
 			ctx.initFromRequest(req);
+			//todo
+			// yield ctx.initTenantCache();
 			res.send(utils.getBaseUrlByRequest(ctx, req));
 		} catch (err) {
 			ctx.logger.error('baseurl error: %s', err.stack);
@@ -269,6 +272,7 @@ docsCoServer.install(server, () => {
 	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
 		let ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
+		//yield ctx.initTenantCache();//no need
 		ctx.logger.debug(`dummyCallback req.body:%s`, req.body);
 		utils.fillResponseSimple(res, JSON.stringify({error: 0}, "application/json"));
 	});
@@ -327,6 +331,7 @@ docsCoServer.install(server, () => {
 			let ctx = new operationContext.Context();
 			try {
 				ctx.initFromRequest(req);
+				yield ctx.initTenantCache();
 				ctx.logger.info('themes.json start');
 				if (!config.has('server.static_content') || !config.has('themes.uri')) {
 					return;

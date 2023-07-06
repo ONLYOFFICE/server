@@ -60,6 +60,7 @@ exports.uploadTempFile = function(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('uploadTempFile start');
       let params;
       let authRes = yield docsCoServer.getRequestParams(ctx, req, true);
@@ -121,6 +122,7 @@ exports.uploadImageFileOld = function(req, res) {
   return co(function* () {
     let ctx = new operationContext.Context();
     ctx.initFromRequest(req);
+    yield ctx.initTenantCache();
     var docId = req.params.docid;
     ctx.setDocId(docId);
     ctx.logger.debug('Start uploadImageFileOld');
@@ -211,6 +213,7 @@ exports.uploadImageFile = function(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       docId = req.params.docid;
       ctx.setDocId(docId);
       let encrypted = false;

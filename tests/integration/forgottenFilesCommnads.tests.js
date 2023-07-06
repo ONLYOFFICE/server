@@ -18,6 +18,7 @@ const cfgStorageName = config.get('storage.name');
 const cfgEndpoint = config.get('storage.endpoint');
 const cfgBucketName = config.get('storage.bucketName');
 const ctx = new operationContext.Context();
+//yield ctx.initTenantCache();//no need
 const testFilesNames = {
   get: 'DocService-DocsCoServer-forgottenFilesCommands-getForgotten-integration-test',
   delete1: 'DocService-DocsCoServer-forgottenFilesCommands-deleteForgotten-integration-test',
