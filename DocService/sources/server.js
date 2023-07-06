@@ -257,17 +257,32 @@ docsCoServer.install(server, () => {
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 
-	if (cfgWopiEnable) {
-		//todo dest
-		let fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
-		app.get('/hosting/discovery', utils.checkClientIp, wopiClient.discovery);
-		app.get('/hosting/capabilities', utils.checkClientIp, wopiClient.collaboraCapabilities);
-		app.post('/lool/convert-to/:format?', utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
-		app.post('/cool/convert-to/:format?', utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
-		app.post('/hosting/wopi/:documentType/:mode', urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
-		app.post('/hosting/wopi/convert-and-edit/:ext/:targetext', urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getConverterHtml);
-		app.get('/hosting/wopi/convert-and-edit-handler', utils.lowercaseQueryString, converterService.getConverterHtmlHandler);
+	function checkWopiEnable(req, res, next) {
+		//todo may be move code into wopiClient or wopiClient.discovery...
+		let ctx = new operationContext.Context();
+		ctx.initFromRequest(req);
+		ctx.initTenantCache()
+			.then(() => {
+				const cfgTenantWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
+				if (cfgTenantWopiEnable) {
+					next();
+				} else {
+					res.sendStatus(404);
+				}
+			}).catch((err) => {
+				ctx.logger.error('checkWopiEnable error: %s', err.stack);
+				res.sendStatus(404);
+			});
 	}
+	//todo dest
+	let fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
+	app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
+	app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
+	app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
+	app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
+	app.post('/hosting/wopi/:documentType/:mode', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
+	app.post('/hosting/wopi/convert-and-edit/:ext/:targetext', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getConverterHtml);
+	app.get('/hosting/wopi/convert-and-edit-handler', checkWopiEnable, utils.lowercaseQueryString, converterService.getConverterHtmlHandler);
 
 	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
 		let ctx = new operationContext.Context();
