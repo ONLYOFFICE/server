@@ -105,6 +105,7 @@
 	"tenants": {
 		"baseDir": "",
 		"baseDomain": "",
+		"filenameConfig": "config.json",
 		"filenameSecret": "secret.key",
 		"filenameLicense": "license.lic",
 		"defaultTenant": "localhost",

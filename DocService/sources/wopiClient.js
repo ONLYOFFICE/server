@@ -106,6 +106,7 @@ function discovery(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('wopiDiscovery start');
       let baseUrl = cfgWopiHost || utils.getBaseUrlByRequest(ctx, req);
       let names = ['Word','Excel','PowerPoint'];
@@ -226,6 +227,7 @@ function collaboraCapabilities(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('collaboraCapabilities start');
     } catch (err) {
       ctx.logger.error('collaboraCapabilities error:%s', err.stack);
@@ -347,6 +349,7 @@ function getEditorHtml(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       let wopiSrc = req.query['wopisrc'];
       let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       ctx.setDocId(fileId);
@@ -451,6 +454,7 @@ function getConverterHtml(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       let wopiSrc = req.query['wopisrc'];
       let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       ctx.setDocId(fileId);

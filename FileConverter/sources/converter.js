@@ -1052,6 +1052,7 @@ function receiveTask(data, ack) {
       task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
         ctx.initFromTaskQueueData(task);
+        yield ctx.initTenantCache();
         timeoutId = receiveTaskSetTimeout(ctx, task, ack, outParams);
         res = yield* ExecuteTask(ctx, task);
       }
@@ -1082,6 +1083,8 @@ function simulateErrorResponse(data){
   let task = new commonDefines.TaskQueueData(JSON.parse(data));
   let ctx = new operationContext.Context();
   ctx.initFromTaskQueueData(task);
+  //todo
+  //yield ctx.initTenantCache();
   return createErrorResponse(ctx, task);
 }
 function run() {

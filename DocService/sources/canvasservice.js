@@ -1325,6 +1325,7 @@ exports.downloadAs = function(req, res) {
         startDate = new Date();
       }
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       var strCmd = req.query['cmd'];
       var cmd = new commonDefines.InputCommand(JSON.parse(strCmd));
       docId = cmd.getDocId();
@@ -1416,6 +1417,7 @@ exports.saveFile = function(req, res) {
         startDate = new Date();
       }
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       let strCmd = req.query['cmd'];
       let cmd = new commonDefines.InputCommand(JSON.parse(strCmd));
       docId = cmd.getDocId();
@@ -1490,6 +1492,7 @@ exports.printFile = function(req, res) {
         startDate = new Date();
       }
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       let filename = req.query['filename'];
       let token = req.query['token'];
       docId = req.params.docid;
@@ -1540,6 +1543,7 @@ exports.downloadFile = function(req, res) {
         startDate = new Date();
       }
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       let url = decodeURI(req.get('x-url'));
       ctx.setDocId(req.params.docid);
       ctx.logger.info('Start downloadFile');
@@ -1659,6 +1663,7 @@ exports.receiveTask = function(data, ack) {
       if (task) {
         var cmd = task.getCmd();
         ctx.initFromTaskQueueData(task);
+        yield ctx.initTenantCache();
         ctx.logger.info('receiveTask start: %s', data);
         var updateTask = yield* getUpdateResponse(ctx, cmd);
         var updateRes = yield taskResult.update(ctx, updateTask);

@@ -137,7 +137,10 @@ function shutdown() {
       for (let i = 0; i < docsToConvert.length; ++i) {
         let tenant = docsToConvert[i][0];
         let docId = docsToConvert[i][1];
+        //todo refactor. group tenants?
         ctx.setTenant(tenant);
+        yield ctx.initTenantCache();
+
         yield updateDoc(ctx, docId, commonDefines.FileStatus.Ok, "");
         yield editorData.addShutdown(redisKeyShutdown, docId);
         ctx.logger.debug('shutdown createSaveTimerPromise %s', docId);
