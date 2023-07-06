@@ -327,14 +327,17 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
   var urlParsed = url.parse(uri);
   var filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
   if (0 == filterStatus) {
-    while (constants.NO_ERROR !== res && downloadAttemptCount++ < cfgDownloadAttemptMaxCount) {
+    const tnntDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
+    while (constants.NO_ERROR !== res && downloadAttemptCount++ < tnntDownloadAttemptMaxCount) {
       try {
         let authorization;
         if (utils.canIncludeOutboxAuthorization(ctx, uri) && withAuthorization) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest({url: uri}, secret, false);
         }
-        let getRes = yield utils.downloadUrlPromise(ctx, uri, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
+        const tnntDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
+        const tnntDownloadMaxBytes = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadMaxBytes);
+        let getRes = yield utils.downloadUrlPromise(ctx, uri, tnntDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;
         sha256 = getRes.sha256;
         res = constants.NO_ERROR;

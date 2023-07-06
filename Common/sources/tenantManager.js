@@ -107,7 +107,25 @@ async function getTenantConfig(ctx) {
 }
 function getTenantSecret(ctx, type) {
   return co(function*() {
+    let cfgTenant;
+    //check config
+    switch (type) {
+      case commonDefines.c_oAscSecretType.Browser:
+      case commonDefines.c_oAscSecretType.Inbox:
+        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.inbox', undefined);
+        break;
+      case commonDefines.c_oAscSecretType.Outbox:
+        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.outbox', undefined);
+        break;
+      case commonDefines.c_oAscSecretType.Session:
+        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.session', undefined);
+        break;
+    }
+    if (undefined !== cfgTenant) {
+      return utils.getSecretByElem(cfgTenant);
+    }
     let res = undefined;
+    //read license file
     if (isMultitenantMode(ctx)) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);

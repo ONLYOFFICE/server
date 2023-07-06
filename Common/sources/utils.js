@@ -269,8 +269,9 @@ function isRedirectResponse(response) {
 }
 function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   //todo replace deprecated request module
-  const maxRedirects = (undefined !== cfgRequestDefaults.maxRedirects) ? cfgRequestDefaults.maxRedirects : 10;
-  const followRedirect = (undefined !== cfgRequestDefaults.followRedirect) ? cfgRequestDefaults.followRedirect : true;
+  const cfgTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
+  const maxRedirects = (undefined !== cfgTenantRequestDefaults.maxRedirects) ? cfgTenantRequestDefaults.maxRedirects : 10;
+  const followRedirect = (undefined !== cfgTenantRequestDefaults.followRedirect) ? cfgTenantRequestDefaults.followRedirect : true;
   var redirectsFollowed = 0;
   let doRequest = function(curUrl) {
     return downloadUrlPromiseWithoutRedirect(ctx, curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
@@ -305,14 +306,17 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false};
     if (opt_filterPrivate) {
+      //todo ctx.getCfg
       options.agent = getRequestFilterAgent(uri, cfgRequesFilteringAgent);
     } else {
       //baseRequest creates new agent(win-ca injects in globalAgent)
       options.agentOptions = https.globalAgent.options;
     }
     if (opt_Authorization) {
+      let cfgTenantTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
+      let cfgTenantTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
       options.headers = {};
-      options.headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
+      options.headers[cfgTenantTokenOutboxHeader] = cfgTenantTokenOutboxPrefix + opt_Authorization;
     }
     if (opt_headers) {
       options.headers = opt_headers;
@@ -392,6 +396,7 @@ function postRequestPromise(uri, postData, postDataStream, postDataSize, optTime
     var urlParsed = url.parse(uri);
     var headers = {'Content-Type': 'application/json'};
     if (opt_Authorization) {
+      //todo ctx.getCfg
       headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
     }
     headers = opt_header || headers;

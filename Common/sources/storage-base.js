@@ -40,7 +40,8 @@ var tenantManager = require('./tenantManager');
 const cfgCacheFolderName = config.get('storage.cacheFolderName');
 
 function getStoragePath(ctx, strPath, opt_specialDir) {
-  opt_specialDir = opt_specialDir || cfgCacheFolderName;
+  const cfgTenantCacheFolderName = ctx.getCfg('storage.cacheFolderName', cfgCacheFolderName);
+  opt_specialDir = opt_specialDir || cfgTenantCacheFolderName;
   return opt_specialDir + '/' + tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/')
 }
 
