@@ -35,6 +35,7 @@
 var sqlDataBaseType = {
 	mySql		: 'mysql',
 	mariaDB		: 'mariadb',
+    msSql       : 'mssql',
 	postgreSql	: 'postgres',
 	dameng	: 'dameng',
     oracle: 'oracle'
@@ -51,6 +52,9 @@ switch (dbType) {
   case sqlDataBaseType.mySql:
   case sqlDataBaseType.mariaDB:
     baseConnector = require('./mySqlBaseConnector');
+    break;
+  case sqlDataBaseType.msSql:
+    baseConnector = require('./msSqlServerConnector');
     break;
   case sqlDataBaseType.dameng:
     baseConnector = require('./damengBaseConnector');
@@ -113,6 +117,7 @@ exports.insertChangesPromise = function (ctx, objChanges, docId, index, user) {
   } else {
     return exports.insertChangesPromiseCompatibility(ctx, objChanges, docId, index, user);
   }
+
 };
 function _getDateTime2(oDate) {
   return oDate.toISOString().slice(0, 19).replace('T', ' ');
