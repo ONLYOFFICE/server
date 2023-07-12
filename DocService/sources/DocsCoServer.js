@@ -793,7 +793,7 @@ const hasChanges = co.wrap(function*(ctx, docId) {
 function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   let forceSaveType = forceSave.getType();
   const end = success && commonDefines.c_oAscForceSaveTypes.Form !== forceSaveType && commonDefines.c_oAscForceSaveTypes.Internal !== forceSaveType;
-  yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), true, end, cmd);
+  yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), end, end, cmd);
 
   if (commonDefines.c_oAscForceSaveTypes.Command !== forceSaveType) {
     let data = {type: forceSaveType, time: forceSave.getTime(), success: success};
@@ -832,11 +832,6 @@ let applyForceSaveCache = co.wrap (function* (ctx, docId, forceSave, type, opt_u
     res.notModified = true;
     return res;
   }
-  if (!forceSave.started) {
-    res.startedForceSave = yield editorData.checkAndStartForceSave(ctx, docId);
-    res.ok = !!res.startedForceSave;
-    return res;
-  }
   let forceSaveCache = yield checkForceSaveCache(ctx, forceSave.convertInfo);
   if (forceSaveCache.hasCache || forceSave.ended) {
     if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type || !forceSave.ended) {
@@ -858,6 +853,10 @@ let applyForceSaveCache = co.wrap (function* (ctx, docId, forceSave, type, opt_u
     } else {
       res.notModified = true;
     }
+  } else if (!forceSave.started) {
+      res.startedForceSave = yield editorData.checkAndStartForceSave(ctx, docId);
+      res.ok = !!res.startedForceSave;
+      return res;
   } else if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type) {
     res.ok = true;
     res.inProgress = true;
@@ -883,7 +882,12 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
       let applyCacheRes = yield applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey);
       startedForceSave = applyCacheRes.startedForceSave;
       if (applyCacheRes.notModified) {
-        res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
+        let selectRes = yield taskResult.select(ctx, docId);
+        if (selectRes.length > 0) {
+          res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
+        } else {
+          res.code = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
+        }
       } else if (!applyCacheRes.ok) {
         res.code = commonDefines.c_oAscServerCommandErrors.UnknownError;
       }
