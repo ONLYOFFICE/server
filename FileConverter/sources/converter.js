@@ -40,12 +40,10 @@ var config = require('config');
 var spawnAsync = require('@expo/spawn-async');
 const bytes = require('bytes');
 const lcid = require('lcid');
-var configConverter = config.get('FileConverter.converter');
 
 var commonDefines = require('./../../Common/sources/commondefines');
 var storage = require('./../../Common/sources/storage-base');
 var utils = require('./../../Common/sources/utils');
-var logger = require('./../../Common/sources/logger');
 var constants = require('./../../Common/sources/constants');
 var baseConnector = require('./../../DocService/sources/baseConnector');
 const wopiClient = require('./../../DocService/sources/wopiClient');
@@ -56,22 +54,19 @@ const formatChecker = require('./../../Common/sources/formatchecker');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 
-var cfgDownloadMaxBytes = configConverter.has('maxDownloadBytes') ? configConverter.get('maxDownloadBytes') : 100000000;
-var cfgDownloadTimeout = configConverter.has('downloadTimeout') ? configConverter.get('downloadTimeout') : 60;
-var cfgDownloadAttemptMaxCount = configConverter.has('downloadAttemptMaxCount') ? configConverter.get('downloadAttemptMaxCount') : 3;
-var cfgDownloadAttemptDelay = configConverter.has('downloadAttemptDelay') ? configConverter.get('downloadAttemptDelay') : 1000;
-var cfgFontDir = configConverter.get('fontDir');
-var cfgPresentationThemesDir = configConverter.get('presentationThemesDir');
-var cfgX2tPath = configConverter.get('x2tPath');
-var cfgDocbuilderPath = configConverter.get('docbuilderPath');
-var cfgArgs = configConverter.get('args');
-var cfgSpawnOptions = configConverter.get('spawnOptions');
-if (cfgSpawnOptions.env) {
-  Object.assign(cfgSpawnOptions.env, process.env);
-}
-var cfgErrorFiles = configConverter.get('errorfiles');
-var cfgInputLimits = configConverter.get('inputLimits');
-const cfgStreamWriterBufferSize = configConverter.get('streamWriterBufferSize');
+const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
+const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
+const cfgDownloadAttemptMaxCount = config.get('FileConverter.converter.downloadAttemptMaxCount');
+const cfgDownloadAttemptDelay = config.get('FileConverter.converter.downloadAttemptDelay');
+const cfgFontDir = config.get('FileConverter.converter.fontDir');
+const cfgPresentationThemesDir = config.get('FileConverter.converter.presentationThemesDir');
+const cfgX2tPath = config.get('FileConverter.converter.x2tPath');
+const cfgDocbuilderPath = config.get('FileConverter.converter.docbuilderPath');
+const cfgArgs = config.get('FileConverter.converter.args');
+const cfgSpawnOptions = config.get('FileConverter.converter.spawnOptions');
+const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
+const cfgInputLimits = config.get('FileConverter.converter.inputLimits');
+const cfgStreamWriterBufferSize = config.get('FileConverter.converter.streamWriterBufferSize');
 //cfgMaxRequestChanges was obtained as a result of the test: 84408 changes - 5,16 MB
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
@@ -113,11 +108,13 @@ function TaskQueueDataConvert(task) {
   this.embeddedFonts = cmd.embeddedfonts;
   this.fromChanges = task.getFromChanges();
   //todo
+  //todo
   if (cfgFontDir) {
     this.fontDir = path.resolve(cfgFontDir);
   } else {
     this.fontDir = cfgFontDir;
   }
+  //todo
   this.themeDir = path.resolve(cfgPresentationThemesDir);
   this.mailMergeSend = cmd.mailmergesend;
   this.thumbnail = cmd.thumbnail;
@@ -219,6 +216,7 @@ TaskQueueDataConvert.prototype = {
     return xml;
   },
   serializeLimit: function() {
+    //todo ctx.getCfg('FileConverter.converter.inputLimits');
     if (!inputLimitsXmlCache) {
       var xml = '<m_oInputLimits>';
       for (let i = 0; i < cfgInputLimits.length; ++i) {
@@ -295,13 +293,14 @@ function* isUselessConvertion(ctx, task, cmd) {
   return constants.NO_ERROR;
 }
 function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
+  const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
   if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
     let locale = 'en-US';
     if (_lcid) {
       let localeNew = lcid.from(_lcid);
       if (localeNew) {
         localeNew = localeNew.replace(/_/g, '-');
-        if (fs.existsSync(path.join(cfgNewFileTemplate, localeNew))) {
+        if (fs.existsSync(path.join(tenNewFileTemplate, localeNew))) {
           locale = localeNew;
         } else {
           ctx.logger.debug('replaceEmptyFile empty locale dir locale=%s', localeNew);
@@ -311,15 +310,19 @@ function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
     ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
     let format = formatChecker.getFormatFromString(ext);
     if (formatChecker.isDocumentFormat(format)) {
-      fs.copyFileSync(path.join(cfgNewFileTemplate, locale, 'new.docx'), fileFrom);
+      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.docx'), fileFrom);
     } else if (formatChecker.isSpreadsheetFormat(format)) {
-      fs.copyFileSync(path.join(cfgNewFileTemplate, locale, 'new.xlsx'), fileFrom);
+      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.xlsx'), fileFrom);
     } else if (formatChecker.isPresentationFormat(format)) {
-      fs.copyFileSync(path.join(cfgNewFileTemplate, locale, 'new.pptx'), fileFrom);
+      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.pptx'), fileFrom);
     }
   }
 }
 function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt_headers) {
+  const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
+  const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
+  const tenDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
+  const tenDownloadAttemptDelay = ctx.getCfg('FileConverter.converter.downloadAttemptDelay', cfgDownloadAttemptDelay);
   var res = constants.CONVERT_DOWNLOAD;
   var data = null;
   var sha256 = null;
@@ -327,17 +330,14 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
   var urlParsed = url.parse(uri);
   var filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
   if (0 == filterStatus) {
-    const tnntDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
-    while (constants.NO_ERROR !== res && downloadAttemptCount++ < tnntDownloadAttemptMaxCount) {
+    while (constants.NO_ERROR !== res && downloadAttemptCount++ < tenDownloadAttemptMaxCount) {
       try {
         let authorization;
         if (utils.canIncludeOutboxAuthorization(ctx, uri) && withAuthorization) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest({url: uri}, secret, false);
         }
-        const tnntDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
-        const tnntDownloadMaxBytes = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadMaxBytes);
-        let getRes = yield utils.downloadUrlPromise(ctx, uri, tnntDownloadTimeout, cfgDownloadMaxBytes, authorization, filterPrivate, opt_headers);
+        let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, tenMaxDownloadBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;
         sha256 = getRes.sha256;
         res = constants.NO_ERROR;
@@ -351,7 +351,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
           res = constants.CONVERT_LIMITS;
           break;
         } else {
-          yield utils.sleep(cfgDownloadAttemptDelay);
+          yield utils.sleep(tenDownloadAttemptDelay);
         }
       }
     }
@@ -366,6 +366,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
   return res;
 }
 function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
+  const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   var list = yield storage.listObjects(ctx, strPath, opt_specialDir);
   ctx.logger.debug('downloadFileFromStorage list %s', list.toString());
   //create dirs
@@ -398,6 +399,7 @@ function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
   }
 }
 function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, authorProps) {
+  const tenEditor = ctx.getCfg('services.CoAuthoring.editor', cfgEditor);
   let res = constants.NO_ERROR;
   let needConcatFiles = false;
   if (task.getFromOrigin() || task.getFromSettings()) {
@@ -422,7 +424,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     yield* concatFiles(tempDirs.source);
   }
   if (task.getFromChanges()) {
-    if(cfgEditor['binaryChanges']) {
+    if(tenEditor['binaryChanges']) {
       res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps);
     } else {
       res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps);
@@ -469,6 +471,8 @@ function* concatFiles(source) {
   }
 }
 function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
+  const tenStreamWriterBufferSize = ctx.getCfg('FileConverter.converter.streamWriterBufferSize', cfgStreamWriterBufferSize);
+  const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
   let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
@@ -497,10 +501,10 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
     }];
   }
 
-  let streamObj = yield* streamCreateBin(ctx, changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
+  let streamObj = yield* streamCreateBin(ctx, changesDir, indexFile++, {highWaterMark: tenStreamWriterBufferSize});
   yield* streamWriteBin(streamObj, Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
   let curIndexStart = 0;
-  let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
+  let curIndexEnd = Math.min(curIndexStart + tenMaxRequestChanges, forceSaveIndex);
   while (curIndexStart < curIndexEnd || extChanges) {
     let changes = [];
     if (curIndexStart < curIndexEnd) {
@@ -540,8 +544,8 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
       authorProps.modified = changes[changes.length - 1].change_date.toISOString().slice(0, 19) + 'Z';
     }
     if (changes.length === curIndexEnd - curIndexStart) {
-      curIndexStart += cfgMaxRequestChanges;
-      curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
+      curIndexStart += tenMaxRequestChanges;
+      curIndexEnd = Math.min(curIndexStart + tenMaxRequestChanges, forceSaveIndex);
     } else {
       break;
     }
@@ -587,6 +591,8 @@ function* streamEndBin(streamObj) {
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
 function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
+  const tenStreamWriterBufferSize = ctx.getCfg('FileConverter.converter.streamWriterBufferSize', cfgStreamWriterBufferSize);
+  const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
   let res = constants.NO_ERROR;
   let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
@@ -615,9 +621,9 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
     }];
   }
 
-  let streamObj = yield* streamCreate(ctx, changesDir, indexFile++, {highWaterMark: cfgStreamWriterBufferSize});
+  let streamObj = yield* streamCreate(ctx, changesDir, indexFile++, {highWaterMark: tenStreamWriterBufferSize});
   let curIndexStart = 0;
-  let curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
+  let curIndexEnd = Math.min(curIndexStart + tenMaxRequestChanges, forceSaveIndex);
   while (curIndexStart < curIndexEnd || extChanges) {
     let changes = [];
     if (curIndexStart < curIndexEnd) {
@@ -659,8 +665,8 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
       authorProps.modified = changes[changes.length - 1].change_date.toISOString().slice(0, 19) + 'Z';
     }
     if (changes.length === curIndexEnd - curIndexStart) {
-      curIndexStart += cfgMaxRequestChanges;
-      curIndexEnd = Math.min(curIndexStart + cfgMaxRequestChanges, forceSaveIndex);
+      curIndexStart += tenMaxRequestChanges;
+      curIndexEnd = Math.min(curIndexStart + tenMaxRequestChanges, forceSaveIndex);
     } else {
       break;
     }
@@ -749,6 +755,7 @@ function writeProcessOutputToLog(ctx, childRes, isDebug) {
   }
 }
 function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
+  const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
   var exitCode = 0;
   var exitSignal = null;
   if(childRes) {
@@ -769,8 +776,8 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     } else {
       writeProcessOutputToLog(ctx, childRes, false);
       ctx.logger.error('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
-      if (cfgErrorFiles) {
-        yield* processUploadToStorage(ctx, tempDirs.temp, dataConvert.key, false, cfgErrorFiles);
+      if (tenErrorFiles) {
+        yield* processUploadToStorage(ctx, tempDirs.temp, dataConvert.key, false, tenErrorFiles);
         ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
       }
     }
@@ -817,16 +824,19 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
 }
 
 function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task) {
+  const tenX2tPath = ctx.getCfg('FileConverter.converter.x2tPath', cfgX2tPath);
+  const tenDocbuilderPath = ctx.getCfg('FileConverter.converter.docbuilderPath', cfgDocbuilderPath);
+  const tenArgs = ctx.getCfg('FileConverter.converter.args', cfgArgs);
   let childRes, isTimeout = false;
   let childArgs;
-  if (cfgArgs.length > 0) {
-    childArgs = cfgArgs.trim().replace(/  +/g, ' ').split(' ');
+  if (tenArgs.length > 0) {
+    childArgs = tenArgs.trim().replace(/  +/g, ' ').split(' ');
   } else {
     childArgs = [];
   }
   let processPath;
   if (!builderParams) {
-    processPath = cfgX2tPath;
+    processPath = tenX2tPath;
     let paramsFile = path.join(tempDirs.temp, 'params.xml');
     dataConvert.serialize(paramsFile);
     childArgs.push(paramsFile);
@@ -836,7 +846,7 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
     }
   } else {
     fs.mkdirSync(path.join(tempDirs.result, 'output'));
-    processPath = cfgDocbuilderPath;
+    processPath = tenDocbuilderPath;
     childArgs.push('--check-fonts=0');
     childArgs.push('--save-use-only-names=' + tempDirs.result + '/output');
     if (builderParams.argument) {
@@ -846,12 +856,11 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
   }
   let timeoutId;
   try {
-    let spawnOptions = cfgSpawnOptions;
+    const tenSpawnOptions = ctx.getCfg('FileConverter.converter.spawnOptions', cfgSpawnOptions);
+    //copy to avoid modification of global cfgSpawnOptions
+    let spawnOptions = Object.assign({}, tenSpawnOptions);;
+    spawnOptions.env = Object.assign({}, process.env, spawnOptions.env);
     if (authorProps.lastModifiedBy && authorProps.modified) {
-      //copy to avoid modification of global cfgSpawnOptions
-      spawnOptions = Object.assign({}, cfgSpawnOptions);
-      spawnOptions.env = Object.assign({}, spawnOptions.env || process.env);
-
       spawnOptions.env['LAST_MODIFIED_BY'] = authorProps.lastModifiedBy;
       spawnOptions.env['MODIFIED'] = authorProps.modified;
     }
@@ -883,6 +892,10 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
 }
 
 function* ExecuteTask(ctx, task) {
+  const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenFiles', cfgForgottenFiles);
+  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenFilesName', cfgForgottenFilesName);
+  const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
   var startDate = null;
   var curDate = null;
   if(clientStatsD) {
@@ -909,13 +922,13 @@ function* ExecuteTask(ctx, task) {
     if (utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
-      let filterPrivate = !withAuthorization || !cfgAllowPrivateIPAddressForSignedRequests;
+      let filterPrivate = !withAuthorization || !tenAllowPrivateIPAddressForSignedRequests;
       let headers;
       let fileSize;
       let wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
-        filterPrivate = !cfgAllowPrivateIPAddressForSignedRequests;
+        filterPrivate = !tenAllowPrivateIPAddressForSignedRequests;
         let fileInfo = wopiParams.commonInfo?.fileInfo;
         let userAuth = wopiParams.userAuth;
         fileSize = fileInfo?.Size;
@@ -926,7 +939,7 @@ function* ExecuteTask(ctx, task) {
           url = fileInfo.TemplateSource;
         } else if (userAuth) {
           url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
-          headers = {'X-WOPI-MaxExpectedSize': cfgDownloadMaxBytes};
+          headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
           wopiClient.fillStandardHeaders(headers, url, userAuth.access_token);
         }
         ctx.logger.debug('wopi url=%s; headers=%j', url, headers);
@@ -953,14 +966,14 @@ function* ExecuteTask(ctx, task) {
     }
     error = yield* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, authorProps);
   } else if (cmd.getForgotten()) {
-    yield* downloadFileFromStorage(ctx, cmd.getForgotten(), tempDirs.source, cfgForgottenFiles);
+    yield* downloadFileFromStorage(ctx, cmd.getForgotten(), tempDirs.source, tenForgottenFiles);
     ctx.logger.debug('downloadFileFromStorage complete');
     let list = yield utils.listObjects(tempDirs.source, false);
     if (list.length > 0) {
       dataConvert.fileFrom = list[0];
       //store indicator file to determine if opening was from the forgotten file
-      var forgottenMarkPath = tempDirs.result + '/' + cfgForgottenFilesName + '.txt';
-      fs.writeFileSync(forgottenMarkPath, cfgForgottenFilesName, {encoding: 'utf8'});
+      var forgottenMarkPath = tempDirs.result + '/' + tenForgottenFilesName + '.txt';
+      fs.writeFileSync(forgottenMarkPath, tenForgottenFilesName, {encoding: 'utf8'});
     } else {
       error = constants.UNKNOWN;
     }
