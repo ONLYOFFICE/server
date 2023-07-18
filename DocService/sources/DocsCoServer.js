@@ -4133,7 +4133,7 @@ function* commandHandle(ctx, params, req, output) {
       const forgottenFile = pathModule.basename(forgottenFileFullPath);
 
       // Creating URLs from files.
-      const baseUrl = utils.getBaseUrlByRequest(req);
+      const baseUrl = utils.getBaseUrlByRequest(ctx, req);
       forgottenData.url = yield storage.getSignedUrl(
         ctx, baseUrl, forgottenFileFullPath, commonDefines.c_oAscUrlTypes.Temporary, forgottenFile, undefined, cfgForgottenFiles
       );
