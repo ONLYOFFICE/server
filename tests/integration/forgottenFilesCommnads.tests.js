@@ -14,6 +14,9 @@ const cfgTokenAlgorithm = config.get('services.CoAuthoring.token.session.algorit
 const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
+const cfgStorageName = config.get('storage.name');
+const cfgEndpoint = config.get('storage.endpoint');
+const cfgBucketName = config.get('storage.bucketName');
 const ctx = new operationContext.Context();
 const testFilesNames = {
   get: 'DocService-DocsCoServer-forgottenFilesCommands-getForgotten-integration-test',
@@ -142,7 +145,16 @@ describe('Command service', function () {
     describe('getForgotten', function () {
       const createExpected = ({ key, error }) => {
         const validKey = typeof key === 'string' && error === 0
-        const urlPattern = 'http://localhost:8000/cache/files/forgotten/--key--/output.docx/output.docx';
+        let urlPattern;
+        if ("storage-fs" === cfgStorageName) {
+          urlPattern = 'http://localhost:8000/cache/files/forgotten/--key--/output.docx/output.docx';
+        } else {
+          const host = cfgEndpoint.slice(0, "https://".length) + cfgBucketName + "." + cfgEndpoint.slice("https://".length);
+          if (host[host.length - 1] === '/') {
+            host = host.slice(0, -1);
+          }
+          urlPattern = host + '/files/forgotten/--key--/output.docx';
+        }
 
         const expected = { key, error };
 

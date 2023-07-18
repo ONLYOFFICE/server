@@ -69,6 +69,6 @@
   "scripts": {
     "unit tests": "cd ./DocService && jest unit --config=../tests/jest.config.js",
     "integration tests": "cd ./DocService && jest integration --config=../tests/jest.config.js",
-    "tests": "cd ./DocService && jest --config=../tests/jest.config.js"
+    "tests": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js"
   }
 }

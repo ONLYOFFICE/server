@@ -4,8 +4,9 @@
   "homepage": "https://www.onlyoffice.com",
   "private": true,
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.370.0",
+    "@aws-sdk/s3-request-presigner": "^3.370.0",
     "amqplib": "^0.8.0",
-    "aws-sdk": "^2.1074.0",
     "co": "^4.6.0",
     "config": "^2.0.1",
     "content-disposition": "^0.5.3",
