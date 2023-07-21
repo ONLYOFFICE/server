@@ -129,7 +129,7 @@ if (configStorage.has('fs.folderPath')) {
 	const cfgStorageFolderName = configStorage.get('storageFolderName');
 	app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, (req, res, next) => {
 		const index = req.url.lastIndexOf('/');
-		if ('GET' === req.method && -1 != index) {
+		if ('GET' === req.method && index > 0) {
 			let sendFileOptions = {
 				root: configStorage.get('fs.folderPath'), dotfiles: 'deny', headers: {
 					'Content-Disposition': 'attachment'
@@ -148,7 +148,7 @@ if (configStorage.has('fs.folderPath')) {
 				}
 			});
 		} else {
-			res.sendStatus(404)
+			res.sendStatus(404);
 		}
 	});
 }
