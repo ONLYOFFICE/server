@@ -943,7 +943,7 @@ function* ExecuteTask(ctx, task) {
         } else if (userAuth) {
           url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
           headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
-          wopiClient.fillStandardHeaders(headers, url, userAuth.access_token);
+          wopiClient.fillStandardHeaders(ctx, headers, url, userAuth.access_token);
         }
         ctx.logger.debug('wopi url=%s; headers=%j', url, headers);
       }
