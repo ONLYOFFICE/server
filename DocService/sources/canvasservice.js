@@ -52,24 +52,20 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var operationContext = require('./../../Common/sources/operationContext');
 var tenantManager = require('./../../Common/sources/tenantManager');
 var config = require('config');
-var config_server = config.get('services.CoAuthoring.server');
-var config_utils = config.get('services.CoAuthoring.utils');
 
-
-var cfgTypesUpload = config_utils.get('limits_image_types_upload');
-var cfgImageSize = config_server.get('limits_image_size');
-var cfgImageDownloadTimeout = config_server.get('limits_image_download_timeout');
-var cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
-var cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
+const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
+const cfgImageDownloadTimeout = config.get('services.CoAuthoring.server.limits_image_download_timeout');
+const cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
+const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenSessionAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
-const cfgTokenSessionExpires = ms(config.get('services.CoAuthoring.token.session.expires'));
-const cfgForgottenFiles = config_server.get('forgottenfiles');
-const cfgForgottenFilesName = config_server.get('forgottenfilesname');
-const cfgOpenProtectedFile = config_server.get('openProtectedFile');
-const cfgExpUpdateVersionStatus = ms(config.get('services.CoAuthoring.expire.updateVersionStatus'));
+const cfgTokenSessionExpires = config.get('services.CoAuthoring.token.session.expires');
+const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
+const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
+const cfgOpenProtectedFile = config.get('services.CoAuthoring.server.openProtectedFile');
+const cfgExpUpdateVersionStatus = config.get('services.CoAuthoring.expire.updateVersionStatus');
 const cfgCallbackBackoffOptions = config.get('services.CoAuthoring.callbackBackoffOptions');
 const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemblyFormatAsOrigin');
-const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgDownloadFileAllowExt = config.get('services.CoAuthoring.server.downloadFileAllowExt');
@@ -84,8 +80,6 @@ var clientStatsD = statsDClient.getClient();
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 let hasPasswordCol = false;//stub on upgradev630.sql update failure
 exports.hasAdditionalCol = false;//stub on upgradev710.sql update failure
-
-const retryHttpStatus = new MultiRange(cfgCallbackBackoffOptions.httpStatus);
 
 function OutputDataWrap(type, data) {
   this['type'] = type;
@@ -172,6 +166,8 @@ function getOpenedAtJSONParams(row) {
 }
 
 var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
+  const tenExpUpdateVersionStatus = ms(ctx.getCfg('services.CoAuthoring.expire.updateVersionStatus', cfgExpUpdateVersionStatus));
+
   let status, statusInfo, password, creationDate, openedAt, row;
   let selectRes = yield taskResult.select(ctx, key);
   if (selectRes.length > 0) {
@@ -190,7 +186,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         outputData.setStatus('ok');
       } else if (commonDefines.FileStatus.SaveVersion == status ||
         (!opt_bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
-        Date.now() - statusInfo * 60000 > cfgExpUpdateVersionStatus)) {
+        Date.now() - statusInfo * 60000 > tenExpUpdateVersionStatus)) {
         if (optConn && (optConn.user.view || optConn.isCloseCoAuthoring)) {
           outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
         } else {
@@ -321,9 +317,11 @@ function addPasswordToCmd(ctx, cmd, docPasswordStr) {
 }
 
 function changeFormatByOrigin(ctx, row, format) {
+  const tenAssemblyFormatAsOrigin = ctx.getCfg('services.CoAuthoring.server.assemblyFormatAsOrigin', cfgAssemblyFormatAsOrigin);
+
   let originFormat = row && row.change_id;
   if (originFormat && constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== originFormat) {
-    if (cfgAssemblyFormatAsOrigin) {
+    if (tenAssemblyFormatAsOrigin) {
       format = originFormat;
     } else {
       //for wopi always save origin
@@ -374,6 +372,8 @@ function getSaveTask(ctx, cmd) {
   return queueData;
 }
 function* getUpdateResponse(ctx, cmd) {
+  const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
+
   var updateTask = new taskResult.TaskResultData();
   updateTask.tenant = ctx.tenant;
   updateTask.key = cmd.getSaveKey() ? cmd.getSaveKey() : cmd.getDocId();
@@ -395,7 +395,7 @@ function* getUpdateResponse(ctx, cmd) {
   } else if (constants.CONVERT_NEED_PARAMS == statusInfo) {
     updateTask.status = commonDefines.FileStatus.NeedParams;
   } else if (constants.CONVERT_DRM == statusInfo || constants.CONVERT_PASSWORD == statusInfo) {
-    if (cfgOpenProtectedFile) {
+    if (tenOpenProtectedFile) {
       updateTask.status = commonDefines.FileStatus.NeedPassword;
     } else {
       updateTask.status = commonDefines.FileStatus.Err;
@@ -455,6 +455,8 @@ function commandOpenStartPromise(ctx, docId, baseUrl, opt_updateUserIndex, opt_d
   return taskResult.upsert(ctx, task, opt_updateUserIndex);
 }
 function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+
   var upsertRes;
   if (opt_upsertRes) {
     upsertRes = opt_upsertRes;
@@ -486,7 +488,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
 
     let updateIfRes = yield taskResult.updateIf(ctx, task, updateMask);
       if (updateIfRes.affectedRows > 0) {
-        let forgotten = yield storage.listObjects(ctx, cmd.getDocId(), cfgForgottenFiles);
+        let forgotten = yield storage.listObjects(ctx, cmd.getDocId(), tenForgottenFiles);
         //replace url with forgotten file because it absorbed all lost changes
         if (forgotten.length > 0) {
           ctx.logger.debug("commandOpen from forgotten");
@@ -519,6 +521,8 @@ function* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore) {
   return 'none' === outputData.getStatus();
 }
 function* commandReopen(ctx, conn, cmd, outputData) {
+  const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
+
   let res = true;
   let isPassword = undefined !== cmd.getPassword();
   if (isPassword) {
@@ -533,7 +537,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
       }
     }
   }
-  if (!isPassword || cfgOpenProtectedFile) {
+  if (!isPassword || tenOpenProtectedFile) {
     let updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
@@ -649,11 +653,17 @@ function isDisplayedImage(strName) {
   return res;
 }
 function* commandImgurls(ctx, conn, cmd, outputData) {
+  const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
+  const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
+  const tenImageDownloadTimeout = ctx.getCfg('services.CoAuthoring.server.limits_image_download_timeout', cfgImageDownloadTimeout);
+  const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+  const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
+
   var errorCode = constants.NO_ERROR;
   let urls = cmd.getData();
   let authorizations = [];
   let token = cmd.getTokenDownload();
-  if (cfgTokenEnableBrowser && token) {
+  if (tenTokenEnableBrowser && token) {
     let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
       //todo multiple url case
@@ -675,7 +685,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       errorCode = constants.VKEY_ENCRYPT;
     }
   }
-  var supportedFormats = cfgTypesUpload || 'jpg';
+  var supportedFormats = tenTypesUpload || 'jpg';
   var outputUrls = [];
   if (constants.NO_ERROR === errorCode && !conn.user.view && !conn.isCloseCoAuthoring) {
     //todo Promise.all()
@@ -689,13 +699,13 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
         if (-1 != delimiterIndex) {
           let dataLen = urlSource.length - (delimiterIndex + 1);
           if ('hex' === urlSource.substring(delimiterIndex - 3, delimiterIndex).toLowerCase()) {
-            if (dataLen * 0.5 <= cfgImageSize) {
+            if (dataLen * 0.5 <= tenImageSize) {
               data = Buffer.from(urlSource.substring(delimiterIndex + 1), 'hex');
             } else {
               errorCode = constants.UPLOAD_CONTENT_LENGTH;
             }
           } else {
-            if (dataLen * 0.75 <= cfgImageSize) {
+            if (dataLen * 0.75 <= tenImageSize) {
               data = Buffer.from(urlSource.substring(delimiterIndex + 1), 'base64');
             } else {
               errorCode = constants.UPLOAD_CONTENT_LENGTH;
@@ -712,8 +722,8 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
             }
           }
           //todo stream
-          const filterPrivate = !authorizations[i] || !cfgAllowPrivateIPAddressForSignedRequests;
-          let getRes = yield utils.downloadUrlPromise(ctx, urlSource, cfgImageDownloadTimeout, cfgImageSize, authorizations[i], filterPrivate);
+          const filterPrivate = !authorizations[i] || !tenAllowPrivateIPAddressForSignedRequests;
+          let getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], filterPrivate);
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -824,6 +834,8 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
   outputData.setData(cmd.getSaveKey());
 }
 function* commandSetPassword(ctx, conn, cmd, outputData) {
+  const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
+
   let hasDocumentPassword = false;
   let selectRes = yield taskResult.select(ctx, cmd.getDocId());
   if (selectRes.length > 0) {
@@ -834,7 +846,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     }
   }
   ctx.logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s, hasPasswordCol=%s', conn.isEnterCorrectPassword, hasDocumentPassword, hasPasswordCol);
-  if (cfgOpenProtectedFile && (conn.isEnterCorrectPassword || !hasDocumentPassword) && hasPasswordCol) {
+  if (tenOpenProtectedFile && (conn.isEnterCorrectPassword || !hasDocumentPassword) && hasPasswordCol) {
     let updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
@@ -889,6 +901,10 @@ function checkAndFixAuthorizationLength(authorization, data){
   return res;
 }
 const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
+  const tenCallbackBackoffOptions = ctx.getCfg('services.CoAuthoring.callbackBackoffOptions', cfgCallbackBackoffOptions);
+
   var docId = cmd.getDocId();
   ctx.logger.debug('Start commandSfcCallback');
   var statusInfo = cmd.getStatusInfo();
@@ -987,11 +1003,11 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
       outputSfc.setUserData(cmd.getUserData());
       if (!isError || isErrorCorrupted) {
         try {
-          let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
+          let forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
           let isSendHistory = 0 === forgotten.length;
           if (!isSendHistory) {
             //check indicator file to determine if opening was from the forgotten file
-            var forgottenMarkPath = docId + '/' + cfgForgottenFilesName + '.txt';
+            var forgottenMarkPath = docId + '/' + tenForgottenFilesName + '.txt';
             var forgottenMark = yield storage.listObjects(ctx, forgottenMarkPath);
             isOpenFromForgotten = 0 !== forgottenMark.length;
             isSendHistory = !isOpenFromForgotten;
@@ -1078,9 +1094,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
               }
             } catch (err) {
               ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
+              const retryHttpStatus = new MultiRange(tenCallbackBackoffOptions.httpStatus);
               if (!isEncrypted && !docsCoServer.getIsShutdown() && (!err.statusCode || retryHttpStatus.has(err.statusCode.toString()))) {
                 let attempt = cmd.getAttempt() || 0;
-                if (attempt < cfgCallbackBackoffOptions.retries) {
+                if (attempt < tenCallbackBackoffOptions.retries) {
                   needRetry = true;
                 } else {
                   ctx.logger.warn('commandSfcCallback backoff limit exceeded');
@@ -1131,8 +1148,8 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
     if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
       try {
         ctx.logger.warn("storeForgotten");
-        let forgottenName = cfgForgottenFilesName + pathModule.extname(cmd.getOutputPath());
-        yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, cfgForgottenFiles);
+        let forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
+        yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
       } catch (err) {
         ctx.logger.error('Error storeForgotten: %s', err.stack);
       }
@@ -1154,7 +1171,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
       let queueData = new commonDefines.TaskQueueData();
       queueData.setCtx(ctx);
       queueData.setCmd(cmd);
-      let timeout = retry.createTimeout(attempt, cfgCallbackBackoffOptions.timeout);
+      let timeout = retry.createTimeout(attempt, tenCallbackBackoffOptions.timeout);
       ctx.logger.debug('commandSfcCallback backoff timeout = %d', timeout);
       yield* docsCoServer.addDelayed(queueData, timeout);
     }
@@ -1331,8 +1348,9 @@ exports.downloadAs = function(req, res) {
       docId = cmd.getDocId();
       ctx.setDocId(docId);
       ctx.logger.debug('Start downloadAs: %s', strCmd);
+      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         var isValidJwt = false;
         if (cmd.getTokenDownload()) {
           let checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), commonDefines.c_oAscSecretType.Browser);
@@ -1423,8 +1441,9 @@ exports.saveFile = function(req, res) {
       docId = cmd.getDocId();
       ctx.setDocId(docId);
       ctx.logger.debug('Start saveFile');
+      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let isValidJwt = false;
         let checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
         if (checkJwtRes.decoded) {
@@ -1469,11 +1488,15 @@ exports.saveFile = function(req, res) {
 };
 function getPrintFileUrl(ctx, docId, baseUrl, filename) {
   return co(function*() {
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+    const tenTokenSessionAlgorithm = ctx.getCfg('services.CoAuthoring.token.session.algorithm', cfgTokenSessionAlgorithm);
+    const tenTokenSessionExpires = ms(ctx.getCfg('services.CoAuthoring.token.session.expires', cfgTokenSessionExpires));
+
     baseUrl = utils.checkBaseUrl(ctx, baseUrl);
     let token = '';
-    if (cfgTokenEnableBrowser) {
+    if (tenTokenEnableBrowser) {
       let payload = {document: {key: docId}};
-      token = yield docsCoServer.signToken(ctx, payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
+      token = yield docsCoServer.signToken(ctx, payload, tenTokenSessionAlgorithm, tenTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
     }
     //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
@@ -1498,8 +1521,9 @@ exports.printFile = function(req, res) {
       docId = req.params.docid;
       ctx.setDocId(docId);
       ctx.logger.info('Start printFile');
+      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
         if (checkJwtRes.decoded) {
           let docIdBase = checkJwtRes.decoded.document.key;
@@ -1547,18 +1571,23 @@ exports.downloadFile = function(req, res) {
       let url = decodeURI(req.get('x-url'));
       ctx.setDocId(req.params.docid);
       ctx.logger.info('Start downloadFile');
+      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+      const tenDownloadMaxBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgDownloadMaxBytes);
+      const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
+      const tenDownloadFileAllowExt = ctx.getCfg('services.CoAuthoring.server.downloadFileAllowExt', cfgDownloadFileAllowExt);
+      const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
 
       let authorization;
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
         let errorDescription;
         if (checkJwtRes.decoded) {
           let decoded = checkJwtRes.decoded;
           if (decoded.changesUrl) {
             url = decoded.changesUrl;
-          } else if (decoded.document && -1 !== cfgDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
+          } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
             url = decoded.document.url;
-          } else if (decoded.url && -1 !== cfgDownloadFileAllowExt.indexOf(decoded.fileType)) {
+          } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
             url = decoded.url;
           } else {
             errorDescription = 'access deny';
@@ -1583,8 +1612,8 @@ exports.downloadFile = function(req, res) {
         res.sendStatus(filterStatus);
         return;
       }
-      const filterPrivate = !authorization || !cfgAllowPrivateIPAddressForSignedRequests;
-      yield utils.downloadUrlPromise(ctx, url, cfgDownloadTimeout, cfgDownloadMaxBytes, authorization, !authorization, null, res);
+      const filterPrivate = !authorization || !tenAllowPrivateIPAddressForSignedRequests;
+      yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, filterPrivate, null, res);
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.downloadFile', new Date() - startDate);

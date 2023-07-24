@@ -608,6 +608,7 @@ function getConverterHtmlHandler(req, res) {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('convert-and-edit-handler start');
+      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
       let wopiSrc = req.query['wopisrc'];
       let access_token = req.query['access_token'];
@@ -621,7 +622,7 @@ function getConverterHtmlHandler(req, res) {
         return;
       }
       let token = req.query['token'];
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
         if (checkJwtRes.decoded) {
           docId = checkJwtRes.decoded.docId;
