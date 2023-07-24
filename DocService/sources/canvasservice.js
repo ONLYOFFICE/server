@@ -239,8 +239,8 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         let decryptedPassword;
         let isCorrectPassword;
         if (password && encryptedUserPassword) {
-          decryptedPassword = yield utils.decryptPassword(password);
-          userPassword = yield utils.decryptPassword(encryptedUserPassword);
+          decryptedPassword = yield utils.decryptPassword(ctx, password);
+          userPassword = yield utils.decryptPassword(ctx, encryptedUserPassword);
           isCorrectPassword = decryptedPassword === userPassword;
         }
         if(password && !isCorrectPassword) {
@@ -667,7 +667,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       for (let i = 0; i < urls.length; ++i) {
         if (utils.canIncludeOutboxAuthorization(ctx, urls[i])) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorizations[i] = [utils.fillJwtForRequest({url: urls[i]}, secret, false)];
+          authorizations[i] = [utils.fillJwtForRequest(ctx, {url: urls[i]}, secret, false)];
         }
       }
     } else {
@@ -1469,7 +1469,7 @@ exports.saveFile = function(req, res) {
 };
 function getPrintFileUrl(ctx, docId, baseUrl, filename) {
   return co(function*() {
-    baseUrl = utils.checkBaseUrl(baseUrl);
+    baseUrl = utils.checkBaseUrl(ctx, baseUrl);
     let token = '';
     if (cfgTokenEnableBrowser) {
       let payload = {document: {key: docId}};
@@ -1573,7 +1573,7 @@ exports.downloadFile = function(req, res) {
         }
         if (utils.canIncludeOutboxAuthorization(ctx, url)) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorization = utils.fillJwtForRequest({url: url}, secret, false);
+          authorization = utils.fillJwtForRequest(ctx, {url: url}, secret, false);
         }
       }
       let urlParsed = urlModule.parse(url);

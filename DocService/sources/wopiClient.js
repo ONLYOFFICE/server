@@ -538,7 +538,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         }
 
         ctx.logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
-        postRes = yield utils.postRequestPromise(uri, data, dataStream, dataSize, cfgCallbackRequestTimeout, undefined, headers);
+        postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, cfgCallbackRequestTimeout, undefined, headers);
         ctx.logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
         ctx.logger.debug('wopi PutFile response body:%s', postRes.body);
       } else {
@@ -569,7 +569,7 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       fillStandardHeaders(headers, uri, access_token);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
-      postRes = yield utils.postRequestPromise(uri, data, dataStream, dataSize, cfgCallbackRequestTimeout, undefined, headers);
+      postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, cfgCallbackRequestTimeout, undefined, headers);
       ctx.logger.debug('wopi putRelativeFile response headers=%j', postRes.response.headers);
       ctx.logger.debug('wopi putRelativeFile response body:%s', postRes.body);
     } catch (err) {
@@ -605,7 +605,7 @@ function renameFile(ctx, wopiParams, name) {
         fillStandardHeaders(headers, uri, userAuth.access_token);
 
         ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
         if (postRes.body) {
           res = JSON.parse(postRes.body);
@@ -672,7 +672,7 @@ function lock(ctx, command, lockId, fileInfo, userAuth) {
         let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
         ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
       } else {
         ctx.logger.info('wopi %s SupportsLocks = false', command);
@@ -707,7 +707,7 @@ function unlock(ctx, wopiParams) {
         let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
         fillStandardHeaders(headers, uri, access_token);
         ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
+        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, cfgCallbackRequestTimeout, undefined, headers);
         ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
       } else {
         ctx.logger.info('wopi SupportsLocks = false');

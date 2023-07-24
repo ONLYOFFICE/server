@@ -55,7 +55,7 @@ var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 
 var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
-var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.CONVERTION_TIMEOUT;
+var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
 function getDocumentsWithChanges(ctx) {

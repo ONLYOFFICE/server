@@ -708,16 +708,16 @@ function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLe
   let auth;
   if (utils.canIncludeOutboxAuthorization(ctx, uri)) {
     let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-    let bodyToken = utils.fillJwtForRequest(dataObject, secret, true);
-    auth = utils.fillJwtForRequest(dataObject, secret, false);
+    let bodyToken = utils.fillJwtForRequest(ctx, dataObject, secret, true);
+    auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
     let authLen = auth.length;
     if (opt_checkAndFixAuthorizationLength && !opt_checkAndFixAuthorizationLength(auth, dataObject)) {
-      auth = utils.fillJwtForRequest(dataObject, secret, false);
+      auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
       ctx.logger.warn('authorization too large. Use body token instead. size reduced from %d to %d', authLen, auth.length);
     }
     dataObject.setToken(bodyToken);
   }
-  let postRes = yield utils.postRequestPromise(uri, JSON.stringify(dataObject), undefined, undefined, cfgCallbackRequestTimeout, auth);
+  let postRes = yield utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, cfgCallbackRequestTimeout, auth);
   ctx.logger.debug('postData response: data = %s', postRes.body);
   return postRes.body;
 }
@@ -1428,7 +1428,7 @@ function encryptPasswordParams(ctx, data) {
         ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
         dataWithPassword.password = null;
       } else {
-        dataWithPassword.password = yield utils.encryptPassword(dataWithPassword.password);
+        dataWithPassword.password = yield utils.encryptPassword(ctx, dataWithPassword.password);
       }
     }
     if (dataWithPassword && dataWithPassword.savepassword) {
@@ -1437,7 +1437,7 @@ function encryptPasswordParams(ctx, data) {
         ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.savepassword.length, constants.PASSWORD_MAX_LENGTH);
         dataWithPassword.savepassword = null;
       } else {
-        dataWithPassword.savepassword = yield utils.encryptPassword(dataWithPassword.savepassword);
+        dataWithPassword.savepassword = yield utils.encryptPassword(ctx, dataWithPassword.savepassword);
       }
     }
   });

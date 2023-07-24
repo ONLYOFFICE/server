@@ -89,7 +89,7 @@ var exitCodesUpload = [constants.NO_ERROR, constants.CONVERT_CORRUPTED, constant
   constants.CONVERT_DRM, constants.CONVERT_DRM_UNSUPPORTED];
 let inputLimitsXmlCache;
 
-function TaskQueueDataConvert(task) {
+function TaskQueueDataConvert(ctx, task) {
   var cmd = task.getCmd();
   this.key = cmd.savekey ? cmd.savekey : cmd.id;
   this.fileFrom = null;
@@ -109,13 +109,15 @@ function TaskQueueDataConvert(task) {
   this.fromChanges = task.getFromChanges();
   //todo
   //todo
-  if (cfgFontDir) {
-    this.fontDir = path.resolve(cfgFontDir);
+  const tenFontDir = ctx.getCfg('FileConverter.converter.fontDir', cfgFontDir);
+  if (tenFontDir) {
+    this.fontDir = path.resolve(tenFontDir);
   } else {
-    this.fontDir = cfgFontDir;
+    this.fontDir = null;
   }
   //todo
-  this.themeDir = path.resolve(cfgPresentationThemesDir);
+  const tenPresentationThemesDir = ctx.getCfg('FileConverter.converter.presentationThemesDir', cfgPresentationThemesDir);
+  this.themeDir = path.resolve(tenPresentationThemesDir);
   this.mailMergeSend = cmd.mailmergesend;
   this.thumbnail = cmd.thumbnail;
   this.textParams = cmd.getTextParams();
@@ -128,7 +130,7 @@ function TaskQueueDataConvert(task) {
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
-  serialize: function(fsPath) {
+  serialize: function(ctx, fsPath) {
     let xml = '\ufeff<?xml version="1.0" encoding="utf-8"?>';
     xml += '<TaskQueueDataConvert xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"';
     xml += ' xmlns:xsd="http://www.w3.org/2001/XMLSchema">';
@@ -160,22 +162,22 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
-    xml += this.serializeLimit();
+    xml += this.serializeLimit(ctx);
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
   },
-  serializeHidden: function() {
+  serializeHidden: function(ctx) {
     var t = this;
     return co(function* () {
       let xml;
       if (t.password || t.savePassword) {
         xml = '<TaskQueueDataConvert>';
         if(t.password) {
-          let password = yield utils.decryptPassword(t.password);
+          let password = yield utils.decryptPassword(ctx, t.password);
           xml += t.serializeXmlProp('m_sPassword', password);
         }
         if(t.savePassword) {
-          let savePassword = yield utils.decryptPassword(t.savePassword);
+          let savePassword = yield utils.decryptPassword(ctx, t.savePassword);
           xml += t.serializeXmlProp('m_sSavePassword', savePassword);
         }
         xml += '</TaskQueueDataConvert>';
@@ -215,12 +217,13 @@ TaskQueueDataConvert.prototype = {
     xml += '</m_oTextParams>';
     return xml;
   },
-  serializeLimit: function() {
+  serializeLimit: function(ctx) {
     //todo ctx.getCfg('FileConverter.converter.inputLimits');
     if (!inputLimitsXmlCache) {
       var xml = '<m_oInputLimits>';
-      for (let i = 0; i < cfgInputLimits.length; ++i) {
-        let limit = cfgInputLimits[i];
+      const tenInputLimits = ctx.getCfg('FileConverter.converter.inputLimits', cfgInputLimits);
+      for (let i = 0; i < tenInputLimits.length; ++i) {
+        let limit = tenInputLimits[i];
         if (limit.type && limit.zip) {
           xml += '<m_oInputLimit';
           xml += this.serializeXmlAttr('type', limit.type);
@@ -335,7 +338,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
         let authorization;
         if (utils.canIncludeOutboxAuthorization(ctx, uri) && withAuthorization) {
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorization = utils.fillJwtForRequest({url: uri}, secret, false);
+          authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
         }
         let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, tenMaxDownloadBytes, authorization, filterPrivate, opt_headers);
         data = getRes.body;
@@ -838,9 +841,9 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
   if (!builderParams) {
     processPath = tenX2tPath;
     let paramsFile = path.join(tempDirs.temp, 'params.xml');
-    dataConvert.serialize(paramsFile);
+    dataConvert.serialize(ctx, paramsFile);
     childArgs.push(paramsFile);
-    let hiddenXml = yield dataConvert.serializeHidden();
+    let hiddenXml = yield dataConvert.serializeHidden(ctx);
     if (hiddenXml) {
       childArgs.push(hiddenXml);
     }
@@ -905,7 +908,7 @@ function* ExecuteTask(ctx, task) {
   var tempDirs;
   var getTaskTime = new Date();
   var cmd = task.getCmd();
-  var dataConvert = new TaskQueueDataConvert(task);
+  var dataConvert = new TaskQueueDataConvert(ctx, task);
   ctx.logger.info('Start Task');
   var error = constants.NO_ERROR;
   tempDirs = getTempDir();

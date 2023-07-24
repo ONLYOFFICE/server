@@ -45,12 +45,7 @@ var co = require('co');
 var URI = require("uri-js");
 const escapeStringRegexp = require('escape-string-regexp');
 const ipaddr = require('ipaddr.js');
-var configDnsCache = config.get('dnscache');
-const dnscache = require('dnscache')({
-                                     "enable": configDnsCache.get('enable'),
-                                     "ttl": configDnsCache.get('ttl'),
-                                     "cachesize": configDnsCache.get('cachesize')
-                                   });
+const getDnsCache = require('dnscache');
 const jwt = require('jsonwebtoken');
 const NodeCache = require( "node-cache" );
 const ms = require('ms');
@@ -68,58 +63,62 @@ if(!ca.disabled) {
 }
 
 const contentDisposition = require('content-disposition');
+const operationContext = require("./operationContext");
 
-var configIpFilter = config.get('services.CoAuthoring.ipfilter');
-var cfgIpFilterRules = configIpFilter.get('rules');
-var cfgIpFilterErrorCode = configIpFilter.get('errorcode');
-const cfgIpFilterUseForRequest = configIpFilter.get('useforrequest');
-var cfgExpPemStdTtl = config.get('services.CoAuthoring.expire.pemStdTTL');
-var cfgExpPemCheckPeriod = config.get('services.CoAuthoring.expire.pemCheckPeriod');
-var cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
-var cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
-var cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
-var cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
-var cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
-var cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
-var cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
+const cfgDnsCache = config.get('dnscache');
+const cfgIpFilterRules = config.get('services.CoAuthoring.ipfilter.rules');
+const cfgIpFilterErrorCode = config.get('services.CoAuthoring.ipfilter.errorcode');
+const cfgIpFilterUseForRequest = config.get('services.CoAuthoring.ipfilter.useforrequest');
+const cfgExpPemStdTtl = config.get('services.CoAuthoring.expire.pemStdTTL');
+const cfgExpPemCheckPeriod = config.get('services.CoAuthoring.expire.pemCheckPeriod');
+const cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
+const cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
+const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
+const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
+const cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
+const cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
+const cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
 const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
 const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
 const cfgPasswordConfig = config.get('openpgpjs.config');
-const cfgRequesFilteringAgent = Object.assign({}, https.globalAgent.options, config.get('services.CoAuthoring.request-filtering-agent'));
+const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
 const cfgStorageExternalHost = config.get('storage.externalHost');
 
-Object.assign(openpgp.config, cfgPasswordConfig);
+const dnscache = getDnsCache(cfgDnsCache);
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
 //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
 BigInt.prototype.toJSON = function() { return this.toString() };
 
-var baseRequest = request.defaults(cfgRequestDefaults);
-let outboxUrlExclusionRegex = null;
-if ("" !== cfgTokenOutboxUrlExclusionRegex) {
-  outboxUrlExclusionRegex = new RegExp(cfgTokenOutboxUrlExclusionRegex);
-}
-
-var g_oIpFilterRules = function() {
+var g_oIpFilterRules = new Map();
+function getIpFilterRules(rules) {
   var res = [];
-  for (var i = 0; i < cfgIpFilterRules.length; ++i) {
-    var rule = cfgIpFilterRules[i];
+  for (var i = 0; i < rules.length; ++i) {
+    var rule = rules[i];
     var regExpStr = rule['address'].split('*').map(escapeStringRegexp).join('.*');
     var exp = new RegExp('^' + regExpStr + '$', 'i');
     res.push({allow: rule['allowed'], exp: exp});
   }
   return res;
-}();
+}
 const pemfileCache = new NodeCache({stdTTL: ms(cfgExpPemStdTtl) / 1000, checkperiod: ms(cfgExpPemCheckPeriod) / 1000, errorOnMissing: false, useClones: true});
 
 function getRequestFilterAgent(url, options) {
   return url.startsWith("https") ? new RequestFilteringHttpsAgent(options) : new RequestFilteringHttpAgent(options);
 }
 
-exports.CONVERTION_TIMEOUT = 1.5 * (cfgVisibilityTimeout + cfgQueueRetentionPeriod) * 1000;
+exports.getConvertionTimeout = function(opt_ctx) {
+  if (opt_ctx) {
+    const tenVisibilityTimeout = ctx.getCfg('queue.visibilityTimeout', cfgVisibilityTimeout);
+    const tenQueueRetentionPeriod = ctx.getCfg('queue.retentionPeriod', cfgQueueRetentionPeriod);
+    return 1.5 * (tenVisibilityTimeout + tenQueueRetentionPeriod) * 1000;
+  } else {
+    return 1.5 * (cfgVisibilityTimeout + cfgQueueRetentionPeriod) * 1000;
+  }
+}
 
 exports.addSeconds = function(date, sec) {
   date.setSeconds(date.getSeconds() + sec);
@@ -269,9 +268,9 @@ function isRedirectResponse(response) {
 }
 function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   //todo replace deprecated request module
-  const cfgTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
-  const maxRedirects = (undefined !== cfgTenantRequestDefaults.maxRedirects) ? cfgTenantRequestDefaults.maxRedirects : 10;
-  const followRedirect = (undefined !== cfgTenantRequestDefaults.followRedirect) ? cfgTenantRequestDefaults.followRedirect : true;
+  const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
+  const maxRedirects = (undefined !== tenTenantRequestDefaults.maxRedirects) ? tenTenantRequestDefaults.maxRedirects : 10;
+  const followRedirect = (undefined !== tenTenantRequestDefaults.followRedirect) ? tenTenantRequestDefaults.followRedirect : true;
   var redirectsFollowed = 0;
   let doRequest = function(curUrl) {
     return downloadUrlPromiseWithoutRedirect(ctx, curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
@@ -296,6 +295,10 @@ function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, o
 }
 function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   return new Promise(function (resolve, reject) {
+    const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
+    const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
+    const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
+    const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
     var urlParsed = url.parse(uri);
@@ -304,19 +307,18 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     let hash = crypto.createHash('sha256');
     //if you expect binary data, you should set encoding: null
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    var options = {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false};
+    let options = config.util.extendDeep({}, tenTenantRequestDefaults);
+    Object.assign(options, {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false});
     if (opt_filterPrivate) {
-      //todo ctx.getCfg
-      options.agent = getRequestFilterAgent(uri, cfgRequesFilteringAgent);
+      const options = Object.assign({}, https.globalAgent.options, tenRequesFilteringAgent);
+      options.agent = getRequestFilterAgent(uri, options);
     } else {
       //baseRequest creates new agent(win-ca injects in globalAgent)
       options.agentOptions = https.globalAgent.options;
     }
     if (opt_Authorization) {
-      let cfgTenantTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
-      let cfgTenantTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
       options.headers = {};
-      options.headers[cfgTenantTokenOutboxHeader] = cfgTenantTokenOutboxPrefix + opt_Authorization;
+      options.headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
     }
     if (opt_headers) {
       options.headers = opt_headers;
@@ -378,7 +380,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       }
     }
 
-    let ro = baseRequest.get(options)
+    let ro = request.get(options)
       .on('response', fResponse)
       .on('data', fData)
       .on('error', fError);
@@ -389,15 +391,18 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     }
   });
 }
-function postRequestPromise(uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_header) {
+function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_header) {
   return new Promise(function(resolve, reject) {
+    const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
+    const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
+    const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
     var urlParsed = url.parse(uri);
     var headers = {'Content-Type': 'application/json'};
     if (opt_Authorization) {
       //todo ctx.getCfg
-      headers[cfgTokenOutboxHeader] = cfgTokenOutboxPrefix + opt_Authorization;
+      headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
     }
     headers = opt_header || headers;
     if (undefined !== postDataSize) {
@@ -409,7 +414,8 @@ function postRequestPromise(uri, postData, postDataStream, postDataSize, optTime
       headers['Content-Length'] = postDataSize;
     }
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    var options = {uri: urlParsed, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity};
+    let options = config.util.extendDeep({}, tenTenantRequestDefaults);
+    Object.assign(options, {uri: urlParsed, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity});
     //baseRequest creates new agent(win-ca injects in globalAgent)
     options.agentOptions = https.globalAgent.options;
     if (postData) {
@@ -417,7 +423,7 @@ function postRequestPromise(uri, postData, postDataStream, postDataSize, optTime
     }
 
     let executed = false;
-    let ro = baseRequest.post(options, function(err, response, body) {
+    let ro = request.post(options, function(err, response, body) {
       if (executed) {
         return;
       }
@@ -784,7 +790,10 @@ function* pipeFiles(from, to) {
   yield pipeStreams(fromStream, toStream, true);
 }
 exports.pipeFiles = co.wrap(pipeFiles);
-function checkIpFilter(ipString, opt_hostname) {
+function checkIpFilter(ctx, ipString, opt_hostname) {
+  const tenIpFilterRules = ctx.getCfg('services.CoAuthoring.ipfilter.rules', cfgIpFilterRules);
+  const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
+
   var status = 0;
   var ip4;
   var ip6;
@@ -800,11 +809,17 @@ function checkIpFilter(ipString, opt_hostname) {
       ip6 = ip.toIPv4MappedAddress().toNormalizedString();
     }
   }
-  for (var i = 0; i < g_oIpFilterRules.length; ++i) {
-    var rule = g_oIpFilterRules[i];
+  let ipFilterRules = g_oIpFilterRules.get(ctx.tenant);
+  if (!ipFilterRules) {
+    ipFilterRules = getIpFilterRules(tenIpFilterRules);
+    g_oIpFilterRules.set(ctx.tenant, ipFilterRules);
+  }
+
+  for (var i = 0; i < ipFilterRules.length; ++i) {
+    var rule = ipFilterRules[i];
     if ((opt_hostname && rule.exp.test(opt_hostname)) || (ip4 && rule.exp.test(ip4)) || (ip6 && rule.exp.test(ip6))) {
       if (!rule.allow) {
-        status = cfgIpFilterErrorCode;
+        status = tenIpFilterErrorCode;
       }
       break;
     }
@@ -818,21 +833,25 @@ function* checkHostFilter(ctx, hostname) {
   try {
     hostIp = yield dnsLookup(hostname);
   } catch (e) {
-    status = cfgIpFilterErrorCode;
+    const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
+    status = tenIpFilterErrorCode;
     ctx.logger.error('dnsLookup error: hostname = %s %s', hostname, e.stack);
   }
   if (0 === status) {
-    status = checkIpFilter(hostIp, hostname);
+    status = checkIpFilter(ctx, hostIp, hostname);
   }
   return status;
 }
 exports.checkHostFilter = checkHostFilter;
 function checkClientIp(req, res, next) {
+  let ctx = new operationContext.Context();
+  ctx.initFromRequest(req);
+  const tenIpFilterUseForRequest = ctx.getCfg('services.CoAuthoring.ipfilter.useforrequest', cfgIpFilterUseForRequest);
 	let status = 0;
-	if (cfgIpFilterUseForRequest) {
+	if (tenIpFilterUseForRequest) {
 		const addresses = forwarded(req);
 		const ipString = addresses[addresses.length - 1];
-		status = checkIpFilter(ipString);
+		status = checkIpFilter(ctx, ipString);
 	}
 	if (status > 0) {
 		res.sendStatus(status);
@@ -883,7 +902,9 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
-function fillJwtForRequest(payload, secret, opt_inBody) {
+function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
+  const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
+  const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
   //todo refuse prototypes in payload(they are simple getter/setter).
   //JSON.parse/stringify is more universal but Object.assign is enough for our inputs
   payload = Object.assign(Object.create(null), payload);
@@ -894,7 +915,7 @@ function fillJwtForRequest(payload, secret, opt_inBody) {
     data = {payload: payload};
   }
 
-  let options = {algorithm: cfgTokenOutboxAlgorithm, expiresIn: cfgTokenOutboxExpires};
+  let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
   return jwt.sign(data, secret, options);
 }
 exports.fillJwtForRequest = fillJwtForRequest;
@@ -938,10 +959,12 @@ exports.isLiveViewerSupport = function(licenseInfo){
   return licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0;
 };
 exports.canIncludeOutboxAuthorization = function (ctx, url) {
-  if (cfgTokenEnableRequestOutbox) {
-    if (!outboxUrlExclusionRegex) {
+  const tenTokenEnableRequestOutbox = ctx.getCfg('services.CoAuthoring.token.enable.request.outbox', cfgTokenEnableRequestOutbox);
+  const tenTokenOutboxUrlExclusionRegex = ctx.getCfg('services.CoAuthoring.token.outbox.urlExclusionRegex', cfgTokenOutboxUrlExclusionRegex);
+  if (tenTokenEnableRequestOutbox) {
+    if (!tenTokenOutboxUrlExclusionRegex) {
       return true;
-    } else if (!outboxUrlExclusionRegex.test(url)) {
+    } else if (!new RegExp(escapeStringRegexp(tenTokenOutboxUrlExclusionRegex)).test(url)) {
       return true;
     } else {
       ctx.logger.debug('canIncludeOutboxAuthorization excluded by token.outbox.urlExclusionRegex url=%s', url);
@@ -949,16 +972,20 @@ exports.canIncludeOutboxAuthorization = function (ctx, url) {
   }
   return false;
 };
-exports.encryptPassword = co.wrap(function* (password) {
-  let params = {message: openpgp.message.fromText(password)};
-  Object.assign(params, cfgPasswordEncrypt);
+exports.encryptPassword = co.wrap(function* (ctx, password) {
+  const tenPasswordConfig = ctx.getCfg('openpgpjs.config', cfgPasswordConfig);
+  const tenPasswordEncrypt = ctx.getCfg('openpgpjs.encrypt', cfgPasswordEncrypt);
+  let params = {message: openpgp.message.fromText(password), config: tenPasswordConfig};
+  Object.assign(params, tenPasswordEncrypt);
   const { data: encrypted } = yield openpgp.encrypt(params);
   return encrypted;
 });
-exports.decryptPassword = co.wrap(function* (password) {
+exports.decryptPassword = co.wrap(function* (ctx, password) {
+  const tenPasswordConfig = ctx.getCfg('openpgpjs.config', cfgPasswordConfig);
+  const tenPasswordDecrypt = ctx.getCfg('openpgpjs.decrypt', cfgPasswordDecrypt);
   const message = yield openpgp.message.readArmored(password);
-  let params = {message: message};
-  Object.assign(params, cfgPasswordDecrypt);
+  let params = {message: message, config: tenPasswordConfig};
+  Object.assign(params, tenPasswordDecrypt);
   const { data: decrypted } = yield openpgp.decrypt(params);
   return decrypted;
 });
@@ -1011,8 +1038,9 @@ exports.convertLicenseInfoToServerParams = function(licenseInfo) {
   license.buildNumber = commonDefines.buildNumber;
   return license;
 };
-exports.checkBaseUrl = function(baseUrl) {
-  return cfgStorageExternalHost ? cfgStorageExternalHost : baseUrl;
+exports.checkBaseUrl = function(ctx, baseUrl) {
+  const tenStorageExternalHost = ctx.getCfg('storage.externalHost', cfgStorageExternalHost);
+  return tenStorageExternalHost ? tenStorageExternalHost : baseUrl;
 };
 exports.resolvePath = function(object, path, defaultValue) {
   return path.split('.').reduce((o, p) => o ? o[p] : defaultValue, object);

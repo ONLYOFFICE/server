@@ -67,8 +67,8 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
         if (password) {
           let isCorrectPassword;
           if (encryptedUserPassword) {
-            let decryptedPassword = yield utils.decryptPassword(password);
-            let userPassword = yield utils.decryptPassword(encryptedUserPassword);
+            let decryptedPassword = yield utils.decryptPassword(ctx, password);
+            let userPassword = yield utils.decryptPassword(ctx, encryptedUserPassword);
             isCorrectPassword = decryptedPassword === userPassword;
           }
           if (isCorrectPassword) {
@@ -97,7 +97,7 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
         break;
     }
     var lastOpenDate = row.last_open_date;
-    if (new Date().getTime() - lastOpenDate.getTime() > utils.CONVERTION_TIMEOUT) {
+    if (new Date().getTime() - lastOpenDate.getTime() > utils.getConvertionTimeout(ctx)) {
       status.err = constants.CONVERT_TIMEOUT;
     }
   } else {
@@ -172,7 +172,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
       selectRes = yield taskResult.select(ctx, docId);
       status = yield* getConvertStatus(ctx, cmd.getDocId() ,cmd.getPassword(), selectRes, opt_checkPassword);
       waitTime += CONVERT_ASYNC_DELAY;
-      if (waitTime > utils.CONVERTION_TIMEOUT) {
+      if (waitTime > utils.getConvertionTimeout(ctx)) {
         status.err = constants.CONVERT_TIMEOUT;
       }
     }
@@ -293,7 +293,7 @@ function convertRequest(req, res, isJson) {
           utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
           return;
         }
-        let encryptedPassword = yield utils.encryptPassword(params.password);
+        let encryptedPassword = yield utils.encryptPassword(ctx, params.password);
         cmd.setPassword(encryptedPassword);
       }
       if (authRes.isDecoded) {

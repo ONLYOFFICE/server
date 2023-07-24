@@ -206,7 +206,7 @@ exports.deleteObjects = function(strPaths) {
   }
   return Promise.all(deletePromises);
 };
-exports.getSignedUrl = async function (baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+exports.getSignedUrl = async function (ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
     var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : cfgStorageUrlExpires) || 31536000;
   // Signature version 4 presigned URLs must have an expiration date less than one week in the future
   expires = Math.min(expires, 604800);
