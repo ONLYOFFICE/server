@@ -263,8 +263,8 @@ docsCoServer.install(server, () => {
 		ctx.initFromRequest(req);
 		ctx.initTenantCache()
 			.then(() => {
-				const cfgTenantWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
-				if (cfgTenantWopiEnable) {
+				const tenWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
+				if (tenWopiEnable) {
 					next();
 				} else {
 					res.sendStatus(404);

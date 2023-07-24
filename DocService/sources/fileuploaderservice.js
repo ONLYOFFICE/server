@@ -45,12 +45,10 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 
 var config = require('config');
-var configServer = config.get('services.CoAuthoring.server');
-var configUtils = config.get('services.CoAuthoring.utils');
 
-var cfgImageSize = configServer.get('limits_image_size');
-var cfgTypesUpload = configUtils.get('limits_image_types_upload');
-var cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
+const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
+const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
 const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 
@@ -126,7 +124,10 @@ exports.uploadImageFileOld = function(req, res) {
     var docId = req.params.docid;
     ctx.setDocId(docId);
     ctx.logger.debug('Start uploadImageFileOld');
-    if (cfgTokenEnableBrowser) {
+    const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+
+    if (tenTokenEnableBrowser) {
       var checkJwtRes = yield* checkJwtUpload(ctx, 'uploadImageFileOld', req.query['token']);
       if(!checkJwtRes.err){
         docId = checkJwtRes.docId || docId;
@@ -151,7 +152,7 @@ exports.uploadImageFileOld = function(req, res) {
           part.resume();
         }
         if (part.filename) {
-          if (part.byteCount > cfgImageSize) {
+          if (part.byteCount > tenImageSize) {
             isError = true;
           }
           if (isError) {
@@ -218,8 +219,11 @@ exports.uploadImageFile = function(req, res) {
       ctx.setDocId(docId);
       let encrypted = false;
       ctx.logger.debug('Start uploadImageFile');
+      const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
+      const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
+      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
         if (!checkJwtRes) {
           //todo remove compatibility with previous versions
@@ -238,13 +242,13 @@ exports.uploadImageFile = function(req, res) {
 
       if (200 === httpStatus && docId && req.body && Buffer.isBuffer(req.body)) {
         let buffer = req.body;
-        if (buffer.length <= cfgImageSize) {
+        if (buffer.length <= tenImageSize) {
           var format = formatChecker.getImageFormat(ctx, buffer);
           var formatStr = formatChecker.getStringFromFormat(format);
           if (encrypted && PATTERN_ENCRYPTED === buffer.toString('utf8', 0, PATTERN_ENCRYPTED.length)) {
             formatStr = buffer.toString('utf8', PATTERN_ENCRYPTED.length, buffer.indexOf(';', PATTERN_ENCRYPTED.length));
           }
-          var supportedFormats = cfgTypesUpload || 'jpg';
+          var supportedFormats = tenTypesUpload || 'jpg';
           let formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
           if (formatLimit) {
             //a hash is written at the beginning to avoid errors during parallel upload in co-editing
