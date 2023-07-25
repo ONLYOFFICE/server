@@ -112,8 +112,8 @@ function getRequestFilterAgent(url, options) {
 
 exports.getConvertionTimeout = function(opt_ctx) {
   if (opt_ctx) {
-    const tenVisibilityTimeout = ctx.getCfg('queue.visibilityTimeout', cfgVisibilityTimeout);
-    const tenQueueRetentionPeriod = ctx.getCfg('queue.retentionPeriod', cfgQueueRetentionPeriod);
+    const tenVisibilityTimeout = opt_ctx.getCfg('queue.visibilityTimeout', cfgVisibilityTimeout);
+    const tenQueueRetentionPeriod = opt_ctx.getCfg('queue.retentionPeriod', cfgQueueRetentionPeriod);
     return 1.5 * (tenVisibilityTimeout + tenQueueRetentionPeriod) * 1000;
   } else {
     return 1.5 * (cfgVisibilityTimeout + cfgQueueRetentionPeriod) * 1000;

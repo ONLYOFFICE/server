@@ -150,7 +150,7 @@ describe('Command service', function () {
         if ("storage-fs" === cfgStorageName) {
           urlPattern = 'http://localhost:8000/cache/files/forgotten/--key--/output.docx/output.docx';
         } else {
-          const host = cfgEndpoint.slice(0, "https://".length) + cfgBucketName + "." + cfgEndpoint.slice("https://".length);
+          let host = cfgEndpoint.slice(0, "https://".length) + cfgBucketName + "." + cfgEndpoint.slice("https://".length);
           if (host[host.length - 1] === '/') {
             host = host.slice(0, -1);
           }
