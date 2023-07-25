@@ -177,7 +177,7 @@ function getIsShutdown() {
 
 function getEditorConfig(ctx) {
   let tenEditor = ctx.getCfg('services.CoAuthoring.editor', cfgEditor);
-  tenEditor = config.util.extendDeep({}, tenEditor);
+  tenEditor = JSON.parse(JSON.stringify(tenEditor));
   tenEditor['reconnection']['delay'] = ms(tenEditor['reconnection']['delay']);
   tenEditor['websocketMaxPayloadSize'] = bytes.parse(tenEditor['websocketMaxPayloadSize']);
   tenEditor['maxChangesSize'] = bytes.parse(tenEditor['maxChangesSize']);
@@ -2907,7 +2907,7 @@ exports.install = function(server, callbackFunction) {
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
-      settings: settings,
+      settings: tenEditor,
       openedAt: opt_openedAt
     };
     sendData(ctx, conn, sendObject);//Or 0 if fails
