@@ -40,13 +40,12 @@ if (cluster.isMaster) {
   const fs = require('fs');
   const co = require('co');
   const os = require('os');
-  const configCommon = require('config');
-  const config = configCommon.get('FileConverter.converter');
+  const config = require('config');
   const license = require('./../../Common/sources/license');
 
-  const cfgLicenseFile = configCommon.get('license.license_file');
+  const cfgLicenseFile = config.get('license.license_file');
+  const cfgMaxProcessCount = config.get('FileConverter.converter.maxprocesscount');
 
-  const cfgMaxProcessCount = config.get('maxprocesscount');
   var workersCount = 0;
   const readLicense = function* () {
     const numCPUs = os.cpus().length;

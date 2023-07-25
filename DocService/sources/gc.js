@@ -32,8 +32,7 @@
 
 'use strict';
 
-const configCommon = require('config');
-var config = configCommon.get('services.CoAuthoring');
+const config = require('config');
 var co = require('co');
 var cron = require('cron');
 var ms = require('ms');
@@ -49,11 +48,11 @@ var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var operationContext = require('./../../Common/sources/operationContext');
 var pubsubService = require('./pubsubRabbitMQ');
 
-var cfgExpFilesCron = config.get('expire.filesCron');
-var cfgExpDocumentsCron = config.get('expire.documentsCron');
-var cfgExpFiles = config.get('expire.files');
-var cfgExpFilesRemovedAtOnce = config.get('expire.filesremovedatonce');
-var cfgForceSaveStep = ms(config.get('autoAssembly.step'));
+var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
+var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
+var cfgExpFiles = config.get('services.CoAuthoring.expire.files');
+var cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
+var cfgForceSaveStep = ms(config.get('services.CoAuthoring.autoAssembly.step'));
 
 function getCronStep(cronTime){
   let cronJob = new cron.CronJob(cronTime, function(){});

@@ -32,9 +32,8 @@
 
 'use strict';
 
-const configCommon = require('config');
-const config = configCommon.get('services.CoAuthoring');
-//process.env.NODE_ENV = config.get('server.mode');
+const config = require('config');
+//process.env.NODE_ENV = config.get('services.CoAuthoring.server.mode');
 const logger = require('./../../Common/sources/logger');
 const co = require('co');
 const license = require('./../../Common/sources/license');
@@ -58,15 +57,15 @@ const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
-const configStorage = configCommon.get('storage');
+const configStorage = config.get('storage');
 
-const cfgWopiEnable = configCommon.get('wopi.enable');
-const cfgHtmlTemplate = configCommon.get('wopi.htmlTemplate');
-const cfgTokenEnableBrowser = configCommon.get('services.CoAuthoring.token.enable.browser');
-const cfgTokenEnableRequestInbox = configCommon.get('services.CoAuthoring.token.enable.request.inbox');
-const cfgTokenEnableRequestOutbox = configCommon.get('services.CoAuthoring.token.enable.request.outbox');
-const cfgLicenseFile = configCommon.get('license.license_file');
-const cfgDownloadMaxBytes = configCommon.get('FileConverter.converter.maxDownloadBytes');
+const cfgWopiEnable = config.get('wopi.enable');
+const cfgHtmlTemplate = config.get('wopi.htmlTemplate');
+const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
+const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
+const cfgLicenseFile = config.get('license.license_file');
+const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 
 const app = express();
 app.disable('x-powered-by');
@@ -113,8 +112,8 @@ updateLicense();
 fs.watchFile(cfgLicenseFile, updateLicense);
 setInterval(updateLicense, 86400000);
 
-if (config.has('server.static_content')) {
-	const staticContent = config.get('server.static_content');
+if (config.has('services.CoAuthoring.server.static_content')) {
+	const staticContent = config.get('services.CoAuthoring.server.static_content');
 	for (let i in staticContent) {
 		if (staticContent.hasOwnProperty(i)) {
 			app.use(i, express.static(staticContent[i]['path'], staticContent[i]['options']));
@@ -152,7 +151,7 @@ if (configStorage.has('fs.folderPath')) {
 }
 
 try {
-	fs.watch(config.get('plugins.path'), updatePlugins);
+	fs.watch(config.get('services.CoAuthoring.plugins.path'), updatePlugins);
 } catch (e) {
 	operationContext.global.logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability');
 }
@@ -163,8 +162,8 @@ try {
 docsCoServer.install(server, () => {
 	operationContext.global.logger.info('Start callbackFunction');
 
-	server.listen(config.get('server.port'), () => {
-		operationContext.global.logger.warn("Express server listening on port %d in %s mode. Version: %s. Build: %s", config.get('server.port'), app.settings.env, commonDefines.buildVersion, commonDefines.buildNumber);
+	server.listen(config.get('services.CoAuthoring.server.port'), () => {
+		operationContext.global.logger.warn("Express server listening on port %d in %s mode. Version: %s. Build: %s", config.get('services.CoAuthoring.server.port'), app.settings.env, commonDefines.buildVersion, commonDefines.buildNumber);
 	});
 
 	app.get('/index.html', (req, res) => {
@@ -193,7 +192,7 @@ docsCoServer.install(server, () => {
 		});
 	});
 	const rawFileParser = bodyParser.raw(
-		{inflate: true, limit: config.get('server.limits_tempfile_upload'), type: function() {return true;}});
+		{inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function() {return true;}});
 	const urleEcodedParser = bodyParser.urlencoded({ extended: false });
 	let forms = multer();
 
@@ -303,15 +302,15 @@ docsCoServer.install(server, () => {
 			return;
 		}
 
-		if (!config.has('server.static_content') || !config.has('plugins.uri')) {
+		if (!config.has('services.CoAuthoring.server.static_content') || !config.has('services.CoAuthoring.plugins.uri')) {
 			res.sendStatus(404);
 			return;
 		}
 
-		let staticContent = config.get('server.static_content');
-		let pluginsUri = config.get('plugins.uri');
+		let staticContent = config.get('services.CoAuthoring.server.static_content');
+		let pluginsUri = config.get('services.CoAuthoring.plugins.uri');
 		let pluginsPath = undefined;
-		let pluginsAutostart = config.get('plugins.autostart');
+		let pluginsAutostart = config.get('services.CoAuthoring.plugins.autostart');
 
 		if (staticContent[pluginsUri]) {
 			pluginsPath = staticContent[pluginsUri].path;
@@ -348,11 +347,11 @@ docsCoServer.install(server, () => {
 				ctx.initFromRequest(req);
 				yield ctx.initTenantCache();
 				ctx.logger.info('themes.json start');
-				if (!config.has('server.static_content') || !config.has('themes.uri')) {
+				if (!config.has('services.CoAuthoring.server.static_content') || !config.has('services.CoAuthoring.themes.uri')) {
 					return;
 				}
-				let staticContent = config.get('server.static_content');
-				let themesUri = config.get('themes.uri');
+				let staticContent = config.get('services.CoAuthoring.server.static_content');
+				let themesUri = config.get('services.CoAuthoring.themes.uri');
 				let themesList = [];
 
 				for (let i in staticContent) {
