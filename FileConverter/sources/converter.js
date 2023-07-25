@@ -108,14 +108,12 @@ function TaskQueueDataConvert(ctx, task) {
   this.embeddedFonts = cmd.embeddedfonts;
   this.fromChanges = task.getFromChanges();
   //todo
-  //todo
   const tenFontDir = ctx.getCfg('FileConverter.converter.fontDir', cfgFontDir);
   if (tenFontDir) {
     this.fontDir = path.resolve(tenFontDir);
   } else {
     this.fontDir = null;
   }
-  //todo
   const tenPresentationThemesDir = ctx.getCfg('FileConverter.converter.presentationThemesDir', cfgPresentationThemesDir);
   this.themeDir = path.resolve(tenPresentationThemesDir);
   this.mailMergeSend = cmd.mailmergesend;
@@ -218,7 +216,6 @@ TaskQueueDataConvert.prototype = {
     return xml;
   },
   serializeLimit: function(ctx) {
-    //todo ctx.getCfg('FileConverter.converter.inputLimits');
     if (!inputLimitsXmlCache) {
       var xml = '<m_oInputLimits>';
       const tenInputLimits = ctx.getCfg('FileConverter.converter.inputLimits', cfgInputLimits);
@@ -272,7 +269,7 @@ function getTempDir() {
   var now = new Date();
   var newTemp;
   while (!newTemp || fs.existsSync(newTemp)) {
-    var newName = [TEMP_PREFIX, now.getYear(), now.getMonth(), now.getDate(),
+    var newName = [TEMP_PREFIX, now.getFullYear(), now.getMonth(), now.getDate(),
       '-', (Math.random() * 0x100000000 + 1).toString(36)
     ].join('');
     newTemp = path.join(tempDir, newName);
@@ -896,8 +893,8 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
 
 function* ExecuteTask(ctx, task) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
-  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenFiles', cfgForgottenFiles);
-  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenFilesName', cfgForgottenFilesName);
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
   const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
   var startDate = null;
   var curDate = null;

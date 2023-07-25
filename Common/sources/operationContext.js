@@ -95,7 +95,13 @@ Context.prototype.setUserId = function(userId) {
   this.userId = userId;
   this.logger.addContext('USERID', userId);
 };
-
+Context.prototype.toJSON = function() {
+  return {
+    tenant: this.tenant,
+    docId: this.docId,
+    userId: this.userId
+  }
+};
 Context.prototype.getCfg = function(property, defaultValue) {
   if (this.config){
     return getImpl(this.config, property) ?? defaultValue;

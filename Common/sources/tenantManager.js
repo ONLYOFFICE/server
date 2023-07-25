@@ -125,7 +125,7 @@ function getTenantSecret(ctx, type) {
       return utils.getSecretByElem(cfgTenant);
     }
     let res = undefined;
-    //read license file
+    //read secret file
     if (isMultitenantMode(ctx)) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
