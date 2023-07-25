@@ -81,19 +81,15 @@ const crypto = require('crypto');
 const pathModule = require('path');
 const co = require('co');
 const jwt = require('jsonwebtoken');
-const jwa = require('jwa');
 const ms = require('ms');
 const deepEqual  = require('deep-equal');
 const bytes = require('bytes');
 const storage = require('./../../Common/sources/storage-base');
-const logger = require('./../../Common/sources/logger');
 const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const statsDClient = require('./../../Common/sources/statsdclient');
-const license = require('./../../Common/sources/license');
-const configCommon = require('config');
-const config = configCommon.get('services.CoAuthoring');
+const config = require('config');
 const sqlBase = require('./baseConnector');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
@@ -106,53 +102,49 @@ const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 
-const editorDataStorage = require('./' + configCommon.get('services.CoAuthoring.server.editorDataStorage'));
-let cfgEditor = JSON.parse(JSON.stringify(config.get('editor')));
-cfgEditor['reconnection']['delay'] = ms(cfgEditor['reconnection']['delay']);
-cfgEditor['websocketMaxPayloadSize'] = bytes.parse(cfgEditor['websocketMaxPayloadSize']);
-cfgEditor['maxChangesSize'] = bytes.parse(cfgEditor['maxChangesSize']);
-//websocket payload size is limited by https://github.com/faye/faye-websocket-node#initialization-options (64 MiB)
-//xhr payload size is limited by nginx param client_max_body_size (current 100MB)
-//"1.5MB" is choosen to avoid disconnect(after 25s) while downloading/uploading oversized changes with 0.5Mbps connection
-const cfgWebsocketMaxPayloadSize = cfgEditor['websocketMaxPayloadSize'];
-const cfgCallbackRequestTimeout = config.get('server.callbackRequestTimeout');
+const editorDataStorage = require('./' + config.get('services.CoAuthoring.server.editorDataStorage'));
+
+const cfgEditSingleton =  config.get('services.CoAuthoring.server.edit_singleton');
+const cfgEditor =  config.get('services.CoAuthoring.editor');
+const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 //The waiting time to document assembly when all out(not 0 in case of F5 in the browser)
-const cfgAscSaveTimeOutDelay = config.get('server.savetimeoutdelay');
+const cfgAscSaveTimeOutDelay = config.get('services.CoAuthoring.server.savetimeoutdelay');
 
-const cfgPubSubMaxChanges = config.get('pubsub.maxChanges');
+const cfgPubSubMaxChanges = config.get('services.CoAuthoring.pubsub.maxChanges');
 
-const cfgExpSaveLock = config.get('expire.saveLock');
-const cfgExpLockDoc = config.get('expire.lockDoc');
-const cfgExpDocumentsCron = config.get('expire.documentsCron');
-const cfgExpSessionIdle = ms(config.get('expire.sessionidle'));
-const cfgExpSessionAbsolute = ms(config.get('expire.sessionabsolute'));
-const cfgExpSessionCloseCommand = ms(config.get('expire.sessionclosecommand'));
-const cfgExpUpdateVersionStatus = ms(config.get('expire.updateVersionStatus'));
-const cfgTokenEnableBrowser = config.get('token.enable.browser');
-const cfgTokenEnableRequestInbox = config.get('token.enable.request.inbox');
-const cfgTokenSessionAlgorithm = config.get('token.session.algorithm');
-const cfgTokenSessionExpires = ms(config.get('token.session.expires'));
-const cfgTokenInboxHeader = config.get('token.inbox.header');
-const cfgTokenInboxPrefix = config.get('token.inbox.prefix');
-const cfgTokenVerifyOptions = config.get('token.verifyOptions');
-const cfgForceSaveEnable = config.get('autoAssembly.enable');
-const cfgForceSaveInterval = ms(config.get('autoAssembly.interval'));
-const cfgForceSaveStep = ms(config.get('autoAssembly.step'));
-const cfgQueueRetentionPeriod = configCommon.get('queue.retentionPeriod');
-const cfgForgottenFiles = config.get('server.forgottenfiles');
-const cfgForgottenFilesName = config.get('server.forgottenfilesname');
-const cfgMaxRequestChanges = config.get('server.maxRequestChanges');
-const cfgWarningLimitPercents = configCommon.get('license.warning_limit_percents') / 100;
-const cfgErrorFiles = configCommon.get('FileConverter.converter.errorfiles');
-const cfgOpenProtectedFile = config.get('server.openProtectedFile');
-const cfgIsAnonymousSupport = config.get('server.isAnonymousSupport');
-const cfgRefreshLockInterval = ms(configCommon.get('wopi.refreshLockInterval'));
-const cfgTokenRequiredParams = config.get('server.tokenRequiredParams');
-const cfgSocketIoConnection = configCommon.get('services.CoAuthoring.socketio.connection');
-const cfgTableResult = configCommon.get('services.CoAuthoring.sql.tableResult');
-const cfgImageSize = config.get('server.limits_image_size');
-const cfgTypesUpload = config.get('utils.limits_image_types_upload');
-const cfgTenantsAggregationTenant = configCommon.get('tenants.aggregationTenant');
+const cfgExpSaveLock = config.get('services.CoAuthoring.expire.saveLock');
+const cfgExpLockDoc = config.get('services.CoAuthoring.expire.lockDoc');
+const cfgExpSessionIdle = config.get('services.CoAuthoring.expire.sessionidle');
+const cfgExpSessionAbsolute = config.get('services.CoAuthoring.expire.sessionabsolute');
+const cfgExpSessionCloseCommand = config.get('services.CoAuthoring.expire.sessionclosecommand');
+const cfgExpUpdateVersionStatus = config.get('services.CoAuthoring.expire.updateVersionStatus');
+const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
+const cfgTokenSessionAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
+const cfgTokenSessionExpires = config.get('services.CoAuthoring.token.session.expires');
+const cfgTokenInboxHeader = config.get('services.CoAuthoring.token.inbox.header');
+const cfgTokenInboxPrefix = config.get('services.CoAuthoring.token.inbox.prefix');
+const cfgTokenVerifyOptions = config.get('services.CoAuthoring.token.verifyOptions');
+const cfgForceSaveEnable = config.get('services.CoAuthoring.autoAssembly.enable');
+const cfgForceSaveInterval = config.get('services.CoAuthoring.autoAssembly.interval');
+const cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
+const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
+const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
+const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
+const cfgWarningLimitPercents = config.get('license.warning_limit_percents');
+const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
+const cfgOpenProtectedFile = config.get('services.CoAuthoring.server.openProtectedFile');
+const cfgIsAnonymousSupport = config.get('services.CoAuthoring.server.isAnonymousSupport');
+const cfgTokenRequiredParams = config.get('services.CoAuthoring.server.tokenRequiredParams');
+const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
+const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
+
+//todo tenant
+const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
+const cfgRefreshLockInterval = ms(config.get('wopi.refreshLockInterval'));
+const cfgSocketIoConnection = config.get('services.CoAuthoring.socketio.connection');
+const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
+const cfgTenantsAggregationTenant = config.get('tenants.aggregationTenant');
 
 const EditorTypes = {
   document : 0,
@@ -172,8 +164,6 @@ let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
 const MIN_SAVE_EXPIRATION = 60000;
-const FORCE_SAVE_EXPIRATION = Math.min(Math.max(cfgForceSaveInterval, MIN_SAVE_EXPIRATION),
-                                       cfgQueueRetentionPeriod * 1000);
 const HEALTH_CHECK_KEY_MAX = 10000;
 const SHARD_ID = crypto.randomBytes(16).toString('base64');//16 as guid
 
@@ -183,6 +173,21 @@ const PRECISION = [{name: 'hour', val: ms('1h')}, {name: 'day', val: ms('1d')}, 
 
 function getIsShutdown() {
   return shutdownFlag;
+}
+
+function getEditorConfig(ctx) {
+  let tenEditor = ctx.getCfg('services.CoAuthoring.editor', cfgEditor);
+  tenEditor = config.util.extendDeep({}, tenEditor);
+  tenEditor['reconnection']['delay'] = ms(tenEditor['reconnection']['delay']);
+  tenEditor['websocketMaxPayloadSize'] = bytes.parse(tenEditor['websocketMaxPayloadSize']);
+  tenEditor['maxChangesSize'] = bytes.parse(tenEditor['maxChangesSize']);
+  return tenEditor;
+}
+function getForceSaveExpiration(ctx) {
+  const tenForceSaveInterval = ms(ctx.getCfg('services.CoAuthoring.autoAssembly.interval', cfgForceSaveInterval));
+  const tenQueueRetentionPeriod = ctx.getCfg('queue.retentionPeriod', cfgQueueRetentionPeriod);
+
+  return Math.min(Math.max(tenForceSaveInterval, MIN_SAVE_EXPIRATION), tenQueueRetentionPeriod * 1000);
 }
 
 function DocumentChanges(docId) {
@@ -268,7 +273,7 @@ function CRecalcIndexElement(recalcType, position, bIsSaveIndex) {
   }
 
   this._recalcType = recalcType; // Type of changes (removal or addition)
-  this_position = position; // The position where the changes happened
+  this._position = position; // The position where the changes happened
   this._count = 1; // We consider all changes as the simplest
   this.m_bIsSaveIndex = !!bIsSaveIndex; // These are indexes from other users' changes (that we haven't applied yet)
 
@@ -494,6 +499,9 @@ function needSendChanges (conn){
 }
 function fillJwtByConnection(ctx, conn) {
   return co(function*() {
+    const tenTokenSessionAlgorithm = ctx.getCfg('services.CoAuthoring.token.session.algorithm', cfgTokenSessionAlgorithm);
+    const tenTokenSessionExpires = ms(ctx.getCfg('services.CoAuthoring.token.session.expires', cfgTokenSessionExpires));
+
     var payload = {document: {}, editorConfig: {user: {}}};
     var doc = payload.document;
     doc.key = conn.docId;
@@ -519,7 +527,7 @@ function fillJwtByConnection(ctx, conn) {
     // edit.ds_sessionId = conn.sessionId;
     edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
 
-    return yield signToken(ctx, payload, cfgTokenSessionAlgorithm, cfgTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
+    return yield signToken(ctx, payload, tenTokenSessionAlgorithm, tenTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
   });
 }
 
@@ -572,9 +580,10 @@ function sendReleaseLock(ctx, conn, userLocks) {
 }
 function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
   return co(function*() {
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     if (isEnterCorrectPassword) {
       conn.isEnterCorrectPassword = true;
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let sessionToken = yield fillJwtByConnection(ctx, conn);
         sendDataRefreshToken(ctx, conn, sessionToken);
       }
@@ -704,6 +713,8 @@ function* getOriginalParticipantsId(ctx, docId) {
 }
 
 function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
+  const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+
   ctx.logger.debug('postData request: url = %s;data = %j', uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(ctx, uri)) {
@@ -717,7 +728,7 @@ function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLe
     }
     dataObject.setToken(bodyToken);
   }
-  let postRes = yield utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, cfgCallbackRequestTimeout, auth);
+  let postRes = yield utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth);
   ctx.logger.debug('postData response: data = %s', postRes.body);
   return postRes.body;
 }
@@ -915,7 +926,7 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
     let expiration;
     if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
       priority = constants.QUEUE_PRIORITY_VERY_LOW;
-      expiration = FORCE_SAVE_EXPIRATION;
+      expiration = getForceSaveExpiration(ctx);
     } else {
       priority = constants.QUEUE_PRIORITY_LOW;
     }
@@ -936,20 +947,24 @@ function getExternalChangeInfo(user, date) {
   return {user_id: user.id, user_id_original: user.idOriginal, user_name: user.username, change_date: date};
 }
 let resetForceSaveAfterChanges = co.wrap(function*(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
+  const tenForceSaveEnable = ctx.getCfg('services.CoAuthoring.autoAssembly.enable', cfgForceSaveEnable);
+  const tenForceSaveInterval = ms(ctx.getCfg('services.CoAuthoring.autoAssembly.interval', cfgForceSaveInterval));
   //last save
   if (newChangesLastTime) {
     yield editorData.setForceSave(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo, null);
-    if (cfgForceSaveEnable) {
-      let expireAt = newChangesLastTime + cfgForceSaveInterval;
+    if (tenForceSaveEnable) {
+      let expireAt = newChangesLastTime + tenForceSaveInterval;
       yield editorData.addForceSaveTimerNX(ctx, docId, expireAt);
     }
   }
 });
 let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
+  const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+
   let docId = data.docId;
   let token = data.token;
   let forceSaveRes;
-  if (cfgTokenEnableBrowser) {
+  if (tenTokenEnableBrowser) {
     docId = null;
     let checkJwtRes = yield checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
@@ -1025,7 +1040,7 @@ function handleDeadLetter(data, ack) {
           //check that there are no new changes
           if (actualForceSave && forceSave.getTime() === actualForceSave.time && forceSave.getIndex() === actualForceSave.index) {
             //requeue task
-            yield* addTask(task, constants.QUEUE_PRIORITY_VERY_LOW, undefined, FORCE_SAVE_EXPIRATION);
+            yield* addTask(task, constants.QUEUE_PRIORITY_VERY_LOW, undefined, getForceSaveExpiration(ctx));
             isRequeued = true;
           }
         } else if (!forceSave && task.getFromChanges()) {
@@ -1237,6 +1252,8 @@ let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   }
 });
 function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
   yield editorData.cleanDocumentOnExit(ctx, docId);
   //remove changes
@@ -1244,7 +1261,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
     yield taskResult.restoreInitialPassword(ctx, docId);
     sqlBase.deleteChanges(ctx, docId, null);
     //delete forgotten after successful send on callbackUrl
-    yield storage.deletePath(ctx, docId, cfgForgottenFiles);
+    yield storage.deletePath(ctx, docId, tenForgottenFiles);
   }
   yield unlockWopiDoc(ctx, docId, opt_userIndex);
 }
@@ -1259,6 +1276,8 @@ function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, op
 
 function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay) {
   return co(function*(){
+    const tenAscSaveTimeOutDelay = ctx.getCfg('services.CoAuthoring.server.savetimeoutdelay', cfgAscSaveTimeOutDelay);
+
     var updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = docId;
@@ -1269,7 +1288,7 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
     var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
     if (updateIfRes.affectedRows > 0) {
       if(!opt_noDelay){
-        yield utils.sleep(cfgAscSaveTimeOutDelay);
+        yield utils.sleep(tenAscSaveTimeOutDelay);
       }
       while (true) {
         if (!sqlBase.isLockCriticalSection(docId)) {
@@ -1288,13 +1307,15 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
 
 function checkJwt(ctx, token, type) {
   return co(function*() {
+    const tenTokenVerifyOptions = ctx.getCfg('services.CoAuthoring.token.verifyOptions', cfgTokenVerifyOptions);
+
     var res = {decoded: null, description: null, code: null, token: token};
     let secret = yield tenantManager.getTenantSecret(ctx, type);
     if (undefined == secret) {
       ctx.logger.warn('empty secret: token = %s', token);
     }
     try {
-      res.decoded = jwt.verify(token, secret, cfgTokenVerifyOptions);
+      res.decoded = jwt.verify(token, secret, tenTokenVerifyOptions);
       ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
     } catch (err) {
       ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
@@ -1311,8 +1332,11 @@ function checkJwt(ctx, token, type) {
 }
 function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
   return co(function*() {
-    let header = opt_header || cfgTokenInboxHeader;
-    let prefix = opt_prefix || cfgTokenInboxPrefix;
+    const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
+    const tenTokenInboxPrefix = ctx.getCfg('services.CoAuthoring.token.inbox.prefix', cfgTokenInboxPrefix);
+
+    let header = opt_header || tenTokenInboxHeader;
+    let prefix = opt_prefix || tenTokenInboxPrefix;
     let secretType = opt_secretType || commonDefines.c_oAscSecretType.Inbox;
     let authorization = req.get(header);
     if (authorization && authorization.startsWith(prefix)) {
@@ -1324,13 +1348,16 @@ function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
 }
 function getRequestParams(ctx, req, opt_isNotInBody) {
   return co(function*(){
+    const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
+    const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
+
     let res = {code: constants.NO_ERROR, isDecoded: false, params: undefined};
     if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
       res.params = JSON.parse(req.body.toString('utf8'));
     } else {
       res.params = req.query;
     }
-    if (cfgTokenEnableRequestInbox) {
+    if (tenTokenEnableRequestInbox) {
       res.code = constants.VKEY;
       let checkJwtRes;
       if (res.params.token) {
@@ -1342,7 +1369,7 @@ function getRequestParams(ctx, req, opt_isNotInBody) {
         if (checkJwtRes.decoded) {
           res.code = constants.NO_ERROR;
           res.isDecoded = true;
-          if (cfgTokenRequiredParams) {
+          if (tenTokenRequiredParams) {
             res.params = {};
           }
           Object.assign(res.params, checkJwtRes.decoded);
@@ -1455,8 +1482,10 @@ exports.install = function(server, callbackFunction) {
         ctx.initFromConnection(socket);
         yield ctx.initTenantCache();
         ctx.logger.info('io.use start');
+        const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+
         let handshake = socket.handshake;
-        if (cfgTokenEnableBrowser) {
+        if (tenTokenEnableBrowser) {
           let secretType = !!(handshake?.auth?.session) ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
           let token = handshake?.auth?.session || handshake?.auth?.token;
           checkJwtRes = yield checkJwt(ctx, token, secretType);
@@ -1498,6 +1527,8 @@ exports.install = function(server, callbackFunction) {
       try {
         ctx.initFromConnection(conn);
         yield ctx.initTenantCache();
+        const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
+
         var startDate = null;
         if(clientStatsD) {
           startDate = new Date();
@@ -1579,9 +1610,9 @@ exports.install = function(server, callbackFunction) {
             if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
               ctx.logger[level]("clientLog: %s", data.msg);
             }
-            if ("error" === level && cfgErrorFiles && docId) {
+            if ("error" === level && tenErrorFiles && docId) {
               let destDir = 'browser/' + docId;
-              yield storage.copyPath(ctx, docId, destDir, undefined, cfgErrorFiles);
+              yield storage.copyPath(ctx, docId, destDir, undefined, tenErrorFiles);
               yield* saveErrorChanges(ctx, docId, destDir);
             }
             break;
@@ -1647,6 +1678,9 @@ exports.install = function(server, callbackFunction) {
    * @param reason - the reason of the disconnection (either client or server-side)
    */
   function* closeDocument(ctx, conn, reason) {
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+    const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+
     var userLocks, reconnected = false, bHasEditors, bHasChanges;
     var docId = conn.docId;
     if (null == docId) {
@@ -1680,7 +1714,7 @@ exports.install = function(server, callbackFunction) {
         tmpUser.view = true;
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
-        if (cfgTokenEnableBrowser) {
+        if (tenTokenEnableBrowser) {
           let sessionToken = yield fillJwtByConnection(ctx, conn);
           sendDataRefreshToken(ctx, conn, sessionToken);
         }
@@ -1742,7 +1776,7 @@ exports.install = function(server, callbackFunction) {
           if (!needSaveChanges) {
             //start save changes if forgotten file exists.
             //more effective to send file without sfc, but this method is simpler by code
-            let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
+            let forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
             needSaveChanges = forgotten.length > 0;
             ctx.logger.debug('closeDocument hasForgotten %s', needSaveChanges);
           }
@@ -1762,10 +1796,12 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* versionHistory(ctx, conn, cmd) {
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+
     var docIdOld = conn.docId;
     var docIdNew = cmd.getDocId();
     //check jwt
-    if (cfgTokenEnableBrowser) {
+    if (tenTokenEnableBrowser) {
       var checkJwtRes = yield checkJwt(ctx, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
       if (checkJwtRes.decoded) {
         fillVersionHistoryFromJwt(checkJwtRes.decoded, cmd);
@@ -1787,7 +1823,7 @@ exports.install = function(server, callbackFunction) {
       //apply new
       conn.docId = docIdNew;
       yield addPresence(ctx, conn, true);
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let sessionToken = yield fillJwtByConnection(ctx, conn);
         sendDataRefreshToken(ctx, conn, sessionToken);
       }
@@ -1893,6 +1929,7 @@ exports.install = function(server, callbackFunction) {
 	}
 
   function* setLockDocumentTimer(ctx, docId, userId) {
+    const tenExpLockDoc = ctx.getCfg('services.CoAuthoring.expire.lockDoc', cfgExpLockDoc);
     let timerId = setTimeout(function() {
       return co(function*() {
         try {
@@ -1905,7 +1942,7 @@ exports.install = function(server, callbackFunction) {
           ctx.logger.error("lockDocumentsTimerId error: %s", e.stack);
         }
       });
-    }, 1000 * cfgExpLockDoc);
+    }, 1000 * tenExpLockDoc);
     lockDocumentsTimerId[docId] = {timerId: timerId, userId: userId};
     ctx.logger.debug("lockDocumentsTimerId set");
   }
@@ -1932,6 +1969,8 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code) {
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+
     conn.isCloseCoAuthoring = true;
     conn.sessionId = sessionId;//restore old
     //Kill previous connections
@@ -1943,7 +1982,7 @@ exports.install = function(server, callbackFunction) {
       // We put it in an array, because we need to send data to open/save the document
       connections.push(conn);
       yield addPresence(ctx, conn, true);
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let sessionToken = yield fillJwtByConnection(ctx, conn);
         sendDataRefreshToken(ctx, conn, sessionToken);
       }
@@ -2321,6 +2360,11 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* auth(ctx, conn, data) {
+    const tenExpUpdateVersionStatus = ms(ctx.getCfg('services.CoAuthoring.expire.updateVersionStatus', cfgExpUpdateVersionStatus));
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+    const tenIsAnonymousSupport = ctx.getCfg('services.CoAuthoring.server.isAnonymousSupport', cfgIsAnonymousSupport);
+    const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
+
     //TODO: Do authorization etc. check md5 or query db
     ctx.logger.debug('auth time: %d', data.time);
     if (data.token && data.user) {
@@ -2328,7 +2372,7 @@ exports.install = function(server, callbackFunction) {
       let licenseInfo = yield tenantManager.getTenantLicense(ctx);
       let isDecoded = false;
       //check jwt
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let secretType = !!data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
         const checkJwtRes = yield checkJwt(ctx, data.jwtSession || data.jwtOpen, secretType);
         if (checkJwtRes.decoded) {
@@ -2346,7 +2390,7 @@ exports.install = function(server, callbackFunction) {
             let validationErr = validateAuthToken(data, decoded);
             if (!validationErr) {
               fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
-            } else if (cfgTokenRequiredParams) {
+            } else if (tenTokenRequiredParams) {
               ctx.logger.error("auth missing required parameter %s (since 7.1 version)", validationErr);
               sendDataDisconnectReason(ctx, conn, constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
               conn.disconnect(true);
@@ -2473,8 +2517,8 @@ exports.install = function(server, callbackFunction) {
           licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, isLiveViewer, logPrefixServer);
         }
         conn.licenseType = licenseType;
-        if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!cfgIsAnonymousSupport && data.IsAnonymousUser)) {
-          if (!cfgIsAnonymousSupport && data.IsAnonymousUser) {
+        if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!tenIsAnonymousSupport && data.IsAnonymousUser)) {
+          if (!tenIsAnonymousSupport && data.IsAnonymousUser) {
             //do not modify the licenseType because this information is already sent in _checkLicense
             ctx.logger.error('auth: access to editor or live viewer is denied for anonymous users');
           }
@@ -2545,7 +2589,7 @@ exports.install = function(server, callbackFunction) {
           // Everything is fine, the status does not need to be updated
         } else if (commonDefines.FileStatus.SaveVersion === status ||
           (!bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
-          Date.now() - result[0]['status_info'] * 60000 > cfgExpUpdateVersionStatus)) {
+          Date.now() - result[0]['status_info'] * 60000 > tenExpUpdateVersionStatus)) {
           let newStatus = commonDefines.FileStatus.Ok;
           if (commonDefines.FileStatus.UpdateVersion === status) {
             ctx.logger.warn("UpdateVersion expired");
@@ -2634,6 +2678,9 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* endAuth(ctx, conn, bIsRestore, documentCallback, opt_openedAt) {
+    const tenExpLockDoc = ctx.getCfg('services.CoAuthoring.expire.lockDoc', cfgExpLockDoc);
+    const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+
     let res = true;
     const docId = conn.docId;
     const tmpUser = conn.user;
@@ -2667,7 +2714,7 @@ exports.install = function(server, callbackFunction) {
       let callback = yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
       if (!callback && !bIsRestore) {
         //check forgotten file
-        let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
+        let forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
         hasForgotten = forgotten.length > 0;
         ctx.logger.debug('endAuth hasForgotten %s', hasForgotten);
       }
@@ -2681,7 +2728,7 @@ exports.install = function(server, callbackFunction) {
     let waitAuthUserId;
     if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
       // lock a document
-      const lockRes = yield editorData.lockAuth(ctx, docId, firstParticipantNoView.id, 2 * cfgExpLockDoc);
+      const lockRes = yield editorData.lockAuth(ctx, docId, firstParticipantNoView.id, 2 * tenExpLockDoc);
       if (constants.CONN_CLOSED === conn.conn.readyState) {
         //closing could happen during async action
         return false;
@@ -2726,15 +2773,19 @@ exports.install = function(server, callbackFunction) {
   }
 
   function* saveErrorChanges(ctx, docId, destDir) {
+    const tenEditor = getEditorConfig(ctx);
+    const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
+    const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
+
     let index = 0;
     let indexChunk = 1;
     let changes;
     let changesPrefix = destDir + '/' + constants.CHANGES_NAME + '/' + constants.CHANGES_NAME + '.json.';
     do {
-      changes = yield sqlBase.getChangesPromise(ctx, docId, index, index + cfgMaxRequestChanges);
+      changes = yield sqlBase.getChangesPromise(ctx, docId, index, index + tenMaxRequestChanges);
       if (changes.length > 0) {
         let buffer;
-        if (cfgEditor['binaryChanges']) {
+        if (tenEditor['binaryChanges']) {
           let buffers = changes.map(elem => elem.change_data);
           buffers.unshift(Buffer.from(utils.getChangesFileHeader(), 'utf-8'))
           buffer = Buffer.concat(buffers);
@@ -2748,20 +2799,25 @@ exports.install = function(server, callbackFunction) {
           changesJSON += ']\r\n';
           buffer = Buffer.from(changesJSON, 'utf8');
         }
-        yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, cfgErrorFiles);
+        yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, tenErrorFiles);
       }
-      index += cfgMaxRequestChanges;
-    } while (changes && cfgMaxRequestChanges === changes.length);
+      index += tenMaxRequestChanges;
+    } while (changes && tenMaxRequestChanges === changes.length);
   }
 
   function sendAuthChangesByChunks(ctx, changes, connections) {
     return co(function* () {
+      //websocket payload size is limited by https://github.com/faye/faye-websocket-node#initialization-options (64 MiB)
+      //xhr payload size is limited by nginx param client_max_body_size (current 100MB)
+      //"1.5MB" is choosen to avoid disconnect(after 25s) while downloading/uploading oversized changes with 0.5Mbps connection
+      const tenEditor = getEditorConfig(ctx);
+
       let startIndex = 0;
       let endIndex = 0;
       while (endIndex < changes.length) {
         startIndex = endIndex;
         let curBytes = 0;
-        for (; endIndex < changes.length && curBytes < cfgWebsocketMaxPayloadSize; ++endIndex) {
+        for (; endIndex < changes.length && curBytes < tenEditor['websocketMaxPayloadSize']; ++endIndex) {
           curBytes += JSON.stringify(changes[endIndex]).length + 24;//24 - for JSON overhead
         }
         //todo simplify 'authChanges' format to reduce message size and JSON overhead
@@ -2795,19 +2851,25 @@ exports.install = function(server, callbackFunction) {
     });
   }
   function* sendAuthChanges(ctx, docId, connections) {
+    const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
+
     let index = 0;
     let changes;
     do {
-      let objChangesDocument = yield getDocumentChanges(ctx, docId, index, index + cfgMaxRequestChanges);
+      let objChangesDocument = yield getDocumentChanges(ctx, docId, index, index + tenMaxRequestChanges);
       changes = objChangesDocument.arrChanges;
       yield sendAuthChangesByChunks(ctx, changes, connections);
       connections = connections.filter((conn) => {
         return constants.CONN_CLOSED !== conn.readyState;
       });
-      index += cfgMaxRequestChanges;
-    } while (connections.length > 0 && changes && cfgMaxRequestChanges === changes.length);
+      index += tenMaxRequestChanges;
+    } while (connections.length > 0 && changes && tenMaxRequestChanges === changes.length);
   }
   function* sendAuthInfo(ctx, conn, bIsRestore, participantsMap, opt_hasForgotten, opt_openedAt) {
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+    const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
+    const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
+
     const docId = conn.docId;
     let docLock;
     if(EditorTypes.document == conn.editorType){
@@ -2824,12 +2886,12 @@ exports.install = function(server, callbackFunction) {
     let allMessages = yield editorData.getMessages(ctx, docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
     let sessionToken;
-    if (cfgTokenEnableBrowser && !bIsRestore) {
+    if (tenTokenEnableBrowser && !bIsRestore) {
       sessionToken = yield fillJwtByConnection(ctx, conn);
     }
-    let settings = Object.assign({}, cfgEditor);
-    settings["limits_image_size"] = cfgImageSize;
-    settings["limits_image_types_upload"] = cfgTypesUpload;
+    let tenEditor = getEditorConfig(ctx);
+    tenEditor["limits_image_size"] = tenImageSize;
+    tenEditor["limits_image_types_upload"] = tenTypesUpload;
     const sendObject = {
       type: 'auth',
       result: 1,
@@ -2841,7 +2903,7 @@ exports.install = function(server, callbackFunction) {
       indexUser: conn.user.indexUser,
       hasForgotten: opt_hasForgotten,
       jwt: sessionToken,
-      g_cAscSpellCheckUrl: cfgEditor["spellcheckerUrl"],
+      g_cAscSpellCheckUrl: tenEditor["spellcheckerUrl"],
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
@@ -2981,10 +3043,14 @@ exports.install = function(server, callbackFunction) {
 
   // For Excel, it is necessary to recalculate locks when adding / deleting rows / columns
   function* saveChanges(ctx, conn, data) {
+    const tenEditor = getEditorConfig(ctx);
+    const tenPubSubMaxChanges = ctx.getCfg('services.CoAuthoring.pubsub.maxChanges', cfgPubSubMaxChanges);
+    const tenExpSaveLock = ctx.getCfg('services.CoAuthoring.expire.saveLock', cfgExpSaveLock);
+
     const docId = conn.docId, userId = conn.user.id;
     ctx.logger.info("Start saveChanges: reSave: %s", data.reSave);
 
-    let lockRes = yield editorData.lockSave(ctx, docId, userId, cfgExpSaveLock);
+    let lockRes = yield editorData.lockSave(ctx, docId, userId, tenExpSaveLock);
     if (!lockRes) {
       //should not be here. cfgExpSaveLock - 60sec, sockjs disconnects after 25sec
       ctx.logger.warn("saveChanges lockSave error");
@@ -3020,7 +3086,7 @@ exports.install = function(server, callbackFunction) {
     // Starting index change when adding
     const startIndex = puckerIndex;
 
-    const newChanges = cfgEditor['binaryChanges'] ? data.changes : JSON.parse(data.changes);
+    const newChanges = tenEditor['binaryChanges'] ? data.changes : JSON.parse(data.changes);
     let newChangesLastDate = new Date();
     newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
     let newChangesLastTime = newChangesLastDate.getTime();
@@ -3031,7 +3097,7 @@ exports.install = function(server, callbackFunction) {
 
       for (let i = 0; i < newChanges.length; ++i) {
         oElement = newChanges[i];
-        let change = cfgEditor['binaryChanges'] ? oElement : JSON.stringify(oElement);
+        let change = tenEditor['binaryChanges'] ? oElement : JSON.stringify(oElement);
         arrNewDocumentChanges.push({docid: docId, change: change, time: newChangesLastDate,
           user: userId, useridoriginal: conn.user.idOriginal});
       }
@@ -3078,7 +3144,7 @@ exports.install = function(server, callbackFunction) {
           };
         });
         let changesToSend = arrNewDocumentChanges;
-        if(changesToSend.length > cfgPubSubMaxChanges) {
+        if(changesToSend.length > tenPubSubMaxChanges) {
           changesToSend = null;
         } else {
           changesToSend.forEach((value) => {
@@ -3096,7 +3162,7 @@ exports.install = function(server, callbackFunction) {
       yield resetForceSaveAfterChanges(ctx, docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
     } else {
       let changesToSend = arrNewDocumentChanges;
-      if(changesToSend.length > cfgPubSubMaxChanges) {
+      if(changesToSend.length > tenPubSubMaxChanges) {
         changesToSend = null;
       } else {
         changesToSend.forEach((value) => {
@@ -3116,6 +3182,8 @@ exports.install = function(server, callbackFunction) {
 
   // Can we save?
   function* isSaveLock(ctx, conn, data) {
+    const tenExpSaveLock = ctx.getCfg('services.CoAuthoring.expire.saveLock', cfgExpSaveLock);
+
     if (!conn.user) {
       return;
     }
@@ -3127,7 +3195,7 @@ exports.install = function(server, callbackFunction) {
         if (!conn.unsyncTime) {
           conn.unsyncTime = new Date();
         }
-        if (Date.now() - conn.unsyncTime.getTime() < cfgExpSaveLock * 1000) {
+        if (Date.now() - conn.unsyncTime.getTime() < tenExpSaveLock * 1000) {
           lockRes = false;
           ctx.logger.debug("isSaveLock editor unsynced since %j serverIndex:%s clientIndex:%s ", conn.unsyncTime, forceSave.index, data.syncChangesIndex);
           sendData(ctx, conn, {type: "saveLock", saveLock: !lockRes});
@@ -3139,7 +3207,7 @@ exports.install = function(server, callbackFunction) {
     }
     conn.unsyncTime = null;
 
-    lockRes = yield editorData.lockSave(ctx, conn.docId, conn.user.id, cfgExpSaveLock);
+    lockRes = yield editorData.lockSave(ctx, conn.docId, conn.user.id, tenExpSaveLock);
     ctx.logger.debug("isSaveLock lockRes: %s", lockRes);
 
     // We send only to the one who asked (you can not send to everyone)
@@ -3279,8 +3347,12 @@ exports.install = function(server, callbackFunction) {
 		return co(function* () {
 			try {
 				ctx.logger.info('_checkLicense start');
+        const tenEditSingleton = ctx.getCfg('services.CoAuthoring.server.edit_singleton', cfgEditSingleton);
+        const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
+        const tenIsAnonymousSupport = ctx.getCfg('services.CoAuthoring.server.isAnonymousSupport', cfgIsAnonymousSupport);
+
 				let rights = constants.RIGHTS.Edit;
-				if (config.get('server.edit_singleton')) {
+				if (tenEditSingleton) {
 					// ToDo docId from url ?
 					let handshake = conn.handshake;
 					const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(handshake.url);
@@ -3306,8 +3378,8 @@ exports.install = function(server, callbackFunction) {
 						rights: rights,
 						buildVersion: commonDefines.buildVersion,
 						buildNumber: commonDefines.buildNumber,
-						protectionSupport: cfgOpenProtectedFile, //todo find a better place
-						isAnonymousSupport: cfgIsAnonymousSupport, //todo find a better place
+						protectionSupport: tenOpenProtectedFile, //todo find a better place
+						isAnonymousSupport: tenIsAnonymousSupport, //todo find a better place
 						liveViewerSupport: utils.isLiveViewerSupport(licenseInfo),
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
@@ -3323,6 +3395,8 @@ exports.install = function(server, callbackFunction) {
 	}
 
   function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer, logPrefix) {
+    const tenWarningLimitPercents = ctx.getCfg('license.warning_limit_percents', cfgWarningLimitPercents) / 100;
+
     let licenseWarningLimitUsers = false;
     let licenseWarningLimitUsersView = false;
     let licenseWarningLimitConnections = false;
@@ -3337,13 +3411,13 @@ exports.install = function(server, callbackFunction) {
           if (arrUsers.length >= licenseInfo.usersViewCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
             licenseType = c_LR.UsersViewCount;
           }
-          licenseWarningLimitUsersView = licenseInfo.usersViewCount * cfgWarningLimitPercents <= arrUsers.length;
+          licenseWarningLimitUsersView = licenseInfo.usersViewCount * tenWarningLimitPercents <= arrUsers.length;
         } else {
           const arrUsers = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
             licenseType = c_LR.UsersCount;
           }
-          licenseWarningLimitUsers = licenseInfo.usersCount * cfgWarningLimitPercents <= arrUsers.length;
+          licenseWarningLimitUsers = licenseInfo.usersCount * tenWarningLimitPercents <= arrUsers.length;
         }
       } else if(isLiveViewer) {
         const connectionsLiveCount = licenseInfo.connectionsView;
@@ -3351,14 +3425,14 @@ exports.install = function(server, callbackFunction) {
         if (liveViewerConnectionsCount >= connectionsLiveCount) {
           licenseType = c_LR.ConnectionsLive;
         }
-        licenseWarningLimitConnectionsLive = connectionsLiveCount * cfgWarningLimitPercents <= liveViewerConnectionsCount;
+        licenseWarningLimitConnectionsLive = connectionsLiveCount * tenWarningLimitPercents <= liveViewerConnectionsCount;
       } else {
         const connectionsCount = licenseInfo.connections;
         const editConnectionsCount = yield editorData.getEditorConnectionsCount(ctx, connections);
         if (editConnectionsCount >= connectionsCount) {
           licenseType = c_LR.Connections;
         }
-        licenseWarningLimitConnections = connectionsCount * cfgWarningLimitPercents <= editConnectionsCount;
+        licenseWarningLimitConnections = connectionsCount * tenWarningLimitPercents <= editConnectionsCount;
       }
     }
 
@@ -3408,6 +3482,8 @@ exports.install = function(server, callbackFunction) {
         ctx.initFromPubSub(data);
         yield ctx.initTenantCache();
         ctx.logger.debug('pubsub message start:%s', msg);
+        const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+
         var participants;
         var participant;
         var objChangesDocument;
@@ -3587,7 +3663,7 @@ exports.install = function(server, callbackFunction) {
                 ctx.logger.debug('changeConnectionInfo: userId = %s', data.useridoriginal);
                 participant.user.username = cmd.getUserName();
                 yield addPresence(ctx, participant, false);
-                if (cfgTokenEnableBrowser) {
+                if (tenTokenEnableBrowser) {
                   let sessionToken = yield fillJwtByConnection(ctx, participant);
                   sendDataRefreshToken(ctx, participant, sessionToken);
                 }
@@ -3628,41 +3704,45 @@ exports.install = function(server, callbackFunction) {
         let countViewByShard = 0;
         ctx.logger.debug('expireDoc connections.length = %d', connections.length);
         var nowMs = new Date().getTime();
-        var maxMs = nowMs + Math.max(cfgExpSessionCloseCommand, expDocumentsStep);
         for (var i = 0; i < connections.length; ++i) {
           var conn = connections[i];
           ctx.initFromConnection(conn);
           //todo group by tenant
           yield ctx.initTenantCache();
+          const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
+          const tenExpSessionAbsolute = ms(ctx.getCfg('services.CoAuthoring.expire.sessionabsolute', cfgExpSessionAbsolute));
+          const tenExpSessionCloseCommand = ms(ctx.getCfg('services.CoAuthoring.expire.sessionclosecommand', cfgExpSessionCloseCommand));
+
+          let maxMs = nowMs + Math.max(tenExpSessionCloseCommand, expDocumentsStep);
           let tenant = tenants[ctx.tenant];
           if (!tenant) {
             tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
           }
           //wopi access_token_ttl;
-          if (cfgExpSessionAbsolute > 0 || conn.access_token_ttl) {
-            if ((cfgExpSessionAbsolute > 0 && maxMs - conn.sessionTimeConnect > cfgExpSessionAbsolute ||
+          if (tenExpSessionAbsolute > 0 || conn.access_token_ttl) {
+            if ((tenExpSessionAbsolute > 0 && maxMs - conn.sessionTimeConnect > tenExpSessionAbsolute ||
               (conn.access_token_ttl && maxMs > conn.access_token_ttl)) && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
               sendDataSession(ctx, conn, {
                 code: constants.SESSION_ABSOLUTE_CODE,
                 reason: constants.SESSION_ABSOLUTE_REASON
               });
-            } else if (nowMs - conn.sessionTimeConnect > cfgExpSessionAbsolute) {
+            } else if (nowMs - conn.sessionTimeConnect > tenExpSessionAbsolute) {
               ctx.logger.debug('expireDoc close absolute session');
               sendDataDisconnectReason(ctx, conn, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
               conn.disconnect(true);
               continue;
             }
           }
-          if (cfgExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
-            if (maxMs - conn.sessionTimeLastAction > cfgExpSessionIdle && !conn.sessionIsSendWarning) {
+          if (tenExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
+            if (maxMs - conn.sessionTimeLastAction > tenExpSessionIdle && !conn.sessionIsSendWarning) {
               conn.sessionIsSendWarning = true;
               sendDataSession(ctx, conn, {
                 code: constants.SESSION_IDLE_CODE,
                 reason: constants.SESSION_IDLE_REASON,
-                interval: cfgExpSessionIdle
+                interval: tenExpSessionIdle
               });
-            } else if (nowMs - conn.sessionTimeLastAction > cfgExpSessionIdle) {
+            } else if (nowMs - conn.sessionTimeLastAction > tenExpSessionIdle) {
               ctx.logger.debug('expireDoc close idle session');
               sendDataDisconnectReason(ctx, conn, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
               conn.disconnect(true);
@@ -4063,8 +4143,11 @@ function* getFilesKeys(ctx, opt_specialDir) {
 }
 
 function* findForgottenFile(ctx, docId) {
-  const forgottenList = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
-  return forgottenList.find(forgotten => cfgForgottenFilesName === pathModule.basename(forgotten, pathModule.extname(forgotten)));
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
+
+  const forgottenList = yield storage.listObjects(ctx, docId, tenForgottenFiles);
+  return forgottenList.find(forgotten => tenForgottenFilesName === pathModule.basename(forgotten, pathModule.extname(forgotten)));
 }
 
 function* commandLicense(ctx) {
@@ -4089,6 +4172,8 @@ function* commandLicense(ctx) {
  * @returns undefined.
  */
 function* commandHandle(ctx, params, req, output) {
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+
   const docId = params.key;
   const forgottenData = {};
 
@@ -4151,7 +4236,7 @@ function* commandHandle(ctx, params, req, output) {
       // Creating URLs from files.
       const baseUrl = utils.getBaseUrlByRequest(ctx, req);
       forgottenData.url = yield storage.getSignedUrl(
-        ctx, baseUrl, forgottenFileFullPath, commonDefines.c_oAscUrlTypes.Temporary, forgottenFile, undefined, cfgForgottenFiles
+        ctx, baseUrl, forgottenFileFullPath, commonDefines.c_oAscUrlTypes.Temporary, forgottenFile, undefined, tenForgottenFiles
       );
       break;
     }
@@ -4162,11 +4247,11 @@ function* commandHandle(ctx, params, req, output) {
         break;
       }
 
-      yield storage.deleteObject(ctx, forgottenFile, cfgForgottenFiles);
+      yield storage.deleteObject(ctx, forgottenFile, tenForgottenFiles);
       break;
     }
     case 'getForgottenList': {
-      forgottenData.keys = yield* getFilesKeys(ctx, cfgForgottenFiles);
+      forgottenData.keys = yield* getFilesKeys(ctx, tenForgottenFiles);
       break;
     }
     case 'version': {

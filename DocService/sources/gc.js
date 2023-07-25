@@ -53,7 +53,6 @@ var cfgExpFilesCron = config.get('expire.filesCron');
 var cfgExpDocumentsCron = config.get('expire.documentsCron');
 var cfgExpFiles = config.get('expire.files');
 var cfgExpFilesRemovedAtOnce = config.get('expire.filesremovedatonce');
-var cfgForceSaveEnable = config.get('autoAssembly.enable');
 var cfgForceSaveStep = ms(config.get('autoAssembly.step'));
 
 function getCronStep(cronTime){
@@ -202,8 +201,6 @@ let forceSaveTimeout = function() {
 exports.startGC = function() {
   setTimeout(checkDocumentExpire, expDocumentsStep);
   setTimeout(checkFileExpire, expFilesStep);
-  if (cfgForceSaveEnable) {
-    setTimeout(forceSaveTimeout, cfgForceSaveStep);
-  }
+  setTimeout(forceSaveTimeout, cfgForceSaveStep);
 };
 exports.getCronStep = getCronStep;
