@@ -27,6 +27,9 @@
           "/dictionaries": {
             "path": "../../dictionaries"
           },
+          "/welcome": {
+            "path": "../branding/welcome"
+          },
           "/info": {
             "path": "../branding/info"
           }
