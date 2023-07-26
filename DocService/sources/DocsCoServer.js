@@ -1410,6 +1410,22 @@ let getParticipantMap = co.wrap(function*(ctx, docId, opt_hvals) {
   return participantsMap;
 });
 
+function getOpenFormatByEditor(editorType) {
+  let res;
+  switch (editorType) {
+    case EditorTypes.spreadsheet:
+      res = constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET;
+      break;
+    case EditorTypes.presentation:
+      res = constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION;
+      break;
+    default:
+      res = constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
+      break;
+  }
+  return res;
+}
+
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
 exports.sendData = sendData;
@@ -1470,6 +1486,7 @@ function encryptPasswordParams(ctx, data) {
   });
 }
 exports.encryptPasswordParams = encryptPasswordParams;
+exports.getOpenFormatByEditor = getOpenFormatByEditor;
 exports.install = function(server, callbackFunction) {
   const io = new Server(server, cfgSocketIoConnection);
 

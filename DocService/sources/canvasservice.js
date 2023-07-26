@@ -496,7 +496,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
           cmd.setForgotten(cmd.getDocId());
         }
         //add task
-        cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
+        cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
         cmd.setEmbeddedFonts(false);
         var dataQueue = new commonDefines.TaskQueueData();
         dataQueue.setCtx(ctx);
@@ -552,7 +552,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
       //add task
       cmd.setUrl(null);//url may expire
       cmd.setSaveKey(cmd.getDocId());
-      cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_CANVAS);
+      cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
       cmd.setEmbeddedFonts(false);
       if (isPassword) {
         cmd.setUserConnectionId(conn.user.id);
