@@ -489,26 +489,14 @@ exports.mapAscServerErrorToOldError = function(error) {
     case constants.CONVERT :
       res = -3;
       break;
-    case constants.UPLOAD_CONTENT_LENGTH :
+    case constants.CONVERT_DETECT :
       res = -9;
       break;
-    case constants.UPLOAD_EXTENSION :
-      res = -10;
-      break;
-    case constants.UPLOAD_COUNT_FILES :
-      res = -11;
-      break;
     case constants.VKEY :
-      res = -8;
-      break;
     case constants.VKEY_ENCRYPT :
-      res = -20;
-      break;
     case constants.VKEY_KEY_EXPIRE :
-      res = -21;
-      break;
     case constants.VKEY_USER_COUNT_EXCEED :
-      res = -22;
+      res = -8;
       break;
     case constants.STORAGE :
     case constants.STORAGE_FILE_NO_FOUND :
