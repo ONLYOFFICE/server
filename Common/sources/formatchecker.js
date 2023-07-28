@@ -37,7 +37,7 @@ var constants = require('./constants');
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
-  var startText = buffer.toString('ascii', 0, 20);
+  var startText = buffer.toString('ascii', 0, 100);
 
   //jpeg
   // Hex: FF D8 FF
@@ -187,8 +187,7 @@ function getImageFormatBySignature(buffer) {
   }
 
   //svg
-  //works for svgs created in the editor, external svgs can be with spaces at the beginning
-  if (0 == startText.indexOf('<svg')) {
+  if (-1 !== startText.indexOf('<svg')) {
     return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG;
   }
 
@@ -500,26 +499,14 @@ exports.getStringFromFormat = function(format) {
       return '';
   }
 };
-exports.getImageFormat = function(ctx, buffer, optExt) {
+exports.getImageFormat = function(ctx, buffer) {
   var format = constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   try {
     //signature
     format = getImageFormatBySignature(buffer);
-    //return type by extension
-    if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN == format && optExt) {
-      if ('.svg' == optExt) {
-        format = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG;
-      } else {
-        //try by extension
-        if (optExt.length > 0 && '.' == optExt[0]) {
-          optExt = optExt.substring(1);
-        }
-        format = exports.getFormatFromString(optExt);
-      }
-    }
   }
   catch (e) {
-    ctx.logger.error('error getImageFormat ext=%s: %s', optExt, e.stack);
+    ctx.logger.error('error getImageFormat: %s', e.stack);
   }
   return format;
 };

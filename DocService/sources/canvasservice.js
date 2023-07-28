@@ -745,10 +745,6 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           formatStr = formatChecker.getStringFromFormat(format);
           if (formatStr && -1 !== supportedFormats.indexOf(formatStr)) {
             isAllow = true;
-          } else if ('svg' === formatStr && isDisplayedImage(pathModule.basename(urlParsed.pathname)) > 0) {
-            //paste case
-            //todo refactoring
-            isAllow = true;
           }
         }
         if (!isAllow && urlParsed) {
