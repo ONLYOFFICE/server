@@ -37,7 +37,8 @@ var constants = require('./constants');
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
-  var startText = buffer.toString('ascii', 0, 100);
+  //1000 for svg(xml header and creator comment)
+  var startText = buffer.toString('ascii', 0, 1000);
 
   //jpeg
   // Hex: FF D8 FF
@@ -187,6 +188,7 @@ function getImageFormatBySignature(buffer) {
   }
 
   //svg
+  //todo sax parser
   if (-1 !== startText.indexOf('<svg')) {
     return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG;
   }
