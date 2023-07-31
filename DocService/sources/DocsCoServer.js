@@ -1683,10 +1683,7 @@ exports.install = function(server, callbackFunction) {
     _checkLicense(ctx, conn);
   });
   io.engine.on("connection_error", (err) => {
-    operationContext.global.logger.warn(err.req);      // the request object
-    operationContext.global.logger.warn(err.code);     // the error code, for example 1
-    operationContext.global.logger.warn(err.message);  // the error message, for example "Session ID unknown"
-    operationContext.global.logger.warn(err.context);  // some additional error context
+    operationContext.global.logger.warn('io.connection_error code=%s, message=%s', err.code, err.message);
   });
   /**
    *
