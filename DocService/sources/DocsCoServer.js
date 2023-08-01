@@ -3886,6 +3886,8 @@ exports.install = function(server, callbackFunction) {
         if (-1 !== index || 0 === res.length) {
           return editorData.connect().then(function() {
             callbackFunction();
+          }).catch(err => {
+            operationContext.global.logger.error('editorData error: %s', err.stack);
           });
         } else {
           operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
@@ -3893,7 +3895,6 @@ exports.install = function(server, callbackFunction) {
       }).catch(err => {
         operationContext.global.logger.error('getTableColumns error: %s', err.stack);
       });
-
     });
   });
 };
