@@ -804,8 +804,21 @@ const hasChanges = co.wrap(function*(ctx, docId) {
 });
 function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   let forceSaveType = forceSave.getType();
-  const end = success && commonDefines.c_oAscForceSaveTypes.Form !== forceSaveType && commonDefines.c_oAscForceSaveTypes.Internal !== forceSaveType;
-  yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), end, end, cmd);
+  let end = success;
+  if (commonDefines.c_oAscForceSaveTypes.Form === forceSaveType || commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
+    let forceSave = yield editorData.getForceSave(ctx, docId);
+    end = forceSave.ended;
+  }
+  let convertInfo = new commonDefines.InputCommand(cmd, true);
+  //remove request specific fields from cmd
+  convertInfo.setUserConnectionDocId(undefined);
+  convertInfo.setUserConnectionId(undefined);
+  convertInfo.setResponseKey(undefined);
+  convertInfo.setFormData(undefined);
+  if (convertInfo.getForceSave()) {
+    convertInfo.getForceSave().setType(undefined);
+  }
+  yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), end, end, convertInfo);
 
   if (commonDefines.c_oAscForceSaveTypes.Command !== forceSaveType) {
     let data = {type: forceSaveType, time: forceSave.getTime(), success: success};
@@ -822,7 +835,7 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
     }
   }
 }
-let checkForceSaveCache= co.wrap (function* (ctx, convertInfo) {
+async function checkForceSaveCache(ctx, convertInfo) {
   let res = {hasCache: false, hasValidCache: false,  cmd: null};
   if (convertInfo) {
     res.hasCache = true;
@@ -831,42 +844,45 @@ let checkForceSaveCache= co.wrap (function* (ctx, convertInfo) {
     const outputPath = cmd.getOutputPath();
     if (saveKey && outputPath) {
       const savePathDoc = saveKey + '/' + outputPath;
-      const metadata  = yield storage.headObject(ctx, savePathDoc);
+      const metadata  = await storage.headObject(ctx, savePathDoc);
       res.hasValidCache = !!metadata;
       res.cmd = cmd;
     }
   }
   return res;
-});
-let applyForceSaveCache = co.wrap (function* (ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey) {
+}
+async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId,
+                                   opt_responseKey, opt_formdata) {
   let res = {ok: false, notModified: false, inProgress: false, startedForceSave: null};
   if (!forceSave) {
     res.notModified = true;
     return res;
   }
-  let forceSaveCache = yield checkForceSaveCache(ctx, forceSave.convertInfo);
+  let forceSaveCache = await checkForceSaveCache(ctx, forceSave.convertInfo);
   if (forceSaveCache.hasCache || forceSave.ended) {
     if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type || !forceSave.ended) {
       if (forceSaveCache.hasValidCache) {
         let cmd = forceSaveCache.cmd;
-        if (commonDefines.c_oAscForceSaveTypes.Internal === type) {
-          cmd.setUserConnectionDocId(opt_userConnectionDocId);
-          cmd.setUserConnectionId(opt_userConnectionId);
-          cmd.setResponseKey(opt_responseKey);
+        cmd.setUserConnectionDocId(opt_userConnectionDocId);
+        cmd.setUserConnectionId(opt_userConnectionId);
+        cmd.setResponseKey(opt_responseKey);
+        cmd.setFormData(opt_formdata);
+        if (cmd.getForceSave()) {
+          cmd.getForceSave().setType(type);
         }
         //todo timeout because commandSfcCallback make request?
-        yield canvasService.commandSfcCallback(ctx, cmd, true, false);
+        await canvasService.commandSfcCallback(ctx, cmd, true, false);
         res.ok = true;
       } else {
-        yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), false, false, null);
-        res.startedForceSave = yield editorData.checkAndStartForceSave(ctx, docId);
+        await editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), false, false, null);
+        res.startedForceSave = await editorData.checkAndStartForceSave(ctx, docId);
         res.ok = !!res.startedForceSave;
       }
     } else {
       res.notModified = true;
     }
   } else if (!forceSave.started) {
-      res.startedForceSave = yield editorData.checkAndStartForceSave(ctx, docId);
+      res.startedForceSave = await editorData.checkAndStartForceSave(ctx, docId);
       res.ok = !!res.startedForceSave;
       return res;
   } else if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type) {
@@ -876,25 +892,23 @@ let applyForceSaveCache = co.wrap (function* (ctx, docId, forceSave, type, opt_u
     res.notModified = true;
   }
   return res;
-});
-let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
+}
+async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
   let startedForceSave;
   let hasEncrypted = false;
   if (!shutdownFlag) {
-    let hvals = yield editorData.getPresence(ctx, docId, connections);
+    let hvals = await editorData.getPresence(ctx, docId, connections);
     hasEncrypted = hvals.some((currentValue) => {
       return !!JSON.parse(currentValue).encrypted;
     });
     if (!hasEncrypted) {
-      let forceSave = yield editorData.getForceSave(ctx, docId);
-      // let forceSaveCache = yield checkForceSaveCache(ctx, forceSave);
-      // let applyCacheRes = yield applyForceSaveCache(ctx, docId, forceSave, forceSaveCache, type);
-      let applyCacheRes = yield applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey);
+      let forceSave = await editorData.getForceSave(ctx, docId);
+      let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, opt_formdata);
       startedForceSave = applyCacheRes.startedForceSave;
       if (applyCacheRes.notModified) {
-        let selectRes = yield taskResult.select(ctx, docId);
+        let selectRes = await taskResult.select(ctx, docId);
         if (selectRes.length > 0) {
           res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
         } else {
@@ -916,10 +930,10 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
     forceSave.setAuthorUserIndex(opt_userIndex);
 
     if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
-      yield* publish(ctx, {
+      await co(publish(ctx, {
                        type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId,
                        data: {type: type, time: forceSave.getTime(), start: true}
-                     }, undefined, undefined, opt_pubsub);
+                     }, undefined, undefined, opt_pubsub));
     }
 
     let priority;
@@ -931,8 +945,9 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
       priority = constants.QUEUE_PRIORITY_LOW;
     }
     //start new convert
-    let status = yield converterService.convertFromChanges(ctx, docId, baseUrl, forceSave, startedForceSave.changeInfo,
-      opt_userdata, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, priority, expiration, opt_queue);
+    let status = await converterService.convertFromChanges(ctx, docId, baseUrl, forceSave, startedForceSave.changeInfo,
+      opt_userdata, opt_formdata, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, priority, expiration,
+      opt_queue);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
     } else {
@@ -942,7 +957,7 @@ let startForceSave = co.wrap(function*(ctx, docId, type, opt_userdata, opt_userI
   }
   ctx.logger.debug('startForceSave end');
   return res;
-});
+}
 function getExternalChangeInfo(user, date) {
   return {user_id: user.id, user_id_original: user.idOriginal, user_name: user.username, change_date: date};
 }
@@ -975,7 +990,7 @@ let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
     }
   }
   if (!forceSaveRes) {
-    forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey);
+    forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey);
   }
   if (commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
     sendDataRpc(ctx, conn, responseKey, forceSaveRes);
@@ -988,7 +1003,7 @@ function* startRPC(ctx, conn, responseKey, data) {
     case 'sendForm': {
       let forceSaveRes;
       if (conn.user) {
-        forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser, responseKey);
+        forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined, data.formdata, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser, responseKey);
       }
       if (!forceSaveRes || commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
         sendDataRpc(ctx, conn, responseKey, forceSaveRes);
@@ -1641,7 +1656,7 @@ exports.install = function(server, callbackFunction) {
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
-              forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser);
+              forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, undefined, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser);
             } else {
               forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
             }
@@ -4226,7 +4241,7 @@ function* commandHandle(ctx, params, req, output) {
       break;
     }
     case 'forcesave': {
-      let forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(ctx, req));
+      let forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Command, params.userdata, undefined, undefined, undefined, undefined, undefined, undefined, utils.getBaseUrlByRequest(ctx, req));
       output.error = forceSaveRes.code;
       break;
     }
