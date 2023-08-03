@@ -58,6 +58,7 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const configStorage = config.get('storage');
+const basicAuth = require('express-basic-auth')
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgHtmlTemplate = config.get('wopi.htmlTemplate');
@@ -252,7 +253,12 @@ docsCoServer.install(server, () => {
 	app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
 		converterService.builder(req, res);
 	});
-	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
+	app.get('/info/info.json', utils.checkClientIp, utils.checkClientAuth, docsCoServer.licenseInfo);
+
+	app.get('/info/tenant', utils.checkClientIp, utils.checkClientAuth, utils.checkAdminTenant, docsCoServer.tenantGet);
+	app.put('/info/tenant', utils.checkClientIp, utils.checkClientAuth, utils.checkAdminTenant, rawFileParser, docsCoServer.tenantPut);
+	app.delete('/info/tenant', utils.checkClientIp, utils.checkClientAuth, utils.checkAdminTenant, rawFileParser, docsCoServer.tenantDelete);
+
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 

@@ -257,6 +257,44 @@
         </div>
     </div>
     </div>
+
+    <h1>Tenants CRUD Operations</h1>
+
+    <!-- Combo box to select a tenant -->
+    <h2>Select a Tenant</h2>
+    <select id="tenantSelect" onchange="displayTenantData()">
+        <!-- Tenants will be populated here dynamically -->
+    </select>
+
+    <!-- Form to View/Update Tenant -->
+    <h2>Tenant Details</h2>
+    <form id="tenantForm">
+        <label for="name">Name:</label>
+        <input type="text" id="name" required>
+        <label for="secret">Secret:</label>
+        <textarea id="secret" required></textarea>
+        <label for="license">License:</label>
+        <textarea id="license" required></textarea>
+        <label for="config">Config:</label>
+        <textarea id="config" required></textarea>
+        <button type="button" onclick="updateTenant()">Update Tenant</button>
+        <button type="button" onclick="deleteTenant()">Delete Tenant</button>
+    </form>
+
+    <!-- Button to Add New Tenant -->
+    <h2>Add New Tenant</h2>
+    <form id="addForm">
+        <label for="newName">Name:</label>
+        <input type="text" id="newName" required>
+        <label for="newSecret">Secret:</label>
+        <textarea id="newSecret" required></textarea>
+        <label for="newLicense">License:</label>
+        <textarea id="newLicense" required></textarea>
+        <label for="newConfig">Config:</label>
+        <textarea id="newConfig" required></textarea>
+        <button type="button" onclick="addTenant()">Add Tenant</button>
+    </form>
+
     <script>
         var _createXMLHTTPObject = function() {
             var xmlhttp;
@@ -544,7 +582,143 @@
             }
             catch (e) {}
         })();
-        
+
+
+        //-----------------------------------------------------------------------------------------------------------------------
+
+        let tenants = []; // The array to hold tenant data
+
+        // Function to fetch tenants through HTTP request
+        async function fetchTenants() {
+          try {
+            const response = await fetch('/info/tenant'); // Replace with your API endpoint
+            if (!response.ok) {
+              throw new Error('Failed to fetch tenants');
+            }
+            tenants = await response.json();
+            populateTenantComboBox();
+          } catch (error) {
+            console.error(error);
+          }
+        }
+        async function fetchTenantsPut(tenant) {
+          try {
+            const response = await fetch('/info/tenant', {
+              method: "PUT",
+              body: JSON.stringify(tenant)
+            }); // Replace with your API endpoint
+            if (!response.ok) {
+              throw new Error('Failed to fetch tenants');
+            }
+            populateTenantComboBox();
+          } catch (error) {
+            console.error(error);
+          }
+        }
+
+        async function fetchTenantsDelete(tenant) {
+          try {
+            const response = await fetch('/info/tenant', {
+              method: "DELETE",
+              body: JSON.stringify(tenant)
+            }); // Replace with your API endpoint
+            if (!response.ok) {
+              throw new Error('Failed to fetch tenants');
+            }
+            populateTenantComboBox();
+          } catch (error) {
+            console.error(error);
+          }
+        }
+
+        // Function to populate the tenant combo box
+        function populateTenantComboBox() {
+          const tenantSelect = document.getElementById("tenantSelect");
+          tenantSelect.innerHTML = "";
+
+          tenants.forEach((tenant, index) => {
+            const option = document.createElement("option");
+            option.value = index;
+            option.textContent = tenant.name;
+            tenantSelect.appendChild(option);
+          });
+
+          displayTenantData();
+        }
+
+        // Function to display tenant data in the form
+        function displayTenantData() {
+          const tenantSelect = document.getElementById("tenantSelect");
+          const selectedIndex = tenantSelect.value;
+          const selectedTenant = tenants[selectedIndex];
+
+          document.getElementById("name").value = selectedTenant.name;
+          document.getElementById("secret").value = selectedTenant.secret;
+          document.getElementById("license").value = selectedTenant.license;
+          document.getElementById("config").value = selectedTenant.config;
+
+          document.getElementById("newName").value = selectedTenant.name;
+          document.getElementById("newSecret").value = selectedTenant.secret;
+          document.getElementById("newLicense").value = selectedTenant.license;
+          document.getElementById("newConfig").value = selectedTenant.config;
+        }
+
+        // Function to update a tenant
+        function updateTenant() {
+          const tenantSelect = document.getElementById("tenantSelect");
+          const selectedIndex = tenantSelect.value;
+          const selectedTenant = tenants[selectedIndex];
+
+          selectedTenant.name = document.getElementById("name").value;
+          selectedTenant.secret = document.getElementById("secret").value;
+          selectedTenant.license = document.getElementById("license").value;
+          selectedTenant.config = document.getElementById("config").value;
+
+          fetchTenantsPut(selectedTenant);
+
+          populateTenantComboBox();
+        }
+
+        // Function to delete a tenant
+        function deleteTenant() {
+          const tenantSelect = document.getElementById("tenantSelect");
+          const selectedIndex = tenantSelect.value;
+          const selectedTenant = tenants[selectedIndex];
+
+          let deleted = tenants.splice(selectedIndex, 1);
+
+          if(deleted.length > 0) {
+            fetchTenantsDelete(deleted[0]);
+          }
+          populateTenantComboBox();
+        }
+
+        // Function to add a new tenant
+        function addTenant() {
+          const newName = document.getElementById("newName").value;
+          const newSecret = document.getElementById("newSecret").value;
+          const newLicense = document.getElementById("newLicense").value;
+          const newConfig = document.getElementById("newConfig").value;
+
+          const newTenant = {
+            name: newName,
+            secret: newSecret,
+            license: newLicense,
+            config: newConfig
+          };
+
+          tenants.push(newTenant);
+
+          fetchTenantsPut(newTenant);
+
+          populateTenantComboBox();
+        }
+
+        // Fetch tenants from the server on page load
+        fetchTenants();
+
+
+
     </script>
 </body>
 </html>

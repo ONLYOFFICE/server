@@ -145,7 +145,8 @@
 				"newFileTemplate" : "../../document-templates/new",
 				"downloadFileAllowExt": ["pdf", "xlsx"],
 				"tokenRequiredParams": true,
-				"allowPrivateIPAddressForSignedRequests": true
+				"allowPrivateIPAddressForSignedRequests": true,
+				"infoSecret" : "secret"
 			},
 			"requestDefaults": {
 				"headers": {

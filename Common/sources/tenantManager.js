@@ -39,7 +39,7 @@ const license = require('./../../Common/sources/license');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
-const { readFile } = require('fs/promises');
+const { readFile, writeFile , readdir, mkdir, rmdir} = require('fs/promises');
 const path = require('path');
 
 const oPackageType = config.get('license.packageType');
@@ -105,6 +105,16 @@ async function getTenantConfig(ctx) {
   }
   return res;
 }
+async function readSecret(ctx, secretPath) {
+  let res;
+  let secret = await readFile(secretPath, {encoding: 'utf8'});
+  //trim whitespace plus line terminators from string (newline is common on Posix systems)
+  res = secret.trim();
+  if (res.length !== secret.length) {
+    ctx.logger.warn('getTenantSecret secret in %s contains a leading or trailing whitespace that has been trimmed', secretPath);
+  }
+  return res;
+};
 function getTenantSecret(ctx, type) {
   return co(function*() {
     let cfgTenant;
@@ -133,12 +143,7 @@ function getTenantSecret(ctx, type) {
       if (res) {
         ctx.logger.debug('getTenantSecret from cache');
       } else {
-        let secret = yield readFile(secretPath, {encoding: 'utf8'});
-        //trim whitespace plus line terminators from string (newline is common on Posix systems)
-        res = secret.trim();
-        if (res.length !== secret.length) {
-          ctx.logger.warn('getTenantSecret secret in %s contains a leading or trailing whitespace that has been trimmed', secretPath);
-        }
+        res = yield readSecret(ctx, secretPath);
         nodeCache.set(secretPath, res);
         ctx.logger.debug('getTenantSecret from %s', secretPath);
       }
@@ -195,6 +200,67 @@ function getServerLicense(ctx) {
 function isMultitenantMode(ctx) {
   return !!cfgTenantsBaseDir;
 }
+async function getTenantInfo(ctx, tenantName) {
+  let tenantInfo = {
+    name: tenantName,
+    secret: "",
+    license: "",
+    config: ""
+  };
+  try {
+    let secretPath = path.join(cfgTenantsBaseDir, tenantName, cfgTenantsFilenameSecret);
+    tenantInfo.secret = await readSecret(ctx, secretPath);
+  } catch (e) {
+    ctx.logger.debug('getTenantInfo error: %s', e.stack);
+  }
+  try {
+    let licensePath = path.join(cfgTenantsBaseDir, tenantName, cfgTenantsFilenameLicense);
+    tenantInfo.license = await readFile(licensePath, {encoding: 'utf8'});
+  } catch (e) {
+    ctx.logger.debug('getTenantInfo error: %s', e.stack);
+  }
+  try {
+    let configPath = path.join(cfgTenantsBaseDir, tenantName, cfgTenantsFilenameConfig);
+    tenantInfo.config = await readFile(configPath, {encoding: 'utf8'});
+  } catch (e) {
+    ctx.logger.debug('getTenantInfo error: %s', e.stack);
+  }
+  return tenantInfo;
+}
+async function getTenantsInfo(ctx) {
+  let tenants = [];
+  try {
+    const dirs = await readdir(cfgTenantsBaseDir);
+    for (const tenantDir of dirs) {
+      let tenantInfo = await getTenantInfo(ctx, tenantDir);
+      tenants.push(tenantInfo);
+    }
+  } catch (err) {
+    ctx.logger.error('getTenantsInfo error: %s', err.stack);
+  }
+  return tenants;
+}
+async function putTenant(ctx, tenantInfo) {
+  let tenantDir = path.join(cfgTenantsBaseDir, tenantInfo.name);
+  await mkdir(tenantDir, {recursive: true});
+  if (tenantInfo.secret) {
+    let secretPath = path.join(tenantDir, cfgTenantsFilenameSecret);
+    await writeFile(secretPath, tenantInfo.secret, {encoding: 'utf8'});
+  }
+  if (tenantInfo.license) {
+    let licensePath = path.join(tenantDir, cfgTenantsFilenameLicense);
+    await writeFile(licensePath, tenantInfo.license, {encoding: 'utf8'});
+  }
+  if (tenantInfo.config) {
+    let configPath = path.join(tenantDir, cfgTenantsFilenameConfig);
+    await writeFile(configPath, tenantInfo.config, {encoding: 'utf8'});
+  }
+  return tenantInfo;
+}
+async function deleteTenant(ctx, tenantInfo) {
+  let tenantDir = path.join(cfgTenantsBaseDir, tenantInfo.name);
+  await rmdir(tenantDir, {recursive: true});
+}
 
 exports.getDefautTenant = getDefautTenant;
 exports.getTenantByConnection = getTenantByConnection;
@@ -206,3 +272,6 @@ exports.getTenantLicense = getTenantLicense;
 exports.getServerLicense = getServerLicense;
 exports.setDefLicense = setDefLicense;
 exports.isMultitenantMode = isMultitenantMode;
+exports.getTenantsInfo = getTenantsInfo;
+exports.putTenant = putTenant;
+exports.deleteTenant = deleteTenant;

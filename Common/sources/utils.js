@@ -69,6 +69,8 @@ const cfgDnsCache = config.get('dnscache');
 const cfgIpFilterRules = config.get('services.CoAuthoring.ipfilter.rules');
 const cfgIpFilterErrorCode = config.get('services.CoAuthoring.ipfilter.errorcode');
 const cfgIpFilterUseForRequest = config.get('services.CoAuthoring.ipfilter.useforrequest');
+const cfgInfoSecret = config.get('services.CoAuthoring.server.infoSecret');
+const cfgTenantsAggregationTenant = config.get('tenants.aggregationTenant');
 const cfgExpPemStdTtl = config.get('services.CoAuthoring.expire.pemStdTTL');
 const cfgExpPemCheckPeriod = config.get('services.CoAuthoring.expire.pemCheckPeriod');
 const cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
@@ -858,6 +860,55 @@ function lowercaseQueryString(req, res, next) {
   next();
 }
 exports.lowercaseQueryString = lowercaseQueryString;
+function checkClientAuth(req, res, next) {
+  (async function () {
+    let ctx = new operationContext.Context();
+    ctx.initFromRequest(req);
+    ctx.initTenantCache();
+    const tenInfoSecret = ctx.getCfg('services.CoAuthoring.server.infoSecret', cfgInfoSecret);
+
+    //https://stackoverflow.com/a/33905671
+    // -----------------------------------------------------------------------
+    // authentication middleware
+
+    // parse login and password from headers
+    const b64auth = (req.headers.authorization || '').split(' ')[1] || ''
+    const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':')
+
+    // Verify login and password are set and correct
+    if (tenInfoSecret === password) {
+      // Access granted...
+      return next()
+    }
+
+    // Access denied...
+    res.set('WWW-Authenticate', 'Basic') // change this
+    res.status(401).send('Authentication required.') // custom message
+
+    // -----------------------------------------------------------------------
+
+  })().catch( (e) => {
+    operationContext.global.logger.error('checkClientAuth error: %s', e.stack);
+    res.sendStatus(400);
+  });
+}
+exports.checkClientAuth = checkClientAuth;
+function checkAdminTenant(req, res, next) {
+  (async function () {
+    let ctx = new operationContext.Context();
+    ctx.initFromRequest(req);
+    if (cfgTenantsAggregationTenant === ctx.tenant) {
+      return next()
+    }
+    res.set('WWW-Authenticate', 'Basic') // change this
+    res.status(401).send('Authentication required.') // custom message
+  })().catch( (e) => {
+    operationContext.global.logger.error('checkAdminTenant error: %s', e.stack);
+    res.sendStatus(400);
+  });
+}
+exports.checkAdminTenant = checkAdminTenant;
+
 function dnsLookup(hostname, options) {
   return new Promise(function(resolve, reject) {
     dnscache.lookup(hostname, options, function(err, addresses){

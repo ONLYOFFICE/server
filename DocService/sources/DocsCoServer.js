@@ -4134,7 +4134,71 @@ exports.licenseInfo = function(req, res) {
     }
   });
 };
-
+exports.tenantGet = async function(req, res) {
+  let isError, tenants = [];
+  let ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+    await ctx.initTenantCache();
+    ctx.logger.debug('tenantGet start');
+    tenants = await tenantManager.getTenantsInfo(ctx);
+  } catch (err) {
+    isError = true;
+    ctx.logger.debug('tenantGet error: %s', err.stack);
+  } finally {
+    ctx.logger.debug('tenantGet end');
+    if (!isError) {
+      res.setHeader('Content-Type', 'application/json');
+      res.send(JSON.stringify(tenants));
+    } else {
+      res.sendStatus(400);
+    }
+  }
+};
+exports.tenantPut = async function(req, res) {
+  let isError, tenants = [];
+  let ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+    await ctx.initTenantCache();
+    ctx.logger.debug('tenantPut start');
+    let tenantInfo = JSON.parse(req.body.toString('utf8'));
+    tenants = await tenantManager.putTenant(ctx, tenantInfo);
+  } catch (err) {
+    isError = true;
+    ctx.logger.debug('tenantPut error: %s', err.stack);
+  } finally {
+    ctx.logger.debug('tenantPut end');
+    if (!isError) {
+      res.setHeader('Content-Type', 'application/json');
+      res.send(JSON.stringify(tenants));
+    } else {
+      res.sendStatus(400);
+    }
+  }
+};
+exports.tenantDelete = async function(req, res) {
+  let isError, tenants = [];
+  let ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+    await ctx.initTenantCache();
+    ctx.logger.debug('tenantDelete start');
+    let tenantInfo = JSON.parse(req.body.toString('utf8'));
+    tenants = await tenantManager.deleteTenant(ctx, tenantInfo);
+  } catch (err) {
+    isError = true;
+    ctx.logger.debug('tenantDelete error: %s', err.stack);
+  } finally {
+    ctx.logger.debug('tenantDelete end');
+    if (!isError) {
+      res.setHeader('Content-Type', 'application/json');
+      res.send(JSON.stringify(tenants));
+    } else {
+      res.sendStatus(400);
+    }
+  }
+};
 function validateInputParams(ctx, authRes, command) {
   const commandsWithoutKey = ['version', 'license', 'getForgottenList'];
   const isValidWithoutKey = commandsWithoutKey.includes(command.c);
