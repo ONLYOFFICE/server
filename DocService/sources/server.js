@@ -105,7 +105,7 @@ operationContext.global.logger.warn('Express server starting...');
 if (!(cfgTokenEnableBrowser && cfgTokenEnableRequestInbox && cfgTokenEnableRequestOutbox)) {
 	operationContext.global.logger.warn('Set services.CoAuthoring.token.enable.browser, services.CoAuthoring.token.enable.request.inbox, ' +
 				'services.CoAuthoring.token.enable.request.outbox in the Document Server config ' +
-				'to prevent an unauthorized access to your documents and the substitution of important parameters in ONLYOFFICE Document Server requests.');
+				'to prevent an unauthorized access to your documents and the substitution of important parameters in Document Server requests.');
 }
 
 updateLicense();
