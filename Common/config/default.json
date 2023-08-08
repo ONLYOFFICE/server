@@ -181,8 +181,10 @@
 				"damengExtraOptions": {},
 				"oracleExtraOptions": {},
 				"msSqlExtraOptions": {
-					"encrypt": false,
-					"trustServerCertificate": true
+					"options": {
+						"encrypt": false,
+						"trustServerCertificate": true
+					}
 				}
 			},
 			"redis": {
