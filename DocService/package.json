@@ -33,6 +33,7 @@
     "multi-integer-range": "^4.0.7",
     "multiparty": "^4.2.1",
     "mysql2": "^2.3.3",
+    "oracledb": "^6.0.1",
     "pg": "^8.8.0",
     "redis": "^4.6.5",
     "retry": "^0.12.0",
