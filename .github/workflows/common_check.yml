@@ -1,0 +1,33 @@
+name: check
+on: [push]
+jobs:
+  test-everywhere:
+    name: Test Action on all platforms
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run the action
+        uses: potatoqualitee/mssqlsuite@v1.7
+        with:
+          install: sqlengine
+
+      - name: Create database
+        run: sqlcmd -S localhost -U sa -P dbatools.I0 -Q "CREATE DATABASE onlyoffice;"
+
+      - name: Apply schema
+        run: sqlcmd -S localhost -U sa -P dbatools.I0 -i schema/mssql/createdb.sql
+
+      - name: Install modules
+        run: |
+            npm ci
+            npm --prefix Common ci
+            npm --prefix DocService ci
+
+      - name: Write connections config
+        run: |
+            echo '{"services": {"CoAuthoring": {"sql": {"type": "mssql","dbHost": "localhost","dbPort": 1433,"dbPass":"dbatools.I0","dbUser":"sa","dbName":"onlyoffice"}}}}' >> Common/config/local.json
+
+      - name: Run Jest
+        run: npm run "unit tests"
