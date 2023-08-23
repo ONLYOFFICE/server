@@ -58,18 +58,6 @@ var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
-function getDocumentsWithChanges(ctx) {
-  return new Promise(function(resolve, reject) {
-    let sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE EXISTS(SELECT id FROM ${cfgTableChanges} WHERE tenant=${cfgTableResult}.tenant AND id = ${cfgTableResult}.id LIMIT 1);`;
-    sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined);
-  });
-}
 function updateDoc(ctx, docId, status, callback) {
   return new Promise(function(resolve, reject) {
     let values = [];
@@ -109,7 +97,7 @@ function shutdown() {
       ctx.logger.debug('shutdown start wait pubsub deliver');
       yield utils.sleep(LOOP_TIMEOUT);
 
-      let documentsWithChanges = yield getDocumentsWithChanges(ctx);
+      let documentsWithChanges = yield sqlBase.getDocumentsWithChanges(ctx);
       ctx.logger.debug('shutdown docs with changes count = %s', documentsWithChanges.length);
       let docsWithEmptyForgotten = [];
       let docsWithOutOfDateForgotten = [];

@@ -41,6 +41,7 @@ var sqlDataBaseType = {
 };
 
 const connectorUtilities = require('./connectorUtilities');
+const utils = require('./../../Common/sources/utils');
 var bottleneck = require("bottleneck");
 var config = require('config');
 var configSql = config.get('services.CoAuthoring.sql');
@@ -252,6 +253,36 @@ exports.getChangesPromise = function (ctx, docId, optStartIndex, optEndIndex, op
     });
   });
 };
+exports.getDocumentsWithChanges = baseConnector.getDocumentsWithChanges ?? function (ctx) {
+  return new Promise(function(resolve, reject) {
+    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE EXISTS(SELECT id FROM ${cfgTableChanges} WHERE tenant=${cfgTableResult}.tenant AND id = ${cfgTableResult}.id LIMIT 1);`;
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    }, false, false);
+  });
+}
+exports.getExpired = baseConnector.getExpired ?? function(ctx, maxCount, expireSeconds) {
+  return new Promise(function(resolve, reject) {
+    const values = [];
+    const expireDate = new Date();
+    utils.addSeconds(expireDate, -expireSeconds);
+    const date = addSqlParam(expireDate, values);
+    const count = addSqlParam(maxCount, values);
+    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date}` +
+      ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${count};`;
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    }, false, false, values);
+  });
+}
 
 exports.isLockCriticalSection = function (id) {
 	return !!(g_oCriticalSection[id]);

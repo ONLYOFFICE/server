@@ -314,24 +314,6 @@ function removeIf(ctx, mask) {
     }, undefined, undefined, values);
   });
 }
-function getExpired(ctx, maxCount, expireSeconds) {
-  return new Promise(function(resolve, reject) {
-    let values = [];
-    let expireDate = new Date();
-    utils.addSeconds(expireDate, -expireSeconds);
-    let sqlParam1 = addSqlParam(expireDate, values);
-    let sqlParam2 = addSqlParam(maxCount, values);
-    let sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${sqlParam1}` +
-      ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${sqlParam2};`;
-    sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
-  });
-}
 
 exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
@@ -342,4 +324,4 @@ exports.restoreInitialPassword = restoreInitialPassword;
 exports.addRandomKeyTask = addRandomKeyTask;
 exports.remove = remove;
 exports.removeIf = removeIf;
-exports.getExpired = getExpired;
+exports.getExpired = sqlBase.getExpired;
