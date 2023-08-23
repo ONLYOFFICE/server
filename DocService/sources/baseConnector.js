@@ -275,10 +275,10 @@ exports.getExpired = baseConnector.getExpired ?? function(ctx, maxCount, expireS
     const values = [];
     const expireDate = new Date();
     utils.addSeconds(expireDate, -expireSeconds);
-    const sqlParam1 = addSqlParam(expireDate, values);
-    const sqlParam2 = addSqlParam(maxCount, values);
-    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${sqlParam1}` +
-      ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${sqlParam2};`;
+    const date = addSqlParam(expireDate, values);
+    const count = addSqlParam(maxCount, values);
+    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date}` +
+      ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${count};`;
     baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
