@@ -387,6 +387,129 @@ docsCoServer.install(server, () => {
 			}
 		});
 	});
+
+	app.get('/license.js', (req, res) => {
+		return co(function*() {
+			let protectionSupport = config.get('services.CoAuthoring.server.openProtectedFile');
+			let isAnonymousSupport = config.get('services.CoAuthoring.server.isAnonymousSupport');
+			let output = "(function(window, undefined){\n" +
+				"function asc_CAscEditorPermissions() {\n" +
+				"\t\t\t\t\tthis.licenseType = 1;\n" +
+				"\t\t\t\t\tthis.licenseMode = 0;\n" +
+				"\t\t\t\t\tthis.isLight = false;\n" +
+				"\t\t\t\t\tthis.rights = 0;\n" +
+				"\n" +
+				"\t\t\t\t\tthis.canCoAuthoring = true;\n" +
+				"\t\t\t\t\tthis.canReaderMode = true;\n" +
+				"\t\t\t\t\tthis.canBranding = false;\n" +
+				"\t\t\t\t\tthis.customization = false;\n" +
+				"\t\t\t\t\tthis.isAutosaveEnable = true;\n" +
+				"\t\t\t\t\tthis.AutosaveMinInterval = 300;\n" +
+				"\t\t\t\t\tthis.isAnalyticsEnable = false;\n" +
+				"\t\t\t\t\tthis.buildVersion = null;\n" +
+				"\t\t\t\t\tthis.buildNumber = null;\n" +
+				"\t\t\t\t\tthis.liveViewerSupport = null;\n" +
+				"\n" +
+				"\t\t\t\t\tthis.betaVersion = AscCommon.g_cIsBeta;\n" +
+				"\n" +
+				"\t\t\t\t\treturn this;\n" +
+				"\t\t\t\t}\n" +
+				"\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getLicenseType = function () {\n" +
+				"\t\t\t\treturn this.licenseType;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getCanCoAuthoring = function () {\n" +
+				"\t\t\t\treturn this.canCoAuthoring;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getCanReaderMode = function () {\n" +
+				"\t\t\t\treturn this.canReaderMode;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getCanBranding = function () {\n" +
+				"\t\t\t\treturn this.canBranding;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getCustomization = function () {\n" +
+				"\t\t\t\treturn this.customization;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getIsAutosaveEnable = function () {\n" +
+				"\t\t\t\treturn this.isAutosaveEnable;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getAutosaveMinInterval = function () {\n" +
+				"\t\t\t\treturn this.AutosaveMinInterval;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getIsAnalyticsEnable = function () {\n" +
+				"\t\t\t\treturn this.isAnalyticsEnable;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getIsLight = function () {\n" +
+				"\t\t\t\treturn this.isLight;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getLicenseMode = function () {\n" +
+				"\t\t\t\treturn this.licenseMode;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getRights = function () {\n" +
+				"\t\t\t\treturn this.rights;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getBuildVersion = function () {\n" +
+				"\t\t\t\treturn this.buildVersion;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getBuildNumber = function () {\n" +
+				"\t\t\t\treturn this.buildNumber;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getLiveViewerSupport = function () {\n" +
+				"\t\t\t\treturn this.liveViewerSupport;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.asc_getIsBeta = function () {\n" +
+				"\t\t\t\treturn this.betaVersion === 'true';\n" +
+				"\t\t\t};\n" +
+				"\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setLicenseType = function (v) {\n" +
+				"\t\t\t\tthis.licenseType = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setCanBranding = function (v) {\n" +
+				"\t\t\t\tthis.canBranding = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setCustomization = function (v) {\n" +
+				"\t\t\t\tthis.customization = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setIsLight = function (v) {\n" +
+				"\t\t\t\tthis.isLight = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setLicenseMode = function (v) {\n" +
+				"\t\t\t\tthis.licenseMode = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setRights = function (v) {\n" +
+				"\t\t\t\tthis.rights = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setBuildVersion = function (v) {\n" +
+				"\t\t\t\tthis.buildVersion = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setBuildNumber = function (v) {\n" +
+				"\t\t\t\tthis.buildNumber = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\tasc_CAscEditorPermissions.prototype.setLiveViewerSupport = function (v) {\n" +
+				"\t\t\t\tthis.liveViewerSupport = v;\n" +
+				"\t\t\t};\n" +
+				"\t\t\twindow.AscServer = {};\n" +
+				"\t\t\twindow.AscServer.asc_getEditorPermissions = function () {\n" +
+				"\t\t\t\tvar oResult = new asc_CAscEditorPermissions();\n" +
+				`\t\t\t\toResult.setLicenseType(${licenseInfo.type});\n` +
+				`\t\t\t\toResult.setCanBranding(${licenseInfo.branding});\n` +
+				`\t\t\t\toResult.setCustomization(${licenseInfo.customization});\n` +
+				`\t\t\t\toResult.setIsLight(${licenseInfo.light});\n` +
+				`\t\t\t\toResult.setLicenseMode(${licenseInfo.mode});\n` +
+				`\t\t\t\toResult.setRights(${constants.RIGHTS.Edit});\n` +
+				`\t\t\t\toResult.setBuildVersion("${commonDefines.buildVersion}");\n` +
+				`\t\t\t\toResult.setBuildNumber(${commonDefines.buildNumber});\n` +
+				`\t\t\t\toResult.setLiveViewerSupport(${utils.isLiveViewerSupport(licenseInfo)});\n` +
+				"\t\t\t\t\n" +
+				`\t\t\t\treturn {editorPermissions: oResult, protectionSupport: ${protectionSupport}, isAnonymousSupport: ${isAnonymousSupport}}\n` +
+				"\t\t\t};" +
+				"})(window);";
+
+
+			res.setHeader('Content-Type', 'text/javascript');
+			res.send(output);
+		});
+	});
 });
 
 process.on('uncaughtException', (err) => {
