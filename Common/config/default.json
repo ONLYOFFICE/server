@@ -179,7 +179,13 @@
 				"max_allowed_packet": 1048575,
 				"pgPoolExtraOptions": {},
 				"damengExtraOptions": {},
-				"oracleExtraOptions": {}
+				"oracleExtraOptions": {},
+				"msSqlExtraOptions": {
+					"options": {
+						"encrypt": false,
+						"trustServerCertificate": true
+					}
+				}
 			},
 			"redis": {
 				"name": "redis",

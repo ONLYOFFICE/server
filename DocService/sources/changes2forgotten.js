@@ -48,7 +48,6 @@ const editorDataStorage = require('./' + config.get('services.CoAuthoring.server
 
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
-const cfgTableChanges = config.get('services.CoAuthoring.sql.tableChanges');
 
 var cfgRedisPrefix = configCoAuthoring.get('redis.prefix');
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
@@ -58,18 +57,7 @@ var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
-function getDocumentsWithChanges(ctx) {
-  return new Promise(function(resolve, reject) {
-    let sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE EXISTS(SELECT id FROM ${cfgTableChanges} WHERE tenant=${cfgTableResult}.tenant AND id = ${cfgTableResult}.id LIMIT 1);`;
-    sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined);
-  });
-}
+
 function updateDoc(ctx, docId, status, callback) {
   return new Promise(function(resolve, reject) {
     let values = [];
@@ -109,7 +97,7 @@ function shutdown() {
       ctx.logger.debug('shutdown start wait pubsub deliver');
       yield utils.sleep(LOOP_TIMEOUT);
 
-      let documentsWithChanges = yield getDocumentsWithChanges(ctx);
+      let documentsWithChanges = yield sqlBase.baseConnector.getDocumentsWithChanges(ctx);
       ctx.logger.debug('shutdown docs with changes count = %s', documentsWithChanges.length);
       let docsWithEmptyForgotten = [];
       let docsWithOutOfDateForgotten = [];

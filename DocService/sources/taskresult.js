@@ -34,14 +34,12 @@
 
 const crypto = require('crypto');
 var sqlBase = require('./baseConnector');
-var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 var commonDefines = require('./../../Common/sources/commondefines');
 var tenantManager = require('./../../Common/sources/tenantManager');
 var config = require('config');
 
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
-const cfgTableChanges = config.get('services.CoAuthoring.sql.tableChanges');
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
 let concatParams = sqlBase.baseConnector.concatParams;
@@ -314,24 +312,6 @@ function removeIf(ctx, mask) {
     }, undefined, undefined, values);
   });
 }
-function getExpired(ctx, maxCount, expireSeconds) {
-  return new Promise(function(resolve, reject) {
-    let values = [];
-    let expireDate = new Date();
-    utils.addSeconds(expireDate, -expireSeconds);
-    let sqlParam1 = addSqlParam(expireDate, values);
-    let sqlParam2 = addSqlParam(maxCount, values);
-    let sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${sqlParam1}` +
-      ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${sqlParam2};`;
-    sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
-  });
-}
 
 exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
@@ -342,4 +322,4 @@ exports.restoreInitialPassword = restoreInitialPassword;
 exports.addRandomKeyTask = addRandomKeyTask;
 exports.remove = remove;
 exports.removeIf = removeIf;
-exports.getExpired = getExpired;
+exports.getExpired = sqlBase.baseConnector.getExpired;
