@@ -97,7 +97,7 @@ function shutdown() {
       ctx.logger.debug('shutdown start wait pubsub deliver');
       yield utils.sleep(LOOP_TIMEOUT);
 
-      let documentsWithChanges = yield sqlBase.baseConnector.getDocumentsWithChanges(ctx);
+      let documentsWithChanges = yield sqlBase.getDocumentsWithChanges(ctx);
       ctx.logger.debug('shutdown docs with changes count = %s', documentsWithChanges.length);
       let docsWithEmptyForgotten = [];
       let docsWithOutOfDateForgotten = [];

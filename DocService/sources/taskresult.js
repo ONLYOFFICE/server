@@ -322,4 +322,4 @@ exports.restoreInitialPassword = restoreInitialPassword;
 exports.addRandomKeyTask = addRandomKeyTask;
 exports.remove = remove;
 exports.removeIf = removeIf;
-exports.getExpired = sqlBase.baseConnector.getExpired;
+exports.getExpired = sqlBase.getExpired;
