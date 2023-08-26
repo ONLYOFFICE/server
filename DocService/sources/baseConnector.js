@@ -338,7 +338,7 @@ exports.healthCheck = function (ctx) {
   });
 };
 
-exports.getEmptyCallbacks = function(ctx) {
+exports.getEmptyCallbacks = baseConnector.getEmptyCallbacks ?? function(ctx) {
   return new Promise(function(resolve, reject) {
     const sqlCommand = `SELECT DISTINCT t1.tenant, t1.id FROM ${cfgTableChanges} t1 LEFT JOIN ${cfgTableResult} t2 ON t2.tenant = t1.tenant AND t2.id = t1.id WHERE t2.callback = '';`;
     baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
