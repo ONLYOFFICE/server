@@ -37,8 +37,8 @@ var sqlDataBaseType = {
 	mariaDB		: 'mariadb',
     msSql       : 'mssql',
 	postgreSql	: 'postgres',
-	dameng	: 'dameng',
-    oracle: 'oracle'
+	dameng	    : 'dameng',
+    oracle      : 'oracle'
 };
 
 const connectorUtilities = require('./connectorUtilities');
@@ -313,22 +313,11 @@ function unLockCriticalSection (id) {
 	else
 		delete g_oCriticalSection[id];
 }
-exports.healthCheck = function (ctx) {
+exports.healthCheck = baseConnector.healthCheck ?? function (ctx) {
   return new Promise(function(resolve, reject) {
   	//SELECT 1; usefull for H2, MySQL, Microsoft SQL Server, PostgreSQL, SQLite
   	//http://stackoverflow.com/questions/3668506/efficient-sql-test-query-or-validation-query-that-will-work-across-all-or-most
-    let sql;
-    switch (dbType) {
-      case sqlDataBaseType.oracle: {
-        sql = 'SELECT 1 FROM DUAL';
-        break;
-      }
-      default: {
-        sql = 'SELECT 1;';
-      }
-    }
-
-    baseConnector.sqlQuery(ctx, sql, function(error, result) {
+    baseConnector.sqlQuery(ctx, 'SELECT 1;', function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -350,21 +339,17 @@ exports.getEmptyCallbacks = baseConnector.getEmptyCallbacks ?? function(ctx) {
     });
   });
 };
-exports.getTableColumns = function(ctx, tableName) {
-  if (baseConnector.getTableColumns) {
-    return baseConnector.getTableColumns(ctx, tableName);
-  } else {
-    return new Promise(function(resolve, reject) {
-      const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = '${tableName}';`;
-      baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(result);
-        }
-      });
+exports.getTableColumns = baseConnector.getTableColumns ?? function(ctx, tableName) {
+  return new Promise(function(resolve, reject) {
+    const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = '${tableName}';`;
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
     });
-  }
+  });
 };
 exports.UserCallback = connectorUtilities.UserCallback;
 exports.DocumentPassword = connectorUtilities.DocumentPassword;
