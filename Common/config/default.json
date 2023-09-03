@@ -204,6 +204,7 @@
 				"message": 86400,
 				"lastsave": 604800,
 				"forcesave": 604800,
+				"forcesaveLock": 5000,
 				"saved": 3600,
 				"documentsCron": "0 */2 * * * *",
 				"files": 86400,
