@@ -57,6 +57,8 @@ const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
 let licenseInfo;
 let licenseOriginal;
 
+const c_LM = constants.LICENSE_MODE;
+
 const nodeCache = new NodeCache(cfgTenantsCache);
 
 function getDefautTenant() {
@@ -164,6 +166,64 @@ function setDefLicense(data, original) {
   licenseInfo = data;
   licenseOriginal = original;
 }
+//todo move to license file?
+function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
+  let errors = [];
+  //bitwise
+  if (0 !== (licenseInfo.mode & c_LM.Limited) && 0 === (licenseInfoTenant.mode & c_LM.Limited)) {
+    licenseInfoTenant.mode |= c_LM.Limited;
+    errors.push('timelimited');
+  }
+  if (0 !== (licenseInfo.mode & c_LM.Trial) && 0 === (licenseInfoTenant.mode & c_LM.Trial)) {
+    licenseInfoTenant.mode |= c_LM.Trial;
+    errors.push('trial');
+  }
+  if (0 !== (licenseInfo.mode & c_LM.Developer) && 0 === (licenseInfoTenant.mode & c_LM.Developer)) {
+    licenseInfoTenant.mode |= c_LM.Developer;
+    errors.push('developer');
+  }
+  //can not turn off
+  if (licenseInfo.light && !licenseInfoTenant.light) {
+    licenseInfoTenant.light = licenseInfo.light;
+    errors.push('light');
+  }
+  //can not turn on
+  let flags = ['plugins', 'branding', 'customization'];
+  flags.forEach((flag) => {
+    if (!licenseInfo[flag] && licenseInfoTenant[flag]) {
+      licenseInfoTenant[flag] = licenseInfo[flag];
+      errors.push(flag);
+    }
+  });
+  if (!licenseInfo.advancedApi && licenseInfoTenant.advancedApi) {
+    licenseInfoTenant.advancedApi = licenseInfo.advancedApi;
+    errors.push('advanced_api');
+  }
+  //can not up limits
+  if (licenseInfo.connections < licenseInfoTenant.connections) {
+    licenseInfoTenant.connections = licenseInfo.connections;
+    errors.push('connections');
+  }
+  if (licenseInfo.connectionsView < licenseInfoTenant.connectionsView) {
+    licenseInfoTenant.connectionsView = licenseInfo.connectionsView;
+    errors.push('connections_view');
+  }
+  if (licenseInfo.usersCount < licenseInfoTenant.usersCount) {
+    licenseInfoTenant.usersCount = licenseInfo.usersCount;
+    errors.push('users_count');
+  }
+  if (licenseInfo.usersViewCount < licenseInfoTenant.usersViewCount) {
+    licenseInfoTenant.usersViewCount = licenseInfo.usersViewCount;
+    errors.push('users_view_count');
+  }
+  if (licenseInfo.endDate && licenseInfoTenant.endDate && licenseInfo.endDate < licenseInfoTenant.endDate) {
+    licenseInfoTenant.endDate = licenseInfo.endDate;
+    errors.push('end_date');
+  }
+  if (errors.length > 0) {
+    ctx.logger.warn('fixTenantLicense not allowed to improve these license fields: %s', errors.join(', '));
+  }
+}
 function getTenantLicense(ctx) {
   return co(function*() {
     let res = licenseInfo;
@@ -176,6 +236,7 @@ function getTenantLicense(ctx) {
           ctx.logger.debug('getTenantLicense from cache');
         } else {
           [licenseInfoTenant] = yield* license.readLicense(licensePath, licenseInfo);
+          fixTenantLicense(ctx, licenseInfo, licenseInfoTenant);
           nodeCache.set(licensePath, licenseInfoTenant);
           ctx.logger.debug('getTenantLicense from %s', licensePath);
         }
