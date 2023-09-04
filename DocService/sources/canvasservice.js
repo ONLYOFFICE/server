@@ -589,7 +589,7 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
   var isErr = false;
   if (completeParts && !isJson) {
     isErr = true;
-    var getRes = yield* docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
+    var getRes = yield docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
     if (getRes && !getRes.wopiParams) {
       mailMergeSend.setUrl(getRes.server.href);
       mailMergeSend.setBaseUrl(getRes.baseUrl);
@@ -1053,7 +1053,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
               if (wopiParams) {
                 replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, true, forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button, false);
               } else {
-                replyStr = yield* docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
+                replyStr = yield docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
               }
               let replyData = docsCoServer.parseReplyData(ctx, replyStr);
               isSfcmSuccess = replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error;
@@ -1086,7 +1086,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
               if (wopiParams) {
                 replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, !notModified, false, true);
               } else {
-                replyStr = yield* docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
+                replyStr = yield docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
               }
             } catch (err) {
               ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
@@ -1238,7 +1238,7 @@ function* commandSendMMCallback(ctx, cmd) {
     var uri = mailMergeSendData.getUrl();
     var replyStr = null;
     try {
-      replyStr = yield* docsCoServer.sendServerRequest(ctx, uri, outputSfc);
+      replyStr = yield docsCoServer.sendServerRequest(ctx, uri, outputSfc);
     } catch (err) {
       replyStr = null;
       ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);

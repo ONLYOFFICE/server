@@ -697,9 +697,9 @@ function* removeResponse(data) {
   yield queue.removeResponse(data);
 }
 
-function* getOriginalParticipantsId(ctx, docId) {
+async function getOriginalParticipantsId(ctx, docId) {
   var result = [], tmpObject = {};
-  var hvals = yield editorData.getPresence(ctx, docId, connections);
+  var hvals = await editorData.getPresence(ctx, docId, connections);
   for (var i = 0; i < hvals.length; ++i) {
     var elem = JSON.parse(hvals[i]);
     if (!elem.view && !elem.isCloseCoAuthoring) {
@@ -712,13 +712,13 @@ function* getOriginalParticipantsId(ctx, docId) {
   return result;
 }
 
-function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
+async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
   const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
   ctx.logger.debug('postData request: url = %s;data = %j', uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(ctx, uri)) {
-    let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+    let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
     let bodyToken = utils.fillJwtForRequest(ctx, dataObject, secret, true);
     auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
     let authLen = auth.length;
@@ -728,7 +728,7 @@ function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLe
     }
     dataObject.setToken(bodyToken);
   }
-  let postRes = yield utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth);
+  let postRes = await utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth);
   ctx.logger.debug('postData response: data = %s', postRes.body);
   return postRes.body;
 }
@@ -760,11 +760,11 @@ function parseUrl(ctx, callbackUrl) {
   return result;
 }
 
-function* getCallback(ctx, id, opt_userIndex) {
+async function getCallback(ctx, id, opt_userIndex) {
   var callbackUrl = null;
   var baseUrl = null;
   let wopiParams = null;
-  var selectRes = yield taskResult.select(ctx, id);
+  var selectRes = await taskResult.select(ctx, id);
   if (selectRes.length > 0) {
     var row = selectRes[0];
     if (row.callback) {
@@ -1070,9 +1070,9 @@ function handleDeadLetter(data, ack) {
  * @param callback
  * @param baseUrl
  */
-function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIndex, opt_callback, opt_baseUrl, opt_userData, opt_forceClose) {
+async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIndex, opt_callback, opt_baseUrl, opt_userData, opt_forceClose) {
   if (!opt_callback) {
-    var getRes = yield* getCallback(ctx, docId, opt_userIndex);
+    var getRes = await getCallback(ctx, docId, opt_userIndex);
     if (getRes) {
       opt_callback = getRes.server;
       if (!opt_baseUrl) {
@@ -1089,9 +1089,9 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
   }
 
   var status = c_oAscServerStatus.Editing;
-  var participants = yield* getOriginalParticipantsId(ctx, docId);
+  var participants = await getOriginalParticipantsId(ctx, docId);
   if (0 === participants.length) {
-    let bHasChanges = yield hasChanges(ctx, docId);
+    let bHasChanges = await hasChanges(ctx, docId);
     if (!bHasChanges || opt_forceClose) {
       status = c_oAscServerStatus.Closed;
     }
@@ -1107,7 +1107,7 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
       updateTask.key = docId;
       updateTask.callback = opt_callback.href;
       updateTask.baseurl = opt_baseUrl;
-      var updateIfRes = yield taskResult.update(ctx, updateTask);
+      var updateIfRes = await taskResult.update(ctx, updateTask);
       if (updateIfRes.affectedRows > 0) {
         ctx.logger.debug('sendStatusDocument updateIf');
       } else {
@@ -1130,12 +1130,12 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
   var uri = opt_callback.href;
   var replyData = null;
   try {
-    replyData = yield* sendServerRequest(ctx, uri, sendData);
+    replyData = await sendServerRequest(ctx, uri, sendData);
   } catch (err) {
     replyData = null;
     ctx.logger.error('postData error: url = %s;data = %j %s', uri, sendData, err.stack);
   }
-  yield* onReplySendStatusDocument(ctx, docId, replyData);
+  await onReplySendStatusDocument(ctx, docId, replyData);
   return opt_callback;
 }
 function parseReplyData(ctx, replyData) {
@@ -1150,13 +1150,13 @@ function parseReplyData(ctx, replyData) {
   }
   return res;
 }
-function* onReplySendStatusDocument(ctx, docId, replyData) {
+let onReplySendStatusDocument = co.wrap(function*(ctx, docId, replyData) {
   var oData = parseReplyData(ctx, replyData);
   if (!(oData && commonDefines.c_oAscServerCommandErrors.NoError == oData.error)) {
     // Error subscribing to callback, send warning
     yield* publish(ctx, {type: commonDefines.c_oPublishType.warning, ctx: ctx, docId: docId, description: 'Error on save server subscription!'});
   }
-}
+});
 function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, description) {
   if (Array.isArray(users)) {
     let usersMap = users.reduce(function(map, val) {
@@ -1216,7 +1216,7 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
   var bChangeBase;
   var oCallbackUrl;
   if (!callback) {
-    var getRes = yield* getCallback(ctx, docId);
+    var getRes = yield getCallback(ctx, docId);
     if (getRes && !getRes.wopiParams) {
       oCallbackUrl = getRes.server;
       bChangeBase = c_oAscChangeBase.Delete;
@@ -1236,13 +1236,13 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
   if (null === oCallbackUrl) {
     return commonDefines.c_oAscServerCommandErrors.ParseError;
   } else {
-    yield* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
+    yield sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
     return commonDefines.c_oAscServerCommandErrors.NoError;
   }
 }
 let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   //wopi unlock
-  var getRes = yield* getCallback(ctx, docId, opt_userIndex);
+  var getRes = yield getCallback(ctx, docId, opt_userIndex);
   if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
     yield wopiClient.unlock(ctx, getRes.wopiParams);
     let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
@@ -1268,7 +1268,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
 function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // We send that everyone is gone and there are no changes (to set the status on the server about the end of editing)
-  yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
+  yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
   //if the user entered the document, the connection was broken, all information was deleted on the server,
   //when the connection is restored, the userIndex will be saved and it will match the userIndex of the next user
   yield* cleanDocumentOnExit(ctx, docId, false, opt_userIndex);
@@ -1803,7 +1803,7 @@ exports.install = function(server, callbackFunction) {
             yield* cleanDocumentOnExit(ctx, docId, false, userIndex);
           }
         } else if (needSendStatus) {
-          yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
+          yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
         }
       }
     }
@@ -2725,8 +2725,10 @@ exports.install = function(server, callbackFunction) {
     if (!tmpUser.view) {
       const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
       const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
-      let callback = yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
-      if (!callback && !bIsRestore) {
+      //make async request to speed up file opening
+      sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl)
+        .catch(err => ctx.logger.error('endAuth sendStatusDocument error: %s', err.stack));
+      if (!bIsRestore) {
         //check forgotten file
         let forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
         hasForgotten = forgotten.length > 0;
