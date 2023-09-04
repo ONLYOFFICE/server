@@ -87,7 +87,7 @@ function getTenantPathPrefix(ctx) {
 }
 async function getTenantConfig(ctx) {
   let res = null;
-  if (isMultitenantMode(ctx)) {
+  if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
     let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
     let configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
     res = nodeCache.get(configPath);
@@ -128,7 +128,7 @@ function getTenantSecret(ctx, type) {
     }
     let res = undefined;
     //read secret file
-    if (isMultitenantMode(ctx)) {
+    if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
       res = nodeCache.get(secretPath);
@@ -227,7 +227,7 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
 function getTenantLicense(ctx) {
   return co(function*() {
     let res = licenseInfo;
-    if (isMultitenantMode(ctx)) {
+    if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
       if (licenseInfo.alias) {
         let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
         let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
@@ -256,6 +256,9 @@ function getServerLicense(ctx) {
 function isMultitenantMode(ctx) {
   return !!cfgTenantsBaseDir;
 }
+function isDefaultTenant(ctx) {
+  return ctx.tenant === cfgTenantsDefaultTenant;
+}
 
 exports.getDefautTenant = getDefautTenant;
 exports.getTenantByConnection = getTenantByConnection;
@@ -267,3 +270,4 @@ exports.getTenantLicense = getTenantLicense;
 exports.getServerLicense = getServerLicense;
 exports.setDefLicense = setDefLicense;
 exports.isMultitenantMode = isMultitenantMode;
+exports.isDefaultTenant = isDefaultTenant;

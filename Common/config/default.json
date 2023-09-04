@@ -109,7 +109,6 @@
 		"filenameSecret": "secret.key",
 		"filenameLicense": "license.lic",
 		"defaultTenant": "localhost",
-		"aggregationTenant": "__aggregation",
 		"cache" : {
 			"stdTTL": 300,
 			"checkperiod": 60,
