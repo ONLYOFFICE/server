@@ -144,7 +144,6 @@ const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCro
 const cfgRefreshLockInterval = ms(config.get('wopi.refreshLockInterval'));
 const cfgSocketIoConnection = config.get('services.CoAuthoring.socketio.connection');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
-const cfgTenantsAggregationTenant = config.get('tenants.aggregationTenant');
 
 const EditorTypes = {
   document : 0,
@@ -429,10 +428,10 @@ CRecalcIndex.prototype = {
 function updatePresenceCounters(ctx, conn, val) {
   return co(function* () {
     let aggregationCtx;
-    if (tenantManager.isMultitenantMode(ctx)) {
+    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
       //aggregated server stats
       aggregationCtx = new operationContext.Context();
-      aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+      aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
       //yield ctx.initTenantCache(); //no need.only global config
     }
     if (utils.isLiveViewer(conn)) {
@@ -2537,10 +2536,10 @@ exports.install = function(server, callbackFunction) {
 
         let licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer, logPrefix);
         let aggregationCtx, licenseInfoAggregation;
-        if ((c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) && tenantManager.isMultitenantMode(ctx)) {
+        if ((c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) && tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
           //check server aggregation license
           aggregationCtx = new operationContext.Context();
-          aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+          aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache(); //no need
           licenseInfoAggregation = tenantManager.getServerLicense();
           licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, isLiveViewer, logPrefixServer);
@@ -3812,10 +3811,10 @@ exports.install = function(server, callbackFunction) {
             }
           }
         }
-        if (tenantManager.isMultitenantMode(ctx)) {
+        if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
           //aggregated tenant stats
           let aggregationCtx = new operationContext.Context();
-          aggregationCtx.init(cfgTenantsAggregationTenant, ctx.docId, ctx.userId);
+          aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache();//no need
           yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
           yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
