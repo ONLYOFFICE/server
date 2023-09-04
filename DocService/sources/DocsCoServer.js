@@ -590,6 +590,12 @@ function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
     }
   });
 }
+function modifyConnectionEditorToView(ctx, conn) {
+  if (conn.user) {
+    conn.user.view = true;
+  }
+  delete conn.coEditingMode;
+}
 function getParticipants(docId, excludeClosed, excludeUserId, excludeViewer) {
   return _.filter(connections, function(el) {
     return el.docId === docId && el.isCloseCoAuthoring !== excludeClosed &&
@@ -1725,7 +1731,7 @@ exports.install = function(server, callbackFunction) {
       }
     } else {
       if (!conn.isCloseCoAuthoring) {
-        tmpUser.view = true;
+        modifyConnectionEditorToView(ctx, conn);
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
         if (tenTokenEnableBrowser) {
@@ -2536,8 +2542,7 @@ exports.install = function(server, callbackFunction) {
             //do not modify the licenseType because this information is already sent in _checkLicense
             ctx.logger.error('auth: access to editor or live viewer is denied for anonymous users');
           }
-          conn.user.view = true;
-          delete conn.coEditingMode;
+          modifyConnectionEditorToView(ctx, conn);
         } else {
           //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
           yield* updateEditUsers(ctx, licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
@@ -2625,10 +2630,14 @@ exports.install = function(server, callbackFunction) {
             yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
             return;
           }
-        } else if (bIsRestore && commonDefines.FileStatus.UpdateVersion === status) {
-          // error version
-          yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
-          return;
+        } else if (commonDefines.FileStatus.UpdateVersion === status) {
+          if (bIsRestore) {
+            // error version
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
+            return;
+          } else {
+            modifyConnectionEditorToView(ctx, conn);
+          }
         } else if (commonDefines.FileStatus.None === status && conn.encrypted) {
           //ok
         } else if (bIsRestore) {
