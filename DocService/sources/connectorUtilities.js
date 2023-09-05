@@ -59,7 +59,6 @@ UserCallback.prototype.getCallbacks = function(ctx, callbacksStr) {
   }
   return res;
 };
-exports.UserCallback = UserCallback;
 
 function DocumentPassword() {
   this.password = undefined;
@@ -111,7 +110,6 @@ DocumentPassword.prototype.hasPasswordChanges = function(ctx, docPasswordStr) {
   let docPassword = this.getDocPassword(ctx, docPasswordStr);
   return docPassword.initial !== docPassword.current;
 };
-exports.DocumentPassword = DocumentPassword;
 
 function DocumentAdditional() {
   this.data = [];
@@ -152,4 +150,9 @@ DocumentAdditional.prototype.getOpenedAt = function(str) {
   });
   return res;
 };
-exports.DocumentAdditional = DocumentAdditional;
+
+module.exports = {
+  UserCallback,
+  DocumentPassword,
+  DocumentAdditional
+}

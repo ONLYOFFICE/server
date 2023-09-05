@@ -56,7 +56,7 @@ var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
-let addSqlParam = sqlBase.baseConnector.addSqlParameter;
+let addSqlParam = sqlBase.addSqlParameter;
 
 function updateDoc(ctx, docId, status, callback) {
   return new Promise(function(resolve, reject) {
@@ -66,7 +66,7 @@ function updateDoc(ctx, docId, status, callback) {
     let p3 = addSqlParam(ctx.tenant, values);
     let p4 = addSqlParam(docId, values);
     let sqlCommand = `UPDATE ${cfgTableResult} SET status=${p1},callback=${p2} WHERE tenant=${p3} AND id=${p4};`;
-    sqlBase.baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
