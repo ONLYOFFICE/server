@@ -2495,8 +2495,8 @@ exports.install = function(server, callbackFunction) {
         }
         let format = data.openCmd && data.openCmd.format;
         upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), true, data.documentCallbackUrl, format);
-        let isInserted = upsertRes.affectedRows == 1;
-        curIndexUser = isInserted ? 1 : upsertRes.insertId;
+        let isInserted = upsertRes.affectedRows === 1;
+        curIndexUser = upsertRes.insertId;
         if (isInserted && undefined !== data.timezoneOffset) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
           if (false === canvasService.hasAdditionalCol) {
