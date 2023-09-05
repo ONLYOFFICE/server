@@ -313,7 +313,7 @@
                     elem.classList.add('critical');
 
                 elem = document.getElementById('trial');
-                elem.innerText = (licenseInfo.mode & 4) ? 'Trial' : '';
+                elem.innerText = (licenseInfo.mode & 1) ? 'Trial' : '';
             }
 
             var quotaEdit = info.quota.edit,
