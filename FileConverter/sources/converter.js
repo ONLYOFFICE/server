@@ -748,6 +748,27 @@ function* processUploadToStorageChunk(ctx, list, dir, storagePath, calcChecksum,
   }, []);
   yield Promise.all(promises);
 }
+function* processUploadToStorageErrorFile(ctx, dataConvert, tempDirs, childRes, exitCode, exitSignal, error) {
+  const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
+  if (!tenErrorFiles) {
+    return;
+  }
+  let output = '';
+  if (undefined !== childRes.stdout) {
+    output += `stdout:${childRes.stdout}\n`;
+  }
+  if (undefined !== childRes.stderr) {
+    output += `stderr:${childRes.stderr}\n`;
+  }
+  output += `ExitCode (code=${exitCode};signal=${exitSignal};error:${error})`;
+  let outputPath = path.join(tempDirs.temp, 'console.txt');
+  fs.writeFileSync(outputPath, output, {encoding: 'utf8'});
+
+  let format = path.extname(dataConvert.fileFrom).substring(1) || "unknown";
+
+  yield* processUploadToStorage(ctx, tempDirs.temp, format + '/' + dataConvert.key , false, tenErrorFiles);
+  ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
+}
 function writeProcessOutputToLog(ctx, childRes, isDebug) {
   if (childRes) {
     if (undefined !== childRes.stdout) {
@@ -767,7 +788,6 @@ function writeProcessOutputToLog(ctx, childRes, isDebug) {
   }
 }
 function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
-  const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
   var exitCode = 0;
   var exitSignal = null;
   if(childRes) {
@@ -788,10 +808,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     } else {
       writeProcessOutputToLog(ctx, childRes, false);
       ctx.logger.error('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
-      if (tenErrorFiles) {
-        yield* processUploadToStorage(ctx, tempDirs.temp, dataConvert.key, false, tenErrorFiles);
-        ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
-      }
+      yield* processUploadToStorageErrorFile(ctx, dataConvert, tempDirs, childRes, exitCode, exitSignal, error);
     }
   } else {
     writeProcessOutputToLog(ctx, childRes, true);
