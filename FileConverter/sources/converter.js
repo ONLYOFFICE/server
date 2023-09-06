@@ -74,6 +74,7 @@ const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenf
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgEditor = config.get('services.CoAuthoring.editor');
 const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
+const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
 
 //windows limit 512(2048) https://msdn.microsoft.com/en-us/library/6e3b887c.aspx
 //Ubuntu 14.04 limit 4096 http://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors.html
@@ -162,6 +163,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
     xml += this.serializeLimit(ctx);
+    xml += this.serializeOptions(ctx);
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
   },
@@ -183,6 +185,15 @@ TaskQueueDataConvert.prototype = {
       }
       return xml;
     });
+  },
+  serializeOptions: function (ctx) {
+    const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
+    let xml = "";
+    xml += '<options>';
+    xml += this.serializeXmlProp('allowNetworkRequest', true);
+    xml += this.serializeXmlProp('allowPrivateIP', tenRequesFilteringAgent.allowPrivateIPAddress);
+    xml += '</options>';
+    return xml;
   },
   serializeMailMerge: function(data) {
     var xml = '<m_oMailMergeSend>';
@@ -853,6 +864,7 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
     if (builderParams.argument) {
       childArgs.push(`--argument=${JSON.stringify(builderParams.argument)}`);
     }
+    childArgs.push('--options=' + dataConvert.serializeOptions(ctx));
     childArgs.push(dataConvert.fileFrom);
   }
   let timeoutId;
