@@ -437,7 +437,7 @@ var cleanupCacheIf = co.wrap(function* (ctx, mask) {
   return res;
 });
 
-function commandOpenStartPromise(ctx, docId, baseUrl, opt_updateUserIndex, opt_documentCallbackUrl, opt_format) {
+function commandOpenStartPromise(ctx, docId, baseUrl, opt_documentCallbackUrl, opt_format) {
   var task = new taskResult.TaskResultData();
   task.tenant = ctx.tenant;
   task.key = docId;
@@ -451,7 +451,7 @@ function commandOpenStartPromise(ctx, docId, baseUrl, opt_updateUserIndex, opt_d
   if (opt_format) {
     task.changeId = formatChecker.getFormatFromString(opt_format);
   }
-  return taskResult.upsert(ctx, task, opt_updateUserIndex);
+  return taskResult.upsert(ctx, task);
 }
 function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
@@ -462,9 +462,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
   } else {
     upsertRes = yield commandOpenStartPromise(ctx, cmd.getDocId(), utils.getBaseUrlByConnection(ctx, conn));
   }
-  //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
-  //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
-  let bCreate = upsertRes.affectedRows == 1;
+  let bCreate = upsertRes.isInsert;
   let needAddTask = bCreate;
   if (!bCreate) {
     needAddTask = yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
@@ -1210,7 +1208,7 @@ function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChange
         //collabora nexcloud connector
         if (body.LastModifiedTime) {
           let lastModifiedTimeInfo = wopiClient.getWopiModifiedMarker(wopiParams, body.LastModifiedTime);
-          yield commandOpenStartPromise(ctx, docId, undefined, true, lastModifiedTimeInfo);
+          yield commandOpenStartPromise(ctx, docId, undefined, lastModifiedTimeInfo);
         }
       } catch (e) {
         ctx.logger.debug('processWopiPutFile error: %s', e.stack);

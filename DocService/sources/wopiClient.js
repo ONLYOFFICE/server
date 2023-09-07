@@ -433,7 +433,7 @@ function getEditorHtml(req, res) {
         fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), 1, commonInfo, fileType);
+        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
       }
 
       //Lock

@@ -139,10 +139,8 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
     task.status = commonDefines.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
-    let upsertRes = yield taskResult.upsert(ctx, task);
-    //if CLIENT_FOUND_ROWS don't specify 1 row is inserted , 2 row is updated, and 0 row is set to its current values
-    //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
-    bCreate = upsertRes.affectedRows == 1;
+    const upsertRes = yield taskResult.upsert(ctx, task);
+    bCreate = upsertRes.isInsert;
   }
   var selectRes;
   var status;

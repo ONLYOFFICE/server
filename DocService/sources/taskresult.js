@@ -95,8 +95,8 @@ TaskResultData.prototype.completeDefaults = function() {
   }
 };
 
-function upsert(ctx, task, opt_updateUserIndex) {
-  return sqlBase.upsert(ctx, task, opt_updateUserIndex);
+function upsert(ctx, task) {
+  return sqlBase.upsert(ctx, task);
 }
 
 function select(ctx, docId) {

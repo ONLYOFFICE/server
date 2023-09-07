@@ -1284,7 +1284,7 @@ let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
     yield wopiClient.unlock(ctx, getRes.wopiParams);
     let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
     if (unlockInfo) {
-      yield canvasService.commandOpenStartPromise(ctx, docId, undefined, true, unlockInfo);
+      yield canvasService.commandOpenStartPromise(ctx, docId, undefined, unlockInfo);
     }
   }
 });
@@ -2494,10 +2494,9 @@ exports.install = function(server, callbackFunction) {
           }
         }
         let format = data.openCmd && data.openCmd.format;
-        upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), true, data.documentCallbackUrl, format);
-        let isInserted = upsertRes.affectedRows === 1;
+        upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), data.documentCallbackUrl, format);
         curIndexUser = upsertRes.insertId;
-        if (isInserted && undefined !== data.timezoneOffset) {
+        if (upsertRes.isInsert && undefined !== data.timezoneOffset) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
           if (false === canvasService.hasAdditionalCol) {
             let selectRes = yield taskResult.select(ctx, docId);
