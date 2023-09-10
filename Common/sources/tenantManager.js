@@ -99,7 +99,7 @@ async function getTenantConfig(ctx) {
         res = config.util.parseString(cfgString, path.extname(configPath).substring(1));
         ctx.logger.debug('getTenantConfig from %s', configPath);
       } catch (e) {
-        ctx.logger.error('getTenantConfig error: %s', e.stack);
+        ctx.logger.debug('getTenantConfig error: %s', e.stack);
       } finally {
         nodeCache.set(configPath, res);
       }
@@ -135,14 +135,20 @@ function getTenantSecret(ctx, type) {
       if (res) {
         ctx.logger.debug('getTenantSecret from cache');
       } else {
-        let secret = yield readFile(secretPath, {encoding: 'utf8'});
-        //trim whitespace plus line terminators from string (newline is common on Posix systems)
-        res = secret.trim();
-        if (res.length !== secret.length) {
-          ctx.logger.warn('getTenantSecret secret in %s contains a leading or trailing whitespace that has been trimmed', secretPath);
+        try {
+          let secret = yield readFile(secretPath, {encoding: 'utf8'});
+          //trim whitespace plus line terminators from string (newline is common on Posix systems)
+          res = secret.trim();
+          if (res.length !== secret.length) {
+            ctx.logger.warn('getTenantSecret secret in %s contains a leading or trailing whitespace that has been trimmed', secretPath);
+          }
+          ctx.logger.debug('getTenantSecret from %s', secretPath);
+        } catch (e) {
+          res = undefined;
+          ctx.logger.warn('getTenantConfig error: %s', e.stack);
+        } finally {
+          nodeCache.set(secretPath, res);
         }
-        nodeCache.set(secretPath, res);
-        ctx.logger.debug('getTenantSecret from %s', secretPath);
       }
     } else {
       switch (type) {
