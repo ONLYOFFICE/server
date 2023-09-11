@@ -245,7 +245,7 @@ function getTenantLicense(ctx) {
         if (licenseInfoTenant) {
           ctx.logger.debug('getTenantLicense from cache');
         } else {
-          [licenseInfoTenant] = yield* license.readLicense(licensePath, licenseInfo);
+          [licenseInfoTenant] = yield readLicenseTenant(ctx, licensePath, licenseInfo);
           fixTenantLicense(ctx, licenseInfo, licenseInfoTenant);
           nodeCache.set(licensePath, licenseInfoTenant);
           ctx.logger.debug('getTenantLicense from %s', licensePath);
@@ -269,6 +269,127 @@ function isMultitenantMode(ctx) {
 function isDefaultTenant(ctx) {
   return ctx.tenant === cfgTenantsDefaultTenant;
 }
+//todo move to license file?
+async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
+  const c_LR = constants.LICENSE_RESULT;
+  const c_LM = constants.LICENSE_MODE;
+  let res = {...baseVerifiedLicense};
+  let oLicense = null;
+  try {
+    const oFile = (await readFile(licenseFile)).toString();
+    res.hasLicense = true;
+    oLicense = JSON.parse(oFile);
+    if (oLicense['start_date']) {
+      res.startDate = new Date(oLicense['start_date']);
+    }
+    const startDate = res.startDate;
+    if (oLicense['end_date']) {
+      res.endDate = new Date(oLicense['end_date']);
+    }
+    const endDate = res.endDate;
+
+    if (oLicense['customer_id']) {
+      res.customerId = oLicense['customer_id']
+    }
+
+    if (oLicense['alias']) {
+      res.alias = oLicense['alias'];
+    }
+
+    if (true === oLicense['timelimited']) {
+      res.mode |= c_LM.Limited;
+    }
+    if (oLicense.hasOwnProperty('trial')) {
+      res.mode |= ((true === oLicense['trial'] || 'true' === oLicense['trial'] || 'True' === oLicense['trial']) ? c_LM.Trial : c_LM.None); // Someone who likes to put json string instead of bool
+    }
+    if (true === oLicense['developer']) {
+      res.mode |= c_LM.Developer;
+    }
+    // ToDo delete mode
+    if (oLicense.hasOwnProperty('mode')) {
+      res.mode |= ('developer' === oLicense['mode'] ? c_LM.Developer : ('trial' === oLicense['mode'] ? c_LM.Trial : c_LM.None));
+    }
+
+    if (oLicense.hasOwnProperty('light')) {
+      res.light = (true === oLicense['light'] || 'true' === oLicense['light'] || 'True' === oLicense['light']); // Someone who likes to put json string instead of bool
+    }
+    if (oLicense.hasOwnProperty('plugins')) {
+      res.plugins = true === oLicense['plugins'];
+    }
+    if (oLicense.hasOwnProperty('branding')) {
+      res.branding = (true === oLicense['branding'] || 'true' === oLicense['branding'] || 'True' === oLicense['branding']); // Someone who likes to put json string instead of bool
+    }
+    if (oLicense.hasOwnProperty('customization')) {
+      res.customization = !!oLicense['customization'];
+    }
+    if (oLicense.hasOwnProperty('advanced_api')) {
+      res.advancedApi = !!oLicense['advanced_api'];
+    }
+    if (oLicense.hasOwnProperty('connections')) {
+      res.connections = oLicense['connections'] >> 0;
+    }
+    if (oLicense.hasOwnProperty('connections_view')) {
+      res.connectionsView = oLicense['connections_view'] >> 0;
+    }
+    if (oLicense.hasOwnProperty('users_count')) {
+      res.usersCount = oLicense['users_count'] >> 0;
+    }
+    if (oLicense.hasOwnProperty('users_view_count')) {
+      res.usersViewCount = oLicense['users_view_count'] >> 0;
+    }
+    if (oLicense.hasOwnProperty('users_expire')) {
+      res.usersExpire = Math.max(constants.LICENSE_EXPIRE_USERS_ONE_DAY, (oLicense['users_expire'] >> 0) *
+        constants.LICENSE_EXPIRE_USERS_ONE_DAY);
+    }
+
+    const timeLimited = 0 !== (res.mode & c_LM.Limited);
+
+    const checkDate = ((res.mode & c_LM.Trial) || timeLimited) ? new Date() : oBuildDate;
+    //Calendar check of start_date allows to issue a license for old versions
+    const checkStartDate = new Date();
+    if (startDate <= checkStartDate && checkDate <= endDate && (!oLicense.hasOwnProperty('version') || 2 <= oLicense['version'])) {
+      if (oLicense.hasOwnProperty('process')) {
+        res.connections = Math.max(res.count, oLicense['process'] >> 0) * 75;
+      }
+      res.type = c_LR.Success;
+    } else if (startDate > checkStartDate) {
+      res.type = c_LR.NotBefore;
+      ctx.logger.warn('License: License not active before start_date:%s.', startDate.toISOString());
+    } else if (timeLimited) {
+      res.type = c_LR.ExpiredLimited;
+    } else if (0 !== (res.mode & c_LM.Trial)) {
+      res.type = c_LR.ExpiredTrial;
+    } else {
+      res.type = c_LR.Expired;
+    }
+  } catch (e) {
+    ctx.logger.warn(e);
+    res.count = 1;
+    res.connections = 0;
+    res.connectionsView = 0;
+    res.usersCount = 0;
+    res.usersViewCount = 0;
+    res.type = c_LR.Error;
+  }
+  if (res.type === c_LR.Expired || res.type === c_LR.ExpiredLimited || res.type === c_LR.ExpiredTrial) {
+    res.count = 1;
+
+    let errorMessage;
+    if (res.type === c_LR.Expired) {
+      errorMessage = 'Your access to updates and support has expired.\n' +
+        'Your license key can not be applied to new versions.\n' +
+        'Please extend the license to get updates and support.';
+    } else if (res.type === c_LR.ExpiredLimited) {
+      errorMessage = 'License expired.\nYour users can not edit or view document anymore.\n' +
+        'Please renew the license.';
+    } else {
+      errorMessage ='License Expired!!!';
+    }
+    ctx.logger.warn('License: ' + errorMessage);
+  }
+
+  return [res, oLicense];
+};
 
 exports.getDefautTenant = getDefautTenant;
 exports.getTenantByConnection = getTenantByConnection;
