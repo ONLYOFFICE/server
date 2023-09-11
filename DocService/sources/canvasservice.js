@@ -975,9 +975,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
     } else {
       isError = true;
     }
+    let outputSfc;
     if (uri && baseUrl && userLastChangeId) {
       ctx.logger.debug('Callback commandSfcCallback: callback = %s', uri);
-      var outputSfc = new commonDefines.OutputSfcData(docId);
+      outputSfc = new commonDefines.OutputSfcData(docId);
       outputSfc.setEncrypted(isEncrypted);
       var users = [];
       let isOpenFromForgotten = false;
@@ -1161,7 +1162,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
     }
     }
     if (forceSave) {
-      yield* docsCoServer.setForceSave(ctx, docId, forceSave, cmd, isSfcmSuccess && !isError, outputSfc.getUrl());
+      yield* docsCoServer.setForceSave(ctx, docId, forceSave, cmd, isSfcmSuccess && !isError, outputSfc?.getUrl());
     }
     if (needRetry) {
       let attempt = cmd.getAttempt() || 0;
