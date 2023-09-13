@@ -508,6 +508,8 @@ function convertTo(req, res) {
         cmd.setSaveKey(docId);
         cmd.setFormat(filetype);
         cmd.setOutputFormat(outputFormat);
+        cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
+        cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Comma);
         if (lang && locale[lang.toLowerCase()]) {
           cmd.setLCID(locale[lang.toLowerCase()].id);
         }
