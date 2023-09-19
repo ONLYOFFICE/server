@@ -245,8 +245,13 @@ docsCoServer.install(server, () => {
 	});
 
 	app.get('/robots.txt', (req, res) => {
-		res.setHeader('Content-Type', 'plain/text');
-		res.send("User-agent: *\nDisallow: /");
+		try {
+			res.setHeader('Content-Type', 'plain/text');
+			res.send("User-agent: *\nDisallow: /");
+		} catch (err) {
+			ctx.logger.error('robots.txt: %s', err.stack);
+			res.json({ message: 'Error Occured' });
+		}
 	});
 
 	app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
