@@ -244,14 +244,9 @@ docsCoServer.install(server, () => {
 		}
 	});
 
-	app.get('/robots.txt', (req, res) => {
-		try {
-			res.setHeader('Content-Type', 'plain/text');
-			res.send("User-agent: *\nDisallow: /");
-		} catch (err) {
-			ctx.logger.error('robots.txt: %s', err.stack);
-			res.json({ message: 'Error Occured' });
-		}
+	app.get('/robots.txt', (req, res, next) => {
+		res.setHeader('Content-Type', 'plain/text');
+		res.send("User-agent: *\nDisallow: /");
 	});
 
 	app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
@@ -391,6 +386,10 @@ docsCoServer.install(server, () => {
 				ctx.logger.info('themes.json end');
 			}
 		});
+	});
+	app.use((err, req, res, next) => {
+  	console.error(err.stack);
+  	res.status(500).json({ message: 'Error occured' });
 	});
 });
 
