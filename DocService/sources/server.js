@@ -244,7 +244,7 @@ docsCoServer.install(server, () => {
 		}
 	});
 
-	app.get('/robots.txt', (req, res, next) => {
+	app.get('/robots.txt', (req, res) => {
 		res.setHeader('Content-Type', 'plain/text');
 		res.send("User-agent: *\nDisallow: /");
 	});
@@ -388,8 +388,8 @@ docsCoServer.install(server, () => {
 		});
 	});
 	app.use((err, req, res, next) => {
-  	console.error(err.stack);
-  	res.status(500).json({ message: 'Error occured' });
+		ctx.logger.error(err.stack);
+		res.sendStatus(500);
 	});
 });
 
