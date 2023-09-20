@@ -5,7 +5,7 @@
   "private": true,
   "bin": "node_modules/statsd/bin/statsd",
   "dependencies": {
-    "statsd": "^0.8.4"
+    "statsd": "0.8.4"
   },
   "pkg": {
     "scripts": [
