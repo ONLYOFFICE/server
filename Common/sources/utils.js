@@ -310,8 +310,8 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     let options = config.util.extendDeep({}, tenTenantRequestDefaults);
     Object.assign(options, {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false});
     if (opt_filterPrivate) {
-      const options = Object.assign({}, https.globalAgent.options, tenRequesFilteringAgent);
-      options.agent = getRequestFilterAgent(uri, options);
+      const agentOptions = Object.assign({}, https.globalAgent.options, tenRequesFilteringAgent);
+      options.agent = getRequestFilterAgent(uri, agentOptions);
     } else {
       //baseRequest creates new agent(win-ca injects in globalAgent)
       options.agentOptions = https.globalAgent.options;
