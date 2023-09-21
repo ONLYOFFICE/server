@@ -171,7 +171,8 @@ let forceSaveTimeout = function() {
             ctx.init(tenant, docId, ctx.userId);
             yield ctx.initTenantCache();
             actions.push(docsCoServer.startForceSave(ctx, docId, commondefines.c_oAscForceSaveTypes.Timeout,
-              undefined, undefined, undefined, undefined, undefined, undefined, undefined, queue, pubsub));
+              undefined, undefined, undefined, undefined,
+              undefined, undefined, undefined, undefined, queue, pubsub));
           }
         }
         yield Promise.all(actions);

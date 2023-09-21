@@ -94,6 +94,7 @@ function InputCommand(data, copyExplicit) {
       this['forcesave'] = undefined;
     }
     this['userdata'] = data['userdata'];
+    this['formdata'] = data['formdata'];
     this['inline'] = data['inline'];
     this['password'] = data['password'];
     this['savepassword'] = data['savepassword'];
@@ -154,6 +155,7 @@ function InputCommand(data, copyExplicit) {
     this['useractionindex'] = undefined;
     this['forcesave'] = undefined;
     this['userdata'] = undefined;
+    this['formdata'] = undefined;
     this['inline'] = undefined;//content disposition
     this['password'] = undefined;
     this['savepassword'] = undefined;
@@ -374,9 +376,15 @@ InputCommand.prototype = {
   setUserActionIndex: function(data) {
     this['useractionindex'] = data;
   },
+  /**
+   * @return {CForceSaveData | null}
+   */
   getForceSave: function() {
     return this['forcesave'];
   },
+  /**
+   * @param {CForceSaveData} data
+   */
   setForceSave: function(data) {
     this['forcesave'] = data;
   },
@@ -385,6 +393,12 @@ InputCommand.prototype = {
   },
   setUserData: function(data) {
     this['userdata'] = data;
+  },
+  getFormData: function() {
+    return this['formdata'];
+  },
+  setFormData: function(data) {
+    this['formdata'] = data;
   },
   getInline: function() {
     return this['inline'];
@@ -806,6 +820,7 @@ function OutputSfcData(key) {
   this['actions'] = undefined;
   this['mailMerge'] = undefined;
   this['userdata'] = undefined;
+  this['formdata'] = undefined;
   this['lastsave'] = undefined;
   this['notmodified'] = undefined;
   this['forcesavetype'] = undefined;
@@ -872,6 +887,12 @@ OutputSfcData.prototype.getUserData= function() {
 };
 OutputSfcData.prototype.setUserData = function(data) {
   return this['userdata'] = data;
+};
+OutputSfcData.prototype.getFormData= function() {
+  return this['formdata'];
+};
+OutputSfcData.prototype.setFormData = function(data) {
+  return this['formdata'] = data;
 };
 OutputSfcData.prototype.getLastSave = function() {
   return this['lastsave']

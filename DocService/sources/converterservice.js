@@ -184,8 +184,8 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
   return status;
 }
 
-let convertFromChanges = co.wrap(function*(ctx, docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_userConnectionId,
-                                           opt_userConnectionDocId, opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey) {
+async function convertFromChanges(ctx, docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_formdata, opt_userConnectionId,
+                                  opt_userConnectionDocId, opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
@@ -197,6 +197,10 @@ let convertFromChanges = co.wrap(function*(ctx, docId, baseUrl, forceSave, exter
   cmd.setExternalChangeInfo(externalChangeInfo);
   if (opt_userdata) {
     cmd.setUserData(opt_userdata);
+  }
+  if (opt_formdata) {
+    //todo put file to storage
+    cmd.setFormData(opt_formdata);
   }
   if (opt_userConnectionId) {
     cmd.setUserConnectionId(opt_userConnectionId);
@@ -211,20 +215,20 @@ let convertFromChanges = co.wrap(function*(ctx, docId, baseUrl, forceSave, exter
     cmd.setRedisKey(opt_redisKey);
   }
 
-  yield canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue);
+  await canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue);
   var fileTo = constants.OUTPUT_NAME;
   let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
   if (outputExt) {
     fileTo += '.' + outputExt;
   }
-  let status = yield* convertByCmd(ctx, cmd, true, fileTo, undefined, opt_priority, opt_expiration, opt_queue);
+  let status = await co(convertByCmd(ctx, cmd, true, fileTo, undefined, opt_priority, opt_expiration, opt_queue));
   if (status.end) {
-    let fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
+    let fileToPath = await co(getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat()));
     status.setExtName(path.extname(fileToPath));
-    status.setUrl(yield* getConvertUrl(ctx, baseUrl, fileToPath, cmd.getTitle()));
+    status.setUrl(await co(getConvertUrl(ctx, baseUrl, fileToPath, cmd.getTitle())));
   }
   return status;
-});
+}
 function parseIntParam(val){
   return (typeof val === 'string') ? parseInt(val) : val;
 }
@@ -504,6 +508,8 @@ function convertTo(req, res) {
         cmd.setSaveKey(docId);
         cmd.setFormat(filetype);
         cmd.setOutputFormat(outputFormat);
+        cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
+        cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Comma);
         if (lang && locale[lang.toLowerCase()]) {
           cmd.setLCID(locale[lang.toLowerCase()].id);
         }
