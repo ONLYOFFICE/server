@@ -387,10 +387,11 @@ docsCoServer.install(server, () => {
 			}
 		});
 	});
-	app.use((err, req, res, next) => {
-		ctx.logger.error(err.stack);
-		res.sendStatus(500);
-	});
+});
+
+app.use((err, req, res, next) => {
+	ctx.logger.error(err.stack);
+	res.sendStatus(500);
 });
 
 process.on('uncaughtException', (err) => {
