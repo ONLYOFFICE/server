@@ -388,7 +388,8 @@ docsCoServer.install(server, () => {
 		});
 	});
 	app.use((err, req, res, next) => {
-		let ctx = new operationContext.Context()
+		let ctx = new operationContext.Context();
+		ctx.initFromRequest(req);
 		ctx.logger.error(err.stack);
 		res.sendStatus(500);
 	});
