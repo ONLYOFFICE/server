@@ -76,6 +76,11 @@
     "install:FileConverter": "cd FileConverter && npm install",
     "install:Metrics": "cd Metrics && npm install",
     "install:SpellChecker": "cd SpellChecker && npm install",
-    "postinstall": "run-p install:*"
+    "cpdir:Common": "npx copyfiles \"./Common/package.json\" \"./Common/config/*.json\" \"./Common/config/log4js/*.json\" \"./build/server\"",
+    "cpdir:DocService": "npx copyfiles \"./DocService/package.json\" \"./DocService/public/healthcheck.docx\" \"./build/server\" ",
+    "cpdir:FileConverter": "npx copyfiles \"./FileConverter/package.json\" \"./FileConverter/bin/DoctRenderer.config\" \"./build/server\"",
+    "cpdir:Metrics": "npx copyfiles \"./Metrics/package.json\" \"./Metrics/config/config.js\" \"./build/server\"",
+    "cpdir:Sources": "npx copyfiles \"./**/sources/*.js\" \"./build/server\"",
+    "postinstall": "run-p install:* && npm-run-all cpdir:*"
   }
 }
