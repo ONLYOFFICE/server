@@ -101,7 +101,8 @@ function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
   if (checkJwtRes.decoded) {
     var doc = checkJwtRes.decoded.document;
     var edit = checkJwtRes.decoded.editorConfig;
-    if (!edit.ds_view && !edit.ds_isCloseCoAuthoring) {
+    //todo check view and pdf editor (temporary fix)
+    if (!edit.ds_isCloseCoAuthoring) {
       res.err = false;
       res.docId = doc.key;
       res.encrypted = doc.ds_encrypted;
