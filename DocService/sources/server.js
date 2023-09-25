@@ -387,11 +387,16 @@ docsCoServer.install(server, () => {
 			}
 		});
 	});
+	app.use((err, req, res, next) => {
+		let ctx = new operationContext.Context();
+		ctx.initFromRequest(req);
+		ctx.logger.error('default error handler:%s', err.stack);
+		res.sendStatus(500);
+	});
 });
 
 process.on('uncaughtException', (err) => {
-	operationContext.global.logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
-	operationContext.global.logger.error(err.stack);
+	operationContext.global.logger.error('uncaughtException:%s', err.stack);
 	logger.shutdown(() => {
 		process.exit(1);
 	});
