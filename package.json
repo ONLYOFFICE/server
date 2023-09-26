@@ -54,6 +54,7 @@
     "./build/server/Metrics"
   ],
   "dependencies": {
+    "glob": "^10.3.9",
     "grunt": "^1.5.3",
     "grunt-banner": "^0.6.0",
     "grunt-check-dependencies": "^1.0.0",

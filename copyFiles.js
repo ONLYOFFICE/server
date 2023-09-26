@@ -1,45 +1,46 @@
 const fs = require('fs');
-const { execSync } = require('child_process');
+const path = require('path');
+const glob = require('glob');
 
-const copyFiles = (source, destination) => {
-  try {
-    execSync(`npx copyfiles ${source} ${destination}`);
-    console.log(`Copied files from ${source} to ${destination}`);
-  } catch (error) {
-    console.error(`Error copying files from ${source} to ${destination}:`, error);
-    process.exit(1);
-  }
-};
+const fileToCopy = [
+	'./**/sources/*.js',
+	'./Common/package.json',
+	'./Common/config/*.json',
+	'./Common/config/log4js/*.json',
+	'./DocService/package.json',
+	'./DocService/public/healthcheck.docx',
+	'./FileConverter/package.json',
+	'./FileConverter/bin/DoctRenderer.config',
+	'./Metrics/package.json',
+	'./Metrics/config/config.js'
+]
 
 const destination = './build/server';
 
-const copyDirectories = () => {
-  const commands = [
-    {
-      source: './Common/package.json ./Common/config/*.json ./Common/config/log4js/*.json',
-      destination: destination
-    },
-    {
-      source: './DocService/package.json ./DocService/public/healthcheck.docx',
-      destination: destination
-    },
-    {
-      source: './FileConverter/package.json ./FileConverter/bin/DoctRenderer.config',
-      destination: destination
-    },
-    {
-      source: './Metrics/package.json ./Metrics/config/config.js',
-      destination: destination
-    },
-    {
-      source: './**/sources/*.js',
-      destination: destination
-    }
-  ];
+if (!fs.existsSync(destination)) {
+	fs.mkdirSync(destination, { recursive: true });
+}
 
-  for (const command of commands) {
-    copyFiles(command.source, command.destination);
-  }
-};
+const expandedFiles = glob.sync('./**/sources/*.js');
+for (const expandedFile of expandedFiles) {
+	const directoryPath = path.resolve(destination, path.dirname(expandedFile));
+	if (!fs.existsSync(directoryPath)) {
+		fs.mkdirSync(directoryPath, { recursive: true });
+	}
+}
 
-copyDirectories();
+for (const filePattern of fileToCopy) {
+	const expandedFiles = glob.sync(filePattern, { nodir: true });
+	for (const sourceFilePath of expandedFiles) {
+		const relativePath = path.relative('.', sourceFilePath);
+		const destinationFilepath = path.resolve(destination, relativePath);
+		
+		const destinationDirectory = path.dirname(destinationFilepath);
+		if (!fs.existsSync(destinationDirectory)) {
+			fs.mkdirSync(destinationDirectory, { recursive: true });
+		}
+
+		fs.copyFileSync(sourceFilePath, destinationFilepath);
+		console.log(`Copied file '${sourceFilePath}' to '${destinationFilepath}'`);
+	}
+}
