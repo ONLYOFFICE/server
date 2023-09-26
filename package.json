@@ -54,6 +54,7 @@
     "./build/server/Metrics"
   ],
   "dependencies": {
+    "copyfiles": "^2.4.1",
     "glob": "^10.3.9",
     "grunt": "^1.5.3",
     "grunt-banner": "^0.6.0",
@@ -77,6 +78,11 @@
     "install:FileConverter": "cd FileConverter && npm install",
     "install:Metrics": "cd Metrics && npm install",
     "install:SpellChecker": "cd SpellChecker && npm install",
-    "postinstall": "run-p install:* && node copyFiles.js"
+    "cpdir:Common": "copyfiles \"./Common/package.json\" \"./Common/config/*.json\" \"./Common/config/log4js/*.json\" \"./build/server\"",
+    "cpdir:DocService": "copyfiles \"./DocService/package.json\" \"./DocService/public/healthcheck.docx\" \"./build/server\" ",
+    "cpdir:FileConverter": "copyfiles \"./FileConverter/package.json\" \"./FileConverter/bin/DoctRenderer.config\" \"./build/server\"",
+    "cpdir:Metrics": "copyfiles \"./Metrics/package.json\" \"./Metrics/config/config.js\" \"./build/server\"",
+    "cpdir:Sources": "copyfiles \"./**/sources/*.js\" \"./build/server\"",
+    "postinstall": "run-p install:* cpdir:*"
   }
 }
