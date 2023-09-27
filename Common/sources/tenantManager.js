@@ -42,7 +42,6 @@ const utils = require('./../../Common/sources/utils');
 const { readFile } = require('fs/promises');
 const path = require('path');
 
-const oPackageType = config.get('license.packageType');
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
 const cfgTenantsBaseDir = config.get('tenants.baseDir');
 const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
@@ -344,7 +343,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
 
     const timeLimited = 0 !== (res.mode & c_LM.Limited);
 
-    const checkDate = ((res.mode & c_LM.Trial) || timeLimited) ? new Date() : oBuildDate;
+    const checkDate = ((res.mode & c_LM.Trial) || timeLimited) ? new Date() : licenseInfo.buildDate;
     //Calendar check of start_date allows to issue a license for old versions
     const checkStartDate = new Date();
     if (startDate <= checkStartDate && checkDate <= endDate && (!oLicense.hasOwnProperty('version') || 2 <= oLicense['version'])) {
@@ -399,7 +398,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
   }
 
   return [res, oLicense];
-};
+}
 
 exports.getDefautTenant = getDefautTenant;
 exports.getTenantByConnection = getTenantByConnection;
