@@ -43,9 +43,8 @@ var storageBase = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
-
+//const sharp = require("sharp");
 var config = require('config');
-const sharp = require("sharp");
 
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
@@ -257,13 +256,13 @@ exports.uploadImageFile = function(req, res) {
             var strImageName = crypto.randomBytes(16).toString("hex");
             var strPathRel = 'media/' + strImageName + '.' + formatStr;
             var strPath = docId + '/' + strPathRel;
-            //fix exif rotation
-            //todo move to commons
-            let sharpTransform = sharp(buffer);
-            let metadata = yield sharpTransform.metadata();
-            if (undefined !== metadata.orientation && metadata.orientation > 1) {
-              buffer = yield  sharpTransform.rotate().toBuffer();
-            }
+            // //fix exif rotation
+            // //todo move to commons
+            // let sharpTransform = sharp(buffer);
+            // let metadata = yield sharpTransform.metadata();
+            // if (undefined !== metadata.orientation && metadata.orientation > 1) {
+            //   buffer = yield  sharpTransform.rotate().toBuffer();
+            // }
 
             yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
             output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
