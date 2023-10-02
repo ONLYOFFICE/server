@@ -358,10 +358,13 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
       // 30 days after end license = limited mode with 20 Connections
       if (endDate.setDate(checkDate.getDate() + 30) >= checkDate) {
         res.type = c_LR.SuccessLimit;
-        res.connections = constants.LICENSE_CONNECTIONS;
-        res.connectionsView = res.connectionsView ? constants.LICENSE_CONNECTIONS : 0;
-        ctx.logger.error('License: License needs to be renewed.\nYour users have only 20 concurrent ' +
-          'connections available for document editing for the next 30 days.\nPlease renew the ' +
+        res.connections = Math.min(res.connections, constants.LICENSE_CONNECTIONS);
+        res.connectionsView = Math.min(res.connectionsView, constants.LICENSE_CONNECTIONS);
+        res.usersCount = Math.min(res.usersCount, constants.LICENSE_USERS);
+        res.usersViewCount = Math.min(res.usersViewCount, constants.LICENSE_USERS);
+        let errStr = res.usersCount ? `${res.usersCount} unique users` : `${res.connections} concurrent connections`;
+        ctx.logger.error(`License: License needs to be renewed.\nYour users have only ${errStr} ` +
+          `available for document editing for the next 30 days.\nPlease renew the ` +
           'license to restore the full access');
       } else {
         res.type = c_LR.ExpiredLimited;
