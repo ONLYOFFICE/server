@@ -1,0 +1,60 @@
+name: check
+on: [push]
+jobs:
+  mysql-tests:
+    name: MYSQL database tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Mysql DB docker container
+        run: docker run --name mysql -p 8080:3306 -p 8081:33060 -e MYSQL_HOST=127.0.0.1 -e MYSQL_ROOT_PASSWORD=onlyoffice -e MYSQL_DATABASE=onlyoffice -d mysql:latest
+
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Install modules
+        run: |
+          npm ci
+          npm --prefix Common ci
+          npm --prefix DocService ci
+
+      - name: Configure local IP
+        run: |
+          echo '{"services": {"CoAuthoring": {"sql": {"type": "mysql", "dbHost": "127.0.0.1", "dbPort": "8080", "dbUser": "root", "dbPass": "onlyoffice"}}}}' >> Common/config/local.json
+
+      - name : Creating schema
+        run: |
+          docker cp ./schema/mysql/createdb.sql mysql:/
+          docker exec mysql mysql -h 127.0.0.1 -u root --password=onlyoffice -D onlyoffice -e 'source /createdb.sql'
+
+      - name: Run Jest
+        run: npm exec -c 'cd ./DocService && jest baseConnector.tests.js --inject-globals=false --config=../tests/jest.config.js'
+
+  postgres-tests:
+    name: Postgres database tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Postgres DB docker container
+        run: docker run --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=onlyoffice -e POSTGRES_USER=onlyoffice -e POSTGRES_DB=onlyoffice -d postgres:latest
+
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Install modules
+        run: |
+          npm ci
+          npm --prefix Common ci
+          npm --prefix DocService ci
+
+      - name: Configure local IP
+        run: |
+          echo '{"services": {"CoAuthoring": {"sql": {"dbHost": "127.0.0.1"}}}}' >> Common/config/local.json
+
+      - name : Creating schema
+        run: |
+          docker cp ./schema/postgresql/createdb.sql postgres:/
+          docker exec postgres psql -d onlyoffice -U onlyoffice -a -f /createdb.sql
+
+      - name: Run Jest
+        run: npm exec -c 'cd ./DocService && jest baseConnector.tests.js --inject-globals=false --config=../tests/jest.config.js'

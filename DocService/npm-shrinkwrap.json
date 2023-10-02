@@ -1120,9 +1120,9 @@
       }
     },
     "config": {
-      "version": "2.0.1",
-      "resolved": "https://registry.npmjs.org/config/-/config-2.0.1.tgz",
-      "integrity": "sha512-aTaviJnC8ZjQYx8kQf4u6tWqIxWolyQQ3LqXgnCLAsIb78JrUshHG0YuzIarzTaVVe1Pazms3TXImfYra8UsyQ==",
+      "version": "2.0.2",
+      "resolved": "https://registry.npmjs.org/config/-/config-2.0.2.tgz",
+      "integrity": "sha512-duIbkKb0gls0bOtGwd1vaD4236MwepQlZcrMheOGrn3/9Px7oYFh8G4LB3ylGOlPr5wGoJRm8Grb2RihJZxuHQ==",
       "requires": {
         "json5": "^1.0.1"
       }

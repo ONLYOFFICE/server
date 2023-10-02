@@ -15,11 +15,11 @@ jest.mock("fs/promises", () => ({
 }));
 const { cp } = require('fs/promises');
 
-const operationContext = require('../../Common/sources/operationContext');
-const storage = require('../../Common/sources/storage-base');
-const utils = require('../../Common/sources/utils');
-const commonDefines = require("../../Common/sources/commondefines");
-const config = require('../../Common/node_modules/config');
+const operationContext = require('../../../Common/sources/operationContext');
+const storage = require('../../../Common/sources/storage-base');
+const utils = require('../../../Common/sources/utils');
+const commonDefines = require("../../../Common/sources/commondefines");
+const config = require('../../../Common/node_modules/config');
 
 const cfgStorageName = config.get('storage.name');
 

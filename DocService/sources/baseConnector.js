@@ -353,7 +353,7 @@ function getEmptyCallbacks(ctx) {
 
 function getTableColumns(ctx, tableName) {
   return new Promise(function(resolve, reject) {
-    const sqlCommand = `SELECT column_name as 'column_name' FROM information_schema.COLUMNS WHERE TABLE_NAME = '${tableName}';`;
+    const sqlCommand = `SELECT column_name as "column_name" FROM information_schema.COLUMNS WHERE TABLE_NAME = '${tableName}';`;
     dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
