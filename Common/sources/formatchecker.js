@@ -195,6 +195,100 @@ function getImageFormatBySignature(buffer) {
 
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
+exports.getDocumentFormatByByte = function getDocumentFormatByByte(buffer) {
+  // Check for RTF format.
+  if (buffer[0] === '{' && buffer[1] === '\\' && buffer[2] === 'r' && buffer[3] === 't' && buffer[4] === 'f') {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_RTF;
+  }
+
+  // Check for multi-parts HTML format.
+  const xmlString = new TextDecoder().decode(buffer);
+  if (xmlString.indexOf('Content-Type: multipart/related') !== -1 && xmlString.indexOf('Content-Type: text/html') !== -1) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML_IN_CONTAINER;
+  }
+
+  // Check for HTML format.
+  if ((buffer[0] === 0x3C) && (buffer[1] === 0x21) && (buffer[2] === 0x44) && (buffer[3] === 0x4F)) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML;
+  }
+
+  // Check for binary DOCT format.
+  if (buffer[0] === 'D' && buffer[1] === 'O' && buffer[2] === 'C' && buffer[3] === 'Y') {
+    return constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
+  }
+
+  // Check for binary XLSX format
+  if (buffer[0] === 'X' && buffer[1] === 'L' && buffer[2] === 'S' && buffer[3] === 'Y') {
+    return constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET;
+  }
+
+  // Check for PDF format
+  if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+    return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
+  }
+
+  // Check for DOC format
+  if ((buffer[0] == 0xEC && buffer[1] == 0xA5) ||		// word 1997-2003
+			(buffer[0] == 0xDC && buffer[1] == 0xA5) ||		// word 1995
+			(buffer[0] == 0xDB && buffer[1] == 0xA5)) {
+      return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC;
+  }
+
+  //Check for binary PPT format
+  if ('P' === buffer[0] && 'P' === buffer[1] && 'T' === buffer[2] && 'Y' === buffer[3]) {
+    return constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION; 
+  }
+  
+  // Check for Vba format
+  if (buffer[0] === 0x44 && buffer[1] === 0x53 && buffer[2] === 0x50 && buffer[3] === 0x53) {
+    return true;
+  }
+
+  // Check format Xls document
+  if (buffer[0] === 0xD0 && buffer[1] === 0xCF && buffer[2] === 0x11 && buffer[3] === 0xE0) {
+  return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLS;
+  }
+
+  // Check for DocFlat format
+  if ((buffer[0] === 0xEC && buffer[1] === 0xA5) || (buffer[0] === 0xDC && buffer[1] === 0xA5) || (buffer[0] === 0xDB && buffer[1] === 0xA5)) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC_FLAT;
+  }
+
+  // Check for XlsFlat format
+   if ((buffer[1] === 0x08 && buffer[0] === 0x09) || (buffer[1] === 0x04 && buffer[0] === 0x09) || (buffer[1] === 0x02 && buffer[0] === 0x09) ||
+      (buffer[2] === 0x04 && buffer[0] === 0x09 && buffer[1] === 0x00 && buffer[3] === 0x00)) {
+      return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX_FLAT;
+  }
+
+  // Check for OpenOffice format
+   if (buffer[0] === 0x3C && buffer[1] === 0x3F && buffer[2] === 0x78 && buffer[3] === 0x6D && buffer[4] === 0x6C) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT_FLAT;
+  }
+
+  // Check for Djvu format
+  if (buffer[0] === 0x41 || buffer[1] === 0x54 || buffer[2] === 0x26 || buffer[3] === 0x54 ||
+      buffer[4] === 0x46 || buffer[5] === 0x4F || buffer[6] === 0x52 || buffer[7] === 0x4D) {
+    return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU;
+  }
+
+  // Check for Mobi format
+  if ((buffer[60] === 0x42 && buffer[61] === 0x4F && buffer[62] === 0x4F && buffer[63] === 0x4B &&
+      buffer[64] === 0x4D && buffer[65] === 0x4F && buffer[66] === 0x42 && buffer[67] === 0x49) ||
+      (buffer[60] === 0x54 && buffer[61] === 0x45 && buffer[62] === 0x58 && buffer[63] === 0x74 &&
+      buffer[64] === 0x52 && buffer[65] === 0x45 && buffer[66] === 0x41 && buffer[67] === 0x64)) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_MOBI;
+  }
+
+  // Check for FB2 format
+  if (buffer[0] === 0x3C || buffer[1] === 0x3F || buffer[2] === 0x78 || buffer[3] === 0x6D ||
+      buffer[4] === 0x6C || buffer[5] === 0x20 || buffer[6] === 0x76 || buffer[7] === 0x65 ||
+      buffer[8] === 0x72 || buffer[9] === 0x73 || buffer[10] === 0x69 || buffer[11] === 0x6F) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_FB2;
+  }
+
+  // Unknown format
+  return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
+}
 exports.getFormatFromString = function(ext) {
   switch (ext.toLowerCase()) {
     case 'docx':
