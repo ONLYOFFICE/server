@@ -2542,7 +2542,7 @@ exports.install = function(server, callbackFunction) {
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache(); //no need
           licenseInfoAggregation = tenantManager.getServerLicense();
-          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, isLiveViewer, logPrefixServer);
+          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, isLiveViewer, logPrefixServer);
         }
         conn.licenseType = licenseType;
         if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!tenIsAnonymousSupport && data.IsAnonymousUser)) {
@@ -2557,7 +2557,7 @@ exports.install = function(server, callbackFunction) {
           yield* updateEditUsers(ctx, licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
           if (aggregationCtx && licenseInfoAggregation) {
             //update server aggregation license
-            yield* updateEditUsers(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
+            yield* updateEditUsers(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, !!data.IsAnonymousUser, isLiveViewer);
           }
         }
       }
