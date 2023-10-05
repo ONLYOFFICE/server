@@ -1185,6 +1185,11 @@
         "tslib": "^2.5.0"
       }
     },
+    "@xmldom/xmldom": {
+      "version": "0.8.10",
+      "resolved": "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.8.10.tgz",
+      "integrity": "sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw=="
+    },
     "ajv": {
       "version": "6.12.6",
       "resolved": "https://registry.npmjs.org/ajv/-/ajv-6.12.6.tgz",
@@ -1394,6 +1399,14 @@
       "requires": {
         "asap": "~2.0.3",
         "lodash.clone": "~4.3.2"
+      }
+    },
+    "docxtemplater": {
+      "version": "3.39.2",
+      "resolved": "https://registry.npmjs.org/docxtemplater/-/docxtemplater-3.39.2.tgz",
+      "integrity": "sha512-Th1u2u1OeTY2YTt9mpROPcKjGnVV9JUpyL+GiAehUmYfEJU85wr2SOEoJPpS9rjotdP5XcAPQVqTCE19m8Or9A==",
+      "requires": {
+        "@xmldom/xmldom": "^0.8.10"
       }
     },
     "ecc-jsbn": {
@@ -1609,6 +1622,21 @@
         "extsprintf": "1.3.0",
         "json-schema": "0.4.0",
         "verror": "1.10.0"
+      }
+    },
+    "jszip": {
+      "version": "2.6.1",
+      "resolved": "https://registry.npmjs.org/jszip/-/jszip-2.6.1.tgz",
+      "integrity": "sha512-C4Z++nYQv+CudUkCWUdz+yKVhQiFJjuWSmRJ5Sg3d3/OzcJ6U4ooUYlmE3+rJXrVk89KWQaiJ9mPp/VLQ4D66g==",
+      "requires": {
+        "pako": "~1.0.2"
+      },
+      "dependencies": {
+        "pako": {
+          "version": "1.0.11",
+          "resolved": "https://registry.npmjs.org/pako/-/pako-1.0.11.tgz",
+          "integrity": "sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw=="
+        }
       }
     },
     "jwa": {
