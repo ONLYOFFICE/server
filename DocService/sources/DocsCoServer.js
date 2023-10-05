@@ -3782,10 +3782,10 @@ exports.install = function(server, callbackFunction) {
           }
           yield addPresence(ctx, conn, false);
           if (utils.isLiveViewer(conn)) {
-            countViewByShard++;
+            countLiveViewByShard++;
             tenant.countLiveViewByShard++;
           } else if(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
-            countLiveViewByShard++;
+            countViewByShard++;
             tenant.countViewByShard++;
           } else {
             countEditByShard++;
@@ -3816,9 +3816,9 @@ exports.install = function(server, callbackFunction) {
           let aggregationCtx = new operationContext.Context();
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache();//no need
-          yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
-          yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
-          yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, countViewByShard);
+          yield editorData.setEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, countEditByShard);
+          yield editorData.setLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countLiveViewByShard);
+          yield editorData.setViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countViewByShard);
         }
         ctx.initDefault();
       } catch (err) {
