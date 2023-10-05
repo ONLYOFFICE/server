@@ -35,7 +35,6 @@
 var path = require('path');
 var constants = require('./constants');
 const jsZip = require('jszip');
-const docxtemplater = require('docxtemplater');
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
@@ -205,13 +204,12 @@ function isDocFormatFile(buffer) {
   } catch (error) {
     return false;
   }
-  const doc = new docxtemplater(docx);
   const buffer64 = new Uint8Array(64);
   buffer64.fill(0);
 
   if (buffer64.length > 0) {
     //ms office 2007 encrypted contains stream WordDocument !!
-    const entries = doc.zip.file().filter((entry) => entry.name === "DataSpaces");
+    const entries = Object.values(docx.files).filter((entry) => entry.name === "DataSpaces");
     if (entries.length > 0) {
       return false;
     }

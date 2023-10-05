@@ -1185,11 +1185,6 @@
         "tslib": "^2.5.0"
       }
     },
-    "@xmldom/xmldom": {
-      "version": "0.8.10",
-      "resolved": "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.8.10.tgz",
-      "integrity": "sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw=="
-    },
     "ajv": {
       "version": "6.12.6",
       "resolved": "https://registry.npmjs.org/ajv/-/ajv-6.12.6.tgz",
@@ -1399,14 +1394,6 @@
       "requires": {
         "asap": "~2.0.3",
         "lodash.clone": "~4.3.2"
-      }
-    },
-    "docxtemplater": {
-      "version": "3.39.2",
-      "resolved": "https://registry.npmjs.org/docxtemplater/-/docxtemplater-3.39.2.tgz",
-      "integrity": "sha512-Th1u2u1OeTY2YTt9mpROPcKjGnVV9JUpyL+GiAehUmYfEJU85wr2SOEoJPpS9rjotdP5XcAPQVqTCE19m8Or9A==",
-      "requires": {
-        "@xmldom/xmldom": "^0.8.10"
       }
     },
     "ecc-jsbn": {
