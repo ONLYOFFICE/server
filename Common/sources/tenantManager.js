@@ -209,22 +209,22 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
     errors.push('advanced_api');
   }
   //can not up limits
-  if (licenseInfo.connections < licenseInfoTenant.connections) {
-    licenseInfoTenant.connections = licenseInfo.connections;
-    errors.push('connections');
-  }
-  if (licenseInfo.connectionsView < licenseInfoTenant.connectionsView) {
-    licenseInfoTenant.connectionsView = licenseInfo.connectionsView;
-    errors.push('connections_view');
-  }
-  if (licenseInfo.usersCount < licenseInfoTenant.usersCount) {
-    licenseInfoTenant.usersCount = licenseInfo.usersCount;
-    errors.push('users_count');
-  }
-  if (licenseInfo.usersViewCount < licenseInfoTenant.usersViewCount) {
-    licenseInfoTenant.usersViewCount = licenseInfo.usersViewCount;
-    errors.push('users_view_count');
-  }
+  // if (licenseInfo.connections < licenseInfoTenant.connections) {
+  //   licenseInfoTenant.connections = licenseInfo.connections;
+  //   errors.push('connections');
+  // }
+  // if (licenseInfo.connectionsView < licenseInfoTenant.connectionsView) {
+  //   licenseInfoTenant.connectionsView = licenseInfo.connectionsView;
+  //   errors.push('connections_view');
+  // }
+  // if (licenseInfo.usersCount < licenseInfoTenant.usersCount) {
+  //   licenseInfoTenant.usersCount = licenseInfo.usersCount;
+  //   errors.push('users_count');
+  // }
+  // if (licenseInfo.usersViewCount < licenseInfoTenant.usersViewCount) {
+  //   licenseInfoTenant.usersViewCount = licenseInfo.usersViewCount;
+  //   errors.push('users_view_count');
+  // }
   if (licenseInfo.endDate && licenseInfoTenant.endDate && licenseInfo.endDate < licenseInfoTenant.endDate) {
     licenseInfoTenant.endDate = licenseInfo.endDate;
     errors.push('end_date');
