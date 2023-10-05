@@ -892,7 +892,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
   }
   return res;
 }
-async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
+async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub, opt_conn) {
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
   let startedForceSave;
@@ -904,6 +904,16 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     });
     if (!hasEncrypted) {
       let forceSave = await editorData.getForceSave(ctx, docId);
+      if (!forceSave && commonDefines.c_oAscForceSaveTypes.Form === type && opt_conn) {
+        //stub to send forms without changes
+        let newChangesLastDate = new Date();
+        newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
+        let newChangesLastTime = newChangesLastDate.getTime();
+        let baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
+        let changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime);
+        await editorData.setForceSave(ctx, docId, newChangesLastTime, 0, baseUrl, changeInfo, null);
+        forceSave = await editorData.getForceSave(ctx, docId);
+      }
       let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, opt_formdata);
       startedForceSave = applyCacheRes.startedForceSave;
       if (applyCacheRes.notModified) {
@@ -1002,7 +1012,9 @@ function* startRPC(ctx, conn, responseKey, data) {
     case 'sendForm': {
       let forceSaveRes;
       if (conn.user) {
-        forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined, data.formdata, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser, responseKey);
+        forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined,
+          data.formdata, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser,
+          responseKey, undefined, undefined, undefined, conn);
       }
       if (!forceSaveRes || commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
         sendDataRpc(ctx, conn, responseKey, forceSaveRes);
