@@ -317,10 +317,12 @@
                 elem.innerText = ((licenseInfo.mode & 1) || (licenseInfo.mode & 4)) ? 'Valid: ' : 'Updates available: ';
 
                 var licdate = new Date(licenseInfo.endDate);
+                var licType = licenseInfo.type;
                 elem = document.getElementById('lic-valid');
                 elem.innerText = licdate.toLocaleDateString();
-                if (Date.now() > licdate)
+                if (2 === licType || 1 === licType || 6 === licType || 16 === licType || 11 === licType) {
                     elem.classList.add('critical');
+                }
 
                 elem = document.getElementById('trial');
                 elem.innerText = (licenseInfo.mode & 1) ? 'Trial' : '';
