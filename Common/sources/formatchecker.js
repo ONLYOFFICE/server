@@ -34,6 +34,8 @@
 
 var path = require('path');
 var constants = require('./constants');
+const jsZip = require('jszip');
+const docxtemplater = require('docxtemplater');
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
@@ -195,21 +197,86 @@ function getImageFormatBySignature(buffer) {
 
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
+
+function isDocFormatFile(buffer) {
+  let docx;
+  try {
+    docx = new jsZip(buffer);
+  } catch (error) {
+    return false;
+  }
+  const doc = new docxtemplater(docx);
+  const buffer64 = new Uint8Array(64);
+  buffer64.fill(0);
+
+  if (buffer64.length > 0) {
+    //ms office 2007 encrypted contains stream WordDocument !!
+    const entries = doc.zip.file().filter((entry) => entry.name === "DataSpaces");
+    if (entries.length > 0) {
+      return false;
+    }
+
+    // Check if the buffer starts with the magic numbers for a DOC file.
+    if ((buffer64[0] === 0xEC && buffer64[1] === 0xA5) || // word 1997-2003
+        (buffer64[0] === 0xDC && buffer64[1] === 0xA5) || // word 1995
+        (buffer64[0] === 0xDB && buffer64[1] === 0xA5)) { // word 2.0
+      return true;
+    }
+  }
+
+  if (isHtmlFormatFile(buffer)) {
+    return true;
+  }
+  return false;
+}
+
+function isHtmlFormatFile(buffer) {
+  if (buffer.length > 5) {
+    for (let i = 0; i < buffer.length - 6; i++) {
+      if (buffer[i] === 0x3C && buffer[i + 1] === 0x2F && (buffer[i + 2] === 0x48 || buffer[i + 2] === 0x68) &&
+        (buffer[i + 3] === 0x54 || buffer[i + 3] === 0x74) && (buffer[i + 4] === 0x4d || buffer[i + 4] === 0x6d) &&
+        (buffer[i + 5] === 0x4c || buffer[i + 5] === 0x6c)) {
+        return true;
+      } else if (buffer[i] === 0x3C && buffer[i + 1] === 0x2F && buffer[i + 2] === 0x62 && buffer[i + 3] === 0x6f &&
+         buffer[i + 4] === 0x64 && buffer[i + 5] === 0x79 && buffer[i + 6] === 0x3e) {
+        // </body>
+        return true;
+      }
+    }
+  }
+  if (buffer.length > 3) {
+    // If `testCloseTag` is false or the buffer is less than 6 bytes, check for an opening HTML tag.
+    for (let i = 0; i < buffer.length - 4 && i < 100; i++) {
+      if ((buffer[i] === 0x48 || buffer[i] === 0x68) && (buffer[i + 1] === 0x54 || buffer[i + 1] === 0x74) &&
+        (buffer[i + 2] === 0x4d || buffer[i + 2] === 0x6d) && (buffer[i + 3] === 0x4c || buffer[i + 3] === 0x6c)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 exports.getDocumentFormatByByte = function getDocumentFormatByByte(buffer) {
-  // Check for RTF format.
-  if (buffer[0] === '{' && buffer[1] === '\\' && buffer[2] === 'r' && buffer[3] === 't' && buffer[4] === 'f') {
-    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_RTF;
+  // Check for DOC format
+  if (isDocFormatFile(buffer)) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC;
   }
 
-  // Check for multi-parts HTML format.
-  const xmlString = new TextDecoder().decode(buffer);
-  if (xmlString.indexOf('Content-Type: multipart/related') !== -1 && xmlString.indexOf('Content-Type: text/html') !== -1) {
-    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML_IN_CONTAINER;
+  // Check format Xls document
+  if (buffer[0] === 0xD0 && buffer[1] === 0xCF && buffer[2] === 0x11 && buffer[3] === 0xE0) {
+    return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLS;
   }
 
-  // Check for HTML format.
-  if ((buffer[0] === 0x3C) && (buffer[1] === 0x21) && (buffer[2] === 0x44) && (buffer[3] === 0x4F)) {
-    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML;
+  // Check for Ppt format
+  if (buffer[0] === 0xD0 && buffer[1] === 0xC9 && buffer[2] === 0xEA && buffer[3] === 0x7B && 
+    buffer[4] === 0x1C && buffer[5] === 0xC9 && buffer[6] === 0xEA && buffer[7] === 0x7B &&
+    buffer[8] === 0x1C && buffer[9] === 0xC9 && buffer[10] === 0xEA && buffer[11] === 0x7B) {
+      return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPT;
+  }
+
+  // Check for OpenOffice format
+   if (buffer[0] === 0x3C && buffer[1] === 0x3F && buffer[2] === 0x78 && buffer[3] === 0x6D && buffer[4] === 0x6C) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT_FLAT;
   }
 
   // Check for binary DOCT format.
@@ -222,31 +289,42 @@ exports.getDocumentFormatByByte = function getDocumentFormatByByte(buffer) {
     return constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET;
   }
 
+  //Check for binary PPT format
+  if ('P' === buffer[0] && 'P' === buffer[1] && 'T' === buffer[2] && 'Y' === buffer[3]) {
+    return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPT; 
+  }
+
+  // Check for RTF format.
+  if (buffer[0] === '{' && buffer[1] === '\\' && buffer[2] === 'r' && buffer[3] === 't' && buffer[4] === 'f') {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_RTF;
+  }
+
   // Check for PDF format
   if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
     return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
   }
 
-  // Check for DOC format
-  if ((buffer[0] == 0xEC && buffer[1] == 0xA5) ||		// word 1997-2003
-			(buffer[0] == 0xDC && buffer[1] == 0xA5) ||		// word 1995
-			(buffer[0] == 0xDB && buffer[1] == 0xA5)) {
-      return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC;
+  // Check for Djvu format
+  if (buffer[0] === 0x41 || buffer[1] === 0x54 || buffer[2] === 0x26 || buffer[3] === 0x54 ||
+      buffer[4] === 0x46 || buffer[5] === 0x4F || buffer[6] === 0x52 || buffer[7] === 0x4D) {
+    return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU;
   }
 
-  //Check for binary PPT format
-  if ('P' === buffer[0] && 'P' === buffer[1] && 'T' === buffer[2] && 'Y' === buffer[3]) {
-    return constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION; 
+  // Check for Html format
+  if (isHtmlFormatFile(buffer)) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML;
   }
-  
+
+  // Check for FB2 format
+  if (buffer[0] === 0x3C || buffer[1] === 0x3F || buffer[2] === 0x78 || buffer[3] === 0x6D ||
+      buffer[4] === 0x6C || buffer[5] === 0x20 || buffer[6] === 0x76 || buffer[7] === 0x65 ||
+      buffer[8] === 0x72 || buffer[9] === 0x73 || buffer[10] === 0x69 || buffer[11] === 0x6F) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_FB2;
+  }
+
   // Check for Vba format
   if (buffer[0] === 0x44 && buffer[1] === 0x53 && buffer[2] === 0x50 && buffer[3] === 0x53) {
-    return true;
-  }
-
-  // Check format Xls document
-  if (buffer[0] === 0xD0 && buffer[1] === 0xCF && buffer[2] === 0x11 && buffer[3] === 0xE0) {
-  return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLS;
+    return constants.AVS_OFFICESTUDIO_FILE_VBA;
   }
 
   // Check for DocFlat format
@@ -257,33 +335,21 @@ exports.getDocumentFormatByByte = function getDocumentFormatByByte(buffer) {
   // Check for XlsFlat format
    if ((buffer[1] === 0x08 && buffer[0] === 0x09) || (buffer[1] === 0x04 && buffer[0] === 0x09) || (buffer[1] === 0x02 && buffer[0] === 0x09) ||
       (buffer[2] === 0x04 && buffer[0] === 0x09 && buffer[1] === 0x00 && buffer[3] === 0x00)) {
-      return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX_FLAT;
+      return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLS;
   }
 
-  // Check for OpenOffice format
-   if (buffer[0] === 0x3C && buffer[1] === 0x3F && buffer[2] === 0x78 && buffer[3] === 0x6D && buffer[4] === 0x6C) {
-    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT_FLAT;
+  // Check for multi-parts HTML format.
+  const xmlString = new TextDecoder().decode(buffer);
+  if (xmlString.indexOf('Content-Type: multipart/related') !== -1 && xmlString.indexOf('Content-Type: text/html') !== -1) {
+    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML;
   }
-
-  // Check for Djvu format
-  if (buffer[0] === 0x41 || buffer[1] === 0x54 || buffer[2] === 0x26 || buffer[3] === 0x54 ||
-      buffer[4] === 0x46 || buffer[5] === 0x4F || buffer[6] === 0x52 || buffer[7] === 0x4D) {
-    return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU;
-  }
-
+  
   // Check for Mobi format
   if ((buffer[60] === 0x42 && buffer[61] === 0x4F && buffer[62] === 0x4F && buffer[63] === 0x4B &&
       buffer[64] === 0x4D && buffer[65] === 0x4F && buffer[66] === 0x42 && buffer[67] === 0x49) ||
       (buffer[60] === 0x54 && buffer[61] === 0x45 && buffer[62] === 0x58 && buffer[63] === 0x74 &&
       buffer[64] === 0x52 && buffer[65] === 0x45 && buffer[66] === 0x41 && buffer[67] === 0x64)) {
     return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_MOBI;
-  }
-
-  // Check for FB2 format
-  if (buffer[0] === 0x3C || buffer[1] === 0x3F || buffer[2] === 0x78 || buffer[3] === 0x6D ||
-      buffer[4] === 0x6C || buffer[5] === 0x20 || buffer[6] === 0x76 || buffer[7] === 0x65 ||
-      buffer[8] === 0x72 || buffer[9] === 0x73 || buffer[10] === 0x69 || buffer[11] === 0x6F) {
-    return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_FB2;
   }
 
   // Unknown format
