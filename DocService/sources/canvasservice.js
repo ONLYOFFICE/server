@@ -348,12 +348,14 @@ function* saveParts(ctx, cmd, filename) {
   }
   if (cmd.getUrl()) {
     result = true;
-  } else {
+  } else if (cmd.getData() && cmd.getData().length > 0) {
     var buffer = cmd.getData();
     yield storage.putObject(ctx, cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
     //delete data to prevent serialize into json
     cmd.data = null;
     result = (SAVE_TYPE_COMPLETE_ALL === saveType || SAVE_TYPE_COMPLETE === saveType);
+  } else {
+    result = true;
   }
   return result;
 }
@@ -826,14 +828,16 @@ function* commandPathUrl(ctx, conn, cmd, outputData) {
   }
 }
 function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
-  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
-  if (docPassword.initial) {
-    cmd.setPassword(docPassword.initial);
+  var completeParts = yield* saveParts(ctx, cmd, "changes0.json");
+  if (completeParts) {
+    let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
+    if (docPassword.initial) {
+      cmd.setPassword(docPassword.initial);
+    }
+    var queueData = getSaveTask(ctx, cmd);
+    queueData.setFromOrigin(true);
+    yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
   }
-  yield* addRandomKeyTaskCmd(ctx, cmd);
-  var queueData = getSaveTask(ctx, cmd);
-  queueData.setFromOrigin(true);
-  yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
   outputData.setStatus('ok');
   outputData.setData(cmd.getSaveKey());
 }
