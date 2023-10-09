@@ -324,6 +324,9 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     if (oLicense.hasOwnProperty('advanced_api')) {
       res.advancedApi = !!oLicense['advanced_api'];
     }
+    if (oLicense.hasOwnProperty('process')) {
+      res.connections = Math.max(res.count, oLicense['process'] >> 0) * 75;
+    }
     if (oLicense.hasOwnProperty('connections')) {
       res.connections = oLicense['connections'] >> 0;
     }
@@ -347,9 +350,6 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     //Calendar check of start_date allows to issue a license for old versions
     const checkStartDate = new Date();
     if (startDate <= checkStartDate && checkDate <= endDate && (!oLicense.hasOwnProperty('version') || 2 <= oLicense['version'])) {
-      if (oLicense.hasOwnProperty('process')) {
-        res.connections = Math.max(res.count, oLicense['process'] >> 0) * 75;
-      }
       res.type = c_LR.Success;
     } else if (startDate > checkStartDate) {
       res.type = c_LR.NotBefore;
