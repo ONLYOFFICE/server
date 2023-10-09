@@ -3986,9 +3986,12 @@ exports.healthCheck = function(req, res) {
 exports.licenseInfo = function(req, res) {
   return co(function*() {
     let isError = false;
+    let serverDate = new Date();
+    //security risk of high-precision time
+    serverDate.setMilliseconds(0);
     let output = {
       connectionsStat: {}, licenseInfo: {}, serverInfo: {
-        buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
+        buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber, date: serverDate.toISOString()
       }, quota: {
         edit: {
           connectionsCount: 0,
