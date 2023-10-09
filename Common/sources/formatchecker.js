@@ -34,7 +34,8 @@
 
 var path = require('path');
 var constants = require('./constants');
-const jsZip = require('jszip');
+const fs = require('fs');
+const CFB = require('cfb');
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
@@ -196,38 +197,36 @@ function getImageFormatBySignature(buffer) {
 
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
-
-function isDocFormatFile(buffer) {
-  let docx;
+function isDocFormatFile(path) {
+  let cfb;
   try {
-    docx = new jsZip(buffer);
+    cfb = CFB.read(path, { type: 'file' });
   } catch (error) {
     return false;
   }
-  const buffer64 = new Uint8Array(64);
-  buffer64.fill(0);
 
-  if (buffer64.length > 0) {
-    //ms office 2007 encrypted contains stream WordDocument !!
-    const entries = Object.values(docx.files).filter((entry) => entry.name === "DataSpaces");
-    if (entries.length > 0) {
-      return false;
-    }
-
-    // Check if the buffer starts with the magic numbers for a DOC file.
-    if ((buffer64[0] === 0xEC && buffer64[1] === 0xA5) || // word 1997-2003
-        (buffer64[0] === 0xDC && buffer64[1] === 0xA5) || // word 1995
-        (buffer64[0] === 0xDB && buffer64[1] === 0xA5)) { // word 2.0
-      return true;
-    }
+  //ms office 2007 encrypted contains stream WordDocument !!
+  const dataSpacesEntry = cfb.FileIndex.filter((entry) => entry.name === "DataSpaces");
+  if (dataSpacesEntry.length > 0) {
+    return false;
   }
 
+  const storage = cfb.FileIndex.filter((enrty => enrty.name === 'WordDocument'));
+  if (storage.length === 0) {
+    return false;
+  }
+  const { content: buffer } = storage[0];
+  if ((buffer[0] == 0xEC && buffer[1] == 0xA5) ||		// word 1997-2003
+			(buffer[0] == 0xDC && buffer[1] == 0xA5) ||		// word 1995
+			(buffer[0] == 0xDB && buffer[1] == 0xA5))	
+		{
+			return true;
+		}
   if (isHtmlFormatFile(buffer)) {
     return true;
   }
   return false;
 }
-
 function isHtmlFormatFile(buffer) {
   if (buffer.length > 5) {
     for (let i = 0; i < buffer.length - 6; i++) {
@@ -253,10 +252,11 @@ function isHtmlFormatFile(buffer) {
   }
   return false;
 }
-
-exports.getDocumentFormatByByte = function getDocumentFormatByByte(buffer) {
+exports.getDocumentFormatByByte = function getDocumentFormatByByte(path) {
+  const buffer = fs.readFileSync(path);
+  
   // Check for DOC format
-  if (isDocFormatFile(buffer)) {
+  if (isDocFormatFile(path)) {
     return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC;
   }
 
