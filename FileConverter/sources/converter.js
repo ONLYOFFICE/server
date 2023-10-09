@@ -423,7 +423,8 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     if (filesCount > 0) {
       concatDir = changesDir;
       concatTemplate = "changes0";
-      task.setFromChanges(true);
+      dataConvert.fromChanges = true;
+      task.setFromChanges(dataConvert.fromChanges);
     }
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
