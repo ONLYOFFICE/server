@@ -197,33 +197,33 @@ function getImageFormatBySignature(buffer) {
 
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
-function checkFormatErrors(buffer) {
+function getCompoundBinaryFile(buffer) {
   let cfb;
   try {
-    cfb = CFB.read(new Uint8Array(buffer), { type: 'array' });
+    cfb = CFB.read(buffer, { type: 'buffer' });
   } catch (error) {
-    return false;
+    return null;
   }
   return cfb;
 }
 function isDocFormatFile(buffer) {
-  const cfb = checkFormatErrors(buffer);
-  if (cfb === false) return false;
+  const cfb = getCompoundBinaryFile(buffer);
+  if (cfb === null) return false;
 
   //ms office 2007 encrypted contains stream WordDocument !!
-  const dataSpacesEntry = cfb.FileIndex.filter((entry) => entry.name === "DataSpaces");
-  if (dataSpacesEntry.length > 0) {
+  const dataSpacesEntry = CFB.find(cfb, 'DataSpaces');
+  if (dataSpacesEntry !== null) {
     return false;
   }
 
-  const storage = cfb.FileIndex.filter((enrty => enrty.name === 'WordDocument'));
-  if (storage.length === 0) {
+  const storage = CFB.find(cfb, 'WordDocument');
+  if (storage === null) {
     return false;
   }
-  const { content } = storage[0];
-  if ((content[0] == 0xEC && content[1] == 0xA5) ||		// word 1997-2003
-			(content[0] == 0xDC && content[1] == 0xA5) ||		// word 1995
-			(content[0] == 0xDB && content[1] == 0xA5))	
+  const { content } = storage;
+  if ((content[0] === 0xEC && content[1] === 0xA5) ||		// word 1997-2003
+			(content[0] === 0xDC && content[1] === 0xA5) ||		// word 1995
+			(content[0] === 0xDB && content[1] === 0xA5))	
 		{
 			return true;
 		}
@@ -239,8 +239,8 @@ function isHtmlFormatFile(buffer) {
         (buffer[i + 3] === 0x54 || buffer[i + 3] === 0x74) && (buffer[i + 4] === 0x4d || buffer[i + 4] === 0x6d) &&
         (buffer[i + 5] === 0x4c || buffer[i + 5] === 0x6c)) {
         return true;
-      } else if (buffer[i] === 0x3C && buffer[i + 1] === 0x2F && buffer[i + 2] === 0x62 && buffer[i + 3] === 0x6f &&
-         buffer[i + 4] === 0x64 && buffer[i + 5] === 0x79 && buffer[i + 6] === 0x3e) {
+      } else if ((buffer[i] === 0x3C) && (buffer[i + 1] === 0x2F) && (buffer[i + 2] === 0x62) && (buffer[i + 3] === 0x6f) &&
+         (buffer[i + 4] === 0x64) && (buffer[i + 5] === 0x79) && (buffer[i + 6] === 0x3e)) {
         // </body>
         return true;
       }
@@ -258,57 +258,62 @@ function isHtmlFormatFile(buffer) {
   return false;
 }
 function isXlsFormatFile(buffer) {
-  const cfb = checkFormatErrors(buffer);
-  if (cfb === false) return false;
-  const storage = cfb.FileIndex.filter((enrty => enrty.name === 'Workbook' || enrty.name === 'Book' || enrty.name === 'WORKBOOK' ||
-    enrty.name === 'BOOK' || enrty.name === 'book'));
-  if (storage.length === 0) {
+  const cfb = getCompoundBinaryFile(buffer);
+  if (cfb === null) return false;
+  const Workbook = CFB.find(cfb, 'Workbook');
+  const Book = CFB.find(cfb, 'Book');
+  const WORKBOOK = CFB.find(cfb, 'WORKBOOK');
+  const BOOK = CFB.find(cfb, 'BOOK');
+  const book = CFB.find(cfb, 'book');
+  if (Workbook === null && Book === null && WORKBOOK === null && BOOK === null && book === null) {
     return false;
   }
-  const { content } = storage[0];
-  if (content.length !== 0) {
+
+  if (Workbook.content !== null || Book.content !== null || WORKBOOK.content !== null ||
+    BOOK.content !== null || book.content !== null) {
     return true;
   }
   return false;
 }
 function isPptFormatFile(buffer) {
-  const cfb = checkFormatErrors(buffer);
-  if (cfb === false) return false;
-  const storage = cfb.FileIndex.filter(entry => entry.name === 'PowerPoint Document');
-  if (storage.length === 0) {
+  const cfb = getCompoundBinaryFile(buffer);
+  if (cfb === null) return false;
+  const storage = CFB.find(cfb, 'PowerPoint Document');
+  if (storage === null) {
     return false;
   }
   return true;
 }
 function isMsOfficeCryptoFormatFile(buffer) {
-  const cfb = checkFormatErrors(buffer);
-  if (cfb === false) return false;
-  const dataSpace = cfb.FileIndex.filter(entry => entry.name === '\x06DataSpaces');
-  if (dataSpace.length === 0) {
+  const cfb = getCompoundBinaryFile(buffer);
+  if (cfb === null) return false;
+  const dataSpace = CFB.find(cfb, '\x06DataSpaces');
+  if (dataSpace === null) {
     return false;
   }
-  const encryptedInfo = cfb.FileIndex.filter(entry => entry.name === 'EncryptionInfo');
-  if (encryptedInfo.length === 0) {
+  const encryptedInfo = CFB.find(cfb, 'EncryptionInfo');
+  if (encryptedInfo === null) {
     return false;
   }
   return true;
 }
 function isMsMitCryptoFormatFile(buffer) {
-  const cfb = checkFormatErrors(buffer);
-  if (cfb === false) return false;
-  const dataSpace = cfb.FileIndex.filter(entry => entry.name === '\x06DataSpaces');
-  if (dataSpace.length === 0) {
+  const cfb = getCompoundBinaryFile(buffer);
+  if (cfb === null) return false;
+  const dataSpace = CFB.find(cfb, '\x06DataSpaces');
+  if (dataSpace === null) {
     return false;
   }
-  const encryptedInfo = cfb.FileIndex.filter(entry => entry.name === 'EncryptionInfo' && 'EncryptedPackage');
-  if (encryptedInfo.length === 0) {
+  const encryptedInfo = CFB.find(cfb, 'EncryptionInfo');
+  const encryptedPackage = CFB.find(cfb, 'EncryptedPackage');
+  if (encryptedInfo === null || encryptedPackage === null) {
     return false;
   }
   return true;
 }
 function isOpenOfficeFormatFile(buffer) {
-  const cfb = checkFormatErrors(buffer);
-  if (cfb === false) return false;
+  const cfb = getCompoundBinaryFile(buffer);
+  if (cfb === null) return false;
   let fileFormat;
   const odtFormatLine = "application/vnd.oasis.opendocument.text";
   const odsFormatLine = "application/vnd.oasis.opendocument.spreadsheet";
@@ -321,11 +326,11 @@ function isOpenOfficeFormatFile(buffer) {
 	const sxcFormatLine = "application/vnd.sun.xml.calc";
 	const sxiFormatLine = "application/vnd.sun.xml.impress";
 
-  const mimeType = cfb.FileIndex.filter(entry => entry.name === 'mimetype');
-  if (mimeType.length === 0) {
+  const mimeType = CFB.find(cfb, 'mimetype');
+  if (mimeType === null) {
     return false;
   }
-  const { content } = mimeType[0];
+  const { content } = mimeType;
   const ascii = Buffer.from(content).toString('ascii');
 
   if (ascii.includes(ottFormatLine)) {
@@ -349,12 +354,12 @@ function isOpenOfficeFormatFile(buffer) {
   return false;
 }
 function isOOXFormatFile(buffer) {
-  const cfb = checkFormatErrors(buffer);
-  if (cfb === false) return false;
+  const cfb = getCompoundBinaryFile(buffer);
+  if (cfb === null) return false;
   let formatFile;
-  const contentTypesXml = cfb.FileIndex.filter(entry => entry.name === '[Content_Types].xml');
-  if (contentTypesXml.length === 0) return false;
-  const { content } = contentTypesXml[0];
+  const contentTypesXml = CFB.find(cfb, '[Content_Types].xml');
+  if (contentTypesXml === null) return false;
+  const { content } = contentTypesXml;
   const ascii = Buffer.from(content).toString('ascii');
 
   const docxFormatLine = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
@@ -377,19 +382,20 @@ function isOOXFormatFile(buffer) {
   const ppsmFormatLine = "application/vnd.ms-powerpoint.slideshow.macroEnabled.main+xml";
   const potmFormatLine = "application/vnd.ms-powerpoint.template.macroEnabled.main+xml";
 
-  if (ascii.includes(docxFormatLine)) {
-    formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX;
-  } else if (ascii.includes(dotxFormatLine)) {
-    formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX;
-  } else if (ascii.includes(docmFormatLine)) {
-    formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM;
-  } else if (ascii.includes(dotmFormatLine)) {
-    formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM;
-  } else if (ascii.includes(oformFormatLine)) {
+  if (ascii.includes(oformFormatLine)) {
     formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM;
   } else if (ascii.includes(docxfFormatLine)) {
     formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF;
-  } else if (ascii.includes(xlsxFormatLine)) {
+  } else if (ascii.includes(docxFormatLine)) {
+    formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX;
+  } else if (ascii.includes(docmFormatLine)) {
+    formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM;
+  } else if (ascii.includes(dotxFormatLine)) {
+    formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX;
+  } else if (ascii.includes(dotmFormatLine)) {
+    formatFile = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM;
+  } 
+  else if (ascii.includes(xlsxFormatLine)) {
     formatFile = constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX;
   } else if (ascii.includes(xltxFormatLine)) {
     formatFile = constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX;
@@ -416,21 +422,21 @@ function isOOXFormatFile(buffer) {
   return false;
 }
 function isXpsFormatFile(buffer) {
-  const cfb = checkFormatErrors(buffer);
-  if (cfb === false) return false;
+  const cfb = getCompoundBinaryFile(buffer);
+  if (cfb === null) return false;
   let formatFile;
 
-  const rels = cfb.FileIndex.filter(entry => entry.name === '.rels');
-  if (rels.length !== 0) {
-    const { content } = rels[0];
+  const rels = CFB.find(cfb, '.rels');
+  if (rels !== null) {
+    const { content } = rels;
     const ascii = Buffer.from(content).toString('ascii');
   
     if (ascii.includes('fixedrepresentation') && (ascii.includes('/xps/') || ascii.includes('/oxps'))) {
       formatFile = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS;
     }
   } else {
-    const relsPiece = cfb.FileIndex.filter(entry === entry.name === '_rels/.rels/[0].piece');
-    if (relsPiece.length !== 0) {
+    const relsPiece = CFB.find(cfb, '_rels/.rels/[0].piece');
+    if (relsPiece !== null) {
       formatFile = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS;
     }
   }
@@ -439,9 +445,9 @@ function isXpsFormatFile(buffer) {
   return false;
 }
 function isPdfFormatFile(buffer) {
-  const asciiBuffer = Buffer.from(buffer).toString('ascii');
-
-  const firstMatch = asciiBuffer.indexOf("%PDF-");
+  const firstLine = buffer.slice(0, buffer.indexOf('\n'));
+  const firstMatch = firstLine.toString('ascii').indexOf("%PDF-");
+  
   if (firstMatch != -1) {
     return true;
   }
@@ -481,7 +487,7 @@ function isOpenOfficeFlatFormatFile(buffer) {
   const odfFormatLine1 = "office:document";
 	const odfFormatLine2 = "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\"";
 
-  if (ascii.includes(odfFormatLine1) && ascii.includes(odfFormatLine2)) {
+  if (!ascii.includes(odfFormatLine1) || !ascii.includes(odfFormatLine2)) {
     return false;
   }
 
@@ -497,6 +503,52 @@ function isOpenOfficeFlatFormatFile(buffer) {
     formatFile = constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODP_FLAT;
   }
   if (formatFile !== undefined) return { check: true, format: formatFile };
+
+  return false;
+}
+function isBinaryDoctFormatFile(buffer) {
+  const ascii = Buffer.from(buffer).toString('ascii');
+  if (ascii[0] === 'D' && ascii[1] === 'O' && ascii[2] === 'C' && ascii[3] === 'Y') {
+    return true;
+  }
+  return false;
+}
+function isBinaryXlstFormatFile(buffer) {
+  const ascii = Buffer.from(buffer).toString('ascii');
+  if (ascii[0] === 'X' && ascii[1] === 'L' && ascii[2] === 'S' && ascii[3] === 'Y') {
+    return true;
+  }
+  return false;
+}
+function isBinaryPpttFormatFile(buffer) {
+  const ascii = Buffer.from(buffer).toString('ascii');
+  if ('P' === ascii[0] && 'P' === ascii[1] && 'T' === ascii[2] && 'Y' === ascii[3]) {
+    return true; 
+  }
+  return false;
+}
+function isRtfFormatFile(buffer) {
+  const ascii = Buffer.from(buffer).toString('ascii');
+  if (ascii[0] === '{' && ascii[1] === '\\' && ascii[2] === 'r' && ascii[3] === 't' && ascii[4] === 'f') {
+    return true;
+  }
+  return false;
+}
+function isFb2FormatFile(buffer) {
+  let tagOpen = false;
+  // FB2 File is XML-file with rootElement - FictionBook
+  for (let i = 0; i < buffer.length - 11 && i < 100; i++) {
+    if (buffer[i] === 0x3C) {
+      tagOpen = true;
+    } else if (buffer[i] === 0x3E) {
+      tagOpen = false;
+    } else if (tagOpen && buffer[i] === 0x46 && buffer[i + 1] === 0x69 && buffer[i + 2] === 0x63
+      && buffer[i + 3] === 0x74 && buffer[i + 4] === 0x69 && buffer[i + 5] === 0x6F
+      && buffer[i + 6] === 0x6E && buffer[i + 7] === 0x42 && buffer[i + 8] === 0x6F
+      && buffer[i + 9] === 0x6F && buffer[i + 10] === 0x6B) {
+      return true;
+    }
+  }
 
   return false;
 }
@@ -545,17 +597,17 @@ exports.getDocumentFormatByByte = function getDocumentFormatByByte(buffer) {
   }
 
   // Check for binary DOCT format.
-  if (buffer[0] === 'D' && buffer[1] === 'O' && buffer[2] === 'C' && buffer[3] === 'Y') {
+  if (isBinaryDoctFormatFile(buffer)) {
     return constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
   }
 
   // Check for binary XLST format
-  if (buffer[0] === 'X' && buffer[1] === 'L' && buffer[2] === 'S' && buffer[3] === 'Y') {
+  if (isBinaryXlstFormatFile(buffer)) {
     return constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET;
   }
 
   //Check for binary PPTT format
-  if ('P' === buffer[0] && 'P' === buffer[1] && 'T' === buffer[2] && 'Y' === buffer[3]) {
+  if (isBinaryPpttFormatFile(buffer)) {
     return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPT; 
   }
 
@@ -566,7 +618,7 @@ exports.getDocumentFormatByByte = function getDocumentFormatByByte(buffer) {
   }
 
   // Check for RTF format.
-  if (buffer[0] === '{' && buffer[1] === '\\' && buffer[2] === 'r' && buffer[3] === 't' && buffer[4] === 'f') {
+  if (isRtfFormatFile(buffer)) {
     return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_RTF;
   }
 
@@ -587,9 +639,7 @@ exports.getDocumentFormatByByte = function getDocumentFormatByByte(buffer) {
   }
 
   // Check for FB2 format
-  if (buffer[0] === 0x3C || buffer[1] === 0x3F || buffer[2] === 0x78 || buffer[3] === 0x6D ||
-      buffer[4] === 0x6C || buffer[5] === 0x20 || buffer[6] === 0x76 || buffer[7] === 0x65 ||
-      buffer[8] === 0x72 || buffer[9] === 0x73 || buffer[10] === 0x69 || buffer[11] === 0x6F) {
+  if (isFb2FormatFile(buffer)) {
     return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_FB2;
   }
 
