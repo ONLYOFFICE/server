@@ -836,6 +836,7 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
     }
     var queueData = getSaveTask(ctx, cmd);
     queueData.setFromOrigin(true);
+    queueData.setFromChanges(true);
     yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
   }
   outputData.setStatus('ok');
