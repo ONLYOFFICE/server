@@ -417,14 +417,17 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   let concatDir;
   let concatTemplate;
   if (task.getFromOrigin() || task.getFromSettings()) {
-    let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
-    fs.mkdirSync(changesDir);
-    let filesCount = yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), changesDir);
-    if (filesCount > 0) {
-      concatDir = changesDir;
-      concatTemplate = "changes0";
-      dataConvert.fromChanges = true;
-      task.setFromChanges(dataConvert.fromChanges);
+    if (task.getFromChanges()) {
+      let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
+      fs.mkdirSync(changesDir);
+      let filesCount = yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), changesDir);
+      if (filesCount > 0) {
+        concatDir = changesDir;
+        concatTemplate = "changes0";
+      } else {
+        dataConvert.fromChanges = false;
+        task.setFromChanges(dataConvert.fromChanges);
+      }
     }
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
