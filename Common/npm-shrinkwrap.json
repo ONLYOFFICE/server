@@ -1630,21 +1630,6 @@
         "verror": "1.10.0"
       }
     },
-    "jszip": {
-      "version": "2.6.1",
-      "resolved": "https://registry.npmjs.org/jszip/-/jszip-2.6.1.tgz",
-      "integrity": "sha512-C4Z++nYQv+CudUkCWUdz+yKVhQiFJjuWSmRJ5Sg3d3/OzcJ6U4ooUYlmE3+rJXrVk89KWQaiJ9mPp/VLQ4D66g==",
-      "requires": {
-        "pako": "~1.0.2"
-      },
-      "dependencies": {
-        "pako": {
-          "version": "1.0.11",
-          "resolved": "https://registry.npmjs.org/pako/-/pako-1.0.11.tgz",
-          "integrity": "sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw=="
-        }
-      }
-    },
     "jwa": {
       "version": "1.4.1",
       "resolved": "https://registry.npmjs.org/jwa/-/jwa-1.4.1.tgz",
