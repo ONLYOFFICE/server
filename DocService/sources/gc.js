@@ -62,7 +62,7 @@ function getCronStep(cronTime){
 let expFilesStep = getCronStep(cfgExpFilesCron);
 let expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
-var checkFileExpire = function() {
+var checkFileExpire = function(expireSeconds) {
   return co(function* () {
     let ctx = new operationContext.Context();
     try {
@@ -72,7 +72,7 @@ var checkFileExpire = function() {
       var currentRemovedCount;
       do {
         currentRemovedCount = 0;
-        expired = yield taskResult.getExpired(ctx, cfgExpFilesRemovedAtOnce, cfgExpFiles);
+        expired = yield taskResult.getExpired(ctx, cfgExpFilesRemovedAtOnce, expireSeconds ?? cfgExpFiles);
         for (var i = 0; i < expired.length; ++i) {
           let tenant = expired[i].tenant;
           let docId = expired[i].id;
@@ -204,3 +204,4 @@ exports.startGC = function() {
   setTimeout(forceSaveTimeout, cfgForceSaveStep);
 };
 exports.getCronStep = getCronStep;
+exports.checkFileExpire = checkFileExpire;
