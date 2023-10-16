@@ -64,9 +64,11 @@
   },
   "devDependencies": {
     "@jest/globals": "29.5.0",
+    "cross-env": "7.0.3",
     "jest": "29.5.0"
   },
   "scripts": {
+    "perf-expired": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/checkFileExpire.js",
     "unit tests": "cd ./DocService && jest unit --config=../tests/jest.config.js",
     "integration tests": "cd ./DocService && jest integration --config=../tests/jest.config.js",
     "tests": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js"

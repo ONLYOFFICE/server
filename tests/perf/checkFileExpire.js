@@ -44,8 +44,8 @@ const storage = require('./../../Common/sources/storage-base');
 const storageFs = require('./../../Common/sources/storage-fs');
 const operationContext = require('./../../Common/sources/operationContext');
 const utils = require('./../../Common/sources/utils');
-const docsCoServer = require("./DocsCoServer");
-const gc = require("./gc");
+const docsCoServer = require("./../../DocService/sources/DocsCoServer");
+const gc = require("./../../DocService/sources/gc");
 
 let ctx = operationContext.global;
 
