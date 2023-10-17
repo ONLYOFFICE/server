@@ -22,7 +22,7 @@
     "ms": "2.1.1",
     "node-cache": "4.2.1",
     "node-statsd": "0.1.1",
-    "openpgp": "4.10.8",
+    "openpgp": "4.10.11",
     "request": "2.88.0",
     "request-filtering-agent": "1.0.5",
     "rhea": "1.0.24",
