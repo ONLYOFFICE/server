@@ -177,9 +177,9 @@ EditorData.prototype.getdelSaved = function(ctx, docId) {
   data.saved = undefined;
   return Promise.resolve(res);
 };
-EditorData.prototype.setForceSave = function(ctx, docId, time, index, baseUrl, changeInfo) {
+EditorData.prototype.setForceSave = function(ctx, docId, time, index, baseUrl, changeInfo, convertInfo) {
   let data = this._getDocumentData(ctx, docId);
-  data.forceSave = {time: time, index: index, baseUrl: baseUrl, changeInfo: changeInfo, started: false, ended: false};
+  data.forceSave = {time, index, baseUrl, changeInfo, started: false, ended: false, convertInfo};
   return Promise.resolve();
 };
 EditorData.prototype.getForceSave = function(ctx, docId) {
@@ -196,12 +196,13 @@ EditorData.prototype.checkAndStartForceSave = function(ctx, docId) {
   }
   return Promise.resolve(res);
 };
-EditorData.prototype.checkAndSetForceSave = function(ctx, docId, time, index, started, ended) {
+EditorData.prototype.checkAndSetForceSave = function(ctx, docId, time, index, started, ended, convertInfo) {
   let data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && time === data.forceSave.time && index === data.forceSave.index) {
     data.forceSave.started = started;
     data.forceSave.ended = ended;
+    data.forceSave.convertInfo = convertInfo;
     res = data.forceSave;
   }
   return Promise.resolve(res);

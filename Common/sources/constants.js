@@ -86,6 +86,7 @@ exports.LICENSE_RESULT = {
 };
 
 exports.LICENSE_CONNECTIONS = 20;
+exports.LICENSE_USERS = 3;
 exports.LICENSE_EXPIRE_USERS_ONE_DAY = 24 * 60 * 60; // day in seconds
 
 exports.AVS_OFFICESTUDIO_FILE_UNKNOWN =  0x0000;
@@ -212,6 +213,7 @@ exports.CONVERT_DRM = -90;
 exports.CONVERT_PASSWORD = -91;
 exports.CONVERT_ICU = -92;
 exports.CONVERT_LIMITS = -93;
+exports.CONVERT_DETECT = -95;
 exports.CONVERT_DEAD_LETTER = -99;
 exports.UPLOAD = -100;
 exports.UPLOAD_CONTENT_LENGTH = -101;
@@ -242,36 +244,9 @@ exports.PACKAGE_TYPE_OS = 0;
 exports.PACKAGE_TYPE_I = 1;
 exports.PACKAGE_TYPE_D = 2;
 
-exports.REDIS_KEY_PUBSUB = 'pubsub';
-exports.REDIS_KEY_SAVE_LOCK = 'savelock:';
-exports.REDIS_KEY_PRESENCE_HASH = 'presence:hash:';
-exports.REDIS_KEY_PRESENCE_SET = 'presence:set:';
-exports.REDIS_KEY_PRESENCE_UNIQUE_USERS = 'presence:unique:users';
-exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_HASH = 'presence:unique:users:hash';
-exports.REDIS_KEY_PRESENCE_MONTH_UNIQUE_USERS_HASH = 'presence:unique:users:month';
-exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_VIEW = 'presence:unique:usersview';
-exports.REDIS_KEY_PRESENCE_UNIQUE_USERS_VIEW_HASH = 'presence:unique:usersview:hash';
-exports.REDIS_KEY_PRESENCE_MONTH_UNIQUE_USERS_VIEW_HASH = 'presence:unique:usersview:month';
-exports.REDIS_KEY_LOCKS = 'locks:';
-exports.REDIS_KEY_LOCK_DOCUMENT = 'lockdocument:';
-exports.REDIS_KEY_MESSAGE = 'message:';
-exports.REDIS_KEY_DOCUMENTS = 'documents';
-exports.REDIS_KEY_LAST_SAVE = 'lastsave:';
-exports.REDIS_KEY_FORCE_SAVE = 'forcesave:';
-exports.REDIS_KEY_FORCE_SAVE_TIMER = 'forcesavetimer';
-exports.REDIS_KEY_FORCE_SAVE_TIMER_LOCK = 'forcesavetimerlock:';
-exports.REDIS_KEY_SAVED = 'saved:';
 exports.REDIS_KEY_SHUTDOWN = 'shutdown';
-exports.REDIS_KEY_COLLECT_LOST = 'collectlost';
 exports.REDIS_KEY_LICENSE = 'license';
 exports.REDIS_KEY_LICENSE_T = 'licenseT';
-exports.REDIS_KEY_EDITOR_CONNECTIONS = 'editorconnections';
-exports.REDIS_KEY_SHARD_CONNECTIONS_EDIT_ZSET = 'shardconnections:edit:zset';
-exports.REDIS_KEY_SHARD_CONNECTIONS_EDIT_HASH = 'shardconnections:edit:hash';
-exports.REDIS_KEY_SHARD_CONNECTIONS_LIVE_VIEW_ZSET = 'shardconnections:liveview:zset';
-exports.REDIS_KEY_SHARD_CONNECTIONS_LIVE_VIEW_HASH = 'shardconnections:liveview:hash';
-exports.REDIS_KEY_SHARD_CONNECTIONS_VIEW_ZSET = 'shardconnections:view:zset';
-exports.REDIS_KEY_SHARD_CONNECTIONS_VIEW_HASH = 'shardconnections:view:hash';
 
 exports.SHUTDOWN_CODE = 4001;
 exports.SHUTDOWN_REASON = 'server shutdown';

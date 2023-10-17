@@ -261,7 +261,7 @@ function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
   task.tenant = ctx.tenant;
   task.key = key;
   task.status = commonDefines.FileStatus.WaitQueue;
-  //nTryCount чтобы не зависнуть если реально будут проблемы с DB
+  //nTryCount so as not to freeze if there are really problems with the DB
   var nTryCount = RANDOM_KEY_MAX;
   var addRes = null;
   while (nTryCount-- > 0) {

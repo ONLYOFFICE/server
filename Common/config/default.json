@@ -105,6 +105,7 @@
 	"tenants": {
 		"baseDir": "",
 		"baseDomain": "",
+		"filenameConfig": "config.json",
 		"filenameSecret": "secret.key",
 		"filenameLicense": "license.lic",
 		"defaultTenant": "localhost",
@@ -142,7 +143,8 @@
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
 				"downloadFileAllowExt": ["pdf", "xlsx"],
-				"tokenRequiredParams": true
+				"tokenRequiredParams": true,
+				"allowPrivateIPAddressForSignedRequests": true
 			},
 			"requestDefaults": {
 				"headers": {
@@ -160,7 +162,7 @@
 			"utils": {
 				"utils_common_fontdir": "null",
 				"utils_fonts_search_patterns": "*.ttf;*.ttc;*.otf",
-				"limits_image_types_upload": "jpg;jpeg;jpe;png;gif;bmp"
+				"limits_image_types_upload": "jpg;jpeg;jpe;png;gif;bmp;svg"
 			},
 			"sql": {
 				"type": "postgres",
@@ -180,10 +182,14 @@
 			"redis": {
 				"name": "redis",
 				"prefix": "ds:",
-				"host": "localhost",
+				"host": "127.0.0.1",
 				"port": 6379,
 				"options": {},
-				"iooptions": {}
+				"optionsCluster": {},
+				"iooptions": {},
+				"iooptionsClusterNodes": [
+				],
+				"iooptionsClusterOptions": {}
 			},
 			"pubsub": {
 				"maxChanges": 1000
@@ -197,6 +203,7 @@
 				"message": 86400,
 				"lastsave": 604800,
 				"forcesave": 604800,
+				"forcesaveLock": 5000,
 				"saved": 3600,
 				"documentsCron": "0 */2 * * * *",
 				"files": 86400,

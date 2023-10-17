@@ -55,7 +55,7 @@ var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 
 var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
-var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.CONVERTION_TIMEOUT;
+var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
 let addSqlParam = sqlBase.baseConnector.addSqlParameter;
 function getDocumentsWithChanges(ctx) {
@@ -96,10 +96,8 @@ function shutdown() {
       let editorData = new editorDataStorage();
       ctx.logger.debug('shutdown start:' + EXEC_TIMEOUT);
 
-      //redisKeyShutdown не простой счетчик, чтобы его не уменьшала сборка, которая началась перед запуском Shutdown
-      //сбрасываем redisKeyShutdown на всякий случай, если предыдущий запуск не дошел до конца
-      yield editorData.cleanupShutdown(redisKeyShutdown);
-
+      //redisKeyShutdown is not a simple counter, so it doesn't get decremented by a build that started before Shutdown started
+      //reset redisKeyShutdown just in case the previous run didn't finish yield editorData.cleanupShutdown(redisKeyShutdown);
       let queue = new queueService();
       yield queue.initPromise(true, false, false, false, false, false);
 
@@ -139,7 +137,10 @@ function shutdown() {
       for (let i = 0; i < docsToConvert.length; ++i) {
         let tenant = docsToConvert[i][0];
         let docId = docsToConvert[i][1];
+        //todo refactor. group tenants?
         ctx.setTenant(tenant);
+        yield ctx.initTenantCache();
+
         yield updateDoc(ctx, docId, commonDefines.FileStatus.Ok, "");
         yield editorData.addShutdown(redisKeyShutdown, docId);
         ctx.logger.debug('shutdown createSaveTimerPromise %s', docId);
@@ -178,7 +179,7 @@ function shutdown() {
       ctx.logger.debug('shutdown docs placed in forgotten:%d', countInForgotten);
       ctx.logger.debug('shutdown docs with unknown status:%d', docsToConvert.length - countInForgotten);
 
-      //todo надо проверять очереди, потому что могут быть долгие конвертации запущенные до Shutdown
+      //todo needs to check queues, because there may be long conversions running before Shutdown
       //clean up
       yield editorData.cleanupShutdown(redisKeyShutdown);
       yield pubsub.close();

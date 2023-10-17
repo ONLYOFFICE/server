@@ -39,22 +39,22 @@ const operationContext = require('./../../Common/sources/operationContext');
 if (cluster.isMaster) {
   const fs = require('fs');
   const co = require('co');
-  const numCPUs = require('os').cpus().length;
-  const configCommon = require('config');
-  const config = configCommon.get('FileConverter.converter');
+  const os = require('os');
+  const config = require('config');
   const license = require('./../../Common/sources/license');
-  const tenantManager = require('./../../Common/sources/tenantManager');
 
-  const cfgLicenseFile = configCommon.get('license.license_file');
+  const cfgLicenseFile = config.get('license.license_file');
+  const cfgMaxProcessCount = config.get('FileConverter.converter.maxprocesscount');
 
-  const cfgMaxProcessCount = config.get('maxprocesscount');
   var workersCount = 0;
   const readLicense = function* () {
-    workersCount = Math.ceil(numCPUs * cfgMaxProcessCount);
-    if (!tenantManager.isMultitenantMode()) {
-      let [licenseInfo] = yield* license.readLicense(cfgLicenseFile);
-      workersCount = Math.min(licenseInfo.count, workersCount);
-    }
+    const numCPUs = os.cpus().length;
+    const availableParallelism = os.availableParallelism?.();
+    operationContext.global.logger.warn('num of CPUs: %d; availableParallelism: %s', numCPUs, availableParallelism);
+    workersCount = Math.ceil((availableParallelism || numCPUs) * cfgMaxProcessCount);
+    let [licenseInfo] = yield* license.readLicense(cfgLicenseFile);
+    workersCount = Math.min(licenseInfo.count, workersCount);
+    //todo send license to workers for multi-tenancy
   };
   const updateWorkers = () => {
     var i;
@@ -92,10 +92,8 @@ if (cluster.isMaster) {
 
   updateLicense();
 
-  if (!tenantManager.isMultitenantMode()) {
-    fs.watchFile(cfgLicenseFile, updateLicense);
-    setInterval(updateLicense, 86400000);
-  }
+  fs.watchFile(cfgLicenseFile, updateLicense);
+  setInterval(updateLicense, 86400000);
 } else {
   const converter = require('./converter');
   converter.run();

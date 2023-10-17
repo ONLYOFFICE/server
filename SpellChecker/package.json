@@ -5,11 +5,11 @@
   "private": true,
   "bin": "sources/server.js",
   "dependencies": {
-    "co": "^4.6.0",
-    "config": "^2.0.1",
-    "express": "^4.16.4",
+    "co": "4.6.0",
+    "config": "2.0.1",
+    "express": "4.16.4",
     "nodehun": "git+https://git@github.com/ONLYOFFICE/nodehun.git#2411a56828c7d58214c61781b4a5c63d18adba99",
-    "sockjs": "^0.3.21"
+    "sockjs": "0.3.21"
   },
   "pkg": {
     "assets": [

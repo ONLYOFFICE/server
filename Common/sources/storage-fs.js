@@ -63,7 +63,7 @@ function removeEmptyParent(strPath, done) {
   } else {
     fs.readdir(strPath, function(err, list) {
       if (err) {
-        //не реагируем на ошибку, потому скорее всего эта папка удалилась в соседнем потоке
+        //we do not react to the error, because most likely this folder was deleted in a neighboring thread
         done();
       } else {
         if (list.length > 0) {
@@ -71,7 +71,7 @@ function removeEmptyParent(strPath, done) {
         } else {
           fs.rmdir(strPath, function(err) {
             if (err) {
-              //не реагируем на ошибку, потому скорее всего эта папка удалилась в соседнем потоке
+              //we do not react to the error, because most likely this folder was deleted in a neighboring thread
               done();
             } else {
               removeEmptyParent(path.dirname(strPath), function(err) {
@@ -180,13 +180,13 @@ exports.deleteObject = function(strPath) {
 exports.deleteObjects = function(strPaths) {
   return Promise.all(strPaths.map(exports.deleteObject));
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+exports.getSignedUrl = function(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
   return new Promise(function(resolve, reject) {
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
     var userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, "%2f")) : path.basename(strPath);
     var uri = '/' + cfgBucketName + '/' + cfgStorageFolderName + '/' + strPath + '/' + userFriendlyName;
     //RFC 1123 does not allow underscores https://stackoverflow.com/questions/2180465/can-domain-name-subdomains-have-an-underscore-in-it
-    var url = utils.checkBaseUrl(baseUrl).replace(/_/g, "%5f");
+    var url = utils.checkBaseUrl(ctx, baseUrl).replace(/_/g, "%5f");
     url += uri;
 
     var date = Date.now();

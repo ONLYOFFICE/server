@@ -40,6 +40,7 @@ function InputCommand(data, copyExplicit) {
   this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
   this['wopiParams'] = undefined;
   this['builderParams'] = undefined;
+  this['userconnectiondocid'] = undefined;
   if (data) {
     this['c'] = data['c'];
     this['id'] = data['id'];
@@ -93,6 +94,7 @@ function InputCommand(data, copyExplicit) {
       this['forcesave'] = undefined;
     }
     this['userdata'] = data['userdata'];
+    this['formdata'] = data['formdata'];
     this['inline'] = data['inline'];
     this['password'] = data['password'];
     this['savepassword'] = data['savepassword'];
@@ -111,6 +113,7 @@ function InputCommand(data, copyExplicit) {
       this['externalChangeInfo'] = data['externalChangeInfo'];
       this['wopiParams'] = data['wopiParams'];
       this['builderParams'] = data['builderParams'];
+      this['userconnectiondocid'] = data['userconnectiondocid'];
     }
   } else {
     this['c'] = undefined;//string command
@@ -152,6 +155,7 @@ function InputCommand(data, copyExplicit) {
     this['useractionindex'] = undefined;
     this['forcesave'] = undefined;
     this['userdata'] = undefined;
+    this['formdata'] = undefined;
     this['inline'] = undefined;//content disposition
     this['password'] = undefined;
     this['savepassword'] = undefined;
@@ -330,6 +334,12 @@ InputCommand.prototype = {
   setUserConnectionId: function(data) {
     this['userconnectionid'] = data;
   },
+  getUserConnectionDocId: function() {
+    return this['userconnectiondocid'];
+  },
+  setUserConnectionDocId: function(data) {
+    this['userconnectiondocid'] = data;
+  },
   getResponseKey: function() {
     return this['responsekey'];
   },
@@ -366,9 +376,15 @@ InputCommand.prototype = {
   setUserActionIndex: function(data) {
     this['useractionindex'] = data;
   },
+  /**
+   * @return {CForceSaveData | null}
+   */
   getForceSave: function() {
     return this['forcesave'];
   },
+  /**
+   * @param {CForceSaveData} data
+   */
   setForceSave: function(data) {
     this['forcesave'] = data;
   },
@@ -377,6 +393,12 @@ InputCommand.prototype = {
   },
   setUserData: function(data) {
     this['userdata'] = data;
+  },
+  getFormData: function() {
+    return this['formdata'];
+  },
+  setFormData: function(data) {
+    this['formdata'] = data;
   },
   getInline: function() {
     return this['inline'];
@@ -798,6 +820,7 @@ function OutputSfcData(key) {
   this['actions'] = undefined;
   this['mailMerge'] = undefined;
   this['userdata'] = undefined;
+  this['formdata'] = undefined;
   this['lastsave'] = undefined;
   this['notmodified'] = undefined;
   this['forcesavetype'] = undefined;
@@ -864,6 +887,12 @@ OutputSfcData.prototype.getUserData= function() {
 };
 OutputSfcData.prototype.setUserData = function(data) {
   return this['userdata'] = data;
+};
+OutputSfcData.prototype.getFormData= function() {
+  return this['formdata'];
+};
+OutputSfcData.prototype.setFormData = function(data) {
+  return this['formdata'] = data;
 };
 OutputSfcData.prototype.getLastSave = function() {
   return this['lastsave']
@@ -1089,7 +1118,8 @@ const c_oAscForceSaveTypes = {
   Command: 0,
   Button: 1,
   Timeout: 2,
-  Form: 3
+  Form: 3,
+  Internal: 4
 };
 const c_oAscUrlTypes = {
   Session: 0,

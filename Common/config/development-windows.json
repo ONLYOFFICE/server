@@ -7,6 +7,9 @@
       "folderPath": "../App_Data"
     }
   },
+  "wopi": {
+    "enable": true
+  },
   "services": {
     "CoAuthoring": {
       "server": {
@@ -26,6 +29,9 @@
           },
           "/dictionaries": {
             "path": "../../dictionaries"
+          },
+          "/welcome": {
+            "path": "../branding/welcome"
           },
           "/info": {
             "path": "../branding/info"

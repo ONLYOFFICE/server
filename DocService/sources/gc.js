@@ -32,8 +32,7 @@
 
 'use strict';
 
-const configCommon = require('config');
-var config = configCommon.get('services.CoAuthoring');
+const config = require('config');
 var co = require('co');
 var cron = require('cron');
 var ms = require('ms');
@@ -49,12 +48,11 @@ var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var operationContext = require('./../../Common/sources/operationContext');
 var pubsubService = require('./pubsubRabbitMQ');
 
-var cfgExpFilesCron = config.get('expire.filesCron');
-var cfgExpDocumentsCron = config.get('expire.documentsCron');
-var cfgExpFiles = config.get('expire.files');
-var cfgExpFilesRemovedAtOnce = config.get('expire.filesremovedatonce');
-var cfgForceSaveEnable = config.get('autoAssembly.enable');
-var cfgForceSaveStep = ms(config.get('autoAssembly.step'));
+var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
+var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
+var cfgExpFiles = config.get('services.CoAuthoring.expire.files');
+var cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
+var cfgForceSaveStep = ms(config.get('services.CoAuthoring.autoAssembly.step'));
 
 function getCronStep(cronTime){
   let cronJob = new cron.CronJob(cronTime, function(){});
@@ -79,8 +77,9 @@ var checkFileExpire = function() {
           let tenant = expired[i].tenant;
           let docId = expired[i].id;
           ctx.init(tenant, docId, ctx.userId);
+          yield ctx.initTenantCache();
           //todo tenant
-          //проверяем что никто не сидит в документе
+          //check that no one is in the document
           let editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
           if(0 === editorsCount){
             if (yield canvasService.cleanupCache(ctx, docId)) {
@@ -120,6 +119,7 @@ var checkDocumentExpire = function() {
           let docId = expiredKeys[i][1];
           if (docId) {
             ctx.init(tenant, docId, ctx.userId);
+            yield ctx.initTenantCache();
             var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
             if (hasChanges) {
               yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
@@ -169,8 +169,10 @@ let forceSaveTimeout = function() {
           let docId = expiredKeys[i][1];
           if (docId) {
             ctx.init(tenant, docId, ctx.userId);
+            yield ctx.initTenantCache();
             actions.push(docsCoServer.startForceSave(ctx, docId, commondefines.c_oAscForceSaveTypes.Timeout,
-                                                            undefined, undefined, undefined, undefined, undefined, undefined, queue, pubsub));
+              undefined, undefined, undefined, undefined,
+              undefined, undefined, undefined, undefined, queue, pubsub));
           }
         }
         yield Promise.all(actions);
@@ -199,8 +201,6 @@ let forceSaveTimeout = function() {
 exports.startGC = function() {
   setTimeout(checkDocumentExpire, expDocumentsStep);
   setTimeout(checkFileExpire, expFilesStep);
-  if (cfgForceSaveEnable) {
-    setTimeout(forceSaveTimeout, cfgForceSaveStep);
-  }
+  setTimeout(forceSaveTimeout, cfgForceSaveStep);
 };
 exports.getCronStep = getCronStep;

@@ -34,7 +34,10 @@
 var fs = require('fs');
 var url = require('url');
 var path = require('path');
-var AWS = require('aws-sdk');
+const { S3Client, ListObjectsCommand, HeadObjectCommand} = require("@aws-sdk/client-s3");
+const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-sdk/client-s3");
+const { DeleteObjectsCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 var mime = require('mime');
 var utils = require('./utils');
 const ms = require('ms');
@@ -64,23 +67,18 @@ const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.session
 var configS3 = {
   region: cfgRegion,
   endpoint: cfgEndpoint,
+  credentials : {
   accessKeyId: cfgAccessKeyId,
   secretAccessKey: cfgSecretAccessKey
+  }
 };
 
 if (configS3.endpoint) {
   configS3.sslEnabled = cfgSslEnabled;
   configS3.s3ForcePathStyle = cfgS3ForcePathStyle;
 }
-AWS.config.update(configS3);
-var s3Client = new AWS.S3();
-if (configS3.endpoint) {
-  s3Client.endpoint = new AWS.Endpoint(configS3.endpoint);
-}
-var cfgEndpointParsed = null;
-if (cfgEndpoint) {
-  cfgEndpointParsed = url.parse(cfgEndpoint);
-}
+const client  = new S3Client(configS3);
+
 //This operation enables you to delete multiple objects from a bucket using a single HTTP request. You may specify up to 1000 keys.
 var MAX_DELETE_OBJECTS = 1000;
 
@@ -89,137 +87,114 @@ function getFilePath(strPath) {
   return cfgStorageFolderName + '/' + strPath;
 }
 function joinListObjects(inputArray, outputArray) {
+  if (!inputArray) {
+    return;
+  }
   var length = inputArray.length;
   for (var i = 0; i < length; i++) {
     outputArray.push(inputArray[i].Key.substring((cfgStorageFolderName + '/').length));
   }
 }
-function listObjectsExec(output, params, resolve, reject) {
-  s3Client.listObjects(params, function(err, data) {
-    if (err) {
-      reject(err);
-    } else {
+async function listObjectsExec(output, params) {
+  const data = await client.send(new ListObjectsCommand(params));
       joinListObjects(data.Contents, output);
-      if (data.IsTruncated && (data.NextMarker || data.Contents.length > 0)) {
+  if (data.IsTruncated && (data.NextMarker || (data.Contents && data.Contents.length > 0))) {
         params.Marker = data.NextMarker || data.Contents[data.Contents.length - 1].Key;
-        listObjectsExec(output, params, resolve, reject);
+    return await listObjectsExec(output, params);
       } else {
-        resolve(output);
+    return output;
       }
-    }
-  });
 }
-function mapDeleteObjects(currentValue) {
-  return {Key: currentValue};
-}
-function deleteObjectsHelp(aKeys) {
-  return new Promise(function(resolve, reject) {
+async function deleteObjectsHelp(aKeys) {
     //By default, the operation uses verbose mode in which the response includes the result of deletion of each key in your request.
     //In quiet mode the response includes only keys where the delete operation encountered an error.
-    var params = {Bucket: cfgBucketName, Delete: {Objects: aKeys, Quiet: true}};
-    s3Client.deleteObjects(params, function(err, data) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
+  const input = {
+    Bucket: cfgBucketName,
+    Delete: {
+      Objects: aKeys,
+      Quiet: true
       }
-    });
-  });
+  };
+  const command = new DeleteObjectsCommand(input);
+  return await client.send(command);
 }
 
-exports.headObject = function(strPath) {
-  return new Promise(function(resolve, reject) {
-    var params = {Bucket: cfgBucketName, Key: getFilePath(strPath)};
-    s3Client.headObject(params, function(err, data) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
-      }
-    });
-  });
+exports.headObject = async function(strPath) {
+  const input = {
+    Bucket: cfgBucketName,
+    Key: getFilePath(strPath)
+  };
+  const command = new HeadObjectCommand(input);
+  return await client.send(command);
 };
-exports.getObject = function(strPath) {
-  return new Promise(function(resolve, reject) {
-    var params = {Bucket: cfgBucketName, Key: getFilePath(strPath)};
-    s3Client.getObject(params, function(err, data) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data.Body);
-      }
-    });
-  });
+exports.getObject = async function(strPath) {
+  const input = {
+    Bucket: cfgBucketName,
+    Key: getFilePath(strPath)
+  };
+  const command = new GetObjectCommand(input);
+  const output = await client.send(command);
+
+  return await utils.stream2Buffer(output.Body);
 };
-exports.createReadStream = function(strPath) {
-  return new Promise(function(resolve, reject) {
-    var params = {Bucket: cfgBucketName, Key: getFilePath(strPath)};
-    s3Client.getObject(params)
-      .on('error', (err) => {
-        reject(err);
-      })
-      .on('httpHeaders', function(statusCode, headers, resp, statusMessage) {
-        //retries are possible
-        if (statusCode < 300) {
-          let responseObject = {
-            contentLength: headers['content-length'],
-            readStream: this.response.httpResponse.createUnbufferedStream()
+exports.createReadStream = async function(strPath) {
+  const input = {
+    Bucket: cfgBucketName,
+    Key: getFilePath(strPath)
           };
-          resolve(responseObject);
-        }
-      }).send();
-  });
+  const command = new GetObjectCommand(input);
+  const output = await client.send(command);
+  return {
+    contentLength: output.ContentLength,
+    readStream: output.Body
+  };
 };
-exports.putObject = function(strPath, buffer, contentLength) {
-  return new Promise(function(resolve, reject) {
-    //todo рассмотреть Expires
-    var params = {Bucket: cfgBucketName, Key: getFilePath(strPath), Body: buffer,
-      ContentLength: contentLength, ContentType: mime.getType(strPath)};
-    s3Client.putObject(params, function(err, data) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
-      }
-    });
-  });
+exports.putObject = async function(strPath, buffer, contentLength) {
+    //todo consider Expires
+  const input = {
+    Bucket: cfgBucketName,
+    Key: getFilePath(strPath),
+    Body: buffer,
+    ContentLength: contentLength,
+    ContentType: mime.getType(strPath)
+  };
+  const command = new PutObjectCommand(input);
+  return await client.send(command);
 };
-exports.uploadObject = function(strPath, filePath) {
-  return new Promise(function(resolve, reject) {
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
-      }
-    });
-  }).then(function(data) {
-    return exports.putObject(strPath, data, data.length);
-  });
+exports.uploadObject = async function(strPath, filePath) {
+  const file = fs.createReadStream(filePath);
+  //todo рассмотреть Expires
+  const input = {
+    Bucket: cfgBucketName,
+    Key: getFilePath(strPath),
+    Body: file,
+    ContentType: mime.getType(strPath)
+  };
+  const command = new PutObjectCommand(input);
+  return await client.send(command);
 };
 exports.copyObject = function(sourceKey, destinationKey) {
-  return exports.getObject(sourceKey).then(function(data) {
-    return exports.putObject(destinationKey, data, data.length);
-  });
+  //todo source bucket
+  const input = {
+    Bucket: cfgBucketName,
+    Key: getFilePath(destinationKey),
+    CopySource: `/${cfgBucketName}/${getFilePath(sourceKey)}`
+  };
+  const command = new CopyObjectCommand(input);
+  return client.send(command);
 };
-exports.listObjects = function(strPath) {
-  return new Promise(function(resolve, reject) {
+exports.listObjects = async function(strPath) {
     var params = {Bucket: cfgBucketName, Prefix: getFilePath(strPath)};
     var output = [];
-    listObjectsExec(output, params, resolve, reject);
-  });
+  return await listObjectsExec(output, params);
 };
 exports.deleteObject = function(strPath) {
-  return new Promise(function(resolve, reject) {
-    var params = {Bucket: cfgBucketName, Key: getFilePath(strPath)};
-    s3Client.deleteObject(params, function(err, data) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
-      }
-    });
-  });
+  const input = {
+    Bucket: cfgBucketName,
+    Key: getFilePath(strPath)
+  };
+  const command = new DeleteObjectCommand(input);
+  return client.send(command);
 };
 exports.deleteObjects = function(strPaths) {
   var aKeys = strPaths.map(function (currentValue) {
@@ -231,21 +206,25 @@ exports.deleteObjects = function(strPaths) {
   }
   return Promise.all(deletePromises);
 };
-exports.getSignedUrl = function(baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-  return new Promise(function(resolve, reject) {
+exports.getSignedUrl = async function (ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
     var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : cfgStorageUrlExpires) || 31536000;
+  // Signature version 4 presigned URLs must have an expiration date less than one week in the future
+  expires = Math.min(expires, 604800);
     var userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
     var contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
+
+  const input = {
+    Bucket: cfgBucketName,
+    Key: getFilePath(strPath),
+    ResponseContentDisposition: contentDisposition
+  };
+  const command = new GetObjectCommand(input);
     //default Expires 900 seconds
-    var params = {
-      Bucket: cfgBucketName, Key: getFilePath(strPath), ResponseContentDisposition: contentDisposition, Expires: expires
+  var options = {
+    expiresIn: expires
     };
-    s3Client.getSignedUrl('getObject', params, function(err, data) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(utils.changeOnlyOfficeUrl(data, strPath, optFilename));
-      }
-    });
-  });
+  return await getSignedUrl(client, command, options);
+  //extra query params cause SignatureDoesNotMatch
+  //https://stackoverflow.com/questions/55503009/amazon-s3-signature-does-not-match-when-extra-query-params-ga-added-in-url
+  // return utils.changeOnlyOfficeUrl(url, strPath, optFilename);
 };

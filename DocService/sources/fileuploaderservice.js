@@ -43,14 +43,12 @@ var storageBase = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
-
+//const sharp = require("sharp");
 var config = require('config');
-var configServer = config.get('services.CoAuthoring.server');
-var configUtils = config.get('services.CoAuthoring.utils');
 
-var cfgImageSize = configServer.get('limits_image_size');
-var cfgTypesUpload = configUtils.get('limits_image_types_upload');
-var cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
+const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
+const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
 const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 
@@ -60,6 +58,7 @@ exports.uploadTempFile = function(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       ctx.logger.info('uploadTempFile start');
       let params;
       let authRes = yield docsCoServer.getRequestParams(ctx, req, true);
@@ -102,7 +101,8 @@ function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
   if (checkJwtRes.decoded) {
     var doc = checkJwtRes.decoded.document;
     var edit = checkJwtRes.decoded.editorConfig;
-    if (!edit.ds_view && !edit.ds_isCloseCoAuthoring) {
+    //todo check view and pdf editor (temporary fix)
+    if (!edit.ds_isCloseCoAuthoring) {
       res.err = false;
       res.docId = doc.key;
       res.encrypted = doc.ds_encrypted;
@@ -121,10 +121,14 @@ exports.uploadImageFileOld = function(req, res) {
   return co(function* () {
     let ctx = new operationContext.Context();
     ctx.initFromRequest(req);
+    yield ctx.initTenantCache();
     var docId = req.params.docid;
     ctx.setDocId(docId);
     ctx.logger.debug('Start uploadImageFileOld');
-    if (cfgTokenEnableBrowser) {
+    const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+
+    if (tenTokenEnableBrowser) {
       var checkJwtRes = yield* checkJwtUpload(ctx, 'uploadImageFileOld', req.query['token']);
       if(!checkJwtRes.err){
         docId = checkJwtRes.docId || docId;
@@ -149,13 +153,13 @@ exports.uploadImageFileOld = function(req, res) {
           part.resume();
         }
         if (part.filename) {
-          if (part.byteCount > cfgImageSize) {
+          if (part.byteCount > tenImageSize) {
             isError = true;
           }
           if (isError) {
             part.resume();
           } else {
-            //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
+            //a hash is written at the beginning to avoid errors during parallel upload in co-editing
             var strImageName = crypto.randomBytes(16).toString("hex");
             var strPath = docId + '/media/' + strImageName + '.jpg';
             listImages.push(strPath);
@@ -211,12 +215,16 @@ exports.uploadImageFile = function(req, res) {
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
+      yield ctx.initTenantCache();
       docId = req.params.docid;
       ctx.setDocId(docId);
       let encrypted = false;
       ctx.logger.debug('Start uploadImageFile');
+      const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
+      const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
+      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (cfgTokenEnableBrowser) {
+      if (tenTokenEnableBrowser) {
         let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
         if (!checkJwtRes) {
           //todo remove compatibility with previous versions
@@ -235,19 +243,27 @@ exports.uploadImageFile = function(req, res) {
 
       if (200 === httpStatus && docId && req.body && Buffer.isBuffer(req.body)) {
         let buffer = req.body;
-        if (buffer.length <= cfgImageSize) {
+        if (buffer.length <= tenImageSize) {
           var format = formatChecker.getImageFormat(ctx, buffer);
           var formatStr = formatChecker.getStringFromFormat(format);
           if (encrypted && PATTERN_ENCRYPTED === buffer.toString('utf8', 0, PATTERN_ENCRYPTED.length)) {
             formatStr = buffer.toString('utf8', PATTERN_ENCRYPTED.length, buffer.indexOf(';', PATTERN_ENCRYPTED.length));
           }
-          var supportedFormats = cfgTypesUpload || 'jpg';
+          var supportedFormats = tenTypesUpload || 'jpg';
           let formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
           if (formatLimit) {
-            //в начале пишется хеш, чтобы избежать ошибок при параллельном upload в совместном редактировании
+            //a hash is written at the beginning to avoid errors during parallel upload in co-editing
             var strImageName = crypto.randomBytes(16).toString("hex");
             var strPathRel = 'media/' + strImageName + '.' + formatStr;
             var strPath = docId + '/' + strPathRel;
+            // //fix exif rotation
+            // //todo move to commons
+            // let sharpTransform = sharp(buffer);
+            // let metadata = yield sharpTransform.metadata();
+            // if (undefined !== metadata.orientation && metadata.orientation > 1) {
+            //   buffer = yield  sharpTransform.rotate().toBuffer();
+            // }
+
             yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
             output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
                                                                 commonDefines.c_oAscUrlTypes.Session);
