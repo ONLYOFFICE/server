@@ -898,7 +898,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
   }
   return res;
 }
-async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub) {
+async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub, opt_conn) {
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
   let startedForceSave;
@@ -910,6 +910,16 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     });
     if (!hasEncrypted) {
       let forceSave = await editorData.getForceSave(ctx, docId);
+      if (!forceSave && commonDefines.c_oAscForceSaveTypes.Form === type && opt_conn) {
+        //stub to send forms without changes
+        let newChangesLastDate = new Date();
+        newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
+        let newChangesLastTime = newChangesLastDate.getTime();
+        let baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
+        let changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime);
+        await editorData.setForceSave(ctx, docId, newChangesLastTime, 0, baseUrl, changeInfo, null);
+        forceSave = await editorData.getForceSave(ctx, docId);
+      }
       let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, opt_formdata);
       startedForceSave = applyCacheRes.startedForceSave;
       if (applyCacheRes.notModified) {
@@ -1008,7 +1018,9 @@ function* startRPC(ctx, conn, responseKey, data) {
     case 'sendForm': {
       let forceSaveRes;
       if (conn.user) {
-        forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined, data.formdata, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser, responseKey);
+        forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined,
+          data.formdata, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser,
+          responseKey, undefined, undefined, undefined, conn);
       }
       if (!forceSaveRes || commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
         sendDataRpc(ctx, conn, responseKey, forceSaveRes);
@@ -2548,7 +2560,7 @@ exports.install = function(server, callbackFunction) {
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache(); //no need
           licenseInfoAggregation = tenantManager.getServerLicense();
-          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, isLiveViewer, logPrefixServer);
+          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, isLiveViewer, logPrefixServer);
         }
         conn.licenseType = licenseType;
         if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!tenIsAnonymousSupport && data.IsAnonymousUser)) {
@@ -2562,7 +2574,7 @@ exports.install = function(server, callbackFunction) {
           yield* updateEditUsers(ctx, licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
           if (aggregationCtx && licenseInfoAggregation) {
             //update server aggregation license
-            yield* updateEditUsers(aggregationCtx, licenseInfoAggregation, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
+            yield* updateEditUsers(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, !!data.IsAnonymousUser, isLiveViewer);
           }
         }
       }
@@ -3793,10 +3805,10 @@ exports.install = function(server, callbackFunction) {
           }
           yield addPresence(ctx, conn, false);
           if (utils.isLiveViewer(conn)) {
-            countViewByShard++;
+            countLiveViewByShard++;
             tenant.countLiveViewByShard++;
           } else if(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
-            countLiveViewByShard++;
+            countViewByShard++;
             tenant.countViewByShard++;
           } else {
             countEditByShard++;
@@ -3827,9 +3839,9 @@ exports.install = function(server, callbackFunction) {
           let aggregationCtx = new operationContext.Context();
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache();//no need
-          yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, countEditByShard);
-          yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, countLiveViewByShard);
-          yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, countViewByShard);
+          yield editorData.setEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, countEditByShard);
+          yield editorData.setLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countLiveViewByShard);
+          yield editorData.setViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countViewByShard);
         }
         ctx.initDefault();
       } catch (err) {
@@ -3985,9 +3997,12 @@ exports.healthCheck = function(req, res) {
 exports.licenseInfo = function(req, res) {
   return co(function*() {
     let isError = false;
+    let serverDate = new Date();
+    //security risk of high-precision time
+    serverDate.setMilliseconds(0);
     let output = {
       connectionsStat: {}, licenseInfo: {}, serverInfo: {
-        buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber,
+        buildVersion: commonDefines.buildVersion, buildNumber: commonDefines.buildNumber, date: serverDate.toISOString()
       }, quota: {
         edit: {
           connectionsCount: 0,

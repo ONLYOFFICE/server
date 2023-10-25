@@ -42,7 +42,6 @@ const utils = require('./../../Common/sources/utils');
 const { readFile } = require('fs/promises');
 const path = require('path');
 
-const oPackageType = config.get('license.packageType');
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
 const cfgTenantsBaseDir = config.get('tenants.baseDir');
 const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
@@ -210,22 +209,22 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
     errors.push('advanced_api');
   }
   //can not up limits
-  if (licenseInfo.connections < licenseInfoTenant.connections) {
-    licenseInfoTenant.connections = licenseInfo.connections;
-    errors.push('connections');
-  }
-  if (licenseInfo.connectionsView < licenseInfoTenant.connectionsView) {
-    licenseInfoTenant.connectionsView = licenseInfo.connectionsView;
-    errors.push('connections_view');
-  }
-  if (licenseInfo.usersCount < licenseInfoTenant.usersCount) {
-    licenseInfoTenant.usersCount = licenseInfo.usersCount;
-    errors.push('users_count');
-  }
-  if (licenseInfo.usersViewCount < licenseInfoTenant.usersViewCount) {
-    licenseInfoTenant.usersViewCount = licenseInfo.usersViewCount;
-    errors.push('users_view_count');
-  }
+  // if (licenseInfo.connections < licenseInfoTenant.connections) {
+  //   licenseInfoTenant.connections = licenseInfo.connections;
+  //   errors.push('connections');
+  // }
+  // if (licenseInfo.connectionsView < licenseInfoTenant.connectionsView) {
+  //   licenseInfoTenant.connectionsView = licenseInfo.connectionsView;
+  //   errors.push('connections_view');
+  // }
+  // if (licenseInfo.usersCount < licenseInfoTenant.usersCount) {
+  //   licenseInfoTenant.usersCount = licenseInfo.usersCount;
+  //   errors.push('users_count');
+  // }
+  // if (licenseInfo.usersViewCount < licenseInfoTenant.usersViewCount) {
+  //   licenseInfoTenant.usersViewCount = licenseInfo.usersViewCount;
+  //   errors.push('users_view_count');
+  // }
   if (licenseInfo.endDate && licenseInfoTenant.endDate && licenseInfo.endDate < licenseInfoTenant.endDate) {
     licenseInfoTenant.endDate = licenseInfo.endDate;
     errors.push('end_date');
@@ -325,6 +324,9 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     if (oLicense.hasOwnProperty('advanced_api')) {
       res.advancedApi = !!oLicense['advanced_api'];
     }
+    if (oLicense.hasOwnProperty('process')) {
+      res.connections = Math.max(res.count, oLicense['process'] >> 0) * 75;
+    }
     if (oLicense.hasOwnProperty('connections')) {
       res.connections = oLicense['connections'] >> 0;
     }
@@ -344,19 +346,29 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
 
     const timeLimited = 0 !== (res.mode & c_LM.Limited);
 
-    const checkDate = ((res.mode & c_LM.Trial) || timeLimited) ? new Date() : oBuildDate;
+    const checkDate = ((res.mode & c_LM.Trial) || timeLimited) ? new Date() : licenseInfo.buildDate;
     //Calendar check of start_date allows to issue a license for old versions
     const checkStartDate = new Date();
     if (startDate <= checkStartDate && checkDate <= endDate && (!oLicense.hasOwnProperty('version') || 2 <= oLicense['version'])) {
-      if (oLicense.hasOwnProperty('process')) {
-        res.connections = Math.max(res.count, oLicense['process'] >> 0) * 75;
-      }
       res.type = c_LR.Success;
     } else if (startDate > checkStartDate) {
       res.type = c_LR.NotBefore;
       ctx.logger.warn('License: License not active before start_date:%s.', startDate.toISOString());
     } else if (timeLimited) {
-      res.type = c_LR.ExpiredLimited;
+      // 30 days after end license = limited mode with 20 Connections
+      if (endDate.setDate(checkDate.getDate() + 30) >= checkDate) {
+        res.type = c_LR.SuccessLimit;
+        res.connections = Math.min(res.connections, constants.LICENSE_CONNECTIONS);
+        res.connectionsView = Math.min(res.connectionsView, constants.LICENSE_CONNECTIONS);
+        res.usersCount = Math.min(res.usersCount, constants.LICENSE_USERS);
+        res.usersViewCount = Math.min(res.usersViewCount, constants.LICENSE_USERS);
+        let errStr = res.usersCount ? `${res.usersCount} unique users` : `${res.connections} concurrent connections`;
+        ctx.logger.error(`License: License needs to be renewed.\nYour users have only ${errStr} ` +
+          `available for document editing for the next 30 days.\nPlease renew the ` +
+          'license to restore the full access');
+      } else {
+        res.type = c_LR.ExpiredLimited;
+      }
     } else if (0 !== (res.mode & c_LM.Trial)) {
       res.type = c_LR.ExpiredTrial;
     } else {
@@ -389,7 +401,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
   }
 
   return [res, oLicense];
-};
+}
 
 exports.getDefautTenant = getDefautTenant;
 exports.getTenantByConnection = getTenantByConnection;

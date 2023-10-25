@@ -52,6 +52,7 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var operationContext = require('./../../Common/sources/operationContext');
 var tenantManager = require('./../../Common/sources/tenantManager');
 var config = require('config');
+//const sharp = require("sharp");
 
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
@@ -347,12 +348,14 @@ function* saveParts(ctx, cmd, filename) {
   }
   if (cmd.getUrl()) {
     result = true;
-  } else {
+  } else if (cmd.getData() && cmd.getData().length > 0) {
     var buffer = cmd.getData();
     yield storage.putObject(ctx, cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
     //delete data to prevent serialize into json
     cmd.data = null;
     result = (SAVE_TYPE_COMPLETE_ALL === saveType || SAVE_TYPE_COMPLETE === saveType);
+  } else {
+    result = true;
   }
   return result;
 }
@@ -725,6 +728,13 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           const filterPrivate = !authorizations[i] || !tenAllowPrivateIPAddressForSignedRequests;
           let getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], filterPrivate);
           data = getRes.body;
+          // //fix exif rotation
+          // //todo move to commons
+          // let sharpTransform = sharp(data);
+          // let metadata = yield sharpTransform.metadata();
+          // if (undefined !== metadata.orientation && metadata.orientation > 1) {
+          //   data = yield  sharpTransform.rotate().toBuffer();
+          // }
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
           data = undefined;
@@ -818,14 +828,17 @@ function* commandPathUrl(ctx, conn, cmd, outputData) {
   }
 }
 function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
-  let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
-  if (docPassword.initial) {
-    cmd.setPassword(docPassword.initial);
+  var completeParts = yield* saveParts(ctx, cmd, "changes0.json");
+  if (completeParts) {
+    let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
+    if (docPassword.initial) {
+      cmd.setPassword(docPassword.initial);
+    }
+    var queueData = getSaveTask(ctx, cmd);
+    queueData.setFromOrigin(true);
+    queueData.setFromChanges(true);
+    yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
   }
-  yield* addRandomKeyTaskCmd(ctx, cmd);
-  var queueData = getSaveTask(ctx, cmd);
-  queueData.setFromOrigin(true);
-  yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
   outputData.setStatus('ok');
   outputData.setData(cmd.getSaveKey());
 }

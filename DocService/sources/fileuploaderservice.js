@@ -43,7 +43,7 @@ var storageBase = require('./../../Common/sources/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
-
+//const sharp = require("sharp");
 var config = require('config');
 
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
@@ -101,7 +101,8 @@ function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
   if (checkJwtRes.decoded) {
     var doc = checkJwtRes.decoded.document;
     var edit = checkJwtRes.decoded.editorConfig;
-    if (!edit.ds_view && !edit.ds_isCloseCoAuthoring) {
+    //todo check view and pdf editor (temporary fix)
+    if (!edit.ds_isCloseCoAuthoring) {
       res.err = false;
       res.docId = doc.key;
       res.encrypted = doc.ds_encrypted;
@@ -255,6 +256,14 @@ exports.uploadImageFile = function(req, res) {
             var strImageName = crypto.randomBytes(16).toString("hex");
             var strPathRel = 'media/' + strImageName + '.' + formatStr;
             var strPath = docId + '/' + strPathRel;
+            // //fix exif rotation
+            // //todo move to commons
+            // let sharpTransform = sharp(buffer);
+            // let metadata = yield sharpTransform.metadata();
+            // if (undefined !== metadata.orientation && metadata.orientation > 1) {
+            //   buffer = yield  sharpTransform.rotate().toBuffer();
+            // }
+
             yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
             output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
                                                                 commonDefines.c_oAscUrlTypes.Session);

@@ -409,19 +409,33 @@ function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
     var data = yield storage.getObject(ctx, file, opt_specialDir);
     fs.writeFileSync(path.join(dir, fileRel), data);
   }
+  return list.length;
 }
 function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, authorProps) {
   const tenEditor = ctx.getCfg('services.CoAuthoring.editor', cfgEditor);
   let res = constants.NO_ERROR;
-  let needConcatFiles = false;
+  let concatDir;
+  let concatTemplate;
   if (task.getFromOrigin() || task.getFromSettings()) {
+    if (task.getFromChanges()) {
+      let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
+      fs.mkdirSync(changesDir);
+      let filesCount = yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), changesDir);
+      if (filesCount > 0) {
+        concatDir = changesDir;
+        concatTemplate = "changes0";
+      } else {
+        dataConvert.fromChanges = false;
+        task.setFromChanges(dataConvert.fromChanges);
+      }
+    }
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
     //overwrite some files from m_sKey (for example Editor.bin or changes)
     yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), tempDirs.source);
     let format = cmd.getFormat() || 'bin';
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
-    needConcatFiles = true;
+    concatDir = tempDirs.source;
   }
   if (!utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
     return constants.CONVERT_PARAMS;
@@ -430,12 +444,20 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   let mailMergeSend = cmd.getMailMergeSend();
   if (mailMergeSend) {
     yield* downloadFileFromStorage(ctx, mailMergeSend.getJsonKey(), tempDirs.source);
-    needConcatFiles = true;
+    concatDir = tempDirs.source;
   }
-  if (needConcatFiles) {
-    yield* concatFiles(tempDirs.source);
+  if (concatDir) {
+    yield* concatFiles(concatDir, concatTemplate);
+    if (concatTemplate) {
+      let filenames = fs.readdirSync(concatDir);
+      filenames.forEach(file => {
+        if (file.match(new RegExp(`${concatTemplate}\\d+\\.`))) {
+          fs.rmSync(path.join(concatDir, file));
+        }
+      });
+    }
   }
-  if (task.getFromChanges()) {
+  if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
     if(tenEditor['binaryChanges']) {
       res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps);
     } else {
@@ -458,15 +480,16 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   return res;
 }
 
-function* concatFiles(source) {
+function* concatFiles(source, template) {
+  template = template || "Editor";
   //concatenate EditorN.ext parts in Editor.ext
   let list = yield utils.listObjects(source, true);
   list.sort(utils.compareStringByLength);
   let writeStreams = {};
   for (let i = 0; i < list.length; ++i) {
     let file = list[i];
-    if (file.match(/Editor\d+\./)) {
-      let target = file.replace(/(Editor)\d+(\..*)/, '$1$2');
+    if (file.match(new RegExp(`${template}\\d+\\.`))) {
+      let target = file.replace(new RegExp(`(${template})\\d+(\\..*)`), '$1$2');
       let writeStream = writeStreams[target];
       if (!writeStream) {
         writeStream = yield utils.promiseCreateWriteStream(target);
