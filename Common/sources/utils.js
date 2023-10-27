@@ -316,12 +316,14 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       //baseRequest creates new agent(win-ca injects in globalAgent)
       options.agentOptions = https.globalAgent.options;
     }
-    if (opt_Authorization) {
+    if (!options.headers) {
       options.headers = {};
-      options.headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
     }
     if (opt_headers) {
-      options.headers = opt_headers;
+      Object.assign(options.headers, opt_headers);
+      // options.headers = opt_headers;
+    } else if (opt_Authorization) {
+      options.headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
     }
     let fError = function(err) {
       reject(err);
