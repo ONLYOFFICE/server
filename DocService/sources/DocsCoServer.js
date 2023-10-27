@@ -84,6 +84,8 @@ const jwt = require('jsonwebtoken');
 const ms = require('ms');
 const deepEqual  = require('deep-equal');
 const bytes = require('bytes');
+const exifParser = require('exif-parser')
+const Jimp = require('Jimp');
 const storage = require('./../../Common/sources/storage-base');
 const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
@@ -4148,6 +4150,28 @@ exports.licenseInfo = function(req, res) {
     }
   });
 };
+async function fixImageExifRotation(ctx, buffer) {
+  //todo move to DocService dir common
+  try {
+    let parser = exifParser.create(buffer);
+    let exif = parser.parse();
+    if (exif.tags?.Orientation > 1) {
+      ctx.logger.debug('fixImageExifRotation remove exif and rotate:%j', exif);
+      let image = await Jimp.read(buffer);
+      //remove exif
+      image.bitmap.exifBuffer = undefined;
+      //set jpeg and png quality
+      //https://www.imagemagick.org/script/command-line-options.php#quality
+      image.quality(90);
+      image.deflateLevel(7);
+      buffer = await image.getBufferAsync(Jimp.AUTO);
+    }
+  } catch (e) {
+    ctx.logger.debug('fixImageExifRotation error:%s', e.stack);
+  }
+  return buffer;
+}
+exports.fixImageExifRotation = fixImageExifRotation;
 
 function validateInputParams(ctx, authRes, command) {
   const commandsWithoutKey = ['version', 'license', 'getForgottenList'];

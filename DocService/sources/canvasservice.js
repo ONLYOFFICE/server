@@ -52,7 +52,6 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var operationContext = require('./../../Common/sources/operationContext');
 var tenantManager = require('./../../Common/sources/tenantManager');
 var config = require('config');
-//const sharp = require("sharp");
 
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
@@ -728,13 +727,9 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           const filterPrivate = !authorizations[i] || !tenAllowPrivateIPAddressForSignedRequests;
           let getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], filterPrivate);
           data = getRes.body;
-          // //fix exif rotation
-          // //todo move to commons
-          // let sharpTransform = sharp(data);
-          // let metadata = yield sharpTransform.metadata();
-          // if (undefined !== metadata.orientation && metadata.orientation > 1) {
-          //   data = yield  sharpTransform.rotate().toBuffer();
-          // }
+
+          data = yield docsCoServer.fixImageExifRotation(ctx, data);
+
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
           data = undefined;
