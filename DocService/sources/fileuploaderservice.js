@@ -36,6 +36,7 @@ var multiparty = require('multiparty');
 var co = require('co');
 var jwt = require('jsonwebtoken');
 var taskResult = require('./taskresult');
+const utilsDocService = require('./utilsDocService');
 var docsCoServer = require('./DocsCoServer');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
@@ -256,7 +257,7 @@ exports.uploadImageFile = function(req, res) {
             var strPathRel = 'media/' + strImageName + '.' + formatStr;
             var strPath = docId + '/' + strPathRel;
 
-            buffer = yield docsCoServer.fixImageExifRotation(ctx, buffer);
+            buffer = yield utilsDocService.fixImageExifRotation(ctx, buffer);
 
             yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
             output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
