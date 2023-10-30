@@ -39,6 +39,7 @@ const ms = require('ms');
 const retry = require('retry');
 const MultiRange = require('multi-integer-range').MultiRange;
 var sqlBase = require('./baseConnector');
+const utilsDocService = require('./utilsDocService');
 var docsCoServer = require('./DocsCoServer');
 var taskResult = require('./taskresult');
 var wopiClient = require('./wopiClient');
@@ -728,7 +729,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           let getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], filterPrivate);
           data = getRes.body;
 
-          data = yield docsCoServer.fixImageExifRotation(ctx, data);
+          data = yield utilsDocService.fixImageExifRotation(ctx, data);
 
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
