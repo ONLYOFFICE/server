@@ -888,11 +888,11 @@ OutputSfcData.prototype.getUserData= function() {
 OutputSfcData.prototype.setUserData = function(data) {
   return this['userdata'] = data;
 };
-OutputSfcData.prototype.getFormData= function() {
-  return this['formdata'];
+OutputSfcData.prototype.getFormsDataUrl= function() {
+  return this['formsdataurl'];
 };
-OutputSfcData.prototype.setFormData = function(data) {
-  return this['formdata'] = data;
+OutputSfcData.prototype.setFormsDataUrl = function(data) {
+  return this['formsdataurl'] = data;
 };
 OutputSfcData.prototype.getLastSave = function() {
   return this['lastsave']

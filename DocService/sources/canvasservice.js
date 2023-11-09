@@ -1011,7 +1011,14 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
         outputSfc.setActions([new commonDefines.OutputAction(commonDefines.c_oAscUserAction.ForceSaveButton, forceSaveUserId)]);
       }
       outputSfc.setUserData(cmd.getUserData());
-      outputSfc.setFormData(cmd.getFormData());
+      let formsData = cmd.getFormData();
+      if (formsData) {
+        let formsDataPath = saveKey + '/formsdata.json';
+        let formsBuffer = Buffer.from(JSON.stringify(formsData), 'utf8');
+        yield storage.putObject(ctx, formsDataPath, formsBuffer, formsBuffer.length);
+        let formsDataUrl = yield storage.getSignedUrl(ctx, baseUrl, formsDataPath, commonDefines.c_oAscUrlTypes.Temporary);
+        outputSfc.setFormsDataUrl(formsDataUrl);
+      }
       if (!isError || isErrorCorrupted) {
         try {
           let forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
