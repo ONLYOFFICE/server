@@ -111,14 +111,18 @@ async function addFileExpire(count, size, prefix, filesInFolder) {
 }
 
 async function startTest() {
+  let args = process.argv.slice(2);
+  if (args.length < 4) {
+    ctx.logger.error('missing arguments.USAGE: checkFileExpire.js [add-files-count] [file-size-bytes] [key-prefix] [seconds-to-expire]');
+    return;
+  }
   ctx.logger.info("test started");
   await beforeStart();
 
-  let args = process.argv.slice(2);
-  await addFileExpire(parseInt(args[0]), parseInt(args[1]), args[2], parseInt(args[3] || 1));
+  await addFileExpire(parseInt(args[0]), parseInt(args[1]), args[2], parseInt(args[4] || 1));
   //delay to log observer events
   await utils.sleep(1000);
-  await gc.checkFileExpire(0);
+  await gc.checkFileExpire(args[3]);
 
   await beforeEnd();
   ctx.logger.info("test finished");
