@@ -822,6 +822,8 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   convertInfo.setFormData(undefined);
   if (convertInfo.getForceSave()) {
     convertInfo.getForceSave().setType(undefined);
+    convertInfo.getForceSave().setAuthorUserId(undefined);
+    convertInfo.getForceSave().setAuthorUserIndex(undefined);
   }
   yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), end, end, convertInfo);
 
@@ -857,7 +859,7 @@ async function checkForceSaveCache(ctx, convertInfo) {
   return res;
 }
 async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId,
-                                   opt_responseKey, opt_formdata) {
+                                   opt_responseKey, opt_formdata, opt_userId, opt_userIndex) {
   let res = {ok: false, notModified: false, inProgress: false, startedForceSave: null};
   if (!forceSave) {
     res.notModified = true;
@@ -874,6 +876,8 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
         cmd.setFormData(opt_formdata);
         if (cmd.getForceSave()) {
           cmd.getForceSave().setType(type);
+          cmd.getForceSave().setAuthorUserId(opt_userId);
+          cmd.getForceSave().setAuthorUserIndex(opt_userIndex);
         }
         //todo timeout because commandSfcCallback make request?
         await canvasService.commandSfcCallback(ctx, cmd, true, false);
@@ -920,7 +924,8 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
         await editorData.setForceSave(ctx, docId, newChangesLastTime, 0, baseUrl, changeInfo, null);
         forceSave = await editorData.getForceSave(ctx, docId);
       }
-      let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, opt_formdata);
+      let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId,
+        opt_userConnectionDocId, opt_responseKey, opt_formdata, opt_userId, opt_userIndex);
       startedForceSave = applyCacheRes.startedForceSave;
       if (applyCacheRes.notModified) {
         let selectRes = await taskResult.select(ctx, docId);
