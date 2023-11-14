@@ -74,10 +74,10 @@
     "unit tests": "cd ./DocService && jest unit --config=../tests/jest.config.js",
     "integration tests": "cd ./DocService && jest integration --config=../tests/jest.config.js",
     "tests": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js",
-    "install:Common": "npm install --prefix ./Common",
-    "install:DocService": "npm install --prefix ./DocService",
-    "install:FileConverter": "npm install --prefix ./FileConverter",
-    "install:Metrics": "npm install --prefix ./Metrics",
+    "install:Common": "npm ci --prefix ./Common",
+    "install:DocService": "npm ci --prefix ./DocService",
+    "install:FileConverter": "npm ci --prefix ./FileConverter",
+    "install:Metrics": "npm ci --prefix ./Metrics",
     "build": "run-p install:*"
   }
 }
