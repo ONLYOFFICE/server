@@ -4164,7 +4164,6 @@ exports.licenseInfo = function(req, res) {
     }
   });
 };
-
 function validateInputParams(ctx, authRes, command) {
   const commandsWithoutKey = ['version', 'license', 'getForgottenList'];
   const isValidWithoutKey = commandsWithoutKey.includes(command.c);
