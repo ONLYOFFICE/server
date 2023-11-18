@@ -67,6 +67,25 @@ const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enabl
 const cfgLicenseFile = config.get('license.license_file');
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 
+if (false) {
+	var cluster = require('cluster');
+	cluster.schedulingPolicy = cluster.SCHED_RR
+	if (cluster.isMaster) {
+		let workersCount = 2;
+		logger.warn('start cluster with %s workers %s', workersCount, cluster.schedulingPolicy);
+		for (let nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
+			var worker = cluster.fork().process;
+			logger.warn('worker %s started.', worker.pid);
+		}
+
+		cluster.on('exit', function (worker) {
+			logger.warn('worker %s died. restart...', worker.process.pid);
+			cluster.fork();
+		});
+		return;
+	}
+}
+
 const app = express();
 app.disable('x-powered-by');
 //path.resolve uses __dirname by default(unexpected path in pkg)
