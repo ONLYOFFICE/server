@@ -2031,7 +2031,6 @@ exports.install = function(server, callbackFunction) {
   function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-    conn.isCloseCoAuthoring = true;
     conn.sessionId = sessionId;//restore old
     //Kill previous connections
     connections = _.reject(connections, function(el) {
