@@ -212,7 +212,7 @@
 				"forcesave": 604800,
 				"forcesaveLock": 5000,
 				"saved": 3600,
-				"documentsCron": "*/20 * * * * *",
+				"documentsCron": "0 */2 * * * *",
 				"files": 86400,
 				"filesCron": "00 00 */1 * * *",
 				"filesremovedatonce": 100,

@@ -67,7 +67,7 @@ const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enabl
 const cfgLicenseFile = config.get('license.license_file');
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 
-if (true) {
+if (false) {
 	var cluster = require('cluster');
 	cluster.schedulingPolicy = cluster.SCHED_RR
 	if (cluster.isMaster) {
