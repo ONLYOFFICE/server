@@ -1,4 +1,4 @@
-const constants = require('./../../Common/sources/constants');
+const constants = require('../../../Common/sources/constants');
 
 function UserCallback() {
   this.userIndex = undefined;

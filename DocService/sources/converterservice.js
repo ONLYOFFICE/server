@@ -49,7 +49,7 @@ var formatChecker = require('./../../Common/sources/formatchecker');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var storageBase = require('./../../Common/sources/storage-base');
 var operationContext = require('./../../Common/sources/operationContext');
-const sqlBase = require('./baseConnector');
+const sqlBase = require('./databaseConnectors/baseConnector');
 
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 

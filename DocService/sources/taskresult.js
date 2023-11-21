@@ -33,7 +33,7 @@
 'use strict';
 
 const crypto = require('crypto');
-var sqlBase = require('./baseConnector');
+var sqlBase = require('./databaseConnectors/baseConnector');
 var constants = require('./../../Common/sources/constants');
 var commonDefines = require('./../../Common/sources/commondefines');
 var tenantManager = require('./../../Common/sources/tenantManager');
