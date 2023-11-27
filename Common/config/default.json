@@ -181,8 +181,7 @@
 					"columnNameUpperCase": false,
 					"columnNameCase": "lower",
 					"loginEncrypt": false,
-					"localTimezone": 0,
-					"compatibleMode": "mysql"
+					"localTimezone": 0
 				},
 				"oracleExtraOptions": {},
 				"msSqlExtraOptions": {
