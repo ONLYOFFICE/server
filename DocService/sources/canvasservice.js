@@ -728,9 +728,6 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           const filterPrivate = !authorizations[i] || !tenAllowPrivateIPAddressForSignedRequests;
           let getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], filterPrivate);
           data = getRes.body;
-
-          data = yield utilsDocService.fixImageExifRotation(ctx, data);
-
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
           data = undefined;
@@ -742,6 +739,9 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           }
         }
       }
+
+      data = yield utilsDocService.fixImageExifRotation(ctx, data);
+
       var outputUrl = {url: 'error', path: 'error'};
       if (data) {
         let format = formatChecker.getImageFormat(ctx, data);
