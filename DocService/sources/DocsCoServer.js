@@ -4306,7 +4306,7 @@ function* commandHandle(ctx, params, req, output) {
         break;
       }
 
-      yield storage.deleteObject(ctx, forgottenFile, tenForgottenFiles);
+      yield storage.deletePath(ctx, docId, tenForgottenFiles);
       break;
     }
     case 'getForgottenList': {

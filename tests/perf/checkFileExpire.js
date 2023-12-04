@@ -68,7 +68,7 @@ async function beforeStart() {
   taskResult.remove = timerify(taskResult.remove, "remove");
   storage.putObject = timerify(storage.putObject, "putObject");
   storage.listObjects = timerify(storage.listObjects, "listObjects");
-  storage.deleteObjects = timerify(storage.deleteObjects, "deleteObjects");
+  storageFs.deletePath = timerify(storageFs.deletePath, "deletePath");
   storageFs.deleteObject = timerify(storageFs.deleteObject, "deleteObject");
   docsCoServer.getEditorsCountPromise = timerify(docsCoServer.getEditorsCountPromise, "getEditorsCountPromise");
 

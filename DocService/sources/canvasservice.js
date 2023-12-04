@@ -416,28 +416,24 @@ function* getUpdateResponse(ctx, cmd) {
 var cleanupCache = co.wrap(function* (ctx, docId) {
   //todo redis ?
   var res = false;
-  let list = [];
   var removeRes = yield taskResult.remove(ctx, docId);
   if (removeRes.affectedRows > 0) {
-    list = yield storage.listObjects(ctx, docId);
-    yield storage.deleteObjects(ctx, list);
+    yield storage.deletePath(ctx, docId);
     res = true;
   }
-  ctx.logger.debug("cleanupCache docId=%s db.affectedRows=%d list.length=%d", docId, removeRes.affectedRows, list.length);
+  ctx.logger.debug("cleanupCache docId=%s db.affectedRows=%d", docId, removeRes.affectedRows);
   return res;
 });
 var cleanupCacheIf = co.wrap(function* (ctx, mask) {
   //todo redis ?
   var res = false;
-  let list = [];
   var removeRes = yield taskResult.removeIf(ctx, mask);
   if (removeRes.affectedRows > 0) {
     sqlBase.deleteChanges(ctx, mask.key, null);
-    list = yield storage.listObjects(ctx, mask.key);
-    yield storage.deleteObjects(ctx, list);
+    yield storage.deletePath(ctx, mask.key);
     res = true;
   }
-  ctx.logger.debug("cleanupCacheIf db.affectedRows=%d list.length=%d", removeRes.affectedRows, list.length);
+  ctx.logger.debug("cleanupCacheIf db.affectedRows=%d", removeRes.affectedRows);
   return res;
 });
 

@@ -2,6 +2,18 @@ const {jest, describe, test, expect} = require('@jest/globals');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
+const { Readable } = require('stream');
+
+let testFileData1 = "test1";
+let testFileData2 = "test22";
+let testFileData3 = "test333";
+let testFileData4 = testFileData3;
+
+jest.mock("fs/promises", () => ({
+  ...jest.requireActual('fs/promises'),
+  cp: jest.fn().mockImplementation((from, to) => fs.writeFileSync(to, testFileData3))
+}));
+const { cp } = require('fs/promises');
 
 const operationContext = require('../../Common/sources/operationContext');
 const storage = require('../../Common/sources/storage-base');
@@ -19,9 +31,7 @@ const urlType = commonDefines.c_oAscUrlTypes.Session;
 let testFile1 = testDir + "/test1.txt";
 let testFile2 = testDir + "/test2.txt";
 let testFile3 = testDir + "/test3.txt";
-let testFileData1 = "test1";
-let testFileData2 = "test2";
-let testFileData3 = testFileData2;
+let testFile4 = testDir + "/test4.txt";
 
 console.debug(`testDir: ${testDir}`)
 
@@ -42,43 +52,58 @@ function runTestForDir(specialDir) {
   });
   test("putObject", async () => {
     let buffer = Buffer.from(testFileData1);
-    await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDir);
+    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDir);
+    expect(res).toEqual(undefined);
     let list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([testFile1].sort());
   });
+  test("putObject-stream", async () => {
+    let buffer = Buffer.from(testFileData2);
+    const stream = Readable.from(buffer);
+    let res = await storage.putObject(ctx, testFile2, stream, buffer.length, specialDir);
+    expect(res).toEqual(undefined);
+    let list = await storage.listObjects(ctx, testDir, specialDir);
+    expect(list.sort()).toEqual([testFile1, testFile2].sort());
+  });
   if ("storage-fs" === cfgStorageName) {
-    test("todo UploadObject in fs", async () => {
-      let buffer = Buffer.from(testFileData2);
-      await storage.putObject(ctx, testFile2, buffer, buffer.length, specialDir);
+    test("UploadObject", async () => {
+      let res = await storage.uploadObject(ctx, testFile3, "createReadStream.txt", specialDir);
+      expect(res).toEqual(undefined);
+      expect(cp).toHaveBeenCalled();
       let list = await storage.listObjects(ctx, testDir, specialDir);
-      expect(list.sort()).toEqual([testFile1, testFile2].sort());
+      expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
     });
   } else {
     test("uploadObject", async () => {
-      const spy = jest.spyOn(fs, 'createReadStream').mockReturnValue(testFileData2);
-      await storage.uploadObject(ctx, testFile2, "createReadStream.txt", specialDir);
+      const spy = jest.spyOn(fs, 'createReadStream').mockReturnValue(testFileData3);
+      let res = await storage.uploadObject(ctx, testFile3, "createReadStream.txt", specialDir);
+      expect(res).toEqual(undefined);
       let list = await storage.listObjects(ctx, testDir, specialDir);
       expect(spy).toHaveBeenCalled();
-      expect(list.sort()).toEqual([testFile1, testFile2].sort());
+      expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
     });
   }
   test("copyObject", async () => {
-    await storage.copyObject(ctx, testFile2, testFile3, specialDir, specialDir);
+    let res = await storage.copyObject(ctx, testFile3, testFile4, specialDir, specialDir);
+    expect(res).toEqual(undefined);
     // let buffer = Buffer.from(testFileData3);
     // await storage.putObject(ctx, testFile3, buffer, buffer.length, specialDir);
     let list = await storage.listObjects(ctx, testDir, specialDir);
-    expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
+    expect(list.sort()).toEqual([testFile1, testFile2, testFile3, testFile4].sort());
   });
   test("headObject", async () => {
     let output;
     output = await storage.headObject(ctx, testFile1, specialDir);
-    expect(output).toHaveProperty("ContentLength", testFileData1.length);
+    expect(output).toMatchObject({ContentLength: testFileData1.length});
 
     output =  await storage.headObject(ctx, testFile2, specialDir);
-    expect(output).toHaveProperty("ContentLength", testFileData2.length);
+    expect(output).toMatchObject({ContentLength: testFileData2.length});
 
     output =  await storage.headObject(ctx, testFile3, specialDir);
-    expect(output).toHaveProperty("ContentLength", testFileData3.length);
+    expect(output).toMatchObject({ContentLength: testFileData3.length});
+
+    output =  await storage.headObject(ctx, testFile4, specialDir);
+    expect(output).toMatchObject({ContentLength: testFileData4.length});
   });
   test("getObject", async () => {
     let output;
@@ -90,21 +115,27 @@ function runTestForDir(specialDir) {
 
     output =  await storage.getObject(ctx, testFile3, specialDir);
     expect(output.toString("utf8")).toEqual(testFileData3);
+
+    output =  await storage.getObject(ctx, testFile4, specialDir);
+    expect(output.toString("utf8")).toEqual(testFileData4);
   });
   test("createReadStream", async () => {
     let output, outputText;
 
     output = await storage.createReadStream(ctx, testFile1, specialDir);
     await utils.sleep(100);
+    expect(output.contentLength).toEqual(testFileData1.length);
     outputText = await utils.stream2Buffer(output.readStream);
     await utils.sleep(100);
     expect(outputText.toString("utf8")).toEqual(testFileData1);
 
     output = await storage.createReadStream(ctx, testFile2, specialDir);
+    expect(output.contentLength).toEqual(testFileData2.length);
     outputText = await utils.stream2Buffer(output.readStream);
     expect(outputText.toString("utf8")).toEqual(testFileData2);
 
     output = await storage.createReadStream(ctx, testFile3, specialDir);
+    expect(output.contentLength).toEqual(testFileData3.length);
     outputText = await utils.stream2Buffer(output.readStream);
     expect(outputText.toString("utf8")).toEqual(testFileData3);
   });
@@ -121,23 +152,29 @@ function runTestForDir(specialDir) {
     url = await storage.getSignedUrl(ctx, baseUrl, testFile3, urlType, undefined, undefined, specialDir);
     data = await request(url);
     expect(data).toEqual(testFileData3);
+
+    url = await storage.getSignedUrl(ctx, baseUrl, testFile4, urlType, undefined, undefined, specialDir);
+    data = await request(url);
+    expect(data).toEqual(testFileData4);
   });
   test("deleteObject", async () => {
     let list;
     list = await storage.listObjects(ctx, testDir, specialDir);
-    expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
+    expect(list.sort()).toEqual([testFile1, testFile2, testFile3, testFile4].sort());
 
-    await storage.deleteObject(ctx, testFile1, specialDir);
+    let res = await storage.deleteObject(ctx, testFile1, specialDir);
+    expect(res).toEqual(undefined);
 
     list = await storage.listObjects(ctx, testDir, specialDir);
-    expect(list.sort()).toEqual([testFile2, testFile3].sort());
+    expect(list.sort()).toEqual([testFile2, testFile3, testFile4].sort());
   });
-  test("deleteObjects", async () => {
+  test("deletePath", async () => {
     let list;
     list = await storage.listObjects(ctx, testDir, specialDir);
-    expect(list.sort()).toEqual([testFile2, testFile3].sort());
+    expect(list.sort()).toEqual([testFile2, testFile3, testFile4].sort());
 
-    await storage.deleteObjects(ctx, list, specialDir);
+    let res = await storage.deletePath(ctx, testDir, specialDir);
+    expect(res).toEqual(undefined);
 
     list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([].sort());

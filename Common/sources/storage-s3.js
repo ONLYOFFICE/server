@@ -31,30 +31,30 @@
  */
 
 'use strict';
-var fs = require('fs');
-var url = require('url');
-var path = require('path');
+const fs = require('fs');
+const url = require('url');
+const path = require('path');
 const { S3Client, ListObjectsCommand, HeadObjectCommand} = require("@aws-sdk/client-s3");
 const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-sdk/client-s3");
 const { DeleteObjectsCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-var mime = require('mime');
-var utils = require('./utils');
+const mime = require('mime');
+const utils = require('./utils');
 const ms = require('ms');
 const commonDefines = require('./../../Common/sources/commondefines');
 
-var config = require('config');
-var configStorage = require('config').get('storage');
-var cfgRegion = configStorage.get('region');
-var cfgEndpoint = configStorage.get('endpoint');
-var cfgBucketName = configStorage.get('bucketName');
-var cfgStorageFolderName = configStorage.get('storageFolderName');
-var cfgAccessKeyId = configStorage.get('accessKeyId');
-var cfgSecretAccessKey = configStorage.get('secretAccessKey');
-var cfgSslEnabled = configStorage.get('sslEnabled');
-var cfgS3ForcePathStyle = configStorage.get('s3ForcePathStyle');
-var configFs = configStorage.get('fs');
-var cfgStorageUrlExpires = configFs.get('urlExpires');
+const config = require('config');
+const configStorage = require('config').get('storage');
+const cfgRegion = configStorage.get('region');
+const cfgEndpoint = configStorage.get('endpoint');
+const cfgBucketName = configStorage.get('bucketName');
+const cfgStorageFolderName = configStorage.get('storageFolderName');
+const cfgAccessKeyId = configStorage.get('accessKeyId');
+const cfgSecretAccessKey = configStorage.get('secretAccessKey');
+const cfgSslEnabled = configStorage.get('sslEnabled');
+const cfgS3ForcePathStyle = configStorage.get('s3ForcePathStyle');
+const configFs = configStorage.get('fs');
+const cfgStorageUrlExpires = configFs.get('urlExpires');
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 
 /**
@@ -64,7 +64,7 @@ const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.session
  * export AWS_ACCESS_KEY_ID='AKID'
  * export AWS_SECRET_ACCESS_KEY='SECRET'
  */
-var configS3 = {
+let configS3 = {
   region: cfgRegion,
   endpoint: cfgEndpoint,
   credentials : {
@@ -80,7 +80,7 @@ if (configS3.endpoint) {
 const client  = new S3Client(configS3);
 
 //This operation enables you to delete multiple objects from a bucket using a single HTTP request. You may specify up to 1000 keys.
-var MAX_DELETE_OBJECTS = 1000;
+const MAX_DELETE_OBJECTS = 1000;
 
 function getFilePath(strPath) {
   //todo
@@ -90,20 +90,20 @@ function joinListObjects(inputArray, outputArray) {
   if (!inputArray) {
     return;
   }
-  var length = inputArray.length;
-  for (var i = 0; i < length; i++) {
+  let length = inputArray.length;
+  for (let i = 0; i < length; i++) {
     outputArray.push(inputArray[i].Key.substring((cfgStorageFolderName + '/').length));
   }
 }
 async function listObjectsExec(output, params) {
   const data = await client.send(new ListObjectsCommand(params));
-      joinListObjects(data.Contents, output);
+  joinListObjects(data.Contents, output);
   if (data.IsTruncated && (data.NextMarker || (data.Contents && data.Contents.length > 0))) {
-        params.Marker = data.NextMarker || data.Contents[data.Contents.length - 1].Key;
+    params.Marker = data.NextMarker || data.Contents[data.Contents.length - 1].Key;
     return await listObjectsExec(output, params);
-      } else {
+  } else {
     return output;
-      }
+  }
 }
 async function deleteObjectsHelp(aKeys) {
     //By default, the operation uses verbose mode in which the response includes the result of deletion of each key in your request.
@@ -116,18 +116,19 @@ async function deleteObjectsHelp(aKeys) {
       }
   };
   const command = new DeleteObjectsCommand(input);
-  return await client.send(command);
+  await client.send(command);
 }
 
-exports.headObject = async function(strPath) {
+async function headObject(strPath) {
   const input = {
     Bucket: cfgBucketName,
     Key: getFilePath(strPath)
   };
   const command = new HeadObjectCommand(input);
-  return await client.send(command);
-};
-exports.getObject = async function(strPath) {
+  let output = await client.send(command);
+  return {ContentLength: output.ContentLength};
+}
+async function getObject(strPath) {
   const input = {
     Bucket: cfgBucketName,
     Key: getFilePath(strPath)
@@ -136,8 +137,8 @@ exports.getObject = async function(strPath) {
   const output = await client.send(command);
 
   return await utils.stream2Buffer(output.Body);
-};
-exports.createReadStream = async function(strPath) {
+}
+async function createReadStream(strPath) {
   const input = {
     Bucket: cfgBucketName,
     Key: getFilePath(strPath)
@@ -148,8 +149,8 @@ exports.createReadStream = async function(strPath) {
     contentLength: output.ContentLength,
     readStream: output.Body
   };
-};
-exports.putObject = async function(strPath, buffer, contentLength) {
+}
+async function putObject(strPath, buffer, contentLength) {
     //todo consider Expires
   const input = {
     Bucket: cfgBucketName,
@@ -159,9 +160,9 @@ exports.putObject = async function(strPath, buffer, contentLength) {
     ContentType: mime.getType(strPath)
   };
   const command = new PutObjectCommand(input);
-  return await client.send(command);
-};
-exports.uploadObject = async function(strPath, filePath) {
+  await client.send(command);
+}
+async function uploadObject(strPath, filePath) {
   const file = fs.createReadStream(filePath);
   //todo рассмотреть Expires
   const input = {
@@ -171,9 +172,9 @@ exports.uploadObject = async function(strPath, filePath) {
     ContentType: mime.getType(strPath)
   };
   const command = new PutObjectCommand(input);
-  return await client.send(command);
-};
-exports.copyObject = function(sourceKey, destinationKey) {
+  await client.send(command);
+}
+async function copyObject(sourceKey, destinationKey) {
   //todo source bucket
   const input = {
     Bucket: cfgBucketName,
@@ -181,37 +182,43 @@ exports.copyObject = function(sourceKey, destinationKey) {
     CopySource: `/${cfgBucketName}/${getFilePath(sourceKey)}`
   };
   const command = new CopyObjectCommand(input);
-  return client.send(command);
-};
-exports.listObjects = async function(strPath) {
-    var params = {Bucket: cfgBucketName, Prefix: getFilePath(strPath)};
-    var output = [];
-  return await listObjectsExec(output, params);
-};
-exports.deleteObject = function(strPath) {
+  await client.send(command);
+}
+async function listObjects(strPath) {
+  let params = {
+    Bucket: cfgBucketName,
+    Prefix: getFilePath(strPath)
+  };
+  let output = [];
+  await listObjectsExec(output, params);
+  return output;
+}
+async function deleteObject(strPath) {
   const input = {
     Bucket: cfgBucketName,
     Key: getFilePath(strPath)
   };
   const command = new DeleteObjectCommand(input);
-  return client.send(command);
+  await client.send(command);
 };
-exports.deleteObjects = function(strPaths) {
-  var aKeys = strPaths.map(function (currentValue) {
+async function deleteObjects(strPaths) {
+  let aKeys = strPaths.map(function (currentValue) {
     return {Key: getFilePath(currentValue)};
   });
-  var deletePromises = [];
-  for (var i = 0; i < aKeys.length; i += MAX_DELETE_OBJECTS) {
-    deletePromises.push(deleteObjectsHelp(aKeys.slice(i, i + MAX_DELETE_OBJECTS)));
+  for (let i = 0; i < aKeys.length; i += MAX_DELETE_OBJECTS) {
+    await deleteObjectsHelp(aKeys.slice(i, i + MAX_DELETE_OBJECTS));
   }
-  return Promise.all(deletePromises);
-};
-exports.getSignedUrl = async function (ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-    var expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : cfgStorageUrlExpires) || 31536000;
+}
+async function deletePath(strPath) {
+  let list = await listObjects(strPath);
+  await deleteObjects(list);
+}
+async function getSignedUrlWrapper(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+  let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : cfgStorageUrlExpires) || 31536000;
   // Signature version 4 presigned URLs must have an expiration date less than one week in the future
   expires = Math.min(expires, 604800);
-    var userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
-    var contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
+    let userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
+    let contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
 
   const input = {
     Bucket: cfgBucketName,
@@ -220,11 +227,24 @@ exports.getSignedUrl = async function (ctx, baseUrl, strPath, urlType, optFilena
   };
   const command = new GetObjectCommand(input);
     //default Expires 900 seconds
-  var options = {
+  let options = {
     expiresIn: expires
     };
   return await getSignedUrl(client, command, options);
   //extra query params cause SignatureDoesNotMatch
   //https://stackoverflow.com/questions/55503009/amazon-s3-signature-does-not-match-when-extra-query-params-ga-added-in-url
   // return utils.changeOnlyOfficeUrl(url, strPath, optFilename);
+}
+
+module.exports = {
+  headObject,
+  getObject,
+  createReadStream,
+  putObject,
+  uploadObject,
+  copyObject,
+  listObjects,
+  deleteObject,
+  deletePath,
+  getSignedUrl: getSignedUrlWrapper
 };

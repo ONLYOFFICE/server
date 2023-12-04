@@ -87,17 +87,8 @@ exports.listObjects = function(ctx, strPath, opt_specialDir) {
 exports.deleteObject = function(ctx, strPath, opt_specialDir) {
   return storage.deleteObject(getStoragePath(ctx, strPath, opt_specialDir));
 };
-exports.deleteObjects = function(ctx, strPaths, opt_specialDir) {
-  var StoragePaths = strPaths.map(function(curValue) {
-    return getStoragePath(ctx, curValue, opt_specialDir);
-  });
-  return storage.deleteObjects(StoragePaths);
-};
 exports.deletePath = function(ctx, strPath, opt_specialDir) {
-  let storageSrc = getStoragePath(ctx, strPath, opt_specialDir);
-  return storage.listObjects(storageSrc).then(function(list) {
-    return storage.deleteObjects(list);
-  });
+  return storage.deletePath(getStoragePath(ctx, strPath, opt_specialDir));
 };
 exports.getSignedUrl = function(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir) {
   return storage.getSignedUrl(ctx, baseUrl, getStoragePath(ctx, strPath, opt_specialDir), urlType, optFilename, opt_creationDate);

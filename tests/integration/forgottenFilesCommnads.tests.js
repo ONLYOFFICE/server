@@ -85,9 +85,11 @@ beforeAll(async function () {
 
 afterAll(async function () {
   const keys = await storage.listObjects(ctx, '', cfgForgottenFiles);
-  const deletePromises = keys.filter(key => key.includes('DocService-DocsCoServer-forgottenFilesCommands'))
-    .map(filteredKey => storage.deleteObject(ctx, filteredKey, cfgForgottenFiles));
-
+  const keysDirectories = getKeysDirectories(keys);
+  const deletePromises = keysDirectories.filter(key => key.includes('DocService-DocsCoServer-forgottenFilesCommands'))
+    .map(filteredKey => storage.deletePath(ctx, filteredKey, cfgForgottenFiles));
+  console.log(`keys:`+JSON.stringify(keys));
+  console.log(`keysDirectories:`+JSON.stringify(keysDirectories));
   return Promise.allSettled(deletePromises);
 });
 
