@@ -90,7 +90,7 @@ const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const statsDClient = require('./../../Common/sources/statsdclient');
 const config = require('config');
-const sqlBase = require('./baseConnector');
+const sqlBase = require('./databaseConnectors/baseConnector');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
 const taskResult = require('./taskresult');
@@ -1284,7 +1284,7 @@ let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
     yield wopiClient.unlock(ctx, getRes.wopiParams);
     let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
     if (unlockInfo) {
-      yield canvasService.commandOpenStartPromise(ctx, docId, undefined, true, unlockInfo);
+      yield canvasService.commandOpenStartPromise(ctx, docId, undefined, unlockInfo);
     }
   }
 });
@@ -2494,10 +2494,9 @@ exports.install = function(server, callbackFunction) {
           }
         }
         let format = data.openCmd && data.openCmd.format;
-        upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), true, data.documentCallbackUrl, format);
-        let isInserted = upsertRes.affectedRows == 1;
-        curIndexUser = isInserted ? 1 : upsertRes.insertId;
-        if (isInserted && undefined !== data.timezoneOffset) {
+        upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), data.documentCallbackUrl, format);
+        curIndexUser = upsertRes.insertId;
+        if (upsertRes.isInsert && undefined !== data.timezoneOffset) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
           if (false === canvasService.hasAdditionalCol) {
             let selectRes = yield taskResult.select(ctx, docId);

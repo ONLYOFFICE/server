@@ -177,7 +177,12 @@
 				"connectionlimit": 10,
 				"max_allowed_packet": 1048575,
 				"pgPoolExtraOptions": {},
-				"damengExtraOptions": {},
+				"damengExtraOptions": {
+					"columnNameUpperCase": false,
+					"columnNameCase": "lower",
+					"loginEncrypt": false,
+					"localTimezone": 0
+				},
 				"oracleExtraOptions": {},
 				"msSqlExtraOptions": {
 					"options": {
