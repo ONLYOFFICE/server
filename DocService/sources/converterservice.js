@@ -185,7 +185,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
 }
 
 async function convertFromChanges(ctx, docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_formdata, opt_userConnectionId,
-                                  opt_userConnectionDocId, opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey) {
+                                  opt_userConnectionDocId, opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey, opt_initShardKey) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
@@ -215,7 +215,7 @@ async function convertFromChanges(ctx, docId, baseUrl, forceSave, externalChange
     cmd.setRedisKey(opt_redisKey);
   }
 
-  await canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue);
+  await canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey);
   var fileTo = constants.OUTPUT_NAME;
   let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
   if (outputExt) {

@@ -910,7 +910,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
   }
   return res;
 }
-async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub, opt_conn) {
+async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub, opt_conn, opt_initShardKey) {
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
   let startedForceSave;
@@ -975,7 +975,7 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     //start new convert
     let status = await converterService.convertFromChanges(ctx, docId, baseUrl, forceSave, startedForceSave.changeInfo,
       opt_userdata, opt_formdata, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, priority, expiration,
-      opt_queue);
+      opt_queue, undefined, opt_initShardKey);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
     } else {
@@ -1319,7 +1319,7 @@ function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, op
   yield* cleanDocumentOnExit(ctx, docId, false, opt_userIndex);
 }
 
-function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay) {
+function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay, opt_initShardKey) {
   return co(function*(){
     const tenAscSaveTimeOutDelay = ctx.getCfg('services.CoAuthoring.server.savetimeoutdelay', cfgAscSaveTimeOutDelay);
 
@@ -1337,7 +1337,7 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
       }
       while (true) {
         if (!sqlBase.isLockCriticalSection(docId)) {
-          canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_queue);
+          canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_queue, opt_initShardKey);
           break;
         }
         yield utils.sleep(c_oAscLockTimeOutDelay);
@@ -2505,7 +2505,7 @@ exports.install = function(server, callbackFunction) {
         upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), true, data.documentCallbackUrl, format);
         let isInserted = upsertRes.affectedRows == 1;
         curIndexUser = isInserted ? 1 : upsertRes.insertId;
-        if (isInserted && undefined !== data.timezoneOffset) {
+        if ((isInserted || (wopiParams && 2 === curIndexUser)) && (undefined !== data.timezoneOffset || ctx.shardKey)) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
           if (false === canvasService.hasAdditionalCol) {
             let selectRes = yield taskResult.select(ctx, docId);
@@ -2515,8 +2515,13 @@ exports.install = function(server, callbackFunction) {
             let task = new taskResult.TaskResultData();
             task.tenant = ctx.tenant;
             task.key = docId;
-            //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
-            task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+            if (undefined !== data.timezoneOffset) {
+              //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
+              task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+            }
+            if (ctx.shardKey) {
+              task.additional += sqlBase.DocumentAdditional.prototype.setShardKey(ctx.shardKey);
+            }
             yield taskResult.update(ctx, task);
           } else {
             ctx.logger.warn('auth unknown column "additional"');

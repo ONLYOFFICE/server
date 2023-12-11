@@ -731,6 +731,14 @@ function getDomainByRequest(ctx, req) {
 }
 exports.getDomainByConnection = getDomainByConnection;
 exports.getDomainByRequest = getDomainByRequest;
+function getShardByConnection(ctx, conn) {
+  return  conn?.handshake?.query?.[constants.SHARED_KEY_NAME];
+}
+function getShardKeyByRequest(ctx, req) {
+  return req.query[constants.SHARED_KEY_NAME];
+}
+exports.getShardByConnection = getShardByConnection;
+exports.getShardKeyByRequest = getShardKeyByRequest;
 function stream2Buffer(stream) {
   return new Promise(function(resolve, reject) {
     if (!stream.readable) {
