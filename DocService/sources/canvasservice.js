@@ -626,10 +626,6 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
   yield* docsCoServer.addTask(queueData, priority, opt_queue, opt_expiration);
 });
-function* commandSfct(ctx, cmd, outputData) {
-  yield commandSfctByCmd(ctx, cmd);
-  outputData.setStatus('ok');
-}
 function isDisplayedImage(strName) {
   var res = 0;
   if (strName) {
@@ -1412,9 +1408,6 @@ exports.downloadAs = function(req, res) {
         case 'sendmm':
           yield* commandSendMailMerge(ctx, cmd, outputData);
           break;
-        case 'sfct':
-          yield* commandSfct(ctx, cmd, outputData);
-          break;
         default:
           outputData.setStatus('err');
           outputData.setData(constants.UNKNOWN);
@@ -1711,7 +1704,7 @@ exports.receiveTask = function(data, ack) {
           var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined, creationDate: undefined, openedAt: undefined};
           if ('open' == command || 'reopen' == command) {
             yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), null, additionalOutput);
-          } else if ('save' == command || 'savefromorigin' == command || 'sfct' == command) {
+          } else if ('save' == command || 'savefromorigin' == command) {
             yield getOutputData(ctx, cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
           } else if ('sfcm' == command) {
             yield commandSfcCallback(ctx, cmd, true);
