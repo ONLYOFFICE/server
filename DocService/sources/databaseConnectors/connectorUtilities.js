@@ -151,6 +151,23 @@ DocumentAdditional.prototype.getOpenedAt = function(str) {
   return res;
 };
 
+DocumentAdditional.prototype.setShardKey = function(shardKey) {
+  let additional = new DocumentAdditional();
+  additional.data.push({shardKey});
+  return additional.toSQLInsert();
+};
+DocumentAdditional.prototype.getShardKey = function(str) {
+  let res;
+  let val = new DocumentAdditional();
+  val.fromString(str);
+  val.data.forEach((elem) => {
+    if (elem.shardKey) {
+      res = elem.shardKey;
+    }
+  });
+  return res;
+};
+
 module.exports = {
   UserCallback,
   DocumentPassword,

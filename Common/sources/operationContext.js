@@ -41,17 +41,18 @@ function Context(){
   this.logger = logger.getLogger('nodeJS');
   this.initDefault();
 }
-Context.prototype.init = function(tenant, docId, userId) {
+Context.prototype.init = function(tenant, docId, userId, opt_shardKey) {
   this.setTenant(tenant);
   this.setDocId(docId);
   this.setUserId(userId);
+  this.setShardKey(opt_shardKey);
 
   this.config = null;
   this.secret = null;
   this.license = null;
 };
 Context.prototype.initDefault = function() {
-  this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID);
+  this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID, undefined);
 };
 Context.prototype.initFromConnection = function(conn) {
   let tenant = tenantManager.getTenantByConnection(this, conn);
@@ -64,19 +65,21 @@ Context.prototype.initFromConnection = function(conn) {
     }
   }
   let userId = conn.user?.id;
-  this.init(tenant, docId || this.docId, userId || this.userId);
+  let shardKey = utils.getShardByConnection(this, conn);
+  this.init(tenant, docId || this.docId, userId || this.userId, shardKey);
 };
 Context.prototype.initFromRequest = function(req) {
   let tenant = tenantManager.getTenantByRequest(this, req);
-  this.init(tenant, this.docId, this.userId);
+  let shardKey = utils.getShardKeyByRequest(this, req);
+  this.init(tenant, this.docId, this.userId, shardKey);
 };
 Context.prototype.initFromTaskQueueData = function(task) {
   let ctx = task.getCtx();
-  this.init(ctx.tenant, ctx.docId, ctx.userId);
+  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey);
 };
 Context.prototype.initFromPubSub = function(data) {
   let ctx = data.ctx;
-  this.init(ctx.tenant, ctx.docId, ctx.userId);
+  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey);
 };
 Context.prototype.initTenantCache = async function() {
   this.config = await tenantManager.getTenantConfig(this);
@@ -95,11 +98,15 @@ Context.prototype.setUserId = function(userId) {
   this.userId = userId;
   this.logger.addContext('USERID', userId);
 };
+Context.prototype.setShardKey = function(shardKey) {
+  this.shardKey = shardKey;
+};
 Context.prototype.toJSON = function() {
   return {
     tenant: this.tenant,
     docId: this.docId,
-    userId: this.userId
+    userId: this.userId,
+    shardKey: this.shardKey
   }
 };
 Context.prototype.getCfg = function(property, defaultValue) {

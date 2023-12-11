@@ -609,11 +609,14 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
     outputData.setData(cmd.getSaveKey());
   }
 }
-let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration, opt_queue) {
+let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey) {
   var selectRes = yield taskResult.select(ctx, cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
   if (!row) {
     return;
+  }
+  if (opt_initShardKey) {
+    ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
   }
   yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password);
@@ -1502,8 +1505,13 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     }
     //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
-    var userFriendlyName = encodeURIComponent(filename.replace(/\//g, "%2f"));
-    return `${baseUrl}/printfile/${encodeURIComponent(docId)}/${userFriendlyName}?token=${encodeURIComponent(token)}&filename=${userFriendlyName}`;
+    let userFriendlyName = encodeURIComponent(filename.replace(/\//g, "%2f"));
+    let res = `${baseUrl}/printfile/${encodeURIComponent(docId)}/${userFriendlyName}?token=${encodeURIComponent(token)}`;
+    if (ctx.shardKey) {
+      res += `&${constants.SHARED_KEY_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+    }
+    res += `&filename=${userFriendlyName}`;
+    return res;
   });
 }
 exports.getPrintFileUrl = getPrintFileUrl;
@@ -1638,7 +1646,7 @@ exports.downloadFile = function(req, res) {
     }
   });
 };
-exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_queue) {
+exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_queue, opt_initShardKey) {
   return co(function* () {
     try {
       var startDate = null;
@@ -1652,7 +1660,10 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
       if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo) {
         if (null == optFormat) {
           optFormat = changeFormatByOrigin(ctx, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
-          }
+        }
+        if (opt_initShardKey) {
+          ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
+        }
         var cmd = new commonDefines.InputCommand();
         cmd.setCommand('sfc');
         cmd.setDocId(docId);
