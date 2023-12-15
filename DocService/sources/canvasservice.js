@@ -1627,8 +1627,15 @@ exports.downloadFile = function(req, res) {
         res.sendStatus(filterStatus);
         return;
       }
+      let headers;
+      if (req.get('Range')) {
+        headers = {
+          'Range': req.get('Range')
+        }
+      }
+
       const filterPrivate = !authorization || !tenAllowPrivateIPAddressForSignedRequests;
-      yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, filterPrivate, null, res);
+      yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, filterPrivate, headers, res);
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.downloadFile', new Date() - startDate);
