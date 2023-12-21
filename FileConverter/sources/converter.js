@@ -1046,30 +1046,6 @@ function* ExecuteTask(ctx, task) {
   } else {
     error = constants.UNKNOWN;
   }
-  //save pdf with form extentions
-  if (constants.NO_ERROR === error && path.basename(dataConvert.fileFrom) === 'Editor.bin' &&
-    (constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === dataConvert.formatTo ||
-      constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === dataConvert.formatTo ||
-      constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === dataConvert.formatTo ||
-      constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === dataConvert.formatTo)) {
-    let format = yield formatChecker.getDocumentFormatByFile(dataConvert.fileFrom);
-    if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD === format) {
-      //todo remove select. add param to cmd
-      let selectRes = yield taskResult.select(ctx, cmd.getDocId());
-      let row = selectRes.length > 0 ? selectRes[0] : null;
-      let originFormat = row && row.change_id;
-      if (constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === originFormat ||
-        constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === originFormat ||
-        constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === originFormat) {
-        ctx.logger.error('change format to extended pdf');
-        dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF;
-        let extOld = path.extname(dataConvert.fileTo);
-        let extNew = '.pdf';
-        dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
-      }
-    }
-  }
-
   let childRes = null;
   let isTimeout = false;
   if (constants.NO_ERROR === error) {
