@@ -2236,8 +2236,7 @@ exports.install = function(server, callbackFunction) {
     if (decoded.fileInfo) {
       let fileInfo = decoded.fileInfo;
       if (openCmd) {
-        let fileType = fileInfo.BaseFileName ? fileInfo.BaseFileName.substr(fileInfo.BaseFileName.lastIndexOf('.') + 1) : "";
-        openCmd.format = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
+        openCmd.format = wopiClient.getFileTypeByInfo(fileInfo);
         openCmd.title = fileInfo.BreadcrumbDocName || fileInfo.BaseFileName;
       }
       let name = fileInfo.IsAnonymousUser ? "" : fileInfo.UserFriendlyName;

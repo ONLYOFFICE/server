@@ -276,6 +276,11 @@ function getWopiUnlockMarker(wopiParams) {
 function getWopiModifiedMarker(wopiParams, lastModifiedTime) {
   return JSON.stringify(Object.assign({fileInfo: {LastModifiedTime: lastModifiedTime}}, wopiParams.userAuth));
 }
+function getFileTypeByInfo(fileInfo) {
+  let fileType = fileInfo.BaseFileName ? fileInfo.BaseFileName.substr(fileInfo.BaseFileName.lastIndexOf('.') + 1) : "";
+  fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
+  return fileType.toLowerCase();
+}
 function getLastModifiedTimeFromCallbacks(callbacks) {
   for (let i = callbacks.length; i >= 0; --i) {
     let callback = callbacks[i];
@@ -429,8 +434,7 @@ function getEditorHtml(req, res) {
       }
       //save common info
       if (undefined === lockId) {
-        let fileType = fileInfo.BaseFileName ? fileInfo.BaseFileName.substr(fileInfo.BaseFileName.lastIndexOf('.') + 1) : "";
-        fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
+        let fileType = getFileTypeByInfo(fileInfo);
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
         yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
@@ -841,3 +845,4 @@ exports.generateProofOld = generateProofOld;
 exports.fillStandardHeaders = fillStandardHeaders;
 exports.getWopiUnlockMarker = getWopiUnlockMarker;
 exports.getWopiModifiedMarker = getWopiModifiedMarker;
+exports.getFileTypeByInfo = getFileTypeByInfo;
