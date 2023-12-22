@@ -316,6 +316,9 @@ function addPasswordToCmd(ctx, cmd, docPasswordStr) {
     cmd.setExternalChangeInfo(docPassword.change);
   }
 }
+function addOriginFormat(ctx, cmd, row) {
+  cmd.setOriginFormat(row && row.change_id);
+}
 
 function changeFormatByOrigin(ctx, row, format) {
   const tenAssemblyFormatAsOrigin = ctx.getCfg('services.CoAuthoring.server.assemblyFormatAsOrigin', cfgAssemblyFormatAsOrigin);
@@ -623,6 +626,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   }
   yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password);
+  addOriginFormat(ctx, cmd, row);
   let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
   cmd.setOutputFormat(changeFormatByOrigin(ctx, row, cmd.getOutputFormat()));
@@ -1405,6 +1409,7 @@ exports.downloadAs = function(req, res) {
       if (!cmd.getWithoutPassword()) {
         addPasswordToCmd(ctx, cmd, row && row.password);
       }
+      addOriginFormat(ctx, cmd, row);
       cmd.setData(req.body);
       var outputData = new OutputData(cmd.getCommand());
       switch (cmd.getCommand()) {
@@ -1689,6 +1694,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
         cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
         addPasswordToCmd(ctx, cmd, row && row.password);
+        addOriginFormat(ctx, cmd, row);
         yield* addRandomKeyTaskCmd(ctx, cmd);
         var queueData = getSaveTask(ctx, cmd);
         queueData.setFromChanges(true);

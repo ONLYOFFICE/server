@@ -305,6 +305,21 @@ function* isUselessConvertion(ctx, task, cmd) {
   }
   return constants.NO_ERROR;
 }
+async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
+  let originFormat = cmd.getOriginFormat();
+  let isOriginFormatWithForms = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === originFormat ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === originFormat ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === originFormat;
+  let isFormatToPdf = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === dataConvert.formatTo ||
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === dataConvert.formatTo;
+  if (isFormatToPdf && isOriginFormatWithForms) {
+    let format = await formatChecker.getDocumentFormatByFile(dataConvert.fileFrom);
+    if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD === format) {
+      ctx.logger.debug('change format to extended pdf');
+      dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF;
+    }
+  }
+}
 function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
   if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
@@ -465,6 +480,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
       res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps);
     }
   }
+  yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
     if (fs.existsSync(path.join(tempDirs.source, 'origin.docx'))) {
