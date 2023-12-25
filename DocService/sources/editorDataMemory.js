@@ -96,6 +96,9 @@ EditorData.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) 
 EditorData.prototype.addPresence = function(ctx, docId, userId, userInfo) {
   return Promise.resolve();
 };
+EditorData.prototype.updatePresence = function(ctx, docId, userId) {
+  return Promise.resolve();
+};
 EditorData.prototype.removePresence = function(ctx, docId, userId) {
   return Promise.resolve();
 };

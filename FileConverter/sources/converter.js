@@ -40,6 +40,7 @@ var config = require('config');
 var spawnAsync = require('@expo/spawn-async');
 const bytes = require('bytes');
 const lcid = require('lcid');
+const ms = require('ms');
 
 var commonDefines = require('./../../Common/sources/commondefines');
 var storage = require('./../../Common/sources/storage-base');
@@ -304,6 +305,21 @@ function* isUselessConvertion(ctx, task, cmd) {
   }
   return constants.NO_ERROR;
 }
+async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
+  let originFormat = cmd.getOriginFormat();
+  let isOriginFormatWithForms = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === originFormat ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === originFormat ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === originFormat;
+  let isFormatToPdf = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === dataConvert.formatTo ||
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === dataConvert.formatTo;
+  if (isFormatToPdf && isOriginFormatWithForms) {
+    let format = await formatChecker.getDocumentFormatByFile(dataConvert.fileFrom);
+    if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD === format) {
+      ctx.logger.debug('change format to extended pdf');
+      dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF;
+    }
+  }
+}
 function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
   if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
@@ -464,6 +480,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
       res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps);
     }
   }
+  yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
     if (fs.existsSync(path.join(tempDirs.source, 'origin.docx'))) {
@@ -787,6 +804,10 @@ function* processUploadToStorageErrorFile(ctx, dataConvert, tempDirs, childRes, 
   let outputPath = path.join(tempDirs.temp, 'console.txt');
   fs.writeFileSync(outputPath, output, {encoding: 'utf8'});
 
+  //remove result dir with temp dir inside(see m_sTempDir param) to reduce the amount of data transferred
+  //todo filter on upload
+  fs.rmSync(tempDirs.result, { recursive: true, force: true });
+
   let format = path.extname(dataConvert.fileFrom).substring(1) || "unknown";
 
   yield* processUploadToStorage(ctx, tempDirs.temp, format + '/' + dataConvert.key , false, tenErrorFiles);
@@ -919,7 +940,7 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
     }
     let spawnAsyncPromise = spawnAsync(processPath, childArgs, spawnOptions);
     childRes = spawnAsyncPromise.child;
-    let waitMS = task.getVisibilityTimeout() * 1000 - (new Date().getTime() - getTaskTime.getTime());
+    let waitMS = Math.max(0, task.getVisibilityTimeout() * 1000 - (new Date().getTime() - getTaskTime.getTime()));
     timeoutId = setTimeout(function() {
       isTimeout = true;
       timeoutId = undefined;
@@ -1099,7 +1120,8 @@ function ackTask(ctx, res, task, ack) {
   });
 }
 function receiveTaskSetTimeout(ctx, task, ack, outParams) {
-  let delay = 1.1 * task.getVisibilityTimeout() * 1000;
+  //add DownloadTimeout to upload results
+  let delay = task.getVisibilityTimeout() * 1000 + ms(cfgDownloadTimeout.wholeCycle);
   return setTimeout(function() {
     return co(function*() {
       outParams.isAck = true;

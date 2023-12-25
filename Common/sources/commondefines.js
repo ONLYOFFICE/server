@@ -114,6 +114,7 @@ function InputCommand(data, copyExplicit) {
       this['wopiParams'] = data['wopiParams'];
       this['builderParams'] = data['builderParams'];
       this['userconnectiondocid'] = data['userconnectiondocid'];
+      this['originformat'] = data['originformat'];
     }
   } else {
     this['c'] = undefined;//string command
@@ -169,6 +170,7 @@ function InputCommand(data, copyExplicit) {
     this['status_info_in'] = undefined;
     this['attempt'] = undefined;
     this['convertToOrigin'] = undefined;
+    this['originformat'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -225,6 +227,12 @@ InputCommand.prototype = {
   },
   setFormat: function(data) {
     this['format'] = data;
+  },
+  getOriginFormat: function() {
+    return this['originformat'];
+  },
+  setOriginFormat: function(data) {
+    this['originformat'] = data;
   },
   getUrl: function() {
     return this['url'];

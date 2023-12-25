@@ -472,6 +472,14 @@ function addPresence(ctx, conn, updateCunters) {
     }
   });
 }
+async function updatePresence(ctx, conn) {
+  if (editorData.updatePresence) {
+    return await editorData.updatePresence(ctx, conn.docId, conn.user.id);
+  } else {
+    //todo remove if after 7.6. code for backward compatibility, because redis in separate repo
+    return await editorData.addPresence(ctx, conn.docId, conn.user.id, utils.getConnectionInfoStr(conn));
+  }
+}
 function removePresence(ctx, conn) {
   return co(function* () {
     yield editorData.removePresence(ctx, conn.docId, conn.user.id);
@@ -1732,6 +1740,7 @@ exports.install = function(server, callbackFunction) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
 
+    ctx.logger.info("Connection closed or timed out: reason = %s", reason);
     var userLocks, reconnected = false, bHasEditors, bHasChanges;
     var docId = conn.docId;
     if (null == docId) {
@@ -1741,7 +1750,7 @@ exports.install = function(server, callbackFunction) {
     let participantsTimestamp;
     var tmpUser = conn.user;
     var isView = tmpUser.view;
-    ctx.logger.info("Connection closed or timed out: reason = %s", reason);
+
     var isCloseCoAuthoringTmp = conn.isCloseCoAuthoring;
     if (reason) {
       //Notify that participant has gone
@@ -2022,7 +2031,6 @@ exports.install = function(server, callbackFunction) {
   function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-    conn.isCloseCoAuthoring = true;
     conn.sessionId = sessionId;//restore old
     //Kill previous connections
     connections = _.reject(connections, function(el) {
@@ -3812,7 +3820,7 @@ exports.install = function(server, callbackFunction) {
           if (constants.CONN_CLOSED === conn.conn.readyState) {
             ctx.logger.error('expireDoc connection closed');
           }
-          yield addPresence(ctx, conn, false);
+          yield updatePresence(ctx, conn);
           if (utils.isLiveViewer(conn)) {
             countLiveViewByShard++;
             tenant.countLiveViewByShard++;
@@ -3848,6 +3856,7 @@ exports.install = function(server, callbackFunction) {
           let aggregationCtx = new operationContext.Context();
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache();//no need
+          yield* collectStats(aggregationCtx, countEditByShard, countLiveViewByShard, countViewByShard);
           yield editorData.setEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, countEditByShard);
           yield editorData.setLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countLiveViewByShard);
           yield editorData.setViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countViewByShard);

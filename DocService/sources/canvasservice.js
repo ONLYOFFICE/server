@@ -316,6 +316,9 @@ function addPasswordToCmd(ctx, cmd, docPasswordStr) {
     cmd.setExternalChangeInfo(docPassword.change);
   }
 }
+function addOriginFormat(ctx, cmd, row) {
+  cmd.setOriginFormat(row && row.change_id);
+}
 
 function changeFormatByOrigin(ctx, row, format) {
   const tenAssemblyFormatAsOrigin = ctx.getCfg('services.CoAuthoring.server.assemblyFormatAsOrigin', cfgAssemblyFormatAsOrigin);
@@ -620,6 +623,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   }
   yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password);
+  addOriginFormat(ctx, cmd, row);
   let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
   cmd.setOutputFormat(changeFormatByOrigin(ctx, row, cmd.getOutputFormat()));
@@ -721,9 +725,6 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           const filterPrivate = !authorizations[i] || !tenAllowPrivateIPAddressForSignedRequests;
           let getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], filterPrivate);
           data = getRes.body;
-
-          data = yield utilsDocService.fixImageExifRotation(ctx, data);
-
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
           data = undefined;
@@ -735,6 +736,9 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           }
         }
       }
+
+      data = yield utilsDocService.fixImageExifRotation(ctx, data);
+
       var outputUrl = {url: 'error', path: 'error'};
       if (data) {
         let format = formatChecker.getImageFormat(ctx, data);
@@ -1398,6 +1402,7 @@ exports.downloadAs = function(req, res) {
       if (!cmd.getWithoutPassword()) {
         addPasswordToCmd(ctx, cmd, row && row.password);
       }
+      addOriginFormat(ctx, cmd, row);
       cmd.setData(req.body);
       var outputData = new OutputData(cmd.getCommand());
       switch (cmd.getCommand()) {
@@ -1622,8 +1627,15 @@ exports.downloadFile = function(req, res) {
         res.sendStatus(filterStatus);
         return;
       }
+      let headers;
+      if (req.get('Range')) {
+        headers = {
+          'Range': req.get('Range')
+        }
+      }
+
       const filterPrivate = !authorization || !tenAllowPrivateIPAddressForSignedRequests;
-      yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, filterPrivate, null, res);
+      yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, filterPrivate, headers, res);
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.downloadFile', new Date() - startDate);
@@ -1631,14 +1643,19 @@ exports.downloadFile = function(req, res) {
     }
     catch (err) {
       ctx.logger.error('Error downloadFile: %s', err.stack);
-      if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
-        res.sendStatus(408);
-      } else if (err.code === 'EMSGSIZE') {
-        res.sendStatus(413);
-      } else if (err.response) {
-        res.sendStatus(err.response.statusCode);
-      } else {
-        res.sendStatus(400);
+      //catch errors because status may be sent while piping to response
+      try {
+        if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+          res.sendStatus(408);
+        } else if (err.code === 'EMSGSIZE') {
+          res.sendStatus(413);
+        } else if (err.response) {
+          res.sendStatus(err.response.statusCode);
+        } else {
+          res.sendStatus(400);
+        }
+      } catch (err) {
+        ctx.logger.error('Error downloadFile: %s', err.stack);
       }
     }
     finally {
@@ -1675,6 +1692,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
         cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
         addPasswordToCmd(ctx, cmd, row && row.password);
+        addOriginFormat(ctx, cmd, row);
         yield* addRandomKeyTaskCmd(ctx, cmd);
         var queueData = getSaveTask(ctx, cmd);
         queueData.setFromChanges(true);
