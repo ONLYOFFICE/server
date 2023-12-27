@@ -292,7 +292,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       }
       break;
     case commonDefines.FileStatus.None:
-      outputData.setStatus('none');
+      //this status has no handler
       break;
     case commonDefines.FileStatus.WaitQueue:
       //task in the queue. response will be after convertion
@@ -302,6 +302,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       outputData.setData(constants.UNKNOWN);
       break;
   }
+  return status;
 });
 function* addRandomKeyTaskCmd(ctx, cmd) {
   var task = yield* taskResult.addRandomKeyTask(ctx, cmd.getDocId());
@@ -523,8 +524,8 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
     }
   }
 function* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore) {
-  yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
-  return 'none' === outputData.getStatus();
+  let status = yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
+  return commonDefines.FileStatus.None === status;
 }
 function* commandReopen(ctx, conn, cmd, outputData) {
   const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
@@ -1346,7 +1347,7 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
       outputData.setData(constants.UNKNOWN);
     }
     finally {
-      if (outputData && outputData.getStatus()) {
+      if (outputData?.getStatus()) {
         ctx.logger.debug('Response command: %s', JSON.stringify(outputData));
         docsCoServer.sendData(ctx, conn, new OutputDataWrap('documentOpen', outputData));
       }
