@@ -1396,7 +1396,7 @@ function getRequestParams(ctx, req, opt_isNotInBody) {
     const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
 
-    let res = {code: constants.NO_ERROR, isDecoded: false, params: undefined};
+    let res = {code: constants.NO_ERROR, description: "", isDecoded: false, params: undefined};
     if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
       res.params = JSON.parse(req.body.toString('utf8'));
     } else {
@@ -1427,6 +1427,7 @@ function getRequestParams(ctx, req, opt_isNotInBody) {
         } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
           res.code = constants.VKEY_KEY_EXPIRE;
         }
+        res.description = checkJwtRes.description;
       }
     }
     return res;

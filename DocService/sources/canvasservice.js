@@ -1597,8 +1597,12 @@ exports.downloadFile = function(req, res) {
       }
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      let url = decodeURI(req.get('x-url'));
       ctx.setDocId(req.params.docid);
+      //todo remove in 8.1. For compatibility
+      let url = req.get('x-url');
+      if (url) {
+        url = decodeURI(url);
+      }
       ctx.logger.info('Start downloadFile');
       const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
       const tenDownloadMaxBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgDownloadMaxBytes);
@@ -1607,32 +1611,33 @@ exports.downloadFile = function(req, res) {
       const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
 
       let authorization;
-      if (tenTokenEnableBrowser) {
-        let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
-        let errorDescription;
-        if (checkJwtRes.decoded) {
-          let decoded = checkJwtRes.decoded;
-          if (decoded.changesUrl) {
-            url = decoded.changesUrl;
-          } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
-            url = decoded.document.url;
-          } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
-            url = decoded.url;
-          } else {
-            errorDescription = 'access deny';
-          }
+      let errorDescription;
+      let authRes = yield docsCoServer.getRequestParams(ctx, req);
+      if (authRes.code === constants.NO_ERROR) {
+        let decoded = authRes.params;
+        if (decoded.changesUrl) {
+          url = decoded.changesUrl;
+        } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
+          url = decoded.document.url;
+        } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
+          url = decoded.url;
+        } else if (decoded.url && !tenTokenEnableBrowser) {
+          //todo token required
+          url = decoded.url;
         } else {
-          errorDescription = checkJwtRes.description;
+          errorDescription = 'access deny';
         }
-        if (errorDescription) {
-          ctx.logger.warn('Error downloadFile jwt: description = %s', errorDescription);
-          res.sendStatus(403);
-          return;
-        }
-        if (utils.canIncludeOutboxAuthorization(ctx, url)) {
-          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorization = utils.fillJwtForRequest(ctx, {url: url}, secret, false);
-        }
+      } else {
+        errorDescription = authRes.description;
+      }
+      if (errorDescription) {
+        ctx.logger.warn('Error downloadFile jwt: description = %s', errorDescription);
+        res.sendStatus(403);
+        return;
+      }
+      if (utils.canIncludeOutboxAuthorization(ctx, url)) {
+        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+        authorization = utils.fillJwtForRequest(ctx, {url: url}, secret, false);
       }
       let urlParsed = urlModule.parse(url);
       let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);

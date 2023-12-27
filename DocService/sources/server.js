@@ -249,6 +249,7 @@ docsCoServer.install(server, () => {
 	app.post('/savefile/:docid', rawFileParser, canvasService.saveFile);
 	app.get('/printfile/:docid/:filename', canvasService.printFile);
 	app.get('/downloadfile/:docid', canvasService.downloadFile);
+	app.post('/downloadfile/:docid', rawFileParser, canvasService.downloadFile);
 	app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
 	app.get('/baseurl', (req, res) => {
