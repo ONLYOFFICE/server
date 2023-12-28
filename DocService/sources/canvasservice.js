@@ -1621,14 +1621,16 @@ exports.downloadFile = function(req, res) {
           url = decoded.document.url;
         } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
           url = decoded.url;
-        } else if (decoded.url && !tenTokenEnableBrowser) {
+        } else if (!tenTokenEnableBrowser) {
           //todo token required
-          url = decoded.url;
+          if (decoded.url) {
+            url = decoded.url;
+          }
         } else {
           errorDescription = 'access deny';
         }
       } else {
-        errorDescription = authRes.description;
+        errorDescription = authRes.description || 'need token';
       }
       if (errorDescription) {
         ctx.logger.warn('Error downloadFile jwt: description = %s', errorDescription);
