@@ -763,8 +763,11 @@ function* streamEnd(streamObj, text) {
   streamObj.writeStream.end(text, 'utf8');
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
-function* processUploadToStorage(ctx, dir, storagePath, calcChecksum, opt_specialDirDst) {
+function* processUploadToStorage(ctx, dir, storagePath, calcChecksum, opt_specialDirDst, opt_ignorPrefix) {
   var list = yield utils.listObjects(dir);
+  if (opt_ignorPrefix) {
+    list = list.filter((dir) => !dir.startsWith(opt_ignorPrefix));
+  }
   if (list.length < MAX_OPEN_FILES) {
     yield* processUploadToStorageChunk(ctx, list, dir, storagePath, calcChecksum, opt_specialDirDst);
   } else {
@@ -804,13 +807,11 @@ function* processUploadToStorageErrorFile(ctx, dataConvert, tempDirs, childRes, 
   let outputPath = path.join(tempDirs.temp, 'console.txt');
   fs.writeFileSync(outputPath, output, {encoding: 'utf8'});
 
-  //remove result dir with temp dir inside(see m_sTempDir param) to reduce the amount of data transferred
-  //todo filter on upload
-  fs.rmSync(tempDirs.result, { recursive: true, force: true });
-
+  //ignore result dir with temp dir inside(see m_sTempDir param) to reduce the amount of data transferred
+  let ignorePrefix = path.normalize(tempDirs.result);
   let format = path.extname(dataConvert.fileFrom).substring(1) || "unknown";
 
-  yield* processUploadToStorage(ctx, tempDirs.temp, format + '/' + dataConvert.key , false, tenErrorFiles);
+  yield* processUploadToStorage(ctx, tempDirs.temp, format + '/' + dataConvert.key , false, tenErrorFiles, ignorePrefix);
   ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
 }
 function writeProcessOutputToLog(ctx, childRes, isDebug) {
