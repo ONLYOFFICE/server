@@ -33,6 +33,9 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
+const {stat} = require('node:fs/promises');
+const { pipeline } = require('node:stream/promises');
 const crypto = require('crypto');
 const {URL} = require('url');
 const co = require('co');
@@ -51,6 +54,7 @@ const sqlBase = require('./baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
+const mime = require('mime');
 
 const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
@@ -79,6 +83,7 @@ const cfgWopiModulusOld = config.get('wopi.modulusOld');
 const cfgWopiExponentOld = config.get('wopi.exponentOld');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
+const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
 
 let mimeTypesByExt = (function() {
   let mimeTypesByExt = {};
@@ -824,7 +829,75 @@ function getWopiParams(lockId, fileInfo, wopiSrc, access_token, access_token_ttl
     hostSessionId: null, userSessionId: null, mode: null
   };
   return {commonInfo: commonInfo, userAuth: userAuth, LastModifiedTime: null};
-};
+}
+
+async function dummyCheckFileInfo(req, res) {
+  if (true) {
+    //static output for performance reason
+    res.json({
+      BaseFileName: "sample.docx",
+      OwnerId: "userId",
+      Size: 100,//no need to set actual size for test
+      UserId: "userId",//test ignores
+      UserFriendlyName: "user",
+      Version: 0,
+      UserCanWrite: true,
+      SupportsGetLock: true,
+      SupportsLocks: true,
+      SupportsUpdate: true,
+    });
+  } else {
+    let fileInfo;
+    let ctx = new operationContext.Context();
+    ctx.initFromRequest(req);
+    try {
+      await ctx.initTenantCache();
+      const tenWopiDummySampleFilePath = ctx.getCfg('wopi.dummy.sampleFilePath', cfgWopiDummySampleFilePath);
+      let access_token = req.query['access_token'];
+      ctx.logger.debug('dummyCheckFileInfo access_token:%s', access_token);
+      let sampleFileStat = await stat(tenWopiDummySampleFilePath);
+
+      fileInfo = JSON.parse(Buffer.from(access_token, 'base64').toString('ascii'));
+      fileInfo.BaseFileName = path.basename(tenWopiDummySampleFilePath);
+      fileInfo.Size = sampleFileStat.size;
+    } catch (err) {
+      ctx.logger.error('dummyCheckFileInfo error:%s', err.stack);
+    } finally {
+      if (fileInfo) {
+        res.json(fileInfo);
+      } else {
+        res.sendStatus(400)
+      }
+    }
+  }
+}
+
+async function dummyGetFile(req, res) {
+  let ctx = new operationContext.Context();
+  ctx.initFromRequest(req);
+  try {
+    await ctx.initTenantCache();
+
+    const tenWopiDummySampleFilePath = ctx.getCfg('wopi.dummy.sampleFilePath', cfgWopiDummySampleFilePath);
+    let sampleFileStat = await stat(tenWopiDummySampleFilePath);
+    res.setHeader('Content-Length', sampleFileStat.size);
+    res.setHeader('Content-Type', mime.getType(tenWopiDummySampleFilePath));
+
+    await pipeline(
+      fs.createReadStream(tenWopiDummySampleFilePath),
+      res,
+    );
+  } catch (err) {
+    ctx.logger.error('dummyGetFile error:%s', err.stack);
+  } finally {
+    if (!res.headersSent) {
+      res.sendStatus(400);
+    }
+  }
+}
+function dummyOk(req, res) {
+  res.sendStatus(200);
+}
 
 exports.discovery = discovery;
 exports.collaboraCapabilities = collaboraCapabilities;
@@ -841,3 +914,6 @@ exports.generateProofOld = generateProofOld;
 exports.fillStandardHeaders = fillStandardHeaders;
 exports.getWopiUnlockMarker = getWopiUnlockMarker;
 exports.getWopiModifiedMarker = getWopiModifiedMarker;
+exports.dummyCheckFileInfo = dummyCheckFileInfo;
+exports.dummyGetFile = dummyGetFile;
+exports.dummyOk = dummyOk;

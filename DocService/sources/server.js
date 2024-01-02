@@ -60,6 +60,7 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const configStorage = config.get('storage');
 
 const cfgWopiEnable = config.get('wopi.enable');
+const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
 const cfgHtmlTemplate = config.get('wopi.htmlTemplate');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
@@ -293,6 +294,24 @@ docsCoServer.install(server, () => {
 				res.sendStatus(404);
 			});
 	}
+	function checkWopiDummyEnable(req, res, next) {
+		//todo may be move code into wopiClient or wopiClient.discovery...
+		let ctx = new operationContext.Context();
+		ctx.initFromRequest(req);
+		ctx.initTenantCache()
+			.then(() => {
+				const tenWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
+				const tenWopiDummyEnable = ctx.getCfg('wopi.dummy.enable', cfgWopiDummyEnable);
+				if (tenWopiEnable && tenWopiDummyEnable) {
+					next();
+				} else {
+					res.sendStatus(404);
+				}
+			}).catch((err) => {
+				ctx.logger.error('checkWopiDummyEnable error: %s', err.stack);
+				res.sendStatus(404);
+			});
+	}
 	//todo dest
 	let fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 	app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
@@ -302,8 +321,12 @@ docsCoServer.install(server, () => {
 	app.post('/hosting/wopi/:documentType/:mode', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
 	app.post('/hosting/wopi/convert-and-edit/:ext/:targetext', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getConverterHtml);
 	app.get('/hosting/wopi/convert-and-edit-handler', checkWopiEnable, utils.lowercaseQueryString, converterService.getConverterHtmlHandler);
+	app.get('/wopi/files/:docid', apicache.middleware("5 minutes"), checkWopiDummyEnable, utils.lowercaseQueryString, wopiClient.dummyCheckFileInfo);
+	app.post('/wopi/files/:docid', checkWopiDummyEnable, wopiClient.dummyOk);
+	app.get('/wopi/files/:docid/contents', apicache.middleware("5 minutes"), checkWopiDummyEnable, wopiClient.dummyGetFile);
+	app.post('/wopi/files/:docid/contents', checkWopiDummyEnable, wopiClient.dummyOk);
 
-	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
+	app.post('/dummyCallback', utils.checkClientIp, apicache.middleware("5 minutes"), rawFileParser, function(req, res){
 		let ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
 		//yield ctx.initTenantCache();//no need
