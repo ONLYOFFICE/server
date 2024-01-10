@@ -281,3 +281,33 @@ exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';
 
 exports.ACTIVEMQ_QUEUE_PREFIX = 'queue://';
 exports.ACTIVEMQ_TOPIC_PREFIX = 'topic://';
+
+exports.LOCALE_MAP = {
+  'az': 'az-Latn-AZ',
+  'bg': 'bg-BG',
+  'cs': 'cs-CZ',
+  'de': 'de-DE',
+  'el': 'el-GR',
+  'en': 'en-US', // collision
+  'es': 'es-ES',
+  'eu': 'eu-ES',
+  'fr': 'fr-FR',
+  'gl': 'gl-ES',
+  'hy': 'hy-AM',
+  'it': 'it-IT',
+  'ja': 'ja-JP',
+  'ko': 'ko-KR',
+  'lv': 'lv-LV',
+  'ms': 'ms-MY',
+  'nl': 'nl-NL',
+  'pl': 'pl-PL',
+  'pt': 'pt-BR', // collision
+  'ru': 'ru-RU',
+  'si': 'si-LK',
+  'sk': 'sk-SK',
+  'sv': 'sv-SE',
+  'tr': 'tr-TR',
+  'uk': 'uk-UA',
+  'vi': 'vi-VN',
+  'zh': 'zh-CH' // collision
+};

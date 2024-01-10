@@ -1111,3 +1111,15 @@ exports.checksumFile = function(hashName, path) {
     stream.on('end', () => resolve(hash.digest('hex')));
   });
 };
+
+exports.getLocaleFullCode = function(unformattedLocale) {
+  // Expects that full locale string must starts with at last 2 lowercase characters,
+  // then comes optional part with dash and at last  2 characters in any case
+  // and ends with at last 2 uppercase characters with dash.
+  const isAlreadyFullLocale = /^[a-z]{2,}(-[A-Za-z]{2,})?-[A-Z]{2,}$/.test(unformattedLocale);
+  if (isAlreadyFullLocale) {
+    return unformattedLocale;
+  }
+
+  return constants.LOCALE_MAP[unformattedLocale];
+}

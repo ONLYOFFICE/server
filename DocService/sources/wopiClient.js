@@ -38,6 +38,7 @@ const {URL} = require('url');
 const co = require('co');
 const jwt = require('jsonwebtoken');
 const config = require('config');
+const fs = require('fs');
 const utf7 = require('utf7');
 const mimeDB = require('mime-db');
 const xmlbuilder2 = require('xmlbuilder2');
@@ -45,6 +46,7 @@ const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
+const formatChecker = require('./../../Common/sources/formatchecker');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const sqlBase = require('./databaseConnectors/baseConnector');
@@ -57,6 +59,7 @@ const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expi
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
+const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
@@ -438,6 +441,39 @@ function getEditorHtml(req, res) {
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
         yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
+      }
+
+      const fileFormat = (extension) => {
+        const format = formatChecker.getFormatFromString(extension);
+        if (formatChecker.isDocumentFormat(format)) {
+          if (format === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF) {
+            return 'docxf';
+          }
+
+          return 'docx';
+        }
+        if (formatChecker.isSpreadsheetFormat(format)) {
+          return 'xlsx';
+        }
+        if (formatChecker.isPresentationFormat(format)) {
+          return 'pptx';
+        }
+
+        return '';
+      };
+      const fileType = getFileTypeByInfo(fileInfo);
+      const format = fileFormat(fileType);
+
+      // TODO: throw error if format not supported?
+      if (fileInfo.Size === 0 && format.length !== 0) {
+        const wopiParams = getWopiParams('', fileInfo, wopiSrc, access_token, access_token_ttl);
+        const locale = utils.getLocaleFullCode(params.queryParams.lang || params.queryParams.ui || 'en-US');
+        const defaultFilePath = `${cfgNewFileTemplate}/en-US/new.${format}`;
+        const expectedPath = `${cfgNewFileTemplate}/${locale}/new.${format}`;
+        const filePath = fs.existsSync(expectedPath) ? expectedPath : defaultFilePath;
+        const templateFileStream = fs.createReadStream(filePath);
+        const templateFileSize = fs.lstatSync(filePath).size;
+        yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileSize, fileInfo.UserId, false, false, false);
       }
 
       //Lock
