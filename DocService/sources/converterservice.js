@@ -285,11 +285,18 @@ function convertRequest(req, res, isJson) {
       if (params.region && locale[params.region.toLowerCase()]) {
         cmd.setLCID(locale[params.region.toLowerCase()].id);
       }
+      let jsonParams = {};
       if (params.documentLayout) {
-        cmd.setJsonParams(JSON.stringify({'documentLayout': params.documentLayout}));
+        jsonParams['documentLayout'] = params.documentLayout;
       }
       if (params.spreadsheetLayout) {
-        cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
+        jsonParams['spreadsheetLayout'] = params.spreadsheetLayout;
+      }
+      if (params.watermark) {
+        jsonParams['watermark'] = params.watermark;
+      }
+      if (Object.keys(jsonParams).length > 0) {
+        cmd.setJsonParams(JSON.stringify(jsonParams));
       }
       if (params.password) {
         if (params.password.length > constants.PASSWORD_MAX_LENGTH) {
