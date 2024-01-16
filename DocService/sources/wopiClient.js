@@ -38,7 +38,8 @@ const {URL} = require('url');
 const co = require('co');
 const jwt = require('jsonwebtoken');
 const config = require('config');
-const fs = require('fs');
+const { createReadStream } = require('fs');
+const { lstat, readdir } = require('fs/promises');
 const utf7 = require('utf7');
 const mimeDB = require('mime-db');
 const xmlbuilder2 = require('xmlbuilder2');
@@ -82,6 +83,8 @@ const cfgWopiModulusOld = config.get('wopi.modulusOld');
 const cfgWopiExponentOld = config.get('wopi.exponentOld');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
+
+let templatesFolderLocalesCache = null;
 
 let mimeTypesByExt = (function() {
   let mimeTypesByExt = {};
@@ -467,13 +470,34 @@ function getEditorHtml(req, res) {
       // TODO: throw error if format not supported?
       if (fileInfo.Size === 0 && format.length !== 0) {
         const wopiParams = getWopiParams('', fileInfo, wopiSrc, access_token, access_token_ttl);
-        const locale = utils.getLocaleFullCode(params.queryParams.lang || params.queryParams.ui || 'en-US');
-        const defaultFilePath = `${cfgNewFileTemplate}/en-US/new.${format}`;
+
+        if (templatesFolderLocalesCache === null) {
+          const dirContent = yield readdir(`${cfgNewFileTemplate}/`, { withFileTypes: true });
+          templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
+        }
+
+        const localePrefix = params.queryParams.lang || params.queryParams.ui || 'en';
+        let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
+        if (locale === undefined) {
+          locale = 'en-US';
+        }
+
+        let templateFileInfo;
+        let filePath = `${cfgNewFileTemplate}/en-US/new.${format}`;
         const expectedPath = `${cfgNewFileTemplate}/${locale}/new.${format}`;
-        const filePath = fs.existsSync(expectedPath) ? expectedPath : defaultFilePath;
-        const templateFileStream = fs.createReadStream(filePath);
-        const templateFileSize = fs.lstatSync(filePath).size;
-        yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileSize, fileInfo.UserId, false, false, false);
+        try {
+          templateFileInfo = yield lstat(expectedPath);
+          filePath = expectedPath;
+        } catch (error) {
+          if (error.code !== 'ENOENT') {
+            throw error;
+          }
+
+          templateFileInfo = yield lstat(filePath);
+        }
+
+        const templateFileStream = createReadStream(filePath);
+        yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
       }
 
       //Lock
