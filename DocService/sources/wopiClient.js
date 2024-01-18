@@ -85,6 +85,7 @@ const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
 
 let templatesFolderLocalesCache = null;
+const templateFilesSizeCache = {};
 
 let mimeTypesByExt = (function() {
   let mimeTypesByExt = {};
@@ -175,13 +176,16 @@ function discovery(req, res) {
           xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
-          if ("oform" !== ext.edit[j]) {
-            //todo config
-            xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
-          }
+          // if ("oform" !== ext.edit[j]) {
+          //   //todo config
+          //   xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          // }
           xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
         }
+        constants.SUPPORTED_TEMPLATES_EXTENSIONS[name].forEach(
+          extension => xmlApp.ele('action', {name: 'editnew', ext: extension, requires: 'locks,update', urlsrc: urlTemplateEdit}).up()
+        );
         xmlApp.up();
       }
       //end section for MS WOPI connectors
@@ -379,6 +383,7 @@ function getEditorHtml(req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
+      const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
       const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
       const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
       const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
@@ -439,40 +444,19 @@ function getEditorHtml(req, res) {
         return;
       }
       //save common info
+      const fileType = getFileTypeByInfo(fileInfo);
       if (undefined === lockId) {
-        let fileType = getFileTypeByInfo(fileInfo);
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
         yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
       }
 
-      const fileFormat = (extension) => {
-        const format = formatChecker.getFormatFromString(extension);
-        if (formatChecker.isDocumentFormat(format)) {
-          if (format === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF) {
-            return 'docxf';
-          }
-
-          return 'docx';
-        }
-        if (formatChecker.isSpreadsheetFormat(format)) {
-          return 'xlsx';
-        }
-        if (formatChecker.isPresentationFormat(format)) {
-          return 'pptx';
-        }
-
-        return '';
-      };
-      const fileType = getFileTypeByInfo(fileInfo);
-      const format = fileFormat(fileType);
-
       // TODO: throw error if format not supported?
-      if (fileInfo.Size === 0 && format.length !== 0) {
+      if (fileInfo.Size === 0 && fileType.length !== 0) {
         const wopiParams = getWopiParams('', fileInfo, wopiSrc, access_token, access_token_ttl);
 
         if (templatesFolderLocalesCache === null) {
-          const dirContent = yield readdir(`${cfgNewFileTemplate}/`, { withFileTypes: true });
+          const dirContent = yield readdir(`${tenNewFileTemplate}/`, { withFileTypes: true });
           templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
         }
 
@@ -482,20 +466,12 @@ function getEditorHtml(req, res) {
           locale = 'en-US';
         }
 
-        let templateFileInfo;
-        let filePath = `${cfgNewFileTemplate}/en-US/new.${format}`;
-        const expectedPath = `${cfgNewFileTemplate}/${locale}/new.${format}`;
-        try {
-          templateFileInfo = yield lstat(expectedPath);
-          filePath = expectedPath;
-        } catch (error) {
-          if (error.code !== 'ENOENT') {
-            throw error;
-          }
-
-          templateFileInfo = yield lstat(filePath);
+        const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;
+        if (!templateFilesSizeCache[filePath]) {
+          templateFilesSizeCache[filePath] = yield lstat(filePath);
         }
 
+        const templateFileInfo = templateFilesSizeCache[filePath];
         const templateFileStream = createReadStream(filePath);
         yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
       }

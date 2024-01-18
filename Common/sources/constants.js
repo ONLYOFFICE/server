@@ -289,3 +289,8 @@ exports.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP = {
   'pt-PT': 'pt-PT',
   'zh-TW': 'zh-TW'
 };
+exports.SUPPORTED_TEMPLATES_EXTENSIONS = {
+  'Word': ['docx', 'docxf'],
+  'Excel': ['xlsx'],
+  'PowerPoint': ['pptx']
+};
