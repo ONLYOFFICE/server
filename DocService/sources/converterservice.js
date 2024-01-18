@@ -333,7 +333,7 @@ function convertRequest(req, res, isJson) {
             break;
         }
         cmd.setThumbnail(thumbnailData);
-        if (false === thumbnailData.getFirst()) {
+        if (false === thumbnailData.getFirst() && 0 !== (constants.AVS_OFFICESTUDIO_FILE_IMAGE & cmd.getOutputFormat())) {
           outputExt = 'zip';
         }
       }
