@@ -277,6 +277,7 @@ function convertRequest(req, res, isJson) {
       cmd.setFormat(filetype);
       cmd.setDocId(docId);
       cmd.setOutputFormat(outputFormat);
+      let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
 
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage] || commonDefines.c_oAscCodePageUtf8);
       cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
@@ -332,8 +333,8 @@ function convertRequest(req, res, isJson) {
             break;
         }
         cmd.setThumbnail(thumbnailData);
-        if (false == thumbnailData.getFirst()) {
-          cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_IMAGE);
+        if (false === thumbnailData.getFirst()) {
+          outputExt = 'zip';
         }
       }
       var documentRenderer = params.documentRenderer;
@@ -359,7 +360,6 @@ function convertRequest(req, res, isJson) {
         }
         cmd.setTextParams(textParamsData);
       }
-      let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
       if (params.title) {
         cmd.setTitle(path.basename(params.title, path.extname(params.title)) + '.' + outputExt);
       }
