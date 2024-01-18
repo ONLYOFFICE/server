@@ -44,7 +44,7 @@ const cfgEditor = config.get('services.CoAuthoring.editor');
 
 let connectionConfig = {
   host: configSql.get('dbHost'),
-  port: configSql.get('dbPort'),
+  port: parseInt(configSql.get('dbPort')),
   user: configSql.get('dbUser'),
   password: configSql.get('dbPass'),
   database: configSql.get('dbName'),

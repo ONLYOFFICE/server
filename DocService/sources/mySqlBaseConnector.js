@@ -41,7 +41,7 @@ const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
 
 var pool  = mysql.createPool({
 	host		: configSql.get('dbHost'),
-	port		: configSql.get('dbPort'),
+	port		: parseInt(configSql.get('dbPort')),
 	user		: configSql.get('dbUser'),
 	password	: configSql.get('dbPass'),
 	database	: configSql.get('dbName'),

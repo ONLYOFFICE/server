@@ -46,7 +46,7 @@ const connectionConfiguration = {
   user: configSql.get('dbUser'),
   password: configSql.get('dbPass'),
   server: configSql.get('dbHost'),
-  port: configSql.get('dbPort'),
+  port: parseInt(configSql.get('dbPort')),
   database: configSql.get('dbName'),
   pool: {
     max: configSql.get('connectionlimit'),
