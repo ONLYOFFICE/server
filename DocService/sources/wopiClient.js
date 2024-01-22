@@ -38,6 +38,8 @@ const {URL} = require('url');
 const co = require('co');
 const jwt = require('jsonwebtoken');
 const config = require('config');
+const { createReadStream } = require('fs');
+const { lstat, readdir } = require('fs/promises');
 const utf7 = require('utf7');
 const mimeDB = require('mime-db');
 const xmlbuilder2 = require('xmlbuilder2');
@@ -45,6 +47,7 @@ const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
+const formatChecker = require('./../../Common/sources/formatchecker');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const sqlBase = require('./databaseConnectors/baseConnector');
@@ -57,6 +60,7 @@ const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expi
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
+const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
@@ -79,6 +83,9 @@ const cfgWopiModulusOld = config.get('wopi.modulusOld');
 const cfgWopiExponentOld = config.get('wopi.exponentOld');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
+
+let templatesFolderLocalesCache = null;
+const templateFilesSizeCache = {};
 
 let mimeTypesByExt = (function() {
   let mimeTypesByExt = {};
@@ -169,13 +176,12 @@ function discovery(req, res) {
           xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
-          if ("oform" !== ext.edit[j]) {
-            //todo config
-            xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
-          }
           xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
         }
+        constants.SUPPORTED_TEMPLATES_EXTENSIONS[name].forEach(
+          extension => xmlApp.ele('action', {name: 'editnew', ext: extension, requires: 'locks,update', urlsrc: urlTemplateEdit}).up()
+        );
         xmlApp.up();
       }
       //end section for MS WOPI connectors
@@ -373,6 +379,7 @@ function getEditorHtml(req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
+      const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
       const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
       const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
       const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
@@ -390,6 +397,8 @@ function getEditorHtml(req, res) {
       let mode = req.params.mode;
       let sc = req.query['sc'];
       let hostSessionId = req.query['hid'];
+      let lang = req.query['lang'];
+      let ui = req.query['ui'];
       let access_token = req.body['access_token'] || "";
       let access_token_ttl = parseInt(req.body['access_token_ttl']) || 0;
 
@@ -433,11 +442,36 @@ function getEditorHtml(req, res) {
         return;
       }
       //save common info
+      const fileType = getFileTypeByInfo(fileInfo);
       if (undefined === lockId) {
-        let fileType = getFileTypeByInfo(fileInfo);
         lockId = crypto.randomBytes(16).toString('base64');
         let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
         yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
+      }
+
+      // TODO: throw error if format not supported?
+      if (fileInfo.Size === 0 && fileType.length !== 0) {
+        const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
+
+        if (templatesFolderLocalesCache === null) {
+          const dirContent = yield readdir(`${tenNewFileTemplate}/`, { withFileTypes: true });
+          templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
+        }
+
+        const localePrefix = lang || ui || 'en';
+        let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
+        if (locale === undefined) {
+          locale = 'en-US';
+        }
+
+        const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;
+        if (!templateFilesSizeCache[filePath]) {
+          templateFilesSizeCache[filePath] = yield lstat(filePath);
+        }
+
+        const templateFileInfo = templateFilesSizeCache[filePath];
+        const templateFileStream = createReadStream(filePath);
+        yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
       }
 
       //Lock
@@ -506,7 +540,7 @@ function getConverterHtml(req, res) {
         return;
       }
 
-      let wopiParams = getWopiParams(null, fileInfo, wopiSrc, access_token, access_token_ttl);
+      let wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
 
       let docId = yield converterService.convertAndEdit(ctx, wopiParams, ext, targetext);
       if (docId) {
