@@ -74,8 +74,8 @@ var configS3 = {
 };
 
 if (configS3.endpoint) {
-  configS3.sslEnabled = cfgSslEnabled;
-  configS3.s3ForcePathStyle = cfgS3ForcePathStyle;
+  configS3.tls = cfgSslEnabled;
+  configS3.forcePathStyle = cfgS3ForcePathStyle;
 }
 const client  = new S3Client(configS3);
 
