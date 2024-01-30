@@ -34,6 +34,7 @@
 
 var path = require('path');
 var constants = require('./constants');
+const {open} = require("node:fs/promises");
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
@@ -383,6 +384,8 @@ exports.getStringFromFormat = function(format) {
       return 'oform';
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF:
       return 'docxf';
+    case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF:
+      return 'pdf';
 
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX:
       return 'pptx';
@@ -534,6 +537,7 @@ exports.isOOXFormat = function(format) {
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM === format
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === format
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === format
+  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF === format
   || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX === format
   || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSX === format
   || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTM === format
@@ -545,3 +549,45 @@ exports.isOOXFormat = function(format) {
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format;
 };
+function getDocumentFormatBySignature(buffer) {
+  if (!buffer) {
+    return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
+  }
+  let text = buffer.toString("latin1");
+  // Check for binary DOCT format.
+  if (4 <= text.length && text[0] === 'D' && text[1] === 'O' && text[2] === 'C' && text[3] === 'Y') {
+    return constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
+  }
+
+  // Check for binary XLST format
+  if (4 <= text.length && text[0] === 'X' && text[1] === 'L' && text[2] === 'S' && text[3] === 'Y') {
+    return constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET;
+  }
+
+  // Check for binary PPTT format
+  if (4 <= text.length && text[0] === 'P' && text[1] === 'P' && text[2] === 'T' && text[3] === 'Y') {
+    return constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION;
+  }
+
+  // Unknown format
+  return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
+};
+async function getDocumentFormatByFile(file) {
+  let firstBytesLen = 100;
+  let buffer;
+  let fd;
+  try {
+    fd = await open(file, 'r');
+    const stream = fd.createReadStream({ start: 0, end: firstBytesLen });
+    let chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.from(chunk));
+    }
+    buffer = Buffer.concat(chunks);
+  } finally {
+    await fd?.close();
+  }
+  return getDocumentFormatBySignature(buffer);
+};
+exports.getDocumentFormatBySignature = getDocumentFormatBySignature;
+exports.getDocumentFormatByFile = getDocumentFormatByFile

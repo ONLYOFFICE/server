@@ -10,3 +10,4 @@ node_modules
 /Gruntfile.js.out
 local-development-*.json
 *.pyc
+run-develop-local.py

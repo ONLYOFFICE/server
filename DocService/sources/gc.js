@@ -47,6 +47,7 @@ var commondefines = require('./../../Common/sources/commondefines');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var operationContext = require('./../../Common/sources/operationContext');
 var pubsubService = require('./pubsubRabbitMQ');
+const sqlBase = require("./baseConnector");
 
 var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
 var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
@@ -62,7 +63,7 @@ function getCronStep(cronTime){
 let expFilesStep = getCronStep(cfgExpFilesCron);
 let expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
-var checkFileExpire = function() {
+var checkFileExpire = function(expireSeconds) {
   return co(function* () {
     let ctx = new operationContext.Context();
     try {
@@ -72,11 +73,12 @@ var checkFileExpire = function() {
       var currentRemovedCount;
       do {
         currentRemovedCount = 0;
-        expired = yield taskResult.getExpired(ctx, cfgExpFilesRemovedAtOnce, cfgExpFiles);
+        expired = yield taskResult.getExpired(ctx, cfgExpFilesRemovedAtOnce, expireSeconds ?? cfgExpFiles);
         for (var i = 0; i < expired.length; ++i) {
           let tenant = expired[i].tenant;
           let docId = expired[i].id;
-          ctx.init(tenant, docId, ctx.userId);
+          let shardKey = sqlBase.DocumentAdditional.prototype.getShardKey(expired[i].additional);
+          ctx.init(tenant, docId, ctx.userId, shardKey);
           yield ctx.initTenantCache();
           //todo tenant
           //check that no one is in the document
@@ -122,7 +124,8 @@ var checkDocumentExpire = function() {
             yield ctx.initTenantCache();
             var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
             if (hasChanges) {
-              yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
+              //todo opt_initShardKey from getDocumentPresenceExpired data or from db
+              yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true, true);
               startSaveCount++;
             } else {
               yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId);
@@ -170,9 +173,10 @@ let forceSaveTimeout = function() {
           if (docId) {
             ctx.init(tenant, docId, ctx.userId);
             yield ctx.initTenantCache();
+            //todo opt_initShardKey from ForceSave data or from db
             actions.push(docsCoServer.startForceSave(ctx, docId, commondefines.c_oAscForceSaveTypes.Timeout,
               undefined, undefined, undefined, undefined,
-              undefined, undefined, undefined, undefined, queue, pubsub));
+              undefined, undefined, undefined, undefined, queue, pubsub, undefined, true));
           }
         }
         yield Promise.all(actions);
@@ -204,3 +208,4 @@ exports.startGC = function() {
   setTimeout(forceSaveTimeout, cfgForceSaveStep);
 };
 exports.getCronStep = getCronStep;
+exports.checkFileExpire = checkFileExpire;

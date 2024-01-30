@@ -472,6 +472,14 @@ function addPresence(ctx, conn, updateCunters) {
     }
   });
 }
+async function updatePresence(ctx, conn) {
+  if (editorData.updatePresence) {
+    return await editorData.updatePresence(ctx, conn.docId, conn.user.id);
+  } else {
+    //todo remove if after 7.6. code for backward compatibility, because redis in separate repo
+    return await editorData.addPresence(ctx, conn.docId, conn.user.id, utils.getConnectionInfoStr(conn));
+  }
+}
 function removePresence(ctx, conn) {
   return co(function* () {
     yield editorData.removePresence(ctx, conn.docId, conn.user.id);
@@ -589,6 +597,12 @@ function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
     }
   });
 }
+function modifyConnectionEditorToView(ctx, conn) {
+  if (conn.user) {
+    conn.user.view = true;
+  }
+  delete conn.coEditingMode;
+}
 function getParticipants(docId, excludeClosed, excludeUserId, excludeViewer) {
   return _.filter(connections, function(el) {
     return el.docId === docId && el.isCloseCoAuthoring !== excludeClosed &&
@@ -696,9 +710,9 @@ function* removeResponse(data) {
   yield queue.removeResponse(data);
 }
 
-function* getOriginalParticipantsId(ctx, docId) {
+async function getOriginalParticipantsId(ctx, docId) {
   var result = [], tmpObject = {};
-  var hvals = yield editorData.getPresence(ctx, docId, connections);
+  var hvals = await editorData.getPresence(ctx, docId, connections);
   for (var i = 0; i < hvals.length; ++i) {
     var elem = JSON.parse(hvals[i]);
     if (!elem.view && !elem.isCloseCoAuthoring) {
@@ -711,13 +725,13 @@ function* getOriginalParticipantsId(ctx, docId) {
   return result;
 }
 
-function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
+async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
   const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
   ctx.logger.debug('postData request: url = %s;data = %j', uri, dataObject);
   let auth;
   if (utils.canIncludeOutboxAuthorization(ctx, uri)) {
-    let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+    let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
     let bodyToken = utils.fillJwtForRequest(ctx, dataObject, secret, true);
     auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
     let authLen = auth.length;
@@ -727,7 +741,7 @@ function* sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLe
     }
     dataObject.setToken(bodyToken);
   }
-  let postRes = yield utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth);
+  let postRes = await utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth);
   ctx.logger.debug('postData response: data = %s', postRes.body);
   return postRes.body;
 }
@@ -759,11 +773,11 @@ function parseUrl(ctx, callbackUrl) {
   return result;
 }
 
-function* getCallback(ctx, id, opt_userIndex) {
+async function getCallback(ctx, id, opt_userIndex) {
   var callbackUrl = null;
   var baseUrl = null;
   let wopiParams = null;
-  var selectRes = yield taskResult.select(ctx, id);
+  var selectRes = await taskResult.select(ctx, id);
   if (selectRes.length > 0) {
     var row = selectRes[0];
     if (row.callback) {
@@ -816,6 +830,8 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   convertInfo.setFormData(undefined);
   if (convertInfo.getForceSave()) {
     convertInfo.getForceSave().setType(undefined);
+    convertInfo.getForceSave().setAuthorUserId(undefined);
+    convertInfo.getForceSave().setAuthorUserIndex(undefined);
   }
   yield editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), end, end, convertInfo);
 
@@ -851,7 +867,7 @@ async function checkForceSaveCache(ctx, convertInfo) {
   return res;
 }
 async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId,
-                                   opt_responseKey, opt_formdata) {
+                                   opt_responseKey, opt_formdata, opt_userId, opt_userIndex) {
   let res = {ok: false, notModified: false, inProgress: false, startedForceSave: null};
   if (!forceSave) {
     res.notModified = true;
@@ -868,6 +884,8 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
         cmd.setFormData(opt_formdata);
         if (cmd.getForceSave()) {
           cmd.getForceSave().setType(type);
+          cmd.getForceSave().setAuthorUserId(opt_userId);
+          cmd.getForceSave().setAuthorUserIndex(opt_userIndex);
         }
         //todo timeout because commandSfcCallback make request?
         await canvasService.commandSfcCallback(ctx, cmd, true, false);
@@ -892,7 +910,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
   }
   return res;
 }
-async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub, opt_conn) {
+async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub, opt_conn, opt_initShardKey) {
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
   let startedForceSave;
@@ -914,7 +932,8 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
         await editorData.setForceSave(ctx, docId, newChangesLastTime, 0, baseUrl, changeInfo, null);
         forceSave = await editorData.getForceSave(ctx, docId);
       }
-      let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, opt_formdata);
+      let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId,
+        opt_userConnectionDocId, opt_responseKey, opt_formdata, opt_userId, opt_userIndex);
       startedForceSave = applyCacheRes.startedForceSave;
       if (applyCacheRes.notModified) {
         let selectRes = await taskResult.select(ctx, docId);
@@ -956,7 +975,7 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     //start new convert
     let status = await converterService.convertFromChanges(ctx, docId, baseUrl, forceSave, startedForceSave.changeInfo,
       opt_userdata, opt_formdata, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, priority, expiration,
-      opt_queue);
+      opt_queue, undefined, opt_initShardKey);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
     } else {
@@ -1096,9 +1115,9 @@ function handleDeadLetter(data, ack) {
  * @param callback
  * @param baseUrl
  */
-function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIndex, opt_callback, opt_baseUrl, opt_userData, opt_forceClose) {
+async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIndex, opt_callback, opt_baseUrl, opt_userData, opt_forceClose) {
   if (!opt_callback) {
-    var getRes = yield* getCallback(ctx, docId, opt_userIndex);
+    var getRes = await getCallback(ctx, docId, opt_userIndex);
     if (getRes) {
       opt_callback = getRes.server;
       if (!opt_baseUrl) {
@@ -1115,9 +1134,9 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
   }
 
   var status = c_oAscServerStatus.Editing;
-  var participants = yield* getOriginalParticipantsId(ctx, docId);
+  var participants = await getOriginalParticipantsId(ctx, docId);
   if (0 === participants.length) {
-    let bHasChanges = yield hasChanges(ctx, docId);
+    let bHasChanges = await hasChanges(ctx, docId);
     if (!bHasChanges || opt_forceClose) {
       status = c_oAscServerStatus.Closed;
     }
@@ -1133,7 +1152,7 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
       updateTask.key = docId;
       updateTask.callback = opt_callback.href;
       updateTask.baseurl = opt_baseUrl;
-      var updateIfRes = yield taskResult.update(ctx, updateTask);
+      var updateIfRes = await taskResult.update(ctx, updateTask);
       if (updateIfRes.affectedRows > 0) {
         ctx.logger.debug('sendStatusDocument updateIf');
       } else {
@@ -1156,12 +1175,12 @@ function* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIn
   var uri = opt_callback.href;
   var replyData = null;
   try {
-    replyData = yield* sendServerRequest(ctx, uri, sendData);
+    replyData = await sendServerRequest(ctx, uri, sendData);
   } catch (err) {
     replyData = null;
     ctx.logger.error('postData error: url = %s;data = %j %s', uri, sendData, err.stack);
   }
-  yield* onReplySendStatusDocument(ctx, docId, replyData);
+  await onReplySendStatusDocument(ctx, docId, replyData);
   return opt_callback;
 }
 function parseReplyData(ctx, replyData) {
@@ -1176,13 +1195,13 @@ function parseReplyData(ctx, replyData) {
   }
   return res;
 }
-function* onReplySendStatusDocument(ctx, docId, replyData) {
+let onReplySendStatusDocument = co.wrap(function*(ctx, docId, replyData) {
   var oData = parseReplyData(ctx, replyData);
   if (!(oData && commonDefines.c_oAscServerCommandErrors.NoError == oData.error)) {
     // Error subscribing to callback, send warning
     yield* publish(ctx, {type: commonDefines.c_oPublishType.warning, ctx: ctx, docId: docId, description: 'Error on save server subscription!'});
   }
-}
+});
 function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, description) {
   if (Array.isArray(users)) {
     let usersMap = users.reduce(function(map, val) {
@@ -1242,7 +1261,7 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
   var bChangeBase;
   var oCallbackUrl;
   if (!callback) {
-    var getRes = yield* getCallback(ctx, docId);
+    var getRes = yield getCallback(ctx, docId);
     if (getRes && !getRes.wopiParams) {
       oCallbackUrl = getRes.server;
       bChangeBase = c_oAscChangeBase.Delete;
@@ -1262,13 +1281,13 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
   if (null === oCallbackUrl) {
     return commonDefines.c_oAscServerCommandErrors.ParseError;
   } else {
-    yield* sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
+    yield sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
     return commonDefines.c_oAscServerCommandErrors.NoError;
   }
 }
 let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   //wopi unlock
-  var getRes = yield* getCallback(ctx, docId, opt_userIndex);
+  var getRes = yield getCallback(ctx, docId, opt_userIndex);
   if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
     yield wopiClient.unlock(ctx, getRes.wopiParams);
     let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
@@ -1294,13 +1313,13 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
 function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, opt_forceClose) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // We send that everyone is gone and there are no changes (to set the status on the server about the end of editing)
-  yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
+  yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
   //if the user entered the document, the connection was broken, all information was deleted on the server,
   //when the connection is restored, the userIndex will be saved and it will match the userIndex of the next user
   yield* cleanDocumentOnExit(ctx, docId, false, opt_userIndex);
 }
 
-function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay) {
+function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay, opt_initShardKey) {
   return co(function*(){
     const tenAscSaveTimeOutDelay = ctx.getCfg('services.CoAuthoring.server.savetimeoutdelay', cfgAscSaveTimeOutDelay);
 
@@ -1318,7 +1337,7 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
       }
       while (true) {
         if (!sqlBase.isLockCriticalSection(docId)) {
-          canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_queue);
+          canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_queue, opt_initShardKey);
           break;
         }
         yield utils.sleep(c_oAscLockTimeOutDelay);
@@ -1377,7 +1396,7 @@ function getRequestParams(ctx, req, opt_isNotInBody) {
     const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
 
-    let res = {code: constants.NO_ERROR, isDecoded: false, params: undefined};
+    let res = {code: constants.NO_ERROR, description: "", isDecoded: false, params: undefined};
     if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
       res.params = JSON.parse(req.body.toString('utf8'));
     } else {
@@ -1408,6 +1427,7 @@ function getRequestParams(ctx, req, opt_isNotInBody) {
         } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
           res.code = constants.VKEY_KEY_EXPIRE;
         }
+        res.description = checkJwtRes.description;
       }
     }
     return res;
@@ -1721,6 +1741,7 @@ exports.install = function(server, callbackFunction) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
 
+    ctx.logger.info("Connection closed or timed out: reason = %s", reason);
     var userLocks, reconnected = false, bHasEditors, bHasChanges;
     var docId = conn.docId;
     if (null == docId) {
@@ -1730,7 +1751,7 @@ exports.install = function(server, callbackFunction) {
     let participantsTimestamp;
     var tmpUser = conn.user;
     var isView = tmpUser.view;
-    ctx.logger.info("Connection closed or timed out: reason = %s", reason);
+
     var isCloseCoAuthoringTmp = conn.isCloseCoAuthoring;
     if (reason) {
       //Notify that participant has gone
@@ -1751,7 +1772,7 @@ exports.install = function(server, callbackFunction) {
       }
     } else {
       if (!conn.isCloseCoAuthoring) {
-        tmpUser.view = true;
+        modifyConnectionEditorToView(ctx, conn);
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
         if (tenTokenEnableBrowser) {
@@ -1829,7 +1850,7 @@ exports.install = function(server, callbackFunction) {
             yield* cleanDocumentOnExit(ctx, docId, false, userIndex);
           }
         } else if (needSendStatus) {
-          yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
+          yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
         }
       }
     }
@@ -2011,7 +2032,6 @@ exports.install = function(server, callbackFunction) {
   function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-    conn.isCloseCoAuthoring = true;
     conn.sessionId = sessionId;//restore old
     //Kill previous connections
     connections = _.reject(connections, function(el) {
@@ -2486,7 +2506,7 @@ exports.install = function(server, callbackFunction) {
         upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), true, data.documentCallbackUrl, format);
         let isInserted = upsertRes.affectedRows == 1;
         curIndexUser = isInserted ? 1 : upsertRes.insertId;
-        if (isInserted && undefined !== data.timezoneOffset) {
+        if ((isInserted || (wopiParams && 2 === curIndexUser)) && (undefined !== data.timezoneOffset || ctx.shardKey)) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
           if (false === canvasService.hasAdditionalCol) {
             let selectRes = yield taskResult.select(ctx, docId);
@@ -2496,8 +2516,13 @@ exports.install = function(server, callbackFunction) {
             let task = new taskResult.TaskResultData();
             task.tenant = ctx.tenant;
             task.key = docId;
-            //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
-            task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+            if (undefined !== data.timezoneOffset) {
+              //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
+              task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+            }
+            if (ctx.shardKey) {
+              task.additional += sqlBase.DocumentAdditional.prototype.setShardKey(ctx.shardKey);
+            }
             yield taskResult.update(ctx, task);
           } else {
             ctx.logger.warn('auth unknown column "additional"');
@@ -2562,8 +2587,7 @@ exports.install = function(server, callbackFunction) {
             //do not modify the licenseType because this information is already sent in _checkLicense
             ctx.logger.error('auth: access to editor or live viewer is denied for anonymous users');
           }
-          conn.user.view = true;
-          delete conn.coEditingMode;
+          modifyConnectionEditorToView(ctx, conn);
         } else {
           //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
           yield* updateEditUsers(ctx, licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
@@ -2651,10 +2675,14 @@ exports.install = function(server, callbackFunction) {
             yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
             return;
           }
-        } else if (bIsRestore && commonDefines.FileStatus.UpdateVersion === status) {
-          // error version
-          yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
-          return;
+        } else if (commonDefines.FileStatus.UpdateVersion === status) {
+          if (bIsRestore) {
+            // error version
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
+            return;
+          } else {
+            modifyConnectionEditorToView(ctx, conn);
+          }
         } else if (commonDefines.FileStatus.None === status && conn.encrypted) {
           //ok
         } else if (bIsRestore) {
@@ -2751,8 +2779,10 @@ exports.install = function(server, callbackFunction) {
     if (!tmpUser.view) {
       const userIndex = utils.getIndexFromUserId(tmpUser.id, tmpUser.idOriginal);
       const userAction = new commonDefines.OutputAction(commonDefines.c_oAscUserAction.In, tmpUser.idOriginal);
-      let callback = yield* sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl);
-      if (!callback && !bIsRestore) {
+      //make async request to speed up file opening
+      sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, userIndex, documentCallback, conn.baseUrl)
+        .catch(err => ctx.logger.error('endAuth sendStatusDocument error: %s', err.stack));
+      if (!bIsRestore) {
         //check forgotten file
         let forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
         hasForgotten = forgotten.length > 0;
@@ -3792,7 +3822,7 @@ exports.install = function(server, callbackFunction) {
           if (constants.CONN_CLOSED === conn.conn.readyState) {
             ctx.logger.error('expireDoc connection closed');
           }
-          yield addPresence(ctx, conn, false);
+          yield updatePresence(ctx, conn);
           if (utils.isLiveViewer(conn)) {
             countLiveViewByShard++;
             tenant.countLiveViewByShard++;
@@ -3828,6 +3858,7 @@ exports.install = function(server, callbackFunction) {
           let aggregationCtx = new operationContext.Context();
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache();//no need
+          yield* collectStats(aggregationCtx, countEditByShard, countLiveViewByShard, countViewByShard);
           yield editorData.setEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, countEditByShard);
           yield editorData.setLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countLiveViewByShard);
           yield editorData.setViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countViewByShard);

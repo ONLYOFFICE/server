@@ -35,28 +35,38 @@
 var sqlDataBaseType = {
 	mySql		: 'mysql',
 	mariaDB		: 'mariadb',
+    msSql       : 'mssql',
 	postgreSql	: 'postgres',
-	dameng	: 'dameng'
+	dameng	: 'dameng',
+    oracle: 'oracle'
 };
 
+const connectorUtilities = require('./connectorUtilities');
+const utils = require('./../../Common/sources/utils');
 var bottleneck = require("bottleneck");
 var config = require('config');
 var configSql = config.get('services.CoAuthoring.sql');
+const dbType = configSql.get('type');
 
-var baseConnector;
-switch (configSql.get('type')) {
+let baseConnector;
+switch (dbType) {
   case sqlDataBaseType.mySql:
   case sqlDataBaseType.mariaDB:
     baseConnector = require('./mySqlBaseConnector');
     break;
+  case sqlDataBaseType.msSql:
+    baseConnector = require('./msSqlServerConnector');
+    break;
   case sqlDataBaseType.dameng:
     baseConnector = require('./damengBaseConnector');
+    break;
+  case sqlDataBaseType.oracle:
+    baseConnector = require('./oracleBaseConnector');
     break;
   default:
     baseConnector = require('./postgreSqlBaseConnector');
     break;
 }
-let constants = require('./../../Common/sources/constants');
 
 const cfgTableResult = configSql.get('tableResult');
 const cfgTableChanges = configSql.get('tableChanges');
@@ -122,10 +132,12 @@ function _insertChangesCallback (ctx, startIndex, objChanges, docId, index, user
   if (i === l)
     return;
 
+  const indexBytes = 4;
+  const timeBytes = 8;
   for (; i < l; ++i, ++index) {
-    //44 - length of "($1001,... $1007),"
+    //49 - length of "($1001,... $1008),"
     //4 is max utf8 bytes per symbol
-    lengthUtf8Row = 44 + 4 * (docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + 4 + 8;
+    lengthUtf8Row = 49 + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + indexBytes + timeBytes;
     if (lengthUtf8Row + lengthUtf8Current >= maxPacketSize && i > startIndex) {
       sqlCommand += ';';
       (function(tmpStart, tmpIndex) {
@@ -246,6 +258,36 @@ exports.getChangesPromise = function (ctx, docId, optStartIndex, optEndIndex, op
     });
   });
 };
+exports.getDocumentsWithChanges = baseConnector.getDocumentsWithChanges ?? function (ctx) {
+  return new Promise(function(resolve, reject) {
+    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE EXISTS(SELECT id FROM ${cfgTableChanges} WHERE tenant=${cfgTableResult}.tenant AND id = ${cfgTableResult}.id LIMIT 1);`;
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    }, false, false);
+  });
+}
+exports.getExpired = baseConnector.getExpired ?? function(ctx, maxCount, expireSeconds) {
+  return new Promise(function(resolve, reject) {
+    const values = [];
+    const expireDate = new Date();
+    utils.addSeconds(expireDate, -expireSeconds);
+    const date = addSqlParam(expireDate, values);
+    const count = addSqlParam(maxCount, values);
+    const sqlCommand = `SELECT tenant, id FROM ${cfgTableResult} WHERE last_open_date <= ${date}` +
+      ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${count};`;
+    baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
+    }, false, false, values);
+  });
+}
 
 exports.isLockCriticalSection = function (id) {
 	return !!(g_oCriticalSection[id]);
@@ -275,7 +317,18 @@ exports.healthCheck = function (ctx) {
   return new Promise(function(resolve, reject) {
   	//SELECT 1; usefull for H2, MySQL, Microsoft SQL Server, PostgreSQL, SQLite
   	//http://stackoverflow.com/questions/3668506/efficient-sql-test-query-or-validation-query-that-will-work-across-all-or-most
-    baseConnector.sqlQuery(ctx, 'SELECT 1;', function(error, result) {
+    let sql;
+    switch (dbType) {
+      case sqlDataBaseType.oracle: {
+        sql = 'SELECT 1 FROM DUAL';
+        break;
+      }
+      default: {
+        sql = 'SELECT 1;';
+      }
+    }
+
+    baseConnector.sqlQuery(ctx, sql, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -285,7 +338,7 @@ exports.healthCheck = function (ctx) {
   });
 };
 
-exports.getEmptyCallbacks = function(ctx) {
+exports.getEmptyCallbacks = baseConnector.getEmptyCallbacks ?? function(ctx) {
   return new Promise(function(resolve, reject) {
     const sqlCommand = `SELECT DISTINCT t1.tenant, t1.id FROM ${cfgTableChanges} t1 LEFT JOIN ${cfgTableResult} t2 ON t2.tenant = t1.tenant AND t2.id = t1.id WHERE t2.callback = '';`;
     baseConnector.sqlQuery(ctx, sqlCommand, function(error, result) {
@@ -313,156 +366,6 @@ exports.getTableColumns = function(ctx, tableName) {
     });
   }
 };
-function UserCallback() {
-  this.userIndex = undefined;
-  this.callback = undefined;
-}
-UserCallback.prototype.fromValues = function(userIndex, callback){
-  if(null !== userIndex){
-    this.userIndex = userIndex;
-  }
-  if(null !== callback){
-    this.callback = callback;
-  }
-};
-UserCallback.prototype.delimiter = constants.CHAR_DELIMITER;
-UserCallback.prototype.toSQLInsert = function(){
-  return this.delimiter + JSON.stringify(this);
-};
-UserCallback.prototype.getCallbackByUserIndex = function(ctx, callbacksStr, opt_userIndex) {
-  ctx.logger.debug("getCallbackByUserIndex: userIndex = %s callbacks = %s", opt_userIndex, callbacksStr);
-  if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
-    let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
-    if (-1 === index) {
-      //old format
-      return callbacksStr;
-    } else {
-      //mix of old and new format
-      callbacksStr = callbacksStr.substring(index);
-    }
-  }
-  let callbacks = callbacksStr.split(UserCallback.prototype.delimiter);
-  let callbackUrl = "";
-  for (let i = 1; i < callbacks.length; ++i) {
-    let callback = JSON.parse(callbacks[i]);
-    callbackUrl = callback.callback;
-    if (callback.userIndex === opt_userIndex) {
-      break;
-    }
-  }
-  return callbackUrl;
-};
-UserCallback.prototype.getCallbacks = function(ctx, callbacksStr) {
-  ctx.logger.debug("getCallbacks: callbacks = %s", callbacksStr);
-  if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
-    let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
-    if (-1 === index) {
-      //old format
-      return [callbacksStr];
-    } else {
-      //mix of old and new format
-      callbacksStr = callbacksStr.substring(index);
-    }
-  }
-  let callbacks = callbacksStr.split(UserCallback.prototype.delimiter);
-  let res = [];
-  for (let i = 1; i < callbacks.length; ++i) {
-    let callback = JSON.parse(callbacks[i]);
-    res.push(callback.callback);
-  }
-  return res;
-};
-exports.UserCallback = UserCallback;
-
-function DocumentPassword() {
-  this.password = undefined;
-  this.change = undefined;
-}
-DocumentPassword.prototype.fromString = function(passwordStr){
-  var parsed = JSON.parse(passwordStr);
-  this.fromValues(parsed.password, parsed.change);
-};
-DocumentPassword.prototype.fromValues = function(password, change){
-  if(null !== password){
-    this.password = password;
-  }
-  if(null !== change) {
-    this.change = change;
-  }
-};
-DocumentPassword.prototype.delimiter = constants.CHAR_DELIMITER;
-DocumentPassword.prototype.toSQLInsert = function(){
-  return this.delimiter + JSON.stringify(this);
-};
-DocumentPassword.prototype.isInitial = function(){
-  return !this.change;
-};
-DocumentPassword.prototype.getDocPassword = function(ctx, docPasswordStr) {
-  let res = {initial: undefined, current: undefined, change: undefined};
-  if (docPasswordStr) {
-    ctx.logger.debug("getDocPassword: passwords = %s", docPasswordStr);
-    let passwords = docPasswordStr.split(UserCallback.prototype.delimiter);
-
-    for (let i = 1; i < passwords.length; ++i) {
-      let password = new DocumentPassword();
-      password.fromString(passwords[i]);
-      if (password.isInitial()) {
-        res.initial = password.password;
-      } else {
-        res.change = password.change;
-      }
-      res.current = password.password;
-    }
-  }
-  return res;
-};
-DocumentPassword.prototype.getCurPassword = function(ctx, docPasswordStr) {
-  let docPassword = this.getDocPassword(ctx, docPasswordStr);
-  return docPassword.current;
-};
-DocumentPassword.prototype.hasPasswordChanges = function(ctx, docPasswordStr) {
-  let docPassword = this.getDocPassword(ctx, docPasswordStr);
-  return docPassword.initial !== docPassword.current;
-};
-exports.DocumentPassword = DocumentPassword;
-
-function DocumentAdditional() {
-  this.data = [];
-}
-DocumentAdditional.prototype.delimiter = constants.CHAR_DELIMITER;
-DocumentAdditional.prototype.toSQLInsert = function() {
-  if (this.data.length) {
-    let vals = this.data.map((currentValue) => {
-      return JSON.stringify(currentValue);
-    });
-    return this.delimiter + vals.join(this.delimiter);
-  } else {
-    return null;
-  }
-};
-DocumentAdditional.prototype.fromString = function(str) {
-  if (!str) {
-    return;
-  }
-  let vals = str.split(this.delimiter).slice(1);
-  this.data = vals.map((currentValue) => {
-    return JSON.parse(currentValue);
-  });
-};
-DocumentAdditional.prototype.setOpenedAt = function(time, timezoneOffset) {
-  let additional = new DocumentAdditional();
-  additional.data.push({time: time, timezoneOffset: timezoneOffset});
-  return additional.toSQLInsert();
-};
-DocumentAdditional.prototype.getOpenedAt = function(str) {
-  let res;
-  let val = new DocumentAdditional();
-  val.fromString(str);
-  val.data.forEach((elem) => {
-    if (undefined !== elem.timezoneOffset) {
-      res = elem.time - (elem.timezoneOffset * 60 * 1000);
-    }
-  });
-  return res;
-};
-exports.DocumentAdditional = DocumentAdditional;
+exports.UserCallback = connectorUtilities.UserCallback;
+exports.DocumentPassword = connectorUtilities.DocumentPassword;
+exports.DocumentAdditional = connectorUtilities.DocumentAdditional;

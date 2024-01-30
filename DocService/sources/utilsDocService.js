@@ -36,6 +36,9 @@ const exifParser = require("exif-parser");
 const Jimp = require("jimp");
 
 async function fixImageExifRotation(ctx, buffer) {
+  if (!buffer) {
+    return buffer;
+  }
   //todo move to DocService dir common
   try {
     let parser = exifParser.create(buffer);

@@ -40,6 +40,7 @@ var utils = require("./utils");
 var crypto = require('crypto');
 const ms = require('ms');
 const commonDefines = require('./../../Common/sources/commondefines');
+const constants = require('./../../Common/sources/constants');
 
 var config = require('config');
 var configStorage = config.get('storage');
@@ -202,6 +203,9 @@ exports.getSignedUrl = function(ctx, baseUrl, strPath, urlType, optFilename, opt
 
     url += '?md5=' + encodeURIComponent(md5);
     url += '&expires=' + encodeURIComponent(expires);
+  if (ctx.shardKey) {
+    url += `&${constants.SHARED_KEY_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+  }
     url += '&filename=' + userFriendlyName;
     resolve(url);
   });

@@ -60,12 +60,32 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const configStorage = config.get('storage');
 
 const cfgWopiEnable = config.get('wopi.enable');
+const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
 const cfgHtmlTemplate = config.get('wopi.htmlTemplate');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgLicenseFile = config.get('license.license_file');
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
+
+if (false) {
+	var cluster = require('cluster');
+	cluster.schedulingPolicy = cluster.SCHED_RR
+	if (cluster.isMaster) {
+		let workersCount = 2;
+		logger.warn('start cluster with %s workers %s', workersCount, cluster.schedulingPolicy);
+		for (let nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
+			var worker = cluster.fork().process;
+			logger.warn('worker %s started.', worker.pid);
+		}
+
+		cluster.on('exit', function (worker) {
+			logger.warn('worker %s died. restart...', worker.process.pid);
+			cluster.fork();
+		});
+		return;
+	}
+}
 
 const app = express();
 app.disable('x-powered-by');
@@ -230,6 +250,7 @@ docsCoServer.install(server, () => {
 	app.post('/savefile/:docid', rawFileParser, canvasService.saveFile);
 	app.get('/printfile/:docid/:filename', canvasService.printFile);
 	app.get('/downloadfile/:docid', canvasService.downloadFile);
+	app.post('/downloadfile/:docid', rawFileParser, canvasService.downloadFile);
 	app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
 	app.get('/baseurl', (req, res) => {
@@ -273,6 +294,24 @@ docsCoServer.install(server, () => {
 				res.sendStatus(404);
 			});
 	}
+	function checkWopiDummyEnable(req, res, next) {
+		//todo may be move code into wopiClient or wopiClient.discovery...
+		let ctx = new operationContext.Context();
+		ctx.initFromRequest(req);
+		ctx.initTenantCache()
+			.then(() => {
+				const tenWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
+				const tenWopiDummyEnable = ctx.getCfg('wopi.dummy.enable', cfgWopiDummyEnable);
+				if (tenWopiEnable && tenWopiDummyEnable) {
+					next();
+				} else {
+					res.sendStatus(404);
+				}
+			}).catch((err) => {
+				ctx.logger.error('checkWopiDummyEnable error: %s', err.stack);
+				res.sendStatus(404);
+			});
+	}
 	//todo dest
 	let fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 	app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
@@ -282,8 +321,12 @@ docsCoServer.install(server, () => {
 	app.post('/hosting/wopi/:documentType/:mode', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
 	app.post('/hosting/wopi/convert-and-edit/:ext/:targetext', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getConverterHtml);
 	app.get('/hosting/wopi/convert-and-edit-handler', checkWopiEnable, utils.lowercaseQueryString, converterService.getConverterHtmlHandler);
+	app.get('/wopi/files/:docid', apicache.middleware("5 minutes"), checkWopiDummyEnable, utils.lowercaseQueryString, wopiClient.dummyCheckFileInfo);
+	app.post('/wopi/files/:docid', checkWopiDummyEnable, wopiClient.dummyOk);
+	app.get('/wopi/files/:docid/contents', apicache.middleware("5 minutes"), checkWopiDummyEnable, wopiClient.dummyGetFile);
+	app.post('/wopi/files/:docid/contents', checkWopiDummyEnable, wopiClient.dummyOk);
 
-	app.post('/dummyCallback', utils.checkClientIp, rawFileParser, function(req, res){
+	app.post('/dummyCallback', utils.checkClientIp, apicache.middleware("5 minutes"), rawFileParser, function(req, res){
 		let ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
 		//yield ctx.initTenantCache();//no need
@@ -387,11 +430,16 @@ docsCoServer.install(server, () => {
 			}
 		});
 	});
+	app.use((err, req, res, next) => {
+		let ctx = new operationContext.Context();
+		ctx.initFromRequest(req);
+		ctx.logger.error('default error handler:%s', err.stack);
+		res.sendStatus(500);
+	});
 });
 
 process.on('uncaughtException', (err) => {
-	operationContext.global.logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
-	operationContext.global.logger.error(err.stack);
+	operationContext.global.logger.error('uncaughtException:%s', err.stack);
 	logger.shutdown(() => {
 		process.exit(1);
 	});

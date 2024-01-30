@@ -319,11 +319,11 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     if (!options.headers) {
       options.headers = {};
     }
+    if (opt_Authorization) {
+      options.headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
+    }
     if (opt_headers) {
       Object.assign(options.headers, opt_headers);
-      // options.headers = opt_headers;
-    } else if (opt_Authorization) {
-      options.headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
     }
     let fError = function(err) {
       reject(err);
@@ -356,7 +356,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       var contentLength = response.caseless.get('content-length');
       if (contentLength && (contentLength - 0) > sizeLimit) {
         raiseError(this, 'EMSGSIZE', 'Error response: content-length:' + contentLength);
-      } else if (response.statusCode !== 200) {
+      } else if (response.statusCode !== 200 && response.statusCode !== 206) {
         let code = response.statusCode;
         let responseHeaders = JSON.stringify(response.headers);
         let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders};`);
@@ -731,6 +731,14 @@ function getDomainByRequest(ctx, req) {
 }
 exports.getDomainByConnection = getDomainByConnection;
 exports.getDomainByRequest = getDomainByRequest;
+function getShardByConnection(ctx, conn) {
+  return  conn?.handshake?.query?.[constants.SHARED_KEY_NAME];
+}
+function getShardKeyByRequest(ctx, req) {
+  return req.query[constants.SHARED_KEY_NAME];
+}
+exports.getShardByConnection = getShardByConnection;
+exports.getShardKeyByRequest = getShardKeyByRequest;
 function stream2Buffer(stream) {
   return new Promise(function(resolve, reject) {
     if (!stream.readable) {
