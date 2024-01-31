@@ -176,7 +176,13 @@
 				"charset": "utf8",
 				"connectionlimit": 10,
 				"max_allowed_packet": 1048575,
-				"pgPoolExtraOptions": {},
+				"pgPoolExtraOptions": {
+					"idleTimeoutMillis": 3000,
+					"maxLifetimeSeconds ": 60000,
+					"statement_timeout ": 60000,
+					"query_timeout  ": 60000,
+					"connectionTimeoutMillis": 60000
+				},
 				"damengExtraOptions": {
 					"columnNameUpperCase": false,
 					"columnNameCase": "lower",
