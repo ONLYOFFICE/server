@@ -275,6 +275,7 @@ function convertRequest(req, res, isJson) {
       cmd.setFormat(filetype);
       cmd.setDocId(docId);
       cmd.setOutputFormat(outputFormat);
+      let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
 
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage] || commonDefines.c_oAscCodePageUtf8);
       cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
@@ -283,11 +284,18 @@ function convertRequest(req, res, isJson) {
       if (params.region && locale[params.region.toLowerCase()]) {
         cmd.setLCID(locale[params.region.toLowerCase()].id);
       }
+      let jsonParams = {};
       if (params.documentLayout) {
-        cmd.setJsonParams(JSON.stringify({'documentLayout': params.documentLayout}));
+        jsonParams['documentLayout'] = params.documentLayout;
       }
       if (params.spreadsheetLayout) {
-        cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': params.spreadsheetLayout}));
+        jsonParams['spreadsheetLayout'] = params.spreadsheetLayout;
+      }
+      if (params.watermark) {
+        jsonParams['watermark'] = params.watermark;
+      }
+      if (Object.keys(jsonParams).length > 0) {
+        cmd.setJsonParams(JSON.stringify(jsonParams));
       }
       if (params.password) {
         if (params.password.length > constants.PASSWORD_MAX_LENGTH) {
@@ -323,8 +331,8 @@ function convertRequest(req, res, isJson) {
             break;
         }
         cmd.setThumbnail(thumbnailData);
-        if (false == thumbnailData.getFirst()) {
-          cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_IMAGE);
+        if (false === thumbnailData.getFirst() && 0 !== (constants.AVS_OFFICESTUDIO_FILE_IMAGE & cmd.getOutputFormat())) {
+          outputExt = 'zip';
         }
       }
       var documentRenderer = params.documentRenderer;
@@ -350,7 +358,6 @@ function convertRequest(req, res, isJson) {
         }
         cmd.setTextParams(textParamsData);
       }
-      let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
       if (params.title) {
         cmd.setTitle(path.basename(params.title, path.extname(params.title)) + '.' + outputExt);
       }

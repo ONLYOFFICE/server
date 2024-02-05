@@ -292,7 +292,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       }
       break;
     case commonDefines.FileStatus.None:
-      outputData.setStatus('none');
+      //this status has no handler
       break;
     case commonDefines.FileStatus.WaitQueue:
       //task in the queue. response will be after convertion
@@ -302,6 +302,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       outputData.setData(constants.UNKNOWN);
       break;
   }
+  return status;
 });
 function* addRandomKeyTaskCmd(ctx, cmd) {
   var task = yield* taskResult.addRandomKeyTask(ctx, cmd.getDocId());
@@ -517,8 +518,8 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
     }
   }
 function* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore) {
-  yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
-  return 'none' === outputData.getStatus();
+  let status = yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
+  return commonDefines.FileStatus.None === status;
 }
 function* commandReopen(ctx, conn, cmd, outputData) {
   const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
@@ -1336,7 +1337,7 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
       outputData.setData(constants.UNKNOWN);
     }
     finally {
-      if (outputData && outputData.getStatus()) {
+      if (outputData?.getStatus()) {
         ctx.logger.debug('Response command: %s', JSON.stringify(outputData));
         docsCoServer.sendData(ctx, conn, new OutputDataWrap('documentOpen', outputData));
       }
@@ -1583,8 +1584,12 @@ exports.downloadFile = function(req, res) {
       }
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      let url = decodeURI(req.get('x-url'));
       ctx.setDocId(req.params.docid);
+      //todo remove in 8.1. For compatibility
+      let url = req.get('x-url');
+      if (url) {
+        url = decodeURI(url);
+      }
       ctx.logger.info('Start downloadFile');
       const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
       const tenDownloadMaxBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgDownloadMaxBytes);
@@ -1593,32 +1598,35 @@ exports.downloadFile = function(req, res) {
       const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
 
       let authorization;
-      if (tenTokenEnableBrowser) {
-        let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Browser);
-        let errorDescription;
-        if (checkJwtRes.decoded) {
-          let decoded = checkJwtRes.decoded;
-          if (decoded.changesUrl) {
-            url = decoded.changesUrl;
-          } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
-            url = decoded.document.url;
-          } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
+      let errorDescription;
+      let authRes = yield docsCoServer.getRequestParams(ctx, req);
+      if (authRes.code === constants.NO_ERROR) {
+        let decoded = authRes.params;
+        if (decoded.changesUrl) {
+          url = decoded.changesUrl;
+        } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
+          url = decoded.document.url;
+        } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
+          url = decoded.url;
+        } else if (!tenTokenEnableBrowser) {
+          //todo token required
+          if (decoded.url) {
             url = decoded.url;
-          } else {
-            errorDescription = 'access deny';
           }
         } else {
-          errorDescription = checkJwtRes.description;
+          errorDescription = 'access deny';
         }
-        if (errorDescription) {
-          ctx.logger.warn('Error downloadFile jwt: description = %s', errorDescription);
-          res.sendStatus(403);
-          return;
-        }
-        if (utils.canIncludeOutboxAuthorization(ctx, url)) {
-          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorization = utils.fillJwtForRequest(ctx, {url: url}, secret, false);
-        }
+      } else {
+        errorDescription = authRes.description || 'need token';
+      }
+      if (errorDescription) {
+        ctx.logger.warn('Error downloadFile jwt: description = %s', errorDescription);
+        res.sendStatus(403);
+        return;
+      }
+      if (utils.canIncludeOutboxAuthorization(ctx, url)) {
+        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+        authorization = utils.fillJwtForRequest(ctx, {url: url}, secret, false);
       }
       let urlParsed = urlModule.parse(url);
       let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);

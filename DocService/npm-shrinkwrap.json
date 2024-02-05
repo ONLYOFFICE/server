@@ -2657,9 +2657,9 @@
       }
     },
     "oracledb": {
-      "version": "6.0.1",
-      "resolved": "https://registry.npmjs.org/oracledb/-/oracledb-6.0.1.tgz",
-      "integrity": "sha512-N5/Y4IkCFQCumqjEXi3snrclDKjDMMeawq/z/5Ydm5+BxjV3kg9wCaTAp++JTLlCWASb4JMXqK70PctmAkZh3g=="
+      "version": "6.3.0",
+      "resolved": "https://registry.npmjs.org/oracledb/-/oracledb-6.3.0.tgz",
+      "integrity": "sha512-fr3U66QxgGXb5cs/ozLBQU50TMbZcBQEWvSaj2rJAXG8KRrsZcGOK8JTlZL1yJHeW8cSjOm6n/wTw3SJksGjDg=="
     },
     "packet-reader": {
       "version": "1.0.0",
