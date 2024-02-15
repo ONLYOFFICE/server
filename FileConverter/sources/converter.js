@@ -74,8 +74,9 @@ const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgEditor = config.get('services.CoAuthoring.editor');
-const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
 const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
+const cfgExternalRequestDirectIfIn = config.get('externalRequest.directIfIn');
+const cfgExternalRequestAction = config.get('externalRequest.action');
 
 //windows limit 512(2048) https://msdn.microsoft.com/en-us/library/6e3b887c.aspx
 //Ubuntu 14.04 limit 4096 http://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors.html
@@ -164,7 +165,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
     xml += this.serializeLimit(ctx);
-    xml += this.serializeOptions(ctx);
+    xml += this.serializeOptions(ctx, false);
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
   },
@@ -187,12 +188,45 @@ TaskQueueDataConvert.prototype = {
       return xml;
     });
   },
-  serializeOptions: function (ctx) {
+  serializeOptions: function (ctx, isInJwtToken) {
     const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
+    const tenExternalRequestDirectIfIn = ctx.getCfg('externalRequest.directIfIn', cfgExternalRequestDirectIfIn);
+    const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
+    let allowList = tenExternalRequestDirectIfIn.allowList;
+    let allowNetworkRequest = tenExternalRequestAction.allow;
+    let allowPrivateIP = !tenExternalRequestAction.blockPrivateIP && tenRequesFilteringAgent.allowPrivateIPAddress;
+    let proxyUrl = tenExternalRequestAction.proxyUrl;
+    let proxyUser = tenExternalRequestAction.proxyUser;
+    let proxyHeaders = tenExternalRequestAction.proxyHeaders;
+    if (allowList.length === 0 && tenExternalRequestDirectIfIn.jwtToken && isInJwtToken) {
+      allowNetworkRequest = true;
+      allowPrivateIP = true;
+      proxyUrl = "";
+      proxyUser = null;
+      proxyHeaders = {};
+    }
     let xml = "";
     xml += '<options>';
-    xml += this.serializeXmlProp('allowNetworkRequest', true);
-    xml += this.serializeXmlProp('allowPrivateIP', tenRequesFilteringAgent.allowPrivateIPAddress);
+    if (allowList.length > 0) {
+      xml += this.serializeXmlProp('allowList', allowList.join(';'));
+    }
+    xml += this.serializeXmlProp('allowNetworkRequest', allowNetworkRequest);
+    xml += this.serializeXmlProp('allowPrivateIP', allowPrivateIP);
+    if (proxyUrl) {
+      xml += this.serializeXmlProp('proxy', proxyUrl);
+    }
+    if (proxyUser) {
+      let user = proxyUser.username;
+      let pass = proxyUser.password;
+      xml += this.serializeXmlProp('proxyUser', `${user}:${pass}`);
+    }
+    let proxyHeadersStr= [];
+    for (let name in proxyHeaders) {
+      proxyHeadersStr.push(`${name}:${proxyHeaders[name]}`);
+    }
+    if (proxyHeadersStr.length > 0) {
+      xml += this.serializeXmlProp('proxyHeader', proxyHeadersStr.join(';'));
+    }
     xml += '</options>';
     return xml;
   },
@@ -257,6 +291,7 @@ TaskQueueDataConvert.prototype = {
   },
   serializeXmlProp: function(name, value) {
     var xml = '';
+    //todo check empty and undefined (password?)
     if (null != value) {
       xml += '<' + name + '>';
       xml += utils.encodeXml(value.toString());
@@ -346,7 +381,7 @@ function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
     }
   }
 }
-function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt_headers) {
+function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_headers) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
   const tenDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
@@ -365,7 +400,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, filterPrivate, opt
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
         }
-        let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, tenMaxDownloadBytes, authorization, filterPrivate, opt_headers);
+        let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, tenMaxDownloadBytes, authorization, isInJwtToken, opt_headers);
         data = getRes.body;
         sha256 = getRes.sha256;
         res = constants.NO_ERROR;
@@ -897,7 +932,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
   return queueData;
 }
 
-function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task) {
+function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task, isInJwtToken) {
   const tenX2tPath = ctx.getCfg('FileConverter.converter.x2tPath', cfgX2tPath);
   const tenDocbuilderPath = ctx.getCfg('FileConverter.converter.docbuilderPath', cfgDocbuilderPath);
   const tenArgs = ctx.getCfg('FileConverter.converter.args', cfgArgs);
@@ -926,7 +961,7 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
     if (builderParams.argument) {
       childArgs.push(`--argument=${JSON.stringify(builderParams.argument)}`);
     }
-    childArgs.push('--options=' + dataConvert.serializeOptions(ctx));
+    childArgs.push('--options=' + dataConvert.serializeOptions(ctx, isInJwtToken));
     childArgs.push(dataConvert.fileFrom);
   }
   let timeoutId;
@@ -970,7 +1005,6 @@ function* ExecuteTask(ctx, task) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
   const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
-  const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
   var startDate = null;
   var curDate = null;
   if(clientStatsD) {
@@ -988,6 +1022,7 @@ function* ExecuteTask(ctx, task) {
   dataConvert.fileTo = fileTo ? path.join(tempDirs.result, fileTo) : '';
   let builderParams = cmd.getBuilderParams();
   let authorProps = {lastModifiedBy: null, modified: null};
+  let isInJwtToken = cmd.getWithAuthorization();
   error = yield* isUselessConvertion(ctx, task, cmd);
   if (constants.NO_ERROR !== error) {
     ;
@@ -997,13 +1032,12 @@ function* ExecuteTask(ctx, task) {
     if (utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
-      let filterPrivate = !withAuthorization || !tenAllowPrivateIPAddressForSignedRequests;
       let headers;
       let fileSize;
       let wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
-        filterPrivate = !tenAllowPrivateIPAddressForSignedRequests;
+        isInJwtToken = true;
         let fileInfo = wopiParams.commonInfo?.fileInfo;
         let userAuth = wopiParams.userAuth;
         fileSize = fileInfo?.Size;
@@ -1020,7 +1054,7 @@ function* ExecuteTask(ctx, task) {
         ctx.logger.debug('wopi url=%s; headers=%j', url, headers);
       }
       if (undefined === fileSize || fileSize > 0) {
-        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, filterPrivate, headers);
+        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers);
       }
       if (constants.NO_ERROR === error) {
         yield* replaceEmptyFile(ctx, dataConvert.fileFrom, format, cmd.getLCID());
@@ -1066,7 +1100,7 @@ function* ExecuteTask(ctx, task) {
   let childRes = null;
   let isTimeout = false;
   if (constants.NO_ERROR === error) {
-    ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task));
+    ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task, isInJwtToken));
     if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
       && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
       && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
@@ -1075,7 +1109,7 @@ function* ExecuteTask(ctx, task) {
       let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
       dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
       dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
-      ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task));
+      ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task, isInJwtToken));
     }
     if(clientStatsD) {
       clientStatsD.timing('conv.spawnSync', new Date() - curDate);

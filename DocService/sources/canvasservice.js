@@ -70,7 +70,6 @@ const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemb
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgDownloadFileAllowExt = config.get('services.CoAuthoring.server.downloadFileAllowExt');
-const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -658,11 +657,11 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
   const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
   const tenImageDownloadTimeout = ctx.getCfg('services.CoAuthoring.server.limits_image_download_timeout', cfgImageDownloadTimeout);
   const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
-  const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
 
   var errorCode = constants.NO_ERROR;
   let urls = cmd.getData();
   let authorizations = [];
+  let isInJwtToken = false;
   let token = cmd.getTokenDownload();
   if (tenTokenEnableBrowser && token) {
     let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
@@ -681,6 +680,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           authorizations[i] = [utils.fillJwtForRequest(ctx, {url: urls[i]}, secret, false)];
         }
       }
+      isInJwtToken = true;
     } else {
       ctx.logger.warn('Error commandImgurls jwt: %s', checkJwtRes.description);
       errorCode = constants.VKEY_ENCRYPT;
@@ -723,8 +723,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
             }
           }
           //todo stream
-          const filterPrivate = !authorizations[i] || !tenAllowPrivateIPAddressForSignedRequests;
-          let getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], filterPrivate);
+          let getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], isInJwtToken);
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -1595,23 +1594,27 @@ exports.downloadFile = function(req, res) {
       const tenDownloadMaxBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgDownloadMaxBytes);
       const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
       const tenDownloadFileAllowExt = ctx.getCfg('services.CoAuthoring.server.downloadFileAllowExt', cfgDownloadFileAllowExt);
-      const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
 
       let authorization;
+      let isInJwtToken = false;
       let errorDescription;
       let authRes = yield docsCoServer.getRequestParams(ctx, req);
       if (authRes.code === constants.NO_ERROR) {
         let decoded = authRes.params;
         if (decoded.changesUrl) {
           url = decoded.changesUrl;
+          isInJwtToken = true;
         } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
           url = decoded.document.url;
+          isInJwtToken = true;
         } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
           url = decoded.url;
+          isInJwtToken = true;
         } else if (!tenTokenEnableBrowser) {
           //todo token required
           if (decoded.url) {
             url = decoded.url;
+            isInJwtToken = true;
           }
         } else {
           errorDescription = 'access deny';
@@ -1642,8 +1645,7 @@ exports.downloadFile = function(req, res) {
         }
       }
 
-      const filterPrivate = !authorization || !tenAllowPrivateIPAddressForSignedRequests;
-      yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, filterPrivate, headers, res);
+      yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, res);
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.downloadFile', new Date() - startDate);
