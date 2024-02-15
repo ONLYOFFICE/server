@@ -61,7 +61,6 @@ const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.al
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
-const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
@@ -701,7 +700,6 @@ function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
     let fileInfo = undefined;
     try {
       ctx.logger.info('wopi checkFileInfo start');
-      const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
       const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
 
       let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
@@ -715,8 +713,9 @@ function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
       }
       fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-      const filterPrivate = !tenAllowPrivateIPAddressForSignedRequests;
-      let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, filterPrivate, headers);
+      //todo false?
+      let isInJwtToken = true;
+      let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, isInJwtToken, headers);
       ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
       fileInfo = JSON.parse(getRes.body);
     } catch (err) {

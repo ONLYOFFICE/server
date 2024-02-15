@@ -119,6 +119,23 @@
 			"useClones": false
 		}
 	},
+	"externalRequest": {
+		"directIfIn" : {
+			"allowList": [],
+			"jwtToken": true
+		},
+		"action": {
+			"allow": true,
+			"blockPrivateIP": true,
+			"proxyUrl": "",
+			"proxyAuth": {
+				"username": "",
+				"password": ""
+			},
+			"proxyHeaders": {
+			}
+		}
+	},
 	"services": {
 		"CoAuthoring": {
 			"server": {

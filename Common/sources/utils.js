@@ -84,7 +84,10 @@ const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
 const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
 const cfgPasswordConfig = config.get('openpgpjs.config');
 const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
+const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
 const cfgStorageExternalHost = config.get('storage.externalHost');
+const cfgExternalRequestDirectIfIn = config.get('externalRequest.directIfIn');
+const cfgExternalRequestAction = config.get('externalRequest.action');
 
 const dnscache = getDnsCache(cfgDnsCache);
 
@@ -266,6 +269,54 @@ function raiseErrorObj(ro, error) {
 function isRedirectResponse(response) {
   return response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location');
 }
+
+function isAllowDirectRequest(ctx, uri, isInJwtToken) {
+  let res = false;
+  const tenExternalRequestDirectIfIn = ctx.getCfg('externalRequest.directIfIn', cfgExternalRequestDirectIfIn);
+  const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
+  let allowList = tenExternalRequestDirectIfIn.allowList;
+  if (allowList.length > 0) {
+    let allowIndex = allowList.findIndex((allowPrefix) => {
+      return uri.startsWith(allowPrefix);
+    }, uri);
+    res = -1 !== allowIndex;
+    ctx.logger.debug("isAllowDirectRequest check allow list res=%s", res);
+  } else if (tenExternalRequestDirectIfIn.jwtToken && tenAllowPrivateIPAddressForSignedRequests) {
+    res = isInJwtToken;
+    ctx.logger.debug("isAllowDirectRequest url in jwt token res=%s", res);
+  }
+  return res;
+}
+function addExternalRequestOptions(ctx, uri, isInJwtToken, options) {
+  let res = false;
+  const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
+  const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
+  if (isAllowDirectRequest(ctx, uri, isInJwtToken)) {
+    res = true;
+  } else if (tenExternalRequestAction.allow) {
+    res = true;
+    if (tenExternalRequestAction.blockPrivateIP) {
+      const agentOptions = Object.assign({}, https.globalAgent.options, tenRequesFilteringAgent);
+      options.agent = getRequestFilterAgent(uri, agentOptions);
+    }
+    if (tenExternalRequestAction.proxyUrl) {
+      options.proxy = tenExternalRequestAction.proxyUrl;
+    }
+    if (tenExternalRequestAction.proxyUser?.username) {
+      let user = tenExternalRequestAction.proxyUser.username;
+      let pass = tenExternalRequestAction.proxyUser.password;
+      options.headers = {'proxy-authorization': `${user}:${pass}`};
+    }
+    if (tenExternalRequestAction.proxyHeaders) {
+      if (!options.headers) {
+        options.headers = {};
+      }
+      Object.assign(options.headers, tenExternalRequestAction.proxyHeaders);
+    }
+  }
+  return res;
+}
+
 function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   //todo replace deprecated request module
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
@@ -298,7 +349,6 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
     const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
     const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-    const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
     var urlParsed = url.parse(uri);
@@ -309,10 +359,12 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     let options = config.util.extendDeep({}, tenTenantRequestDefaults);
     Object.assign(options, {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false});
-    if (opt_filterPrivate) {
-      const agentOptions = Object.assign({}, https.globalAgent.options, tenRequesFilteringAgent);
-      options.agent = getRequestFilterAgent(uri, agentOptions);
-    } else {
+    if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options)) {
+      reject(new Error('Block external request. See externalRequest config options'));
+      return;
+    }
+
+    if (!options.agent) {
       //baseRequest creates new agent(win-ca injects in globalAgent)
       options.agentOptions = https.globalAgent.options;
     }
