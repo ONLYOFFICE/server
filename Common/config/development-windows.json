@@ -48,8 +48,8 @@
         "dbPass": "onlyoffice"
       },
       "request-filtering-agent" : {
-        "allowPrivateIPAddress": false,
-        "allowMetaIPAddress": false
+        "allowPrivateIPAddress": true,
+        "allowMetaIPAddress": true
       },
       "sockjs": {
         "sockjs_url": "/web-apps/vendor/sockjs/sockjs.min.js"
