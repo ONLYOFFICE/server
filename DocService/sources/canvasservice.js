@@ -229,6 +229,18 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
           optAdditionalOutput.needUrlMethod = 2;
           optAdditionalOutput.needUrlType = commonDefines.c_oAscUrlTypes.Temporary;
         }
+        if (command === 'save') {
+          const info = yield docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
+          // info.wopiParams is null if it is not wopi
+          // TODO: pass 'save as' flag from web-apps and check here
+          if (info.wopiParams && wopiClient.isPutRelativeFileImplemented()) {
+            const suggestedTargetType = `.${formatChecker.getStringFromFormat(cmd.getOutputFormat())}`;
+            const storageFilePath = `${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
+            const stream = yield storage.createReadStream(ctx, storageFilePath);
+            const { wopiSrc, access_token } = info.wopiParams.userAuth;
+            yield wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, stream.readStream, stream.ContentLength, suggestedTargetType, false);
+          }
+        }
       } else {
         let encryptedUserPassword = cmd.getPassword();
         let userPassword;
