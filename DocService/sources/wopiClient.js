@@ -89,8 +89,6 @@ const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
 let templatesFolderLocalesCache = null;
 const templateFilesSizeCache = {};
 
-let isPutRelativeFileFlag = false;
-
 let mimeTypesByExt = (function() {
   let mimeTypesByExt = {};
   for (let mimeType in mimeDB) {
@@ -413,8 +411,6 @@ function getEditorHtml(req, res) {
         return;
       }
 
-      isPutRelativeFileFlag = fileInfo.SupportsUpdate && !fileInfo.UserCanNotWriteRelative;
-
       if (!fileInfo.UserCanWrite) {
         mode = 'view';
       }
@@ -637,8 +633,10 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
         return postRes;
       }
 
-      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget),
-      'X-WOPI-FileConversion': isFileConversion};
+      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget)};
+      if (isFileConversion) {
+        headers['X-WOPI-FileConversion'] = isFileConversion;
+      }
       fillStandardHeaders(ctx, headers, uri, access_token);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
@@ -938,10 +936,6 @@ function dummyOk(req, res) {
   res.sendStatus(200);
 }
 
-function isPutRelativeFileImplemented() {
-  return isPutRelativeFileFlag;
-}
-
 exports.discovery = discovery;
 exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;
@@ -961,4 +955,3 @@ exports.getFileTypeByInfo = getFileTypeByInfo;
 exports.dummyCheckFileInfo = dummyCheckFileInfo;
 exports.dummyGetFile = dummyGetFile;
 exports.dummyOk = dummyOk;
-exports.isPutRelativeFileImplemented = isPutRelativeFileImplemented;
