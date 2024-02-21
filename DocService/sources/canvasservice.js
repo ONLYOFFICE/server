@@ -1725,6 +1725,18 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
     }
   });
 };
+
+async function processWopiSaveAs(ctx, cmd) {
+  const info = await docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
+  // info.wopiParams is null if it is not wopi
+  if (info.wopiParams) {
+    const suggestedTargetType = `.${formatChecker.getStringFromFormat(cmd.getOutputFormat())}`;
+    const storageFilePath = `${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
+    const stream = await storage.createReadStream(ctx, storageFilePath);
+    const { wopiSrc, access_token } = info.wopiParams.userAuth;
+    await wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, stream.readStream, stream.ContentLength, suggestedTargetType, false);
+  }
+}
 exports.receiveTask = function(data, ack) {
   return co(function* () {
     let ctx = new operationContext.Context();
@@ -1741,17 +1753,21 @@ exports.receiveTask = function(data, ack) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
           var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined, creationDate: undefined, openedAt: undefined};
-          if ('open' == command || 'reopen' == command) {
+          if ('open' === command || 'reopen' === command) {
             yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), null, additionalOutput);
-          } else if ('save' == command || 'savefromorigin' == command) {
-            yield getOutputData(ctx, cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
-          } else if ('sfcm' == command) {
+          } else if ('save' === command || 'savefromorigin' === command) {
+            let status = yield getOutputData(ctx, cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
+            if (commonDefines.FileStatus.Ok === status && cmd.getIsSaveAs()) {
+              yield processWopiSaveAs(ctx, cmd);
+              //todo in case of wopi no need to send url. send it to avoid stubs in sdk
+            }
+          } else if ('sfcm' === command) {
             yield commandSfcCallback(ctx, cmd, true);
-          } else if ('sfc' == command) {
+          } else if ('sfc' === command) {
             yield commandSfcCallback(ctx, cmd, false);
-          } else if ('sendmm' == command) {
+          } else if ('sendmm' === command) {
             yield* commandSendMMCallback(ctx, cmd);
-          } else if ('conv' == command) {
+          } else if ('conv' === command) {
             //nothing
           }
           if (outputData.getStatus()) {

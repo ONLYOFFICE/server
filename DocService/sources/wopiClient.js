@@ -633,8 +633,10 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
         return postRes;
       }
 
-      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget),
-      'X-WOPI-FileConversion': isFileConversion};
+      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget)};
+      if (isFileConversion) {
+        headers['X-WOPI-FileConversion'] = isFileConversion;
+      }
       fillStandardHeaders(ctx, headers, uri, access_token);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
