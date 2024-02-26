@@ -2242,7 +2242,7 @@ exports.install = function(server, callbackFunction) {
       let queryParams = decoded.queryParams;
       data.lang = queryParams.lang || queryParams.ui || "en-US";
     }
-    if (decoded.fileInfo) {
+    if (wopiClient.isWopiJwtToken(decoded)) {
       let fileInfo = decoded.fileInfo;
       if (openCmd) {
         openCmd.format = wopiClient.getFileTypeByInfo(fileInfo);
@@ -2397,7 +2397,7 @@ exports.install = function(server, callbackFunction) {
     }
 
     //todo make required fields
-    if (decoded.url || decoded.payload|| (decoded.key && !decoded.fileInfo)) {
+    if (decoded.url || decoded.payload|| (decoded.key && !wopiClient.isWopiJwtToken(decoded))) {
       ctx.logger.warn('fillDataFromJwt token has invalid format');
       res = false;
     }
@@ -2438,7 +2438,7 @@ exports.install = function(server, callbackFunction) {
           isDecoded = true;
           let decoded = checkJwtRes.decoded;
           let fillDataFromJwtRes = false;
-          if (decoded.fileInfo) {
+          if (wopiClient.isWopiJwtToken(decoded)) {
             //wopi
             fillDataFromJwtRes = fillDataFromWopiJwt(decoded, data);
           } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_view) {

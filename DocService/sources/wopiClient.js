@@ -63,6 +63,7 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
+const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
 const cfgWopiPdfView = config.get('wopi.pdfView');
@@ -288,6 +289,25 @@ function getFileTypeByInfo(fileInfo) {
   let fileType = fileInfo.BaseFileName ? fileInfo.BaseFileName.substr(fileInfo.BaseFileName.lastIndexOf('.') + 1) : "";
   fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
   return fileType.toLowerCase();
+}
+function getWopiFileUrl(ctx, fileInfo, userAuth) {
+  const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
+  let url;
+  let headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
+  if (fileInfo?.FileUrl) {
+    //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
+    url = fileInfo.FileUrl;
+  } else if (fileInfo?.TemplateSource) {
+    url = fileInfo.TemplateSource;
+  } else if (userAuth) {
+    url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+    fillStandardHeaders(ctx, headers, url, userAuth.access_token);
+  }
+  ctx.logger.debug('getWopiFileUrl url=%s; headers=%j', url, headers);
+  return {url, headers};
+}
+function isWopiJwtToken(decoded) {
+  return !!decoded.fileInfo;
 }
 function getLastModifiedTimeFromCallbacks(callbacks) {
   for (let i = callbacks.length; i >= 0; --i) {
@@ -952,6 +972,8 @@ exports.fillStandardHeaders = fillStandardHeaders;
 exports.getWopiUnlockMarker = getWopiUnlockMarker;
 exports.getWopiModifiedMarker = getWopiModifiedMarker;
 exports.getFileTypeByInfo = getFileTypeByInfo;
+exports.getWopiFileUrl = getWopiFileUrl;
+exports.isWopiJwtToken = isWopiJwtToken;
 exports.dummyCheckFileInfo = dummyCheckFileInfo;
 exports.dummyGetFile = dummyGetFile;
 exports.dummyOk = dummyOk;
