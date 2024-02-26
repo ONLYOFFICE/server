@@ -1598,6 +1598,7 @@ exports.downloadFile = function(req, res) {
       let authorization;
       let isInJwtToken = false;
       let errorDescription;
+      let headers;
       let authRes = yield docsCoServer.getRequestParams(ctx, req);
       if (authRes.code === constants.NO_ERROR) {
         let decoded = authRes.params;
@@ -1610,6 +1611,8 @@ exports.downloadFile = function(req, res) {
         } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
           url = decoded.url;
           isInJwtToken = true;
+        } else if (wopiClient.isWopiJwtToken(decoded)) {
+          ({url, headers} = wopiClient.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
         } else if (!tenTokenEnableBrowser) {
           //todo token required
           if (decoded.url) {
@@ -1638,11 +1641,12 @@ exports.downloadFile = function(req, res) {
         res.sendStatus(filterStatus);
         return;
       }
-      let headers;
+
       if (req.get('Range')) {
-        headers = {
-          'Range': req.get('Range')
+        if (!headers) {
+          headers = {};
         }
+        headers['Range'] = req.get('Range');
       }
 
       yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, res);
