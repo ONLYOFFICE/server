@@ -474,6 +474,15 @@ function convertTo(req, res) {
       if (req.params.format) {
         format = req.params.format;
       }
+      //todo https://github.com/LibreOffice/core/blob/9d3366f5b392418dc83bc0adbe3d215cff4b3605/desktop/source/lib/init.cxx#L3478
+      let password = req.body['Password'];
+      if (password) {
+        if (password.length > constants.PASSWORD_MAX_LENGTH) {
+          ctx.logger.warn('convert-to password too long actual = %s; max = %s', password.length, constants.PASSWORD_MAX_LENGTH);
+          res.sendStatus(400);
+          return;
+        }
+      }
       let pdfVer = req.body['PDFVer'];
       if (pdfVer && pdfVer.startsWith("PDF/A") && 'pdf' === format) {
         format = 'pdfa';
@@ -486,9 +495,6 @@ function convertTo(req, res) {
         res.sendStatus(400);
         return;
       }
-      //todo https://github.com/CollaboraOnline/online/blob/master/wsd/COOLWSD.cpp
-      //req.body['options']
-
       let docId, fileTo, status, originalname;
       if (req.file && req.file.originalname && req.file.buffer) {
         originalname = req.file.originalname;
@@ -531,6 +537,12 @@ function convertTo(req, res) {
             "fitToHeight": 0,
             "scale": 100
           }}));
+        }
+        if (password) {
+          let encryptedPassword = yield utils.encryptPassword(ctx, password);
+          //todo different
+          cmd.setPassword(encryptedPassword);
+          cmd.setSavePassword(encryptedPassword);
         }
 
         fileTo = constants.OUTPUT_NAME;
