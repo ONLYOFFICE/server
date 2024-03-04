@@ -167,7 +167,7 @@ function discovery(req, res) {
         let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1&amp;${templateEnd}`;
         let xmlApp = xmlZone.ele('app', {name: name, favIconUrl: favIconUrl});
         for (let j = 0; j < ext.view.length; ++j) {
-          xmlApp.ele('action', {name: 'view', ext: ext.view[j], urlsrc: urlTemplateView}).up();
+          xmlApp.ele('action', {name: 'view', ext: ext.view[j], default: 'true', urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.view[j], urlsrc: urlTemplateMobileView}).up();
           if (-1 === tenWopiPdfView.indexOf(ext.view[j])) {
