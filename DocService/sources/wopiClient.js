@@ -73,6 +73,7 @@ const cfgWopiCellView = config.get('wopi.cellView');
 const cfgWopiCellEdit = config.get('wopi.cellEdit');
 const cfgWopiSlideView = config.get('wopi.slideView');
 const cfgWopiSlideEdit = config.get('wopi.slideEdit');
+const cfgWopiWordForm = config.get('wopi.wordForm');
 const cfgWopiFavIconUrlWord = config.get('wopi.favIconUrlWord');
 const cfgWopiFavIconUrlCell = config.get('wopi.favIconUrlCell');
 const cfgWopiFavIconUrlSlide = config.get('wopi.favIconUrlSlide');
@@ -125,6 +126,7 @@ function discovery(req, res) {
       const tenWopiCellEdit = ctx.getCfg('wopi.cellEdit', cfgWopiCellEdit);
       const tenWopiSlideView = ctx.getCfg('wopi.slideView', cfgWopiSlideView);
       const tenWopiSlideEdit = ctx.getCfg('wopi.slideEdit', cfgWopiSlideEdit);
+      const tenWopiWordForm = ctx.getCfg('wopi.wordForm', cfgWopiWordForm);
       const tenWopiFavIconUrlWord = ctx.getCfg('wopi.favIconUrlWord', cfgWopiFavIconUrlWord);
       const tenWopiFavIconUrlCell = ctx.getCfg('wopi.favIconUrlCell', cfgWopiFavIconUrlCell);
       const tenWopiFavIconUrlSlide = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlSlide);
@@ -140,7 +142,7 @@ function discovery(req, res) {
       let names = ['Word','Excel','PowerPoint'];
       let favIconUrls = [tenWopiFavIconUrlWord, tenWopiFavIconUrlCell, tenWopiFavIconUrlSlide];
       let exts = [
-        {targetext: 'docx', view: tenWopiPdfView.concat(tenWopiWordView), edit: tenWopiWordEdit},
+        {targetext: 'docx', view: tenWopiPdfView.concat(tenWopiWordView), edit: tenWopiWordEdit, form: tenWopiWordForm},
         {targetext: 'xlsx', view: tenWopiCellView, edit: tenWopiCellEdit},
         {targetext: 'pptx', view: tenWopiSlideView, edit: tenWopiSlideEdit}
       ];
@@ -165,6 +167,7 @@ function discovery(req, res) {
         let urlTemplateMobileView = `${templateStart}/${documentTypes[i]}/view?mobile=1&amp;${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1&amp;${templateEnd}`;
+        let urlTemplateFormSubmit = `${templateStart}/${documentTypes[i]}/edit?formsubmit=1&amp;${templateEnd}`;
         let xmlApp = xmlZone.ele('app', {name: name, favIconUrl: favIconUrl});
         for (let j = 0; j < ext.view.length; ++j) {
           xmlApp.ele('action', {name: 'view', ext: ext.view[j], default: 'true', urlsrc: urlTemplateView}).up();
@@ -182,6 +185,9 @@ function discovery(req, res) {
           xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
         }
+        for (let extention of (ext.form || [])) {
+          xmlApp.ele('action', {name: 'formsubmit', ext: extention, requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+        }
         constants.SUPPORTED_TEMPLATES_EXTENSIONS[name].forEach(
           extension => xmlApp.ele('action', {name: 'editnew', ext: extension, requires: 'locks,update', urlsrc: urlTemplateEdit}).up()
         );
@@ -196,6 +202,7 @@ function discovery(req, res) {
         let urlTemplateMobileView = `${templateStart}/${documentTypes[i]}/view?mobile=1&amp;${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1&amp;${templateEnd}`;
+        let urlTemplateFormSubmit = `${templateStart}/${documentTypes[i]}/edit?formsubmit=1&amp;${templateEnd}`;
         for (let j = 0; j < ext.view.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
@@ -208,6 +215,9 @@ function discovery(req, res) {
                 let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
                 xmlApp.ele('action', {name: 'convert', ext: '', targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
               }
+              if (ext.form && -1 !== ext.form.indexOf(ext.view[j])) {
+                xmlApp.ele('action', {name: 'formsubmit', ext: '', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+              }
               xmlApp.up();
             });
           }
@@ -219,6 +229,9 @@ function discovery(req, res) {
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
               xmlApp.ele('action', {name: 'mobileEdit', ext: '', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
+              if (ext.form && -1 !== ext.form.indexOf(ext.edit[j])) {
+                xmlApp.ele('action', {name: 'formsubmit', ext: '', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+              }
               xmlApp.up();
             });
           }
