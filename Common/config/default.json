@@ -62,15 +62,14 @@
 		"ttl" : 300,
 		"cachesize" : 1000
 	},
-	"openpgpjs": {
+	"aesEncrypt": {
 		"config": {
+			"keyByteLength": 32,
+			"saltByteLength": 64,
+			"initializationVectorByteLength": 16,
+			"iterationsByteLength": 5
 		},
-		"encrypt": {
-			"passwords": ["verysecretstring"]
-		},
-		"decrypt": {
-			"passwords": ["verysecretstring"]
-		}
+		"secret": "verysecretstring"
 	},
 	"bottleneck": {
 		"getChanges": {
