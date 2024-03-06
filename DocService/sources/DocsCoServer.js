@@ -138,7 +138,7 @@ const cfgIsAnonymousSupport = config.get('services.CoAuthoring.server.isAnonymou
 const cfgTokenRequiredParams = config.get('services.CoAuthoring.server.tokenRequiredParams');
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
-
+const cfgForceSaveUsingButtonWithoutChanges = config.get('services.CoAuthoring.server.forceSaveUsingButtonWithoutChanges');
 //todo tenant
 const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
 const cfgRefreshLockInterval = ms(config.get('wopi.refreshLockInterval'));
@@ -911,6 +911,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
   return res;
 }
 async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub, opt_conn, opt_initShardKey) {
+  const tenForceSaveUsingButtonWithoutChanges = ctx.getCfg('services.CoAuthoring.server.forceSaveUsingButtonWithoutChanges', cfgForceSaveUsingButtonWithoutChanges);
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
   let startedForceSave;
@@ -922,7 +923,9 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     });
     if (!hasEncrypted) {
       let forceSave = await editorData.getForceSave(ctx, docId);
-      if (!forceSave && commonDefines.c_oAscForceSaveTypes.Form === type && opt_conn) {
+      let startWithoutChanges = !forceSave && opt_conn && (commonDefines.c_oAscForceSaveTypes.Form === type ||
+        (commonDefines.c_oAscForceSaveTypes.Button === type && tenForceSaveUsingButtonWithoutChanges));
+      if (startWithoutChanges) {
         //stub to send forms without changes
         let newChangesLastDate = new Date();
         newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
@@ -1687,7 +1690,9 @@ exports.install = function(server, callbackFunction) {
           case 'forceSaveStart' :
             var forceSaveRes;
             if (conn.user) {
-              forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, undefined, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser);
+              forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Button,
+                undefined, undefined, conn.user.idOriginal, conn.user.id,
+                undefined, conn.user.indexUser, undefined, undefined, undefined, undefined, conn);
             } else {
               forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
             }
