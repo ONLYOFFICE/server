@@ -166,7 +166,7 @@
 				"downloadFileAllowExt": ["pdf", "xlsx"],
 				"tokenRequiredParams": true,
 				"allowPrivateIPAddressForSignedRequests": true,
-				"forceSaveUsingButtonWithoutChanges": true
+				"forceSaveUsingButtonWithoutChanges": false
 			},
 			"requestDefaults": {
 				"headers": {
