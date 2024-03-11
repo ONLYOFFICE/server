@@ -748,7 +748,8 @@ function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
       }
       fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-      //todo false?
+      //todo false? (true because it passed checkIpFilter for wopi)
+      //todo use directIfIn
       let isInJwtToken = true;
       let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, isInJwtToken, headers);
       ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
@@ -969,6 +970,7 @@ function dummyOk(req, res) {
   res.sendStatus(200);
 }
 
+exports.checkIpFilter = checkIpFilter;
 exports.discovery = discovery;
 exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;

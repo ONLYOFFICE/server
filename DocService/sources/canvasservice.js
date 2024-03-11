@@ -1613,6 +1613,14 @@ exports.downloadFile = function(req, res) {
           isInJwtToken = true;
         } else if (wopiClient.isWopiJwtToken(decoded)) {
           ({url, headers} = wopiClient.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
+          let filterStatus = yield wopiClient.checkIpFilter(ctx, url);
+          if (0 === filterStatus) {
+            //todo false? (true because it passed checkIpFilter for wopi)
+            //todo use directIfIn
+            isInJwtToken = true;
+          } else {
+            errorDescription = 'access deny';
+          }
         } else if (!tenTokenEnableBrowser) {
           //todo token required
           if (decoded.url) {
