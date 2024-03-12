@@ -1566,167 +1566,172 @@ exports.install = function(server, callbackFunction) {
     });
   });
 
-  io.on('connection', function(conn) {
-    if (!conn) {
-      operationContext.global.logger.error("null == conn");
-      return;
-    }
+  io.on('connection', async function(conn) {
     let ctx = new operationContext.Context();
-    ctx.initFromConnection(conn);
-    //todo
-    //yield ctx.initTenantCache();
-    if (getIsShutdown()) {
-      sendFileError(ctx, conn, 'Server shutdow');
-      return;
-    }
-    conn.baseUrl = utils.getBaseUrlByConnection(ctx, conn);
-    conn.sessionIsSendWarning = false;
-    conn.sessionTimeConnect = conn.sessionTimeLastAction = new Date().getTime();
+    try {
+      if (!conn) {
+        operationContext.global.logger.error("null == conn");
+        return;
+      }
+      ctx.initFromConnection(conn);
+      await ctx.initTenantCache();
+      if (getIsShutdown()) {
+        sendFileError(ctx, conn, 'Server shutdow');
+        return;
+      }
+      conn.baseUrl = utils.getBaseUrlByConnection(ctx, conn);
+      conn.sessionIsSendWarning = false;
+      conn.sessionTimeConnect = conn.sessionTimeLastAction = new Date().getTime();
 
-    conn.on('message', function(data) {
-      return co(function* () {
-      var docId = 'null';
-      let ctx = new operationContext.Context();
-      try {
-        ctx.initFromConnection(conn);
-        yield ctx.initTenantCache();
-        const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
+      conn.on('message', function(data) {
+        return co(function* () {
+          var docId = 'null';
+          let ctx = new operationContext.Context();
+          try {
+            ctx.initFromConnection(conn);
+            yield ctx.initTenantCache();
+            const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
 
-        var startDate = null;
-        if(clientStatsD) {
-          startDate = new Date();
-        }
+            var startDate = null;
+            if(clientStatsD) {
+              startDate = new Date();
+            }
 
-        docId = conn.docId;
-        ctx.logger.info('data.type = %s', data.type);
-        if(getIsShutdown())
-        {
-          ctx.logger.debug('Server shutdown receive data');
-          return;
-        }
-        if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
-            'isSaveLock' == data.type)) {
-          ctx.logger.warn("conn.isCiriticalError send command: type = %s", data.type);
-          sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
-          conn.disconnect(true);
-          return;
-        }
-        if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
-            ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
-          ctx.logger.warn("conn.user.view||isCloseCoAuthoring access deny: type = %s", data.type);
-          sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
-          conn.disconnect(true);
-          return;
-        }
-        yield encryptPasswordParams(ctx, data);
-        switch (data.type) {
-          case 'auth'          :
-            try {
-              yield* auth(ctx, conn, data);
-            } catch(err){
-              ctx.logger.error('auth error: %s', err.stack);
+            docId = conn.docId;
+            ctx.logger.info('data.type = %s', data.type);
+            if(getIsShutdown())
+            {
+              ctx.logger.debug('Server shutdown receive data');
+              return;
+            }
+            if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
+              'isSaveLock' == data.type)) {
+              ctx.logger.warn("conn.isCiriticalError send command: type = %s", data.type);
               sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
               conn.disconnect(true);
               return;
             }
-            break;
-          case 'message'        :
-            yield* onMessage(ctx, conn, data);
-            break;
-          case 'cursor'        :
-            yield* onCursor(ctx, conn, data);
-            break;
-          case 'getLock'        :
-            yield* getLock(ctx, conn, data, false);
-            break;
-          case 'saveChanges'      :
-            yield* saveChanges(ctx, conn, data);
-            break;
-          case 'isSaveLock'      :
-            yield* isSaveLock(ctx, conn, data);
-            break;
-          case 'unSaveLock'      :
-            yield* unSaveLock(ctx, conn, -1, -1, -1);
-            break;	// The index is sent -1, because this is an emergency withdrawal without saving
-          case 'getMessages'      :
-            yield* getMessages(ctx, conn, data);
-            break;
-          case 'unLockDocument'    :
-            yield* checkEndAuthLock(ctx, data.unlock, data.isSave, docId, conn.user.id, data.releaseLocks, data.deleteIndex, conn);
-            break;
-          case 'close':
-            yield* closeDocument(ctx, conn);
-            break;
-          case 'versionHistory'          : {
-            let cmd = new commonDefines.InputCommand(data.cmd);
-            yield* versionHistory(ctx, conn, cmd);
-            break;
-          }
-          case 'openDocument'      : {
-            var cmd = new commonDefines.InputCommand(data.message);
-            cmd.fillFromConnection(conn);
-            yield canvasService.openDocument(ctx, conn, cmd);
-            break;
-          }
-          case 'clientLog':
-            let level = data.level?.toLowerCase();
-            if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
-              ctx.logger[level]("clientLog: %s", data.msg);
+            if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
+              ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
+              ctx.logger.warn("conn.user.view||isCloseCoAuthoring access deny: type = %s", data.type);
+              sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+              conn.disconnect(true);
+              return;
             }
-            if ("error" === level && tenErrorFiles && docId) {
-              let destDir = 'browser/' + docId;
-              yield storage.copyPath(ctx, docId, destDir, undefined, tenErrorFiles);
-              yield* saveErrorChanges(ctx, docId, destDir);
+            yield encryptPasswordParams(ctx, data);
+            switch (data.type) {
+              case 'auth'          :
+                try {
+                  yield* auth(ctx, conn, data);
+                } catch(err){
+                  ctx.logger.error('auth error: %s', err.stack);
+                  sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+                  conn.disconnect(true);
+                  return;
+                }
+                break;
+              case 'message'        :
+                yield* onMessage(ctx, conn, data);
+                break;
+              case 'cursor'        :
+                yield* onCursor(ctx, conn, data);
+                break;
+              case 'getLock'        :
+                yield* getLock(ctx, conn, data, false);
+                break;
+              case 'saveChanges'      :
+                yield* saveChanges(ctx, conn, data);
+                break;
+              case 'isSaveLock'      :
+                yield* isSaveLock(ctx, conn, data);
+                break;
+              case 'unSaveLock'      :
+                yield* unSaveLock(ctx, conn, -1, -1, -1);
+                break;	// The index is sent -1, because this is an emergency withdrawal without saving
+              case 'getMessages'      :
+                yield* getMessages(ctx, conn, data);
+                break;
+              case 'unLockDocument'    :
+                yield* checkEndAuthLock(ctx, data.unlock, data.isSave, docId, conn.user.id, data.releaseLocks, data.deleteIndex, conn);
+                break;
+              case 'close':
+                yield* closeDocument(ctx, conn);
+                break;
+              case 'versionHistory'          : {
+                let cmd = new commonDefines.InputCommand(data.cmd);
+                yield* versionHistory(ctx, conn, cmd);
+                break;
+              }
+              case 'openDocument'      : {
+                var cmd = new commonDefines.InputCommand(data.message);
+                cmd.fillFromConnection(conn);
+                yield canvasService.openDocument(ctx, conn, cmd);
+                break;
+              }
+              case 'clientLog':
+                let level = data.level?.toLowerCase();
+                if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
+                  ctx.logger[level]("clientLog: %s", data.msg);
+                }
+                if ("error" === level && tenErrorFiles && docId) {
+                  let destDir = 'browser/' + docId;
+                  yield storage.copyPath(ctx, docId, destDir, undefined, tenErrorFiles);
+                  yield* saveErrorChanges(ctx, docId, destDir);
+                }
+                break;
+              case 'extendSession' :
+                ctx.logger.debug("extendSession idletime: %d", data.idletime);
+                conn.sessionIsSendWarning = false;
+                conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
+                break;
+              case 'forceSaveStart' :
+                var forceSaveRes;
+                if (conn.user) {
+                  forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, undefined, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser);
+                } else {
+                  forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
+                }
+                sendData(ctx, conn, {type: "forceSaveStart", messages: forceSaveRes});
+                break;
+              case 'rpc' :
+                yield* startRPC(ctx, conn, data.responseKey, data.data);
+                break;
+              case 'authChangesAck' :
+                delete conn.authChangesAck;
+                break;
+              default:
+                ctx.logger.debug("unknown command %j", data);
+                break;
             }
-            break;
-          case 'extendSession' :
-            ctx.logger.debug("extendSession idletime: %d", data.idletime);
-            conn.sessionIsSendWarning = false;
-            conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
-            break;
-          case 'forceSaveStart' :
-            var forceSaveRes;
-            if (conn.user) {
-              forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Button, undefined, undefined, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser);
-            } else {
-              forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
+            if(clientStatsD) {
+              if('openDocument' != data.type) {
+                clientStatsD.timing('coauth.data.' + data.type, new Date() - startDate);
+              }
             }
-            sendData(ctx, conn, {type: "forceSaveStart", messages: forceSaveRes});
-            break;
-          case 'rpc' :
-            yield* startRPC(ctx, conn, data.responseKey, data.data);
-            break;
-          case 'authChangesAck' :
-            delete conn.authChangesAck;
-            break;
-          default:
-            ctx.logger.debug("unknown command %j", data);
-            break;
-        }
-        if(clientStatsD) {
-          if('openDocument' != data.type) {
-            clientStatsD.timing('coauth.data.' + data.type, new Date() - startDate);
+          } catch (e) {
+            ctx.logger.error("error receiving response: type = %s %s", (data && data.type) ? data.type : 'null', e.stack);
           }
-        }
-      } catch (e) {
-        ctx.logger.error("error receiving response: type = %s %s", (data && data.type) ? data.type : 'null', e.stack);
-      }
+        });
       });
-    });
-    conn.on("disconnect", function(reason) {
-      return co(function* () {
-        let ctx = new operationContext.Context();
-        try {
-          ctx.initFromConnection(conn);
-          yield ctx.initTenantCache();
-          yield* closeDocument(ctx, conn, reason);
-        } catch (err) {
-          ctx.logger.error('Error conn close: %s', err.stack);
-        }
+      conn.on("disconnect", function(reason) {
+        return co(function* () {
+          let ctx = new operationContext.Context();
+          try {
+            ctx.initFromConnection(conn);
+            yield ctx.initTenantCache();
+            yield* closeDocument(ctx, conn, reason);
+          } catch (err) {
+            ctx.logger.error('Error conn close: %s', err.stack);
+          }
+        });
       });
-    });
 
-    _checkLicense(ctx, conn);
+      _checkLicense(ctx, conn);
+    } catch(err){
+      ctx.logger.error('connection error: %s', err.stack);
+      sendDataDisconnectReason(ctx, conn, constants.DROP_CODE, constants.DROP_REASON);
+      conn.disconnect(true);
+    }
   });
   io.engine.on("connection_error", (err) => {
     operationContext.global.logger.warn('io.connection_error code=%s, message=%s', err.code, err.message);
