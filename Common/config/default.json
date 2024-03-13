@@ -62,6 +62,16 @@
 		"ttl" : 300,
 		"cachesize" : 1000
 	},
+	"openpgpjs": {
+		"config": {
+		},
+		"encrypt": {
+			"passwords": ["verysecretstring"]
+		},
+		"decrypt": {
+			"passwords": ["verysecretstring"]
+		}
+	},
 	"aesEncrypt": {
 		"config": {
 			"keyByteLength": 32,
