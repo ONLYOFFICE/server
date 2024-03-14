@@ -478,7 +478,16 @@ function convertTo(req, res) {
       let password = req.body['Password'];
       if (password) {
         if (password.length > constants.PASSWORD_MAX_LENGTH) {
-          ctx.logger.warn('convert-to password too long actual = %s; max = %s', password.length, constants.PASSWORD_MAX_LENGTH);
+          ctx.logger.warn('convert-to Password too long actual = %s; max = %s', password.length, constants.PASSWORD_MAX_LENGTH);
+          res.sendStatus(400);
+          return;
+        }
+      }
+      //by analogy with Password
+      let passwordToOpen = req.body['PasswordToOpen'];
+      if (passwordToOpen) {
+        if (passwordToOpen.length > constants.PASSWORD_MAX_LENGTH) {
+          ctx.logger.warn('convert-to PasswordToOpen too long actual = %s; max = %s', passwordToOpen.length, constants.PASSWORD_MAX_LENGTH);
           res.sendStatus(400);
           return;
         }
@@ -540,9 +549,11 @@ function convertTo(req, res) {
         }
         if (password) {
           let encryptedPassword = yield utils.encryptPassword(ctx, password);
-          //todo different
-          cmd.setPassword(encryptedPassword);
           cmd.setSavePassword(encryptedPassword);
+        }
+        if (passwordToOpen) {
+          let encryptedPassword = yield utils.encryptPassword(ctx, passwordToOpen);
+          cmd.setPassword(encryptedPassword);
         }
 
         fileTo = constants.OUTPUT_NAME;
