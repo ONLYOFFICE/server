@@ -1899,6 +1899,8 @@ exports.install = function(server, callbackFunction) {
           yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
         }
       }
+
+      ctx.deleteLogIdsSession();
     }
   }
 
@@ -2474,6 +2476,7 @@ exports.install = function(server, callbackFunction) {
     ctx.logger.debug('auth time: %d', data.time);
     if (data.token && data.user) {
       ctx.setUserId(data.user.id);
+      ctx.setUserIdOriginal(data.user.id);
       let licenseInfo = yield tenantManager.getTenantLicense(ctx);
       let isDecoded = false;
       //check jwt

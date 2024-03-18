@@ -529,15 +529,10 @@ function getEditorHtml(req, res) {
       let access_token = req.body['access_token'] || "";
       let access_token_ttl = parseInt(req.body['access_token_ttl']) || 0;
 
-
       let fileInfo = params.fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token, sc);
       if (!fileInfo) {
         params.fileInfo = {};
         return;
-      }
-      const fileType = getFileTypeByInfo(fileInfo);
-      if (!shutdownFlag) {
-        yield checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, access_token_ttl, lang, ui, fileType);
       }
 
       if (!fileInfo.UserCanWrite) {
@@ -557,7 +552,18 @@ function getEditorHtml(req, res) {
           docId = `view.${fileId}.${fileInfo.Version}`;
         }
       }
+
       docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
+      ctx.setDocId(docId);
+      ctx.setUserId(fileInfo.UserId);
+      ctx.setUserIdOriginal(fileInfo.UserId);
+      ctx.setLogsTracingIds(req);
+
+      const fileType = getFileTypeByInfo(fileInfo);
+      if (!shutdownFlag) {
+        yield checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, access_token_ttl, lang, ui, fileType);
+      }
+
       ctx.logger.debug(`wopiEditor`);
       params.key = docId;
       let userAuth = params.userAuth = {
@@ -605,6 +611,8 @@ function getEditorHtml(req, res) {
     } finally {
       ctx.logger.debug('wopiEditor render params=%j', params);
       try {
+        res.append('X-WOPI-SessionId', ctx.getSessionId());
+        res.append('X-WOPI-CorrelationId', ctx.getCorrelationId());
         res.render("editor-wopi", params);
       } catch (err) {
         ctx.logger.error('wopiEditor error:%s', err.stack);
@@ -647,6 +655,10 @@ function getConverterHtml(req, res) {
         return;
       }
 
+      ctx.setUserId(fileInfo.UserId);
+      ctx.setUserIdOriginal(fileInfo.UserId);
+      ctx.setLogsTracingIds(req);
+
       let wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
 
       let docId = yield converterService.convertAndEdit(ctx, wopiParams, ext, targetext);
@@ -669,6 +681,8 @@ function getConverterHtml(req, res) {
     } finally {
       ctx.logger.debug('convert-and-edit render params=%j', params);
       try {
+        res.append('X-WOPI-SessionId', ctx.getSessionId());
+        res.append('X-WOPI-CorrelationId', ctx.getCorrelationId());
         res.render("convert-and-edit-wopi", params);
       } catch (err) {
         ctx.logger.error('convert-and-edit error:%s', err.stack);
@@ -954,9 +968,9 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
     headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKeyOld, 'base64'));
     headers['X-WOPI-TimeStamp'] = timeStamp;
     headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
-    // todo
-    // headers['X-WOPI-CorrelationId '] = "";
-    // headers['X-WOPI-SessionId'] = "";
+
+    headers['X-WOPI-SessionId'] = ctx.getSessionId();
+    headers['X-WOPI-CorrelationId'] = ctx.getCorrelationId();
   }
   headers['Authorization'] = `Bearer ${access_token}`;
 }
