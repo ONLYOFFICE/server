@@ -25,6 +25,7 @@
     "request-filtering-agent": "1.0.5",
     "rhea": "1.0.24",
     "uri-js": "4.2.2",
+    "uuid": "9.0.1",
     "win-ca": "3.5.0"
   }
 }
