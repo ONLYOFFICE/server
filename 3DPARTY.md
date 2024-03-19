@@ -17,7 +17,6 @@
 - ms 2.1.1 ([MIT](https://raw.githubusercontent.com/vercel/ms/master/license.md))
 - node-cache 4.2.1 ([MIT](https://raw.githubusercontent.com/node-cache/node-cache/master/LICENSE))
 - node-statsd 0.1.1 ([MIT](https://raw.githubusercontent.com/sivy/node-statsd/master/LICENSE))
-- openpgp 4.10.11 ([LGPL-3.0+](https://raw.githubusercontent.com/openpgpjs/openpgpjs/main/LICENSE))
 - request 2.88.0 ([Apache-2.0](https://raw.githubusercontent.com/request/request/master/LICENSE))
 - request-filtering-agent 1.0.5 ([MIT](https://raw.githubusercontent.com/azu/request-filtering-agent/master/LICENSE))
 - rhea 1.0.24 ([Apache-2.0](https://raw.githubusercontent.com/amqp/rhea/main/LICENSE))
