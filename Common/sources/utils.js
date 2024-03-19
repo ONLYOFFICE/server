@@ -1049,8 +1049,10 @@ exports.encryptPassword = async function (ctx, password) {
   const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, initializationVector);
   const encryptedData = Buffer.concat([cipher.update(password, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
+  const predicate = iterations.toString(16);
+  const data = Buffer.concat([salt, initializationVector, authTag, encryptedData]).toString('hex');
 
-  return Buffer.concat([salt, initializationVector, authTag, Buffer.from(iterations.toString()), encryptedData]).toString('hex');
+  return `${predicate}:${data}`;
 };
 exports.decryptPassword = async function (ctx, password) {
   const pbkdf2Promise = util.promisify(crypto.pbkdf2);
@@ -1060,12 +1062,12 @@ exports.decryptPassword = async function (ctx, password) {
     keyByteLength = 32,
     saltByteLength = 64,
     initializationVectorByteLength = 16,
-    iterationsByteLength = 5
   } = tenAESConfig;
 
-  const data = Buffer.from(password, 'hex');
+  const [iterations, dataHex] = password.split(':');
+  const data = Buffer.from(dataHex, 'hex');
   // authTag in node.js equals 16 bytes(128 bits), see https://stackoverflow.com/questions/33976117/does-node-js-crypto-use-fixed-tag-size-with-gcm-mode
-  const delta = [saltByteLength, initializationVectorByteLength, 16, iterationsByteLength];
+  const delta = [saltByteLength, initializationVectorByteLength, 16];
   const pointerArray = [];
 
   for (let byte = 0, i = 0; i < delta.length; i++) {
@@ -1082,13 +1084,14 @@ exports.decryptPassword = async function (ctx, password) {
     salt,
     initializationVector,
     authTag,
-    iterations
+    encryptedData
   ] = pointerArray;
-  const decryptionKey = await pbkdf2Promise(tenSecret, salt, parseInt(iterations.toString(), 10), keyByteLength, 'sha512');
+
+  const decryptionKey = await pbkdf2Promise(tenSecret, salt, parseInt(iterations, 16), keyByteLength, 'sha512');
   const decipher = crypto.createDecipheriv('aes-256-gcm', decryptionKey, initializationVector);
   decipher.setAuthTag(authTag);
 
-  return Buffer.concat([decipher.update(password, 'binary'), decipher.final()]).toString();
+  return Buffer.concat([decipher.update(encryptedData, 'binary'), decipher.final()]).toString();
 };
 exports.getDateTimeTicks = function(date) {
   return BigInt(date.getTime() * 10000) + 621355968000000000n;
