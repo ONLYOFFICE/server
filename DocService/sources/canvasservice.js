@@ -1194,7 +1194,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
 
   if ((docsCoServer.getIsShutdown() && !isSfcm) || cmd.getRedisKey()) {
     let keyRedis = cmd.getRedisKey() ? cmd.getRedisKey() : redisKeyShutdown;
-    yield docsCoServer.editorData.removeShutdown(keyRedis, docId);
+    yield docsCoServer.editorStat.removeShutdown(keyRedis, docId);
   }
   ctx.logger.debug('End commandSfcCallback');
   return replyStr;
@@ -1720,7 +1720,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         queueData.setFromChanges(true);
         yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_NORMAL, opt_queue);
         if (docsCoServer.getIsShutdown()) {
-          yield docsCoServer.editorData.addShutdown(redisKeyShutdown, docId);
+          yield docsCoServer.editorStat.addShutdown(redisKeyShutdown, docId);
         }
         ctx.logger.debug('AddTask saveFromChanges');
       } else {

@@ -51,7 +51,6 @@ const NodeCache = require( "node-cache" );
 const ms = require('ms');
 const constants = require('./constants');
 const commonDefines = require('./commondefines');
-const logger = require('./logger');
 const forwarded = require('forwarded');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const openpgp = require('openpgp');
