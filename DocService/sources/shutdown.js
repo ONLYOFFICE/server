@@ -47,7 +47,7 @@ var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
-exports.shutdown = function(ctx, editorData, status) {
+exports.shutdown = function(ctx, editorStat, status) {
   return co(function*() {
     var res = true;
     try {
@@ -55,7 +55,7 @@ exports.shutdown = function(ctx, editorData, status) {
 
       //redisKeyShutdown is not a simple counter, so it doesn't get decremented by a build that started before Shutdown started
       //reset redisKeyShutdown just in case the previous run didn't finish
-      yield editorData.cleanupShutdown(redisKeyShutdown);
+      yield editorStat.cleanupShutdown(redisKeyShutdown);
 
       var pubsub = new pubsubService();
       yield pubsub.initPromise();
@@ -76,7 +76,7 @@ exports.shutdown = function(ctx, editorData, status) {
           ctx.logger.debug('shutdown timeout');
           break;
         }
-        var remainingFiles = yield editorData.getShutdownCount(redisKeyShutdown);
+        var remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
         ctx.logger.debug('shutdown remaining files:%d', remainingFiles);
         if (!isStartWait && remainingFiles <= 0) {
           break;
@@ -85,7 +85,7 @@ exports.shutdown = function(ctx, editorData, status) {
       }
       //todo need to check the queues, because there may be long conversions running before Shutdown
       //clean up
-      yield editorData.cleanupShutdown(redisKeyShutdown);
+      yield editorStat.cleanupShutdown(redisKeyShutdown);
       yield pubsub.close();
 
       ctx.logger.debug('shutdown end');

@@ -102,7 +102,10 @@ const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 
-const editorDataStorage = require('./' + config.get('services.CoAuthoring.server.editorDataStorage'));
+const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
+const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
+const editorDataStorage = require('./' + cfgEditorDataStorage);
+const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
 
 const cfgEditSingleton =  config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor =  config.get('services.CoAuthoring.editor');
@@ -152,7 +155,9 @@ const EditorTypes = {
 };
 
 const defaultHttpPort = 80, defaultHttpsPort = 443;	// Default ports (for http and https)
-const editorData = new editorDataStorage();
+//todo remove editorDataStorage constructor usage after 8.1
+const editorData = editorDataStorage.EditorData ? new editorDataStorage.EditorData() : new editorDataStorage();
+const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorDataStorage();
 const clientStatsD = statsDClient.getClient();
 let connections = []; // Active connections
 let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
@@ -435,30 +440,30 @@ function updatePresenceCounters(ctx, conn, val) {
       //yield ctx.initTenantCache(); //no need.only global config
     }
     if (utils.isLiveViewer(conn)) {
-      yield editorData.incrLiveViewerConnectionsCountByShard(ctx, SHARD_ID, val);
+      yield editorStat.incrLiveViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
-        yield editorData.incrLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
+        yield editorStat.incrLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
       }
       if (clientStatsD) {
-        let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
+        let countLiveView = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
       }
     } else if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
-      yield editorData.incrViewerConnectionsCountByShard(ctx, SHARD_ID, val);
+      yield editorStat.incrViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
-        yield editorData.incrViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
+        yield editorStat.incrViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
       }
       if (clientStatsD) {
-        let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
+        let countView = yield editorStat.getViewerConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.view', countView);
       }
     } else {
-      yield editorData.incrEditorConnectionsCountByShard(ctx, SHARD_ID, val);
+      yield editorStat.incrEditorConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
-        yield editorData.incrEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
+        yield editorStat.incrEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
       }
       if (clientStatsD) {
-        let countEditors = yield editorData.getEditorConnectionsCount(ctx, connections);
+        let countEditors = yield editorStat.getEditorConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.edit', countEditors);
       }
     }
@@ -625,11 +630,11 @@ function* updateEditUsers(ctx, licenseInfo, userId, anonym, isLiveViewer) {
       licenseInfo.usersExpire - 1;
   let period = utils.getLicensePeriod(licenseInfo.startDate, now);
   if (isLiveViewer) {
-    yield editorData.addPresenceUniqueViewUser(ctx, userId, expireAt, {anonym: anonym});
-    yield editorData.addPresenceUniqueViewUsersOfMonth(ctx, userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
+    yield editorStat.addPresenceUniqueViewUser(ctx, userId, expireAt, {anonym: anonym});
+    yield editorStat.addPresenceUniqueViewUsersOfMonth(ctx, userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
   } else {
-    yield editorData.addPresenceUniqueUser(ctx, userId, expireAt, {anonym: anonym});
-    yield editorData.addPresenceUniqueUsersOfMonth(ctx, userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
+    yield editorStat.addPresenceUniqueUser(ctx, userId, expireAt, {anonym: anonym});
+    yield editorStat.addPresenceUniqueUsersOfMonth(ctx, userId, period, {anonym: anonym, firstOpenDate: now.toISOString()});
   }
 }
 function* getEditorsCount(ctx, docId, opt_hvals) {
@@ -1474,6 +1479,7 @@ function getOpenFormatByEditor(editorType) {
 
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
+exports.editorStat = editorStat;
 exports.sendData = sendData;
 exports.modifyConnectionForPassword = modifyConnectionForPassword;
 exports.parseUrl = parseUrl;
@@ -3481,13 +3487,13 @@ exports.install = function(server, callbackFunction) {
       if (licenseInfo.usersCount) {
         const nowUTC = getLicenseNowUtc();
         if(isLiveViewer) {
-          const arrUsers = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
+          const arrUsers = yield editorStat.getPresenceUniqueViewUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersViewCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
             licenseType = c_LR.UsersViewCount;
           }
           licenseWarningLimitUsersView = licenseInfo.usersViewCount * tenWarningLimitPercents <= arrUsers.length;
         } else {
-          const arrUsers = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
+          const arrUsers = yield editorStat.getPresenceUniqueUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
             licenseType = c_LR.UsersCount;
           }
@@ -3495,14 +3501,14 @@ exports.install = function(server, callbackFunction) {
         }
       } else if(isLiveViewer) {
         const connectionsLiveCount = licenseInfo.connectionsView;
-        const liveViewerConnectionsCount = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
+        const liveViewerConnectionsCount = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
         if (liveViewerConnectionsCount >= connectionsLiveCount) {
           licenseType = c_LR.ConnectionsLive;
         }
         licenseWarningLimitConnectionsLive = connectionsLiveCount * tenWarningLimitPercents <= liveViewerConnectionsCount;
       } else {
         const connectionsCount = licenseInfo.connections;
-        const editConnectionsCount = yield editorData.getEditorConnectionsCount(ctx, connections);
+        const editConnectionsCount = yield editorStat.getEditorConnectionsCount(ctx, connections);
         if (editConnectionsCount >= connectionsCount) {
           licenseType = c_LR.Connections;
         }
@@ -3698,7 +3704,7 @@ exports.install = function(server, callbackFunction) {
           case commonDefines.c_oPublishType.shutdown:
             //flag prevent new socket connections and receive data from exist connections
             shutdownFlag = data.status;
-            ctx.logger.warn('start shutdown:%b', shutdownFlag);
+            ctx.logger.warn('start shutdown:%s', shutdownFlag);
             if (shutdownFlag) {
               ctx.logger.warn('active connections: %d', connections.length);
               //do not stop the server, because sockets and all requests will be unavailable
@@ -3766,7 +3772,7 @@ exports.install = function(server, callbackFunction) {
 
   function* collectStats(ctx, countEdit, countLiveView, countView) {
     let now = Date.now();
-    yield editorData.setEditorConnections(ctx, countEdit, countLiveView, countView, now, PRECISION);
+    yield editorStat.setEditorConnections(ctx, countEdit, countLiveView, countView, now, PRECISION);
   }
   function expireDoc() {
     return co(function* () {
@@ -3843,16 +3849,16 @@ exports.install = function(server, callbackFunction) {
             ctx.setTenant(tenantId);
             let tenant = tenants[tenantId];
             yield* collectStats(ctx, tenant.countEditByShard, tenant.countLiveViewByShard, tenant.countViewByShard);
-            yield editorData.setEditorConnectionsCountByShard(ctx, SHARD_ID, tenant.countEditByShard);
-            yield editorData.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countLiveViewByShard);
-            yield editorData.setViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countViewByShard);
+            yield editorStat.setEditorConnectionsCountByShard(ctx, SHARD_ID, tenant.countEditByShard);
+            yield editorStat.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countLiveViewByShard);
+            yield editorStat.setViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countViewByShard);
             if (clientStatsD) {
               //todo with multitenant
-              let countEdit = yield editorData.getEditorConnectionsCount(ctx, connections);
+              let countEdit = yield editorStat.getEditorConnectionsCount(ctx, connections);
               clientStatsD.gauge('expireDoc.connections.edit', countEdit);
-              let countLiveView = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
+              let countLiveView = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
               clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
-              let countView = yield editorData.getViewerConnectionsCount(ctx, connections);
+              let countView = yield editorStat.getViewerConnectionsCount(ctx, connections);
               clientStatsD.gauge('expireDoc.connections.view', countView);
             }
           }
@@ -3863,9 +3869,9 @@ exports.install = function(server, callbackFunction) {
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache();//no need
           yield* collectStats(aggregationCtx, countEditByShard, countLiveViewByShard, countViewByShard);
-          yield editorData.setEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, countEditByShard);
-          yield editorData.setLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countLiveViewByShard);
-          yield editorData.setViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countViewByShard);
+          yield editorStat.setEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, countEditByShard);
+          yield editorStat.setLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countLiveViewByShard);
+          yield editorStat.setViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countViewByShard);
         }
         ctx.initDefault();
       } catch (err) {
@@ -3945,11 +3951,16 @@ exports.install = function(server, callbackFunction) {
           }
         });
         if (-1 !== index || 0 === res.length) {
-          return editorData.connect().then(function() {
-            callbackFunction();
-          }).catch(err => {
-            operationContext.global.logger.error('editorData error: %s', err.stack);
-          });
+          return editorData.connect()
+            .then(function () {
+              return editorStat.connect();
+            })
+            .then(function () {
+              callbackFunction();
+            })
+            .catch(err => {
+              operationContext.global.logger.error('editorData error: %s', err.stack);
+            });
         } else {
           operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
         }
@@ -3974,13 +3985,18 @@ exports.healthCheck = function(req, res) {
       yield sqlBase.healthCheck(ctx);
       ctx.logger.debug('healthCheck database');
       //check redis connection
-      if (editorData.isConnected()) {
-        yield editorData.ping();
+      const healthData = yield editorData.healthCheck();
+      if (healthData) {
         ctx.logger.debug('healthCheck editorData');
       } else {
-        throw new Error('redis disconnected');
+        throw new Error('editorData');
       }
-
+      const healthStat = yield editorStat.healthCheck();
+      if (healthStat) {
+        ctx.logger.debug('healthCheck editorStat');
+      } else {
+        throw new Error('editorStat');
+      }
       const healthPubsub = yield pubsub.healthCheck();
       if (healthPubsub) {
         ctx.logger.debug('healthCheck pubsub');
@@ -4068,7 +4084,7 @@ exports.licenseInfo = function(req, res) {
           view: {min: 0, avr: 0, max: 0}
         };
       }
-      var redisRes = yield editorData.getEditorConnections(ctx);
+      var redisRes = yield editorStat.getEditorConnections(ctx);
       const now = Date.now();
       if (redisRes.length > 0) {
         let expDocumentsStep95 = expDocumentsStep * 0.95;
@@ -4129,8 +4145,8 @@ exports.licenseInfo = function(req, res) {
       }
       const nowUTC = getLicenseNowUtc();
       let execRes;
-      execRes = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
-      output.quota.edit.connectionsCount = yield editorData.getEditorConnectionsCount(ctx, connections);
+      execRes = yield editorStat.getPresenceUniqueUser(ctx, nowUTC);
+      output.quota.edit.connectionsCount = yield editorStat.getEditorConnectionsCount(ctx, connections);
       output.quota.edit.usersCount.unique = execRes.length;
       execRes.forEach(function(elem) {
         if (elem.anonym) {
@@ -4138,8 +4154,8 @@ exports.licenseInfo = function(req, res) {
         }
       });
 
-      execRes = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
-      output.quota.view.connectionsCount = yield editorData.getLiveViewerConnectionsCount(ctx, connections);
+      execRes = yield editorStat.getPresenceUniqueViewUser(ctx, nowUTC);
+      output.quota.view.connectionsCount = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
       output.quota.view.usersCount.unique = execRes.length;
       execRes.forEach(function(elem) {
         if (elem.anonym) {
@@ -4147,8 +4163,8 @@ exports.licenseInfo = function(req, res) {
         }
       });
 
-      let byMonth = yield editorData.getPresenceUniqueUsersOfMonth(ctx);
-      let byMonthView = yield editorData.getPresenceUniqueViewUsersOfMonth(ctx);
+      let byMonth = yield editorStat.getPresenceUniqueUsersOfMonth(ctx);
+      let byMonthView = yield editorStat.getPresenceUniqueViewUsersOfMonth(ctx);
       let byMonthMerged = [];
       for (let i in byMonth) {
         if (byMonth.hasOwnProperty(i)) {
@@ -4230,8 +4246,8 @@ function* findForgottenFile(ctx, docId) {
 
 function* commandLicense(ctx) {
   const nowUTC = getLicenseNowUtc();
-  const users = yield editorData.getPresenceUniqueUser(ctx, nowUTC);
-  const users_view = yield editorData.getPresenceUniqueViewUser(ctx, nowUTC);
+  const users = yield editorStat.getPresenceUniqueUser(ctx, nowUTC);
+  const users_view = yield editorStat.getPresenceUniqueViewUser(ctx, nowUTC);
   const licenseInfo = yield tenantManager.getTenantLicense(ctx);
 
   return {
@@ -4389,7 +4405,7 @@ exports.shutdown = function(req, res) {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('shutdown start');
-      output = yield shutdown.shutdown(ctx, editorData, req.method === 'PUT');
+      output = yield shutdown.shutdown(ctx, editorStat, req.method === 'PUT');
     } catch (err) {
       ctx.logger.error('shutdown error %s', err.stack);
     } finally {

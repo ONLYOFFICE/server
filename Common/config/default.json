@@ -162,6 +162,7 @@
 				"openProtectedFile": true,
 				"isAnonymousSupport": true,
 				"editorDataStorage": "editorDataMemory",
+				"editorStatStorage": "",
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
 				"downloadFileAllowExt": ["pdf", "xlsx"],
@@ -235,10 +236,14 @@
 				"port": 6379,
 				"options": {},
 				"optionsCluster": {},
-				"iooptions": {},
+				"iooptions": {
+					"lazyConnect": true
+				},
 				"iooptionsClusterNodes": [
 				],
-				"iooptionsClusterOptions": {}
+				"iooptionsClusterOptions": {
+					"lazyConnect": true
+				}
 			},
 			"pubsub": {
 				"maxChanges": 1000
