@@ -294,3 +294,27 @@ exports.SUPPORTED_TEMPLATES_EXTENSIONS = {
   'Excel': ['xlsx'],
   'PowerPoint': ['pptx']
 };
+exports.TASK_RESULT_SCHEMA = [
+  'tenant',
+  'id',
+  'status',
+  'status_info',
+  'created_at',
+  'last_open_date',
+  'user_index',
+  'change_id',
+  'callback',
+  'baseurl',
+  'password',
+  'additional'
+];
+exports.DOC_CHANGES_SCHEMA = [
+  'tenant',
+  'id',
+  'change_id',
+  'user_id',
+  'user_id_original',
+  'user_name',
+  'change_data',
+  'change_date',
+];

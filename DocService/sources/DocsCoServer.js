@@ -154,6 +154,7 @@ const EditorTypes = {
 const defaultHttpPort = 80, defaultHttpsPort = 443;	// Default ports (for http and https)
 const editorData = new editorDataStorage();
 const clientStatsD = statsDClient.getClient();
+let isServerStartedUp = false;
 let connections = []; // Active connections
 let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
@@ -3933,26 +3934,29 @@ exports.install = function(server, callbackFunction) {
       }
       gc.startGC();
 
-      let tableName = cfgTableResult;
-      const tableRequiredColumn = 'tenant';
       //check data base compatibility
-      sqlBase.getTableColumns(operationContext.global, tableName).then(function(res) {
-        let index = res.findIndex((currentValue) => {
-          for (let key in currentValue) {
-            if (currentValue.hasOwnProperty(key) && 'column_name' === key.toLowerCase()) {
-              return tableRequiredColumn === currentValue[key];
-            }
-          }
-        });
-        if (-1 !== index || 0 === res.length) {
-          return editorData.connect().then(function() {
-            callbackFunction();
-          }).catch(err => {
-            operationContext.global.logger.error('editorData error: %s', err.stack);
-          });
-        } else {
-          operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
+      sqlBase.getTableColumns(operationContext.global, cfgTableResult).then(function(result) {
+        if (result.length === 0) {
+          operationContext.global.logger.error('DB table "%s" does not exist', cfgTableResult);
+          return;
         }
+
+        const columnArray = result.map(row => row['column_name']);
+        const hashedResult = new Set(columnArray);
+        const schemaDiff = constants.TASK_RESULT_SCHEMA.filter(column => !hashedResult.has(column));
+
+        if (schemaDiff.length > 0) {
+          operationContext.global.logger.error(`DB table "${cfgTableResult}" does not contain columns: ${schemaDiff}, columns info: ${columnArray}`);
+          return;
+        }
+
+        return editorData.connect().then(
+          () => {
+              callbackFunction();
+              isServerStartedUp = true;
+            },
+          error => operationContext.global.logger.error('editorData error: %s', error.stack)
+        );
       }).catch(err => {
         operationContext.global.logger.error('getTableColumns error: %s', err.stack);
       });
@@ -4008,7 +4012,7 @@ exports.healthCheck = function(req, res) {
       }
       ctx.logger.debug('healthCheck storage');
 
-      output = true;
+      output = isServerStartedUp;
       ctx.logger.info('healthCheck end');
     } catch (err) {
       ctx.logger.error('healthCheck error %s', err.stack);
