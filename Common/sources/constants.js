@@ -294,7 +294,7 @@ exports.SUPPORTED_TEMPLATES_EXTENSIONS = {
   'Excel': ['xlsx'],
   'PowerPoint': ['pptx']
 };
-exports.TASK_RESULT_SCHEMA = [
+exports.TABLE_RESULT_SCHEMA = [
   'tenant',
   'id',
   'status',
@@ -308,7 +308,7 @@ exports.TASK_RESULT_SCHEMA = [
   'password',
   'additional'
 ];
-exports.DOC_CHANGES_SCHEMA = [
+exports.TABLE_CHANGES_SCHEMA = [
   'tenant',
   'id',
   'change_id',
