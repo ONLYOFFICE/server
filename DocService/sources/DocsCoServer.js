@@ -155,7 +155,6 @@ const EditorTypes = {
 const defaultHttpPort = 80, defaultHttpsPort = 443;	// Default ports (for http and https)
 const editorData = new editorDataStorage();
 const clientStatsD = statsDClient.getClient();
-let isServerStartedUp = false;
 let connections = []; // Active connections
 let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
@@ -3971,7 +3970,6 @@ exports.install = function(server, callbackFunction) {
           editorData.connect().then(
             () => {
                 callbackFunction();
-                isServerStartedUp = true;
               },
             error => operationContext.global.logger.error('editorData error: %s', error.stack)
           );
@@ -4030,7 +4028,7 @@ exports.healthCheck = function(req, res) {
       }
       ctx.logger.debug('healthCheck storage');
 
-      output = isServerStartedUp;
+      output = true;
       ctx.logger.info('healthCheck end');
     } catch (err) {
       ctx.logger.error('healthCheck error %s', err.stack);
