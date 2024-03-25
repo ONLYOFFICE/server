@@ -616,7 +616,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   var selectRes = yield taskResult.select(ctx, cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
   if (!row) {
-    return;
+    return false;
   }
   if (opt_initShardKey) {
     ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
@@ -632,6 +632,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   queueData.setFromChanges(true);
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
   yield* docsCoServer.addTask(queueData, priority, opt_queue, opt_expiration);
+  return true;
 });
 function isDisplayedImage(strName) {
   var res = 0;
@@ -1167,6 +1168,8 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
       }
       if (!isSfcm) {
         //todo simultaneous opening
+        //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
+        yield docsCoServer.editorData.cleanDocumentOnExit(ctx, docId);
         //to unlock wopi file
         yield docsCoServer.unlockWopiDoc(ctx, docId, callbackUserIndex);
         //cleanupRes can be false in case of simultaneous opening. it is OK

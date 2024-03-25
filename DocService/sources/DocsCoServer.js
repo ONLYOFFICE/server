@@ -962,13 +962,6 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     forceSave.setAuthorUserId(opt_userId);
     forceSave.setAuthorUserIndex(opt_userIndex);
 
-    if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
-      await co(publish(ctx, {
-                       type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId,
-                       data: {type: type, time: forceSave.getTime(), start: true}
-                     }, undefined, undefined, opt_pubsub));
-    }
-
     let priority;
     let expiration;
     if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
@@ -983,6 +976,12 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
       opt_queue, undefined, opt_initShardKey);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
+      if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
+        await co(publish(ctx, {
+          type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId,
+          data: {type: type, time: forceSave.getTime(), start: true}
+        }, undefined, undefined, opt_pubsub));
+      }
     } else {
       res.code = commonDefines.c_oAscServerCommandErrors.UnknownError;
     }

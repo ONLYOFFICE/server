@@ -213,7 +213,10 @@ async function convertFromChanges(ctx, docId, baseUrl, forceSave, externalChange
     cmd.setRedisKey(opt_redisKey);
   }
 
-  await canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey);
+  let commandSfctByCmdRes = await canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey);
+  if (!commandSfctByCmdRes) {
+    return new commonDefines.ConvertStatus(constants.UNKNOWN);
+  }
   var fileTo = constants.OUTPUT_NAME;
   let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
   if (outputExt) {
