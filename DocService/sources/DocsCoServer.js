@@ -144,6 +144,7 @@ const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCro
 const cfgRefreshLockInterval = ms(config.get('wopi.refreshLockInterval'));
 const cfgSocketIoConnection = config.get('services.CoAuthoring.socketio.connection');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
+const cfgTableChanges = config.get('services.CoAuthoring.sql.tableChanges');
 
 const EditorTypes = {
   document : 0,
@@ -1473,6 +1474,26 @@ function getOpenFormatByEditor(editorType) {
       break;
   }
   return res;
+}
+
+async function isSchemaCompatible([tableName, tableSchema]) {
+  const resultSchema = await sqlBase.getTableColumns(operationContext.global, tableName);
+
+  if (resultSchema.length === 0) {
+    operationContext.global.logger.error('DB table "%s" does not exist', tableName);
+    return false;
+  }
+
+  const columnArray = resultSchema.map(row => row['column_name']);
+  const hashedResult = new Set(columnArray);
+  const schemaDiff = tableSchema.filter(column => !hashedResult.has(column));
+
+  if (schemaDiff.length > 0) {
+    operationContext.global.logger.error(`DB table "${tableName}" does not contain columns: ${schemaDiff}, columns info: ${columnArray}`);
+    return false;
+  }
+
+  return true;
 }
 
 exports.c_oAscServerStatus = c_oAscServerStatus;
@@ -3933,29 +3954,28 @@ exports.install = function(server, callbackFunction) {
       }
       gc.startGC();
 
-      let tableName = cfgTableResult;
-      const tableRequiredColumn = 'tenant';
       //check data base compatibility
-      sqlBase.getTableColumns(operationContext.global, tableName).then(function(res) {
-        let index = res.findIndex((currentValue) => {
-          for (let key in currentValue) {
-            if (currentValue.hasOwnProperty(key) && 'column_name' === key.toLowerCase()) {
-              return tableRequiredColumn === currentValue[key];
-            }
+      const tables = [
+        [cfgTableResult, constants.TABLE_RESULT_SCHEMA],
+        [cfgTableChanges, constants.TABLE_CHANGES_SCHEMA]
+      ];
+      const requestPromises = tables.map(table => isSchemaCompatible(table));
+
+      Promise.all(requestPromises).then(
+        checkResult => {
+          if (checkResult.includes(false)) {
+            return;
           }
-        });
-        if (-1 !== index || 0 === res.length) {
-          return editorData.connect().then(function() {
-            callbackFunction();
-          }).catch(err => {
-            operationContext.global.logger.error('editorData error: %s', err.stack);
-          });
-        } else {
-          operationContext.global.logger.error('DB table "%s" does not contain %s column, columns info: %j', tableName, tableRequiredColumn, res);
-        }
-      }).catch(err => {
-        operationContext.global.logger.error('getTableColumns error: %s', err.stack);
-      });
+
+          editorData.connect().then(
+            () => {
+                callbackFunction();
+              },
+            error => operationContext.global.logger.error('editorData error: %s', error.stack)
+          );
+        },
+        error => operationContext.global.logger.error('getTableColumns error: %s', error.stack)
+      );
     });
   });
 };
