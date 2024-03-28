@@ -1,6 +1,8 @@
 name: Service unit tests
 on:
   push:
+    branches:
+      - '**'
     paths:
       - '**.js'
       - '!tests/integration/**'
