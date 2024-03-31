@@ -534,6 +534,8 @@ exports.mapAscServerErrorToOldError = function(error) {
       res = -7;
       break;
     case constants.CONVERT_LIMITS :
+      res = -10;
+      break;
     case constants.CONVERT_NEED_PARAMS :
     case constants.CONVERT_LIBREOFFICE :
     case constants.CONVERT_CORRUPTED :
