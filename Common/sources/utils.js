@@ -1087,8 +1087,9 @@ exports.convertLicenseInfoToServerParams = function(licenseInfo) {
   license.buildNumber = commonDefines.buildNumber;
   return license;
 };
-exports.checkBaseUrl = function(ctx, baseUrl) {
-  const tenStorageExternalHost = ctx.getCfg('storage.externalHost', cfgStorageExternalHost);
+exports.checkBaseUrl = function(ctx, baseUrl, opt_storageCfg) {
+  let storageExternalHost = opt_storageCfg ? opt_storageCfg.externalHost : cfgStorageExternalHost
+  const tenStorageExternalHost = ctx.getCfg('storage.externalHost', storageExternalHost);
   return tenStorageExternalHost ? tenStorageExternalHost : baseUrl;
 };
 exports.resolvePath = function(object, path, defaultValue) {

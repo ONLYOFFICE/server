@@ -21,7 +21,8 @@ const utils = require('../../../Common/sources/utils');
 const commonDefines = require("../../../Common/sources/commondefines");
 const config = require('../../../Common/node_modules/config');
 
-const cfgStorageName = config.get('storage.name');
+const cfgCacheStorage = config.get('storage');
+const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
 
 const ctx = operationContext.global;
 const rand = Math.floor(Math.random() * 1000000);
@@ -32,8 +33,14 @@ let testFile1 = testDir + "/test1.txt";
 let testFile2 = testDir + "/test2.txt";
 let testFile3 = testDir + "/test3.txt";
 let testFile4 = testDir + "/test4.txt";
+let specialDirCache = "";
+let specialDirForgotten = "forgotten";
 
 console.debug(`testDir: ${testDir}`)
+
+function getStorageCfg(specialDir) {
+  return specialDir ? cfgPersistentStorage : cfgCacheStorage;
+}
 
 function request(url) {
   return new Promise(resolve => {
@@ -65,7 +72,7 @@ function runTestForDir(specialDir) {
     let list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([testFile1, testFile2].sort());
   });
-  if ("storage-fs" === cfgStorageName) {
+  if ("storage-fs" === getStorageCfg(specialDir).name) {
     test("UploadObject", async () => {
       let res = await storage.uploadObject(ctx, testFile3, "createReadStream.txt", specialDir);
       expect(res).toEqual(undefined);
@@ -81,6 +88,7 @@ function runTestForDir(specialDir) {
       let list = await storage.listObjects(ctx, testDir, specialDir);
       expect(spy).toHaveBeenCalled();
       expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
+      spy.mockRestore();
     });
   }
   test("copyObject", async () => {
@@ -140,7 +148,7 @@ function runTestForDir(specialDir) {
     expect(outputText.toString("utf8")).toEqual(testFileData3);
   });
   test("getSignedUrl", async () => {
-    let url, data;
+    let url, urls, data;
     url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDir);
     data = await request(url);
     expect(data).toEqual(testFileData1);
@@ -156,6 +164,33 @@ function runTestForDir(specialDir) {
     url = await storage.getSignedUrl(ctx, baseUrl, testFile4, urlType, undefined, undefined, specialDir);
     data = await request(url);
     expect(data).toEqual(testFileData4);
+  });
+  test("getSignedUrls", async () => {
+    let urls, data;
+    urls = await storage.getSignedUrls(ctx, baseUrl, testDir, urlType, undefined, specialDir);
+    data = [];
+    for(let i in urls) {
+      data.push(await request(urls[i]));
+    }
+    expect(data.sort()).toEqual([testFileData1, testFileData2, testFileData3, testFileData4].sort());
+  });
+  test("getSignedUrlsArrayByArray", async () => {
+    let urls, data;
+    urls = await storage.getSignedUrlsArrayByArray(ctx, baseUrl, [testFile1, testFile2], urlType, specialDir);
+    data = [];
+    for(let i = 0; i < urls.length; ++i) {
+      data.push(await request(urls[i]));
+    }
+    expect(data.sort()).toEqual([testFileData1, testFileData2].sort());
+  });
+  test("getSignedUrlsByArray", async () => {
+    let urls, data;
+    urls = await storage.getSignedUrlsByArray(ctx, baseUrl, [testFile3, testFile4], undefined, urlType, specialDir);
+    data = [];
+    for(let i in urls) {
+      data.push(await request(urls[i]));
+    }
+    expect(data.sort()).toEqual([testFileData3, testFileData4].sort());
   });
   test("deleteObject", async () => {
     let list;
@@ -183,9 +218,57 @@ function runTestForDir(specialDir) {
 
 // Assumed, that server is already up.
 describe('storage common dir', function () {
-  runTestForDir("");
+  runTestForDir(specialDirCache);
 });
 
 describe('storage forgotten dir', function () {
-  runTestForDir("forgotten");
+  runTestForDir(specialDirForgotten);
+});
+
+describe('storage mix common and forgotten dir', function () {
+  test("putObject", async () => {
+    let buffer = Buffer.from(testFileData1);
+    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
+    expect(res).toEqual(undefined);
+    let list = await storage.listObjects(ctx, testDir, specialDirCache);
+    expect(list.sort()).toEqual([testFile1].sort());
+
+    buffer = Buffer.from(testFileData2);
+    res = await storage.putObject(ctx, testFile2, buffer, buffer.length, specialDirForgotten);
+    expect(res).toEqual(undefined);
+    list = await storage.listObjects(ctx, testDir, specialDirForgotten);
+    expect(list.sort()).toEqual([testFile2].sort());
+  });
+
+  test("copyPath", async () => {
+    let list, res;
+    res = await storage.copyPath(ctx, testDir, testDir, specialDirCache, specialDirForgotten);
+    expect(res).toEqual(undefined);
+
+    list = await storage.listObjects(ctx, testDir, specialDirForgotten);
+    expect(list.sort()).toEqual([testFile1, testFile2].sort());
+  });
+  test("copyObject", async () => {
+    let list, res;
+    res = await storage.copyObject(ctx, testFile2, testFile2, specialDirForgotten, specialDirCache);
+    expect(res).toEqual(undefined);
+
+    list = await storage.listObjects(ctx, testDir, specialDirCache);
+    expect(list.sort()).toEqual([testFile1, testFile2].sort());
+  });
+
+  test("deletePath", async () => {
+    let list, res;
+    res = await storage.deletePath(ctx, testDir, specialDirCache);
+    expect(res).toEqual(undefined);
+
+    list = await storage.listObjects(ctx, testDir, specialDirCache);
+    expect(list.sort()).toEqual([].sort());
+
+    res = await storage.deletePath(ctx, testDir, specialDirForgotten);
+    expect(res).toEqual(undefined);
+
+    list = await storage.listObjects(ctx, testDir, specialDirForgotten);
+    expect(list.sort()).toEqual([].sort());
+  });
 });

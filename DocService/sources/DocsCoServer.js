@@ -4010,18 +4010,12 @@ exports.healthCheck = function(req, res) {
       }
 
       //storage
-      const clusterId = cluster.isWorker ? cluster.worker.id : '';
-      const tempName = 'hc_' + os.hostname() + '_' + clusterId + '_' + Math.round(Math.random() * HEALTH_CHECK_KEY_MAX);
-      const tempBuffer = Buffer.from([1, 2, 3, 4, 5]);
-      //It's proper to putObject one tempName
-      yield storage.putObject(ctx, tempName, tempBuffer, tempBuffer.length);
-      try {
-        //try to prevent case, when another process can remove same tempName
-        yield storage.deleteObject(ctx, tempName);
-      } catch (err) {
-        ctx.logger.warn('healthCheck error %s', err.stack);
-      }
+      yield storage.healthCheck(ctx);
       ctx.logger.debug('healthCheck storage');
+      if (storage.isDiffrentPersistentStorage()) {
+        yield storage.healthCheck(ctx, cfgForgottenFiles);
+        ctx.logger.debug('healthCheck storage persistent');
+      }
 
       output = true;
       ctx.logger.info('healthCheck end');
