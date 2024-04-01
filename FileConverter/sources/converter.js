@@ -341,13 +341,15 @@ function* isUselessConvertion(ctx, task, cmd) {
   return constants.NO_ERROR;
 }
 async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
+  let forceSave = cmd.getForceSave();
+  let isSendForm = forceSave && forceSave.getType() === commonDefines.c_oAscForceSaveTypes.Form;
   let originFormat = cmd.getOriginFormat();
   let isOriginFormatWithForms = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === originFormat ||
     constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === originFormat ||
     constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === originFormat;
   let isFormatToPdf = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === dataConvert.formatTo ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === dataConvert.formatTo;
-  if (isFormatToPdf && isOriginFormatWithForms) {
+  if (isFormatToPdf && isOriginFormatWithForms && !isSendForm) {
     let format = await formatChecker.getDocumentFormatByFile(dataConvert.fileFrom);
     if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD === format) {
       ctx.logger.debug('change format to extended pdf');
