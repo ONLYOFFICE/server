@@ -2250,7 +2250,7 @@ exports.install = function(server, callbackFunction) {
     }
     if (decoded.queryParams) {
       let queryParams = decoded.queryParams;
-      data.lang = queryParams.lang || queryParams.ui || "en-US";
+      data.lang = queryParams.lang || queryParams.ui || constants.TEMPLATES_DEFAULT_LOCALE;
     }
     if (wopiClient.isWopiJwtToken(decoded)) {
       let fileInfo = decoded.fileInfo;

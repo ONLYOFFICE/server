@@ -360,7 +360,7 @@ async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
 function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
   if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
-    let locale = 'en-US';
+    let locale = constants.TEMPLATES_DEFAULT_LOCALE;
     if (_lcid) {
       let localeNew = lcid.from(_lcid);
       if (localeNew) {
@@ -372,14 +372,24 @@ function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
         }
       }
     }
-    ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
-    let format = formatChecker.getFormatFromString(ext);
-    if (formatChecker.isDocumentFormat(format)) {
-      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.docx'), fileFrom);
-    } else if (formatChecker.isSpreadsheetFormat(format)) {
-      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.xlsx'), fileFrom);
-    } else if (formatChecker.isPresentationFormat(format)) {
-      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.pptx'), fileFrom);
+    let fileTemplatePath = path.join(tenNewFileTemplate, locale, 'new.');
+    if (fs.existsSync(fileTemplatePath + ext)) {
+      ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
+      fs.copyFileSync(fileTemplatePath + ext, fileFrom);
+    } else {
+      let format = formatChecker.getFormatFromString(ext);
+      let editorFormat;
+      if (formatChecker.isDocumentFormat(format)) {
+        editorFormat = 'docx';
+      } else if (formatChecker.isSpreadsheetFormat(format)) {
+        editorFormat = 'xlsx';
+      } else if (formatChecker.isPresentationFormat(format)) {
+        editorFormat = 'pptx';
+      }
+      if (fs.existsSync(fileTemplatePath + editorFormat)) {
+        ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
+        fs.copyFileSync(fileTemplatePath + editorFormat, fileFrom);
+      }
     }
   }
 }

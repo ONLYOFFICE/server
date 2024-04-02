@@ -67,16 +67,18 @@ const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
 const cfgWopiPdfView = config.get('wopi.pdfView');
+const cfgWopiPdfEdit = config.get('wopi.pdfEdit');
 const cfgWopiWordView = config.get('wopi.wordView');
 const cfgWopiWordEdit = config.get('wopi.wordEdit');
 const cfgWopiCellView = config.get('wopi.cellView');
 const cfgWopiCellEdit = config.get('wopi.cellEdit');
 const cfgWopiSlideView = config.get('wopi.slideView');
 const cfgWopiSlideEdit = config.get('wopi.slideEdit');
-const cfgWopiWordForm = config.get('wopi.wordForm');
+const cfgWopiForms = config.get('wopi.forms');
 const cfgWopiFavIconUrlWord = config.get('wopi.favIconUrlWord');
 const cfgWopiFavIconUrlCell = config.get('wopi.favIconUrlCell');
 const cfgWopiFavIconUrlSlide = config.get('wopi.favIconUrlSlide');
+const cfgWopiFavIconUrlPdf = config.get('wopi.favIconUrlPdf');
 const cfgWopiPublicKey = config.get('wopi.publicKey');
 const cfgWopiModulus = config.get('wopi.modulus');
 const cfgWopiExponent = config.get('wopi.exponent');
@@ -89,6 +91,7 @@ const cfgWopiHost = config.get('wopi.host');
 const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
 
 let templatesFolderLocalesCache = null;
+let templatesFolderExtsCache = null;
 const templateFilesSizeCache = {};
 
 let mimeTypesByExt = (function() {
@@ -109,9 +112,24 @@ let mimeTypesByExt = (function() {
   return mimeTypesByExt;
 })();
 
+async function getTemplatesFolderExts(ctx){
+  //find available template files
+  if (templatesFolderExtsCache === null) {
+    const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
+    const dirContent = await readdir(`${tenNewFileTemplate}/${constants.TEMPLATES_DEFAULT_LOCALE}/`, { withFileTypes: true });
+    templatesFolderExtsCache = dirContent
+      .filter(dirObject => dirObject.isFile())
+      .reduce((result, item, index, array) => {
+        let ext = path.extname(item.name).substring(1);
+        result[ext] = ext;
+        return result;
+      }, {});
+  }
+  return templatesFolderExtsCache;
+}
+
 function discovery(req, res) {
   return co(function*() {
-    let output = '';
     const xml = xmlbuilder2.create({version: '1.0', encoding: 'utf-8'});
     let ctx = new operationContext.Context();
     try {
@@ -120,16 +138,18 @@ function discovery(req, res) {
       ctx.logger.info('wopiDiscovery start');
       const tenWopiWopiZone = ctx.getCfg('wopi.wopiZone', cfgWopiWopiZone);
       const tenWopiPdfView = ctx.getCfg('wopi.pdfView', cfgWopiPdfView);
+      const tenWopiPdfEdit = ctx.getCfg('wopi.pdfEdit', cfgWopiPdfEdit);
       const tenWopiWordView = ctx.getCfg('wopi.wordView', cfgWopiWordView);
       const tenWopiWordEdit = ctx.getCfg('wopi.wordEdit', cfgWopiWordEdit);
       const tenWopiCellView = ctx.getCfg('wopi.cellView', cfgWopiCellView);
       const tenWopiCellEdit = ctx.getCfg('wopi.cellEdit', cfgWopiCellEdit);
       const tenWopiSlideView = ctx.getCfg('wopi.slideView', cfgWopiSlideView);
       const tenWopiSlideEdit = ctx.getCfg('wopi.slideEdit', cfgWopiSlideEdit);
-      const tenWopiWordForm = ctx.getCfg('wopi.wordForm', cfgWopiWordForm);
+      const tenWopiForms = ctx.getCfg('wopi.forms', cfgWopiForms);
       const tenWopiFavIconUrlWord = ctx.getCfg('wopi.favIconUrlWord', cfgWopiFavIconUrlWord);
       const tenWopiFavIconUrlCell = ctx.getCfg('wopi.favIconUrlCell', cfgWopiFavIconUrlCell);
       const tenWopiFavIconUrlSlide = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlSlide);
+      const tenWopiFavIconUrlPdf = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlPdf);
       const tenWopiPublicKey = ctx.getCfg('wopi.publicKey', cfgWopiPublicKey);
       const tenWopiModulus = ctx.getCfg('wopi.modulus', cfgWopiModulus);
       const tenWopiExponent = ctx.getCfg('wopi.exponent', cfgWopiExponent);
@@ -139,20 +159,27 @@ function discovery(req, res) {
       const tenWopiHost = ctx.getCfg('wopi.host', cfgWopiHost);
 
       let baseUrl = tenWopiHost || utils.getBaseUrlByRequest(ctx, req);
-      let names = ['Word','Excel','PowerPoint'];
-      let favIconUrls = [tenWopiFavIconUrlWord, tenWopiFavIconUrlCell, tenWopiFavIconUrlSlide];
+      let names = ['Word','Excel','PowerPoint','Pdf'];
+      let favIconUrls = [tenWopiFavIconUrlWord, tenWopiFavIconUrlCell, tenWopiFavIconUrlSlide, tenWopiFavIconUrlPdf];
       let exts = [
-        {targetext: 'docx', view: tenWopiPdfView.concat(tenWopiWordView), edit: tenWopiWordEdit, form: tenWopiWordForm},
+        {targetext: 'docx', view: tenWopiWordView, edit: tenWopiWordEdit},
         {targetext: 'xlsx', view: tenWopiCellView, edit: tenWopiCellEdit},
-        {targetext: 'pptx', view: tenWopiSlideView, edit: tenWopiSlideEdit}
+        {targetext: 'pptx', view: tenWopiSlideView, edit: tenWopiSlideEdit},
+        {targetext: null, view: tenWopiPdfView, edit: tenWopiPdfEdit}
       ];
+      let documentTypes = [`word`, `cell`, `slide`, `pdf`];
+
+      let templatesFolderExtsCache = yield getTemplatesFolderExts(ctx);
+      let formsExts = tenWopiForms.reduce((result, item, index, array) => {
+        result[item] = item;
+        return result;
+      }, {});
 
       let templateStart = `${baseUrl}/hosting/wopi`;
       let templateEnd = `&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;`;
       templateEnd += `&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;`;
       templateEnd += `&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;`;
       templateEnd += `&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;`;
-      let documentTypes = [`word`, `cell`, `slide`];
       let xmlZone = xml.ele('wopi-discovery').ele('net-zone', { name: tenWopiWopiZone });
       //start section for MS WOPI connectors
       for(let i = 0; i < names.length; ++i) {
@@ -173,7 +200,7 @@ function discovery(req, res) {
           xmlApp.ele('action', {name: 'view', ext: ext.view[j], default: 'true', urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.view[j], urlsrc: urlTemplateMobileView}).up();
-          if (-1 === tenWopiPdfView.indexOf(ext.view[j])) {
+          if (ext.targetext) {
             let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
             xmlApp.ele('action', {name: 'convert', ext: ext.view[j], targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
           }
@@ -184,13 +211,13 @@ function discovery(req, res) {
           xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
           xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
+          if (formsExts[ext.edit[j]]) {
+            xmlApp.ele('action', {name: 'formsubmit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+          }
+          if (templatesFolderExtsCache[ext.edit[j]]) {
+            xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          }
         }
-        for (let extention of (ext.form || [])) {
-          xmlApp.ele('action', {name: 'formsubmit', ext: extention, requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
-        }
-        constants.SUPPORTED_TEMPLATES_EXTENSIONS[name].forEach(
-          extension => xmlApp.ele('action', {name: 'editnew', ext: extension, requires: 'locks,update', urlsrc: urlTemplateEdit}).up()
-        );
         xmlApp.up();
       }
       //end section for MS WOPI connectors
@@ -211,12 +238,9 @@ function discovery(req, res) {
               xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
               xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
               xmlApp.ele('action', {name: 'mobileView', ext: '', urlsrc: urlTemplateMobileView}).up();
-              if (-1 === tenWopiPdfView.indexOf(ext.view[j])) {
+              if (ext.targetext) {
                 let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
                 xmlApp.ele('action', {name: 'convert', ext: '', targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
-              }
-              if (ext.form && -1 !== ext.form.indexOf(ext.view[j])) {
-                xmlApp.ele('action', {name: 'formsubmit', ext: '', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
               }
               xmlApp.up();
             });
@@ -229,8 +253,11 @@ function discovery(req, res) {
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
               xmlApp.ele('action', {name: 'mobileEdit', ext: '', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
-              if (ext.form && -1 !== ext.form.indexOf(ext.edit[j])) {
+              if (formsExts[ext.edit[j]]) {
                 xmlApp.ele('action', {name: 'formsubmit', ext: '', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+              }
+              if (templatesFolderExtsCache[ext.edit[j]]) {
+                xmlApp.ele('action', {name: 'editnew', ext: '', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
               }
               xmlApp.up();
             });
@@ -496,7 +523,7 @@ function getEditorHtml(req, res) {
         const localePrefix = lang || ui || 'en';
         let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
         if (locale === undefined) {
-          locale = 'en-US';
+          locale = constants.TEMPLATES_DEFAULT_LOCALE;
         }
 
         const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;

@@ -53,6 +53,7 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var operationContext = require('./../../Common/sources/operationContext');
 var tenantManager = require('./../../Common/sources/tenantManager');
 var config = require('config');
+const path = require("path");
 
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
@@ -70,6 +71,7 @@ const cfgAssemblyFormatAsOrigin = config.get('services.CoAuthoring.server.assemb
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
 const cfgDownloadFileAllowExt = config.get('services.CoAuthoring.server.downloadFileAllowExt');
+const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 
 var SAVE_TYPE_PART_START = 0;
 var SAVE_TYPE_PART = 1;
@@ -1597,11 +1599,12 @@ exports.downloadFile = function(req, res) {
       const tenDownloadMaxBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgDownloadMaxBytes);
       const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
       const tenDownloadFileAllowExt = ctx.getCfg('services.CoAuthoring.server.downloadFileAllowExt', cfgDownloadFileAllowExt);
+      const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
 
       let authorization;
       let isInJwtToken = false;
       let errorDescription;
-      let headers;
+      let headers, fromTemplate;
       let authRes = yield docsCoServer.getRequestParams(ctx, req);
       if (authRes.code === constants.NO_ERROR) {
         let decoded = authRes.params;
@@ -1615,14 +1618,19 @@ exports.downloadFile = function(req, res) {
           url = decoded.url;
           isInJwtToken = true;
         } else if (wopiClient.isWopiJwtToken(decoded)) {
-          ({url, headers} = wopiClient.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
-          let filterStatus = yield wopiClient.checkIpFilter(ctx, url);
-          if (0 === filterStatus) {
-            //todo false? (true because it passed checkIpFilter for wopi)
-            //todo use directIfIn
-            isInJwtToken = true;
+          if (decoded.fileInfo.Size === 0) {
+            //editnew case
+            fromTemplate = pathModule.extname(decoded.fileInfo.BaseFileName).substring(1);
           } else {
-            errorDescription = 'access deny';
+            ({url, headers} = wopiClient.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
+            let filterStatus = yield wopiClient.checkIpFilter(ctx, url);
+            if (0 === filterStatus) {
+              //todo false? (true because it passed checkIpFilter for wopi)
+              //todo use directIfIn
+              isInJwtToken = true;
+            } else {
+              errorDescription = 'access deny';
+            }
           }
         } else if (!tenTokenEnableBrowser) {
           //todo token required
@@ -1641,26 +1649,33 @@ exports.downloadFile = function(req, res) {
         res.sendStatus(403);
         return;
       }
-      if (utils.canIncludeOutboxAuthorization(ctx, url)) {
-        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-        authorization = utils.fillJwtForRequest(ctx, {url: url}, secret, false);
-      }
-      let urlParsed = urlModule.parse(url);
-      let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
-      if (0 !== filterStatus) {
-        ctx.logger.warn('Error downloadFile checkIpFilter error: url = %s', url);
-        res.sendStatus(filterStatus);
-        return;
-      }
-
-      if (req.get('Range')) {
-        if (!headers) {
-          headers = {};
+      if (fromTemplate) {
+        ctx.logger.debug('downloadFile from file template: %s', fromTemplate);
+        let locale = constants.TEMPLATES_DEFAULT_LOCALE;
+        let fileTemplatePath = pathModule.join(tenNewFileTemplate, locale, 'new.' + fromTemplate);
+        res.sendFile(pathModule.resolve(fileTemplatePath));
+      } else {
+        if (utils.canIncludeOutboxAuthorization(ctx, url)) {
+          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+          authorization = utils.fillJwtForRequest(ctx, {url: url}, secret, false);
         }
-        headers['Range'] = req.get('Range');
-      }
+        let urlParsed = urlModule.parse(url);
+        let filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+        if (0 !== filterStatus) {
+          ctx.logger.warn('Error downloadFile checkIpFilter error: url = %s', url);
+          res.sendStatus(filterStatus);
+          return;
+        }
 
-      yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, res);
+        if (req.get('Range')) {
+          if (!headers) {
+            headers = {};
+          }
+          headers['Range'] = req.get('Range');
+        }
+
+        yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, res);
+      }
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.downloadFile', new Date() - startDate);

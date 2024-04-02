@@ -282,15 +282,11 @@ exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';
 exports.ACTIVEMQ_QUEUE_PREFIX = 'queue://';
 exports.ACTIVEMQ_TOPIC_PREFIX = 'topic://';
 
+exports.TEMPLATES_DEFAULT_LOCALE = 'en-US';
 exports.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP = {
   'en': 'en-US',
   'pt': 'pt-BR',
   'zh': 'zh-CH',
   'pt-PT': 'pt-PT',
   'zh-TW': 'zh-TW'
-};
-exports.SUPPORTED_TEMPLATES_EXTENSIONS = {
-  'Word': ['docx', 'docxf'],
-  'Excel': ['xlsx'],
-  'PowerPoint': ['pptx']
 };
