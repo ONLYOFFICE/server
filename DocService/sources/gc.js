@@ -125,7 +125,7 @@ var checkDocumentExpire = function() {
             var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
             if (hasChanges) {
               //todo opt_initShardKey from getDocumentPresenceExpired data or from db
-              yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true, true);
+              yield docsCoServer.createSaveTimer(ctx, docId, null, null, null, queue, true, true);
               startSaveCount++;
             } else {
               yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId);

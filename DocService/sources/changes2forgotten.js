@@ -134,7 +134,7 @@ function shutdown() {
         yield updateDoc(ctx, docId, commonDefines.FileStatus.Ok, "");
         yield editorStat.addShutdown(redisKeyShutdown, docId);
         ctx.logger.debug('shutdown createSaveTimerPromise %s', docId);
-        yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
+        yield docsCoServer.createSaveTimer(ctx, docId, null, null, null, queue, true);
       }
       ctx.initDefault();
       //sleep because of bugs in createSaveTimerPromise

@@ -106,6 +106,7 @@ const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataS
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const editorDataStorage = require('./' + cfgEditorDataStorage);
 const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
+const utilsDocService = require("./utilsDocService");
 
 const cfgEditSingleton =  config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor =  config.get('services.CoAuthoring.editor');
@@ -933,7 +934,7 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
         newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
         let newChangesLastTime = newChangesLastDate.getTime();
         let baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
-        let changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime);
+        let changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime, opt_conn.lang);
         await editorData.setForceSave(ctx, docId, newChangesLastTime, 0, baseUrl, changeInfo, null);
         forceSave = await editorData.getForceSave(ctx, docId);
       }
@@ -990,8 +991,8 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
   ctx.logger.debug('startForceSave end');
   return res;
 }
-function getExternalChangeInfo(user, date) {
-  return {user_id: user.id, user_id_original: user.idOriginal, user_name: user.username, change_date: date};
+function getExternalChangeInfo(user, date, lang) {
+  return {user_id: user.id, user_id_original: user.idOriginal, user_name: user.username, lang, change_date: date};
 }
 let resetForceSaveAfterChanges = co.wrap(function*(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
   const tenForceSaveEnable = ctx.getCfg('services.CoAuthoring.autoAssembly.enable', cfgForceSaveEnable);
@@ -1323,7 +1324,7 @@ function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, op
   yield* cleanDocumentOnExit(ctx, docId, false, opt_userIndex);
 }
 
-function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_noDelay, opt_initShardKey) {
+function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_noDelay, opt_initShardKey) {
   return co(function*(){
     const tenAscSaveTimeOutDelay = ctx.getCfg('services.CoAuthoring.server.savetimeoutdelay', cfgAscSaveTimeOutDelay);
 
@@ -1341,7 +1342,7 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_queue, opt_n
       }
       while (true) {
         if (!sqlBase.isLockCriticalSection(docId)) {
-          canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_queue, opt_initShardKey);
+          canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey);
           break;
         }
         yield utils.sleep(c_oAscLockTimeOutDelay);
@@ -1853,7 +1854,8 @@ exports.install = function(server, callbackFunction) {
           }
           if (needSaveChanges && !conn.encrypted) {
             // Send changes to save server
-            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex);
+            let user_lcid = utilsDocService.localeToLCID(conn.lang);
+            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex, user_lcid);
           } else if (needSendStatus) {
             yield* cleanDocumentOnExitNoChanges(ctx, docId, tmpUser.idOriginal, userIndex);
           } else {
@@ -2570,6 +2572,7 @@ exports.install = function(server, callbackFunction) {
       }
       conn.unsyncTime = null;
       conn.encrypted = data.encrypted;
+      conn.lang = data.lang;
       conn.supportAuthChangesAck = data.supportAuthChangesAck;
 
       const c_LR = constants.LICENSE_RESULT;
@@ -3237,7 +3240,7 @@ exports.install = function(server, callbackFunction) {
       // Automatically remove the lock ourselves and send the index to save
       yield* unSaveLock(ctx, conn, changesIndex, newChangesLastTime, puckerIndex);
       //last save
-      let changeInfo = getExternalChangeInfo(conn.user, newChangesLastTime);
+      let changeInfo = getExternalChangeInfo(conn.user, newChangesLastTime, conn.lang);
       yield resetForceSaveAfterChanges(ctx, docId, newChangesLastTime, puckerIndex, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
     } else {
       let changesToSend = arrNewDocumentChanges;

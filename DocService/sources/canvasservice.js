@@ -830,6 +830,7 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
     if (docPassword.initial) {
       cmd.setPassword(docPassword.initial);
     }
+    //todo setLCID in browser
     var queueData = getSaveTask(ctx, cmd);
     queueData.setFromOrigin(true);
     queueData.setFromChanges(true);
@@ -864,7 +865,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     task.password = cmd.getPassword() || "";
     let changeInfo = null;
     if (conn.user) {
-      changeInfo = task.innerPasswordChange = docsCoServer.getExternalChangeInfo(conn.user, newChangesLastDate.getTime());
+      changeInfo = task.innerPasswordChange = docsCoServer.getExternalChangeInfo(conn.user, newChangesLastDate.getTime(), conn.lang);
     }
 
     var upsertRes = yield taskResult.updateIf(ctx, task, updateMask);
@@ -1703,7 +1704,7 @@ exports.downloadFile = function(req, res) {
     }
   });
 };
-exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_queue, opt_initShardKey) {
+exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
   return co(function* () {
     try {
       var startDate = null;
@@ -1729,6 +1730,8 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         cmd.setUserActionId(opt_userId);
         cmd.setUserActionIndex(opt_userIndex);
         cmd.setJsonParams(getOpenedAtJSONParams(row));
+        //todo lang and region are different
+        cmd.setLCID(opt_userLcid);
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
         cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
         addPasswordToCmd(ctx, cmd, row && row.password);

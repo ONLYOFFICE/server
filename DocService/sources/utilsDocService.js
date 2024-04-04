@@ -34,6 +34,7 @@
 
 const exifParser = require("exif-parser");
 const Jimp = require("jimp");
+const locale = require('windows-locale');
 
 async function fixImageExifRotation(ctx, buffer) {
   if (!buffer) {
@@ -59,7 +60,17 @@ async function fixImageExifRotation(ctx, buffer) {
   }
   return buffer;
 }
+/**
+ *
+ * @param {string} lang
+ * @returns {number | undefined}
+ */
+function localeToLCID(lang) {
+  let elem = locale[lang && lang.toLowerCase()];
+  return elem && elem.id;
+}
 
 module.exports = {
-  fixImageExifRotation
+  fixImageExifRotation,
+  localeToLCID
 };

@@ -35,7 +35,6 @@
 const path = require('path');
 var config = require('config');
 var co = require('co');
-const locale = require('windows-locale');
 const mime = require('mime');
 var taskResult = require('./taskresult');
 var utils = require('./../../Common/sources/utils');
@@ -50,6 +49,7 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var storageBase = require('./../../Common/sources/storage-base');
 var operationContext = require('./../../Common/sources/operationContext');
 const sqlBase = require('./databaseConnectors/baseConnector');
+const utilsDocService = require("./utilsDocService");
 
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
@@ -193,6 +193,10 @@ async function convertFromChanges(ctx, docId, baseUrl, forceSave, externalChange
   cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Comma);
   cmd.setForceSave(forceSave);
   cmd.setExternalChangeInfo(externalChangeInfo);
+  if (externalChangeInfo.lang) {
+    //todo lang and region are different
+    cmd.setLCID(utilsDocService.localeToLCID(externalChangeInfo.lang));
+  }
   if (opt_userdata) {
     cmd.setUserData(opt_userdata);
   }
@@ -284,8 +288,8 @@ function convertRequest(req, res, isJson) {
       cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
       if(undefined != params.delimiterChar)
         cmd.setDelimiterChar(params.delimiterChar);
-      if (params.region && locale[params.region.toLowerCase()]) {
-        cmd.setLCID(locale[params.region.toLowerCase()].id);
+      if (params.region) {
+        cmd.setLCID(utilsDocService.localeToLCID(params.region));
       }
       let jsonParams = {};
       if (params.documentLayout) {
@@ -518,8 +522,8 @@ function convertTo(req, res) {
         cmd.setOutputFormat(outputFormat);
         cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
         cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Comma);
-        if (lang && locale[lang.toLowerCase()]) {
-          cmd.setLCID(locale[lang.toLowerCase()].id);
+        if (lang) {
+          cmd.setLCID(utilsDocService.localeToLCID(lang));
         }
         if (fullSheetPreview) {
           cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': {
