@@ -275,6 +275,17 @@ function convertRequest(req, res, isJson) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
+      if (params.pdf) {
+        if (true === params.pdf.pdfa && constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === outputFormat) {
+          outputFormat = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA;
+        } else if (false === params.pdf.pdfa && constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === outputFormat) {
+          outputFormat = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
+        }
+        if (params.pdf.form && (constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === outputFormat ||
+          constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === outputFormat)) {
+          outputFormat = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF;
+        }
+      }
       var cmd = new commonDefines.InputCommand();
       cmd.setCommand('conv');
       cmd.setUrl(params.url);
