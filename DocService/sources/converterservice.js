@@ -83,12 +83,12 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
         }
         break;
       case commonDefines.FileStatus.Err:
+        status.err = row.status_info;
+        break;
       case commonDefines.FileStatus.ErrToReload:
       case commonDefines.FileStatus.NeedPassword:
         status.err = row.status_info;
-        if (commonDefines.FileStatus.ErrToReload == row.status || commonDefines.FileStatus.NeedPassword == row.status) {
-          yield canvasService.cleanupCache(ctx, docId);
-        }
+        yield canvasService.cleanupErrToReload(ctx, docId);
         break;
       case commonDefines.FileStatus.NeedParams:
       case commonDefines.FileStatus.SaveVersion:
@@ -147,7 +147,8 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
   if (!bCreate) {
     selectRes = yield taskResult.select(ctx, docId);
     status = yield* getConvertStatus(ctx, cmd.getDocId() ,cmd.getPassword(), selectRes, opt_checkPassword);
-  } else {
+  }
+  if (bCreate || (commonDefines.FileStatus.None === selectRes?.[0]?.status)) {
     var queueData = new commonDefines.TaskQueueData();
     queueData.setCtx(ctx);
     queueData.setCmd(cmd);

@@ -280,17 +280,13 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       outputData.setData(statusInfo);
       break;
     case commonDefines.FileStatus.Err:
+      outputData.setStatus('err');
+      outputData.setData(statusInfo);
+      break;
     case commonDefines.FileStatus.ErrToReload:
       outputData.setStatus('err');
       outputData.setData(statusInfo);
-      if (commonDefines.FileStatus.ErrToReload == status) {
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
-        let wopiParams = wopiClient.parseWopiCallback(ctx, userAuthStr);
-        if (!wopiParams) {
-          //todo rework ErrToReload to clean up on next open
-          yield cleanupCache(ctx, key);
-        }
-      }
+      yield cleanupErrToReload(ctx, key);
       break;
     case commonDefines.FileStatus.None:
       //this status has no handler
@@ -379,38 +375,40 @@ function getSaveTask(ctx, cmd) {
   //}
   return queueData;
 }
-function* getUpdateResponse(ctx, cmd) {
+async function getUpdateResponse(ctx, cmd) {
   const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
 
   var updateTask = new taskResult.TaskResultData();
   updateTask.tenant = ctx.tenant;
   updateTask.key = cmd.getSaveKey() ? cmd.getSaveKey() : cmd.getDocId();
   var statusInfo = cmd.getStatusInfo();
-  if (constants.NO_ERROR == statusInfo) {
+  if (constants.NO_ERROR === statusInfo) {
     updateTask.status = commonDefines.FileStatus.Ok;
     let password = cmd.getPassword();
     if (password) {
       if (false === hasPasswordCol) {
-        let selectRes = yield taskResult.select(ctx, updateTask.key);
+        let selectRes = await taskResult.select(ctx, updateTask.key);
         hasPasswordCol = selectRes.length > 0 && undefined !== selectRes[0].password;
       }
       if(hasPasswordCol) {
         updateTask.password = password;
       }
     }
-  } else if (constants.CONVERT_DOWNLOAD == statusInfo) {
+  } else if (constants.CONVERT_DOWNLOAD === statusInfo) {
     updateTask.status = commonDefines.FileStatus.ErrToReload;
-  } else if (constants.CONVERT_NEED_PARAMS == statusInfo) {
+  } else if (constants.CONVERT_LIMITS === statusInfo) {
+    updateTask.status = commonDefines.FileStatus.ErrToReload;
+  } else if (constants.CONVERT_NEED_PARAMS === statusInfo) {
     updateTask.status = commonDefines.FileStatus.NeedParams;
-  } else if (constants.CONVERT_DRM == statusInfo || constants.CONVERT_PASSWORD == statusInfo) {
+  } else if (constants.CONVERT_DRM === statusInfo || constants.CONVERT_PASSWORD === statusInfo) {
     if (tenOpenProtectedFile) {
       updateTask.status = commonDefines.FileStatus.NeedPassword;
     } else {
       updateTask.status = commonDefines.FileStatus.Err;
     }
-  } else if (constants.CONVERT_DRM_UNSUPPORTED == statusInfo) {
+  } else if (constants.CONVERT_DRM_UNSUPPORTED === statusInfo) {
     updateTask.status = commonDefines.FileStatus.Err;
-  } else if (constants.CONVERT_DEAD_LETTER == statusInfo) {
+  } else if (constants.CONVERT_DEAD_LETTER === statusInfo) {
     updateTask.status = commonDefines.FileStatus.ErrToReload;
   } else {
     updateTask.status = commonDefines.FileStatus.Err;
@@ -441,6 +439,14 @@ var cleanupCacheIf = co.wrap(function* (ctx, mask) {
   ctx.logger.debug("cleanupCacheIf db.affectedRows=%d", removeRes.affectedRows);
   return res;
 });
+async function cleanupErrToReload(ctx, key) {
+  let updateTask = new taskResult.TaskResultData();
+  updateTask.tenant = ctx.tenant;
+  updateTask.key = key;
+  updateTask.status = commonDefines.FileStatus.None;
+  updateTask.statusInfo = constants.NO_ERROR;
+  await taskResult.update(ctx, updateTask);
+}
 
 function commandOpenStartPromise(ctx, docId, baseUrl, opt_documentCallbackUrl, opt_format) {
   var task = new taskResult.TaskResultData();
@@ -1780,7 +1786,7 @@ exports.receiveTask = function(data, ack) {
         ctx.initFromTaskQueueData(task);
         yield ctx.initTenantCache();
         ctx.logger.info('receiveTask start: %s', data);
-        var updateTask = yield* getUpdateResponse(ctx, cmd);
+        var updateTask = yield getUpdateResponse(ctx, cmd);
         var updateRes = yield taskResult.update(ctx, updateTask);
         if (updateRes.affectedRows > 0) {
           var outputData = new OutputData(cmd.getCommand());
@@ -1829,6 +1835,7 @@ exports.receiveTask = function(data, ack) {
 
 exports.cleanupCache = cleanupCache;
 exports.cleanupCacheIf = cleanupCacheIf;
+exports.cleanupErrToReload = cleanupErrToReload;
 exports.getOpenedAt = getOpenedAt;
 exports.commandSfctByCmd = commandSfctByCmd;
 exports.commandOpenStartPromise = commandOpenStartPromise;
