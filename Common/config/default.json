@@ -16,6 +16,38 @@
 		"visibilityTimeout": 300,
 		"retentionPeriod": 900
 	},
+	"mail": {
+		"transportList": {
+			"smtp": {
+				"host": "smtp_host",
+				"port": 587,
+				"auth": {
+					"type": "login",
+					"user": "smtp_login",
+					"pass": "smtp_password"
+				},
+				"connection": {
+					"socketTimeout": "2m",
+					"connectionTimeout": "2m",
+					"greetingTimeout": "30s",
+					"dnsTimeout": "30s"
+				},
+				"pool": {
+					"maxConnections": 5,
+					"maxMessages": 100
+				}
+			},
+			"sendmail": {
+				"newline": "unix",
+				"path": "/usr/sbin/sendmail"
+			}
+		},
+		"messageDefaults": {
+			"from": "some.mail@server.com",
+			"disableFileAccess": false,
+			"disableUrlAccess": false
+		}
+	},
 	"storage": {
 		"name": "storage-fs",
 		"fs": {
