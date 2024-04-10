@@ -94,15 +94,12 @@ function createSMTPTransporter(ctx, host, port, auth, messageCommonParameters = 
   const transport = Object.assign({}, server, getSMTPSettings());
   const mailDefaults = Object.assign({}, cfgMessageDefaults, messageCommonParameters);
 
-  let transporter;
   try {
-    transporter = nodemailer.createTransport(transport, mailDefaults);
-    smtpTransporters.set(host, transporter);
+    const transporter = nodemailer.createTransport(transport, mailDefaults);
+    smtpTransporters.set(`${host}:${auth.user}`, transporter);
   } catch (error) {
     ctx.logger.error('Mail service smtp transporter creation error: %o\nWith parameters: \n\thost - %s, \n\tport - %d, \n\tauth = %o', error.stack, host, port, auth);
   }
-
-  return transporter;
 }
 
 function createSendmailTransporter(ctx, messageCommonParameters = {}) {
@@ -113,32 +110,30 @@ function createSendmailTransporter(ctx, messageCommonParameters = {}) {
     } catch (error) {
       ctx.logger.error('Mail service sendmail transporter creation error: %o', error.stack);
     }
-
-    return sendMailTransporter;
   }
 }
 
-function getSMTPTransporter(ctx, host) {
-  const transporter = smtpTransporters.get(host);
+async function sendSMTP(ctx, host, userLogin, mailObject) {
+  const transporter = smtpTransporters.get(`${host}:${userLogin}`);
   if (!transporter) {
-    ctx.logger.error(`MailService getSMTPTransporter(): no transporter exists for host "${host}"`);
+    ctx.logger.error(`MailService getSMTPTransporter(): no transporter exists for host "${host}" and user "${userLogin}"`);
     return;
   }
 
-  return transporter;
+  return transporter.sendMail(mailObject);
 }
 
-function getSendmailTransporter(ctx) {
+async function sendSendmail(ctx, mailObject) {
   if (!sendMailTransporter) {
     ctx.logger.error(`MailService getSendmailTransporter(): no sendmail transporter exists`);
     return;
   }
 
-  return sendMailTransporter;
+  return sendMailTransporter.sendMail(mailObject);
 }
 
-function deleteSMTPTransporter(host) {
-  smtpTransporters.delete(host);
+function deleteSMTPTransporter(host, userLogin) {
+  smtpTransporters.delete(`${host}:${userLogin}`);
 }
 
 function transportersRelease() {
@@ -150,8 +145,8 @@ function transportersRelease() {
 module.exports = {
   createSMTPTransporter,
   createSendmailTransporter,
-  getSMTPTransporter,
-  getSendmailTransporter,
+  sendSMTP,
+  sendSendmail,
   deleteSMTPTransporter,
   transportersRelease
 };

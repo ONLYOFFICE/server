@@ -19,13 +19,6 @@
 	"mail": {
 		"transportList": {
 			"smtp": {
-				"host": "smtp_host",
-				"port": 587,
-				"auth": {
-					"type": "login",
-					"user": "smtp_login",
-					"pass": "smtp_password"
-				},
 				"connection": {
 					"socketTimeout": "2m",
 					"connectionTimeout": "2m",
@@ -33,7 +26,7 @@
 					"dnsTimeout": "30s"
 				},
 				"pool": {
-					"maxConnections": 5,
+					"maxConnections": 10,
 					"maxMessages": 100
 				}
 			},

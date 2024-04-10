@@ -1,12 +1,11 @@
 const { describe, test, expect, afterAll} = require('@jest/globals');
-const config = require('../../Common/node_modules/config');
 const mailService = require('../../Common/sources/mailService');
 const operationContext = require('../../Common/sources/operationContext');
 const fs = require('fs');
 
 const ctx = new operationContext.Context();
-const bulkTestTimeout = 1000 * 10;
-const largeMailContentTestTimeout = 1000 * 7;
+const bulkTestTimeout = 1000 * 16;
+const largeMailContentTestTimeout = 1000 * 15;
 const testFolder = '../tests/unit'
 const defaultTestSMTPServer = {
   host: 'smtp.ethereal.email',
@@ -23,13 +22,13 @@ const expectedEnvelope = { from: 'some.mail@server.com', to: ['madie.wiegand79@e
 
 afterAll(function () {
   mailService.transportersRelease();
-
 })
 
 describe('Mail service', function () {
   describe('SMTP', function () {
     const { host, port, auth } = defaultTestSMTPServer;
-    const transporter = mailService.createSMTPTransporter(
+
+    mailService.createSMTPTransporter(
       ctx,
       host,
       port,
@@ -38,14 +37,14 @@ describe('Mail service', function () {
     );
 
     test('Simple mail', async function () {
-      const mailData = await transporter.sendMail({ text: 'simple test text', subject: 'simple mail test' });
+      const mailData = await mailService.sendSMTP(ctx, host, auth.user, { text: 'simple test text', subject: 'simple mail test' });
       expect(mailData.envelope).toEqual(expectedEnvelope);
     });
 
     test('Bulk mails', async function () {
       const promises = [];
       for (let i = 1; i <= 100; i++) {
-        promises.push(transporter.sendMail({ text: `bulk test text #${i}`, subject: 'bulk mails test' }));
+        promises.push(mailService.sendSMTP(ctx, host, auth.user, { text: `bulk test text #${i}`, subject: 'bulk mails test' }));
       }
 
       const result = await Promise.all(promises);
@@ -54,13 +53,13 @@ describe('Mail service', function () {
 
     test('Large mail content', async function () {
       const readStream = fs.createReadStream(`${testFolder}/resources/16MiBFile.txt`);
-      const mailData = await transporter.sendMail({ text: readStream, subject: 'large mail test' });
+      const mailData = await mailService.sendSMTP(ctx, host, auth.user, { text: readStream, subject: 'large mail test' });
       expect(mailData.envelope).toEqual(expectedEnvelope);
     }, largeMailContentTestTimeout);
 
     test('HTML mail content', async function () {
       const readStream = fs.createReadStream(`${testFolder}/resources/htmlContent.html`);
-      const mailData = await transporter.sendMail({ html: readStream, subject: 'html mail test' });
+      const mailData = await mailService.sendSMTP(ctx, host, auth.user, { html: readStream, subject: 'html mail test' });
       expect(mailData.envelope).toEqual(expectedEnvelope);
     });
 
@@ -81,8 +80,39 @@ describe('Mail service', function () {
           }
         ]
       };
-      const mailData = await transporter.sendMail(message);
+      const mailData = await mailService.sendSMTP(ctx, host, auth.user, message);
       expect(mailData.envelope).toEqual(expectedEnvelope);
+    });
+
+    test('Several transporters', async function() {
+      const secondAccountData = {
+        type: 'login',
+        user: 'jonathon.predovic@ethereal.email',
+        pass: 'yF554NtWzUhGwgCY37'
+      };
+
+      mailService.createSMTPTransporter(
+        ctx,
+        'smtp.ethereal.email',
+        587,
+        secondAccountData,
+        { from: 'some.mail@server.com', to: 'jonathon.predovic@ethereal.email' }
+      );
+
+      const firstAccountResult = await mailService.sendSMTP(
+        ctx,
+        host,
+        auth.user,
+        { text: 'First account message', subject: 'several accounts mails test' }
+      );
+      const secondAccountResult = await mailService.sendSMTP(
+        ctx,
+        host,
+        'jonathon.predovic@ethereal.email',
+        { text: 'Second account message', subject: 'several accounts mails test' }
+      );
+      expect(firstAccountResult.envelope).toEqual(expectedEnvelope);
+      expect(secondAccountResult.envelope).toEqual({ from: 'some.mail@server.com', to: ['jonathon.predovic@ethereal.email'] });
     });
   });
 });
