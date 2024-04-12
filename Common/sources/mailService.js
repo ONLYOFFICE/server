@@ -33,65 +33,29 @@
 'use strict';
 
 const config = require('config');
-const ms = require('ms');
 const nodemailer = require('nodemailer');
 
-const cfgMail = config.get('mail');
+const cfgConnection = config.get('mail.smtpConnectionConfiguration');
 const cfgMessageDefaults = config.get('mail.messageDefaults');
 
+const connectionDefaultSettings = {
+  pool: true,
+  socketTimeout: 1000 * 60 * 2,
+  connectionTimeout: 1000 * 60 * 2,
+  maxConnections: 10
+};
+// Connection settings could be overridden by config, so user can configure transporter anyhow.
+const settings = Object.assign(connectionDefaultSettings, cfgConnection);
 const smtpTransporters = new Map();
-let sendMailTransporter = null;
 
-const getSMTPSettings = (function() {
-  const configParameters = cfgMail.transportList['smtp'];
-  let settings = {
-    pool: true,
-    socketTimeout: 1000 * 60 * 2,
-    connectionTimeout: 1000 * 60 * 2,
-    greetingTimeout: 1000 * 30,
-    dnsTimeout: 1000 * 30,
-    maxConnections: 5,
-    maxMessages: 100
-  };
-
-  if (configParameters !== undefined && Object.values(configParameters).length !== 0) {
-    const poolConfig = configParameters.pool ?? {};
-    const connectionConfig = configParameters.connection ?? {};
-
-    const timersConvert = Object.entries(connectionConfig).map(row => [row[0], ms(row[1])]);
-    settings = Object.assign({ pool: true }, poolConfig, Object.fromEntries(timersConvert));
-  }
-
-  return function() {
-    return settings;
-  };
-})();
-
-const getSendmailSettings = (function () {
-  const configParameters = cfgMail.transportList['sendmail'];
-  let settings = {
-    sendmail: true,
-    newline: 'unix',
-    path: '/usr/sbin/sendmail'
-  };
-
-  if(configParameters !== undefined && Object.values(configParameters).length !== 0) {
-    settings = Object.assign({ sendmail: true }, configParameters);
-  }
-
-  return function () {
-    return settings;
-  }
-})();
-
-function createSMTPTransporter(ctx, host, port, auth, messageCommonParameters = {}) {
+function createTransporter(ctx, host, port, auth, messageCommonParameters = {}) {
   const server = {
     host,
     port,
     auth,
     secure: port === 465
   };
-  const transport = Object.assign({}, server, getSMTPSettings());
+  const transport = Object.assign({}, server, settings);
   const mailDefaults = Object.assign({}, cfgMessageDefaults, messageCommonParameters);
 
   try {
@@ -102,52 +66,35 @@ function createSMTPTransporter(ctx, host, port, auth, messageCommonParameters = 
   }
 }
 
-function createSendmailTransporter(ctx, messageCommonParameters = {}) {
-  if (!sendMailTransporter) {
-    const mailDefaults = Object.assign({}, cfgMessageDefaults, messageCommonParameters);
-    try {
-      sendMailTransporter = nodemailer.createTransport(getSendmailSettings(), mailDefaults);
-    } catch (error) {
-      ctx.logger.error('Mail service sendmail transporter creation error: %o', error.stack);
-    }
-  }
-}
-
-async function sendSMTP(ctx, host, userLogin, mailObject) {
+async function send(host, userLogin, mailObject) {
   const transporter = smtpTransporters.get(`${host}:${userLogin}`);
   if (!transporter) {
-    ctx.logger.error(`MailService getSMTPTransporter(): no transporter exists for host "${host}" and user "${userLogin}"`);
-    return;
+    return Promise.reject(`MailService: no transporter exists for host "${host}" and user "${userLogin}"`);
   }
 
   return transporter.sendMail(mailObject);
 }
 
-async function sendSendmail(ctx, mailObject) {
-  if (!sendMailTransporter) {
-    ctx.logger.error(`MailService getSendmailTransporter(): no sendmail transporter exists`);
+function deleteTransporter(ctx, host, userLogin) {
+  const transporter = smtpTransporters.get(`${host}:${userLogin}`);
+  if (!transporter) {
+    ctx.logger.error(`MailService: no transporter exists for host "${host}" and user "${userLogin}"`);
     return;
   }
 
-  return sendMailTransporter.sendMail(mailObject);
-}
-
-function deleteSMTPTransporter(host, userLogin) {
+  transporter.close();
   smtpTransporters.delete(`${host}:${userLogin}`);
 }
 
 function transportersRelease() {
   smtpTransporters.forEach(transporter => transporter.close());
   smtpTransporters.clear();
-  sendMailTransporter = null;
 }
 
 module.exports = {
-  createSMTPTransporter,
-  createSendmailTransporter,
-  sendSMTP,
-  sendSendmail,
-  deleteSMTPTransporter,
+  createTransporter,
+  send,
+  deleteTransporter,
   transportersRelease
 };
 

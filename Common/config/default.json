@@ -17,23 +17,7 @@
 		"retentionPeriod": 900
 	},
 	"mail": {
-		"transportList": {
-			"smtp": {
-				"connection": {
-					"socketTimeout": "2m",
-					"connectionTimeout": "2m",
-					"greetingTimeout": "30s",
-					"dnsTimeout": "30s"
-				},
-				"pool": {
-					"maxConnections": 10,
-					"maxMessages": 100
-				}
-			},
-			"sendmail": {
-				"newline": "unix",
-				"path": "/usr/sbin/sendmail"
-			}
+		"smtpConnectionConfiguration": {
 		},
 		"messageDefaults": {
 			"from": "some.mail@server.com",
