@@ -32,6 +32,7 @@
 
 'use strict';
 
+const config = require("config");
 const constants = require('./constants');
 
 function InputCommand(data, copyExplicit) {
@@ -365,8 +366,12 @@ InputCommand.prototype = {
   getJsonParams: function() {
     return this['jsonparams'];
   },
-  setJsonParams: function(data) {
-    this['jsonparams'] = data;
+  appendJsonParams: function (data) {
+    if (this['jsonparams']) {
+      config.util.extendDeep(this['jsonparams'], data);
+    } else {
+      this['jsonparams'] = data;
+    }
   },
   getLCID: function() {
     return this['lcid'];

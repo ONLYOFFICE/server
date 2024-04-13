@@ -183,8 +183,9 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
   return status;
 }
 
-async function convertFromChanges(ctx, docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_formdata, opt_userConnectionId,
-                                  opt_userConnectionDocId, opt_responseKey, opt_priority, opt_expiration, opt_queue, opt_redisKey, opt_initShardKey) {
+async function convertFromChanges(ctx, docId, baseUrl, forceSave, externalChangeInfo, opt_userdata, opt_formdata,
+                                  opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, opt_priority,
+                                  opt_expiration, opt_queue, opt_redisKey, opt_initShardKey, opt_jsonParams) {
   var cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
@@ -216,6 +217,9 @@ async function convertFromChanges(ctx, docId, baseUrl, forceSave, externalChange
   }
   if (opt_redisKey) {
     cmd.setRedisKey(opt_redisKey);
+  }
+  if (opt_jsonParams) {
+    cmd.appendJsonParams(opt_jsonParams);
   }
 
   let commandSfctByCmdRes = await canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey);
@@ -314,7 +318,7 @@ function convertRequest(req, res, isJson) {
         jsonParams['watermark'] = params.watermark;
       }
       if (Object.keys(jsonParams).length > 0) {
-        cmd.setJsonParams(JSON.stringify(jsonParams));
+        cmd.appendJsonParams(jsonParams);
       }
       if (params.password) {
         if (params.password.length > constants.PASSWORD_MAX_LENGTH) {
@@ -538,18 +542,18 @@ function convertTo(req, res) {
           cmd.setLCID(utilsDocService.localeToLCID(lang));
         }
         if (fullSheetPreview) {
-          cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': {
+          cmd.appendJsonParams({'spreadsheetLayout': {
             "ignorePrintArea": true,
             "fitToWidth": 1,
             "fitToHeight": 1
-          }}));
+          }});
         } else {
-          cmd.setJsonParams(JSON.stringify({'spreadsheetLayout': {
+          cmd.appendJsonParams({'spreadsheetLayout': {
             "ignorePrintArea": true,
             "fitToWidth": 0,
             "fitToHeight": 0,
             "scale": 100
-          }}));
+          }});
         }
 
         fileTo = constants.OUTPUT_NAME;

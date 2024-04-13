@@ -123,7 +123,7 @@ function TaskQueueDataConvert(ctx, task) {
   this.mailMergeSend = cmd.mailmergesend;
   this.thumbnail = cmd.thumbnail;
   this.textParams = cmd.getTextParams();
-  this.jsonParams = cmd.getJsonParams();
+  this.jsonParams = JSON.stringify(cmd.getJsonParams());
   this.lcid = cmd.getLCID();
   this.password = cmd.getPassword();
   this.savePassword = cmd.getSavePassword();

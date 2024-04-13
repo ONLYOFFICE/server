@@ -162,7 +162,7 @@ function getOpenedAt(row) {
 function getOpenedAtJSONParams(row) {
   let openedAt = getOpenedAt(row);
   if (openedAt) {
-    return JSON.stringify({'documentLayout': {'openedAt': openedAt}});
+    return {'documentLayout': {'openedAt': openedAt}};
   }
   return undefined;
 }
@@ -635,7 +635,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
   cmd.setOutputFormat(changeFormatByOrigin(ctx, row, cmd.getOutputFormat()));
-  cmd.setJsonParams(getOpenedAtJSONParams(row));
+  cmd.appendJsonParams(getOpenedAtJSONParams(row));
   var queueData = getSaveTask(ctx, cmd);
   queueData.setFromChanges(true);
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
@@ -1735,7 +1735,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         cmd.setStatusInfoIn(statusInfo);
         cmd.setUserActionId(opt_userId);
         cmd.setUserActionIndex(opt_userIndex);
-        cmd.setJsonParams(getOpenedAtJSONParams(row));
+        cmd.appendJsonParams(getOpenedAtJSONParams(row));
         //todo lang and region are different
         cmd.setLCID(opt_userLcid);
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);

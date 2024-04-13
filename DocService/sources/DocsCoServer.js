@@ -916,7 +916,9 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
   }
   return res;
 }
-async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId, opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl, opt_queue, opt_pubsub, opt_conn, opt_initShardKey) {
+async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId,
+                              opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl,
+                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams) {
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
   let startedForceSave;
@@ -974,7 +976,7 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     //start new convert
     let status = await converterService.convertFromChanges(ctx, docId, baseUrl, forceSave, startedForceSave.changeInfo,
       opt_userdata, opt_formdata, opt_userConnectionId, opt_userConnectionDocId, opt_responseKey, priority, expiration,
-      opt_queue, undefined, opt_initShardKey);
+      opt_queue, undefined, opt_initShardKey, opt_jsonParams);
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
       if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
@@ -1036,9 +1038,11 @@ function* startRPC(ctx, conn, responseKey, data) {
     case 'sendForm': {
       let forceSaveRes;
       if (conn.user) {
+        //isPrint - to remove forms
+        let jsonParams = {'documentLayout': {'isPrint': true}};
         forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Form, undefined,
           data.formdata, conn.user.idOriginal, conn.user.id, undefined, conn.user.indexUser,
-          responseKey, undefined, undefined, undefined, conn);
+          responseKey, undefined, undefined, undefined, conn, undefined, jsonParams);
       }
       if (!forceSaveRes || commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
         sendDataRpc(ctx, conn, responseKey, forceSaveRes);
