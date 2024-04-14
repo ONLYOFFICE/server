@@ -1773,7 +1773,7 @@ async function processWopiSaveAs(ctx, cmd) {
     const storageFilePath = `${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
     const stream = await storage.createReadStream(ctx, storageFilePath);
     const { wopiSrc, access_token } = info.wopiParams.userAuth;
-    await wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, stream.readStream, stream.ContentLength, suggestedTargetType, false);
+    await wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, stream.readStream, stream.contentLength, suggestedTargetType, false);
   }
 }
 exports.receiveTask = function(data, ack) {

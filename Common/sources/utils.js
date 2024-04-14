@@ -444,7 +444,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     }
   });
 }
-function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_header) {
+function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_headers) {
   return new Promise(function(resolve, reject) {
     const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
     const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
@@ -452,29 +452,32 @@ function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, op
     //IRI to URI
     uri = URI.serialize(URI.parse(uri));
     var urlParsed = url.parse(uri);
-    var headers = {'Content-Type': 'application/json'};
+    let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
+    let options = config.util.extendDeep({}, tenTenantRequestDefaults);
+    Object.assign(options, {uri: urlParsed, encoding: 'utf8', timeout: connectionAndInactivity});
+    //baseRequest creates new agent(win-ca injects in globalAgent)
+    options.agentOptions = https.globalAgent.options;
+    if (postData) {
+      options.body = postData;
+    }
+    if (!options.headers) {
+      options.headers = {};
+    }
     if (opt_Authorization) {
       //todo ctx.getCfg
-      headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
+      options.headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
     }
-    headers = opt_header || headers;
+    if (opt_headers) {
+      Object.assign(options.headers, opt_headers);
+    }
     if (undefined !== postDataSize) {
       //If no Content-Length is set, data will automatically be encoded in HTTP Chunked transfer encoding,
       //so that server knows when the data ends. The Transfer-Encoding: chunked header is added.
       //https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
       //issue with Transfer-Encoding: chunked wopi and sharepoint 2019
       //https://community.alteryx.com/t5/Dev-Space/Download-Tool-amp-Microsoft-SharePoint-Chunked-Request-Error/td-p/735824
-      headers['Content-Length'] = postDataSize;
+      options.headers['Content-Length'] = postDataSize;
     }
-    let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    let options = config.util.extendDeep({}, tenTenantRequestDefaults);
-    Object.assign(options, {uri: urlParsed, encoding: 'utf8', headers: headers, timeout: connectionAndInactivity});
-    //baseRequest creates new agent(win-ca injects in globalAgent)
-    options.agentOptions = https.globalAgent.options;
-    if (postData) {
-      options.body = postData;
-    }
-
     let executed = false;
     let ro = request.post(options, function(err, response, body) {
       if (executed) {

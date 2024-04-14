@@ -747,7 +747,8 @@ async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizat
     }
     dataObject.setToken(bodyToken);
   }
-  let postRes = await utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth);
+  let headers = {'Content-Type': 'application/json'};
+  let postRes = await utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth, headers);
   ctx.logger.debug('postData response: data = %s', postRes.body);
   return postRes.body;
 }

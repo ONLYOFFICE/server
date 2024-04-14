@@ -664,6 +664,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
           //collabora nexcloud connector
           headers['X-LOOL-WOPI-Timestamp'] = wopiParams.LastModifiedTime;
         }
+        headers['Content-Type'] = mime.getType(getFileTypeByInfo(fileInfo));
 
         ctx.logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
         postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, headers);
@@ -698,6 +699,7 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
         headers['X-WOPI-FileConversion'] = isFileConversion;
       }
       fillStandardHeaders(ctx, headers, uri, access_token);
+      headers['Content-Type'] = mime.getType(suggestedTarget);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
       postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, headers);
