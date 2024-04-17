@@ -628,6 +628,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   }
   if (opt_initShardKey) {
     ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
+    ctx.setWopiSrc(sqlBase.DocumentAdditional.prototype.getWopiSrc(row.additional));
   }
   yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password);
@@ -1525,7 +1526,10 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     let userFriendlyName = encodeURIComponent(filename.replace(/\//g, "%2f"));
     let res = `${baseUrl}/printfile/${encodeURIComponent(docId)}/${userFriendlyName}?token=${encodeURIComponent(token)}`;
     if (ctx.shardKey) {
-      res += `&${constants.SHARED_KEY_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+      res += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+    }
+    if (ctx.wopiSrc) {
+      res += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
     }
     res += `&filename=${userFriendlyName}`;
     return res;
@@ -1727,6 +1731,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         }
         if (opt_initShardKey) {
           ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
+          ctx.setWopiSrc(sqlBase.DocumentAdditional.prototype.getWopiSrc(row.additional));
         }
         var cmd = new commonDefines.InputCommand();
         cmd.setCommand('sfc');

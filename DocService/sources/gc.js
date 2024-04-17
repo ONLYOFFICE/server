@@ -78,7 +78,8 @@ var checkFileExpire = function(expireSeconds) {
           let tenant = expired[i].tenant;
           let docId = expired[i].id;
           let shardKey = sqlBase.DocumentAdditional.prototype.getShardKey(expired[i].additional);
-          ctx.init(tenant, docId, ctx.userId, shardKey);
+          let wopiSrc = sqlBase.DocumentAdditional.prototype.getWopiSrc(expired[i].additional);
+          ctx.init(tenant, docId, ctx.userId, shardKey, wopiSrc);
           yield ctx.initTenantCache();
           //todo tenant
           //check that no one is in the document

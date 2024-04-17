@@ -168,6 +168,23 @@ DocumentAdditional.prototype.getShardKey = function(str) {
   return res;
 };
 
+DocumentAdditional.prototype.setWopiSrc = function(wopiSrc) {
+  let additional = new DocumentAdditional();
+  additional.data.push({wopiSrc});
+  return additional.toSQLInsert();
+};
+DocumentAdditional.prototype.getWopiSrc = function(str) {
+  let res;
+  let val = new DocumentAdditional();
+  val.fromString(str);
+  val.data.forEach((elem) => {
+    if (elem.wopiSrc) {
+      res = elem.wopiSrc;
+    }
+  });
+  return res;
+};
+
 module.exports = {
   UserCallback,
   DocumentPassword,

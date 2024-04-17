@@ -787,14 +787,22 @@ function getDomainByRequest(ctx, req) {
 }
 exports.getDomainByConnection = getDomainByConnection;
 exports.getDomainByRequest = getDomainByRequest;
-function getShardByConnection(ctx, conn) {
-  return  conn?.handshake?.query?.[constants.SHARED_KEY_NAME];
+function getShardKeyByConnection(ctx, conn) {
+  return  conn?.handshake?.query?.[constants.SHARD_KEY_API_NAME];
+}
+function getWopiSrcByConnection(ctx, conn) {
+  return  conn?.handshake?.query?.[constants.SHARD_KEY_WOPI_NAME];
 }
 function getShardKeyByRequest(ctx, req) {
-  return req.query[constants.SHARED_KEY_NAME];
+  return req.query?.[constants.SHARD_KEY_API_NAME];
 }
-exports.getShardByConnection = getShardByConnection;
+function getWopiSrcByRequest(ctx, req) {
+  return req.query?.[constants.SHARD_KEY_WOPI_NAME];
+}
+exports.getShardKeyByConnection = getShardKeyByConnection;
+exports.getWopiSrcByConnection = getWopiSrcByConnection;
 exports.getShardKeyByRequest = getShardKeyByRequest;
+exports.getWopiSrcByRequest = getWopiSrcByRequest;
 function stream2Buffer(stream) {
   return new Promise(function(resolve, reject) {
     if (!stream.readable) {

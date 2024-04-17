@@ -142,7 +142,10 @@ async function getSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilen
   url += '?md5=' + encodeURIComponent(md5);
   url += '&expires=' + encodeURIComponent(expires);
   if (ctx.shardKey) {
-    url += `&${constants.SHARED_KEY_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+    url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+  }
+  if (ctx.wopiSrc) {
+    url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
   }
   url += '&filename=' + userFriendlyName;
   return url;

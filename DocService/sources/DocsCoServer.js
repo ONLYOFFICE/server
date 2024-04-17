@@ -2522,7 +2522,7 @@ exports.install = function(server, callbackFunction) {
         upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), data.documentCallbackUrl, format);
         curIndexUser = upsertRes.insertId;
         //todo update additional in commandOpenStartPromise
-        if ((upsertRes.isInsert || (wopiParams && 2 === curIndexUser)) && (undefined !== data.timezoneOffset || ctx.shardKey)) {
+        if ((upsertRes.isInsert || (wopiParams && 2 === curIndexUser)) && (undefined !== data.timezoneOffset || ctx.shardKey || ctx.wopiSrc)) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
           if (false === canvasService.hasAdditionalCol) {
             let selectRes = yield taskResult.select(ctx, docId);
@@ -2538,6 +2538,9 @@ exports.install = function(server, callbackFunction) {
             }
             if (ctx.shardKey) {
               task.additional += sqlBase.DocumentAdditional.prototype.setShardKey(ctx.shardKey);
+            }
+            if (ctx.wopiSrc) {
+              task.additional += sqlBase.DocumentAdditional.prototype.setWopiSrc(ctx.wopiSrc);
             }
             yield taskResult.update(ctx, task);
           } else {
