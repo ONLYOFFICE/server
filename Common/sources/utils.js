@@ -83,7 +83,6 @@ const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
 const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
 const cfgPasswordConfig = config.get('openpgpjs.config');
 const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
-const cfgAllowPrivateIPAddressForSignedRequests = config.get('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests');
 const cfgStorageExternalHost = config.get('storage.externalHost');
 const cfgExternalRequestDirectIfIn = config.get('externalRequest.directIfIn');
 const cfgExternalRequestAction = config.get('externalRequest.action');
@@ -272,7 +271,6 @@ function isRedirectResponse(response) {
 function isAllowDirectRequest(ctx, uri, isInJwtToken) {
   let res = false;
   const tenExternalRequestDirectIfIn = ctx.getCfg('externalRequest.directIfIn', cfgExternalRequestDirectIfIn);
-  const tenAllowPrivateIPAddressForSignedRequests = ctx.getCfg('services.CoAuthoring.server.allowPrivateIPAddressForSignedRequests', cfgAllowPrivateIPAddressForSignedRequests);
   let allowList = tenExternalRequestDirectIfIn.allowList;
   if (allowList.length > 0) {
     let allowIndex = allowList.findIndex((allowPrefix) => {
@@ -280,7 +278,7 @@ function isAllowDirectRequest(ctx, uri, isInJwtToken) {
     }, uri);
     res = -1 !== allowIndex;
     ctx.logger.debug("isAllowDirectRequest check allow list res=%s", res);
-  } else if (tenExternalRequestDirectIfIn.jwtToken && tenAllowPrivateIPAddressForSignedRequests) {
+  } else if (tenExternalRequestDirectIfIn.jwtToken) {
     res = isInJwtToken;
     ctx.logger.debug("isAllowDirectRequest url in jwt token res=%s", res);
   }

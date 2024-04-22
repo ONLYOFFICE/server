@@ -170,8 +170,7 @@
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
 				"downloadFileAllowExt": ["pdf", "xlsx"],
-				"tokenRequiredParams": true,
-				"allowPrivateIPAddressForSignedRequests": true
+				"tokenRequiredParams": true
 			},
 			"requestDefaults": {
 				"headers": {
