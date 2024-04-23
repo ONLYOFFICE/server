@@ -133,7 +133,7 @@
 			"allow": true,
 			"blockPrivateIP": true,
 			"proxyUrl": "",
-			"proxyAuth": {
+			"proxyUser": {
 				"username": "",
 				"password": ""
 			},
