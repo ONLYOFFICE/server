@@ -16,13 +16,38 @@
 		"visibilityTimeout": 300,
 		"retentionPeriod": 900
 	},
-	"mail": {
-		"smtpConnectionConfiguration": {
+	"email": {
+		"smtpServerConfiguration": {
+			"host": "smtp.ethereal.email",
+			"port": 587,
+			"auth": {
+				"user": "onlyoffice",
+				"pass": "onlyoffice"
+			}
 		},
-		"messageDefaults": {
-			"from": "some.mail@server.com",
+		"connectionConfiguration": {
 			"disableFileAccess": false,
 			"disableUrlAccess": false
+		},
+		"contactDefaults": {
+			"from": "from.mail@server.com"
+		}
+	},
+	"notification": {
+		"rules": {
+			"licenseExpired": {
+				"transportType": [
+					"email",
+					"telegram"
+				],
+				"template": {
+					"title": "License",
+					"body": "license expires after %s!!!"
+				},
+				"policies": {
+					"repeatInterval": "1d"
+				}
+			}
 		}
 	},
 	"storage": {

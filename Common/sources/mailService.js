@@ -35,9 +35,11 @@
 const config = require('config');
 const nodemailer = require('nodemailer');
 
-const cfgConnection = config.get('mail.smtpConnectionConfiguration');
-const cfgMessageDefaults = config.get('mail.messageDefaults');
+const operationContext = require('./operationContext');
 
+const cfgConnection = config.get('email.connectionConfiguration');
+
+const ctx = new operationContext.Context();
 const connectionDefaultSettings = {
   pool: true,
   socketTimeout: 1000 * 60 * 2,
@@ -48,7 +50,7 @@ const connectionDefaultSettings = {
 const settings = Object.assign(connectionDefaultSettings, cfgConnection);
 const smtpTransporters = new Map();
 
-function createTransporter(ctx, host, port, auth, messageCommonParameters = {}) {
+function createTransporter(host, port, auth, messageCommonParameters = {}) {
   const server = {
     host,
     port,
@@ -56,10 +58,13 @@ function createTransporter(ctx, host, port, auth, messageCommonParameters = {}) 
     secure: port === 465
   };
   const transport = Object.assign({}, server, settings);
-  const mailDefaults = Object.assign({}, cfgMessageDefaults, messageCommonParameters);
 
   try {
-    const transporter = nodemailer.createTransport(transport, mailDefaults);
+    if (smtpTransporters.has(`${host}:${auth.user}`)) {
+      return;
+    }
+
+    const transporter = nodemailer.createTransport(transport, messageCommonParameters);
     smtpTransporters.set(`${host}:${auth.user}`, transporter);
   } catch (error) {
     ctx.logger.error('Mail service smtp transporter creation error: %o\nWith parameters: \n\thost - %s, \n\tport - %d, \n\tauth = %o', error.stack, host, port, auth);
@@ -75,7 +80,7 @@ async function send(host, userLogin, mailObject) {
   return transporter.sendMail(mailObject);
 }
 
-function deleteTransporter(ctx, host, userLogin) {
+function deleteTransporter(host, userLogin) {
   const transporter = smtpTransporters.get(`${host}:${userLogin}`);
   if (!transporter) {
     ctx.logger.error(`MailService: no transporter exists for host "${host}" and user "${userLogin}"`);
@@ -89,6 +94,10 @@ function deleteTransporter(ctx, host, userLogin) {
 function transportersRelease() {
   smtpTransporters.forEach(transporter => transporter.close());
   smtpTransporters.clear();
+}
+
+function isCreated(host, user) {
+  return smtpTransporters
 }
 
 module.exports = {
