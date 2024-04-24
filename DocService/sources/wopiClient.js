@@ -209,11 +209,13 @@ function discovery(req, res) {
           xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
-          xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
-          xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
           if (formsExts[ext.edit[j]]) {
-            xmlApp.ele('action', {name: 'formsubmit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+            xmlApp.ele('action', {name: 'formsubmit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+            xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          } else {
+            xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
+          xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
           if (templatesFolderExtsCache[ext.edit[j]]) {
             xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
@@ -251,11 +253,13 @@ function discovery(req, res) {
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
               let xmlApp = xmlZone.ele('app', {name: value});
-              xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
-              xmlApp.ele('action', {name: 'mobileEdit', ext: '', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
               if (formsExts[ext.edit[j]]) {
-                xmlApp.ele('action', {name: 'formsubmit', ext: '', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+                xmlApp.ele('action', {name: 'formsubmit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+                xmlApp.ele('action', {name: 'edit', ext: '', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              } else {
+                xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
               }
+              xmlApp.ele('action', {name: 'mobileEdit', ext: '', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
               if (templatesFolderExtsCache[ext.edit[j]]) {
                 xmlApp.ele('action', {name: 'editnew', ext: '', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
               }
