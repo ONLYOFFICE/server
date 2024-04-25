@@ -31,27 +31,24 @@
  */
 
 'use strict';
+const util = require('util');
 const config = require('config');
 const ms = require('ms');
-const uuid = require('uuid');
 
 const mailService = require('./mailService');
-const operationContext = require('./operationContext');
 
 const cfgMailServer = config.get('email.smtpServerConfiguration');
 const cfgMailMessageDefaults = config.get('email.contactDefaults');
 
-const uuidNamespace = 'e071294c-e621-4195-b453-6da9344e5c72';
-const ctx = new operationContext.Context();
-const defaultLicenseRepeatInterval = 1000 * 60 * 60 * 24;
-const recipients = new Map();
+const defaultRepeatInterval = 1000 * 60 * 60 * 24;
+const repeatIntervalsExpired = new Map();
 const notificationTypes = {
-  LICENSE_EXPIRED: 0,
+  LICENSE_EXPIRED: "licenseExpired",
+  LICENSE_LIMIT: "licenseLimit"
 };
 
 class TransportInterface {
-  getRecipientId(messageParams) {}
-  async send(message) {}
+  async send(ctx, message) {}
   contentGeneration(template, messageParams) {}
 }
 
@@ -66,26 +63,17 @@ class MailTransport extends TransportInterface {
     mailService.createTransporter(this.host, this.port, this.auth, cfgMailMessageDefaults);
   }
 
-  getRecipientId(messageParams) {
-    if (!messageParams.to) {
-      return uuid.NIL;
-    }
-
-    return uuid.v5(messageParams.to, uuidNamespace);
-  }
-
-  send(message) {
-    ctx.logger.info('!!!!!!!!!!!!!!!!!!!!!SENDONG:', message);
+  async send(ctx, message) {
+    ctx.logger.info('Notification service: MailTransport send %j', message);
     return mailService.send(this.host, this.auth.user, message);
   }
 
   contentGeneration(template, messageParams) {
-    const messageBody = {
+    let text = util.format(template.body, ...messageParams);
+    return {
       subject: template.title,
-      text: template.body
+      text: text
     };
-
-    return Object.assign({}, messageBody, messageParams);
   }
 }
 
@@ -99,7 +87,7 @@ class TelegramTransport extends TransportInterface {
 class Transport {
   transport = new TransportInterface();
 
-  constructor(transportName) {
+  constructor(ctx, transportName) {
     this.name = transportName;
 
     switch (transportName) {
@@ -110,61 +98,38 @@ class Transport {
         this.transport = new TelegramTransport();
         break
       default:
-        ctx.logger.error(`Notification service error: transport method "${transportName}" not implemented`);
+        ctx.logger.warn(`Notification service: error: transport method "${transportName}" not implemented`);
     }
   }
 }
 
-function getRecipientData(id, defaultPoliciesData) {
-  if (id === uuid.NIL) {
-    return;
-  }
+async function notify(ctx, notificationType, messageParams) {
+  ctx.logger.debug('Notification service: notify "%s"',  notificationType);
+  let tenRule;
+  tenRule = ctx.getCfg('notification.rules.' + notificationType, config.get('notification.rules.' + notificationType));
 
-  const recipientData = recipients.get(id);
-  if (!recipientData) {
-    recipients.set(id, defaultPoliciesData);
-    return defaultPoliciesData;
-  }
-
-  return recipientData;
-}
-
-async function notify(notificationType, messageParams) {
-  ctx.logger.info('!!!!!!!!!!!!!!!!!!!!!HERE:', messageParams);
-  switch (notificationType) {
-    case notificationTypes.LICENSE_EXPIRED: {
-      licenseExpiredNotify(messageParams);
-      break;
-    }
+  if (tenRule && checkRulePolicies(ctx, notificationType, tenRule)) {
+    await notifyRule(ctx, tenRule, messageParams);
   }
 }
-
-function licenseExpiredNotify(messageParams) {
-  const cfgLicenseExpired = config.get('notification.rules.licenseExpired');
-  const transportObjects = cfgLicenseExpired.transportType.map(transport => new Transport(transport));
-  const { repeatInterval } = cfgLicenseExpired.policies;
-  const intervalMilliseconds = ms(repeatInterval) ?? defaultLicenseRepeatInterval;
-  const defaultPolices = {
-    repeatDate: Date.now(),
+function checkRulePolicies(ctx, notificationType, tenRule) {
+  const {repeatInterval} = tenRule.policies;
+  const intervalMilliseconds = ms(repeatInterval) ?? defaultRepeatInterval;
+  let expired = repeatIntervalsExpired.get(notificationType);
+  if (!expired || expired <= Date.now()) {
+    repeatIntervalsExpired.set(notificationType, Date.now() + intervalMilliseconds);
+    return true;
   }
+  ctx.logger.debug(`Notification service: skip rule "%s" due to repeat interval %s`, notificationType, repeatInterval);
+  return false;
+}
 
-  transportObjects.forEach(object => {
-    const recipientId = object.transport.getRecipientId(messageParams);
-    const data = getRecipientData(recipientId, defaultPolices);
-
-    if (!data) {
-      ctx.logger.error(`Notification service error, licenseExpiredNotify() transport "${object.name}": missing recipient data in message object \n${messageParams}`);
-      return;
-    }
-
-    const currentDateMs = Date.now();
-    if (data.repeatDate <= currentDateMs) {
-      data.repeatDate = currentDateMs + intervalMilliseconds;
-
-      const message = object.transport.contentGeneration(cfgLicenseExpired.template, messageParams);
-      object.transport.send(message);
-    }
-  });
+async function notifyRule(ctx, tenRule, messageParams) {
+  const transportObjects = tenRule.transportType.map(transport => new Transport(ctx, transport));
+  for (const transportObject of transportObjects) {
+    const message = transportObject.transport.contentGeneration(tenRule.template, messageParams);
+    await transportObject.transport.send(ctx, message);
+  }
 }
 
 module.exports = {

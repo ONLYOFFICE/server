@@ -30,7 +30,8 @@
 			"disableUrlAccess": false
 		},
 		"contactDefaults": {
-			"from": "from.mail@server.com"
+			"from": "from.mail@server.com",
+			"to": "to.mail@server.com"
 		}
 	},
 	"notification": {
@@ -46,6 +47,18 @@
 				},
 				"policies": {
 					"repeatInterval": "1d"
+				}
+			},
+			"licenseLimit": {
+				"transportType": [
+					"email"
+				],
+				"template": {
+					"title": "License",
+					"body": "%s limit exceeded!!!"
+				},
+				"policies": {
+					"repeatInterval": "1h"
 				}
 			}
 		}
