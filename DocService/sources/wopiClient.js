@@ -596,7 +596,7 @@ function getConverterHtml(req, res) {
       let targetext = req.params.targetext;
 
       if (!(wopiSrc && access_token && access_token_ttl && ext && targetext)) {
-        ctx.logger.debug('convert-and-edit invalid params: wopiSrc=%s; access_token=%s; access_token_ttl=%s; ext=%s; targetext=%s', wopiSrc, access_token, access_token_ttl, ext, targetext);
+        ctx.logger.debug('convert-and-edit invalid params: WOPISrc=%s; access_token=%s; access_token_ttl=%s; ext=%s; targetext=%s', wopiSrc, access_token, access_token_ttl, ext, targetext);
         return;
       }
 
@@ -612,7 +612,7 @@ function getConverterHtml(req, res) {
       if (docId) {
         let baseUrl = tenWopiHost || utils.getBaseUrlByRequest(ctx, req);
         params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
-        params.statusHandler += `?wopiSrc=${encodeURI(wopiSrc)}&access_token=${encodeURI(access_token)}`;
+        params.statusHandler += `?${constants.SHARD_KEY_WOPI_NAME}=${encodeURI(wopiSrc)}&access_token=${encodeURI(access_token)}`;
         params.statusHandler += `&targetext=${encodeURI(targetext)}&docId=${encodeURI(docId)}`;
         if (tenTokenEnableBrowser) {
           let tokenData = {docId: docId};

@@ -651,7 +651,7 @@ function getConverterHtmlHandler(req, res) {
       ctx.setDocId(docId);
       if (!(wopiSrc && access_token && access_token && targetext && docId) ||
         constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === formatChecker.getFormatFromString(targetext)) {
-        ctx.logger.debug('convert-and-edit-handler invalid params: wopiSrc=%s; access_token=%s; targetext=%s; docId=%s', wopiSrc, access_token, targetext, docId);
+        ctx.logger.debug('convert-and-edit-handler invalid params: WOPISrc=%s; access_token=%s; targetext=%s; docId=%s', wopiSrc, access_token, targetext, docId);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
