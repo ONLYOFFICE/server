@@ -612,15 +612,15 @@ function getConverterHtml(req, res) {
       if (docId) {
         let baseUrl = tenWopiHost || utils.getBaseUrlByRequest(ctx, req);
         params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
-        params.statusHandler += `?${constants.SHARD_KEY_WOPI_NAME}=${encodeURI(wopiSrc)}&access_token=${encodeURI(access_token)}`;
-        params.statusHandler += `&targetext=${encodeURI(targetext)}&docId=${encodeURI(docId)}`;
+        params.statusHandler += `?${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrc)}&access_token=${encodeURIComponent(access_token)}`;
+        params.statusHandler += `&targetext=${encodeURIComponent(targetext)}&docId=${encodeURIComponent(docId)}`;
         if (tenTokenEnableBrowser) {
           let tokenData = {docId: docId};
           let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
           let token = jwt.sign(tokenData, secret, options);
 
-          params.statusHandler += `&token=${encodeURI(token)}`;
+          params.statusHandler += `&token=${encodeURIComponent(token)}`;
         }
       }
     } catch (err) {

@@ -2261,6 +2261,7 @@ exports.install = function(server, callbackFunction) {
     }
     if (wopiClient.isWopiJwtToken(decoded)) {
       let fileInfo = decoded.fileInfo;
+      let queryParams = decoded.queryParams;
       if (openCmd) {
         openCmd.format = wopiClient.getFileTypeByInfo(fileInfo);
         openCmd.title = fileInfo.BreadcrumbDocName || fileInfo.BaseFileName;
@@ -2276,11 +2277,15 @@ exports.install = function(server, callbackFunction) {
           openCmd.userid = fileInfo.UserId;
         }
       }
+      let permissionsEdit = !fileInfo.ReadOnly && fileInfo.UserCanWrite && queryParams.formsubmit !== "1";
+      let permissionsFillForm = permissionsEdit || queryParams.formsubmit === "1";
       let permissions = {
-        edit: !fileInfo.ReadOnly && fileInfo.UserCanWrite,
+        edit: permissionsEdit,
         review: (fileInfo.SupportsReviewing === false) ? false : (fileInfo.UserCanReview === false ? false : fileInfo.UserCanReview),
         copy: fileInfo.CopyPasteRestrictions !== "CurrentDocumentOnly" && fileInfo.CopyPasteRestrictions !== "BlockAll",
-        print: !fileInfo.DisablePrint && !fileInfo.HidePrintOption
+        print: !fileInfo.DisablePrint && !fileInfo.HidePrintOption,
+        chat: queryParams.dchat!=="1",
+        fillForms: permissionsFillForm
       };
       //todo (review: undefiend)
       // res = deepEqual(data.permissions, permissions, {strict: true});
