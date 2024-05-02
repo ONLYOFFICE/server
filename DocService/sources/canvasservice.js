@@ -1693,20 +1693,26 @@ exports.downloadFile = function(req, res) {
       }
     }
     catch (err) {
-      ctx.logger.error('Error downloadFile: %s', err.stack);
-      //catch errors because status may be sent while piping to response
-      try {
-        if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
-          res.sendStatus(408);
-        } else if (err.code === 'EMSGSIZE') {
-          res.sendStatus(413);
-        } else if (err.response) {
-          res.sendStatus(err.response.statusCode);
-        } else {
-          res.sendStatus(400);
-        }
-      } catch (err) {
+      if (err.code === "ERR_STREAM_PREMATURE_CLOSE") {
+        ctx.logger.debug('Error downloadFile: %s', err.stack);
+      } else {
         ctx.logger.error('Error downloadFile: %s', err.stack);
+        //catch errors because status may be sent while piping to response
+        if (!res.headersSent) {
+          try {
+            if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+              res.sendStatus(408);
+            } else if (err.code === 'EMSGSIZE') {
+              res.sendStatus(413);
+            } else if (err.response) {
+              res.sendStatus(err.response.statusCode);
+            } else {
+              res.sendStatus(400);
+            }
+          } catch (err) {
+            ctx.logger.error('Error downloadFile: %s', err.stack);
+          }
+        }
       }
     }
     finally {

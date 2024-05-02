@@ -992,7 +992,12 @@ async function dummyGetFile(req, res) {
       res,
     );
   } catch (err) {
-    ctx.logger.error('dummyGetFile error:%s', err.stack);
+    if (err.code === "ERR_STREAM_PREMATURE_CLOSE") {
+      //xhr.abort case
+      ctx.logger.debug('dummyGetFile error: %s', err.stack);
+    } else {
+      ctx.logger.error('dummyGetFile error:%s', err.stack);
+    }
   } finally {
     if (!res.headersSent) {
       res.sendStatus(400);

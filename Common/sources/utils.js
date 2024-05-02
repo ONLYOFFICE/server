@@ -35,6 +35,7 @@
 //Fix EPROTO error in node 8.x at some web sites(https://github.com/nodejs/node/issues/21513)
 require("tls").DEFAULT_ECDH_CURVE = "auto";
 
+const { pipeline } = require('node:stream/promises');
 var config = require('config');
 var fs = require('fs');
 var path = require('path');
@@ -350,7 +351,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     uri = URI.serialize(URI.parse(uri));
     var urlParsed = url.parse(uri);
     let sizeLimit = optLimit || Number.MAX_VALUE;
-    let bufferLength = 0;
+    let bufferLength = 0, timeoutId;
     let hash = crypto.createHash('sha256');
     //if you expect binary data, you should set encoding: null
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
@@ -375,6 +376,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       Object.assign(options.headers, opt_headers);
     }
     let fError = function(err) {
+      clearTimeout(timeoutId);
       reject(err);
     }
     if (!opt_streamWriter) {
@@ -386,6 +388,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
         }
         executed = true;
         if (err) {
+          clearTimeout(timeoutId);
           reject(err);
         } else {
           var contentLength = response.caseless.get('content-length');
@@ -393,6 +396,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
             ctx.logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
           }
           let sha256 = hash.digest('hex');
+          clearTimeout(timeoutId);
           resolve({response: response, body: body, sha256: sha256});
         }
       };
@@ -414,13 +418,21 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
         error.response = response;
         if (opt_streamWriter && !isRedirectResponse(response)) {
           this.off('error', fError);
-          resolve(pipeStreams(this, opt_streamWriter, true));
+          pipeline(this, opt_streamWriter)
+            .then(resolve, reject)
+            .finally(() => {
+              clearTimeout(timeoutId);
+            });
         } else {
           raiseErrorObj(this, error);
         }
       } else if (opt_streamWriter) {
         this.off('error', fError);
-        resolve(pipeStreams(this, opt_streamWriter, true));
+        pipeline(this, opt_streamWriter)
+          .then(resolve, reject)
+          .finally(() => {
+            clearTimeout(timeoutId);
+          });
       }
     };
     let fData = function(chunk) {
@@ -436,7 +448,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       .on('data', fData)
       .on('error', fError);
     if (optTimeout && optTimeout.wholeCycle) {
-      setTimeout(function() {
+      timeoutId = setTimeout(function() {
         raiseError(ro, 'ETIMEDOUT', 'Error: whole request cycle timeout');
       }, ms(optTimeout.wholeCycle));
     }
