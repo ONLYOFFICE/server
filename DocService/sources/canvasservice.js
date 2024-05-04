@@ -1077,8 +1077,17 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
           } else {
             try {
               if (wopiParams) {
-                let isAutoSave = forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button && forceSaveType !== commonDefines.c_oAscForceSaveTypes.Form;
-                replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, true, isAutoSave, false);
+                if (outputSfc.getUrl()) {
+                  if (forceSaveType === commonDefines.c_oAscForceSaveTypes.Form) {
+                    yield processWopiSaveAs(ctx, cmd);
+                    replyStr = JSON.stringify({error: 0});
+                  } else {
+                    let isAutoSave = forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button && forceSaveType !== commonDefines.c_oAscForceSaveTypes.Form;
+                    replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, true, isAutoSave, false);
+                  }
+                } else {
+                  replyStr = JSON.stringify({error: 1, descr: "wopi: no file"});
+                }
               } else {
                 replyStr = yield docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
               }
@@ -1111,7 +1120,11 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
             updateMask.statusInfo = updateIfTask.statusInfo;
             try {
               if (wopiParams) {
-                replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, !notModified, false, true);
+                if (outputSfc.getUrl()) {
+                  replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, !notModified, false, true);
+                } else {
+                  replyStr = JSON.stringify({error: 1, descr: "wopi: no file"});
+                }
               } else {
                 replyStr = yield docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
               }

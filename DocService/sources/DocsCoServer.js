@@ -845,7 +845,8 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   if (commonDefines.c_oAscForceSaveTypes.Command !== forceSaveType) {
     let data = {type: forceSaveType, time: forceSave.getTime(), success: success};
     if(commonDefines.c_oAscForceSaveTypes.Form === forceSaveType || commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
-      data = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
+      let code = success ? commonDefines.c_oAscServerCommandErrors.NoError : commonDefines.c_oAscServerCommandErrors.UnknownError;
+      data = {code: code, time: null, inProgress: false};
       if (commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
         data.url = url;
       }
