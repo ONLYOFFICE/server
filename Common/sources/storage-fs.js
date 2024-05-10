@@ -151,6 +151,10 @@ async function getSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilen
   return url;
 }
 
+function needServeStatic() {
+  return true;
+}
+
 module.exports = {
   headObject,
   getObject,
@@ -161,5 +165,6 @@ module.exports = {
   listObjects,
   deleteObject,
   deletePath,
-  getSignedUrl
+  getSignedUrl,
+  needServeStatic
 };

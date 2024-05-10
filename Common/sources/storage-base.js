@@ -49,7 +49,7 @@ function getStoragePath(ctx, strPath, opt_specialDir) {
   opt_specialDir = opt_specialDir || cfgCacheStorage.cacheFolderName;
   return opt_specialDir + '/' + tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/');
 }
-function getStorage(ctx, opt_specialDir) {
+function getStorage(opt_specialDir) {
   return opt_specialDir ? persistentStorage : cacheStorage;
 }
 function getStorageCfg(ctx, opt_specialDir) {
@@ -63,32 +63,32 @@ function isDiffrentPersistentStorage() {
 }
 
 async function headObject(ctx, strPath, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.headObject(storageCfg, getStoragePath(storageCfg, strPath, opt_specialDir));
 }
 async function getObject(ctx, strPath, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.getObject(storageCfg, getStoragePath(storageCfg, strPath, opt_specialDir));
 }
 async function createReadStream(ctx, strPath, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.createReadStream(storageCfg, getStoragePath(storageCfg, strPath, opt_specialDir));
 }
 async function putObject(ctx, strPath, buffer, contentLength, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.putObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir), buffer, contentLength);
 }
 async function uploadObject(ctx, strPath, filePath, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.uploadObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir), filePath);
 }
 async function copyObject(ctx, sourceKey, destinationKey, opt_specialDirSrc, opt_specialDirDst) {
-  let storageSrc = getStorage(ctx, opt_specialDirSrc);
+  let storageSrc = getStorage(opt_specialDirSrc);
   let storagePathSrc = getStoragePath(ctx, sourceKey, opt_specialDirSrc);
   let storagePathDst = getStoragePath(ctx, destinationKey, opt_specialDirDst);
   let storageCfgSrc = getStorageCfg(ctx, opt_specialDirSrc);
@@ -96,7 +96,7 @@ async function copyObject(ctx, sourceKey, destinationKey, opt_specialDirSrc, opt
   if (canCopyBetweenStorage(storageCfgSrc, storageCfgDst)){
     return await storageSrc.copyObject(storageCfgSrc, storageCfgDst, storagePathSrc, storagePathDst);
   } else {
-    let storageDst = getStorage(ctx, opt_specialDirDst);
+    let storageDst = getStorage(opt_specialDirDst);
     //todo stream
     let buffer = await storageSrc.getObject(storageCfgSrc, storagePathSrc);
     return await storageDst.putObject(storageCfgDst, storagePathDst, buffer, buffer.length);
@@ -109,7 +109,7 @@ async function copyPath(ctx, sourcePath, destinationPath, opt_specialDirSrc, opt
   }));
 }
 async function listObjects(ctx, strPath, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   let prefix = getStoragePath(ctx, "", opt_specialDir);
   try {
@@ -123,23 +123,23 @@ async function listObjects(ctx, strPath, opt_specialDir) {
   }
 }
 async function deleteObject(ctx, strPath, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.deleteObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function deletePath(ctx, strPath, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.deletePath(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir) {
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.getSignedUrl(ctx, storageCfg, baseUrl, getStoragePath(ctx, strPath, opt_specialDir), urlType, optFilename, opt_creationDate);
 }
 async function getSignedUrls(ctx, baseUrl, strPath, urlType, opt_creationDate, opt_specialDir) {
   let storagePathSrc = getStoragePath(ctx, strPath, opt_specialDir);
-  let storage = getStorage(ctx, opt_specialDir);
+  let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   let list = await storage.listObjects(storageCfg, storagePathSrc, storageCfg);
   let urls = await Promise.all(list.map(function(curValue) {
@@ -153,7 +153,7 @@ async function getSignedUrls(ctx, baseUrl, strPath, urlType, opt_creationDate, o
 }
 async function getSignedUrlsArrayByArray(ctx, baseUrl, list, urlType, opt_specialDir) {
   return await Promise.all(list.map(function (curValue) {
-    let storage = getStorage(ctx, opt_specialDir);
+    let storage = getStorage(opt_specialDir);
     let storageCfg = getStorageCfg(ctx, opt_specialDir);
     let storagePathSrc = getStoragePath(ctx, curValue, opt_specialDir);
     return storage.getSignedUrl(ctx, storageCfg, baseUrl, storagePathSrc, urlType, undefined);
@@ -188,6 +188,10 @@ async function healthCheck(ctx, opt_specialDir) {
     ctx.logger.warn('healthCheck storage(%s) error %s', opt_specialDir, err.stack);
   }
 }
+function needServeStatic(opt_specialDir) {
+  let storage = getStorage(opt_specialDir);
+  return storage.needServeStatic();
+}
 
 module.exports = {
   headObject,
@@ -206,5 +210,6 @@ module.exports = {
   getSignedUrlsByArray,
   getRelativePath,
   isDiffrentPersistentStorage,
-  healthCheck
+  healthCheck,
+  needServeStatic
 };

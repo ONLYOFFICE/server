@@ -35,6 +35,7 @@ const express = require('express');
 const config = require("config");
 const operationContext = require('./../../../Common/sources/operationContext');
 const utils = require('./../../../Common/sources/utils');
+const storage = require('./../../../Common/sources/storage-base');
 const urlModule = require("url");
 const path = require("path");
 const mime = require("mime");
@@ -85,10 +86,10 @@ for (let i in cfgStaticContent) {
     router.use(i, express.static(cfgStaticContent[i]['path'], cfgStaticContent[i]['options']));
   }
 }
-if (cfgCacheStorage.name === "storage-fs") {
+if (storage.needServeStatic()) {
   initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName]);
 }
-if (cfgPersistentStorage.name === "storage-fs") {
+if (storage.needServeStatic(cfgForgottenFiles)) {
   let persistentRouts = [cfgForgottenFiles, cfgErrorFiles];
   persistentRouts.filter((rout) => {return rout && rout.length > 0;});
   if (persistentRouts.length > 0) {

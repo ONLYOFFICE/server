@@ -236,6 +236,10 @@ async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, o
   // return utils.changeOnlyOfficeUrl(url, strPath, optFilename);
 }
 
+function needServeStatic() {
+  return false;
+}
+
 module.exports = {
   headObject,
   getObject,
@@ -246,5 +250,6 @@ module.exports = {
   listObjects,
   deleteObject,
   deletePath,
-  getSignedUrl: getSignedUrlWrapper
+  getSignedUrl: getSignedUrlWrapper,
+  needServeStatic
 };
