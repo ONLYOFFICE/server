@@ -85,12 +85,15 @@ for (let i in cfgStaticContent) {
     router.use(i, express.static(cfgStaticContent[i]['path'], cfgStaticContent[i]['options']));
   }
 }
-initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName]);
-
-let persistentRouts = [cfgForgottenFiles, cfgErrorFiles];
-persistentRouts.filter((rout) => {return rout && rout.length > 0;});
-if (persistentRouts.length > 0) {
-  initCacheRouter(cfgPersistentStorage, [cfgForgottenFiles, cfgErrorFiles]);
+if (cfgCacheStorage.name === "storage-fs") {
+  initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName]);
+}
+if (cfgPersistentStorage.name === "storage-fs") {
+  let persistentRouts = [cfgForgottenFiles, cfgErrorFiles];
+  persistentRouts.filter((rout) => {return rout && rout.length > 0;});
+  if (persistentRouts.length > 0) {
+    initCacheRouter(cfgPersistentStorage, [cfgForgottenFiles, cfgErrorFiles]);
+  }
 }
 
 module.exports = router;
