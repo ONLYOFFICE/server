@@ -1836,7 +1836,7 @@ exports.receiveTask = function(data, ack) {
           if (outputData.getStatus()) {
             ctx.logger.debug('receiveTask publish: %s', JSON.stringify(outputData));
             var output = new OutputDataWrap('documentOpen', outputData);
-            yield* docsCoServer.publish(ctx, {
+            yield docsCoServer.publish(ctx, {
                                           type: commonDefines.c_oPublishType.receiveTask, ctx: ctx, cmd: cmd, output: output,
                                           needUrlKey: additionalOutput.needUrlKey,
                                           needUrlMethod: additionalOutput.needUrlMethod,

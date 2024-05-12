@@ -495,7 +495,7 @@ function removePresence(ctx, conn) {
 
 let changeConnectionInfo = co.wrap(function*(ctx, conn, cmd) {
   if (!conn.denyChangeName && conn.user) {
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.changeConnecitonInfo, ctx: ctx, docId: conn.docId, useridoriginal: conn.user.idOriginal, cmd: cmd});
+    yield publish(ctx, {type: commonDefines.c_oPublishType.changeConnecitonInfo, ctx: ctx, docId: conn.docId, useridoriginal: conn.user.idOriginal, cmd: cmd});
     return true;
   }
   return false;
@@ -672,12 +672,12 @@ function* isUserReconnect(ctx, docId, userId, connectionId) {
 }
 
 let pubsubOnMessage = null;//todo move function
-function* publish(ctx, data, optDocId, optUserId, opt_pubsub) {
+async function publish(ctx, data, optDocId, optUserId, opt_pubsub) {
   var needPublish = true;
   let hvals;
   if (optDocId && optUserId) {
     needPublish = false;
-    hvals = yield editorData.getPresence(ctx, optDocId, connections);
+    hvals = await editorData.getPresence(ctx, optDocId, connections);
     for (var i = 0; i < hvals.length; ++i) {
       var elem = JSON.parse(hvals[i]);
       if (optUserId != elem.id) {
@@ -695,7 +695,7 @@ function* publish(ctx, data, optDocId, optUserId, opt_pubsub) {
       //todo send connections from getLocalConnectionCount to pubsubOnMessage
       pubsubOnMessage(msg);
     } else if(realPubsub) {
-      yield realPubsub.publish(msg);
+      await realPubsub.publish(msg);
     }
   }
   return needPublish;
@@ -852,9 +852,9 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
       }
       let userId = cmd.getUserConnectionId();
       docId = cmd.getUserConnectionDocId() || docId;
-      yield* publish(ctx, {type: commonDefines.c_oPublishType.rpc, ctx, docId, userId, data, responseKey: cmd.getResponseKey()});
+      yield publish(ctx, {type: commonDefines.c_oPublishType.rpc, ctx, docId, userId, data, responseKey: cmd.getResponseKey()});
     } else {
-      yield* publish(ctx, {type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId, data: data}, cmd.getUserConnectionId());
+      yield publish(ctx, {type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId, data: data}, cmd.getUserConnectionId());
     }
   }
 }
@@ -982,10 +982,10 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     if (constants.NO_ERROR === status.err) {
       res.time = forceSave.getTime();
       if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
-        await co(publish(ctx, {
+        await publish(ctx, {
           type: commonDefines.c_oPublishType.forceSave, ctx: ctx, docId: docId,
           data: {type: type, time: forceSave.getTime(), start: true}
-        }, undefined, undefined, opt_pubsub));
+        }, undefined, undefined, opt_pubsub);
       }
     } else {
       res.code = commonDefines.c_oAscServerCommandErrors.UnknownError;
@@ -1210,7 +1210,7 @@ let onReplySendStatusDocument = co.wrap(function*(ctx, docId, replyData) {
   var oData = parseReplyData(ctx, replyData);
   if (!(oData && commonDefines.c_oAscServerCommandErrors.NoError == oData.error)) {
     // Error subscribing to callback, send warning
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.warning, ctx: ctx, docId: docId, description: 'Error on save server subscription!'});
+    yield publish(ctx, {type: commonDefines.c_oPublishType.warning, ctx: ctx, docId: docId, description: 'Error on save server subscription!'});
   }
 });
 function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, description) {
@@ -1219,7 +1219,7 @@ function* publishCloseUsersConnection(ctx, docId, users, isOriginalId, code, des
       map[val] = 1;
       return map;
     }, {});
-    yield* publish(ctx, {
+    yield publish(ctx, {
                      type: commonDefines.c_oPublishType.closeConnection, ctx: ctx, docId: docId, usersMap: usersMap,
                      isOriginalId: isOriginalId, code: code, description: description
                    });
@@ -1240,7 +1240,7 @@ function closeUsersConnection(ctx, docId, usersMap, isOriginalId, code, descript
 }
 function* dropUsersFromDocument(ctx, docId, users) {
   if (Array.isArray(users)) {
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: users, description: ''});
+    yield publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: users, description: ''});
   }
 }
 
@@ -1649,7 +1649,7 @@ exports.install = function(server, callbackFunction) {
                 yield* onCursor(ctx, conn, data);
                 break;
               case 'getLock'        :
-                yield* getLock(ctx, conn, data, false);
+                yield getLock(ctx, conn, data, false);
                 break;
               case 'saveChanges'      :
                 yield* saveChanges(ctx, conn, data);
@@ -1812,7 +1812,7 @@ exports.install = function(server, callbackFunction) {
       if (!participantsTimestamp) {
         participantsTimestamp = Date.now();
       }
-      yield* publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participants}, docId, tmpUser.id);
+      yield publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participants}, docId, tmpUser.id);
       tmpUser.view = tmpView;
 
       // For this user, we remove the lock from saving
@@ -1834,11 +1834,11 @@ exports.install = function(server, callbackFunction) {
           }
         }
         //Release locks
-        userLocks = yield* removeUserLocks(ctx, docId, conn.user.id);
+        userLocks = yield removeUserLocks(ctx, docId, conn.user.id);
         if (0 < userLocks.length) {
           //todo send nothing in case of close document
           //sendReleaseLock(conn, userLocks);
-          yield* publish(ctx, {type: commonDefines.c_oPublishType.releaseLock, ctx: ctx, docId: docId, userId: conn.user.id, locks: userLocks}, docId, conn.user.id);
+          yield publish(ctx, {type: commonDefines.c_oPublishType.releaseLock, ctx: ctx, docId: docId, userId: conn.user.id, locks: userLocks}, docId, conn.user.id);
         }
 
         // For this user, remove the Lock from the document
@@ -1927,31 +1927,19 @@ exports.install = function(server, callbackFunction) {
     return objChangesDocument;
   }
 
-  function* getAllLocks(ctx, docId) {
-    var docLockRes = [];
-    var docLock = yield editorData.getLocks(ctx, docId);
-    for (var i = 0; i < docLock.length; ++i) {
-      docLockRes.push(docLock[i]);
-    }
-    return docLockRes;
-  }
-  function* removeUserLocks(ctx, docId, userId) {
-    var userLocks = [], i;
-    var toCache = [];
-    var docLock = yield* getAllLocks(ctx, docId);
-    for (i = 0; i < docLock.length; ++i) {
-      var elem = docLock[i];
-      if (elem.user === userId) {
-        userLocks.push(elem);
-      } else {
-        toCache.push(elem);
+  async function removeUserLocks(ctx, docId, userId) {
+    let locks = await editorData.getLocks(ctx, docId);
+    let res = [];
+    let toRemove = {};
+    for (let lockId in locks) {
+      let lock = locks[lockId];
+      if (lock.user === userId) {
+        toRemove[lockId] = lock;
+        res.push(lock);
       }
     }
-    //remove all
-    yield editorData.removeLocks(ctx, docId);
-    //set all
-    yield editorData.addLocks(ctx, docId, toCache);
-    return userLocks;
+    await editorData.removeLocks(ctx, docId, toRemove);
+    return res;
   }
 
 	function* checkEndAuthLock(ctx, unlock, isSave, docId, userId, releaseLocks, deleteIndex, conn) {
@@ -1973,7 +1961,7 @@ exports.install = function(server, callbackFunction) {
 			var unlockRes = yield editorData.unlockAuth(ctx, docId, userId);
 			if (commonDefines.c_oAscUnlockRes.Unlocked === unlockRes) {
 				const participantsMap = yield getParticipantMap(ctx, docId);
-				yield* publish(ctx, {
+				yield publish(ctx, {
 					type: commonDefines.c_oPublishType.auth,
                     ctx: ctx,
 					docId: docId,
@@ -1987,10 +1975,10 @@ exports.install = function(server, callbackFunction) {
 
 		//Release locks
 		if (releaseLocks && conn) {
-			const userLocks = yield* removeUserLocks(ctx, docId, userId);
+			const userLocks = yield removeUserLocks(ctx, docId, userId);
 			if (0 < userLocks.length) {
 				sendReleaseLock(ctx, conn, userLocks);
-				yield* publish(ctx, {
+				yield publish(ctx, {
 					type: commonDefines.c_oPublishType.releaseLock,
                     ctx: ctx,
 					docId: docId,
@@ -2070,20 +2058,20 @@ exports.install = function(server, callbackFunction) {
 
   // Recalculation only for foreign Lock when saving on a client that added/deleted rows or columns
   function _recalcLockArray(userId, _locks, oRecalcIndexColumns, oRecalcIndexRows) {
+    let res = {};
     if (null == _locks) {
-      return false;
+      return res;
     }
-    var count = _locks.length;
     var element = null, oRangeOrObjectId = null;
-    var i;
     var sheetId = -1;
-    var isModify = false;
-    for (i = 0; i < count; ++i) {
+    for (let lockId in _locks) {
+      let isModify = false;
+      let lock = _locks[lockId];
       // we do not count for ourselves
-      if (userId === _locks[i].user) {
+      if (userId === lock.user) {
         continue;
       }
-      element = _locks[i].block;
+      element = lock.block;
       if (c_oAscLockTypeElem.Range !== element["type"] ||
         c_oAscLockTypeElemSubType.InsertColumns === element["subType"] ||
         c_oAscLockTypeElemSubType.InsertRows === element["subType"]) {
@@ -2105,8 +2093,11 @@ exports.install = function(server, callbackFunction) {
         oRangeOrObjectId["r2"] = oRecalcIndexRows[sheetId].getLockMe2(oRangeOrObjectId["r2"]);
         isModify = true;
       }
+      if (isModify) {
+        res[lockId] = lock;
+      }
     }
-    return isModify;
+    return res;
   }
 
   function _addRecalcIndex(oRecalcIndex) {
@@ -2745,7 +2736,7 @@ exports.install = function(server, callbackFunction) {
             if (bIsSuccessRestore) {
               // check locks
               var arrayBlocks = data['block'];
-              var getLockRes = yield* getLock(ctx, conn, data, true);
+              var getLockRes = yield getLock(ctx, conn, data, true);
               if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
                 yield* authRestore(ctx, conn, data.sessionId);
               } else {
@@ -2864,7 +2855,7 @@ exports.install = function(server, callbackFunction) {
       //closing could happen during async action
       return false;
     }
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participantsMap, waitAuthUserId: waitAuthUserId}, docId, tmpUser.id);
+    yield publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participantsMap, waitAuthUserId: waitAuthUserId}, docId, tmpUser.id);
     return res;
   }
 
@@ -2967,17 +2958,13 @@ exports.install = function(server, callbackFunction) {
     const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
 
     const docId = conn.docId;
-    let docLock;
-    if(EditorTypes.document == conn.editorType){
-      docLock = {};
-      let elem;
-      const allLocks = yield* getAllLocks(ctx, docId);
-      for(let i = 0 ; i < allLocks.length; ++i) {
-        elem = allLocks[i];
-        docLock[elem.block] = elem;
+    let docLock = yield editorData.getLocks(ctx, docId);
+    if (EditorTypes.document !== conn.editorType){
+      let docLockList = [];
+      for (let lockId in docLock) {
+        docLockList.push(docLock[lockId]);
       }
-    } else {
-      docLock = yield* getAllLocks(ctx, docId);
+      docLock = docLockList;
     }
     let allMessages = yield editorData.getMessages(ctx, docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined;//todo client side
@@ -3023,7 +3010,7 @@ exports.install = function(server, callbackFunction) {
 
     var messages = [msg];
     sendDataMessage(ctx, conn, messages);
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.message, ctx: ctx, docId: docId, userId: userId, messages: messages}, docId, userId);
+    yield publish(ctx, {type: commonDefines.c_oPublishType.message, ctx: ctx, docId: docId, userId: userId, messages: messages}, docId, userId);
   }
 
   function* onCursor(ctx, conn, data) {
@@ -3034,100 +3021,55 @@ exports.install = function(server, callbackFunction) {
     ctx.logger.info("send cursor: %s", msg);
 
     var messages = [msg];
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.cursor, ctx: ctx, docId: docId, userId: userId, messages: messages}, docId, userId);
+    yield publish(ctx, {type: commonDefines.c_oPublishType.cursor, ctx: ctx, docId: docId, userId: userId, messages: messages}, docId, userId);
   }
-
-  function* getLock(ctx, conn, data, bIsRestore) {
-    ctx.logger.info("getLock");
-    var fLock = null;
+  // For Word block is now string "guid"
+  // For Excel block is now object { sheetId, type, rangeOrObjectId, guid }
+  // For presentations, this is an object { type, val } or { type, slideId, objId }
+  async function getLock(ctx, conn, data, bIsRestore) {
+    ctx.logger.debug("getLock");
+    var fCheckLock = null;
     switch (conn.editorType) {
       case EditorTypes.document:
         // Word
-        fLock = getLockWord;
+        fCheckLock = _checkLockWord;
         break;
       case EditorTypes.spreadsheet:
         // Excel
-        fLock = getLockExcel;
+        fCheckLock = _checkLockExcel;
         break;
       case EditorTypes.presentation:
         // PP
-        fLock = getLockPresentation;
+        fCheckLock = _checkLockPresentation;
         break;
+      default:
+        return false;
     }
-    return fLock ? yield* fLock(ctx, conn, data, bIsRestore) : false;
-  }
-
-  function* getLockWord(ctx, conn, data, bIsRestore) {
-    var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
-    var i;
-    var checkRes = yield* _checkLock(ctx, docId, arrayBlocks);
-    var documentLocks = checkRes.documentLocks;
-    if (checkRes.res) {
-      //Ok. take lock
-      var toCache = [];
-      for (i = 0; i < arrayBlocks.length; ++i) {
-        var block = arrayBlocks[i];
-        var elem = {time: Date.now(), user: userId, block: block};
-        documentLocks[block] = elem;
-        toCache.push(elem);
+    let docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
+    let locks = arrayBlocks.reduce(function(map, block) {
+      //todo use one id
+      map[block.guid || block] = {time: Date.now(), user: userId, block: block};
+      return map;
+    }, {});
+    let addRes = await editorData.addLocksNX(ctx, docId, locks);
+    let documentLocks = addRes.allLocks;
+    let isAllAdded = Object.keys(addRes.lockConflict).length === 0;
+    if (!isAllAdded || !fCheckLock(ctx, docId, documentLocks, arrayBlocks, userId)) {
+      //remove new locks
+      let toRemove = {};
+      for (let lockId in locks) {
+        if (!addRes.lockConflict[lockId]) {
+          toRemove[lockId] = locks[lockId];
+          delete documentLocks[lockId];
+        }
       }
-      yield editorData.addLocks(ctx, docId, toCache);
-    } else if (bIsRestore) {
-      return false;
-    }
-    //to the one who made the request we return as quickly as possible
-    sendData(ctx, conn, {type: "getLock", locks: documentLocks});
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
-    return true;
-  }
-
-  // For Excel block is now object { sheetId, type, rangeOrObjectId, guid }
-  function* getLockExcel(ctx, conn, data, bIsRestore) {
-    var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
-    var i;
-    var checkRes = yield* _checkLockExcel(ctx, docId, arrayBlocks, userId);
-    var documentLocks = checkRes.documentLocks;
-    if (checkRes.res) {
-      //Ok. take lock
-      var toCache = [];
-      for (i = 0; i < arrayBlocks.length; ++i) {
-        var block = arrayBlocks[i];
-        var elem = {time: Date.now(), user: userId, block: block};
-        documentLocks.push(elem);
-        toCache.push(elem);
+      await editorData.removeLocks(ctx, docId, toRemove);
+      if (bIsRestore) {
+        return false;
       }
-      yield editorData.addLocks(ctx, docId, toCache);
-    } else if (bIsRestore) {
-      return false;
     }
-    //to the one who made the request we return as quickly as possible
     sendData(ctx, conn, {type: "getLock", locks: documentLocks});
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
-    return true;
-  }
-
-  // For presentations, this is an object { type, val } or { type, slideId, objId }
-  function* getLockPresentation(ctx, conn, data, bIsRestore) {
-    var docId = conn.docId, userId = conn.user.id, arrayBlocks = data.block;
-    var i;
-    var checkRes = yield* _checkLockPresentation(ctx, docId, arrayBlocks, userId);
-    var documentLocks = checkRes.documentLocks;
-    if (checkRes.res) {
-      //Ok. take lock
-      var toCache = [];
-      for (i = 0; i < arrayBlocks.length; ++i) {
-        var block = arrayBlocks[i];
-        var elem = {time: Date.now(), user: userId, block: block};
-        documentLocks.push(elem);
-        toCache.push(elem);
-      }
-      yield editorData.addLocks(ctx, docId, toCache);
-    } else if (bIsRestore) {
-      return false;
-    }
-    //to the one who made the request we return as quickly as possible
-    sendData(ctx, conn, {type: "getLock", locks: documentLocks});
-    yield* publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
+    await publish(ctx, {type: commonDefines.c_oPublishType.getLock, ctx: ctx, docId: docId, userId: userId, documentLocks: documentLocks}, docId, userId);
     return true;
   }
 
@@ -3211,14 +3153,10 @@ exports.install = function(server, callbackFunction) {
         const oRecalcIndexRows = _addRecalcIndex(tmpAdditionalInfo["indexRows"]);
         // Now we need to recalculate indexes for lock elements
         if (null !== oRecalcIndexColumns || null !== oRecalcIndexRows) {
-          const docLock = yield* getAllLocks(ctx, docId);
-          if (_recalcLockArray(userId, docLock, oRecalcIndexColumns, oRecalcIndexRows)) {
-            let toCache = [];
-            for (let i = 0; i < docLock.length; ++i) {
-              toCache.push(docLock[i]);
-            }
-            yield editorData.removeLocks(ctx, docId);
-            yield editorData.addLocks(ctx, docId, toCache);
+          let docLock = yield editorData.getLocks(ctx, docId);
+          let docLockMod = _recalcLockArray(userId, docLock, oRecalcIndexColumns, oRecalcIndexRows);
+          if (Object.keys(docLockMod).length > 0) {
+            yield editorData.addLocks(ctx, docId, docLockMod);
           }
         }
       }
@@ -3226,7 +3164,7 @@ exports.install = function(server, callbackFunction) {
       let userLocks = [];
       if (data.releaseLocks) {
 		  //Release locks
-		  userLocks = yield* removeUserLocks(ctx, docId, userId);
+		  userLocks = yield removeUserLocks(ctx, docId, userId);
       }
       // For this user, we remove Lock from the document if the unlock flag has arrived
       const checkEndAuthLockRes = yield* checkEndAuthLock(ctx, data.unlock, false, docId, userId);
@@ -3247,7 +3185,7 @@ exports.install = function(server, callbackFunction) {
             value.time = value.time.getTime();
           })
         }
-        yield* publish(ctx, {type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
+        yield publish(ctx, {type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
           changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex, syncChangesIndex: puckerIndex,
           locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo, endSaveChanges: data.endSaveChanges}, docId, userId);
       }
@@ -3265,13 +3203,13 @@ exports.install = function(server, callbackFunction) {
           value.time = value.time.getTime();
         })
       }
-      let isPublished = yield* publish(ctx, {type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
+      let isPublished = yield publish(ctx, {type: commonDefines.c_oPublishType.changes, ctx: ctx, docId: docId, userId: userId,
         changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex, syncChangesIndex: puckerIndex,
         locks: [], excelAdditionalInfo: undefined, endSaveChanges: data.endSaveChanges}, docId, userId);
       sendData(ctx, conn, {type: 'savePartChanges', changesIndex: changesIndex, syncChangesIndex: puckerIndex});
       if (!isPublished) {
         //stub for lockDocumentsTimerId
-        yield* publish(ctx, {type: commonDefines.c_oPublishType.changesNotify, ctx: ctx, docId: docId});
+        yield publish(ctx, {type: commonDefines.c_oPublishType.changesNotify, ctx: ctx, docId: docId});
       }
     }
   }
@@ -3327,47 +3265,19 @@ exports.install = function(server, callbackFunction) {
     sendDataMessage(ctx, conn, allMessages);
   }
 
-  function* _checkLock(ctx, docId, arrayBlocks) {
-    // Data is array now
-    var isLock = false;
-    var allLocks = yield* getAllLocks(ctx, docId);
-    var documentLocks = {};
-    for(var i = 0 ; i < allLocks.length; ++i) {
-      var elem = allLocks[i];
-      documentLocks[elem.block] =elem;
-    }
-    if (arrayBlocks.length > 0) {
-      for (var i = 0; i < arrayBlocks.length; ++i) {
-        var block = arrayBlocks[i];
-        ctx.logger.info("getLock id: %s", block);
-        if (documentLocks.hasOwnProperty(block) && documentLocks[block] !== null) {
-          isLock = true;
-          break;
-        }
-      }
-    } else {
-      isLock = true;
-    }
-    return {res: !isLock, documentLocks: documentLocks};
+  function _checkLockWord(ctx, docId, documentLocks, arrayBlocks, userId) {
+    return true;
   }
-
-  function* _checkLockExcel(ctx, docId, arrayBlocks, userId) {
+  function _checkLockExcel(ctx, docId, documentLocks, arrayBlocks, userId) {
     // Data is array now
     var documentLock;
     var isLock = false;
     var isExistInArray = false;
     var i, blockRange;
-    var documentLocks = yield* getAllLocks(ctx, docId);
     var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
     for (i = 0; i < lengthArray && false === isLock; ++i) {
       blockRange = arrayBlocks[i];
-      for (var keyLockInArray in documentLocks) {
-        if (true === isLock) {
-          break;
-        }
-        if (!documentLocks.hasOwnProperty(keyLockInArray)) {
-          continue;
-        }
+      for (let keyLockInArray in documentLocks) {
         documentLock = documentLocks[keyLockInArray];
         // Checking if an object is in an array (the current user sent a lock again)
         if (documentLock.user === userId &&
@@ -3402,41 +3312,39 @@ exports.install = function(server, callbackFunction) {
           continue;
         }
         isLock = compareExcelBlock(blockRange, documentLock.block);
+        if (true === isLock) {
+          break;
+        }
       }
     }
     if (0 === lengthArray) {
       isLock = true;
     }
-    return {res: !isLock && !isExistInArray, documentLocks: documentLocks};
+    return !isLock && !isExistInArray;
   }
 
-  function* _checkLockPresentation(ctx, docId, arrayBlocks, userId) {
+  function _checkLockPresentation(ctx, docId, documentLocks, arrayBlocks, userId) {
     // Data is array now
     var isLock = false;
-    var i, documentLock, blockRange;
-    var documentLocks = yield* getAllLocks(ctx, docId);
+    var i, blockRange;
     var lengthArray = (arrayBlocks) ? arrayBlocks.length : 0;
     for (i = 0; i < lengthArray && false === isLock; ++i) {
       blockRange = arrayBlocks[i];
-      for (var keyLockInArray in documentLocks) {
-        if (true === isLock) {
-          break;
-        }
-        if (!documentLocks.hasOwnProperty(keyLockInArray)) {
-          continue;
-        }
-        documentLock = documentLocks[keyLockInArray];
-
+      for (let keyLockInArray in documentLocks) {
+        let documentLock = documentLocks[keyLockInArray];
         if (documentLock.user === userId || !(documentLock.block)) {
           continue;
         }
         isLock = comparePresentationBlock(blockRange, documentLock.block);
+        if (true === isLock) {
+          break;
+        }
       }
     }
     if (0 === lengthArray) {
       isLock = true;
     }
-    return {res: !isLock, documentLocks: documentLocks};
+    return !isLock;
   }
 
 	function _checkLicense(ctx, conn) {
@@ -3768,7 +3676,7 @@ exports.install = function(server, callbackFunction) {
             if (hasChanges) {
               let participants = yield getParticipantMap(ctx, data.docId);
               let participantsTimestamp = Date.now();
-              yield* publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: data.docId, userId: null, participantsTimestamp: participantsTimestamp, participants: participants});
+              yield publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: data.docId, userId: null, participantsTimestamp: participantsTimestamp, participants: participants});
             }
             break;
           case commonDefines.c_oPublishType.rpc:
@@ -4294,7 +4202,7 @@ function* commandHandle(ctx, params, req, output) {
     }
     case 'drop': {
       if (params.userid) {
-        yield* publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: [params.userid], description: params.description});
+        yield publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: [params.userid], description: params.description});
       } else if (params.users) {
         const users = (typeof params.users === 'string') ? JSON.parse(params.users) : params.users;
         yield* dropUsersFromDocument(ctx, docId, users);
@@ -4321,7 +4229,7 @@ function* commandHandle(ctx, params, req, output) {
     }
     case 'meta': {
       if (params.meta) {
-        yield* publish(ctx, {type: commonDefines.c_oPublishType.meta, ctx: ctx, docId: docId, meta: params.meta});
+        yield publish(ctx, {type: commonDefines.c_oPublishType.meta, ctx: ctx, docId: docId, meta: params.meta});
       } else {
         output.error = commonDefines.c_oAscServerCommandErrors.UnknownCommand;
       }
