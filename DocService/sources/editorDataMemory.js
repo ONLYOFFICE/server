@@ -140,17 +140,40 @@ EditorData.prototype.removePresenceDocument = async function(ctx, docId) {};
 EditorData.prototype.addLocks = async function(ctx, docId, locks) {
   let data = this._getDocumentData(ctx, docId);
   if (!data.locks) {
-    data.locks = [];
+    data.locks = {};
   }
-  data.locks = data.locks.concat(locks);
+  Object.assign(data.locks, locks);
 };
-EditorData.prototype.removeLocks = async function(ctx, docId) {
+EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
+  let data = this._getDocumentData(ctx, docId);
+  if (!data.locks) {
+    data.locks = {};
+  }
+  let lockConflict = {};
+  for (let lockId in locks) {
+    if (undefined === data.locks[lockId]) {
+      data.locks[lockId] = locks[lockId];
+    } else {
+      lockConflict[lockId] = locks[lockId];
+    }
+  }
+  return {lockConflict, allLocks: data.locks};
+};
+EditorData.prototype.removeLocks = async function(ctx, docId, locks) {
+  let data = this._getDocumentData(ctx, docId);
+  if (!data.locks) {
+    for (let lockId in locks) {
+      delete data.locks[lockId];
+    }
+  }
+};
+EditorData.prototype.removeAllLocks = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   data.locks = undefined;
 };
 EditorData.prototype.getLocks = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
-  return data.locks || [];
+  return data.locks || {};
 };
 
 EditorData.prototype.addMessage = async function(ctx, docId, msg) {
