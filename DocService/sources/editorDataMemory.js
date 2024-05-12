@@ -161,7 +161,7 @@ EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
 };
 EditorData.prototype.removeLocks = async function(ctx, docId, locks) {
   let data = this._getDocumentData(ctx, docId);
-  if (!data.locks) {
+  if (data.locks) {
     for (let lockId in locks) {
       delete data.locks[lockId];
     }
