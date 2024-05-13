@@ -53,6 +53,10 @@ function initCacheRouter(cfgStorage, routs) {
   const storageFolderName = cfgStorage.storageFolderName;
   const folderPath = cfgStorage.fs.folderPath;
   routs.forEach((rout) => {
+    //special dirs are empty by default
+    if (!rout) {
+      return;
+    }
     let rootPath = path.join(folderPath, rout);
     router.use(`/${bucketName}/${storageFolderName}/${rout}`, (req, res, next) => {
       const index = req.url.lastIndexOf('/');
