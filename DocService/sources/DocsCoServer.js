@@ -87,6 +87,7 @@ const bytes = require('bytes');
 const storage = require('./../../Common/sources/storage-base');
 const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
+const utilsDocService = require('./utilsDocService');
 const commonDefines = require('./../../Common/sources/commondefines');
 const statsDClient = require('./../../Common/sources/statsdclient');
 const config = require('config');
@@ -101,7 +102,7 @@ const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
-const notificationService = require('../../Common/sources/notificationService');
+const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
@@ -3527,7 +3528,7 @@ exports.install = function(server, callbackFunction) {
 
     if (notificationPrefix) {
       //todo with yield service could throw error
-      notificationService.notify(ctx, notificationService.notificationTypes.LICENSE_LIMIT, [notificationPrefix]);
+      notificationService.notify(ctx, notificationTypes.LICENSE_LIMIT, [notificationPrefix]);
     }
     return licenseType;
   }
@@ -3944,8 +3945,46 @@ exports.install = function(server, callbackFunction) {
     });
   });
 };
-exports.setLicenseInfo = function(data, original ) {
+exports.setLicenseInfo = async function(globalCtx, data, original) {
+  const asyncIOHandler = async function(asyncOperations, errorMessage) {
+    const settledPromises = await Promise.allSettled(asyncOperations);
+
+    const filtered = settledPromises.filter(promise => {
+      if (promise.status === 'rejected') {
+        globalCtx.logger.error(errorMessage, promise.reason);
+        return false;
+      }
+
+      return true;
+    });
+
+    return filtered.map(result => result.value);
+  };
+
+  const tenantsList = await tenantManager.getAllTenants(globalCtx);
+  const cacheInitProcess = tenantsList.map(async tenant => {
+    const ctx = new operationContext.Context();
+    ctx.init(tenant);
+    await ctx.initTenantCache();
+
+    return ctx;
+  });
+
+  const tenantContexts = await asyncIOHandler(cacheInitProcess, 'setLicenseInfo error while initializing context: ');
+  const pendingLicenses = tenantContexts.map(async ctx => {
+    const license = await tenantManager.getTenantLicense(ctx);
+    return [ctx, license];
+  });
+  const licenses = await asyncIOHandler(pendingLicenses, 'setLicenseInfo error while reading license: ');
+
   tenantManager.setDefLicense(data, original);
+  utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
+  for (const licenseInfo of licenses) {
+    const ctx = licenseInfo[0];
+    const endDate = licenseInfo[1].endDate;
+
+    utilsDocService.notifyLicenseExpiration(ctx, endDate);
+  }
 };
 exports.healthCheck = function(req, res) {
   return co(function*() {

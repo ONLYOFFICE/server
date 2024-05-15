@@ -56,23 +56,30 @@ class MailTransport extends TransportInterface {
   host = cfgMailServer.host;
   port = cfgMailServer.port;
   auth = cfgMailServer.auth;
+  isTemplateRecipientData = false;
 
   constructor() {
     super();
 
     mailService.createTransporter(this.host, this.port, this.auth, cfgMailMessageDefaults);
+    this.isTemplateRecipientData = cfgMailMessageDefaults.from === 'from.mail@server.com' || cfgMailMessageDefaults.to === 'to.mail@server.com';
   }
 
   async send(ctx, message) {
     ctx.logger.info('Notification service: MailTransport send %j', message);
-    return mailService.send(this.host, this.auth.user, message);
+    if (this.isTemplateRecipientData) {
+
+      ctx.logger.warn('Notification service: Recipient or sender e-mail address is a template address, message will not be sent.');
+      return;
+    }
+
+    return mailService.send(ctx, this.host, this.auth.user, message);
   }
 
   contentGeneration(template, messageParams) {
-    let text = util.format(template.body, ...messageParams);
     return {
       subject: template.title,
-      text: text
+      text: util.format(template.body, ...messageParams)
     };
   }
 }
@@ -105,21 +112,23 @@ class Transport {
 
 async function notify(ctx, notificationType, messageParams) {
   ctx.logger.debug('Notification service: notify "%s"',  notificationType);
-  let tenRule;
-  tenRule = ctx.getCfg('notification.rules.' + notificationType, config.get('notification.rules.' + notificationType));
 
+  const tenRule = ctx.getCfg(`notification.rules.${notificationType}`, config.get(`notification.rules.${notificationType}`));
   if (tenRule && checkRulePolicies(ctx, notificationType, tenRule)) {
     await notifyRule(ctx, tenRule, messageParams);
   }
 }
+
 function checkRulePolicies(ctx, notificationType, tenRule) {
-  const {repeatInterval} = tenRule.policies;
+  const { repeatInterval } = tenRule.policies;
   const intervalMilliseconds = ms(repeatInterval) ?? defaultRepeatInterval;
-  let expired = repeatIntervalsExpired.get(notificationType);
+  const expired = repeatIntervalsExpired.get(notificationType);
+
   if (!expired || expired <= Date.now()) {
     repeatIntervalsExpired.set(notificationType, Date.now() + intervalMilliseconds);
     return true;
   }
+
   ctx.logger.debug(`Notification service: skip rule "%s" due to repeat interval %s`, notificationType, repeatInterval);
   return false;
 }

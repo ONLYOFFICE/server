@@ -32,9 +32,15 @@
 
 'use strict';
 
-const exifParser = require("exif-parser");
-const Jimp = require("jimp");
+const config = require('config');
+const exifParser = require('exif-parser');
+const Jimp = require('jimp');
 const locale = require('windows-locale');
+const ms = require('ms');
+
+const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
+
+const cfgStartNotifyFrom = ms(config.get('license.startNotifyFrom'));
 
 async function fixImageExifRotation(ctx, buffer) {
   if (!buffer) {
@@ -70,7 +76,62 @@ function localeToLCID(lang) {
   return elem && elem.id;
 }
 
+function humanFriendlyExpirationTime(endTime) {
+  const timeWithPostfix = (timeName, value) => `${value} ${timeName}${value > 1 ? 's' : ''}`;
+  const currentTime = new Date();
+  const monthDiff = getMonthDiff(currentTime, endTime);
+
+  if (monthDiff > 0) {
+    return timeWithPostfix('month', monthDiff);
+  }
+
+  const daysDiff = endTime.getUTCDate() - currentTime.getUTCDate();
+  if (daysDiff > 0) {
+    return timeWithPostfix('day', daysDiff);
+  }
+
+  const hoursDiff = endTime.getHours() - currentTime.getHours();
+  const minutesDiff = endTime.getMinutes() - currentTime.getMinutes();
+
+  let timeString = '';
+  if (hoursDiff > 0) {
+    timeString += timeWithPostfix('hour', hoursDiff);
+  }
+
+  if (minutesDiff > 0) {
+    if (timeString.length !== 0) {
+      timeString += ' ';
+    }
+
+    timeString += timeWithPostfix('minute', minutesDiff);
+  }
+
+  return timeString;
+}
+
+/**
+ * Notify server user about license expiration via configured notification transports.
+ * @param {string} ctx Context.
+ * @param {date} endDate Date of expiration.
+ * @returns {undefined}
+ */
+function notifyLicenseExpiration(ctx, endDate) {
+  if (!endDate) {
+    ctx.logger.warn('notifyLicenseExpiration(): endDate is not defined');
+    return;
+  }
+
+  const currentDate = new Date();
+  const licenseEndTime = new Date(endDate);
+
+  if (currentDate.getTime() >= licenseEndTime.getTime() - cfgStartNotifyFrom) {
+    const formattedTimeRemaining = humanFriendlyExpirationTime(licenseEndTime);
+    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRED, [formattedTimeRemaining]);
+  }
+}
+
 module.exports = {
   fixImageExifRotation,
-  localeToLCID
+  localeToLCID,
+  notifyLicenseExpiration
 };

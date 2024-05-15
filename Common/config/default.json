@@ -43,7 +43,7 @@
 				],
 				"template": {
 					"title": "License",
-					"body": "license expires after %s!!!"
+					"body": "license expires in %s!!!"
 				},
 				"policies": {
 					"repeatInterval": "1d"
@@ -425,7 +425,8 @@
 	"license" : {
 		"license_file": "",
 		"warning_limit_percents": 70,
-		"packageType": 0
+		"packageType": 0,
+		"startNotifyFrom": "30d"
 	},
 	"FileConverter": {
 		"converter": {

@@ -1,7 +1,10 @@
 const { describe, test, expect, afterAll } = require('@jest/globals');
 const nodemailer = require('../../Common/node_modules/nodemailer');
 
+const operationContext = require('../../Common/sources/operationContext');
 const mailService = require('../../Common/sources/mailService');
+
+const ctx = new operationContext.Context();
 const defaultTestSMTPServer = {
   host: 'smtp.ethereal.email',
   port: 587
@@ -13,7 +16,6 @@ afterAll(function () {
 })
 
 describe('Mail service', function () {
-  console.log('!!!!!!!!!!!!!!!!', global.dev);
   describe('SMTP', function () {
     const { host, port } = defaultTestSMTPServer;
 
@@ -22,7 +24,7 @@ describe('Mail service', function () {
       // Ethereial is a special SMTP sever for mailing tests in collaboration with Nodemailer.
       const accounts = await Promise.all([nodemailer.createTestAccount(), nodemailer.createTestAccount(), nodemailer.createTestAccount()]);
       const auth = accounts.map(account => { return { user: account.user, pass: account.pass }});
-      auth.forEach(credential => mailService.createTransporter(host, port, credential, { from: 'some.mail@ethereal.com' }));
+      auth.forEach(credential => mailService.createTransporter(ctx, host, port, credential, { from: 'some.mail@ethereal.com' }));
 
       for (let i = 0; i < auth.length; i++) {
         const credentials = auth[i];
@@ -36,7 +38,7 @@ describe('Mail service', function () {
       }
 
       const accountToBeDeleted = auth[1];
-      mailService.deleteTransporter(host, accountToBeDeleted.user);
+      mailService.deleteTransporter(ctx, host, accountToBeDeleted.user);
 
       const errorPromise = mailService.send(
         host,

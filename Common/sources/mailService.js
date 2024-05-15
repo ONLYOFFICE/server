@@ -35,11 +35,8 @@
 const config = require('config');
 const nodemailer = require('nodemailer');
 
-const operationContext = require('./operationContext');
-
 const cfgConnection = config.get('email.connectionConfiguration');
 
-const ctx = new operationContext.Context();
 const connectionDefaultSettings = {
   pool: true,
   socketTimeout: 1000 * 60 * 2,
@@ -50,7 +47,7 @@ const connectionDefaultSettings = {
 const settings = Object.assign(connectionDefaultSettings, cfgConnection);
 const smtpTransporters = new Map();
 
-function createTransporter(host, port, auth, messageCommonParameters = {}) {
+function createTransporter(ctx, host, port, auth, messageCommonParameters = {}) {
   const server = {
     host,
     port,
@@ -80,7 +77,7 @@ async function send(host, userLogin, mailObject) {
   return transporter.sendMail(mailObject);
 }
 
-function deleteTransporter(host, userLogin) {
+function deleteTransporter(ctx, host, userLogin) {
   const transporter = smtpTransporters.get(`${host}:${userLogin}`);
   if (!transporter) {
     ctx.logger.error(`MailService: no transporter exists for host "${host}" and user "${userLogin}"`);
@@ -94,10 +91,6 @@ function deleteTransporter(host, userLogin) {
 function transportersRelease() {
   smtpTransporters.forEach(transporter => transporter.close());
   smtpTransporters.clear();
-}
-
-function isCreated(host, user) {
-  return smtpTransporters
 }
 
 module.exports = {
