@@ -3054,7 +3054,7 @@ exports.install = function(server, callbackFunction) {
     let addRes = await editorData.addLocksNX(ctx, docId, locks);
     let documentLocks = addRes.allLocks;
     let isAllAdded = Object.keys(addRes.lockConflict).length === 0;
-    if (!isAllAdded || !fCheckLock(ctx, docId, documentLocks, arrayBlocks, userId)) {
+    if (!isAllAdded || !fCheckLock(ctx, docId, documentLocks, locks, arrayBlocks, userId)) {
       //remove new locks
       let toRemove = {};
       for (let lockId in locks) {
@@ -3265,10 +3265,10 @@ exports.install = function(server, callbackFunction) {
     sendDataMessage(ctx, conn, allMessages);
   }
 
-  function _checkLockWord(ctx, docId, documentLocks, arrayBlocks, userId) {
+  function _checkLockWord(ctx, docId, documentLocks, newLocks, arrayBlocks, userId) {
     return true;
   }
-  function _checkLockExcel(ctx, docId, documentLocks, arrayBlocks, userId) {
+  function _checkLockExcel(ctx, docId, documentLocks, newLocks, arrayBlocks, userId) {
     // Data is array now
     var documentLock;
     var isLock = false;
@@ -3278,6 +3278,10 @@ exports.install = function(server, callbackFunction) {
     for (i = 0; i < lengthArray && false === isLock; ++i) {
       blockRange = arrayBlocks[i];
       for (let keyLockInArray in documentLocks) {
+        if (newLocks[keyLockInArray]) {
+          //skip just added
+          continue;
+        }
         documentLock = documentLocks[keyLockInArray];
         // Checking if an object is in an array (the current user sent a lock again)
         if (documentLock.user === userId &&
@@ -3323,7 +3327,7 @@ exports.install = function(server, callbackFunction) {
     return !isLock && !isExistInArray;
   }
 
-  function _checkLockPresentation(ctx, docId, documentLocks, arrayBlocks, userId) {
+  function _checkLockPresentation(ctx, docId, documentLocks, newLocks, arrayBlocks, userId) {
     // Data is array now
     var isLock = false;
     var i, blockRange;
@@ -3331,6 +3335,10 @@ exports.install = function(server, callbackFunction) {
     for (i = 0; i < lengthArray && false === isLock; ++i) {
       blockRange = arrayBlocks[i];
       for (let keyLockInArray in documentLocks) {
+        if (newLocks[keyLockInArray]) {
+          //skip just added
+          continue;
+        }
         let documentLock = documentLocks[keyLockInArray];
         if (documentLock.user === userId || !(documentLock.block)) {
           continue;
