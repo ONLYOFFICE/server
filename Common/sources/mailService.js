@@ -71,7 +71,7 @@ function createTransporter(ctx, host, port, auth, messageCommonParameters = {}) 
 async function send(host, userLogin, mailObject) {
   const transporter = smtpTransporters.get(`${host}:${userLogin}`);
   if (!transporter) {
-    return Promise.reject(`MailService: no transporter exists for host "${host}" and user "${userLogin}"`);
+    throw new Error(`MailService: no transporter exists for host "${host}" and user "${userLogin}"`);
   }
 
   return transporter.sendMail(mailObject);

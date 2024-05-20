@@ -80,15 +80,16 @@ function getTenant(ctx, domain) {
   return tenant;
 }
 async function getAllTenants(ctx) {
+  let dirList = [];
   try {
-    const entitiesList = await readdir(cfgTenantsBaseDir, { withFileTypes: true });
-    const dirList = entitiesList.filter(direntObj => direntObj.isDirectory()).map(directory => directory.name);
-
-    return dirList;
+    if (isMultitenantMode(ctx)) {
+      const entitiesList = await readdir(cfgTenantsBaseDir, { withFileTypes: true });
+      dirList = entitiesList.filter(direntObj => direntObj.isDirectory()).map(directory => directory.name);
+    }
   } catch (error) {
     ctx.logger.error('getAllTenants error: ', error.stack);
-    return [];
   }
+  return dirList;
 }
 function getTenantByConnection(ctx, conn) {
   return isMultitenantMode(ctx) ? getTenant(ctx, utils.getDomainByConnection(ctx, conn)) : getDefautTenant();

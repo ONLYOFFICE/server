@@ -38,6 +38,8 @@ const Jimp = require('jimp');
 const locale = require('windows-locale');
 const ms = require('ms');
 
+const utils = require('../../Common/sources/utils');
+const tenantManager = require('../../Common/sources/tenantManager');
 const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 
 const cfgStartNotifyFrom = ms(config.get('license.startNotifyFrom'));
@@ -79,7 +81,7 @@ function localeToLCID(lang) {
 function humanFriendlyExpirationTime(endTime) {
   const timeWithPostfix = (timeName, value) => `${value} ${timeName}${value > 1 ? 's' : ''}`;
   const currentTime = new Date();
-  const monthDiff = getMonthDiff(currentTime, endTime);
+  const monthDiff = utils.getMonthDiff(currentTime, endTime);
 
   if (monthDiff > 0) {
     return timeWithPostfix('month', monthDiff);
@@ -126,7 +128,9 @@ function notifyLicenseExpiration(ctx, endDate) {
 
   if (currentDate.getTime() >= licenseEndTime.getTime() - cfgStartNotifyFrom) {
     const formattedTimeRemaining = humanFriendlyExpirationTime(licenseEndTime);
-    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRED, [formattedTimeRemaining]);
+    let tenant = tenantManager.isDefaultTenant(ctx) ? 'server' : ctx.tenant;
+    ctx.logger.warn("%s license expires in %s!!!", tenant, formattedTimeRemaining);
+    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRED, [tenant, formattedTimeRemaining]);
   }
 }
 

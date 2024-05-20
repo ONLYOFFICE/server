@@ -39,6 +39,7 @@ const mailService = require('./mailService');
 
 const cfgMailServer = config.get('email.smtpServerConfiguration');
 const cfgMailMessageDefaults = config.get('email.contactDefaults');
+const cfgNotificationEnable = config.get('notification.enable');
 
 const defaultRepeatInterval = 1000 * 60 * 60 * 24;
 const repeatIntervalsExpired = new Map();
@@ -56,24 +57,16 @@ class MailTransport extends TransportInterface {
   host = cfgMailServer.host;
   port = cfgMailServer.port;
   auth = cfgMailServer.auth;
-  isTemplateRecipientData = false;
 
-  constructor() {
+  constructor(ctx) {
     super();
 
-    mailService.createTransporter(this.host, this.port, this.auth, cfgMailMessageDefaults);
-    this.isTemplateRecipientData = cfgMailMessageDefaults.from === 'from.mail@server.com' || cfgMailMessageDefaults.to === 'to.mail@server.com';
+    mailService.createTransporter(ctx, this.host, this.port, this.auth, cfgMailMessageDefaults);
   }
 
   async send(ctx, message) {
-    ctx.logger.info('Notification service: MailTransport send %j', message);
-    if (this.isTemplateRecipientData) {
-
-      ctx.logger.warn('Notification service: Recipient or sender e-mail address is a template address, message will not be sent.');
-      return;
-    }
-
-    return mailService.send(ctx, this.host, this.auth.user, message);
+    ctx.logger.debug('Notification service: MailTransport send %j', message);
+    return mailService.send(this.host, this.auth.user, message);
   }
 
   contentGeneration(template, messageParams) {
@@ -86,7 +79,7 @@ class MailTransport extends TransportInterface {
 
 // TODO:
 class TelegramTransport extends TransportInterface {
-  constructor() {
+  constructor(ctx) {
     super();
   }
 }
@@ -99,10 +92,10 @@ class Transport {
 
     switch (transportName) {
       case 'email':
-        this.transport = new MailTransport();
+        this.transport = new MailTransport(ctx);
         break;
       case 'telegram':
-        this.transport = new TelegramTransport();
+        this.transport = new TelegramTransport(ctx);
         break
       default:
         ctx.logger.warn(`Notification service: error: transport method "${transportName}" not implemented`);
@@ -111,6 +104,10 @@ class Transport {
 }
 
 async function notify(ctx, notificationType, messageParams) {
+  const tenNotificationEnable = ctx.getCfg('notification.enable', cfgNotificationEnable);
+  if (!tenNotificationEnable) {
+    return;
+  }
   ctx.logger.debug('Notification service: notify "%s"',  notificationType);
 
   const tenRule = ctx.getCfg(`notification.rules.${notificationType}`, config.get(`notification.rules.${notificationType}`));
@@ -122,10 +119,11 @@ async function notify(ctx, notificationType, messageParams) {
 function checkRulePolicies(ctx, notificationType, tenRule) {
   const { repeatInterval } = tenRule.policies;
   const intervalMilliseconds = ms(repeatInterval) ?? defaultRepeatInterval;
-  const expired = repeatIntervalsExpired.get(notificationType);
+  const cacheKey = `${notificationType}_${ctx.tenant}`;
+  const expired = repeatIntervalsExpired.get(cacheKey);
 
   if (!expired || expired <= Date.now()) {
-    repeatIntervalsExpired.set(notificationType, Date.now() + intervalMilliseconds);
+    repeatIntervalsExpired.set(cacheKey, Date.now() + intervalMilliseconds);
     return true;
   }
 
@@ -136,8 +134,12 @@ function checkRulePolicies(ctx, notificationType, tenRule) {
 async function notifyRule(ctx, tenRule, messageParams) {
   const transportObjects = tenRule.transportType.map(transport => new Transport(ctx, transport));
   for (const transportObject of transportObjects) {
-    const message = transportObject.transport.contentGeneration(tenRule.template, messageParams);
-    await transportObject.transport.send(ctx, message);
+    try {
+      const message = transportObject.transport.contentGeneration(tenRule.template, messageParams);
+      await transportObject.transport.send(ctx, message);
+    } catch (e) {
+      ctx.logger.error('Notification service: error: %s', e.stack);
+    }
   }
 }
 

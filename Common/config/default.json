@@ -18,7 +18,7 @@
 	},
 	"email": {
 		"smtpServerConfiguration": {
-			"host": "smtp.ethereal.email",
+			"host": "localhost",
 			"port": 587,
 			"auth": {
 				"user": "onlyoffice",
@@ -30,20 +30,20 @@
 			"disableUrlAccess": false
 		},
 		"contactDefaults": {
-			"from": "from.mail@server.com",
-			"to": "to.mail@server.com"
+			"from": "from@example.com",
+			"to": "to@example.com"
 		}
 	},
 	"notification": {
+		"enable": false,
 		"rules": {
 			"licenseExpired": {
 				"transportType": [
-					"email",
-					"telegram"
+					"email"
 				],
 				"template": {
 					"title": "License",
-					"body": "license expires in %s!!!"
+					"body": "%s license expires in %s!!!"
 				},
 				"policies": {
 					"repeatInterval": "1d"
