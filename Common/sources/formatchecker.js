@@ -197,6 +197,9 @@ function getImageFormatBySignature(buffer) {
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
 exports.getFormatFromString = function(ext) {
+  if (!ext) {
+    return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
+  }
   switch (ext.toLowerCase()) {
     case 'docx':
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX;
