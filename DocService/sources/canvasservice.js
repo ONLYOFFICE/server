@@ -1646,7 +1646,7 @@ exports.downloadFile = function(req, res) {
             //editnew case
             fromTemplate = pathModule.extname(decoded.fileInfo.BaseFileName).substring(1);
           } else {
-            ({url, headers} = wopiClient.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
+            ({url, headers} = yield wopiClient.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
             let filterStatus = yield wopiClient.checkIpFilter(ctx, url);
             if (0 === filterStatus) {
               //todo false? (true because it passed checkIpFilter for wopi)

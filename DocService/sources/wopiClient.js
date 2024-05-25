@@ -35,6 +35,7 @@
 const path = require('path');
 const { pipeline } = require('node:stream/promises');
 const crypto = require('crypto');
+let util = require('util');
 const {URL} = require('url');
 const co = require('co');
 const jwt = require('jsonwebtoken');
@@ -89,6 +90,8 @@ const cfgWopiExponentOld = config.get('wopi.exponentOld');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
 const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
+
+let cryptoSign = util.promisify(crypto.sign);
 
 let templatesFolderLocalesCache = null;
 let templatesFolderExtsCache = null;
@@ -334,7 +337,7 @@ function getFileTypeByInfo(fileInfo) {
   fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
   return fileType.toLowerCase();
 }
-function getWopiFileUrl(ctx, fileInfo, userAuth) {
+async function getWopiFileUrl(ctx, fileInfo, userAuth) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   let url;
   let headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
@@ -345,7 +348,7 @@ function getWopiFileUrl(ctx, fileInfo, userAuth) {
     url = fileInfo.TemplateSource;
   } else if (userAuth) {
     url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
-    fillStandardHeaders(ctx, headers, url, userAuth.access_token);
+    await fillStandardHeaders(ctx, headers, url, userAuth.access_token);
   }
   ctx.logger.debug('getWopiFileUrl url=%s; headers=%j', url, headers);
   return {url, headers};
@@ -660,7 +663,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         let commonInfo = wopiParams.commonInfo;
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
-        fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
+        yield fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
         headers['X-LOOL-WOPI-IsModifiedByUser'] = isModifiedByUser;
         headers['X-LOOL-WOPI-IsAutosave'] = isAutosave;
         headers['X-LOOL-WOPI-IsExitSave'] = isExitSave;
@@ -702,7 +705,7 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       if (isFileConversion) {
         headers['X-WOPI-FileConversion'] = isFileConversion;
       }
-      fillStandardHeaders(ctx, headers, uri, access_token);
+      yield fillStandardHeaders(ctx, headers, uri, access_token);
       headers['Content-Type'] = mime.getType(suggestedTarget);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
@@ -741,7 +744,7 @@ function renameFile(ctx, wopiParams, name) {
         let commonInfo = wopiParams.commonInfo;
 
         let headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
-        fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
+        yield fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
 
         ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
@@ -779,7 +782,7 @@ function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
       if (opt_sc) {
         headers['X-WOPI-SessionContext'] = opt_sc;
       }
-      fillStandardHeaders(ctx, headers, uri, access_token);
+      yield fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
       //todo false? (true because it passed checkIpFilter for wopi)
       //todo use directIfIn
@@ -815,7 +818,7 @@ function lock(ctx, command, lockId, fileInfo, userAuth) {
         }
 
         let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
-        fillStandardHeaders(ctx, headers, uri, access_token);
+        yield fillStandardHeaders(ctx, headers, uri, access_token);
         ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
         let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
         ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
@@ -852,7 +855,7 @@ function unlock(ctx, wopiParams) {
         }
 
         let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
-        fillStandardHeaders(ctx, headers, uri, access_token);
+        yield fillStandardHeaders(ctx, headers, uri, access_token);
         ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
         ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
@@ -885,28 +888,20 @@ function generateProofBuffer(url, accessToken, timeStamp) {
   buffer.writeBigUInt64BE(timeStamp, offset);
   return buffer;
 }
-function generateProofSign(url, accessToken, timeStamp, privateKey) {
-  let signer = crypto.createSign('RSA-SHA256');
-  signer.update(generateProofBuffer(url, accessToken, timeStamp));
-  return signer.sign({key:privateKey}, "base64");
+
+async function generateProofSign(url, accessToken, timeStamp, privateKey) {
+  let data = generateProofBuffer(url, accessToken, timeStamp);
+  let sign = await cryptoSign('RSA-SHA256', data, privateKey);
+  return sign.toString('base64');
 }
-function generateProof(ctx, url, accessToken, timeStamp) {
-  const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
-  let privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${tenWopiPrivateKey}\n-----END RSA PRIVATE KEY-----`;
-  return generateProofSign(url, accessToken, timeStamp, privateKey);
-}
-function generateProofOld(ctx, url, accessToken, timeStamp) {
-  const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
-  let privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${tenWopiPrivateKeyOld}\n-----END RSA PRIVATE KEY-----`;
-  return generateProofSign(url, accessToken, timeStamp, privateKey);
-}
-function fillStandardHeaders(ctx, headers, url, access_token) {
+
+async function fillStandardHeaders(ctx, headers, url, access_token) {
   let timeStamp = utils.getDateTimeTicks(new Date());
   const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
   const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
   if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
-    headers['X-WOPI-Proof'] = generateProof(ctx, url, access_token, timeStamp);
-    headers['X-WOPI-ProofOld'] = generateProofOld(ctx, url, access_token, timeStamp);
+    headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKey, 'base64'));
+    headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKeyOld, 'base64'));
     headers['X-WOPI-TimeStamp'] = timeStamp;
     headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
     // todo
@@ -1019,8 +1014,6 @@ exports.putRelativeFile = putRelativeFile;
 exports.renameFile = renameFile;
 exports.lock = lock;
 exports.unlock = unlock;
-exports.generateProof = generateProof;
-exports.generateProofOld = generateProofOld;
 exports.fillStandardHeaders = fillStandardHeaders;
 exports.getWopiUnlockMarker = getWopiUnlockMarker;
 exports.getWopiModifiedMarker = getWopiModifiedMarker;

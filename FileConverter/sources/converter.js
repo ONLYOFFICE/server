@@ -1050,7 +1050,7 @@ function* ExecuteTask(ctx, task) {
         isInJwtToken = true;
         let fileInfo = wopiParams.commonInfo?.fileInfo;
         fileSize = fileInfo?.Size;
-        ({url, headers} = wopiClient.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
+        ({url, headers} = yield wopiClient.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
       }
       if (undefined === fileSize || fileSize > 0) {
         error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers);
