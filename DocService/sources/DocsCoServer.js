@@ -2232,7 +2232,10 @@ exports.install = function(server, callbackFunction) {
     return name;
   }
   function isEditMode(permissions, mode) {
-      //as in web-apps/apps/documenteditor/main/app/controller/Main.js
+    //like this.api.asc_setViewMode(!this.appOptions.isEdit && !this.appOptions.isRestrictedEdit);
+    //https://github.com/ONLYOFFICE/web-apps/blob/4a7879b4f88f315fe94d9f7d97c0ed8aa9f82221/apps/documenteditor/main/app/controller/Main.js#L1743
+    //todo permissions in embed editor
+    //https://github.com/ONLYOFFICE/web-apps/blob/72b8350c71e7b314b63b8eec675e76156bb4a2e4/apps/documenteditor/forms/app/controller/ApplicationController.js#L627
     return (!mode || mode !== 'view') && (!permissions || permissions.edit !== false || permissions.review === true ||
         permissions.comment === true || permissions.fillForms === true);
     }
@@ -2355,7 +2358,8 @@ exports.install = function(server, callbackFunction) {
       if (null != edit.lang) {
         data.lang = edit.lang;
       }
-      if (null != edit.mode) {
+      //allow to restrict rights so don't use token mode in case of 'view'
+      if (null != edit.mode && 'view' !== data.mode) {
         data.mode = edit.mode;
       }
       if (edit.coEditing?.mode) {
