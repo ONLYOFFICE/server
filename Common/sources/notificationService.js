@@ -41,11 +41,11 @@ const cfgMailServer = config.get('email.smtpServerConfiguration');
 const cfgMailMessageDefaults = config.get('email.contactDefaults');
 const cfgNotificationEnable = config.get('notification.enable');
 
-const defaultRepeatInterval = 1000 * 60 * 60 * 24;
+const infiniteRepeatInterval = Infinity;
 const repeatIntervalsExpired = new Map();
 const notificationTypes = {
-  LICENSE_EXPIRED: "licenseExpired",
-  LICENSE_LIMIT: "licenseLimit"
+  LICENSE_EXPIRATION_WARNING: 'licenseExpirationWarning',
+  LICENSE_LIMIT: 'licenseLimit'
 };
 
 class TransportInterface {
@@ -118,7 +118,7 @@ async function notify(ctx, notificationType, messageParams) {
 
 function checkRulePolicies(ctx, notificationType, tenRule) {
   const { repeatInterval } = tenRule.policies;
-  const intervalMilliseconds = ms(repeatInterval) ?? defaultRepeatInterval;
+  const intervalMilliseconds = repeatInterval ? ms(repeatInterval) : infiniteRepeatInterval;
   const cacheKey = `${notificationType}_${ctx.tenant}`;
   const expired = repeatIntervalsExpired.get(cacheKey);
 
@@ -127,7 +127,7 @@ function checkRulePolicies(ctx, notificationType, tenRule) {
     return true;
   }
 
-  ctx.logger.debug(`Notification service: skip rule "%s" due to repeat interval %s`, notificationType, repeatInterval);
+  ctx.logger.debug(`Notification service: skip rule "%s" due to repeat interval = %s`, notificationType, repeatInterval ?? "infinite");
   return false;
 }
 

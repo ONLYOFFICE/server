@@ -108,7 +108,6 @@ const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataS
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const editorDataStorage = require('./' + cfgEditorDataStorage);
 const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
-const utilsDocService = require("./utilsDocService");
 
 const cfgEditSingleton =  config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor =  config.get('services.CoAuthoring.editor');

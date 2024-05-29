@@ -37,13 +37,13 @@
 	"notification": {
 		"enable": false,
 		"rules": {
-			"licenseExpired": {
+			"licenseExpirationWarning": {
 				"transportType": [
 					"email"
 				],
 				"template": {
-					"title": "License",
-					"body": "%s license expires in %s!!!"
+					"title": "License expiration",
+					"body": "%s license %s on %s!!!"
 				},
 				"policies": {
 					"repeatInterval": "1d"
@@ -426,7 +426,7 @@
 		"license_file": "",
 		"warning_limit_percents": 70,
 		"packageType": 0,
-		"startNotifyFrom": "30d"
+		"warning_license_expiration": "30d"
 	},
 	"FileConverter": {
 		"converter": {

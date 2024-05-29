@@ -39,7 +39,6 @@ const platform = platforms[process.platform];
 
 process.env.NODE_ENV = `development-${platform}`;
 process.env.NODE_CONFIG_DIR = '../Common/config';
-process.env.NODE_APP_INSTANCE = 'tests';
 
 if (platform === 'mac') {
   process.env.DYLD_LIBRARY_PATH = '../FileConverter/bin/';

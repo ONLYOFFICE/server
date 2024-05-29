@@ -38,11 +38,10 @@ const Jimp = require('jimp');
 const locale = require('windows-locale');
 const ms = require('ms');
 
-const utils = require('../../Common/sources/utils');
 const tenantManager = require('../../Common/sources/tenantManager');
 const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 
-const cfgStartNotifyFrom = ms(config.get('license.startNotifyFrom'));
+const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
 
 async function fixImageExifRotation(ctx, buffer) {
   if (!buffer) {
@@ -78,66 +77,29 @@ function localeToLCID(lang) {
   return elem && elem.id;
 }
 
-function humanFriendlyExpirationTime(ctx, endTime) {
-  const timeWithPostfix = (timeName, value) => `${value} ${timeName}${value > 1 ? 's' : ''}`;
-  const currentTime = new Date();
-  const oneMinute = 1000 * 60;
-  const oneHour = oneMinute * 60;
-  const oneDay = oneHour * 24;
-  const absoluteDiff = endTime.getTime() - currentTime.getTime();
+function humanFriendlyExpirationTime(endTime) {
+  const month = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+  ];
 
-  currentTime.setUTCSeconds(0,0);
-
-  if (endTime.getTime() < currentTime.getTime()) {
-    ctx.logger.warn(`humanFriendlyExpirationTime(): expiration date value is lesser than current date`);
-    return '';
-  }
-
-  const floatResult = absoluteDiff / oneDay;
-  const daysCount = floatResult < 1 ? 0 : Math.round(floatResult);
-  const monthDiff = utils.getMonthDiff(currentTime, endTime);
-  if (monthDiff >= 1 && daysCount >= currentTime.getDaysInMonth()) {
-    return timeWithPostfix('month', monthDiff);
-  }
-
-  if (daysCount > 0) {
-    return timeWithPostfix('day', daysCount);
-  }
-
-  // This time we cannot just round division operation to the nearest digit because we need minutes value and more accuracy.
-  let hoursCount = 0
-  for (; hoursCount * oneHour <= absoluteDiff; hoursCount++) {}
-
-  if (hoursCount * oneHour > absoluteDiff) {
-    hoursCount--;
-  }
-
-  let minutesCount = Math.round((absoluteDiff - hoursCount * oneHour) / oneMinute);
-  if(minutesCount >= 60) {
-    hoursCount++;
-    minutesCount -= 60;
-  }
-
-  let timeString = '';
-  if (hoursCount > 0) {
-    timeString += timeWithPostfix('hour', hoursCount);
-  }
-
-  if (minutesCount > 0) {
-    if (timeString.length !== 0) {
-      timeString += ' ';
-    }
-
-    timeString += timeWithPostfix('minute', minutesCount);
-  }
-
-  return timeString;
+  return `${month[endTime.getUTCMonth()]} ${endTime.getUTCDate()}, ${endTime.getUTCFullYear()}`
 }
 
 /**
  * Notify server user about license expiration via configured notification transports.
  * @param {string} ctx Context.
- * @param {date} endDate Date of expiration.
+ * @param {Date} endDate Date of expiration.
  * @returns {undefined}
  */
 function notifyLicenseExpiration(ctx, endDate) {
@@ -147,27 +109,16 @@ function notifyLicenseExpiration(ctx, endDate) {
   }
 
   const currentDate = new Date();
-  const licenseEndTime = new Date(endDate);
+  if (currentDate.getTime() >= endDate.getTime() - cfgStartNotifyFrom) {
+    const formattedExpirationTime = humanFriendlyExpirationTime(endDate);
+    const tenant = tenantManager.isDefaultTenant(ctx) ? 'server' : ctx.tenant;
 
-  if (licenseEndTime < currentDate) {
-    ctx.logger.warn(`notifyLicenseExpiration(): expiration date(${licenseEndTime}) is lesser than current date(${currentDate})`);
-    return;
-  }
-
-  if (currentDate.getTime() >= licenseEndTime.getTime() - cfgStartNotifyFrom) {
-    const formattedTimeRemaining = humanFriendlyExpirationTime(ctx, licenseEndTime);
-    let tenant = tenantManager.isDefaultTenant(ctx) ? 'server' : ctx.tenant;
-    ctx.logger.warn('%s license expires in %s!!!', tenant, formattedTimeRemaining);
-    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRED, [formattedTimeRemaining]);
+    const state = endDate < currentDate ? 'expired' : 'expires';
+    ctx.logger.warn('%s license %s on %s!!!', tenant, state, formattedExpirationTime);
+    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, [tenant, state, formattedExpirationTime]);
   }
 }
 
-module.exports = {
-  fixImageExifRotation,
-  localeToLCID,
-  notifyLicenseExpiration
-};
-
-if (process.env.NODE_APP_INSTANCE === 'tests') {
-  module.exports.humanFriendlyExpirationTime = humanFriendlyExpirationTime;
-}
+module.exports.fixImageExifRotation = fixImageExifRotation;
+module.exports.localeToLCID = localeToLCID;
+module.exports.notifyLicenseExpiration = notifyLicenseExpiration;
