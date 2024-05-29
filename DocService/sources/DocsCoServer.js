@@ -1348,7 +1348,7 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
       }
       while (true) {
         if (!sqlBase.isLockCriticalSection(docId)) {
-          canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey);
+          yield canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, null, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey);
           break;
         }
         yield utils.sleep(c_oAscLockTimeOutDelay);
