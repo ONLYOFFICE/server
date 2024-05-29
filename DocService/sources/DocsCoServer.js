@@ -1599,6 +1599,12 @@ exports.install = function(server, callbackFunction) {
     ctx.initFromConnection(conn);
     //todo
     //yield ctx.initTenantCache();
+    if (constants.DEFAULT_DOC_ID === ctx.docId) {
+      ctx.logger.error('io.on connection unexpected key use key pattern = "%s" url = %s', constants.DOC_ID_PATTERN, conn.handshake?.url);
+      sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
+      conn.disconnect(true);
+      return;
+    }
     if (getIsShutdown()) {
       sendFileError(ctx, conn, 'Server shutdow');
       return;
