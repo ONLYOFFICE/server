@@ -3946,48 +3946,10 @@ exports.install = function(server, callbackFunction) {
   });
 };
 exports.setLicenseInfo = async function(globalCtx, data, original) {
-  // const asyncIOHandler = async function(asyncOperations, errorMessage) {
-  //   const settledPromises = await Promise.allSettled(asyncOperations);
-  //
-  //   const filtered = settledPromises.filter(promise => {
-  //     if (promise.status === 'rejected') {
-  //       globalCtx.logger.error(errorMessage, promise.reason);
-  //       return false;
-  //     }
-  //
-  //     return true;
-  //   });
-  //
-  //   return filtered.map(result => result.value);
-  // };
-  //
-  // const tenantsList = await tenantManager.getAllTenants(globalCtx);
-  // const cacheInitProcess = tenantsList.map(async tenant => {
-  //   const ctx = new operationContext.Context();
-  //   ctx.init(tenant);
-  //   await ctx.initTenantCache();
-  //
-  //   return ctx;
-  // });
-  //
-  // const tenantContexts = await asyncIOHandler(cacheInitProcess, 'setLicenseInfo error while initializing context: ');
-  // const pendingLicenses = tenantContexts.map(async ctx => {
-  //   const license = await tenantManager.getTenantLicense(ctx);
-  //   return [ctx, license];
-  // });
-  // const licenses = await asyncIOHandler(pendingLicenses, 'setLicenseInfo error while reading license: ');
-  //
-  // tenantManager.setDefLicense(data, original);
-  // utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
-  // for (const licenseInfo of licenses) {
-  //   const ctx = licenseInfo[0];
-  //   const endDate = licenseInfo[1].endDate;
-  //
-  //   utilsDocService.notifyLicenseExpiration(ctx, endDate);
-  // }
   tenantManager.setDefLicense(data, original);
 
-  await utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
+  utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
+
   const tenantsList = await tenantManager.getAllTenants(globalCtx);
   for (const tenant of tenantsList) {
     let ctx = new operationContext.Context();
@@ -3995,7 +3957,7 @@ exports.setLicenseInfo = async function(globalCtx, data, original) {
     await ctx.initTenantCache();
 
     const licenseInfo = await tenantManager.getTenantLicense(ctx);
-    await utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
+    utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
   }
 };
 exports.healthCheck = function(req, res) {

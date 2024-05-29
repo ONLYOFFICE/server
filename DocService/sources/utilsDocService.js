@@ -78,34 +78,57 @@ function localeToLCID(lang) {
   return elem && elem.id;
 }
 
-function humanFriendlyExpirationTime(endTime) {
+function humanFriendlyExpirationTime(ctx, endTime) {
   const timeWithPostfix = (timeName, value) => `${value} ${timeName}${value > 1 ? 's' : ''}`;
   const currentTime = new Date();
-  const monthDiff = utils.getMonthDiff(currentTime, endTime);
+  const oneMinute = 1000 * 60;
+  const oneHour = oneMinute * 60;
+  const oneDay = oneHour * 24;
+  const absoluteDiff = endTime.getTime() - currentTime.getTime();
 
-  if (monthDiff > 0) {
+  currentTime.setUTCSeconds(0,0);
+
+  if (endTime.getTime() < currentTime.getTime()) {
+    ctx.logger.warn(`humanFriendlyExpirationTime(): expiration date value is lesser than current date`);
+    return '';
+  }
+
+  const floatResult = absoluteDiff / oneDay;
+  const daysCount = floatResult < 1 ? 0 : Math.round(floatResult);
+  const monthDiff = utils.getMonthDiff(currentTime, endTime);
+  if (monthDiff >= 1 && daysCount >= currentTime.getDaysInMonth()) {
     return timeWithPostfix('month', monthDiff);
   }
 
-  const daysDiff = endTime.getUTCDate() - currentTime.getUTCDate();
-  if (daysDiff > 0) {
-    return timeWithPostfix('day', daysDiff);
+  if (daysCount > 0) {
+    return timeWithPostfix('day', daysCount);
   }
 
-  const hoursDiff = endTime.getHours() - currentTime.getHours();
-  const minutesDiff = endTime.getMinutes() - currentTime.getMinutes();
+  // This time we cannot just round division operation to the nearest digit because we need minutes value and more accuracy.
+  let hoursCount = 0
+  for (; hoursCount * oneHour <= absoluteDiff; hoursCount++) {}
+
+  if (hoursCount * oneHour > absoluteDiff) {
+    hoursCount--;
+  }
+
+  let minutesCount = Math.round((absoluteDiff - hoursCount * oneHour) / oneMinute);
+  if(minutesCount >= 60) {
+    hoursCount++;
+    minutesCount -= 60;
+  }
 
   let timeString = '';
-  if (hoursDiff > 0) {
-    timeString += timeWithPostfix('hour', hoursDiff);
+  if (hoursCount > 0) {
+    timeString += timeWithPostfix('hour', hoursCount);
   }
 
-  if (minutesDiff > 0) {
+  if (minutesCount > 0) {
     if (timeString.length !== 0) {
       timeString += ' ';
     }
 
-    timeString += timeWithPostfix('minute', minutesDiff);
+    timeString += timeWithPostfix('minute', minutesCount);
   }
 
   return timeString;
@@ -119,18 +142,23 @@ function humanFriendlyExpirationTime(endTime) {
  */
 function notifyLicenseExpiration(ctx, endDate) {
   if (!endDate) {
-    ctx.logger.warn('notifyLicenseExpiration(): endDate is not defined');
+    ctx.logger.warn('notifyLicenseExpiration(): expiration date is not defined');
     return;
   }
 
   const currentDate = new Date();
   const licenseEndTime = new Date(endDate);
 
+  if (licenseEndTime < currentDate) {
+    ctx.logger.warn(`notifyLicenseExpiration(): expiration date(${licenseEndTime}) is lesser than current date(${currentDate})`);
+    return;
+  }
+
   if (currentDate.getTime() >= licenseEndTime.getTime() - cfgStartNotifyFrom) {
-    const formattedTimeRemaining = humanFriendlyExpirationTime(licenseEndTime);
+    const formattedTimeRemaining = humanFriendlyExpirationTime(ctx, licenseEndTime);
     let tenant = tenantManager.isDefaultTenant(ctx) ? 'server' : ctx.tenant;
-    ctx.logger.warn("%s license expires in %s!!!", tenant, formattedTimeRemaining);
-    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRED, [tenant, formattedTimeRemaining]);
+    ctx.logger.warn('%s license expires in %s!!!', tenant, formattedTimeRemaining);
+    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRED, [formattedTimeRemaining]);
   }
 }
 
@@ -139,3 +167,7 @@ module.exports = {
   localeToLCID,
   notifyLicenseExpiration
 };
+
+if (process.env.NODE_APP_INSTANCE === 'tests') {
+  module.exports.humanFriendlyExpirationTime = humanFriendlyExpirationTime;
+}

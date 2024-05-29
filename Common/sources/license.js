@@ -59,7 +59,7 @@ exports.readLicense = async function () {
 		plugins: false,
 		buildDate: oBuildDate,
 		startDate: startDate,
-		endDate: null,
+		endDate: '2024-06-29T04:13:00.000Z',
 		customerId: "",
 		alias: ""
 	}, null];

@@ -137,8 +137,8 @@ async function notifyRule(ctx, tenRule, messageParams) {
     try {
       const message = transportObject.transport.contentGeneration(tenRule.template, messageParams);
       await transportObject.transport.send(ctx, message);
-    } catch (e) {
-      ctx.logger.error('Notification service: error: %s', e.stack);
+    } catch (error) {
+      ctx.logger.error('Notification service: error: %s', error.stack);
     }
   }
 }

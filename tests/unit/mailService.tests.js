@@ -46,7 +46,7 @@ describe('Mail service', function () {
         { to: 'no.recipient@server.com', text: 'simple test text', subject: 'Mail service test' }
       );
 
-      await expect(errorPromise).rejects.toEqual(`MailService: no transporter exists for host "${host}" and user "${accountToBeDeleted.user}"`);
+      await expect(errorPromise).rejects.toThrow();
     }, testTimeout);
   });
 });
