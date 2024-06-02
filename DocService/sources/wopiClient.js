@@ -96,6 +96,7 @@ let cryptoSign = util.promisify(crypto.sign);
 let templatesFolderLocalesCache = null;
 let templatesFolderExtsCache = null;
 const templateFilesSizeCache = {};
+let shutdownFlag = false;
 
 let mimeTypesByExt = (function() {
   let mimeTypesByExt = {};
@@ -358,6 +359,9 @@ async function getWopiFileUrl(ctx, fileInfo, userAuth) {
 function isWopiJwtToken(decoded) {
   return !!decoded.fileInfo;
 }
+function setIsShutdown(val) {
+  shutdownFlag = val;
+}
 function getLastModifiedTimeFromCallbacks(callbacks) {
   for (let i = callbacks.length; i >= 0; --i) {
     let callback = callbacks[i];
@@ -512,45 +516,47 @@ function getEditorHtml(req, res) {
         params.fileInfo = {};
         return;
       }
-      //save common info
-      const fileType = getFileTypeByInfo(fileInfo);
-      if (undefined === lockId) {
-        lockId = crypto.randomBytes(16).toString('base64');
-        let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
-      }
-
-      // TODO: throw error if format not supported?
-      if (fileInfo.Size === 0 && fileType.length !== 0) {
-        const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
-
-        if (templatesFolderLocalesCache === null) {
-          const dirContent = yield readdir(`${tenNewFileTemplate}/`, { withFileTypes: true });
-          templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
+      if (!shutdownFlag) {
+        //save common info
+        const fileType = getFileTypeByInfo(fileInfo);
+        if (undefined === lockId) {
+          lockId = crypto.randomBytes(16).toString('base64');
+          let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
+          yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
         }
 
-        const localePrefix = lang || ui || 'en';
-        let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
-        if (locale === undefined) {
-          locale = constants.TEMPLATES_DEFAULT_LOCALE;
+        // TODO: throw error if format not supported?
+        if (fileInfo.Size === 0 && fileType.length !== 0) {
+          const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
+
+          if (templatesFolderLocalesCache === null) {
+            const dirContent = yield readdir(`${tenNewFileTemplate}/`, { withFileTypes: true });
+            templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
+          }
+
+          const localePrefix = lang || ui || 'en';
+          let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
+          if (locale === undefined) {
+            locale = constants.TEMPLATES_DEFAULT_LOCALE;
+          }
+
+          const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;
+          if (!templateFilesSizeCache[filePath]) {
+            templateFilesSizeCache[filePath] = yield lstat(filePath);
+          }
+
+          const templateFileInfo = templateFilesSizeCache[filePath];
+          const templateFileStream = createReadStream(filePath);
+          yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
         }
 
-        const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;
-        if (!templateFilesSizeCache[filePath]) {
-          templateFilesSizeCache[filePath] = yield lstat(filePath);
-        }
-
-        const templateFileInfo = templateFilesSizeCache[filePath];
-        const templateFileStream = createReadStream(filePath);
-        yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
-      }
-
-      //Lock
-      if ('view' !== mode) {
-        let lockRes = yield lock(ctx, 'LOCK', lockId, fileInfo, userAuth);
-        if (!lockRes) {
-          params.fileInfo = {};
-          return;
+        //Lock
+        if ('view' !== mode) {
+          let lockRes = yield lock(ctx, 'LOCK', lockId, fileInfo, userAuth);
+          if (!lockRes) {
+            params.fileInfo = {};
+            return;
+          }
         }
       }
 
@@ -1034,6 +1040,7 @@ exports.getWopiModifiedMarker = getWopiModifiedMarker;
 exports.getFileTypeByInfo = getFileTypeByInfo;
 exports.getWopiFileUrl = getWopiFileUrl;
 exports.isWopiJwtToken = isWopiJwtToken;
+exports.setIsShutdown = setIsShutdown;
 exports.dummyCheckFileInfo = dummyCheckFileInfo;
 exports.dummyGetFile = dummyGetFile;
 exports.dummyOk = dummyOk;

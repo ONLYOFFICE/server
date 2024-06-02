@@ -3640,6 +3640,7 @@ exports.install = function(server, callbackFunction) {
           case commonDefines.c_oPublishType.shutdown:
             //flag prevent new socket connections and receive data from exist connections
             shutdownFlag = data.status;
+            wopiClient.setIsShutdown(shutdownFlag);
             ctx.logger.warn('start shutdown:%s', shutdownFlag);
             if (shutdownFlag) {
               ctx.logger.warn('active connections: %d', connections.length);
