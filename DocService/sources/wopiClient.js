@@ -277,9 +277,11 @@ function discovery(req, res) {
       //end section for collabora nexcloud connectors
       let xmlDiscovery = xmlZone.up();
       if (tenWopiPublicKeyOld && tenWopiPublicKey) {
+        let exponent = numberToBase64(tenWopiExponent - 0);
+        let exponentOld = numberToBase64(tenWopiExponentOld - 0);
         xmlDiscovery.ele('proof-key', {
-          oldvalue: tenWopiPublicKeyOld, oldmodulus: tenWopiModulusOld, oldexponent: tenWopiExponentOld,
-          value: tenWopiPublicKey, modulus: tenWopiModulus, exponent: tenWopiExponent
+          oldvalue: tenWopiPublicKeyOld, oldmodulus: tenWopiModulusOld, oldexponent: exponentOld,
+          value: tenWopiPublicKey, modulus: tenWopiModulus, exponent: exponent
         }).up();
       }
       xmlDiscovery.up();
@@ -893,6 +895,18 @@ async function generateProofSign(url, accessToken, timeStamp, privateKey) {
   let data = generateProofBuffer(url, accessToken, timeStamp);
   let sign = await cryptoSign('RSA-SHA256', data, privateKey);
   return sign.toString('base64');
+}
+
+function numberToBase64(val) {
+  // Convert to hexadecimal
+  let hexString = val.toString(16);
+  //Ensure the hexadecimal string has an even length
+  if (hexString.length % 2 !== 0) {
+    hexString = '0' + hexString;
+  }
+  //Convert the hexadecimal string to a buffer
+  const buffer = Buffer.from(hexString, 'hex');
+  return  buffer.toString('base64');
 }
 
 async function fillStandardHeaders(ctx, headers, url, access_token) {
