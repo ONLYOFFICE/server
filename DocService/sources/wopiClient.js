@@ -278,8 +278,8 @@ function discovery(req, res) {
       //end section for collabora nexcloud connectors
       let xmlDiscovery = xmlZone.up();
       if (tenWopiPublicKeyOld && tenWopiPublicKey) {
-        let exponent = numberToBase64(tenWopiExponent - 0);
-        let exponentOld = numberToBase64(tenWopiExponentOld - 0);
+        let exponent = numberToBase64(tenWopiExponent);
+        let exponentOld = numberToBase64(tenWopiExponentOld);
         xmlDiscovery.ele('proof-key', {
           oldvalue: tenWopiPublicKeyOld, oldmodulus: tenWopiModulusOld, oldexponent: exponentOld,
           value: tenWopiPublicKey, modulus: tenWopiModulus, exponent: exponent
@@ -920,8 +920,8 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
   const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
   const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
   if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
-    headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKey, 'base64'));
-    headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKeyOld, 'base64'));
+    headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKey);
+    headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKeyOld);
     headers['X-WOPI-TimeStamp'] = timeStamp;
     headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
     // todo
