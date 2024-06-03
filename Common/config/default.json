@@ -230,7 +230,8 @@
 					"pool": {
 						"idleTimeoutMillis": 30000
 					}
-				}
+				},
+				"mysqlExtraOptions": {}
 			},
 			"redis": {
 				"name": "redis",
