@@ -44,7 +44,9 @@ const operationContext = require('./../../Common/sources/operationContext');
 const sqlBase = require('./databaseConnectors/baseConnector');
 const docsCoServer = require('./DocsCoServer');
 const taskResult = require('./taskresult');
-const editorDataStorage = require('./' + config.get('services.CoAuthoring.server.editorDataStorage'));
+const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
+const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
+const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
 
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
@@ -81,7 +83,7 @@ function shutdown() {
     var res = true;
     let ctx = new operationContext.Context();
     try {
-      let editorData = new editorDataStorage();
+      let editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();
       ctx.logger.debug('shutdown start:' + EXEC_TIMEOUT);
 
       //redisKeyShutdown is not a simple counter, so it doesn't get decremented by a build that started before Shutdown started
@@ -130,9 +132,9 @@ function shutdown() {
         yield ctx.initTenantCache();
 
         yield updateDoc(ctx, docId, commonDefines.FileStatus.Ok, "");
-        yield editorData.addShutdown(redisKeyShutdown, docId);
+        yield editorStat.addShutdown(redisKeyShutdown, docId);
         ctx.logger.debug('shutdown createSaveTimerPromise %s', docId);
-        yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true);
+        yield docsCoServer.createSaveTimer(ctx, docId, null, null, null, queue, true);
       }
       ctx.initDefault();
       //sleep because of bugs in createSaveTimerPromise
@@ -140,7 +142,7 @@ function shutdown() {
 
       let startTime = new Date().getTime();
       while (true) {
-        let remainingFiles = yield editorData.getShutdownCount(redisKeyShutdown);
+        let remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
         ctx.logger.debug('shutdown remaining files:%d', remainingFiles);
         let curTime = new Date().getTime() - startTime;
         if (curTime >= EXEC_TIMEOUT || remainingFiles <= 0) {
@@ -169,7 +171,7 @@ function shutdown() {
 
       //todo needs to check queues, because there may be long conversions running before Shutdown
       //clean up
-      yield editorData.cleanupShutdown(redisKeyShutdown);
+      yield editorStat.cleanupShutdown(redisKeyShutdown);
       yield pubsub.close();
       yield queue.close();
 

@@ -50,7 +50,8 @@ exports.VIEWER_ONLY = /^(?:(pdf|djvu|xps|oxps))$/;
 exports.DEFAULT_DOC_ID = 'docId';
 exports.DEFAULT_USER_ID = 'userId';
 exports.ALLOWED_PROTO = /^https?$/i;
-exports.SHARED_KEY_NAME = 'WOPISrc';
+exports.SHARD_KEY_WOPI_NAME = 'WOPISrc';
+exports.SHARD_KEY_API_NAME = 'shardkey';
 
 exports.RIGHTS = {
   None    : 0,
@@ -282,17 +283,13 @@ exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';
 exports.ACTIVEMQ_QUEUE_PREFIX = 'queue://';
 exports.ACTIVEMQ_TOPIC_PREFIX = 'topic://';
 
+exports.TEMPLATES_DEFAULT_LOCALE = 'en-US';
 exports.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP = {
   'en': 'en-US',
   'pt': 'pt-BR',
   'zh': 'zh-CH',
   'pt-PT': 'pt-PT',
   'zh-TW': 'zh-TW'
-};
-exports.SUPPORTED_TEMPLATES_EXTENSIONS = {
-  'Word': ['docx', 'docxf'],
-  'Excel': ['xlsx'],
-  'PowerPoint': ['pptx']
 };
 exports.TABLE_RESULT_SCHEMA = [
   'tenant',

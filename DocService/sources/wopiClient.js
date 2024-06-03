@@ -35,6 +35,7 @@
 const path = require('path');
 const { pipeline } = require('node:stream/promises');
 const crypto = require('crypto');
+let util = require('util');
 const {URL} = require('url');
 const co = require('co');
 const jwt = require('jsonwebtoken');
@@ -63,18 +64,22 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
+const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
 const cfgWopiPdfView = config.get('wopi.pdfView');
+const cfgWopiPdfEdit = config.get('wopi.pdfEdit');
 const cfgWopiWordView = config.get('wopi.wordView');
 const cfgWopiWordEdit = config.get('wopi.wordEdit');
 const cfgWopiCellView = config.get('wopi.cellView');
 const cfgWopiCellEdit = config.get('wopi.cellEdit');
 const cfgWopiSlideView = config.get('wopi.slideView');
 const cfgWopiSlideEdit = config.get('wopi.slideEdit');
+const cfgWopiForms = config.get('wopi.forms');
 const cfgWopiFavIconUrlWord = config.get('wopi.favIconUrlWord');
 const cfgWopiFavIconUrlCell = config.get('wopi.favIconUrlCell');
 const cfgWopiFavIconUrlSlide = config.get('wopi.favIconUrlSlide');
+const cfgWopiFavIconUrlPdf = config.get('wopi.favIconUrlPdf');
 const cfgWopiPublicKey = config.get('wopi.publicKey');
 const cfgWopiModulus = config.get('wopi.modulus');
 const cfgWopiExponent = config.get('wopi.exponent');
@@ -86,8 +91,12 @@ const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
 const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
 
+let cryptoSign = util.promisify(crypto.sign);
+
 let templatesFolderLocalesCache = null;
+let templatesFolderExtsCache = null;
 const templateFilesSizeCache = {};
+let shutdownFlag = false;
 
 let mimeTypesByExt = (function() {
   let mimeTypesByExt = {};
@@ -107,9 +116,24 @@ let mimeTypesByExt = (function() {
   return mimeTypesByExt;
 })();
 
+async function getTemplatesFolderExts(ctx){
+  //find available template files
+  if (templatesFolderExtsCache === null) {
+    const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
+    const dirContent = await readdir(`${tenNewFileTemplate}/${constants.TEMPLATES_DEFAULT_LOCALE}/`, { withFileTypes: true });
+    templatesFolderExtsCache = dirContent
+      .filter(dirObject => dirObject.isFile())
+      .reduce((result, item, index, array) => {
+        let ext = path.extname(item.name).substring(1);
+        result[ext] = ext;
+        return result;
+      }, {});
+  }
+  return templatesFolderExtsCache;
+}
+
 function discovery(req, res) {
   return co(function*() {
-    let output = '';
     const xml = xmlbuilder2.create({version: '1.0', encoding: 'utf-8'});
     let ctx = new operationContext.Context();
     try {
@@ -118,15 +142,18 @@ function discovery(req, res) {
       ctx.logger.info('wopiDiscovery start');
       const tenWopiWopiZone = ctx.getCfg('wopi.wopiZone', cfgWopiWopiZone);
       const tenWopiPdfView = ctx.getCfg('wopi.pdfView', cfgWopiPdfView);
+      const tenWopiPdfEdit = ctx.getCfg('wopi.pdfEdit', cfgWopiPdfEdit);
       const tenWopiWordView = ctx.getCfg('wopi.wordView', cfgWopiWordView);
       const tenWopiWordEdit = ctx.getCfg('wopi.wordEdit', cfgWopiWordEdit);
       const tenWopiCellView = ctx.getCfg('wopi.cellView', cfgWopiCellView);
       const tenWopiCellEdit = ctx.getCfg('wopi.cellEdit', cfgWopiCellEdit);
       const tenWopiSlideView = ctx.getCfg('wopi.slideView', cfgWopiSlideView);
       const tenWopiSlideEdit = ctx.getCfg('wopi.slideEdit', cfgWopiSlideEdit);
+      const tenWopiForms = ctx.getCfg('wopi.forms', cfgWopiForms);
       const tenWopiFavIconUrlWord = ctx.getCfg('wopi.favIconUrlWord', cfgWopiFavIconUrlWord);
       const tenWopiFavIconUrlCell = ctx.getCfg('wopi.favIconUrlCell', cfgWopiFavIconUrlCell);
       const tenWopiFavIconUrlSlide = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlSlide);
+      const tenWopiFavIconUrlPdf = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlPdf);
       const tenWopiPublicKey = ctx.getCfg('wopi.publicKey', cfgWopiPublicKey);
       const tenWopiModulus = ctx.getCfg('wopi.modulus', cfgWopiModulus);
       const tenWopiExponent = ctx.getCfg('wopi.exponent', cfgWopiExponent);
@@ -136,20 +163,27 @@ function discovery(req, res) {
       const tenWopiHost = ctx.getCfg('wopi.host', cfgWopiHost);
 
       let baseUrl = tenWopiHost || utils.getBaseUrlByRequest(ctx, req);
-      let names = ['Word','Excel','PowerPoint'];
-      let favIconUrls = [tenWopiFavIconUrlWord, tenWopiFavIconUrlCell, tenWopiFavIconUrlSlide];
+      let names = ['Word','Excel','PowerPoint','Pdf'];
+      let favIconUrls = [tenWopiFavIconUrlWord, tenWopiFavIconUrlCell, tenWopiFavIconUrlSlide, tenWopiFavIconUrlPdf];
       let exts = [
-        {targetext: 'docx', view: tenWopiPdfView.concat(tenWopiWordView), edit: tenWopiWordEdit},
+        {targetext: 'docx', view: tenWopiWordView, edit: tenWopiWordEdit},
         {targetext: 'xlsx', view: tenWopiCellView, edit: tenWopiCellEdit},
-        {targetext: 'pptx', view: tenWopiSlideView, edit: tenWopiSlideEdit}
+        {targetext: 'pptx', view: tenWopiSlideView, edit: tenWopiSlideEdit},
+        {targetext: null, view: tenWopiPdfView, edit: tenWopiPdfEdit}
       ];
+      let documentTypes = [`word`, `cell`, `slide`, `pdf`];
+
+      let templatesFolderExtsCache = yield getTemplatesFolderExts(ctx);
+      let formsExts = tenWopiForms.reduce((result, item, index, array) => {
+        result[item] = item;
+        return result;
+      }, {});
 
       let templateStart = `${baseUrl}/hosting/wopi`;
       let templateEnd = `&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;`;
       templateEnd += `&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;`;
       templateEnd += `&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;`;
       templateEnd += `&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;`;
-      let documentTypes = [`word`, `cell`, `slide`];
       let xmlZone = xml.ele('wopi-discovery').ele('net-zone', { name: tenWopiWopiZone });
       //start section for MS WOPI connectors
       for(let i = 0; i < names.length; ++i) {
@@ -164,12 +198,13 @@ function discovery(req, res) {
         let urlTemplateMobileView = `${templateStart}/${documentTypes[i]}/view?mobile=1&amp;${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1&amp;${templateEnd}`;
+        let urlTemplateFormSubmit = `${templateStart}/${documentTypes[i]}/edit?formsubmit=1&amp;${templateEnd}`;
         let xmlApp = xmlZone.ele('app', {name: name, favIconUrl: favIconUrl});
         for (let j = 0; j < ext.view.length; ++j) {
-          xmlApp.ele('action', {name: 'view', ext: ext.view[j], urlsrc: urlTemplateView}).up();
+          xmlApp.ele('action', {name: 'view', ext: ext.view[j], default: 'true', urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.view[j], urlsrc: urlTemplateMobileView}).up();
-          if (-1 === tenWopiPdfView.indexOf(ext.view[j])) {
+          if (ext.targetext) {
             let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
             xmlApp.ele('action', {name: 'convert', ext: ext.view[j], targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
           }
@@ -178,12 +213,17 @@ function discovery(req, res) {
           xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
-          xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          if (formsExts[ext.edit[j]]) {
+            xmlApp.ele('action', {name: 'formsubmit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+            xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          } else {
+            xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          }
           xmlApp.ele('action', {name: 'mobileEdit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
+          if (templatesFolderExtsCache[ext.edit[j]]) {
+            xmlApp.ele('action', {name: 'editnew', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+          }
         }
-        constants.SUPPORTED_TEMPLATES_EXTENSIONS[name].forEach(
-          extension => xmlApp.ele('action', {name: 'editnew', ext: extension, requires: 'locks,update', urlsrc: urlTemplateEdit}).up()
-        );
         xmlApp.up();
       }
       //end section for MS WOPI connectors
@@ -195,6 +235,7 @@ function discovery(req, res) {
         let urlTemplateMobileView = `${templateStart}/${documentTypes[i]}/view?mobile=1&amp;${templateEnd}`;
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1&amp;${templateEnd}`;
+        let urlTemplateFormSubmit = `${templateStart}/${documentTypes[i]}/edit?formsubmit=1&amp;${templateEnd}`;
         for (let j = 0; j < ext.view.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
@@ -203,7 +244,7 @@ function discovery(req, res) {
               xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
               xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
               xmlApp.ele('action', {name: 'mobileView', ext: '', urlsrc: urlTemplateMobileView}).up();
-              if (-1 === tenWopiPdfView.indexOf(ext.view[j])) {
+              if (ext.targetext) {
                 let urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
                 xmlApp.ele('action', {name: 'convert', ext: '', targetext: ext.targetext, requires: 'update', urlsrc: urlConvert}).up();
               }
@@ -216,8 +257,16 @@ function discovery(req, res) {
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
               let xmlApp = xmlZone.ele('app', {name: value});
-              xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              if (formsExts[ext.edit[j]]) {
+                xmlApp.ele('action', {name: 'formsubmit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
+                xmlApp.ele('action', {name: 'edit', ext: '', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              } else {
+                xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              }
               xmlApp.ele('action', {name: 'mobileEdit', ext: '', requires: 'locks,update', urlsrc: urlTemplateMobileEdit}).up();
+              if (templatesFolderExtsCache[ext.edit[j]]) {
+                xmlApp.ele('action', {name: 'editnew', ext: '', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+              }
               xmlApp.up();
             });
           }
@@ -229,9 +278,11 @@ function discovery(req, res) {
       //end section for collabora nexcloud connectors
       let xmlDiscovery = xmlZone.up();
       if (tenWopiPublicKeyOld && tenWopiPublicKey) {
+        let exponent = numberToBase64(tenWopiExponent - 0);
+        let exponentOld = numberToBase64(tenWopiExponentOld - 0);
         xmlDiscovery.ele('proof-key', {
-          oldvalue: tenWopiPublicKeyOld, oldmodulus: tenWopiModulusOld, oldexponent: tenWopiExponentOld,
-          value: tenWopiPublicKey, modulus: tenWopiModulus, exponent: tenWopiExponent
+          oldvalue: tenWopiPublicKeyOld, oldmodulus: tenWopiModulusOld, oldexponent: exponentOld,
+          value: tenWopiPublicKey, modulus: tenWopiModulus, exponent: exponent
         }).up();
       }
       xmlDiscovery.up();
@@ -288,6 +339,28 @@ function getFileTypeByInfo(fileInfo) {
   let fileType = fileInfo.BaseFileName ? fileInfo.BaseFileName.substr(fileInfo.BaseFileName.lastIndexOf('.') + 1) : "";
   fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
   return fileType.toLowerCase();
+}
+async function getWopiFileUrl(ctx, fileInfo, userAuth) {
+  const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
+  let url;
+  let headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
+  if (fileInfo?.FileUrl) {
+    //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
+    url = fileInfo.FileUrl;
+  } else if (fileInfo?.TemplateSource) {
+    url = fileInfo.TemplateSource;
+  } else if (userAuth) {
+    url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+    await fillStandardHeaders(ctx, headers, url, userAuth.access_token);
+  }
+  ctx.logger.debug('getWopiFileUrl url=%s; headers=%j', url, headers);
+  return {url, headers};
+}
+function isWopiJwtToken(decoded) {
+  return !!decoded.fileInfo;
+}
+function setIsShutdown(val) {
+  shutdownFlag = val;
 }
 function getLastModifiedTimeFromCallbacks(callbacks) {
   for (let i = callbacks.length; i >= 0; --i) {
@@ -443,45 +516,47 @@ function getEditorHtml(req, res) {
         params.fileInfo = {};
         return;
       }
-      //save common info
-      const fileType = getFileTypeByInfo(fileInfo);
-      if (undefined === lockId) {
-        lockId = crypto.randomBytes(16).toString('base64');
-        let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-        yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
-      }
-
-      // TODO: throw error if format not supported?
-      if (fileInfo.Size === 0 && fileType.length !== 0) {
-        const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
-
-        if (templatesFolderLocalesCache === null) {
-          const dirContent = yield readdir(`${tenNewFileTemplate}/`, { withFileTypes: true });
-          templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
+      if (!shutdownFlag) {
+        //save common info
+        const fileType = getFileTypeByInfo(fileInfo);
+        if (undefined === lockId) {
+          lockId = crypto.randomBytes(16).toString('base64');
+          let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
+          yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
         }
 
-        const localePrefix = lang || ui || 'en';
-        let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
-        if (locale === undefined) {
-          locale = 'en-US';
+        // TODO: throw error if format not supported?
+        if (fileInfo.Size === 0 && fileType.length !== 0) {
+          const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
+
+          if (templatesFolderLocalesCache === null) {
+            const dirContent = yield readdir(`${tenNewFileTemplate}/`, { withFileTypes: true });
+            templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
+          }
+
+          const localePrefix = lang || ui || 'en';
+          let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
+          if (locale === undefined) {
+            locale = constants.TEMPLATES_DEFAULT_LOCALE;
+          }
+
+          const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;
+          if (!templateFilesSizeCache[filePath]) {
+            templateFilesSizeCache[filePath] = yield lstat(filePath);
+          }
+
+          const templateFileInfo = templateFilesSizeCache[filePath];
+          const templateFileStream = createReadStream(filePath);
+          yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
         }
 
-        const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;
-        if (!templateFilesSizeCache[filePath]) {
-          templateFilesSizeCache[filePath] = yield lstat(filePath);
-        }
-
-        const templateFileInfo = templateFilesSizeCache[filePath];
-        const templateFileStream = createReadStream(filePath);
-        yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
-      }
-
-      //Lock
-      if ('view' !== mode) {
-        let lockRes = yield lock(ctx, 'LOCK', lockId, fileInfo, userAuth);
-        if (!lockRes) {
-          params.fileInfo = {};
-          return;
+        //Lock
+        if ('view' !== mode) {
+          let lockRes = yield lock(ctx, 'LOCK', lockId, fileInfo, userAuth);
+          if (!lockRes) {
+            params.fileInfo = {};
+            return;
+          }
         }
       }
 
@@ -532,7 +607,7 @@ function getConverterHtml(req, res) {
       let targetext = req.params.targetext;
 
       if (!(wopiSrc && access_token && access_token_ttl && ext && targetext)) {
-        ctx.logger.debug('convert-and-edit invalid params: wopiSrc=%s; access_token=%s; access_token_ttl=%s; ext=%s; targetext=%s', wopiSrc, access_token, access_token_ttl, ext, targetext);
+        ctx.logger.debug('convert-and-edit invalid params: WOPISrc=%s; access_token=%s; access_token_ttl=%s; ext=%s; targetext=%s', wopiSrc, access_token, access_token_ttl, ext, targetext);
         return;
       }
 
@@ -548,15 +623,15 @@ function getConverterHtml(req, res) {
       if (docId) {
         let baseUrl = tenWopiHost || utils.getBaseUrlByRequest(ctx, req);
         params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
-        params.statusHandler += `?wopiSrc=${encodeURI(wopiSrc)}&access_token=${encodeURI(access_token)}`;
-        params.statusHandler += `&targetext=${encodeURI(targetext)}&docId=${encodeURI(docId)}`;
+        params.statusHandler += `?${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrc)}&access_token=${encodeURIComponent(access_token)}`;
+        params.statusHandler += `&targetext=${encodeURIComponent(targetext)}&docId=${encodeURIComponent(docId)}`;
         if (tenTokenEnableBrowser) {
           let tokenData = {docId: docId};
           let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
           let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
           let token = jwt.sign(tokenData, secret, options);
 
-          params.statusHandler += `&token=${encodeURI(token)}`;
+          params.statusHandler += `&token=${encodeURIComponent(token)}`;
         }
       }
     } catch (err) {
@@ -596,7 +671,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         let commonInfo = wopiParams.commonInfo;
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
-        fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
+        yield fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
         headers['X-LOOL-WOPI-IsModifiedByUser'] = isModifiedByUser;
         headers['X-LOOL-WOPI-IsAutosave'] = isAutosave;
         headers['X-LOOL-WOPI-IsExitSave'] = isExitSave;
@@ -604,6 +679,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
           //collabora nexcloud connector
           headers['X-LOOL-WOPI-Timestamp'] = wopiParams.LastModifiedTime;
         }
+        headers['Content-Type'] = mime.getType(getFileTypeByInfo(fileInfo));
 
         ctx.logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
         postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, headers);
@@ -633,9 +709,12 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
         return postRes;
       }
 
-      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget),
-      'X-WOPI-FileConversion': isFileConversion};
-      fillStandardHeaders(ctx, headers, uri, access_token);
+      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget)};
+      if (isFileConversion) {
+        headers['X-WOPI-FileConversion'] = isFileConversion;
+      }
+      yield fillStandardHeaders(ctx, headers, uri, access_token);
+      headers['Content-Type'] = mime.getType(suggestedTarget);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
       postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, headers);
@@ -673,7 +752,7 @@ function renameFile(ctx, wopiParams, name) {
         let commonInfo = wopiParams.commonInfo;
 
         let headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
-        fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
+        yield fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
 
         ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
@@ -711,9 +790,10 @@ function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
       if (opt_sc) {
         headers['X-WOPI-SessionContext'] = opt_sc;
       }
-      fillStandardHeaders(ctx, headers, uri, access_token);
+      yield fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-      //todo false?
+      //todo false? (true because it passed checkIpFilter for wopi)
+      //todo use directIfIn
       let isInJwtToken = true;
       let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, isInJwtToken, headers);
       ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
@@ -746,7 +826,7 @@ function lock(ctx, command, lockId, fileInfo, userAuth) {
         }
 
         let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
-        fillStandardHeaders(ctx, headers, uri, access_token);
+        yield fillStandardHeaders(ctx, headers, uri, access_token);
         ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
         let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
         ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
@@ -783,7 +863,7 @@ function unlock(ctx, wopiParams) {
         }
 
         let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
-        fillStandardHeaders(ctx, headers, uri, access_token);
+        yield fillStandardHeaders(ctx, headers, uri, access_token);
         ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
         let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
         ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
@@ -816,28 +896,32 @@ function generateProofBuffer(url, accessToken, timeStamp) {
   buffer.writeBigUInt64BE(timeStamp, offset);
   return buffer;
 }
-function generateProofSign(url, accessToken, timeStamp, privateKey) {
-  let signer = crypto.createSign('RSA-SHA256');
-  signer.update(generateProofBuffer(url, accessToken, timeStamp));
-  return signer.sign({key:privateKey}, "base64");
+
+async function generateProofSign(url, accessToken, timeStamp, privateKey) {
+  let data = generateProofBuffer(url, accessToken, timeStamp);
+  let sign = await cryptoSign('RSA-SHA256', data, privateKey);
+  return sign.toString('base64');
 }
-function generateProof(ctx, url, accessToken, timeStamp) {
-  const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
-  let privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${tenWopiPrivateKey}\n-----END RSA PRIVATE KEY-----`;
-  return generateProofSign(url, accessToken, timeStamp, privateKey);
+
+function numberToBase64(val) {
+  // Convert to hexadecimal
+  let hexString = val.toString(16);
+  //Ensure the hexadecimal string has an even length
+  if (hexString.length % 2 !== 0) {
+    hexString = '0' + hexString;
+  }
+  //Convert the hexadecimal string to a buffer
+  const buffer = Buffer.from(hexString, 'hex');
+  return  buffer.toString('base64');
 }
-function generateProofOld(ctx, url, accessToken, timeStamp) {
-  const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
-  let privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${tenWopiPrivateKeyOld}\n-----END RSA PRIVATE KEY-----`;
-  return generateProofSign(url, accessToken, timeStamp, privateKey);
-}
-function fillStandardHeaders(ctx, headers, url, access_token) {
+
+async function fillStandardHeaders(ctx, headers, url, access_token) {
   let timeStamp = utils.getDateTimeTicks(new Date());
   const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
   const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
   if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
-    headers['X-WOPI-Proof'] = generateProof(ctx, url, access_token, timeStamp);
-    headers['X-WOPI-ProofOld'] = generateProofOld(ctx, url, access_token, timeStamp);
+    headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKey, 'base64'));
+    headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKeyOld, 'base64'));
     headers['X-WOPI-TimeStamp'] = timeStamp;
     headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
     // todo
@@ -923,7 +1007,12 @@ async function dummyGetFile(req, res) {
       res,
     );
   } catch (err) {
-    ctx.logger.error('dummyGetFile error:%s', err.stack);
+    if (err.code === "ERR_STREAM_PREMATURE_CLOSE") {
+      //xhr.abort case
+      ctx.logger.debug('dummyGetFile error: %s', err.stack);
+    } else {
+      ctx.logger.error('dummyGetFile error:%s', err.stack);
+    }
   } finally {
     if (!res.headersSent) {
       res.sendStatus(400);
@@ -934,6 +1023,7 @@ function dummyOk(req, res) {
   res.sendStatus(200);
 }
 
+exports.checkIpFilter = checkIpFilter;
 exports.discovery = discovery;
 exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;
@@ -944,12 +1034,13 @@ exports.putRelativeFile = putRelativeFile;
 exports.renameFile = renameFile;
 exports.lock = lock;
 exports.unlock = unlock;
-exports.generateProof = generateProof;
-exports.generateProofOld = generateProofOld;
 exports.fillStandardHeaders = fillStandardHeaders;
 exports.getWopiUnlockMarker = getWopiUnlockMarker;
 exports.getWopiModifiedMarker = getWopiModifiedMarker;
 exports.getFileTypeByInfo = getFileTypeByInfo;
+exports.getWopiFileUrl = getWopiFileUrl;
+exports.isWopiJwtToken = isWopiJwtToken;
+exports.setIsShutdown = setIsShutdown;
 exports.dummyCheckFileInfo = dummyCheckFileInfo;
 exports.dummyGetFile = dummyGetFile;
 exports.dummyOk = dummyOk;

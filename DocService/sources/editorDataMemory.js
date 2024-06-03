@@ -39,19 +39,29 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 
 const cfgExpMonthUniqueUsers = ms(config.get('services.CoAuthoring.expire.monthUniqueUsers'));
 
+function EditorCommon() {
+}
+EditorCommon.prototype.connect = async function () {};
+EditorCommon.prototype.isConnected = function() {
+  return true;
+};
+EditorCommon.prototype.ping = async function() {return "PONG"};
+EditorCommon.prototype.close = async function() {};
+EditorCommon.prototype.healthCheck = async function() {
+  if (this.isConnected()) {
+    await this.ping();
+    return true;
+  }
+  return false;
+};
+
 function EditorData() {
+  EditorCommon.call(this);
   this.data = {};
   this.forceSaveTimer = {};
-  this.uniqueUser = {};
-  this.uniqueUsersOfMonth = {};
-  this.uniqueViewUser = {};
-  this.uniqueViewUsersOfMonth = {};
-  this.shutdown = {};
-  this.stat = {};
 }
-EditorData.prototype.connect = function() {
-  return Promise.resolve();
-};
+EditorData.prototype = Object.create(EditorCommon.prototype);
+EditorData.prototype.constructor = EditorData;
 EditorData.prototype._getDocumentData = function(ctx, docId) {
   let tenantData = this.data[ctx.tenant];
   if (!tenantData) {
@@ -73,7 +83,7 @@ EditorData.prototype._checkAndLock = function(ctx, name, docId, fencingToken, tt
     const expireAt = now + ttl * 1000;
     data[name] = {fencingToken: fencingToken, expireAt: expireAt};
   }
-  return Promise.resolve(res);
+  return res;
 };
 EditorData.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) {
   let data = this._getDocumentData(ctx, docId);
@@ -90,106 +100,117 @@ EditorData.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) 
     res = commonDefines.c_oAscUnlockRes.Empty;
     delete data[name];
   }
-  return Promise.resolve(res);
+  return res;
 };
 
-EditorData.prototype.addPresence = function(ctx, docId, userId, userInfo) {
-  return Promise.resolve();
-};
-EditorData.prototype.updatePresence = function(ctx, docId, userId) {
-  return Promise.resolve();
-};
-EditorData.prototype.removePresence = function(ctx, docId, userId) {
-  return Promise.resolve();
-};
-EditorData.prototype.getPresence = function(ctx, docId, connections) {
+EditorData.prototype.addPresence = async function(ctx, docId, userId, userInfo) {};
+EditorData.prototype.updatePresence = async function(ctx, docId, userId) {};
+EditorData.prototype.removePresence = async function(ctx, docId, userId) {};
+EditorData.prototype.getPresence = async function(ctx, docId, connections) {
   let hvals = [];
-  for (let i = 0; i < connections.length; ++i) {
-    let conn = connections[i];
-    if (conn.docId === docId && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
-      hvals.push(utils.getConnectionInfoStr(conn));
+  if (connections) {
+    for (let i = 0; i < connections.length; ++i) {
+      let conn = connections[i];
+      if (conn.docId === docId && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+        hvals.push(utils.getConnectionInfoStr(conn));
+      }
     }
   }
-  return Promise.resolve(hvals);
+  return hvals;
 };
 
-EditorData.prototype.lockSave = function(ctx, docId, userId, ttl) {
+EditorData.prototype.lockSave = async function(ctx, docId, userId, ttl) {
   return this._checkAndLock(ctx, 'lockSave', docId, userId, ttl);
 };
-EditorData.prototype.unlockSave = function(ctx, docId, userId) {
+EditorData.prototype.unlockSave = async function(ctx, docId, userId) {
   return this._checkAndUnlock(ctx, 'lockSave', docId, userId);
 };
-EditorData.prototype.lockAuth = function(ctx, docId, userId, ttl) {
+EditorData.prototype.lockAuth = async function(ctx, docId, userId, ttl) {
   return this._checkAndLock(ctx, 'lockAuth', docId, userId, ttl);
 };
-EditorData.prototype.unlockAuth = function(ctx, docId, userId) {
+EditorData.prototype.unlockAuth = async function(ctx, docId, userId) {
   return this._checkAndUnlock(ctx, 'lockAuth', docId, userId);
 };
 
-EditorData.prototype.getDocumentPresenceExpired = function(now) {
-  return Promise.resolve([]);
+EditorData.prototype.getDocumentPresenceExpired = async function(now) {
+  return [];
 };
-EditorData.prototype.removePresenceDocument = function(ctx, docId) {
-  return Promise.resolve();
-};
+EditorData.prototype.removePresenceDocument = async function(ctx, docId) {};
 
-EditorData.prototype.addLocks = function(ctx, docId, locks) {
+EditorData.prototype.addLocks = async function(ctx, docId, locks) {
   let data = this._getDocumentData(ctx, docId);
   if (!data.locks) {
-    data.locks = [];
+    data.locks = {};
   }
-  data.locks = data.locks.concat(locks);
-  return Promise.resolve();
+  Object.assign(data.locks, locks);
 };
-EditorData.prototype.removeLocks = function(ctx, docId) {
+EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
+  let data = this._getDocumentData(ctx, docId);
+  if (!data.locks) {
+    data.locks = {};
+  }
+  let lockConflict = {};
+  for (let lockId in locks) {
+    if (undefined === data.locks[lockId]) {
+      data.locks[lockId] = locks[lockId];
+    } else {
+      lockConflict[lockId] = locks[lockId];
+    }
+  }
+  return {lockConflict, allLocks: data.locks};
+};
+EditorData.prototype.removeLocks = async function(ctx, docId, locks) {
+  let data = this._getDocumentData(ctx, docId);
+  if (data.locks) {
+    for (let lockId in locks) {
+      delete data.locks[lockId];
+    }
+  }
+};
+EditorData.prototype.removeAllLocks = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   data.locks = undefined;
-  return Promise.resolve();
 };
-EditorData.prototype.getLocks = function(ctx, docId) {
+EditorData.prototype.getLocks = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
-  return Promise.resolve(data.locks || []);
+  return data.locks || {};
 };
 
-EditorData.prototype.addMessage = function(ctx, docId, msg) {
+EditorData.prototype.addMessage = async function(ctx, docId, msg) {
   let data = this._getDocumentData(ctx, docId);
   if (!data.messages) {
     data.messages = [];
   }
   data.messages.push(msg);
-  return Promise.resolve();
 };
-EditorData.prototype.removeMessages = function(ctx, docId) {
+EditorData.prototype.removeMessages = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   data.messages = undefined;
-  return Promise.resolve();
 };
-EditorData.prototype.getMessages = function(ctx, docId) {
+EditorData.prototype.getMessages = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
-  return Promise.resolve(data.messages || []);
+  return data.messages || [];
 };
 
-EditorData.prototype.setSaved = function(ctx, docId, status) {
+EditorData.prototype.setSaved = async function(ctx, docId, status) {
   let data = this._getDocumentData(ctx, docId);
   data.saved = status;
-  return Promise.resolve();
 };
-EditorData.prototype.getdelSaved = function(ctx, docId) {
+EditorData.prototype.getdelSaved = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   let res = data.saved;
-  data.saved = undefined;
-  return Promise.resolve(res);
+  data.saved = null;
+  return res;
 };
-EditorData.prototype.setForceSave = function(ctx, docId, time, index, baseUrl, changeInfo, convertInfo) {
+EditorData.prototype.setForceSave = async function(ctx, docId, time, index, baseUrl, changeInfo, convertInfo) {
   let data = this._getDocumentData(ctx, docId);
   data.forceSave = {time, index, baseUrl, changeInfo, started: false, ended: false, convertInfo};
-  return Promise.resolve();
 };
-EditorData.prototype.getForceSave = function(ctx, docId) {
+EditorData.prototype.getForceSave = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
-  return Promise.resolve(data.forceSave || null);
+  return data.forceSave || null;
 };
-EditorData.prototype.checkAndStartForceSave = function(ctx, docId) {
+EditorData.prototype.checkAndStartForceSave = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && !data.forceSave.started) {
@@ -197,9 +218,9 @@ EditorData.prototype.checkAndStartForceSave = function(ctx, docId) {
     data.forceSave.ended = false;
     res = data.forceSave;
   }
-  return Promise.resolve(res);
+  return res;
 };
-EditorData.prototype.checkAndSetForceSave = function(ctx, docId, time, index, started, ended, convertInfo) {
+EditorData.prototype.checkAndSetForceSave = async function(ctx, docId, time, index, started, ended, convertInfo) {
   let data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && time === data.forceSave.time && index === data.forceSave.index) {
@@ -208,15 +229,14 @@ EditorData.prototype.checkAndSetForceSave = function(ctx, docId, time, index, st
     data.forceSave.convertInfo = convertInfo;
     res = data.forceSave;
   }
-  return Promise.resolve(res);
+  return res;
 };
-EditorData.prototype.removeForceSave = function(ctx, docId) {
+EditorData.prototype.removeForceSave = async function(ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   data.forceSave = undefined;
-  return Promise.resolve();
 };
 
-EditorData.prototype.cleanDocumentOnExit = function(ctx, docId) {
+EditorData.prototype.cleanDocumentOnExit = async function(ctx, docId) {
   let tenantData = this.data[ctx.tenant];
   if (tenantData) {
     delete tenantData[docId];
@@ -225,10 +245,9 @@ EditorData.prototype.cleanDocumentOnExit = function(ctx, docId) {
   if (tenantTimer) {
     delete tenantTimer[docId];
   }
-  return Promise.resolve();
 };
 
-EditorData.prototype.addForceSaveTimerNX = function(ctx, docId, expireAt) {
+EditorData.prototype.addForceSaveTimerNX = async function(ctx, docId, expireAt) {
   let tenantTimer = this.forceSaveTimer[ctx.tenant];
   if (!tenantTimer) {
     this.forceSaveTimer[ctx.tenant] = tenantTimer = {};
@@ -236,9 +255,8 @@ EditorData.prototype.addForceSaveTimerNX = function(ctx, docId, expireAt) {
   if (!tenantTimer[docId]) {
     tenantTimer[docId] = expireAt;
   }
-  return Promise.resolve();
 };
-EditorData.prototype.getForceSaveTimer = function(now) {
+EditorData.prototype.getForceSaveTimer = async function(now) {
   let res = [];
   for (let tenant in this.forceSaveTimer) {
     if (this.forceSaveTimer.hasOwnProperty(tenant)) {
@@ -253,18 +271,29 @@ EditorData.prototype.getForceSaveTimer = function(now) {
       }
     }
   }
-  return Promise.resolve(res);
+  return res;
 };
 
-EditorData.prototype.addPresenceUniqueUser = function(ctx, userId, expireAt, userInfo) {
+function EditorStat() {
+  EditorCommon.call(this);
+  this.uniqueUser = {};
+  this.uniqueUsersOfMonth = {};
+  this.uniqueViewUser = {};
+  this.uniqueViewUsersOfMonth = {};
+  this.stat = {};
+  this.shutdown = {};
+  this.license = {};
+}
+EditorStat.prototype = Object.create(EditorCommon.prototype);
+EditorStat.prototype.constructor = EditorStat;
+EditorStat.prototype.addPresenceUniqueUser = async function(ctx, userId, expireAt, userInfo) {
   let tenantUser = this.uniqueUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUser[ctx.tenant] = tenantUser = {};
   }
   tenantUser[userId] = {expireAt: expireAt, userInfo: userInfo};
-  return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueUser = function(ctx, nowUTC) {
+EditorStat.prototype.getPresenceUniqueUser = async function(ctx, nowUTC) {
   let res = [];
   let tenantUser = this.uniqueUser[ctx.tenant];
   if (!tenantUser) {
@@ -282,9 +311,9 @@ EditorData.prototype.getPresenceUniqueUser = function(ctx, nowUTC) {
       }
     }
   }
-  return Promise.resolve(res);
+  return res;
 };
-EditorData.prototype.addPresenceUniqueUsersOfMonth = function(ctx, userId, period, userInfo) {
+EditorStat.prototype.addPresenceUniqueUsersOfMonth = async function(ctx, userId, period, userInfo) {
   let tenantUser = this.uniqueUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUsersOfMonth[ctx.tenant] = tenantUser = {};
@@ -294,9 +323,8 @@ EditorData.prototype.addPresenceUniqueUsersOfMonth = function(ctx, userId, perio
     tenantUser[period] = {expireAt: expireAt, data: {}};
   }
   tenantUser[period].data[userId] = userInfo;
-  return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueUsersOfMonth = function(ctx) {
+EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function(ctx) {
   let res = {};
   let nowUTC = Date.now();
   let tenantUser = this.uniqueUsersOfMonth[ctx.tenant];
@@ -313,18 +341,17 @@ EditorData.prototype.getPresenceUniqueUsersOfMonth = function(ctx) {
       }
     }
   }
-  return Promise.resolve(res);
+  return res;
 };
 
-EditorData.prototype.addPresenceUniqueViewUser = function(ctx, userId, expireAt, userInfo) {
+EditorStat.prototype.addPresenceUniqueViewUser = async function(ctx, userId, expireAt, userInfo) {
   let tenantUser = this.uniqueViewUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUser[ctx.tenant] = tenantUser = {};
   }
   tenantUser[userId] = {expireAt: expireAt, userInfo: userInfo};
-  return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueViewUser = function(ctx, nowUTC) {
+EditorStat.prototype.getPresenceUniqueViewUser = async function(ctx, nowUTC) {
   let res = [];
   let tenantUser = this.uniqueViewUser[ctx.tenant];
   if (!tenantUser) {
@@ -342,9 +369,9 @@ EditorData.prototype.getPresenceUniqueViewUser = function(ctx, nowUTC) {
       }
     }
   }
-  return Promise.resolve(res);
+  return res;
 };
-EditorData.prototype.addPresenceUniqueViewUsersOfMonth = function(ctx, userId, period, userInfo) {
+EditorStat.prototype.addPresenceUniqueViewUsersOfMonth = async function(ctx, userId, period, userInfo) {
   let tenantUser = this.uniqueViewUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUsersOfMonth[ctx.tenant] = tenantUser = {};
@@ -354,9 +381,8 @@ EditorData.prototype.addPresenceUniqueViewUsersOfMonth = function(ctx, userId, p
     tenantUser[period] = {expireAt: expireAt, data: {}};
   }
   tenantUser[period].data[userId] = userInfo;
-  return Promise.resolve();
 };
-EditorData.prototype.getPresenceUniqueViewUsersOfMonth = function(ctx) {
+EditorStat.prototype.getPresenceUniqueViewUsersOfMonth = async function(ctx) {
   let res = {};
   let nowUTC = Date.now();
   let tenantUser = this.uniqueViewUsersOfMonth[ctx.tenant];
@@ -373,10 +399,9 @@ EditorData.prototype.getPresenceUniqueViewUsersOfMonth = function(ctx) {
       }
     }
   }
-  return Promise.resolve(res);
+  return res;
 };
-
-EditorData.prototype.setEditorConnections = function(ctx, countEdit, countLiveView, countView, now, precision) {
+EditorStat.prototype.setEditorConnections = async function(ctx, countEdit, countLiveView, countView, now, precision) {
   let tenantStat = this.stat[ctx.tenant];
   if (!tenantStat) {
     this.stat[ctx.tenant] = tenantStat = [];
@@ -387,79 +412,69 @@ EditorData.prototype.setEditorConnections = function(ctx, countEdit, countLiveVi
     i++;
   }
   tenantStat.splice(0, i);
-  return Promise.resolve();
 };
-EditorData.prototype.getEditorConnections = function(ctx) {
+EditorStat.prototype.getEditorConnections = async function(ctx) {
   let tenantStat = this.stat[ctx.tenant];
   if (!tenantStat) {
     this.stat[ctx.tenant] = tenantStat = [];
   }
-  return Promise.resolve(tenantStat);
+  return tenantStat;
 };
-EditorData.prototype.setEditorConnectionsCountByShard = function(ctx, shardId, count) {
-  return Promise.resolve();
-};
-EditorData.prototype.incrEditorConnectionsCountByShard = function(ctx, shardId, count) {
-  return Promise.resolve();
-};
-EditorData.prototype.getEditorConnectionsCount = function(ctx, connections) {
+EditorStat.prototype.setEditorConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.incrEditorConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.getEditorConnectionsCount = async function(ctx, connections) {
   let count = 0;
-  for (let i = 0; i < connections.length; ++i) {
-    let conn = connections[i];
-    if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
-      count++;
+  if (connections) {
+    for (let i = 0; i < connections.length; ++i) {
+      let conn = connections[i];
+      if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+        count++;
+      }
     }
   }
-  return Promise.resolve(count);
+  return count;
 };
-EditorData.prototype.setViewerConnectionsCountByShard = function(ctx, shardId, count) {
-  return Promise.resolve();
-};
-EditorData.prototype.incrViewerConnectionsCountByShard = function(ctx, shardId, count) {
-  return Promise.resolve();
-};
-EditorData.prototype.getViewerConnectionsCount = function(ctx, connections) {
+EditorStat.prototype.setViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.incrViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.getViewerConnectionsCount = async function(ctx, connections) {
   let count = 0;
-  for (let i = 0; i < connections.length; ++i) {
-    let conn = connections[i];
-    if (conn.isCloseCoAuthoring || (conn.user && conn.user.view) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
-      count++;
+  if (connections) {
+    for (let i = 0; i < connections.length; ++i) {
+      let conn = connections[i];
+      if (conn.isCloseCoAuthoring || (conn.user && conn.user.view) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+        count++;
+      }
     }
   }
-  return Promise.resolve(count);
+  return count;
 };
-EditorData.prototype.setLiveViewerConnectionsCountByShard = function(ctx, shardId, count) {
-  return Promise.resolve();
-};
-EditorData.prototype.incrLiveViewerConnectionsCountByShard = function(ctx, shardId, count) {
-  return Promise.resolve();
-};
-EditorData.prototype.getLiveViewerConnectionsCount = function(ctx, connections) {
+EditorStat.prototype.setLiveViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.incrLiveViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.getLiveViewerConnectionsCount = async function(ctx, connections) {
   let count = 0;
-  for (let i = 0; i < connections.length; ++i) {
-    let conn = connections[i];
-    if (utils.isLiveViewer(conn) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
-      count++;
+  if (connections) {
+    for (let i = 0; i < connections.length; ++i) {
+      let conn = connections[i];
+      if (utils.isLiveViewer(conn) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+        count++;
+      }
     }
   }
-  return Promise.resolve(count);
+  return count;
 };
-
-EditorData.prototype.addShutdown = function(key, docId) {
+EditorStat.prototype.addShutdown = async function(key, docId) {
   if (!this.shutdown[key]) {
     this.shutdown[key] = {};
   }
   this.shutdown[key][docId] = 1;
-  return Promise.resolve();
 };
-EditorData.prototype.removeShutdown = function(key, docId) {
+EditorStat.prototype.removeShutdown = async function(key, docId) {
   if (!this.shutdown[key]) {
     this.shutdown[key] = {};
   }
   delete this.shutdown[key][docId];
-  return Promise.resolve();
 };
-EditorData.prototype.getShutdownCount = function(key) {
+EditorStat.prototype.getShutdownCount = async function(key) {
   let count = 0;
   if (this.shutdown[key]) {
     for (let docId in this.shutdown[key]) {
@@ -468,31 +483,22 @@ EditorData.prototype.getShutdownCount = function(key) {
       }
     }
   }
-  return Promise.resolve(count);
+  return count;
 };
-EditorData.prototype.cleanupShutdown = function(key) {
+EditorStat.prototype.cleanupShutdown = async function(key) {
   delete this.shutdown[key];
-  return Promise.resolve();
+};
+EditorStat.prototype.setLicense = async function(key, val) {
+  this.license[key] = val;
+};
+EditorStat.prototype.getLicense = async function(key) {
+  return this.license[key] || null;
+};
+EditorStat.prototype.removeLicense = async function(key) {
+  delete this.license[key];
 };
 
-EditorData.prototype.setLicense = function(key, val) {
-  return Promise.resolve();
-};
-EditorData.prototype.getLicense = function(key) {
-  return Promise.resolve(null);
-};
-EditorData.prototype.removeLicense = function(key) {
-  return Promise.resolve();
-};
-
-EditorData.prototype.isConnected = function() {
-  return true;
-};
-EditorData.prototype.ping = function() {
-  return Promise.resolve();
-};
-EditorData.prototype.close = function() {
-  return Promise.resolve();
-};
-
-module.exports = EditorData;
+module.exports = {
+  EditorData,
+  EditorStat
+}

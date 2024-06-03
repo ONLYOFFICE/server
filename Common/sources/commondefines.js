@@ -32,6 +32,7 @@
 
 'use strict';
 
+const config = require("config");
 const constants = require('./constants');
 
 function InputCommand(data, copyExplicit) {
@@ -108,6 +109,7 @@ function InputCommand(data, copyExplicit) {
     this['status_info_in'] = data['status_info_in'];
     this['attempt'] = data['attempt'];
     this['convertToOrigin'] = data['convertToOrigin'];
+    this['isSaveAs'] = data['isSaveAs'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
       this['externalChangeInfo'] = data['externalChangeInfo'];
@@ -171,6 +173,7 @@ function InputCommand(data, copyExplicit) {
     this['attempt'] = undefined;
     this['convertToOrigin'] = undefined;
     this['originformat'] = undefined;
+    this['isSaveAs'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -363,8 +366,12 @@ InputCommand.prototype = {
   getJsonParams: function() {
     return this['jsonparams'];
   },
-  setJsonParams: function(data) {
-    this['jsonparams'] = data;
+  appendJsonParams: function (data) {
+    if (this['jsonparams']) {
+      config.util.extendDeep(this['jsonparams'], data);
+    } else {
+      this['jsonparams'] = data;
+    }
   },
   getLCID: function() {
     return this['lcid'];
@@ -503,6 +510,12 @@ InputCommand.prototype = {
   },
   setConvertToOrigin: function(data) {
     this['convertToOrigin'] = data;
+  },
+  getIsSaveAs: function() {
+    return this['isSaveAs'];
+  },
+  setIsSaveAs: function(data) {
+    this['isSaveAs'] = data;
   }
 };
 

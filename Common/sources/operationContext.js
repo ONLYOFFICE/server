@@ -41,11 +41,12 @@ function Context(){
   this.logger = logger.getLogger('nodeJS');
   this.initDefault();
 }
-Context.prototype.init = function(tenant, docId, userId, opt_shardKey) {
+Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiSrc) {
   this.setTenant(tenant);
   this.setDocId(docId);
   this.setUserId(userId);
   this.setShardKey(opt_shardKey);
+  this.setWopiSrc(opt_WopiSrc);
 
   this.config = null;
   this.secret = null;
@@ -65,21 +66,23 @@ Context.prototype.initFromConnection = function(conn) {
     }
   }
   let userId = conn.user?.id;
-  let shardKey = utils.getShardByConnection(this, conn);
-  this.init(tenant, docId || this.docId, userId || this.userId, shardKey);
+  let shardKey = utils.getShardKeyByConnection(this, conn);
+  let wopiSrc = utils.getWopiSrcByConnection(this, conn);
+  this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc);
 };
 Context.prototype.initFromRequest = function(req) {
   let tenant = tenantManager.getTenantByRequest(this, req);
   let shardKey = utils.getShardKeyByRequest(this, req);
-  this.init(tenant, this.docId, this.userId, shardKey);
+  let wopiSrc = utils.getWopiSrcByRequest(this, req);
+  this.init(tenant, this.docId, this.userId, shardKey, wopiSrc);
 };
 Context.prototype.initFromTaskQueueData = function(task) {
   let ctx = task.getCtx();
-  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey);
+  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
 };
 Context.prototype.initFromPubSub = function(data) {
   let ctx = data.ctx;
-  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey);
+  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
 };
 Context.prototype.initTenantCache = async function() {
   this.config = await tenantManager.getTenantConfig(this);
@@ -101,12 +104,16 @@ Context.prototype.setUserId = function(userId) {
 Context.prototype.setShardKey = function(shardKey) {
   this.shardKey = shardKey;
 };
+Context.prototype.setWopiSrc = function(wopiSrc) {
+  this.wopiSrc = wopiSrc;
+};
 Context.prototype.toJSON = function() {
   return {
     tenant: this.tenant,
     docId: this.docId,
     userId: this.userId,
-    shardKey: this.shardKey
+    shardKey: this.shardKey,
+    wopiSrc: this.wopiSrc
   }
 };
 Context.prototype.getCfg = function(property, defaultValue) {

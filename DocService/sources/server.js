@@ -57,7 +57,7 @@ const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
-const configStorage = config.get('storage');
+const staticRouter = require('./routes/static');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
@@ -132,44 +132,6 @@ updateLicense();
 fs.watchFile(cfgLicenseFile, updateLicense);
 setInterval(updateLicense, 86400000);
 
-if (config.has('services.CoAuthoring.server.static_content')) {
-	const staticContent = config.get('services.CoAuthoring.server.static_content');
-	for (let i in staticContent) {
-		if (staticContent.hasOwnProperty(i)) {
-			app.use(i, express.static(staticContent[i]['path'], staticContent[i]['options']));
-		}
-	}
-}
-
-if (configStorage.has('fs.folderPath')) {
-	const cfgBucketName = configStorage.get('bucketName');
-	const cfgStorageFolderName = configStorage.get('storageFolderName');
-	app.use('/' + cfgBucketName + '/' + cfgStorageFolderName, (req, res, next) => {
-		const index = req.url.lastIndexOf('/');
-		if ('GET' === req.method && index > 0) {
-			let sendFileOptions = {
-				root: configStorage.get('fs.folderPath'), dotfiles: 'deny', headers: {
-					'Content-Disposition': 'attachment'
-				}
-			};
-			const urlParsed = urlModule.parse(req.url);
-			if (urlParsed && urlParsed.pathname) {
-				const filename = decodeURIComponent(path.basename(urlParsed.pathname));
-				sendFileOptions.headers['Content-Type'] = mime.getType(filename);
-			}
-			const realUrl = decodeURI(req.url.substring(0, index));
-			res.sendFile(realUrl, sendFileOptions, (err) => {
-				if (err) {
-					operationContext.global.logger.error(err);
-					res.status(400).end();
-				}
-			});
-		} else {
-			res.sendStatus(404);
-		}
-	});
-}
-
 try {
 	fs.watch(config.get('services.CoAuthoring.plugins.path'), updatePlugins);
 } catch (e) {
@@ -211,6 +173,9 @@ docsCoServer.install(server, () => {
 			}
 		});
 	});
+
+	app.use('/', staticRouter);
+
 	const rawFileParser = bodyParser.raw(
 		{inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function() {return true;}});
 	const urleEcodedParser = bodyParser.urlencoded({ extended: false });

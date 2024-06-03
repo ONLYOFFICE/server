@@ -123,7 +123,7 @@ function TaskQueueDataConvert(ctx, task) {
   this.mailMergeSend = cmd.mailmergesend;
   this.thumbnail = cmd.thumbnail;
   this.textParams = cmd.getTextParams();
-  this.jsonParams = cmd.getJsonParams();
+  this.jsonParams = JSON.stringify(cmd.getJsonParams());
   this.lcid = cmd.getLCID();
   this.password = cmd.getPassword();
   this.savePassword = cmd.getSavePassword();
@@ -341,13 +341,15 @@ function* isUselessConvertion(ctx, task, cmd) {
   return constants.NO_ERROR;
 }
 async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
+  let forceSave = cmd.getForceSave();
+  let isSendForm = forceSave && forceSave.getType() === commonDefines.c_oAscForceSaveTypes.Form;
   let originFormat = cmd.getOriginFormat();
   let isOriginFormatWithForms = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === originFormat ||
     constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === originFormat ||
     constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === originFormat;
   let isFormatToPdf = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === dataConvert.formatTo ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === dataConvert.formatTo;
-  if (isFormatToPdf && isOriginFormatWithForms) {
+  if (isFormatToPdf && isOriginFormatWithForms && !isSendForm) {
     let format = await formatChecker.getDocumentFormatByFile(dataConvert.fileFrom);
     if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD === format) {
       ctx.logger.debug('change format to extended pdf');
@@ -358,7 +360,7 @@ async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
 function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
   if (!fs.existsSync(fileFrom) ||  0 === fs.lstatSync(fileFrom).size) {
-    let locale = 'en-US';
+    let locale = constants.TEMPLATES_DEFAULT_LOCALE;
     if (_lcid) {
       let localeNew = lcid.from(_lcid);
       if (localeNew) {
@@ -370,14 +372,24 @@ function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
         }
       }
     }
-    ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
-    let format = formatChecker.getFormatFromString(ext);
-    if (formatChecker.isDocumentFormat(format)) {
-      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.docx'), fileFrom);
-    } else if (formatChecker.isSpreadsheetFormat(format)) {
-      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.xlsx'), fileFrom);
-    } else if (formatChecker.isPresentationFormat(format)) {
-      fs.copyFileSync(path.join(tenNewFileTemplate, locale, 'new.pptx'), fileFrom);
+    let fileTemplatePath = path.join(tenNewFileTemplate, locale, 'new.');
+    if (fs.existsSync(fileTemplatePath + ext)) {
+      ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
+      fs.copyFileSync(fileTemplatePath + ext, fileFrom);
+    } else {
+      let format = formatChecker.getFormatFromString(ext);
+      let editorFormat;
+      if (formatChecker.isDocumentFormat(format)) {
+        editorFormat = 'docx';
+      } else if (formatChecker.isSpreadsheetFormat(format)) {
+        editorFormat = 'xlsx';
+      } else if (formatChecker.isPresentationFormat(format)) {
+        editorFormat = 'pptx';
+      }
+      if (fs.existsSync(fileTemplatePath + editorFormat)) {
+        ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
+        fs.copyFileSync(fileTemplatePath + editorFormat, fileFrom);
+      }
     }
   }
 }
@@ -429,7 +441,6 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
   return res;
 }
 function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
-  const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   var list = yield storage.listObjects(ctx, strPath, opt_specialDir);
   ctx.logger.debug('downloadFileFromStorage list %s', list.toString());
   //create dirs
@@ -1002,7 +1013,6 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
 }
 
 function* ExecuteTask(ctx, task) {
-  const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
   const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
   var startDate = null;
@@ -1039,19 +1049,8 @@ function* ExecuteTask(ctx, task) {
         withAuthorization = false;
         isInJwtToken = true;
         let fileInfo = wopiParams.commonInfo?.fileInfo;
-        let userAuth = wopiParams.userAuth;
         fileSize = fileInfo?.Size;
-        if (fileInfo?.FileUrl) {
-          //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
-          url = fileInfo.FileUrl;
-        } else if (fileInfo?.TemplateSource) {
-          url = fileInfo.TemplateSource;
-        } else if (userAuth) {
-          url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
-          headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
-          wopiClient.fillStandardHeaders(ctx, headers, url, userAuth.access_token);
-        }
-        ctx.logger.debug('wopi url=%s; headers=%j', url, headers);
+        ({url, headers} = yield wopiClient.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
       }
       if (undefined === fileSize || fileSize > 0) {
         error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers);
