@@ -241,7 +241,10 @@
 						"idleTimeoutMillis": 30000
 					}
 				},
-				"mysqlExtraOptions": {}
+				"mysqlExtraOptions": {
+					"connectTimeout": 60000,
+					"queryTimeout": 60000
+				}
 			},
 			"redis": {
 				"name": "redis",
