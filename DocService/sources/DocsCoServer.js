@@ -2494,11 +2494,35 @@ exports.install = function(server, callbackFunction) {
       let docId = data.docid;
       const user = data.user;
 
-      let wopiParams = null;
+      let wopiParams = null, openedAtStr;
       if (data.documentCallbackUrl) {
         wopiParams = wopiClient.parseWopiCallback(ctx, data.documentCallbackUrl);
         if (wopiParams && wopiParams.userAuth) {
           conn.access_token_ttl = wopiParams.userAuth.access_token_ttl;
+        }
+      }
+      let cmd = null;
+      if (data.openCmd) {
+        cmd = new commonDefines.InputCommand(data.openCmd);
+        cmd.setDocId(docId);
+        if (isDecoded) {
+          cmd.setWithAuthorization(true);
+        }
+      }
+      //todo minimize select calls on opening
+      let result = yield taskResult.select(ctx, docId);
+      let resultRow = result.length > 0 ? result[0] : null;
+      if (wopiParams) {
+        let wopiParamsFull;
+        if (resultRow && resultRow.callback) {
+          wopiParamsFull = wopiClient.parseWopiCallback(ctx, data.documentCallbackUrl, resultRow.callback);
+          cmd?.setWopiParams(wopiParamsFull);
+        }
+        if (!wopiParamsFull || !wopiParamsFull.userAuth || !wopiParamsFull.commonInfo) {
+          ctx.logger.warn('invalid wopi callback (maybe postgres<9.5) %j', wopiParams);
+          sendDataDisconnectReason(ctx, conn, constants.DROP_CODE, constants.DROP_REASON);
+          conn.disconnect(true);
+          return;
         }
       }
       //get user index
@@ -2535,7 +2559,8 @@ exports.install = function(server, callbackFunction) {
             task.key = docId;
             if (undefined !== data.timezoneOffset) {
               //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
-              task.additional = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+              openedAtStr = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+              task.additional = openedAtStr;
             }
             if (ctx.shardKey) {
               task.additional += sqlBase.DocumentAdditional.prototype.setShardKey(ctx.shardKey);
@@ -2619,15 +2644,6 @@ exports.install = function(server, callbackFunction) {
         }
       }
 
-      let cmd = null;
-      if (data.openCmd) {
-        cmd = new commonDefines.InputCommand(data.openCmd);
-        cmd.fillFromConnection(conn);
-        if (isDecoded) {
-          cmd.setWithAuthorization(true);
-        }
-      }
-
       // Situation when the user is already disabled from co-authoring
       if (bIsRestore && data.isCloseCoAuthoring) {
         conn.sessionId = data.sessionId;//restore old
@@ -2647,20 +2663,6 @@ exports.install = function(server, callbackFunction) {
           }
         }
         return;
-      }
-      let result = yield taskResult.select(ctx, docId);
-      let resultRow = result.length > 0 ? result[0] : null;
-      if (cmd && resultRow && resultRow.callback) {
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, resultRow.callback, curIndexUser);
-        let wopiParams = wopiClient.parseWopiCallback(ctx, userAuthStr, resultRow.callback);
-        cmd.setWopiParams(wopiParams);
-        if (wopiParams) {
-          documentCallback = null;
-          if (!wopiParams.userAuth || !wopiParams.commonInfo) {
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, `invalid wopi callback (maybe postgres<9.5) ${JSON.stringify(wopiParams)}`);
-            return;
-          }
-        }
       }
       if (conn.user.idOriginal.length > constants.USER_ID_MAX_LENGTH) {
         //todo refactor DB and remove restrictions
@@ -2758,7 +2760,8 @@ exports.install = function(server, callbackFunction) {
         }
       } else {
         conn.sessionId = conn.id;
-        const endAuthRes = yield* endAuth(ctx, conn, false, documentCallback, canvasService.getOpenedAt(resultRow));
+        let openedAt = openedAtStr ? sqlBase.DocumentAdditional.prototype.getOpenedAt(openedAtStr) : canvasService.getOpenedAt(resultRow);
+        const endAuthRes = yield* endAuth(ctx, conn, false, documentCallback, openedAt);
         if (endAuthRes && cmd) {
           yield canvasService.openDocument(ctx, conn, cmd, upsertRes, bIsRestore);
         }
