@@ -39,7 +39,7 @@ const license = require('./../../Common/sources/license');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
-const { readFile } = require('fs/promises');
+const { readFile, readdir } = require('fs/promises');
 const path = require('path');
 
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
@@ -78,6 +78,18 @@ function getTenant(ctx, domain) {
     }
   }
   return tenant;
+}
+async function getAllTenants(ctx) {
+  let dirList = [];
+  try {
+    if (isMultitenantMode(ctx)) {
+      const entitiesList = await readdir(cfgTenantsBaseDir, { withFileTypes: true });
+      dirList = entitiesList.filter(direntObj => direntObj.isDirectory()).map(directory => directory.name);
+    }
+  } catch (error) {
+    ctx.logger.error('getAllTenants error: ', error.stack);
+  }
+  return dirList;
 }
 function getTenantByConnection(ctx, conn) {
   return isMultitenantMode(ctx) ? getTenant(ctx, utils.getDomainByConnection(ctx, conn)) : getDefautTenant();
@@ -395,6 +407,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
   return [res, oLicense];
 }
 
+exports.getAllTenants = getAllTenants;
 exports.getDefautTenant = getDefautTenant;
 exports.getTenantByConnection = getTenantByConnection;
 exports.getTenantByRequest = getTenantByRequest;

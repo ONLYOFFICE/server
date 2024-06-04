@@ -16,6 +16,53 @@
 		"visibilityTimeout": 300,
 		"retentionPeriod": 900
 	},
+	"email": {
+		"smtpServerConfiguration": {
+			"host": "localhost",
+			"port": 587,
+			"auth": {
+				"user": "onlyoffice",
+				"pass": "onlyoffice"
+			}
+		},
+		"connectionConfiguration": {
+			"disableFileAccess": false,
+			"disableUrlAccess": false
+		},
+		"contactDefaults": {
+			"from": "from@example.com",
+			"to": "to@example.com"
+		}
+	},
+	"notification": {
+		"enable": false,
+		"rules": {
+			"licenseExpirationWarning": {
+				"transportType": [
+					"email"
+				],
+				"template": {
+					"title": "License expiration",
+					"body": "%s license %s on %s!!!"
+				},
+				"policies": {
+					"repeatInterval": "1d"
+				}
+			},
+			"licenseLimit": {
+				"transportType": [
+					"email"
+				],
+				"template": {
+					"title": "License",
+					"body": "%s limit exceeded!!!"
+				},
+				"policies": {
+					"repeatInterval": "1h"
+				}
+			}
+		}
+	},
 	"storage": {
 		"name": "storage-fs",
 		"fs": {
@@ -381,7 +428,8 @@
 	"license" : {
 		"license_file": "",
 		"warning_limit_percents": 70,
-		"packageType": 0
+		"packageType": 0,
+		"warning_license_expiration": "30d"
 	},
 	"FileConverter": {
 		"converter": {

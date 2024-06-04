@@ -87,6 +87,7 @@ const bytes = require('bytes');
 const storage = require('./../../Common/sources/storage-base');
 const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
+const utilsDocService = require('./utilsDocService');
 const commonDefines = require('./../../Common/sources/commondefines');
 const statsDClient = require('./../../Common/sources/statsdclient');
 const config = require('config');
@@ -101,12 +102,12 @@ const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
+const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const editorDataStorage = require('./' + cfgEditorDataStorage);
 const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
-const utilsDocService = require("./utilsDocService");
 
 const cfgEditSingleton =  config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor =  config.get('services.CoAuthoring.editor');
@@ -3479,39 +3480,54 @@ exports.install = function(server, callbackFunction) {
       }
     }
 
+    let logPostfix = ' limit exceeded!!!';
+    let notificationPrefix;
     if (c_LR.UsersCount === licenseType) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.UsersCountOS;
       }
-      ctx.logger.error(logPrefix + 'User limit exceeded!!!');
+      notificationPrefix = logPrefix + 'User';
+      ctx.logger.error(notificationPrefix + logPostfix);
     } else if (c_LR.UsersViewCount === licenseType) {
-        if (!licenseInfo.hasLicense) {
-          licenseType = c_LR.UsersViewCountOS;
-        }
-        ctx.logger.error(logPrefix + 'User Live Viewer limit exceeded!!!');
+      if (!licenseInfo.hasLicense) {
+        licenseType = c_LR.UsersViewCountOS;
+      }
+      notificationPrefix = logPrefix + 'User Live Viewer';
+      ctx.logger.error(notificationPrefix + logPostfix);
     } else if (c_LR.Connections === licenseType) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.ConnectionsOS;
       }
-      ctx.logger.error(logPrefix + 'Connection limit exceeded!!!');
+      notificationPrefix = logPrefix + 'Connection';
+      ctx.logger.error(notificationPrefix + logPostfix);
     } else if (c_LR.ConnectionsLive === licenseType) {
       if (!licenseInfo.hasLicense) {
         licenseType = c_LR.ConnectionsLiveOS;
       }
-      ctx.logger.error(logPrefix + 'Connection Live Viewer limit exceeded!!!');
+      notificationPrefix = logPrefix + 'Connection Live Viewer';
+      ctx.logger.error(notificationPrefix + logPostfix);
     } else {
       if (licenseWarningLimitUsers) {
-        ctx.logger.warn(logPrefix + 'Warning User limit exceeded!!!');
+        notificationPrefix = logPrefix + 'Warning User';
+        ctx.logger.warn(notificationPrefix + logPostfix);
       }
       if (licenseWarningLimitUsersView) {
-        ctx.logger.warn(logPrefix + 'Warning User Live Viewer limit exceeded!!!');
+        notificationPrefix = logPrefix + 'Warning User Live Viewer';
+        ctx.logger.warn(notificationPrefix + logPostfix);
       }
       if (licenseWarningLimitConnections) {
-        ctx.logger.warn(logPrefix + 'Warning Connection limit exceeded!!!');
+        notificationPrefix = logPrefix + 'Warning Connection';
+        ctx.logger.warn(notificationPrefix + logPostfix);
       }
       if (licenseWarningLimitConnectionsLive) {
-        ctx.logger.warn(logPrefix + 'Warning Connection Live Viewer limit exceeded!!!');
+        notificationPrefix = logPrefix + 'Warning Connection Live Viewer';
+        ctx.logger.warn(notificationPrefix + logPostfix);
       }
+    }
+
+    if (notificationPrefix) {
+      //todo with yield service could throw error
+      notificationService.notify(ctx, notificationTypes.LICENSE_LIMIT, [notificationPrefix]);
     }
     return licenseType;
   }
@@ -3928,8 +3944,20 @@ exports.install = function(server, callbackFunction) {
     });
   });
 };
-exports.setLicenseInfo = function(data, original ) {
+exports.setLicenseInfo = async function(globalCtx, data, original) {
   tenantManager.setDefLicense(data, original);
+
+  utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
+
+  const tenantsList = await tenantManager.getAllTenants(globalCtx);
+  for (const tenant of tenantsList) {
+    let ctx = new operationContext.Context();
+    ctx.setTenant(tenant);
+    await ctx.initTenantCache();
+
+    const licenseInfo = await tenantManager.getTenantLicense(ctx);
+    utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
+  }
 };
 exports.healthCheck = function(req, res) {
   return co(function*() {

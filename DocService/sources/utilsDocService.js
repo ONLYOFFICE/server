@@ -32,9 +32,16 @@
 
 'use strict';
 
-const exifParser = require("exif-parser");
-const Jimp = require("jimp");
+const config = require('config');
+const exifParser = require('exif-parser');
+const Jimp = require('jimp');
 const locale = require('windows-locale');
+const ms = require('ms');
+
+const tenantManager = require('../../Common/sources/tenantManager');
+const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
+
+const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
 
 async function fixImageExifRotation(ctx, buffer) {
   if (!buffer) {
@@ -70,7 +77,48 @@ function localeToLCID(lang) {
   return elem && elem.id;
 }
 
-module.exports = {
-  fixImageExifRotation,
-  localeToLCID
-};
+function humanFriendlyExpirationTime(endTime) {
+  const month = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+  ];
+
+  return `${month[endTime.getUTCMonth()]} ${endTime.getUTCDate()}, ${endTime.getUTCFullYear()}`
+}
+
+/**
+ * Notify server user about license expiration via configured notification transports.
+ * @param {string} ctx Context.
+ * @param {Date} endDate Date of expiration.
+ * @returns {undefined}
+ */
+function notifyLicenseExpiration(ctx, endDate) {
+  if (!endDate) {
+    ctx.logger.warn('notifyLicenseExpiration(): expiration date is not defined');
+    return;
+  }
+
+  const currentDate = new Date();
+  if (currentDate.getTime() >= endDate.getTime() - cfgStartNotifyFrom) {
+    const formattedExpirationTime = humanFriendlyExpirationTime(endDate);
+    const tenant = tenantManager.isDefaultTenant(ctx) ? 'server' : ctx.tenant;
+
+    const state = endDate < currentDate ? 'expired' : 'expires';
+    ctx.logger.warn('%s license %s on %s!!!', tenant, state, formattedExpirationTime);
+    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, [tenant, state, formattedExpirationTime]);
+  }
+}
+
+module.exports.fixImageExifRotation = fixImageExifRotation;
+module.exports.localeToLCID = localeToLCID;
+module.exports.notifyLicenseExpiration = notifyLicenseExpiration;

@@ -105,19 +105,17 @@ const updatePlugins = (eventType, filename) => {
 	updatePluginsTime = new Date();
 	pluginsLoaded = false;
 };
-const readLicense = function*() {
-	[licenseInfo, licenseOriginal] = yield* license.readLicense(cfgLicenseFile);
+const readLicense = async function () {
+	[licenseInfo, licenseOriginal] = await license.readLicense(cfgLicenseFile);
 };
-const updateLicense = () => {
-	return co(function*() {
-		try {
-			yield* readLicense();
-			docsCoServer.setLicenseInfo(licenseInfo, licenseOriginal);
-			operationContext.global.logger.info('End updateLicense');
-		} catch (err) {
-			operationContext.global.logger.error('updateLicense error: %s', err.stack);
-		}
-	});
+const updateLicense = async () => {
+	try {
+		await readLicense();
+		await docsCoServer.setLicenseInfo(operationContext.global, licenseInfo, licenseOriginal);
+		operationContext.global.logger.info('End updateLicense');
+	} catch (err) {
+		operationContext.global.logger.error('updateLicense error: %s', err.stack);
+	}
 };
 
 operationContext.global.logger.warn('Express server starting...');

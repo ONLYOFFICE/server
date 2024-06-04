@@ -915,6 +915,13 @@
         "@smithy/util-retry": "^1.0.4",
         "tslib": "^2.5.0",
         "uuid": "^8.3.2"
+      },
+      "dependencies": {
+        "uuid": {
+          "version": "8.3.2",
+          "resolved": "https://registry.npmjs.org/uuid/-/uuid-8.3.2.tgz",
+          "integrity": "sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg=="
+        }
       }
     },
     "@smithy/middleware-serde": {
@@ -1697,6 +1704,11 @@
       "resolved": "https://registry.npmjs.org/node-statsd/-/node-statsd-0.1.1.tgz",
       "integrity": "sha1-J6WTSHY9CvegN6wqAx/vPwUQE9M="
     },
+    "nodemailer": {
+      "version": "6.9.13",
+      "resolved": "https://registry.npmjs.org/nodemailer/-/nodemailer-6.9.13.tgz",
+      "integrity": "sha512-7o38Yogx6krdoBf3jCAqnIN4oSQFx+fMa0I7dK1D+me9kBxx12D+/33wSb+fhOCtIxvYJ+4x4IMEhmhCKfAiOA=="
+    },
     "oauth-sign": {
       "version": "0.9.0",
       "resolved": "https://registry.npmjs.org/oauth-sign/-/oauth-sign-0.9.0.tgz",
@@ -1973,11 +1985,6 @@
         "querystringify": "^2.1.1",
         "requires-port": "^1.0.0"
       }
-    },
-    "uuid": {
-      "version": "8.3.2",
-      "resolved": "https://registry.npmjs.org/uuid/-/uuid-8.3.2.tgz",
-      "integrity": "sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg=="
     },
     "verror": {
       "version": "1.10.0",

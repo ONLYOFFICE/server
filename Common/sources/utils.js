@@ -1202,7 +1202,7 @@ function getMonthDiff(d1, d2) {
   months += d2.getUTCMonth();
   return months;
 }
-
+exports.getMonthDiff = getMonthDiff;
 exports.getLicensePeriod = function(startDate, now) {
   startDate = new Date(startDate.getTime());//clone
   startDate.addMonths(getMonthDiff(startDate, now));
