@@ -1234,19 +1234,13 @@ function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChange
   let streamObj = yield storage.createReadStream(ctx, savePathDoc);
   let postRes = yield wopiClient.putFile(ctx, wopiParams, null, streamObj.readStream, metadata.ContentLength, userLastChangeId, isModifiedByUser, isAutosave, isExitSave);
   if (postRes) {
-    if (postRes.body) {
-      try {
-        let body = JSON.parse(postRes.body);
-        //collabora nexcloud connector
-        if (body.LastModifiedTime) {
-          let lastModifiedTimeInfo = wopiClient.getWopiModifiedMarker(wopiParams, body.LastModifiedTime);
-          yield commandOpenStartPromise(ctx, docId, undefined, lastModifiedTimeInfo);
-        }
-      } catch (e) {
-        ctx.logger.debug('processWopiPutFile error: %s', e.stack);
-      }
-    }
     res = '{"error": 0}';
+    let body = wopiClient.parsePutFileResponse(ctx, postRes);
+    //collabora nexcloud connector
+    if (body?.LastModifiedTime) {
+      let lastModifiedTimeInfo = wopiClient.getWopiModifiedMarker(wopiParams, body.LastModifiedTime);
+      yield commandOpenStartPromise(ctx, docId, undefined, lastModifiedTimeInfo);
+    }
   }
   return res;
 }

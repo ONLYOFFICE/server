@@ -447,6 +447,59 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
     return res;
   });
 }
+function parsePutFileResponse(ctx, postRes) {
+  let body = null
+  if (postRes.body) {
+    try {
+      //collabora nexcloud connector
+      body = JSON.parse(postRes.body);
+    } catch (e) {
+      ctx.logger.debug('wopi PutFile body parse error: %s', e.stack);
+    }
+  }
+  return body;
+}
+async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, access_token_ttl, lang, ui, fileType) {
+  // TODO: throw error if format not supported?
+  if (fileInfo.Size === 0 && fileType.length !== 0) {
+    const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
+
+    //Create new files using Office for the web
+    const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
+
+    if (templatesFolderLocalesCache === null) {
+      const dirContent = await readdir(`${tenNewFileTemplate}/`, {withFileTypes: true});
+      templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory())
+        .map(dirObject => dirObject.name);
+    }
+
+    const localePrefix = lang || ui || 'en';
+    let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ??
+      templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
+    if (locale === undefined) {
+      locale = constants.TEMPLATES_DEFAULT_LOCALE;
+    }
+
+    const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;
+    if (!templateFilesSizeCache[filePath]) {
+      templateFilesSizeCache[filePath] = await lstat(filePath);
+    }
+
+    const templateFileInfo = templateFilesSizeCache[filePath];
+    const templateFileStream = createReadStream(filePath);
+    let postRes = await putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
+    if (postRes) {
+      //update Size
+      fileInfo.Size = templateFileInfo.size;
+      let body = parsePutFileResponse(ctx, postRes);
+      //collabora nexcloud connector
+      if (body?.LastModifiedTime) {
+        //update LastModifiedTime
+        fileInfo.LastModifiedTime = body.LastModifiedTime;
+      }
+    }
+  }
+}
 function getEditorHtml(req, res) {
   return co(function*() {
     let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined};
@@ -454,7 +507,6 @@ function getEditorHtml(req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
       const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
       const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
       const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
@@ -482,6 +534,10 @@ function getEditorHtml(req, res) {
       if (!fileInfo) {
         params.fileInfo = {};
         return;
+      }
+      const fileType = getFileTypeByInfo(fileInfo);
+      if (!shutdownFlag) {
+        yield checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, access_token_ttl, lang, ui, fileType);
       }
 
       if (!fileInfo.UserCanWrite) {
@@ -518,36 +574,10 @@ function getEditorHtml(req, res) {
       }
       if (!shutdownFlag) {
         //save common info
-        const fileType = getFileTypeByInfo(fileInfo);
         if (undefined === lockId) {
           lockId = crypto.randomBytes(16).toString('base64');
           let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
           yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
-        }
-
-        // TODO: throw error if format not supported?
-        if (fileInfo.Size === 0 && fileType.length !== 0) {
-          const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
-
-          if (templatesFolderLocalesCache === null) {
-            const dirContent = yield readdir(`${tenNewFileTemplate}/`, { withFileTypes: true });
-            templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
-          }
-
-          const localePrefix = lang || ui || 'en';
-          let locale = constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
-          if (locale === undefined) {
-            locale = constants.TEMPLATES_DEFAULT_LOCALE;
-          }
-
-          const filePath = `${tenNewFileTemplate}/${locale}/new.${fileType}`;
-          if (!templateFilesSizeCache[filePath]) {
-            templateFilesSizeCache[filePath] = yield lstat(filePath);
-          }
-
-          const templateFileInfo = templateFilesSizeCache[filePath];
-          const templateFileStream = createReadStream(filePath);
-          yield putFile(ctx, wopiParams, undefined, templateFileStream, templateFileInfo.size, fileInfo.UserId, false, false, false);
         }
 
         //Lock
@@ -1030,6 +1060,7 @@ exports.parseWopiCallback = parseWopiCallback;
 exports.getEditorHtml = getEditorHtml;
 exports.getConverterHtml = getConverterHtml;
 exports.putFile = putFile;
+exports.parsePutFileResponse = parsePutFileResponse;
 exports.putRelativeFile = putRelativeFile;
 exports.renameFile = renameFile;
 exports.lock = lock;
