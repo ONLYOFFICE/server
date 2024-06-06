@@ -502,7 +502,7 @@ async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, ac
 }
 function getEditorHtml(req, res) {
   return co(function*() {
-    let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined};
+    let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined, docs_api_config: {}};
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
@@ -528,6 +528,10 @@ function getEditorHtml(req, res) {
       let ui = req.query['ui'];
       let access_token = req.body['access_token'] || "";
       let access_token_ttl = parseInt(req.body['access_token_ttl']) || 0;
+      let docs_api_config = req.body['docs_api_config'];
+      if (docs_api_config) {
+        params.docs_api_config = JSON.parse(docs_api_config);
+      }
 
 
       let fileInfo = params.fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token, sc);
