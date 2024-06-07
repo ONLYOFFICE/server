@@ -1300,9 +1300,9 @@ let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   //wopi unlock
   var getRes = yield getCallback(ctx, docId, opt_userIndex);
   if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
-    yield wopiClient.unlock(ctx, getRes.wopiParams);
+    let unlockRes = yield wopiClient.unlock(ctx, getRes.wopiParams);
     let unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
-    if (unlockInfo) {
+    if (unlockInfo && unlockRes) {
       yield canvasService.commandOpenStartPromise(ctx, docId, undefined, unlockInfo);
     }
   }

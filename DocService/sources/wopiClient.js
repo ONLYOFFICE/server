@@ -876,40 +876,41 @@ function lock(ctx, command, lockId, fileInfo, userAuth) {
     return res;
   });
 }
-function unlock(ctx, wopiParams) {
-  return co(function* () {
-    try {
-      ctx.logger.info('wopi Unlock start');
-      const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+async function unlock(ctx, wopiParams) {
+  let res = false;
+  try {
+    ctx.logger.info('wopi Unlock start');
+    const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
-      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+    if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+      return;
+    }
+    let fileInfo = wopiParams.commonInfo.fileInfo;
+    if (fileInfo && fileInfo.SupportsLocks) {
+      let wopiSrc = wopiParams.userAuth.wopiSrc;
+      let lockId = wopiParams.commonInfo.lockId;
+      let access_token = wopiParams.userAuth.access_token;
+      let uri = `${wopiSrc}?access_token=${access_token}`;
+      let filterStatus = await checkIpFilter(ctx, uri);
+      if (0 !== filterStatus) {
         return;
       }
-      let fileInfo = wopiParams.commonInfo.fileInfo;
-      if (fileInfo && fileInfo.SupportsLocks) {
-        let wopiSrc = wopiParams.userAuth.wopiSrc;
-        let lockId = wopiParams.commonInfo.lockId;
-        let access_token = wopiParams.userAuth.access_token;
-        let uri = `${wopiSrc}?access_token=${access_token}`;
-        let filterStatus = yield checkIpFilter(ctx, uri);
-        if (0 !== filterStatus) {
-          return;
-        }
 
-        let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
-        yield fillStandardHeaders(ctx, headers, uri, access_token);
-        ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
-        ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
-      } else {
-        ctx.logger.info('wopi SupportsLocks = false');
-      }
-    } catch (err) {
-      ctx.logger.error('wopi error Unlock:%s', err.stack);
-    } finally {
-      ctx.logger.info('wopi Unlock end');
+      let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
+      await fillStandardHeaders(ctx, headers, uri, access_token);
+      ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
+      let postRes = await utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
+      ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
+      res = true;
+    } else {
+      ctx.logger.info('wopi SupportsLocks = false');
     }
-  });
+  } catch (err) {
+    ctx.logger.error('wopi error Unlock:%s', err.stack);
+  } finally {
+    ctx.logger.info('wopi Unlock end');
+  }
+  return res;
 }
 function generateProofBuffer(url, accessToken, timeStamp) {
   const accessTokenBytes = Buffer.from(accessToken, 'utf8');
