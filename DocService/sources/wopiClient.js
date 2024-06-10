@@ -579,7 +579,8 @@ function getEditorHtml(req, res) {
       if (!shutdownFlag) {
         //save common info
         if (undefined === lockId) {
-          lockId = crypto.randomBytes(16).toString('base64');
+          //Use deterministic(not random) lockId to fix issues with forgotten openings due to integrator failures
+          lockId = docId;
           let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
           yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
         }
