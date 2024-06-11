@@ -65,17 +65,17 @@ function isDiffrentPersistentStorage() {
 async function headObject(ctx, strPath, opt_specialDir) {
   let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
-  return await storage.headObject(storageCfg, getStoragePath(storageCfg, strPath, opt_specialDir));
+  return await storage.headObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function getObject(ctx, strPath, opt_specialDir) {
   let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
-  return await storage.getObject(storageCfg, getStoragePath(storageCfg, strPath, opt_specialDir));
+  return await storage.getObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function createReadStream(ctx, strPath, opt_specialDir) {
   let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
-  return await storage.createReadStream(storageCfg, getStoragePath(storageCfg, strPath, opt_specialDir));
+  return await storage.createReadStream(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function putObject(ctx, strPath, buffer, contentLength, opt_specialDir) {
   let storage = getStorage(opt_specialDir);
