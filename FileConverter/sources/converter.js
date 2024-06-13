@@ -91,6 +91,7 @@ var exitCodesReturn = [constants.CONVERT_PARAMS, constants.CONVERT_NEED_PARAMS, 
 var exitCodesMinorError = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM, constants.CONVERT_DRM_UNSUPPORTED, constants.CONVERT_PASSWORD];
 var exitCodesUpload = [constants.NO_ERROR, constants.CONVERT_CORRUPTED, constants.CONVERT_NEED_PARAMS,
   constants.CONVERT_DRM, constants.CONVERT_DRM_UNSUPPORTED];
+var exitCodesCopyOrigin = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM];
 let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(ctx, task) {
@@ -906,6 +907,13 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     ctx.logger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
   }
   if (-1 !== exitCodesUpload.indexOf(error)) {
+    if (-1 !== exitCodesCopyOrigin.indexOf(error)) {
+      let originPath = path.join(path.dirname(dataConvert.fileTo), "origin" + path.extname(dataConvert.fileFrom));
+      if (!fs.existsSync(dataConvert.fileTo)) {
+        fs.copyFileSync(dataConvert.fileFrom, originPath);
+        ctx.logger.debug('copyOrigin complete');
+      }
+    }
     //todo clarify calcChecksum conditions
     let calcChecksum = (0 === (constants.AVS_OFFICESTUDIO_FILE_CANVAS & cmd.getOutputFormat()));
     yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key, calcChecksum);
