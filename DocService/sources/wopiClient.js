@@ -420,7 +420,7 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
           ctx.logger.debug('wopiEditor unlockMarkStr=%s', unlockMarkStr);
           let hasUnlockMarker = isWopiUnlockMarker(unlockMarkStr);
           ctx.logger.debug('wopiEditor hasUnlockMarker=%s', hasUnlockMarker);
-          if (hasUnlockMarker) {
+          if (hasUnlockMarker || !commonInfo.fileInfo.SupportsLocks) {
             let fileInfoVersion = fileInfo.Version;
             let cacheVersion = commonInfo.fileInfo.Version;
             let fileInfoModified = fileInfo.LastModifiedTime;
