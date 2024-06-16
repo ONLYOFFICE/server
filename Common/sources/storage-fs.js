@@ -117,7 +117,7 @@ async function deleteObject(storageCfg, strPath) {
 
 async function deletePath(storageCfg, strPath) {
   const fsPath = getFilePath(storageCfg, strPath);
-  return rm(fsPath, {force: true, recursive: true});
+  return rm(fsPath, {force: true, recursive: true, maxRetries: 3});
 }
 
 async function getSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
