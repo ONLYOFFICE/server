@@ -216,6 +216,8 @@
 				"healthcheckfilepath": "../public/healthcheck.docx",
 				"savetimeoutdelay": 5000,
 				"edit_singleton": false,
+				"editorSettingsDir": "settings",
+				"editorSettingsFileName": "profile",
 				"forgottenfiles": "forgotten",
 				"forgottenfilesname": "output",
 				"maxRequestChanges": 20000,

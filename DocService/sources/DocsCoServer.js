@@ -133,6 +133,8 @@ const cfgTokenVerifyOptions = config.get('services.CoAuthoring.token.verifyOptio
 const cfgForceSaveEnable = config.get('services.CoAuthoring.autoAssembly.enable');
 const cfgForceSaveInterval = config.get('services.CoAuthoring.autoAssembly.interval');
 const cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
+const cfgEditorSettingsDir = config.get('services.CoAuthoring.server.editorSettingsDir');
+const cfgEditorSettingsFileName = config.get('services.CoAuthoring.server.editorSettingsFileName');
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
@@ -1744,6 +1746,9 @@ exports.install = function(server, callbackFunction) {
               case 'authChangesAck' :
                 delete conn.authChangesAck;
                 break;
+              case 'saveEditorSettings':
+                yield saveEditorSettings(ctx, data);
+                break;
               default:
                 ctx.logger.debug("unknown command %j", data);
                 break;
@@ -1776,6 +1781,36 @@ exports.install = function(server, callbackFunction) {
   io.engine.on("connection_error", (err) => {
     operationContext.global.logger.warn('io.connection_error code=%s, message=%s', err.code, err.message);
   });
+
+  async function saveEditorSettings(ctx, data) {
+    const tenEditorSettingsDir = ctx.getCfg('services.CoAuthoring.server.editorSettingsDir', cfgEditorSettingsDir);
+    const tenSettingsFileName = ctx.getCfg('services.CoAuthoring.server.editorSettingsFileName', cfgEditorSettingsFileName);
+    const settingsData = Buffer.from(JSON.stringify(data.settings));
+    try {
+      // TODO: overwriting file or leave untouched?
+      await storage.putObject(ctx, `${data.user.id}/${tenSettingsFileName}.json`, settingsData, settingsData.length, tenEditorSettingsDir);
+    } catch (error) {
+      ctx.logger.error('saveEditorSettings(): ', error);
+    }
+  }
+
+  async function loadEditorSettings(ctx) {
+    const tenEditorSettingsDir = ctx.getCfg('services.CoAuthoring.server.editorSettingsDir', cfgEditorSettingsDir);
+    const tenSettingsFileName = ctx.getCfg('services.CoAuthoring.server.editorSettingsFileName', cfgEditorSettingsFileName);
+
+    try {
+      const buffer = await storage.getObject(ctx, `${ctx.userId}/${tenSettingsFileName}.json`, tenEditorSettingsDir);
+      return buffer.toString();
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        ctx.logger.warn(`loadEditorSettings(): No editor settings profile found for user "${ctx.userId}"`);
+      } else {
+        ctx.logger.error('loadEditorSettings(): ', error);
+      }
+      return '';
+    }
+  }
+
   /**
    *
    * @param ctx
@@ -3007,6 +3042,8 @@ exports.install = function(server, callbackFunction) {
     let tenEditor = getEditorConfig(ctx);
     tenEditor["limits_image_size"] = tenImageSize;
     tenEditor["limits_image_types_upload"] = tenTypesUpload;
+    const editorSettings = yield loadEditorSettings(ctx);
+
     const sendObject = {
       type: 'auth',
       result: 1,
@@ -3023,6 +3060,7 @@ exports.install = function(server, callbackFunction) {
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
       settings: tenEditor,
+      editorSettings,
       openedAt: opt_openedAt
     };
     sendData(ctx, conn, sendObject);//Or 0 if fails
@@ -3387,56 +3425,56 @@ exports.install = function(server, callbackFunction) {
     return !isLock;
   }
 
-	function _checkLicense(ctx, conn) {
-		return co(function* () {
-			try {
-				ctx.logger.info('_checkLicense start');
+  function _checkLicense(ctx, conn) {
+    return co(function* () {
+      try {
+        ctx.logger.info('_checkLicense start');
         const tenEditSingleton = ctx.getCfg('services.CoAuthoring.server.edit_singleton', cfgEditSingleton);
         const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
         const tenIsAnonymousSupport = ctx.getCfg('services.CoAuthoring.server.isAnonymousSupport', cfgIsAnonymousSupport);
 
-				let rights = constants.RIGHTS.Edit;
-				if (tenEditSingleton) {
-					// ToDo docId from url ?
-					let handshake = conn.handshake;
-					const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(handshake.url);
-					if (docIdParsed && 1 < docIdParsed.length) {
-						const participantsMap = yield getParticipantMap(ctx, docIdParsed[1]);
-						for (let i = 0; i < participantsMap.length; ++i) {
-							const elem = participantsMap[i];
-							if (!elem.view) {
-								rights = constants.RIGHTS.View;
-								break;
-							}
-						}
-					}
-				}
+        let rights = constants.RIGHTS.Edit;
+        if (tenEditSingleton) {
+          // ToDo docId from url ?
+          let handshake = conn.handshake;
+          const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(handshake.url);
+          if (docIdParsed && 1 < docIdParsed.length) {
+            const participantsMap = yield getParticipantMap(ctx, docIdParsed[1]);
+            for (let i = 0; i < participantsMap.length; ++i) {
+              const elem = participantsMap[i];
+              if (!elem.view) {
+                rights = constants.RIGHTS.View;
+                break;
+              }
+            }
+          }
+        }
 
-				let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+        let licenseInfo = yield tenantManager.getTenantLicense(ctx);
 
-				sendData(ctx, conn, {
-					type: 'license', license: {
-						type: licenseInfo.type,
-						light: licenseInfo.light,
-						mode: licenseInfo.mode,
-						rights: rights,
-						buildVersion: commonDefines.buildVersion,
-						buildNumber: commonDefines.buildNumber,
-						protectionSupport: tenOpenProtectedFile, //todo find a better place
-						isAnonymousSupport: tenIsAnonymousSupport, //todo find a better place
-						liveViewerSupport: utils.isLiveViewerSupport(licenseInfo),
-						branding: licenseInfo.branding,
-						customization: licenseInfo.customization,
-						advancedApi: licenseInfo.advancedApi,
-						plugins: licenseInfo.plugins
-					}
-				});
-				ctx.logger.info('_checkLicense end');
-			} catch (err) {
-				ctx.logger.error('_checkLicense error: %s', err.stack);
-			}
-		});
-	}
+        sendData(ctx, conn, {
+          type: 'license', license: {
+            type: licenseInfo.type,
+            light: licenseInfo.light,
+            mode: licenseInfo.mode,
+            rights: rights,
+            buildVersion: commonDefines.buildVersion,
+            buildNumber: commonDefines.buildNumber,
+            protectionSupport: tenOpenProtectedFile, //todo find a better place
+            isAnonymousSupport: tenIsAnonymousSupport, //todo find a better place
+            liveViewerSupport: utils.isLiveViewerSupport(licenseInfo),
+            branding: licenseInfo.branding,
+            customization: licenseInfo.customization,
+            advancedApi: licenseInfo.advancedApi,
+            plugins: licenseInfo.plugins
+          }
+        });
+        ctx.logger.info('_checkLicense end');
+      } catch (err) {
+        ctx.logger.error('_checkLicense error: %s', err.stack);
+      }
+    });
+  }
 
   function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer, logPrefix) {
     const tenWarningLimitPercents = ctx.getCfg('license.warning_limit_percents', cfgWarningLimitPercents) / 100;
