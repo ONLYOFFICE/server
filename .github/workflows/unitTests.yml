@@ -1,0 +1,36 @@
+name: Service unit tests
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - '**.js'
+      - '!tests/integration/**'
+      - '!DocService/sources/databaseConnectors/**'
+jobs:
+  unit-tests:
+    name: Service unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Caching dependencies
+        uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+          cache: 'npm'
+          cache-dependency-path: |
+            ./npm-shrinkwrap.json
+            ./Common/npm-shrinkwrap.json
+            ./DocService/npm-shrinkwrap.json
+
+      - name: Install modules
+        run: |
+          npm ci
+          npm --prefix Common ci
+          npm --prefix DocService ci
+
+      - name: Run Jest
+        run: npm run "unit tests"

@@ -1,4 +1,4 @@
-const constants = require('./../../Common/sources/constants');
+const constants = require('../../../Common/sources/constants');
 
 function UserCallback() {
   this.userIndex = undefined;
@@ -59,7 +59,6 @@ UserCallback.prototype.getCallbacks = function(ctx, callbacksStr) {
   }
   return res;
 };
-exports.UserCallback = UserCallback;
 
 function DocumentPassword() {
   this.password = undefined;
@@ -111,7 +110,6 @@ DocumentPassword.prototype.hasPasswordChanges = function(ctx, docPasswordStr) {
   let docPassword = this.getDocPassword(ctx, docPasswordStr);
   return docPassword.initial !== docPassword.current;
 };
-exports.DocumentPassword = DocumentPassword;
 
 function DocumentAdditional() {
   this.data = [];
@@ -152,6 +150,7 @@ DocumentAdditional.prototype.getOpenedAt = function(str) {
   });
   return res;
 };
+
 DocumentAdditional.prototype.setShardKey = function(shardKey) {
   let additional = new DocumentAdditional();
   additional.data.push({shardKey});
@@ -169,4 +168,25 @@ DocumentAdditional.prototype.getShardKey = function(str) {
   return res;
 };
 
-exports.DocumentAdditional = DocumentAdditional;
+DocumentAdditional.prototype.setWopiSrc = function(wopiSrc) {
+  let additional = new DocumentAdditional();
+  additional.data.push({wopiSrc});
+  return additional.toSQLInsert();
+};
+DocumentAdditional.prototype.getWopiSrc = function(str) {
+  let res;
+  let val = new DocumentAdditional();
+  val.fromString(str);
+  val.data.forEach((elem) => {
+    if (elem.wopiSrc) {
+      res = elem.wopiSrc;
+    }
+  });
+  return res;
+};
+
+module.exports = {
+  UserCallback,
+  DocumentPassword,
+  DocumentAdditional
+}

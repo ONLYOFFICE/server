@@ -151,7 +151,7 @@ function repeat(pubsub) {
 }
 function publishRabbit(pubsub, data) {
   return new Promise(function (resolve, reject) {
-    //Channels act like stream.Writable when you call publish or sendToQueue: they return either true, meaning “keep sending”, or false, meaning “please wait for a ‘drain’ event”.
+    //Channels act like stream.Writable when you call publish or sendToQueue: they return either true, meaning â€œkeep sendingâ€, or false, meaning â€œplease wait for a â€˜drainâ€™ eventâ€.
     let keepSending = pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
     if (!keepSending) {
       //todo (node:4308) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 drain listeners added to [Sender]. Use emitter.setMaxListeners() to increase limit

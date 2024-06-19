@@ -47,7 +47,7 @@ var commondefines = require('./../../Common/sources/commondefines');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var operationContext = require('./../../Common/sources/operationContext');
 var pubsubService = require('./pubsubRabbitMQ');
-const sqlBase = require("./baseConnector");
+const sqlBase = require("./databaseConnectors/baseConnector");
 
 var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
 var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
@@ -78,7 +78,8 @@ var checkFileExpire = function(expireSeconds) {
           let tenant = expired[i].tenant;
           let docId = expired[i].id;
           let shardKey = sqlBase.DocumentAdditional.prototype.getShardKey(expired[i].additional);
-          ctx.init(tenant, docId, ctx.userId, shardKey);
+          let wopiSrc = sqlBase.DocumentAdditional.prototype.getWopiSrc(expired[i].additional);
+          ctx.init(tenant, docId, ctx.userId, shardKey, wopiSrc);
           yield ctx.initTenantCache();
           //todo tenant
           //check that no one is in the document
@@ -125,7 +126,7 @@ var checkDocumentExpire = function() {
             var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
             if (hasChanges) {
               //todo opt_initShardKey from getDocumentPresenceExpired data or from db
-              yield docsCoServer.createSaveTimer(ctx, docId, null, null, queue, true, true);
+              yield docsCoServer.createSaveTimer(ctx, docId, null, null, null, queue, true, true);
               startSaveCount++;
             } else {
               yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId);

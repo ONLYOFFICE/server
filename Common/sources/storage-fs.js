@@ -32,181 +32,148 @@
 
 'use strict';
 
-var fs = require('fs');
-const fse = require('fs-extra')
+const { cp, rm, mkdir } = require('fs/promises');
+const { stat, readFile, writeFile } = require('fs/promises');
 var path = require('path');
-var mkdirp = require('mkdirp');
 var utils = require("./utils");
 var crypto = require('crypto');
 const ms = require('ms');
+const config = require('config');
 const commonDefines = require('./../../Common/sources/commondefines');
 const constants = require('./../../Common/sources/constants');
 
-var config = require('config');
-var configStorage = config.get('storage');
-var cfgBucketName = configStorage.get('bucketName');
-var cfgStorageFolderName = configStorage.get('storageFolderName');
-var configFs = configStorage.get('fs');
-var cfgStorageFolderPath = configFs.get('folderPath');
-var cfgStorageSecretString = configFs.get('secretString');
-var cfgStorageUrlExpires = configFs.get('urlExpires');
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 
-function getFilePath(strPath) {
-  return path.join(cfgStorageFolderPath, strPath);
+//Stubs are needed until integrators pass these parameters to all requests
+let shardKeyCached;
+let wopiSrcCached;
+
+function getFilePath(storageCfg, strPath) {
+  const storageFolderPath = storageCfg.fs.folderPath;
+  return path.join(storageFolderPath, strPath);
 }
 function getOutputPath(strPath) {
   return strPath.replace(/\\/g, '/');
 }
-function removeEmptyParent(strPath, done) {
-  if (cfgStorageFolderPath.length + 1 >= strPath.length) {
-    done();
+
+async function headObject(storageCfg, strPath) {
+  let fsPath = getFilePath(storageCfg, strPath);
+  let stats = await stat(fsPath);
+  return {ContentLength: stats.size};
+}
+
+async function getObject(storageCfg, strPath) {
+  let fsPath = getFilePath(storageCfg, strPath);
+  return await readFile(fsPath);
+}
+
+async function createReadStream(storageCfg, strPath) {
+  let fsPath = getFilePath(storageCfg, strPath);
+  let stats = await stat(fsPath);
+  let contentLength = stats.size;
+  let readStream = await utils.promiseCreateReadStream(fsPath);
+  return {
+    contentLength: contentLength,
+    readStream: readStream
+  };
+}
+
+async function putObject(storageCfg, strPath, buffer, contentLength) {
+  var fsPath = getFilePath(storageCfg, strPath);
+  await mkdir(path.dirname(fsPath), {recursive: true});
+
+  if (Buffer.isBuffer(buffer)) {
+    await writeFile(fsPath, buffer);
   } else {
-    fs.readdir(strPath, function(err, list) {
-      if (err) {
-        //we do not react to the error, because most likely this folder was deleted in a neighboring thread
-        done();
-      } else {
-        if (list.length > 0) {
-          done();
-        } else {
-          fs.rmdir(strPath, function(err) {
-            if (err) {
-              //we do not react to the error, because most likely this folder was deleted in a neighboring thread
-              done();
-            } else {
-              removeEmptyParent(path.dirname(strPath), function(err) {
-                done(err);
-              });
-            }
-          });
-        }
-      }
-    });
+    let writable = await utils.promiseCreateWriteStream(fsPath);
+    await utils.pipeStreams(buffer, writable, true);
   }
 }
 
-exports.headObject = function(strPath) {
-  return utils.fsStat(getFilePath(strPath)).then(function(stats) {
-    return {ContentLength: stats.size};
-  });
-};
-exports.getObject = function(strPath) {
-  return utils.readFile(getFilePath(strPath));
-};
-exports.createReadStream = function(strPath) {
-  let fsPath = getFilePath(strPath);
-  let contentLength;
-  return new Promise(function(resolve, reject) {
-    fs.stat(fsPath, function(err, stats) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(stats);
-      }
-    });
-  }).then(function(stats){
-    contentLength = stats.size;
-    return utils.promiseCreateReadStream(fsPath);
-  }).then(function(readStream, stats){
-    return {
-      contentLength: contentLength,
-      readStream: readStream
-    };
-  });
-};
+async function uploadObject(storageCfg, strPath, filePath) {
+  let fsPath = getFilePath(storageCfg, strPath);
+  await cp(filePath, fsPath, {force: true, recursive: true});
+}
 
-exports.putObject = function(strPath, buffer, contentLength) {
-  return new Promise(function(resolve, reject) {
-    var fsPath = getFilePath(strPath);
-    mkdirp(path.dirname(fsPath), function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        //todo 0666
-        if (Buffer.isBuffer(buffer)) {
-          fs.writeFile(fsPath, buffer, function(err) {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
-        } else {
-          utils.promiseCreateWriteStream(fsPath).then(function(writable) {
-            buffer.pipe(writable);
-          }).catch(function(err) {
-            reject(err);
-          });
-        }
-      }
-    });
-  });
-};
-exports.uploadObject = function(strPath, filePath) {
-  let fsPath = getFilePath(strPath);
-  return fse.copy(filePath, fsPath);
-};
-exports.copyObject = function(sourceKey, destinationKey) {
-  let fsPathSource = getFilePath(sourceKey);
-  let fsPathSestination = getFilePath(destinationKey);
-  return fse.copy(fsPathSource, fsPathSestination);
-};
-exports.listObjects = function(strPath) {
-  return utils.listObjects(getFilePath(strPath)).then(function(values) {
-    return values.map(function(curvalue) {
-      return getOutputPath(curvalue.substring(cfgStorageFolderPath.length + 1));
-    });
-  });
-};
-exports.deleteObject = function(strPath) {
-  return new Promise(function(resolve, reject) {
-    const fsPath = getFilePath(strPath);
-    fs.unlink(fsPath, function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        //resolve();
-        removeEmptyParent(path.dirname(fsPath), function(err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      }
-    });
-  });
-};
-exports.deleteObjects = function(strPaths) {
-  return Promise.all(strPaths.map(exports.deleteObject));
-};
-exports.getSignedUrl = function(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-  return new Promise(function(resolve, reject) {
-    //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
-    var userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, "%2f")) : path.basename(strPath);
-    var uri = '/' + cfgBucketName + '/' + cfgStorageFolderName + '/' + strPath + '/' + userFriendlyName;
-    //RFC 1123 does not allow underscores https://stackoverflow.com/questions/2180465/can-domain-name-subdomains-have-an-underscore-in-it
-    var url = utils.checkBaseUrl(ctx, baseUrl).replace(/_/g, "%5f");
-    url += uri;
+async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
+  let fsPathSource = getFilePath(storageCfgSrc, sourceKey);
+  let fsPathDestination = getFilePath(storageCfgDst, destinationKey);
+  await cp(fsPathSource, fsPathDestination, {force: true, recursive: true});
+}
 
-    var date = Date.now();
-    let creationDate = opt_creationDate || date;
-    let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : cfgStorageUrlExpires) || 31536000;
-    //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
-    var expires = creationDate + Math.ceil(Math.abs(date - creationDate)/expiredAfter) * expiredAfter;
-    expires = Math.ceil(expires / 1000);
-    expires += expiredAfter;
+async function listObjects(storageCfg, strPath) {
+  const storageFolderPath = storageCfg.fs.folderPath;
+  let fsPath = getFilePath(storageCfg, strPath);
+  let values = await utils.listObjects(fsPath);
+  return values.map(function(curvalue) {
+    return getOutputPath(curvalue.substring(storageFolderPath.length + 1));
+  });
+}
 
-    var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(uri) + cfgStorageSecretString).digest("base64");
-    md5 = md5.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+async function deleteObject(storageCfg, strPath) {
+  const fsPath = getFilePath(storageCfg, strPath);
+  return rm(fsPath, {force: true, recursive: true});
+}
 
-    url += '?md5=' + encodeURIComponent(md5);
-    url += '&expires=' + encodeURIComponent(expires);
+async function deletePath(storageCfg, strPath) {
+  const fsPath = getFilePath(storageCfg, strPath);
+  return rm(fsPath, {force: true, recursive: true, maxRetries: 3});
+}
+
+async function getSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+  const storageSecretString = storageCfg.fs.secretString;
+  const storageUrlExpires = storageCfg.fs.urlExpires;
+  const bucketName = storageCfg.bucketName;
+  const storageFolderName = storageCfg.storageFolderName;
+  //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
+  const userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, "%2f")) : path.basename(strPath);
+  var uri = '/' + bucketName + '/' + storageFolderName + '/' + strPath + '/' + userFriendlyName;
+  //RFC 1123 does not allow underscores https://stackoverflow.com/questions/2180465/can-domain-name-subdomains-have-an-underscore-in-it
+  var url = utils.checkBaseUrl(ctx, baseUrl, storageCfg).replace(/_/g, "%5f");
+  url += uri;
+
+  var date = Date.now();
+  let creationDate = opt_creationDate || date;
+  let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : storageUrlExpires) || 31536000;
+  //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
+  var expires = creationDate + Math.ceil(Math.abs(date - creationDate) / expiredAfter) * expiredAfter;
+  expires = Math.ceil(expires / 1000);
+  expires += expiredAfter;
+
+  var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(uri) + storageSecretString).digest("base64");
+  md5 = md5.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+  url += '?md5=' + encodeURIComponent(md5);
+  url += '&expires=' + encodeURIComponent(expires);
   if (ctx.shardKey) {
-    url += `&${constants.SHARED_KEY_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+    shardKeyCached = ctx.shardKey;
+    url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+  } else if (ctx.wopiSrc) {
+    wopiSrcCached = ctx.wopiSrc;
+    url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
+  } else if (shardKeyCached) {
+    url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardKeyCached)}`;
+  } else if (wopiSrcCached) {
+    url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrcCached)}`;
   }
-    url += '&filename=' + userFriendlyName;
-    resolve(url);
-  });
+  url += '&filename=' + userFriendlyName;
+  return url;
+}
+
+function needServeStatic() {
+  return true;
+}
+
+module.exports = {
+  headObject,
+  getObject,
+  createReadStream,
+  putObject,
+  uploadObject,
+  copyObject,
+  listObjects,
+  deleteObject,
+  deletePath,
+  getSignedUrl,
+  needServeStatic
 };

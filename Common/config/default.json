@@ -35,6 +35,8 @@
 		"s3ForcePathStyle": true,
 		"externalHost": ""
 	},
+	"persistentStorage": {
+	},
 	"rabbitmq": {
 		"url": "amqp://guest:guest@localhost:5672",
 		"socketOptions": {},
@@ -84,25 +86,28 @@
 		"favIconUrlWord" : "/web-apps/apps/documenteditor/main/resources/img/favicon.ico",
 		"favIconUrlCell" : "/web-apps/apps/spreadsheeteditor/main/resources/img/favicon.ico",
 		"favIconUrlSlide" : "/web-apps/apps/presentationeditor/main/resources/img/favicon.ico",
+		"favIconUrlPdf" : "/web-apps/apps/pdfeditor/main/resources/img/favicon.ico",
 		"fileInfoBlockList" : ["FileUrl"],
-		"pdfView": ["pdf", "djvu", "xps", "oxps"],
-		"wordView": ["doc", "dotx", "dotm", "dot", "fodt", "ott", "rtf", "mht", "mhtml", "html", "htm", "xml", "epub", "fb2", "sxw", "stw", "wps", "wpt"],
-		"wordEdit": ["docx", "docm", "docxf", "oform", "odt", "txt"],
+		"pdfView": ["djvu", "xps", "oxps"],
+		"pdfEdit": ["pdf"],
+		"forms": ["pdf"],
+		"wordView": ["doc", "dotx", "dotm", "dot", "fodt", "ott", "rtf", "mht", "mhtml", "html", "htm", "xml", "epub", "fb2", "sxw", "stw", "wps", "wpt", "docxf", "oform"],
+		"wordEdit": ["docx", "docm", "odt", "txt"],
 		"cellView": ["xls", "xlsb", "xltx", "xltm", "xlt", "fods", "ots", "sxc", "xml", "et", "ett"],
 		"cellEdit": ["xlsx", "xlsm", "ods", "csv"],
 		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potx", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt"],
 		"slideEdit": ["pptx", "pptm", "odp"],
-		"publicKey": "BgIAAACkAABSU0ExAAgAAAEAAQD/NVqekFNi8X3p6Bvdlaxm0GGuggW5kKfVEQzPGuOkGVrz6DrOMNR+k7Pq8tONY+1NHgS6Z+v3959em78qclVDuQX77Tkml0xMHAQHN4sAHF9iQJS8gOBUKSVKaHD7Z8YXch6F212YSUSc8QphpDSHWVShU7rcUeLQsd/0pkflh5+um4YKEZhm4Mou3vstp5p12NeffyK1WFZF7q4jB7jclAslYKQsP82YY3DcRwu5Tl/+W0ifVcXze0mI7v1reJ12pKn8ifRiq+0q5oJST3TRSrvmjLg9Gt3ozhVIt2HUi3La7Qh40YOAUXm0g/hUq2BepeOp1C7WSvaOFHXe6Hqq",
-		"modulus": "qnro3nUUjvZK1i7UqeOlXmCrVPiDtHlRgIPReAjt2nKL1GG3SBXO6N0aPbiM5rtK0XRPUoLmKu2rYvSJ/Kmkdp14a/3uiEl788VVn0hb/l9OuQtH3HBjmM0/LKRgJQuU3LgHI67uRVZYtSJ/n9fYdZqnLfveLsrgZpgRCoabrp+H5Uem9N+x0OJR3LpToVRZhzSkYQrxnERJmF3bhR5yF8Zn+3BoSiUpVOCAvJRAYl8cAIs3BwQcTEyXJjnt+wW5Q1VyKr+bXp/39+tnugQeTe1jjdPy6rOTftQwzjro81oZpOMazwwR1aeQuQWCrmHQZqyV3Rvo6X3xYlOQnlo1/w==",
-		"exponent": "AQAB",
-		"privateKey": "MIIEowIBAAKCAQEAqnro3nUUjvZK1i7UqeOlXmCrVPiDtHlRgIPReAjt2nKL1GG3SBXO6N0aPbiM5rtK0XRPUoLmKu2rYvSJ/Kmkdp14a/3uiEl788VVn0hb/l9OuQtH3HBjmM0/LKRgJQuU3LgHI67uRVZYtSJ/n9fYdZqnLfveLsrgZpgRCoabrp+H5Uem9N+x0OJR3LpToVRZhzSkYQrxnERJmF3bhR5yF8Zn+3BoSiUpVOCAvJRAYl8cAIs3BwQcTEyXJjnt+wW5Q1VyKr+bXp/39+tnugQeTe1jjdPy6rOTftQwzjro81oZpOMazwwR1aeQuQWCrmHQZqyV3Rvo6X3xYlOQnlo1/wIDAQABAoIBAQCKtUSBs8tNYrGTQTlBHXrwpkDg+u7WSZt5sEcfnkxA39BLtlHU8gGO0E9Ihr8GAL+oWjUsEltJ9GTtN8CJ9lFdPVS8sTiCZR/YQOggmFRZTJyVzMrkXgF7Uwwiu3+KxLiTOZx9eRhfDBlTD8W9fXaegX2i2Xp2ohUhBHthEBLdaZTWFi5Sid/Y0dDzBeP6UIJorZ5D+1ybaeIVHjndpwNsIEUGUxPFLrkeiU8Rm4MJ9ahxfywcP7DjQoPGY9Ge5cBhpxfzERWf732wUD6o3+L9tvOBU00CLVjULbGZKTVE2FJMyXK9jr6Zor9Mkhomp6/8Agkr9rp+TPyelFGYEz8hAoGBAOEc09CrL3eYBkhNEcaMQzxBLvOGpg8kaDX5SaArHfl9+U9yzRqss4ARECanp9HuHfjMQo7iejao0ngDjL7BNMSaH74QlSsPOY2iOm8Qvx8/zb7g4h9r1zLjFZb3mpSA4snRZvvdiZ9ugbuVPmhXnDzRRMg45MibJeeOTJNylofRAoGBAMHfF/WutqKDoX25qZo9m74W4bttOj6oIDk1N4/c6M1Z1v/aptYSE06bkWngj9P46kqjaay4hgMtzyGruc5aojPx5MHHf5bo14+Jv4NzYtR2llrUxO+UJX7aCfUYXI7RC93GUmhpeQ414j7SNAXec58d7e+ETw+6cHiAWO4uOSTPAoGATPq5qDLR4Zi4FUNdn8LZPyKfNqHF6YmupT5hIgd8kZO1jKiaYNPL8jBjkIRmjBBcaXcYD5p85nImvumf2J9jNxPpZOpwyC/Fo5xlVROp97qu1eY7DTmodntXJ6/2SXAlnZQhHmHsrPtyG752f+HtyJJbbgiem8cKWDu+DfHybfECgYBbSLo1WiBwgN4nHqZ3E48jgA6le5azLeKOTTpuKKwNFMIhEkj//t7MYn+jhLL0Mf3PSwZU50Vidc1To1IHkbFSGBGIFHFFEzl8QnXEZS4hr/y3o/teezj0c6HAn8nlDRUzRVBEDXWMdV6kCcGpCccTIrqHzpqTY0vV0UkOTQFnDQKBgAxSEhm/gtCYJIMCBe+KBJT9uECV5xDQopTTjsGOkd4306EN2dyPOIlAfwM6K/0qWisa0Ei5i8TbRRuBeTTdLEYLqXCJ7fj5tdD1begBdSVtHQ2WHqzPJSuImTkFi9NXxd1XUyZFM3y6YQvlssSuL7QSxUIEtZHnrJTt3QDd10dj",
-		"publicKeyOld": "BgIAAACkAABSU0ExAAgAAAEAAQD/NVqekFNi8X3p6Bvdlaxm0GGuggW5kKfVEQzPGuOkGVrz6DrOMNR+k7Pq8tONY+1NHgS6Z+v3959em78qclVDuQX77Tkml0xMHAQHN4sAHF9iQJS8gOBUKSVKaHD7Z8YXch6F212YSUSc8QphpDSHWVShU7rcUeLQsd/0pkflh5+um4YKEZhm4Mou3vstp5p12NeffyK1WFZF7q4jB7jclAslYKQsP82YY3DcRwu5Tl/+W0ifVcXze0mI7v1reJ12pKn8ifRiq+0q5oJST3TRSrvmjLg9Gt3ozhVIt2HUi3La7Qh40YOAUXm0g/hUq2BepeOp1C7WSvaOFHXe6Hqq",
-		"modulusOld": "qnro3nUUjvZK1i7UqeOlXmCrVPiDtHlRgIPReAjt2nKL1GG3SBXO6N0aPbiM5rtK0XRPUoLmKu2rYvSJ/Kmkdp14a/3uiEl788VVn0hb/l9OuQtH3HBjmM0/LKRgJQuU3LgHI67uRVZYtSJ/n9fYdZqnLfveLsrgZpgRCoabrp+H5Uem9N+x0OJR3LpToVRZhzSkYQrxnERJmF3bhR5yF8Zn+3BoSiUpVOCAvJRAYl8cAIs3BwQcTEyXJjnt+wW5Q1VyKr+bXp/39+tnugQeTe1jjdPy6rOTftQwzjro81oZpOMazwwR1aeQuQWCrmHQZqyV3Rvo6X3xYlOQnlo1/w==",
-		"exponentOld": "AQAB",
-		"privateKeyOld": "MIIEowIBAAKCAQEAqnro3nUUjvZK1i7UqeOlXmCrVPiDtHlRgIPReAjt2nKL1GG3SBXO6N0aPbiM5rtK0XRPUoLmKu2rYvSJ/Kmkdp14a/3uiEl788VVn0hb/l9OuQtH3HBjmM0/LKRgJQuU3LgHI67uRVZYtSJ/n9fYdZqnLfveLsrgZpgRCoabrp+H5Uem9N+x0OJR3LpToVRZhzSkYQrxnERJmF3bhR5yF8Zn+3BoSiUpVOCAvJRAYl8cAIs3BwQcTEyXJjnt+wW5Q1VyKr+bXp/39+tnugQeTe1jjdPy6rOTftQwzjro81oZpOMazwwR1aeQuQWCrmHQZqyV3Rvo6X3xYlOQnlo1/wIDAQABAoIBAQCKtUSBs8tNYrGTQTlBHXrwpkDg+u7WSZt5sEcfnkxA39BLtlHU8gGO0E9Ihr8GAL+oWjUsEltJ9GTtN8CJ9lFdPVS8sTiCZR/YQOggmFRZTJyVzMrkXgF7Uwwiu3+KxLiTOZx9eRhfDBlTD8W9fXaegX2i2Xp2ohUhBHthEBLdaZTWFi5Sid/Y0dDzBeP6UIJorZ5D+1ybaeIVHjndpwNsIEUGUxPFLrkeiU8Rm4MJ9ahxfywcP7DjQoPGY9Ge5cBhpxfzERWf732wUD6o3+L9tvOBU00CLVjULbGZKTVE2FJMyXK9jr6Zor9Mkhomp6/8Agkr9rp+TPyelFGYEz8hAoGBAOEc09CrL3eYBkhNEcaMQzxBLvOGpg8kaDX5SaArHfl9+U9yzRqss4ARECanp9HuHfjMQo7iejao0ngDjL7BNMSaH74QlSsPOY2iOm8Qvx8/zb7g4h9r1zLjFZb3mpSA4snRZvvdiZ9ugbuVPmhXnDzRRMg45MibJeeOTJNylofRAoGBAMHfF/WutqKDoX25qZo9m74W4bttOj6oIDk1N4/c6M1Z1v/aptYSE06bkWngj9P46kqjaay4hgMtzyGruc5aojPx5MHHf5bo14+Jv4NzYtR2llrUxO+UJX7aCfUYXI7RC93GUmhpeQ414j7SNAXec58d7e+ETw+6cHiAWO4uOSTPAoGATPq5qDLR4Zi4FUNdn8LZPyKfNqHF6YmupT5hIgd8kZO1jKiaYNPL8jBjkIRmjBBcaXcYD5p85nImvumf2J9jNxPpZOpwyC/Fo5xlVROp97qu1eY7DTmodntXJ6/2SXAlnZQhHmHsrPtyG752f+HtyJJbbgiem8cKWDu+DfHybfECgYBbSLo1WiBwgN4nHqZ3E48jgA6le5azLeKOTTpuKKwNFMIhEkj//t7MYn+jhLL0Mf3PSwZU50Vidc1To1IHkbFSGBGIFHFFEzl8QnXEZS4hr/y3o/teezj0c6HAn8nlDRUzRVBEDXWMdV6kCcGpCccTIrqHzpqTY0vV0UkOTQFnDQKBgAxSEhm/gtCYJIMCBe+KBJT9uECV5xDQopTTjsGOkd4306EN2dyPOIlAfwM6K/0qWisa0Ei5i8TbRRuBeTTdLEYLqXCJ7fj5tdD1begBdSVtHQ2WHqzPJSuImTkFi9NXxd1XUyZFM3y6YQvlssSuL7QSxUIEtZHnrJTt3QDd10dj",
+		"publicKey": "BgIAAACkAABSU0ExAAgAAAEAAQBpTpiJQ2hD8plpGTfEEmcq4IKyr31HikXpuVSBraMfqyodn2PGXBJ3daNSmdPOc0Nz4HO9Auljn8YYXDPBdpiABptSKvEDPF23Q+Qytg0+vCRyondyBcW91w7KLzXce3fnk8ZfJ8QtbZPL9m11wJIWZueQF+l0HKYx4lty+nccbCanytFTADkGQ3SnmExGEF3rBz6I9+OcrDDK9NKPJgEmCiuyei/d4XbPgKls3EIG0h38X5mVF2VytfWm2Yu850B6z3N4MYhj4b4vsYT62zEC4pMRUeb8dIBy4Jsmr3avtmeO00MUH6DVyPC8nirixj2YIOPKk13CdVqGDSXA3cvl",
+		"modulus": "E5CBDDC0250D865A75C25D93CAE320983DC6E22A9EBCF0C8D5A01F1443D38E67B6AF76AF269BE0728074FCE6511193E20231DBFA84B12FBEE16388317873CF7A40E7BC8BD9A6F5B572651795995FFC1DD20642DC6CA980CF76E1DD2F7AB22B0A2601268FD2F4CA30AC9CE3F7883E07EB5D10464C98A7744306390053D1CAA7266C1C77FA725BE231A61C74E91790E7661692C0756DF6CB936D2DC4275FC693E7777BDC352FCA0ED7BDC5057277A27224BC3E0DB632E443B75D3C03F12A529B06809876C1335C18C69F63E902BD73E0734373CED39952A37577125CC6639F1D2AAB1FA3AD8154B9E9458A477DAFB282E02A6712C437196999F243684389984E69",
+		"exponent": 65537,
+		"privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDly93AJQ2GWnXC\nXZPK4yCYPcbiKp688MjVoB8UQ9OOZ7avdq8mm+BygHT85lERk+ICMdv6hLEvvuFj\niDF4c896QOe8i9mm9bVyZReVmV/8HdIGQtxsqYDPduHdL3qyKwomASaP0vTKMKyc\n4/eIPgfrXRBGTJindEMGOQBT0cqnJmwcd/pyW+Ixphx06ReQ52YWksB1bfbLk20t\nxCdfxpPnd3vcNS/KDte9xQVyd6JyJLw+DbYy5EO3XTwD8SpSmwaAmHbBM1wYxp9j\n6QK9c+BzQ3PO05lSo3V3ElzGY58dKqsfo62BVLnpRYpHfa+yguAqZxLENxlpmfJD\naEOJmE5pAgMBAAECggEALiL+RKOr0Xu8BOgQ0j1DwA03LxVrhXe6etmJI+JySTcd\ngKENjWziZVrRIi2DvUm5qMMl7WhSwslKK1eexxZJY7xASqSxcEoIwgz17T07/jxm\nfIdUBiUKDZ1Kv8PWmIr3oKW+fkXWi/m1zlIe0qXRpTmsGNEsHQLEqi0rmaiXTXOR\n/2Ldwi6kZR3sWFx97YS4Mx/pueGJTXEai6AVEZzN5Gog6xD8HXR1Rvq+hhd+MocG\nfnU4HgilKRfoJlWd9FOscgSufKG0L3ViO4fSKU46l5aullDYUk5ECMWiwuKSqSE7\nqD45jI3mbOre7S4u3S3TWdD3lzwiXL49LdwKlEC4mQKBgQD0sLr0GH4Wr+QX2xJE\nuA/Cb8QW41l8iSCBTRZZR/sJOd+o3rbcVidlzO/EbZblXG4ZPDmRjgBCGKIP5EZi\n0DsL+Wv32WOo44LpxJGhqExbm0H1iZ1zZ97l0P8fvIhHE42gmaLToOIGDhPSXGvv\nzlqOHbGbq4jsERc1jp1bej5q6wKBgQDwaueIc4pRchH98QYidcyr8Vwg9KhbnfYX\ny3W4RPlZtBdF34iJaio+ASzugo/zy1RTcVrsCskYWXyKDUQz1yu0iCng+fDCUnTm\nXGmEoEGNhk4vTJOt7hBav1/Ja/dUipGf6mXUuanwJ0e+1/Et/B0ah5X1Um5AyNZI\nM+SyRz3u+wKBgQCjvtUNXoqaghCBCmB6TjZ1prexnWkYFugCv2SSUMIk1W7gIlJ6\ntsjcrj1R1Qii6qzfBFd+GWoA0V06h0e2/qRVCg//p6GytrW33IycgvS+ZPLJ7tLI\nFR2r66WfRlpoPiSL8eRt/P7kkG0hXCn7K7ub2TEu/Ka/W1yNwad6PR8iCwKBgQC8\nXcZSrtQsxAc8w99emJVoEo9wcsCGJ9ltA0iUu9XyZpvlbyJ3J+s48YrWxQ0sop7L\nUgE+96Rfo51kPMi3JVtk81p8ntf4KMrWwokaFMXHsPcJMCJ1IBVIRLE0C5eZcYhv\nlyN57I4tT1lzOZYJxYK4Cot/zrn7oF/j6mTBGfh4iQKBgQCiJMUxRz01/czH/XSX\ngo3dVbHQ4FEOufWnE3Eb93S8r0/eq1RM118rb0TqzuiadW2xYDU4nucWQlrlmq0d\nFY/m+Hy97pqyk6jmoU5I/D+ssBIoYHWLnH9/xfvDEk2JGSJSHtzu0D4EDC/rgQ49\nMbYsO5oUrF8tPlhj5vzbf3GKLA==\n-----END PRIVATE KEY-----\n",
+		"publicKeyOld": "BgIAAACkAABSU0ExAAgAAAEAAQBpTpiJQ2hD8plpGTfEEmcq4IKyr31HikXpuVSBraMfqyodn2PGXBJ3daNSmdPOc0Nz4HO9Auljn8YYXDPBdpiABptSKvEDPF23Q+Qytg0+vCRyondyBcW91w7KLzXce3fnk8ZfJ8QtbZPL9m11wJIWZueQF+l0HKYx4lty+nccbCanytFTADkGQ3SnmExGEF3rBz6I9+OcrDDK9NKPJgEmCiuyei/d4XbPgKls3EIG0h38X5mVF2VytfWm2Yu850B6z3N4MYhj4b4vsYT62zEC4pMRUeb8dIBy4Jsmr3avtmeO00MUH6DVyPC8nirixj2YIOPKk13CdVqGDSXA3cvl",
+		"modulusOld": "E5CBDDC0250D865A75C25D93CAE320983DC6E22A9EBCF0C8D5A01F1443D38E67B6AF76AF269BE0728074FCE6511193E20231DBFA84B12FBEE16388317873CF7A40E7BC8BD9A6F5B572651795995FFC1DD20642DC6CA980CF76E1DD2F7AB22B0A2601268FD2F4CA30AC9CE3F7883E07EB5D10464C98A7744306390053D1CAA7266C1C77FA725BE231A61C74E91790E7661692C0756DF6CB936D2DC4275FC693E7777BDC352FCA0ED7BDC5057277A27224BC3E0DB632E443B75D3C03F12A529B06809876C1335C18C69F63E902BD73E0734373CED39952A37577125CC6639F1D2AAB1FA3AD8154B9E9458A477DAFB282E02A6712C437196999F243684389984E69",
+		"exponentOld": 65537,
+		"privateKeyOld": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDly93AJQ2GWnXC\nXZPK4yCYPcbiKp688MjVoB8UQ9OOZ7avdq8mm+BygHT85lERk+ICMdv6hLEvvuFj\niDF4c896QOe8i9mm9bVyZReVmV/8HdIGQtxsqYDPduHdL3qyKwomASaP0vTKMKyc\n4/eIPgfrXRBGTJindEMGOQBT0cqnJmwcd/pyW+Ixphx06ReQ52YWksB1bfbLk20t\nxCdfxpPnd3vcNS/KDte9xQVyd6JyJLw+DbYy5EO3XTwD8SpSmwaAmHbBM1wYxp9j\n6QK9c+BzQ3PO05lSo3V3ElzGY58dKqsfo62BVLnpRYpHfa+yguAqZxLENxlpmfJD\naEOJmE5pAgMBAAECggEALiL+RKOr0Xu8BOgQ0j1DwA03LxVrhXe6etmJI+JySTcd\ngKENjWziZVrRIi2DvUm5qMMl7WhSwslKK1eexxZJY7xASqSxcEoIwgz17T07/jxm\nfIdUBiUKDZ1Kv8PWmIr3oKW+fkXWi/m1zlIe0qXRpTmsGNEsHQLEqi0rmaiXTXOR\n/2Ldwi6kZR3sWFx97YS4Mx/pueGJTXEai6AVEZzN5Gog6xD8HXR1Rvq+hhd+MocG\nfnU4HgilKRfoJlWd9FOscgSufKG0L3ViO4fSKU46l5aullDYUk5ECMWiwuKSqSE7\nqD45jI3mbOre7S4u3S3TWdD3lzwiXL49LdwKlEC4mQKBgQD0sLr0GH4Wr+QX2xJE\nuA/Cb8QW41l8iSCBTRZZR/sJOd+o3rbcVidlzO/EbZblXG4ZPDmRjgBCGKIP5EZi\n0DsL+Wv32WOo44LpxJGhqExbm0H1iZ1zZ97l0P8fvIhHE42gmaLToOIGDhPSXGvv\nzlqOHbGbq4jsERc1jp1bej5q6wKBgQDwaueIc4pRchH98QYidcyr8Vwg9KhbnfYX\ny3W4RPlZtBdF34iJaio+ASzugo/zy1RTcVrsCskYWXyKDUQz1yu0iCng+fDCUnTm\nXGmEoEGNhk4vTJOt7hBav1/Ja/dUipGf6mXUuanwJ0e+1/Et/B0ah5X1Um5AyNZI\nM+SyRz3u+wKBgQCjvtUNXoqaghCBCmB6TjZ1prexnWkYFugCv2SSUMIk1W7gIlJ6\ntsjcrj1R1Qii6qzfBFd+GWoA0V06h0e2/qRVCg//p6GytrW33IycgvS+ZPLJ7tLI\nFR2r66WfRlpoPiSL8eRt/P7kkG0hXCn7K7ub2TEu/Ka/W1yNwad6PR8iCwKBgQC8\nXcZSrtQsxAc8w99emJVoEo9wcsCGJ9ltA0iUu9XyZpvlbyJ3J+s48YrWxQ0sop7L\nUgE+96Rfo51kPMi3JVtk81p8ntf4KMrWwokaFMXHsPcJMCJ1IBVIRLE0C5eZcYhv\nlyN57I4tT1lzOZYJxYK4Cot/zrn7oF/j6mTBGfh4iQKBgQCiJMUxRz01/czH/XSX\ngo3dVbHQ4FEOufWnE3Eb93S8r0/eq1RM118rb0TqzuiadW2xYDU4nucWQlrlmq0d\nFY/m+Hy97pqyk6jmoU5I/D+ssBIoYHWLnH9/xfvDEk2JGSJSHtzu0D4EDC/rgQ49\nMbYsO5oUrF8tPlhj5vzbf3GKLA==\n-----END PRIVATE KEY-----\n",
 		"refreshLockInterval": "10m",
 		"dummy" : {
-			"enable": true,
+			"enable": false,
 			"sampleFilePath": ""
 		}
 	},
@@ -117,6 +122,23 @@
 			"stdTTL": 300,
 			"checkperiod": 60,
 			"useClones": false
+		}
+	},
+	"externalRequest": {
+		"directIfIn" : {
+			"allowList": [],
+			"jwtToken": true
+		},
+		"action": {
+			"allow": true,
+			"blockPrivateIP": true,
+			"proxyUrl": "",
+			"proxyUser": {
+				"username": "",
+				"password": ""
+			},
+			"proxyHeaders": {
+			}
 		}
 	},
 	"services": {
@@ -144,11 +166,11 @@
 				"openProtectedFile": true,
 				"isAnonymousSupport": true,
 				"editorDataStorage": "editorDataMemory",
+				"editorStatStorage": "",
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
 				"downloadFileAllowExt": ["pdf", "xlsx"],
-				"tokenRequiredParams": true,
-				"allowPrivateIPAddressForSignedRequests": true
+				"tokenRequiredParams": true
 			},
 			"requestDefaults": {
 				"headers": {
@@ -180,15 +202,36 @@
 				"charset": "utf8",
 				"connectionlimit": 10,
 				"max_allowed_packet": 1048575,
-				"pgPoolExtraOptions": {},
-				"damengExtraOptions": {},
-				"oracleExtraOptions": {},
+				"pgPoolExtraOptions": {
+					"idleTimeoutMillis": 30000,
+					"maxLifetimeSeconds ": 60000,
+					"statement_timeout ": 60000,
+					"query_timeout  ": 60000,
+					"connectionTimeoutMillis": 60000
+				},
+				"damengExtraOptions": {
+					"columnNameUpperCase": false,
+					"columnNameCase": "lower",
+					"connectTimeout": 60000,
+					"loginEncrypt": false,
+					"localTimezone": 0,
+					"poolTimeout": 60,
+					"socketTimeout": 60000,
+					"queueTimeout": 60000
+				},
+				"oracleExtraOptions": {
+					"connectTimeout": 60
+				},
 				"msSqlExtraOptions": {
 					"options": {
 						"encrypt": false,
 						"trustServerCertificate": true
+					},
+					"pool": {
+						"idleTimeoutMillis": 30000
 					}
-				}
+				},
+				"mysqlExtraOptions": {}
 			},
 			"redis": {
 				"name": "redis",
@@ -197,10 +240,14 @@
 				"port": 6379,
 				"options": {},
 				"optionsCluster": {},
-				"iooptions": {},
+				"iooptions": {
+					"lazyConnect": true
+				},
 				"iooptionsClusterNodes": [
 				],
-				"iooptionsClusterOptions": {}
+				"iooptionsClusterOptions": {
+					"lazyConnect": true
+				}
 			},
 			"pubsub": {
 				"maxChanges": 1000
