@@ -836,7 +836,8 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   convertInfo.setResponseKey(undefined);
   convertInfo.setFormData(undefined);
   if (convertInfo.getForceSave()) {
-    convertInfo.getForceSave().setType(undefined);
+    //type must be saved to distinguish c_oAscForceSaveTypes.Form
+    //convertInfo.getForceSave().setType(undefined);
     convertInfo.getForceSave().setAuthorUserId(undefined);
     convertInfo.getForceSave().setAuthorUserIndex(undefined);
   }
@@ -884,7 +885,13 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
   let forceSaveCache = await checkForceSaveCache(ctx, forceSave.convertInfo);
   if (forceSaveCache.hasCache || forceSave.ended) {
     if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type || !forceSave.ended) {
-      if (forceSaveCache.hasValidCache) {
+      //c_oAscForceSaveTypes.Form has uniqueue options {'documentLayout': {'isPrint': true}}; dont use it for other types
+      let forceSaveCached = forceSaveCache.cmd?.getForceSave()?.getType();
+      let cacheHasSameOptions = (commonDefines.c_oAscForceSaveTypes.Form === type &&
+          commonDefines.c_oAscForceSaveTypes.Form === forceSaveCached) ||
+        (commonDefines.c_oAscForceSaveTypes.Form !== type &&
+          commonDefines.c_oAscForceSaveTypes.Form !== forceSaveCached)
+      if (forceSaveCache.hasValidCache && cacheHasSameOptions) {
         let cmd = forceSaveCache.cmd;
         cmd.setUserConnectionDocId(opt_userConnectionDocId);
         cmd.setUserConnectionId(opt_userConnectionId);
@@ -899,7 +906,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
         await canvasService.commandSfcCallback(ctx, cmd, true, false);
         res.ok = true;
       } else {
-        await editorData.checkAndSetForceSave(ctx, docId, forceSave.getTime(), forceSave.getIndex(), false, false, null);
+        await editorData.checkAndSetForceSave(ctx, docId, forceSave.time, forceSave.index, false, false, null);
         res.startedForceSave = await editorData.checkAndStartForceSave(ctx, docId);
         res.ok = !!res.startedForceSave;
       }
