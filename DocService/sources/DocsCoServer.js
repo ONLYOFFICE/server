@@ -4323,6 +4323,9 @@ exports.commandFromServer = function (req, res) {
       output.error = validateInputParams(ctx, authRes, params);
       if (output.error === commonDefines.c_oAscServerCommandErrors.NoError) {
         ctx.logger.debug('commandFromServer: c = %s', params.c);
+        if (params.key && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
+          ctx.logger.warn('commandFromServer. Pass query string parameter "%s" to correctly process commands with "key" in sharded cluster', constants.SHARD_KEY_API_NAME);
+        }
         yield *commandHandle(ctx, params, req, output);
       }
     } catch (err) {

@@ -386,7 +386,10 @@ function convertRequest(req, res, isJson) {
         cmd.setTitle(path.basename(params.title, path.extname(params.title)) + '.' + outputExt);
       }
       var async = (typeof params.async === 'string') ? 'true' == params.async : params.async;
-
+      if (async && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
+        ctx.logger.warn('convertRequest set async=false. Pass query string parameter "%s" to correctly process request in sharded cluster', constants.SHARD_KEY_API_NAME);
+        async = false;
+      }
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== cmd.getOutputFormat()) {
         let fileTo = constants.OUTPUT_NAME + '.' + outputExt;
         var status = yield* convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true);
@@ -466,6 +469,10 @@ function builderRequest(req, res) {
           yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
         }
         let async = (typeof params.async === 'string') ? 'true' === params.async : params.async;
+        if (async && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
+          ctx.logger.warn('builderRequest set async=false. Pass query string parameter "%s" to correctly process request in sharded cluster', constants.SHARD_KEY_API_NAME);
+          async = false;
+        }
         let status = yield* convertByCmd(ctx, cmd, async, undefined, undefined, constants.QUEUE_PRIORITY_LOW);
         end = status.end;
         error = status.err;
