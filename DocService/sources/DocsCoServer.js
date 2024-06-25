@@ -1747,7 +1747,7 @@ exports.install = function(server, callbackFunction) {
                 delete conn.authChangesAck;
                 break;
               case 'saveEditorSettings':
-                yield saveEditorSettings(ctx, data);
+                yield saveEditorSettings(ctx, conn);
                 break;
               default:
                 ctx.logger.debug("unknown command %j", data);
@@ -1782,32 +1782,50 @@ exports.install = function(server, callbackFunction) {
     operationContext.global.logger.warn('io.connection_error code=%s, message=%s', err.code, err.message);
   });
 
-  async function saveEditorSettings(ctx, data) {
+  /**
+   * Save editor settings by userId in configured folder.
+   * @param ctx Context.
+   * @param conn Connection which contains data object with userId, settings to save.
+   * @returns {Promise<void>}
+   */
+  async function saveEditorSettings(ctx, conn) {
     const tenEditorSettingsDir = ctx.getCfg('services.CoAuthoring.server.editorSettingsDir', cfgEditorSettingsDir);
     const tenSettingsFileName = ctx.getCfg('services.CoAuthoring.server.editorSettingsFileName', cfgEditorSettingsFileName);
+    const { data } = conn;
+
+    if(!data.settings) {
+      return;
+    }
+
     const settingsData = Buffer.from(JSON.stringify(data.settings));
     try {
       // TODO: overwriting file or leave untouched?
-      await storage.putObject(ctx, `${data.user.id}/${tenSettingsFileName}.json`, settingsData, settingsData.length, tenEditorSettingsDir);
+      await storage.putObject(ctx, `${ctx.tenant}${data.user.id}/${tenSettingsFileName}`, settingsData, settingsData.length, tenEditorSettingsDir);
     } catch (error) {
       ctx.logger.error('saveEditorSettings(): ', error);
     }
   }
 
-  async function loadEditorSettings(ctx) {
+  /**
+   * Load user editor settings by userId in context.
+   * @param ctx Context.
+   * @param conn Connection object.
+   * @returns {Promise<{}|any>} Settings object.
+   */
+  async function loadEditorSettings(ctx, conn) {
     const tenEditorSettingsDir = ctx.getCfg('services.CoAuthoring.server.editorSettingsDir', cfgEditorSettingsDir);
     const tenSettingsFileName = ctx.getCfg('services.CoAuthoring.server.editorSettingsFileName', cfgEditorSettingsFileName);
+    const userId = conn?.handshake?.auth?.data?.user?.id;
 
     try {
-      const buffer = await storage.getObject(ctx, `${ctx.userId}/${tenSettingsFileName}.json`, tenEditorSettingsDir);
-      return buffer.toString();
+      const buffer = await storage.getObject(ctx, `${ctx.tenant}${userId}/${tenSettingsFileName}`, tenEditorSettingsDir);
+      return JSON.parse(buffer.toString());
     } catch (error) {
-      if (error.code === 'ENOENT') {
-        ctx.logger.warn(`loadEditorSettings(): No editor settings profile found for user "${ctx.userId}"`);
-      } else {
+      if (error.code !== 'ENOENT') {
         ctx.logger.error('loadEditorSettings(): ', error);
       }
-      return '';
+
+      return {};
     }
   }
 
@@ -3042,7 +3060,6 @@ exports.install = function(server, callbackFunction) {
     let tenEditor = getEditorConfig(ctx);
     tenEditor["limits_image_size"] = tenImageSize;
     tenEditor["limits_image_types_upload"] = tenTypesUpload;
-    const editorSettings = yield loadEditorSettings(ctx);
 
     const sendObject = {
       type: 'auth',
@@ -3060,7 +3077,6 @@ exports.install = function(server, callbackFunction) {
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
       settings: tenEditor,
-      editorSettings,
       openedAt: opt_openedAt
     };
     sendData(ctx, conn, sendObject);//Or 0 if fails
@@ -3452,6 +3468,8 @@ exports.install = function(server, callbackFunction) {
 
         let licenseInfo = yield tenantManager.getTenantLicense(ctx);
 
+        const editorSettings = yield loadEditorSettings(ctx, conn);
+
         sendData(ctx, conn, {
           type: 'license', license: {
             type: licenseInfo.type,
@@ -3466,7 +3484,8 @@ exports.install = function(server, callbackFunction) {
             branding: licenseInfo.branding,
             customization: licenseInfo.customization,
             advancedApi: licenseInfo.advancedApi,
-            plugins: licenseInfo.plugins
+            plugins: licenseInfo.plugins,
+            editorSettings
           }
         });
         ctx.logger.info('_checkLicense end');
