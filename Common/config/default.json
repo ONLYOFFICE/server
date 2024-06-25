@@ -217,7 +217,7 @@
 				"savetimeoutdelay": 5000,
 				"edit_singleton": false,
 				"editorSettingsDir": "settings",
-				"editorSettingsFileName": "profile",
+				"editorSettingsFileName": "profile.json",
 				"forgottenfiles": "forgotten",
 				"forgottenfilesname": "output",
 				"maxRequestChanges": 20000,
