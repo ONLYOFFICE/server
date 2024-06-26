@@ -46,17 +46,29 @@ async function fixImageExifRotation(ctx, buffer) {
     let exif = parser.parse();
     if (exif.tags?.Orientation > 1) {
       ctx.logger.debug('fixImageExifRotation remove exif and rotate:%j', exif);
-      let image = await Jimp.read(buffer);
-      //remove exif
-      image.bitmap.exifBuffer = undefined;
-      //set jpeg and png quality
-      //https://www.imagemagick.org/script/command-line-options.php#quality
-      image.quality(90);
-      image.deflateLevel(7);
-      buffer = await image.getBufferAsync(Jimp.AUTO);
+      buffer = convertImageTo(ctx, buffer, Jimp.AUTO);
     }
   } catch (e) {
     ctx.logger.debug('fixImageExifRotation error:%s', e.stack);
+  }
+  return buffer;
+}
+async function convertImageToPng(ctx, buffer) {
+  return await convertImageTo(ctx, buffer, Jimp.MIME_PNG);
+}
+async function convertImageTo(ctx, buffer, mime) {
+  try {
+    ctx.logger.debug('convertImageTo %s', mime);
+    let image = await Jimp.read(buffer);
+    //remove exif
+    image.bitmap.exifBuffer = undefined;
+    //set jpeg and png quality
+    //https://www.imagemagick.org/script/command-line-options.php#quality
+    image.quality(90);
+    image.deflateLevel(7);
+    buffer = await image.getBufferAsync(mime);
+  } catch (e) {
+    ctx.logger.debug('convertImageTo error:%s', e.stack);
   }
   return buffer;
 }
@@ -70,7 +82,6 @@ function localeToLCID(lang) {
   return elem && elem.id;
 }
 
-module.exports = {
-  fixImageExifRotation,
-  localeToLCID
-};
+module.exports.fixImageExifRotation = fixImageExifRotation;
+module.exports.convertImageToPng = convertImageToPng;
+module.exports.localeToLCID = localeToLCID;

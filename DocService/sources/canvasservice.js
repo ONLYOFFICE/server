@@ -769,6 +769,11 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           }
         }
         if (isAllow) {
+          if (format === constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF) {
+            data = yield utilsDocService.convertImageToPng(ctx, data);
+            format = constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
+            formatStr = formatChecker.getStringFromFormat(format);
+          }
           let strLocalPath = 'media/' + crypto.randomBytes(16).toString("hex") + '_';
           if (urlParsed) {
             var urlBasename = pathModule.basename(urlParsed.pathname);

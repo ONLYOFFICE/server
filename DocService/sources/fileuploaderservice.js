@@ -252,6 +252,11 @@ exports.uploadImageFile = function(req, res) {
           var supportedFormats = tenTypesUpload || 'jpg';
           let formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
           if (formatLimit) {
+            if (format === constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF) {
+              buffer = yield utilsDocService.convertImageToPng(ctx, buffer);
+              format = constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
+              formatStr = formatChecker.getStringFromFormat(format);
+            }
             //a hash is written at the beginning to avoid errors during parallel upload in co-editing
             var strImageName = crypto.randomBytes(16).toString("hex");
             var strPathRel = 'media/' + strImageName + '.' + formatStr;

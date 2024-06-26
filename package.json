@@ -71,6 +71,7 @@
   "scripts": {
     "perf-expired": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/checkFileExpire.js",
     "perf-exif": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/fixImageExifRotation.js",
+    "perf-png": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/convertImageToPng.js",
     "unit tests": "cd ./DocService && jest unit --inject-globals=false --config=../tests/jest.config.js",
     "integration tests with server instance": "cd ./DocService && jest integration/withServerInstance --inject-globals=false --config=../tests/jest.config.js",
     "integration database tests": "cd ./DocService && jest integration/databaseTests --inject-globals=false --config=../tests/jest.config.js",
