@@ -48,6 +48,7 @@ jest.mock("fs/promises", () => ({
 const { cp } = require('fs/promises');
 
 const operationContext = require('../../../Common/sources/operationContext');
+const tenantManager = require('../../../Common/sources/tenantManager');
 const storage = require('../../../Common/sources/storage-base');
 const utils = require('../../../Common/sources/utils');
 const commonDefines = require("../../../Common/sources/commondefines");
@@ -84,8 +85,12 @@ function request(url) {
     });
   });
 }
-function runTestForDir(specialDir) {
+function runTestForDir(ctx, isMultitenantMode, specialDir) {
+  let oldMultitenantMode = tenantManager.isMultitenantMode();
   test("start listObjects", async () => {
+    //todo set in all tests do not rely on test order
+    tenantManager.setMultitenantMode(isMultitenantMode);
+
     let list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list).toEqual([]);
   });
@@ -245,20 +250,32 @@ function runTestForDir(specialDir) {
 
     list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([].sort());
+
+    tenantManager.setMultitenantMode(oldMultitenantMode);
   });
 }
 
 // Assumed, that server is already up.
 describe('storage common dir', function () {
-  runTestForDir(specialDirCache);
+  runTestForDir(ctx, false, specialDirCache);
 });
 
 describe('storage forgotten dir', function () {
-  runTestForDir(specialDirForgotten);
+  runTestForDir(ctx, false, specialDirForgotten);
+});
+
+describe('storage common dir with tenants', function () {
+  runTestForDir(ctx, true, specialDirCache);
+});
+
+describe('storage forgotten dir with tenants', function () {
+  runTestForDir(ctx, true, specialDirForgotten);
 });
 
 describe('storage mix common and forgotten dir', function () {
   test("putObject", async () => {
+    tenantManager.setMultitenantMode(false);
+
     let buffer = Buffer.from(testFileData1);
     let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
     expect(res).toEqual(undefined);

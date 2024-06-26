@@ -261,8 +261,7 @@ function convertRequest(req, res, isJson) {
       }
       let filetype = params.filetype || params.fileType || '';
       let outputtype = params.outputtype || params.outputType || '';
-      let docId = 'conv_' + params.key + '_' + outputtype;
-      ctx.setDocId(docId);
+      ctx.setDocId(params.key);
 
       if (params.key && !constants.DOC_ID_REGEX.test(params.key)) {
         ctx.logger.warn('convertRequest unexpected key = %s', params.key);
@@ -291,6 +290,8 @@ function convertRequest(req, res, isJson) {
           outputFormat = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF;
         }
       }
+      //todo use hash of params as id
+      let docId = 'conv_' + params.key + '_' + outputFormat;
       var cmd = new commonDefines.InputCommand();
       cmd.setCommand('conv');
       cmd.setUrl(params.url);

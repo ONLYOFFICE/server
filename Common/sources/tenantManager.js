@@ -274,8 +274,13 @@ function getTenantLicense(ctx) {
 function getServerLicense(ctx) {
   return licenseInfo;
 }
+let hasBaseDir = !!cfgTenantsBaseDir;
 function isMultitenantMode(ctx) {
-  return !!cfgTenantsBaseDir;
+  return hasBaseDir;
+}
+function setMultitenantMode(val) {
+  //for tests only!!
+  return hasBaseDir = val;
 }
 function isDefaultTenant(ctx) {
   return ctx.tenant === cfgTenantsDefaultTenant;
@@ -418,4 +423,5 @@ exports.getTenantLicense = getTenantLicense;
 exports.getServerLicense = getServerLicense;
 exports.setDefLicense = setDefLicense;
 exports.isMultitenantMode = isMultitenantMode;
+exports.setMultitenantMode = setMultitenantMode;
 exports.isDefaultTenant = isDefaultTenant;

@@ -1789,7 +1789,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
 async function processWopiSaveAs(ctx, cmd) {
   const info = await docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
   // info.wopiParams is null if it is not wopi
-  if (info.wopiParams) {
+  if (info?.wopiParams) {
     const suggestedTargetType = `.${formatChecker.getStringFromFormat(cmd.getOutputFormat())}`;
     const storageFilePath = `${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
     const stream = await storage.createReadStream(ctx, storageFilePath);

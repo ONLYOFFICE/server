@@ -44,6 +44,10 @@ const constants = require('./../../Common/sources/constants');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 
+//Stubs are needed until integrators pass these parameters to all requests
+let shardKeyCached;
+let wopiSrcCached;
+
 function getFilePath(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
   return path.join(storageFolderPath, strPath);
@@ -113,7 +117,7 @@ async function deleteObject(storageCfg, strPath) {
 
 async function deletePath(storageCfg, strPath) {
   const fsPath = getFilePath(storageCfg, strPath);
-  return rm(fsPath, {force: true, recursive: true});
+  return rm(fsPath, {force: true, recursive: true, maxRetries: 3});
 }
 
 async function getSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
@@ -142,10 +146,15 @@ async function getSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilen
   url += '?md5=' + encodeURIComponent(md5);
   url += '&expires=' + encodeURIComponent(expires);
   if (ctx.shardKey) {
+    shardKeyCached = ctx.shardKey;
     url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(ctx.shardKey)}`;
-  }
-  if (ctx.wopiSrc) {
+  } else if (ctx.wopiSrc) {
+    wopiSrcCached = ctx.wopiSrc;
     url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
+  } else if (shardKeyCached) {
+    url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardKeyCached)}`;
+  } else if (wopiSrcCached) {
+    url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrcCached)}`;
   }
   url += '&filename=' + userFriendlyName;
   return url;

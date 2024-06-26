@@ -278,8 +278,8 @@ function discovery(req, res) {
       //end section for collabora nexcloud connectors
       let xmlDiscovery = xmlZone.up();
       if (tenWopiPublicKeyOld && tenWopiPublicKey) {
-        let exponent = numberToBase64(tenWopiExponent - 0);
-        let exponentOld = numberToBase64(tenWopiExponentOld - 0);
+        let exponent = numberToBase64(tenWopiExponent);
+        let exponentOld = numberToBase64(tenWopiExponentOld);
         xmlDiscovery.ele('proof-key', {
           oldvalue: tenWopiPublicKeyOld, oldmodulus: tenWopiModulusOld, oldexponent: exponentOld,
           value: tenWopiPublicKey, modulus: tenWopiModulus, exponent: exponent
@@ -420,7 +420,7 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
           ctx.logger.debug('wopiEditor unlockMarkStr=%s', unlockMarkStr);
           let hasUnlockMarker = isWopiUnlockMarker(unlockMarkStr);
           ctx.logger.debug('wopiEditor hasUnlockMarker=%s', hasUnlockMarker);
-          if (hasUnlockMarker) {
+          if (hasUnlockMarker || !commonInfo.fileInfo.SupportsLocks) {
             let fileInfoVersion = fileInfo.Version;
             let cacheVersion = commonInfo.fileInfo.Version;
             let fileInfoModified = fileInfo.LastModifiedTime;
@@ -502,7 +502,7 @@ async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, ac
 }
 function getEditorHtml(req, res) {
   return co(function*() {
-    let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined};
+    let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined, docs_api_config: {}};
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
@@ -528,6 +528,10 @@ function getEditorHtml(req, res) {
       let ui = req.query['ui'];
       let access_token = req.body['access_token'] || "";
       let access_token_ttl = parseInt(req.body['access_token_ttl']) || 0;
+      let docs_api_config = req.body['docs_api_config'];
+      if (docs_api_config) {
+        params.docs_api_config = JSON.parse(docs_api_config);
+      }
 
 
       let fileInfo = params.fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token, sc);
@@ -575,7 +579,8 @@ function getEditorHtml(req, res) {
       if (!shutdownFlag) {
         //save common info
         if (undefined === lockId) {
-          lockId = crypto.randomBytes(16).toString('base64');
+          //Use deterministic(not random) lockId to fix issues with forgotten openings due to integrator failures
+          lockId = docId;
           let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
           yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
         }
@@ -872,40 +877,41 @@ function lock(ctx, command, lockId, fileInfo, userAuth) {
     return res;
   });
 }
-function unlock(ctx, wopiParams) {
-  return co(function* () {
-    try {
-      ctx.logger.info('wopi Unlock start');
-      const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+async function unlock(ctx, wopiParams) {
+  let res = false;
+  try {
+    ctx.logger.info('wopi Unlock start');
+    const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
-      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+    if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+      return;
+    }
+    let fileInfo = wopiParams.commonInfo.fileInfo;
+    if (fileInfo && fileInfo.SupportsLocks) {
+      let wopiSrc = wopiParams.userAuth.wopiSrc;
+      let lockId = wopiParams.commonInfo.lockId;
+      let access_token = wopiParams.userAuth.access_token;
+      let uri = `${wopiSrc}?access_token=${access_token}`;
+      let filterStatus = await checkIpFilter(ctx, uri);
+      if (0 !== filterStatus) {
         return;
       }
-      let fileInfo = wopiParams.commonInfo.fileInfo;
-      if (fileInfo && fileInfo.SupportsLocks) {
-        let wopiSrc = wopiParams.userAuth.wopiSrc;
-        let lockId = wopiParams.commonInfo.lockId;
-        let access_token = wopiParams.userAuth.access_token;
-        let uri = `${wopiSrc}?access_token=${access_token}`;
-        let filterStatus = yield checkIpFilter(ctx, uri);
-        if (0 !== filterStatus) {
-          return;
-        }
 
-        let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
-        yield fillStandardHeaders(ctx, headers, uri, access_token);
-        ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
-        ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
-      } else {
-        ctx.logger.info('wopi SupportsLocks = false');
-      }
-    } catch (err) {
-      ctx.logger.error('wopi error Unlock:%s', err.stack);
-    } finally {
-      ctx.logger.info('wopi Unlock end');
+      let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
+      await fillStandardHeaders(ctx, headers, uri, access_token);
+      ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
+      let postRes = await utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
+      ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
+      res = true;
+    } else {
+      ctx.logger.info('wopi SupportsLocks = false');
     }
-  });
+  } catch (err) {
+    ctx.logger.error('wopi error Unlock:%s', err.stack);
+  } finally {
+    ctx.logger.info('wopi Unlock end');
+  }
+  return res;
 }
 function generateProofBuffer(url, accessToken, timeStamp) {
   const accessTokenBytes = Buffer.from(accessToken, 'utf8');
@@ -950,8 +956,8 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
   const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
   const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
   if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
-    headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKey, 'base64'));
-    headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, Buffer.from(tenWopiPrivateKeyOld, 'base64'));
+    headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKey);
+    headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKeyOld);
     headers['X-WOPI-TimeStamp'] = timeStamp;
     headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
     // todo
