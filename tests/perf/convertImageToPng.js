@@ -55,7 +55,7 @@ async function beforeStart() {
     histograms[func.name] = histogram;
     return performance.timerify(func, {histogram: histogram});
   }
-  utilsDocService.fixImageExifRotation = timerify(utilsDocService.fixImageExifRotation);
+  utilsDocService.convertImageToPng = timerify(utilsDocService.convertImageToPng);
   // Jimp.read = timerify(Jimp.read);
 
   const obs = new PerformanceObserver((list) => {
@@ -91,9 +91,9 @@ async function fixInDir(dirIn, dirOut) {
       let file = dirent.name;
       ctx.logger.info("fixInDir:%s", file);
       let buffer = await readFile(path.join(dirent.path, file));
-      let bufferNew = await utilsDocService.fixImageExifRotation(ctx, buffer);
+      let bufferNew = await utilsDocService.convertImageToPng(ctx, buffer);
       if (buffer !== bufferNew) {
-        let outputPath = path.join(dirOut, dirent.path.substring(dirIn.length), file);
+        let outputPath = path.join(dirOut, dirent.path.substring(dirIn.length), path.basename(file, path.extname(file)) + '.png');
         await mkdir(path.dirname(outputPath), {recursive: true});
         await writeFile(outputPath, bufferNew);
       }
@@ -104,7 +104,7 @@ async function fixInDir(dirIn, dirOut) {
 async function startTest() {
   let args = process.argv.slice(2);
   if (args.length < 2) {
-    ctx.logger.error('missing arguments.USAGE: fixImageExifRotation.js "dirIn" "dirOut"');
+    ctx.logger.error('missing arguments.USAGE: convertImageToPng.js "dirIn" "dirOut"');
     return;
   }
   ctx.logger.info("test started");
