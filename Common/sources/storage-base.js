@@ -59,7 +59,7 @@ function canCopyBetweenStorage(storageCfgSrc, storageCfgDst) {
   return storageCfgSrc.name === storageCfgDst.name && storageCfgSrc.endpoint === storageCfgDst.endpoint;
 }
 function isDiffrentPersistentStorage() {
-  return !canCopyBetweenStorage(cacheStorage, cfgPersistentStorage);
+  return !canCopyBetweenStorage(cfgCacheStorage, cfgPersistentStorage);
 }
 
 async function headObject(ctx, strPath, opt_specialDir) {
