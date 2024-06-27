@@ -535,7 +535,6 @@ function fillJwtByConnection(ctx, conn) {
       edit.coEditing = {mode: conn.coEditingMode};
     }
     //no standart
-    edit.ds_view = conn.user.view;
     edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
     edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
     // presenter viewer opens with same session jwt. do not put sessionId to jwt
@@ -2401,9 +2400,6 @@ exports.install = function(server, callbackFunction) {
           data.coEditingMode = 'strict';
         }
       }
-      if (null != edit.ds_view) {
-        data.view = edit.ds_view;
-      }
       if (null != edit.ds_isCloseCoAuthoring) {
         data.isCloseCoAuthoring = edit.ds_isCloseCoAuthoring;
       }
@@ -2487,7 +2483,7 @@ exports.install = function(server, callbackFunction) {
           if (wopiClient.isWopiJwtToken(decoded)) {
             //wopi
             fillDataFromJwtRes = fillDataFromWopiJwt(decoded, data);
-          } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_view) {
+          } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_sessionTimeConnect) {
             //reconnection
             fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
           } else {
