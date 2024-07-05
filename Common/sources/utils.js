@@ -1133,13 +1133,6 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.timelimited = 0 !== (constants.LICENSE_MODE.Limited & licenseInfo.mode);
   license.trial = 0 !== (constants.LICENSE_MODE.Trial & licenseInfo.mode);
   license.developer = 0 !== (constants.LICENSE_MODE.Developer & licenseInfo.mode);
-  if(license.developer) {
-    license.mode = 'developer';
-  } else if(license.trial) {
-    license.mode = 'trial';
-  } else {
-    license.mode = '';
-  }
   license.branding = licenseInfo.branding;
   license.customization = licenseInfo.customization;
   license.advanced_api = licenseInfo.advancedApi;

@@ -152,7 +152,7 @@ docsCoServer.install(server, () => {
 			try {
 				ctx.initFromRequest(req);
 				yield ctx.initTenantCache();
-				let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
 				let buildVersion = commonDefines.buildVersion;
 				let buildNumber = commonDefines.buildNumber;
 				let buildDate, packageType, customerId = "", alias = "";

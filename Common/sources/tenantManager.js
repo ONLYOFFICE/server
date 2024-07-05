@@ -55,6 +55,7 @@ const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
 
 let licenseInfo;
 let licenseOriginal;
+let licenseTuple;//to avoid array creating in getTenantLicense
 
 const c_LM = constants.LICENSE_MODE;
 
@@ -186,6 +187,7 @@ function getTenantSecret(ctx, type) {
 function setDefLicense(data, original) {
   licenseInfo = data;
   licenseOriginal = original;
+  licenseTuple = [licenseInfo, licenseOriginal];
 }
 //todo move to license file?
 function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
@@ -240,31 +242,31 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
     ctx.logger.warn('fixTenantLicense not allowed to improve these license fields: %s', errors.join(', '));
   }
 }
-function getTenantLicense(ctx) {
-  return co(function*() {
-    let res = licenseInfo;
-    if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
-      if (licenseInfo.alias) {
-        let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-        let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
-        let licenseInfoTenant = nodeCache.get(licensePath);
-        if (licenseInfoTenant) {
-          ctx.logger.debug('getTenantLicense from cache');
-        } else {
-          [licenseInfoTenant] = yield readLicenseTenant(ctx, licensePath, licenseInfo);
-          fixTenantLicense(ctx, licenseInfo, licenseInfoTenant);
-          nodeCache.set(licensePath, licenseInfoTenant);
-          ctx.logger.debug('getTenantLicense from %s', licensePath);
-        }
-        res = licenseInfoTenant;
+
+async function getTenantLicense(ctx) {
+  let res = licenseTuple;
+  if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
+    if (licenseInfo.alias) {
+      let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+      let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
+      let licenseTupleTenant = nodeCache.get(licensePath);
+      if (licenseTupleTenant) {
+        ctx.logger.debug('getTenantLicense from cache');
       } else {
-        res = {...res};
-        res.type = constants.LICENSE_RESULT.Error;
-        ctx.logger.error('getTenantLicense error: missing "alias" field');
+        licenseTupleTenant = await readLicenseTenant(ctx, licensePath, licenseInfo);
+        fixTenantLicense(ctx, licenseInfo, licenseTupleTenant[0]);
+        nodeCache.set(licensePath, licenseTupleTenant);
+        ctx.logger.debug('getTenantLicense from %s', licensePath);
       }
+      res = licenseTupleTenant;
+    } else {
+      res = [...res];
+      res[0] = {...res[0]};
+      res.type = constants.LICENSE_RESULT.Error;
+      ctx.logger.error('getTenantLicense error: missing "alias" field');
     }
-    return res;
-  });
+  }
+  return res;
 }
 function getServerLicense(ctx) {
   return licenseInfo;
@@ -290,6 +292,9 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     const oFile = (await readFile(licenseFile)).toString();
     res.hasLicense = true;
     oLicense = JSON.parse(oFile);
+    //do not verify tenant signature. verify main lic signature. 
+    //delete from object to keep signature secret
+    delete oLicense['signature'];
     if (oLicense['start_date']) {
       res.startDate = new Date(oLicense['start_date']);
     }

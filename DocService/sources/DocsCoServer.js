@@ -2469,7 +2469,7 @@ exports.install = function(server, callbackFunction) {
     ctx.logger.debug('auth time: %d', data.time);
     if (data.token && data.user) {
       ctx.setUserId(data.user.id);
-      let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+      let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
       let isDecoded = false;
       //check jwt
       if (tenTokenEnableBrowser) {
@@ -3410,7 +3410,7 @@ exports.install = function(server, callbackFunction) {
 					}
 				}
 
-				let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
 
 				sendData(ctx, conn, {
 					type: 'license', license: {
@@ -3952,7 +3952,7 @@ exports.setLicenseInfo = async function(globalCtx, data, original) {
     ctx.setTenant(tenant);
     await ctx.initTenantCache();
 
-    const licenseInfo = await tenantManager.getTenantLicense(ctx);
+    const [licenseInfo] = await tenantManager.getTenantLicense(ctx);
     utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
   }
 };
@@ -4045,7 +4045,7 @@ exports.licenseInfo = function(req, res) {
       yield ctx.initTenantCache();
       ctx.logger.debug('licenseInfo start');
 
-      let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+      let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
       Object.assign(output.licenseInfo, licenseInfo);
 
       var precisionSum = {};
@@ -4225,10 +4225,10 @@ function* commandLicense(ctx) {
   const nowUTC = getLicenseNowUtc();
   const users = yield editorStat.getPresenceUniqueUser(ctx, nowUTC);
   const users_view = yield editorStat.getPresenceUniqueViewUser(ctx, nowUTC);
-  const licenseInfo = yield tenantManager.getTenantLicense(ctx);
+  const [licenseInfo, licenseOriginal] = yield tenantManager.getTenantLicense(ctx);
 
   return {
-    license: utils.convertLicenseInfoToFileParams(licenseInfo),
+    license: licenseOriginal || utils.convertLicenseInfoToFileParams(licenseInfo),
     server: utils.convertLicenseInfoToServerParams(licenseInfo),
     quota: { users, users_view }
   };
