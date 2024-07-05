@@ -203,13 +203,8 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
     licenseInfoTenant.mode |= c_LM.Developer;
     errors.push('developer');
   }
-  //can not turn off
-  if (licenseInfo.light && !licenseInfoTenant.light) {
-    licenseInfoTenant.light = licenseInfo.light;
-    errors.push('light');
-  }
   //can not turn on
-  let flags = ['plugins', 'branding', 'customization'];
+  let flags = ['branding', 'customization'];
   flags.forEach((flag) => {
     if (!licenseInfo[flag] && licenseInfoTenant[flag]) {
       licenseInfoTenant[flag] = licenseInfo[flag];
@@ -320,12 +315,6 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     }
     if (true === oLicense['developer']) {
       res.mode |= c_LM.Developer;
-    }
-    if (oLicense.hasOwnProperty('light')) {
-      res.light = (true === oLicense['light'] || 'true' === oLicense['light'] || 'True' === oLicense['light']); // Someone who likes to put json string instead of bool
-    }
-    if (oLicense.hasOwnProperty('plugins')) {
-      res.plugins = true === oLicense['plugins'];
     }
     if (oLicense.hasOwnProperty('branding')) {
       res.branding = (true === oLicense['branding'] || 'true' === oLicense['branding'] || 'True' === oLicense['branding']); // Someone who likes to put json string instead of bool

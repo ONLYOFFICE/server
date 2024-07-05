@@ -44,7 +44,6 @@ exports.readLicense = async function () {
 	return [{
 		count: 1,
 		type: c_LR.Success,
-		light: false,
 		packageType: constants.PACKAGE_TYPE_OS,
 		mode: constants.LICENSE_MODE.None,
 		branding: false,
@@ -56,7 +55,6 @@ exports.readLicense = async function () {
 		usersViewCount: 0,
 		usersExpire: constants.LICENSE_EXPIRE_USERS_ONE_DAY,
 		hasLicense: false,
-		plugins: false,
 		buildDate: oBuildDate,
 		startDate: startDate,
 		endDate: null,

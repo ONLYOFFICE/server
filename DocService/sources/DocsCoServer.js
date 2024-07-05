@@ -166,7 +166,6 @@ let connections = []; // Active connections
 let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
 let pubsub;
 let queue;
-let f = {type: constants.LICENSE_RESULT.Error, light: false, branding: false, customization: false, plugins: false};
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
@@ -3416,7 +3415,7 @@ exports.install = function(server, callbackFunction) {
 				sendData(ctx, conn, {
 					type: 'license', license: {
 						type: licenseInfo.type,
-						light: licenseInfo.light,
+						light: false,//todo remove in sdk
 						mode: licenseInfo.mode,
 						rights: rights,
 						buildVersion: commonDefines.buildVersion,
@@ -3426,8 +3425,7 @@ exports.install = function(server, callbackFunction) {
 						liveViewerSupport: utils.isLiveViewerSupport(licenseInfo),
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
-						advancedApi: licenseInfo.advancedApi,
-						plugins: licenseInfo.plugins
+						advancedApi: licenseInfo.advancedApi
 					}
 				});
 				ctx.logger.info('_checkLicense end');

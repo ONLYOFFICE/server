@@ -1140,11 +1140,9 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   } else {
     license.mode = '';
   }
-  license.light = licenseInfo.light;
   license.branding = licenseInfo.branding;
   license.customization = licenseInfo.customization;
   license.advanced_api = licenseInfo.advancedApi;
-  license.plugins = licenseInfo.plugins;
   license.connections = licenseInfo.connections;
   license.connections_view = licenseInfo.connectionsView;
   license.users_count = licenseInfo.usersCount;
