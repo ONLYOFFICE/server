@@ -82,6 +82,20 @@ async function putObject(ctx, strPath, buffer, contentLength, opt_specialDir) {
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.putObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir), buffer, contentLength);
 }
+async function appendObject(ctx, strPath, appendBuffer, opt_lastBytesOverrideLength, opt_specialDir) {
+  const storage = getStorage(opt_specialDir);
+  const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const path = getStoragePath(ctx, strPath, opt_specialDir);
+
+  const object = await storage.getObject(storageCfg, path, opt_specialDir);
+
+  const bytesOverride = opt_lastBytesOverrideLength ?? 0;
+  const newFile = Buffer.alloc(object.length + appendBuffer.length - bytesOverride, object);
+  const copiedBytes = appendBuffer.copy(newFile, object.length - bytesOverride);
+
+  await storage.putObject(storageCfg, path, newFile, newFile.length);
+  return copiedBytes;
+}
 async function uploadObject(ctx, strPath, filePath, opt_specialDir) {
   let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
@@ -198,6 +212,7 @@ module.exports = {
   getObject,
   createReadStream,
   putObject,
+  appendObject,
   uploadObject,
   copyObject,
   copyPath,

@@ -40,6 +40,7 @@ let testFileData1 = "test1";
 let testFileData2 = "test22";
 let testFileData3 = "test333";
 let testFileData4 = testFileData3;
+const testFileData5 = '_appendTesting';
 
 jest.mock("fs/promises", () => ({
   ...jest.requireActual('fs/promises'),
@@ -223,6 +224,28 @@ function runTestForDir(specialDir) {
       data.push(await request(urls[i]));
     }
     expect(data.sort()).toEqual([testFileData3, testFileData4].sort());
+  });
+  test("appendObject", async () => {
+    const buffer = Buffer.from(testFileData5);
+    const copiedBytes = await storage.appendObject(ctx, testFile1, buffer, 0, specialDir);
+    expect(copiedBytes).toEqual(buffer.length);
+
+    const list = await storage.listObjects(ctx, testDir, specialDir);
+    expect(list.sort()).toEqual([testFile1, testFile2, testFile3, testFile4].sort());
+
+    const updatedContent = await storage.getObject(ctx, testFile1, specialDir);
+    expect(updatedContent.toString()).toEqual(`${testFileData1}${testFileData5}`);
+  });
+  test("appendObject with override", async () => {
+    const buffer = Buffer.from(testFileData5);
+    const copiedBytes = await storage.appendObject(ctx, testFile3, buffer, 3, specialDir);
+    expect(copiedBytes).toEqual(buffer.length);
+
+    const list = await storage.listObjects(ctx, testDir, specialDir);
+    expect(list.sort()).toEqual([testFile1, testFile2, testFile3, testFile4].sort());
+
+    const updatedContent = await storage.getObject(ctx, testFile3, specialDir);
+    expect(updatedContent.toString()).toEqual(`${testFileData3.substring(0, testFileData3.length - 3)}${testFileData5}`);
   });
   test("deleteObject", async () => {
     let list;

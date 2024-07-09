@@ -1747,7 +1747,7 @@ exports.install = function(server, callbackFunction) {
                 delete conn.authChangesAck;
                 break;
               case 'saveEditorSettings':
-                yield saveEditorSettings(ctx, conn);
+                yield saveEditorSettings(ctx, conn.user.idOriginal, data.settings);
                 break;
               default:
                 ctx.logger.debug("unknown command %j", data);
@@ -1785,22 +1785,26 @@ exports.install = function(server, callbackFunction) {
   /**
    * Save editor settings by userId in configured folder.
    * @param ctx Context.
-   * @param conn Connection which contains data object with userId, settings to save.
+   * @param userId Original user identifier.
+   * @param settings Editor settings.
    * @returns {Promise<void>}
    */
-  async function saveEditorSettings(ctx, conn) {
+  async function saveEditorSettings(ctx, userId, settings) {
     const tenEditorSettingsDir = ctx.getCfg('services.CoAuthoring.server.editorSettingsDir', cfgEditorSettingsDir);
     const tenSettingsFileName = ctx.getCfg('services.CoAuthoring.server.editorSettingsFileName', cfgEditorSettingsFileName);
-    const { data } = conn;
 
-    if(!data.settings) {
+    if(!settings) {
       return;
     }
 
-    const settingsData = Buffer.from(JSON.stringify(data.settings));
+    const settingsData = Buffer.from(JSON.stringify(settings));
     try {
-      // TODO: overwriting file or leave untouched?
-      await storage.putObject(ctx, `${ctx.tenant}${data.user.id}/${tenSettingsFileName}`, settingsData, settingsData.length, tenEditorSettingsDir);
+      let tenantPrefix = tenantManager.getTenantPathPrefix(ctx);
+      if(tenantPrefix.length > 0) {
+        tenantPrefix += '/'
+      }
+
+      await storage.putObject(ctx, `${tenantPrefix}${userId}/${tenSettingsFileName}`, settingsData, settingsData.length, tenEditorSettingsDir);
     } catch (error) {
       ctx.logger.error('saveEditorSettings(): ', error);
     }
@@ -1818,7 +1822,12 @@ exports.install = function(server, callbackFunction) {
     const userId = conn?.handshake?.auth?.data?.user?.id;
 
     try {
-      const buffer = await storage.getObject(ctx, `${ctx.tenant}${userId}/${tenSettingsFileName}`, tenEditorSettingsDir);
+      let tenantPrefix = tenantManager.getTenantPathPrefix(ctx);
+      if(tenantPrefix.length > 0) {
+        tenantPrefix += '/'
+      }
+
+      const buffer = await storage.getObject(ctx, `${tenantPrefix}${userId}/${tenSettingsFileName}`, tenEditorSettingsDir);
       return JSON.parse(buffer.toString());
     } catch (error) {
       if (error.code !== 'ENOENT') {
