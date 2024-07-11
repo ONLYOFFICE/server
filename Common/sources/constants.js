@@ -49,9 +49,11 @@ exports.CHANGES_NAME = 'changes';
 exports.VIEWER_ONLY = /^(?:(pdf|djvu|xps|oxps))$/;
 exports.DEFAULT_DOC_ID = 'docId';
 exports.DEFAULT_USER_ID = 'userId';
+exports.DEFAULT_SESSION_ID = 'sessionId';
 exports.ALLOWED_PROTO = /^https?$/i;
 exports.SHARD_KEY_WOPI_NAME = 'WOPISrc';
 exports.SHARD_KEY_API_NAME = 'shardkey';
+exports.SSESSION_ID_NAME = 'usid';
 
 exports.RIGHTS = {
   None    : 0,

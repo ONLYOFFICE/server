@@ -803,16 +803,24 @@ function getShardKeyByConnection(ctx, conn) {
 function getWopiSrcByConnection(ctx, conn) {
   return  conn?.handshake?.query?.[constants.SHARD_KEY_WOPI_NAME];
 }
+function getUserSessionIdByConnection(ctx, conn) {
+  return  conn?.handshake?.query?.[constants.SSESSION_ID_NAME];
+}
 function getShardKeyByRequest(ctx, req) {
   return req.query?.[constants.SHARD_KEY_API_NAME];
 }
 function getWopiSrcByRequest(ctx, req) {
   return req.query?.[constants.SHARD_KEY_WOPI_NAME];
 }
+function getUserSessionIdByRequest(ctx, req) {
+  return req.query?.[constants.SSESSION_ID_NAME];
+}
 exports.getShardKeyByConnection = getShardKeyByConnection;
 exports.getWopiSrcByConnection = getWopiSrcByConnection;
+exports.getUserSessionIdByConnection = getUserSessionIdByConnection;
 exports.getShardKeyByRequest = getShardKeyByRequest;
 exports.getWopiSrcByRequest = getWopiSrcByRequest;
+exports.getUserSessionIdByRequest = getUserSessionIdByRequest;
 function stream2Buffer(stream) {
   return new Promise(function(resolve, reject) {
     if (!stream.readable) {
