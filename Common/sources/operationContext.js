@@ -41,19 +41,21 @@ function Context(){
   this.logger = logger.getLogger('nodeJS');
   this.initDefault();
 }
-Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiSrc) {
+Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiSrc, opt_SessionId) {
   this.setTenant(tenant);
   this.setDocId(docId);
   this.setUserId(userId);
   this.setShardKey(opt_shardKey);
   this.setWopiSrc(opt_WopiSrc);
+  this.setSessionId(opt_SessionId);
 
   this.config = null;
   this.secret = null;
   this.license = null;
 };
 Context.prototype.initDefault = function() {
-  this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID, undefined);
+  this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID,
+    undefined, undefined, constants.DEFAULT_SESSION_ID);
 };
 Context.prototype.initFromConnection = function(conn) {
   let tenant = tenantManager.getTenantByConnection(this, conn);
@@ -68,21 +70,30 @@ Context.prototype.initFromConnection = function(conn) {
   let userId = conn.user?.id;
   let shardKey = utils.getShardKeyByConnection(this, conn);
   let wopiSrc = utils.getWopiSrcByConnection(this, conn);
-  this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc);
+
+  let sessionId;
+  const callback = conn.handshake?.auth?.data?.documentCallbackUrl;
+  if (callback) {
+    const callbackObject = JSON.parse(callback);
+    sessionId = callbackObject.userSessionId;
+  }
+
+  this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc, sessionId || this.sessionId);
 };
 Context.prototype.initFromRequest = function(req) {
   let tenant = tenantManager.getTenantByRequest(this, req);
   let shardKey = utils.getShardKeyByRequest(this, req);
   let wopiSrc = utils.getWopiSrcByRequest(this, req);
-  this.init(tenant, this.docId, this.userId, shardKey, wopiSrc);
+  let sessionId = utils.getUserSessionIdByRequest(this, req);
+  this.init(tenant, this.docId, this.userId, shardKey, wopiSrc, sessionId || this.sessionId);
 };
 Context.prototype.initFromTaskQueueData = function(task) {
   let ctx = task.getCtx();
-  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
+  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc, ctx.sessionId);
 };
 Context.prototype.initFromPubSub = function(data) {
   let ctx = data.ctx;
-  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
+  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc, ctx.sessionId);
 };
 Context.prototype.initTenantCache = async function() {
   this.config = await tenantManager.getTenantConfig(this);
@@ -107,13 +118,18 @@ Context.prototype.setShardKey = function(shardKey) {
 Context.prototype.setWopiSrc = function(wopiSrc) {
   this.wopiSrc = wopiSrc;
 };
+Context.prototype.setSessionId = function(sessionId) {
+  this.sessionId = sessionId;
+  this.logger.addContext('SESSIONID', sessionId);
+};
 Context.prototype.toJSON = function() {
   return {
     tenant: this.tenant,
     docId: this.docId,
     userId: this.userId,
     shardKey: this.shardKey,
-    wopiSrc: this.wopiSrc
+    wopiSrc: this.wopiSrc,
+    sessionId: this.sessionId
   }
 };
 Context.prototype.getCfg = function(property, defaultValue) {

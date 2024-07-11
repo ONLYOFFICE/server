@@ -513,8 +513,10 @@ function getEditorHtml(req, res) {
       const tenWopiFileInfoBlockList = ctx.getCfg('wopi.fileInfoBlockList', cfgWopiFileInfoBlockList);
 
       let wopiSrc = req.query['wopisrc'];
+      let userSessionId = req.query['usid'] || crypto.randomBytes(8).toString("hex");
       let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       ctx.setDocId(fileId);
+      ctx.setSessionId(userSessionId);
 
       ctx.logger.info('wopiEditor start');
       ctx.logger.debug(`wopiEditor req.url:%s`, req.url);
@@ -539,6 +541,7 @@ function getEditorHtml(req, res) {
         params.fileInfo = {};
         return;
       }
+      ctx.setUserId(fileInfo.UserId);
       const fileType = getFileTypeByInfo(fileInfo);
       if (!shutdownFlag) {
         yield checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, access_token_ttl, lang, ui, fileType);
@@ -562,11 +565,10 @@ function getEditorHtml(req, res) {
         }
       }
       docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
-      ctx.logger.debug(`wopiEditor`);
       params.key = docId;
       let userAuth = params.userAuth = {
         wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl,
-        hostSessionId: hostSessionId, userSessionId: docId, mode: mode
+        hostSessionId: hostSessionId, userSessionId: userSessionId, mode: mode
       };
 
       //check and invalidate cache
@@ -960,9 +962,9 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
     headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKeyOld);
     headers['X-WOPI-TimeStamp'] = timeStamp;
     headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
+    headers['X-WOPI-SessionId'] = ctx.sessionId;
     // todo
     // headers['X-WOPI-CorrelationId '] = "";
-    // headers['X-WOPI-SessionId'] = "";
   }
   headers['Authorization'] = `Bearer ${access_token}`;
 }
