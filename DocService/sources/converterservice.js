@@ -424,13 +424,7 @@ function builderRequest(req, res) {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('builderRequest start');
-      let authRes;
-      if (!utils.isEmptyObject(req.query)) {
-        //todo this is a stub for compatibility. remove in future version
-        authRes = yield docsCoServer.getRequestParams(ctx, req, true);
-      } else {
-        authRes = yield docsCoServer.getRequestParams(ctx, req);
-      }
+      let authRes = yield docsCoServer.getRequestParams(ctx, req);
       let params = authRes.params;
       let docId = params.key;
       ctx.setDocId(docId);
