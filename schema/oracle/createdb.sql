@@ -2,12 +2,12 @@
 -- Here, "onlyoffice" is a PBD(service) name.
 alter session set container = xepdb1;
 
--- In tables creation section "onlyoffice" is a user name.
+-- Oracle uses users as namespaces for tables creation. In "onlyoffice.table_name" onlyoffice is a user name, so table_name exist only at this namespace.
 -- ----------------------------
 -- Table structure for doc_changes
 -- ----------------------------
 
-CREATE TABLE onlyoffice.doc_changes (
+CREATE TABLE doc_changes (
     tenant NVARCHAR2(255) NOT NULL,
     id NVARCHAR2(255) NOT NULL,
     change_id NUMBER NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE onlyoffice.doc_changes (
 -- Table structure for task_result
 -- ----------------------------
 
-CREATE TABLE onlyoffice.task_result (
+CREATE TABLE task_result (
     tenant NVARCHAR2(255) NOT NULL,
     id NVARCHAR2(255) NOT NULL,
     status NUMBER NOT NULL,

@@ -1,7 +1,7 @@
-CREATE DATABASE onlyoffice;
-GO
+-- CREATE DATABASE onlyoffice;
+-- GO
 
-USE onlyoffice;
+-- USE onlyoffice;
 
 CREATE TABLE doc_changes(
     tenant NVARCHAR(255) NOT NULL,
