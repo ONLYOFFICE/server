@@ -1909,7 +1909,7 @@ exports.install = function(server, callbackFunction) {
     if (tenTokenEnableBrowser) {
       var checkJwtRes = yield checkJwt(ctx, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
       if (checkJwtRes.decoded) {
-        fillVersionHistoryFromJwt(checkJwtRes.decoded, cmd);
+        fillVersionHistoryFromJwt(ctx, checkJwtRes.decoded, cmd);
         docIdNew = cmd.getDocId();
         cmd.setWithAuthorization(true);
       } else {
@@ -2449,10 +2449,17 @@ exports.install = function(server, callbackFunction) {
     }
     return res;
   }
-  function fillVersionHistoryFromJwt(decoded, cmd) {
-    if (decoded.changesUrl && decoded.previous && (cmd.getServerVersion() === commonDefines.buildVersion)) {
-      cmd.setUrl(decoded.previous.url);
-      cmd.setDocId(decoded.previous.key);
+  function fillVersionHistoryFromJwt(ctx, decoded, cmd) {
+    if (decoded.changesUrl && decoded.previous) {
+      let versionMatch = cmd.getServerVersion() === commonDefines.buildVersion;
+      if (versionMatch) {
+        cmd.setUrl(decoded.previous.url);
+        cmd.setDocId(decoded.previous.key);
+      } else {
+        ctx.logger.warn('fillVersionHistoryFromJwt serverVersion mismatch: %s', cmd.getServerVersion());
+        cmd.setUrl(decoded.url);
+        cmd.setDocId(decoded.key);
+      }
     } else {
       cmd.setUrl(decoded.url);
       cmd.setDocId(decoded.key);

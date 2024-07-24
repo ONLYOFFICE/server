@@ -520,13 +520,6 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
       });
     }
   }
-  if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
-    if(tenEditor['binaryChanges']) {
-      res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps);
-    } else {
-      res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps);
-    }
-  }
   yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
@@ -540,6 +533,15 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     let fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
     fs.renameSync(dataConvert.fileFrom, fileFromNew);
     dataConvert.fileFrom = fileFromNew;
+  }
+
+  if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
+    let sha256 = yield utils.checksumFile('sha256', dataConvert.fileFrom)
+    if(tenEditor['binaryChanges']) {
+      res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256);
+    } else {
+      res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256);
+    }
   }
   return res;
 }
@@ -569,7 +571,7 @@ function* concatFiles(source, template) {
     }
   }
 }
-function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
+function* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256) {
   const tenStreamWriterBufferSize = ctx.getCfg('FileConverter.converter.streamWriterBufferSize', cfgStreamWriterBufferSize);
   const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
   let res = constants.NO_ERROR;
@@ -663,6 +665,9 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
   }
   cmd.setUserId(changesAuthor);
   cmd.setUserIndex(changesIndex);
+  if (changesHistory.changes.length > 0) {
+    changesHistory.changes[0].documentSha256 = sha256;
+  }
   fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
   ctx.logger.debug('processChanges end');
   return res;
@@ -689,7 +694,7 @@ function* streamEndBin(streamObj) {
   streamObj.writeStream.end();
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
-function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
+function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256) {
   const tenStreamWriterBufferSize = ctx.getCfg('FileConverter.converter.streamWriterBufferSize', cfgStreamWriterBufferSize);
   const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
   let res = constants.NO_ERROR;
@@ -784,6 +789,9 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
   }
   cmd.setUserId(changesAuthor);
   cmd.setUserIndex(changesIndex);
+  if (changesHistory.changes.length > 0) {
+    changesHistory.changes[0].documentSha256 = sha256;
+  }
   fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
   ctx.logger.debug('processChanges end');
   return res;
