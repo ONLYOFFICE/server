@@ -1411,9 +1411,14 @@ function getRequestParams(ctx, req, opt_isNotInBody) {
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
 
     let res = {code: constants.NO_ERROR, description: "", isDecoded: false, params: undefined};
-    if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
-      res.params = JSON.parse(req.body.toString('utf8'));
-    } else {
+    if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0) {
+      try {
+        res.params = JSON.parse(req.body.toString('utf8'));
+      } catch(err) {
+        ctx.logger.debug('getRequestParams error parsing json body: %s', err.stack);
+      }
+    }
+    if (!res.params) {
       res.params = req.query;
     }
     if (tenTokenEnableRequestInbox) {
