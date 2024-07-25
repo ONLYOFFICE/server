@@ -633,7 +633,7 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256) {
           yield* streamWriteBin(streamObj, Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
         }
         let strDate = baseConnector.getDateTime(change.change_date);
-        changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
+        changesHistory.changes.push({"documentSha256": sha256, 'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
       }
       changesAuthor = change.user_id_original;
       changesAuthorUnique = change.user_id;
@@ -665,9 +665,6 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256) {
   }
   cmd.setUserId(changesAuthor);
   cmd.setUserIndex(changesIndex);
-  if (changesHistory.changes.length > 0) {
-    changesHistory.changes[0].documentSha256 = sha256;
-  }
   fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
   ctx.logger.debug('processChanges end');
   return res;
@@ -754,7 +751,7 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256) {
           streamObj = yield* streamCreate(ctx, changesDir, indexFile++);
         }
         let strDate = baseConnector.getDateTime(change.change_date);
-        changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
+        changesHistory.changes.push({"documentSha256": sha256, 'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
         yield* streamWrite(streamObj, '[');
       } else {
         yield* streamWrite(streamObj, ',');
@@ -789,9 +786,6 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256) {
   }
   cmd.setUserId(changesAuthor);
   cmd.setUserIndex(changesIndex);
-  if (changesHistory.changes.length > 0) {
-    changesHistory.changes[0].documentSha256 = sha256;
-  }
   fs.writeFileSync(path.join(tempDirs.result, 'changesHistory.json'), JSON.stringify(changesHistory), 'utf8');
   ctx.logger.debug('processChanges end');
   return res;
