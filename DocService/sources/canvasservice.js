@@ -167,11 +167,11 @@ function getOpenedAtJSONParams(row) {
   return undefined;
 }
 
-var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
+async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
   const tenExpUpdateVersionStatus = ms(ctx.getCfg('services.CoAuthoring.expire.updateVersionStatus', cfgExpUpdateVersionStatus));
 
   let status, statusInfo, password, creationDate, openedAt, row;
-  let selectRes = yield taskResult.select(ctx, key);
+  let selectRes = await taskResult.select(ctx, key);
   if (selectRes.length > 0) {
     row = selectRes[0];
     status = row.status;
@@ -184,31 +184,29 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
     case commonDefines.FileStatus.SaveVersion:
     case commonDefines.FileStatus.UpdateVersion:
     case commonDefines.FileStatus.Ok:
-      if(commonDefines.FileStatus.Ok == status) {
+      if(commonDefines.FileStatus.Ok === status) {
         outputData.setStatus('ok');
-      } else if (commonDefines.FileStatus.SaveVersion == status ||
+      } else if (optConn && (optConn.user.view || optConn.isCloseCoAuthoring)) {
+        outputData.setStatus('ok');
+      } else if (commonDefines.FileStatus.SaveVersion === status ||
         (!opt_bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
         Date.now() - statusInfo * 60000 > tenExpUpdateVersionStatus)) {
-        if (optConn && (optConn.user.view || optConn.isCloseCoAuthoring)) {
-          outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
+        if (commonDefines.FileStatus.UpdateVersion === status) {
+          ctx.logger.warn("UpdateVersion expired");
+        }
+        var updateMask = new taskResult.TaskResultData();
+        updateMask.tenant = ctx.tenant;
+        updateMask.key = key;
+        updateMask.status = status;
+        updateMask.statusInfo = statusInfo;
+        var updateTask = new taskResult.TaskResultData();
+        updateTask.status = commonDefines.FileStatus.Ok;
+        updateTask.statusInfo = constants.NO_ERROR;
+        var updateIfRes = await taskResult.updateIf(ctx, updateTask, updateMask);
+        if (updateIfRes.affectedRows > 0) {
+          outputData.setStatus('ok');
         } else {
-          if (commonDefines.FileStatus.UpdateVersion === status) {
-            ctx.logger.warn("UpdateVersion expired");
-          }
-          var updateMask = new taskResult.TaskResultData();
-          updateMask.tenant = ctx.tenant;
-          updateMask.key = key;
-          updateMask.status = status;
-          updateMask.statusInfo = statusInfo;
-          var updateTask = new taskResult.TaskResultData();
-          updateTask.status = commonDefines.FileStatus.Ok;
-          updateTask.statusInfo = constants.NO_ERROR;
-          var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
-          if (updateIfRes.affectedRows > 0) {
-            outputData.setStatus('ok');
-          } else {
-            outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
-          }
+          outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
         }
       } else {
         outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
@@ -219,9 +217,9 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         if (optConn) {
           let url;
           if(cmd.getInline()) {
-            url = yield getPrintFileUrl(ctx, key, optConn.baseUrl, cmd.getTitle());
+            url = await getPrintFileUrl(ctx, key, optConn.baseUrl, cmd.getTitle());
           } else {
-            url = yield storage.getSignedUrl(ctx, optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary,
+            url = await storage.getSignedUrl(ctx, optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary,
                                                  cmd.getTitle());
           }
           outputData.setData(url);
@@ -237,8 +235,8 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
         let decryptedPassword;
         let isCorrectPassword;
         if (password && encryptedUserPassword) {
-          decryptedPassword = yield utils.decryptPassword(ctx, password);
-          userPassword = yield utils.decryptPassword(ctx, encryptedUserPassword);
+          decryptedPassword = await utils.decryptPassword(ctx, password);
+          userPassword = await utils.decryptPassword(ctx, encryptedUserPassword);
           isCorrectPassword = decryptedPassword === userPassword;
         }
         if(password && !isCorrectPassword) {
@@ -252,7 +250,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
           }
         } else if (optConn) {
           outputData.setOpenedAt(openedAt);
-          outputData.setData(yield storage.getSignedUrls(ctx, optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session, creationDate));
+          outputData.setData(await storage.getSignedUrls(ctx, optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session, creationDate));
         } else if (optAdditionalOutput) {
           optAdditionalOutput.needUrlKey = key;
           optAdditionalOutput.needUrlMethod = 0;
@@ -267,7 +265,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       outputData.setStatus('needparams');
       var settingsPath = key + '/' + 'origin.' + cmd.getFormat();
       if (optConn) {
-        let url = yield storage.getSignedUrl(ctx, optConn.baseUrl, settingsPath, commonDefines.c_oAscUrlTypes.Temporary);
+        let url = await storage.getSignedUrl(ctx, optConn.baseUrl, settingsPath, commonDefines.c_oAscUrlTypes.Temporary);
         outputData.setData(url);
       } else if (optAdditionalOutput) {
         optAdditionalOutput.needUrlKey = settingsPath;
@@ -286,7 +284,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
     case commonDefines.FileStatus.ErrToReload:
       outputData.setStatus('err');
       outputData.setData(statusInfo);
-      yield cleanupErrToReload(ctx, key);
+      await cleanupErrToReload(ctx, key);
       break;
     case commonDefines.FileStatus.None:
       //this status has no handler
@@ -300,7 +298,7 @@ var getOutputData = co.wrap(function* (ctx, cmd, outputData, key, optConn, optAd
       break;
   }
   return status;
-});
+}
 function* addRandomKeyTaskCmd(ctx, cmd) {
   var task = yield* taskResult.addRandomKeyTask(ctx, cmd.getDocId());
   cmd.setSaveKey(task.key);
@@ -771,6 +769,11 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           }
         }
         if (isAllow) {
+          if (format === constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF) {
+            data = yield utilsDocService.convertImageToPng(ctx, data);
+            format = constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
+            formatStr = formatChecker.getStringFromFormat(format);
+          }
           let strLocalPath = 'media/' + crypto.randomBytes(16).toString("hex") + '_';
           if (urlParsed) {
             var urlBasename = pathModule.basename(urlParsed.pathname);

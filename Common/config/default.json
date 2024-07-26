@@ -245,7 +245,7 @@
 			"utils": {
 				"utils_common_fontdir": "null",
 				"utils_fonts_search_patterns": "*.ttf;*.ttc;*.otf",
-				"limits_image_types_upload": "jpg;jpeg;jpe;png;gif;bmp;svg"
+				"limits_image_types_upload": "jpg;jpeg;jpe;png;gif;bmp;svg;tiff;tif"
 			},
 			"sql": {
 				"type": "postgres",
