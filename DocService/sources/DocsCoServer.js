@@ -2464,11 +2464,12 @@ exports.install = function(server, callbackFunction) {
   function fillVersionHistoryFromJwt(ctx, decoded, cmd) {
     if (decoded.changesUrl && decoded.previous) {
       let versionMatch = cmd.getServerVersion() === commonDefines.buildVersion;
-      if (versionMatch) {
+      let openPreviousVersion = cmd.getDocId() === decoded.previous.key;
+      if (versionMatch && openPreviousVersion) {
         cmd.setUrl(decoded.previous.url);
         cmd.setDocId(decoded.previous.key);
       } else {
-        ctx.logger.warn('fillVersionHistoryFromJwt serverVersion mismatch: %s', cmd.getServerVersion());
+        ctx.logger.warn('fillVersionHistoryFromJwt serverVersion mismatch or mismatch between previous url and changes. serverVersion=%s docId=%s', cmd.getServerVersion(), cmd.getDocId());
         cmd.setUrl(decoded.url);
         cmd.setDocId(decoded.key);
       }
