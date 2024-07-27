@@ -61,9 +61,11 @@ function initCacheRouter(cfgStorage, routs) {
     router.use(`/${bucketName}/${storageFolderName}/${rout}`, (req, res, next) => {
       const index = req.url.lastIndexOf('/');
       if ('GET' === req.method && index > 0) {
+        //Add Access-Control-Allow-Origin header to static files to allow loading in sandbox without allow-same-origin
         let sendFileOptions = {
           root: rootPath, dotfiles: 'deny', headers: {
-            'Content-Disposition': 'attachment'
+            'Content-Disposition': 'attachment',
+            'Access-Control-Allow-Origin': '*'
           }
         };
         const urlParsed = urlModule.parse(req.url);
@@ -87,7 +89,12 @@ function initCacheRouter(cfgStorage, routs) {
 
 for (let i in cfgStaticContent) {
   if (cfgStaticContent.hasOwnProperty(i)) {
-    router.use(i, express.static(cfgStaticContent[i]['path'], cfgStaticContent[i]['options']));
+    //Add Access-Control-Allow-Origin header to static files to allow loading in sandbox without allow-same-origin
+    router.use(i, express.static(cfgStaticContent[i]['path'], {
+      setHeaders: function (res, path, stat) {
+        res.set('Access-Control-Allow-Origin', '*');
+      }
+    }));
   }
 }
 if (storage.needServeStatic()) {
