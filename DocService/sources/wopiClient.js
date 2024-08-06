@@ -731,9 +731,9 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
     return postRes;
   });
 }
-function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize, suggestedTarget, isFileConversion) {
+function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize, suggestedExt, suggestedTarget, isFileConversion) {
   return co(function* () {
-    let postRes = null;
+    let res = undefined;
     try {
       ctx.logger.info('wopi putRelativeFile start');
       const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
@@ -741,26 +741,27 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       let uri = `${wopiSrc}?access_token=${access_token}`;
       let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
-        return postRes;
+        return res;
       }
 
-      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget)};
+      let headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget || suggestedExt)};
       if (isFileConversion) {
         headers['X-WOPI-FileConversion'] = isFileConversion;
       }
       yield fillStandardHeaders(ctx, headers, uri, access_token);
-      headers['Content-Type'] = mime.getType(suggestedTarget);
+      headers['Content-Type'] = mime.getType(suggestedExt);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
-      postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, headers);
+      let postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, headers);
       ctx.logger.debug('wopi putRelativeFile response headers=%j', postRes.response.headers);
       ctx.logger.debug('wopi putRelativeFile response body:%s', postRes.body);
+      res = JSON.parse(postRes.body);
     } catch (err) {
       ctx.logger.error('wopi error putRelativeFile:%s', err.stack);
     } finally {
       ctx.logger.info('wopi putRelativeFile end');
     }
-    return postRes;
+    return res;
   });
 }
 function renameFile(ctx, wopiParams, name) {

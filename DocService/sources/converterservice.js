@@ -700,10 +700,9 @@ function getConverterHtmlHandler(req, res) {
 
         let metadata = yield storage.headObject(ctx, fileTo);
         let streamObj = yield storage.createReadStream(ctx, fileTo);
-        let postRes = yield wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, streamObj.readStream, metadata.ContentLength, `.${targetext}`, true);
-        if (postRes) {
-          let fileInfo = JSON.parse(postRes.body);
-          status.setUrl(fileInfo.HostEditUrl);
+        let putRelativeRes = yield wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, streamObj.readStream, metadata.ContentLength, `.${targetext}`, undefined, true);
+        if (putRelativeRes) {
+          status.setUrl(putRelativeRes.HostEditUrl);
           status.setExtName('.' + targetext);
         } else {
           status.err = constants.UNKNOWN;
