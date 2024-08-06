@@ -520,7 +520,6 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
       });
     }
   }
-  yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
     if (fs.existsSync(path.join(tempDirs.source, 'origin.docx'))) {
@@ -529,11 +528,15 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
       dataConvert.fileFrom = path.join(tempDirs.source, 'origin.xlsx');
     } else if (fs.existsSync(path.join(tempDirs.source, 'origin.pptx'))) {
       dataConvert.fileFrom = path.join(tempDirs.source, 'origin.pptx');
+    } else if (fs.existsSync(path.join(tempDirs.source, 'origin.pdf'))) {
+      dataConvert.fileFrom = path.join(tempDirs.source, 'origin.pdf');
     }
     let fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
     fs.renameSync(dataConvert.fileFrom, fileFromNew);
     dataConvert.fileFrom = fileFromNew;
   }
+
+  yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
 
   if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
     let sha256 = yield utils.checksumFile('sha256', dataConvert.fileFrom)
