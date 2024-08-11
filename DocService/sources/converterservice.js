@@ -550,7 +550,6 @@ function convertTo(req, res) {
         let cmd = new commonDefines.InputCommand();
         cmd.setCommand('conv');
         cmd.setDocId(docId);
-        cmd.setSaveKey(docId);
         cmd.setFormat(filetype);
         cmd.setOutputFormat(outputFormat);
         cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);

@@ -96,7 +96,10 @@ let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(ctx, task) {
   var cmd = task.getCmd();
-  this.key = cmd.savekey ? cmd.savekey : cmd.id;
+  this.key = cmd.getDocId();
+  if (cmd.getSaveKey()) {
+    this.key += cmd.getSaveKey();
+  }
   this.fileFrom = null;
   this.fileTo = null;
   this.title = cmd.getTitle();
@@ -483,7 +486,10 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     if (task.getFromChanges()) {
       let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
       fs.mkdirSync(changesDir);
-      let filesCount = yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), changesDir);
+      let filesCount = 0;
+      if (cmd.getSaveKey()) {
+        filesCount = yield* downloadFileFromStorage(ctx, cmd.getDocId() + cmd.getSaveKey(), changesDir);
+      }
       if (filesCount > 0) {
         concatDir = changesDir;
         concatTemplate = "changes0";
@@ -495,7 +501,9 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
     //overwrite some files from m_sKey (for example Editor.bin or changes)
-    yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), tempDirs.source);
+    if (cmd.getSaveKey()) {
+      yield* downloadFileFromStorage(ctx, cmd.getDocId() + cmd.getSaveKey(), tempDirs.source);
+    }
     let format = cmd.getFormat() || 'bin';
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
     concatDir = tempDirs.source;
@@ -506,7 +514,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   //mail merge
   let mailMergeSend = cmd.getMailMergeSend();
   if (mailMergeSend) {
-    yield* downloadFileFromStorage(ctx, mailMergeSend.getJsonKey(), tempDirs.source);
+    yield* downloadFileFromStorage(ctx, cmd.getDocId() + mailMergeSend.getJsonKey(), tempDirs.source);
     concatDir = tempDirs.source;
   }
   if (concatDir) {
@@ -1078,7 +1086,7 @@ function* ExecuteTask(ctx, task) {
     } else {
       error = constants.CONVERT_PARAMS;
     }
-  } else if (cmd.getSaveKey()) {
+  } else if (cmd.getSaveKey() || task.getFromOrigin() || task.getFromSettings()) {
     yield* downloadFileFromStorage(ctx, cmd.getDocId(), tempDirs.source);
     ctx.logger.debug('downloadFileFromStorage complete');
     if(clientStatsD) {

@@ -864,7 +864,7 @@ async function checkForceSaveCache(ctx, convertInfo) {
   if (convertInfo) {
     res.hasCache = true;
     let cmd = new commonDefines.InputCommand(convertInfo, true);
-    const saveKey = cmd.getSaveKey();
+    const saveKey = cmd.getDocId() + cmd.getSaveKey();
     const outputPath = cmd.getOutputPath();
     if (saveKey && outputPath) {
       const savePathDoc = saveKey + '/' + outputPath;

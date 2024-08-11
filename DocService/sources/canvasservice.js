@@ -300,8 +300,10 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
   return status;
 }
 function* addRandomKeyTaskCmd(ctx, cmd) {
-  var task = yield* taskResult.addRandomKeyTask(ctx, cmd.getDocId());
-  cmd.setSaveKey(task.key);
+  let docId = cmd.getDocId();
+  let task = yield* taskResult.addRandomKeyTask(ctx, docId);
+  //set saveKey as postfix to fix vulnerability with path traversal to docId or other files
+  cmd.setSaveKey(task.key.substring(docId.length));
 }
 function addPasswordToCmd(ctx, cmd, docPasswordStr) {
   let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, docPasswordStr);
@@ -347,9 +349,9 @@ function* saveParts(ctx, cmd, filename) {
   }
   if (cmd.getUrl()) {
     result = true;
-  } else if (cmd.getData() && cmd.getData().length > 0) {
+  } else if (cmd.getData() && cmd.getData().length > 0 && cmd.getSaveKey()) {
     var buffer = cmd.getData();
-    yield storage.putObject(ctx, cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
+    yield storage.putObject(ctx, cmd.getDocId() + cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
     //delete data to prevent serialize into json
     cmd.data = null;
     result = (SAVE_TYPE_COMPLETE_ALL === saveType || SAVE_TYPE_COMPLETE === saveType);
@@ -378,7 +380,10 @@ async function getUpdateResponse(ctx, cmd) {
 
   var updateTask = new taskResult.TaskResultData();
   updateTask.tenant = ctx.tenant;
-  updateTask.key = cmd.getSaveKey() ? cmd.getSaveKey() : cmd.getDocId();
+  updateTask.key = cmd.getDocId();
+  if (cmd.getSaveKey()) {
+    updateTask.key += cmd.getSaveKey();
+  }
   var statusInfo = cmd.getStatusInfo();
   if (constants.NO_ERROR === statusInfo) {
     updateTask.status = commonDefines.FileStatus.Ok;
@@ -557,7 +562,6 @@ function* commandReopen(ctx, conn, cmd, outputData) {
     if (upsertRes.affectedRows > 0) {
       //add task
       cmd.setUrl(null);//url may expire
-      cmd.setSaveKey(cmd.getDocId());
       cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
       cmd.setEmbeddedFonts(false);
       if (isPassword) {
@@ -933,7 +937,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
   const userLastChangeIndex = cmd.getUserIndex() || cmd.getUserActionIndex();
   let replyStr;
   if (constants.EDITOR_CHANGES !== statusInfo || isSfcm) {
-    var saveKey = cmd.getSaveKey();
+    var saveKey = docId + cmd.getSaveKey();
     var isError = constants.NO_ERROR != statusInfo;
     var isErrorCorrupted = constants.CONVERT_CORRUPTED == statusInfo;
     var savePathDoc = saveKey + '/' + cmd.getOutputPath();
@@ -1250,7 +1254,7 @@ function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChange
 function* commandSendMMCallback(ctx, cmd) {
   var docId = cmd.getDocId();
   ctx.logger.debug('Start commandSendMMCallback');
-  var saveKey = cmd.getSaveKey();
+  var saveKey = docId + cmd.getSaveKey();
   var statusInfo = cmd.getStatusInfo();
   var outputSfc = new commonDefines.OutputSfcData(docId);
   if (constants.NO_ERROR == statusInfo) {
@@ -1504,7 +1508,7 @@ exports.saveFile = function(req, res) {
       cmd.setStatusInfo(constants.NO_ERROR);
       yield* addRandomKeyTaskCmd(ctx, cmd);
       cmd.setOutputPath(constants.OUTPUT_NAME + pathModule.extname(cmd.getOutputPath()));
-      yield storage.putObject(ctx, cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
+      yield storage.putObject(ctx, docId + cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
       let replyStr = yield commandSfcCallback(ctx, cmd, false, true);
       if (replyStr) {
         utils.fillResponseSimple(res, replyStr, 'application/json');
@@ -1794,7 +1798,7 @@ async function processWopiSaveAs(ctx, cmd) {
   // info.wopiParams is null if it is not wopi
   if (info?.wopiParams) {
     const suggestedTargetType = `.${formatChecker.getStringFromFormat(cmd.getOutputFormat())}`;
-    const storageFilePath = `${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
+    const storageFilePath = `${cmd.getDocId()}${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
     const stream = await storage.createReadStream(ctx, storageFilePath);
     const { wopiSrc, access_token } = info.wopiParams.userAuth;
     await wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, stream.readStream, stream.contentLength, suggestedTargetType, false);
@@ -1819,7 +1823,7 @@ exports.receiveTask = function(data, ack) {
           if ('open' === command || 'reopen' === command) {
             yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), null, additionalOutput);
           } else if ('save' === command || 'savefromorigin' === command) {
-            let status = yield getOutputData(ctx, cmd, outputData, cmd.getSaveKey(), null, additionalOutput);
+            let status = yield getOutputData(ctx, cmd, outputData, cmd.getDocId() + cmd.getSaveKey(), null, additionalOutput);
             if (commonDefines.FileStatus.Ok === status && cmd.getIsSaveAs()) {
               yield processWopiSaveAs(ctx, cmd);
               //todo in case of wopi no need to send url. send it to avoid stubs in sdk
