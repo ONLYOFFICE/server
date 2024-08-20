@@ -393,6 +393,72 @@ docsCoServer.install(server, () => {
 			}
 		});
 	});
+	app.get('/serviceworker.js', apicache.middleware("60 minutes"), async (req, res) => {
+		//todo put serviceworker.js in sdkjs and change location in nginx config
+		let content = `const g_version = '${commonDefines.buildVersion}-${commonDefines.buildNumber}';
+const g_cacheNamePrefix = 'document_editor_static_';
+const g_cacheName = g_cacheNamePrefix + g_version;
+const patternPrefix = new RegExp(g_version + "\\\\w*/(web-apps|sdkjs|sdkjs-plugins|fonts|dictionaries)");
+
+const putInCache = async (request, response) => {
+\tconst cache = await caches.open(g_cacheName);
+\tawait cache.put(request, response);
+};
+
+const cacheFirst = async (request) => {
+\t// First try to get the resource from the cache
+\tconst responseFromCache = await caches.match(request);
+\tif (responseFromCache) {
+\t\treturn responseFromCache;
+\t}
+\t// Next try to get the resource from the network
+\ttry {
+\t\tconst responseFromNetwork = await fetch(request.clone());
+\t\t// response may be used only once
+\t\t// we need to save clone to put one copy in cache
+\t\t// and serve second one
+\t\tputInCache(request, responseFromNetwork.clone());
+\t\treturn responseFromNetwork;
+\t} catch (error) {
+\t\t// when even the fallback response is not available,
+\t\t// there is nothing we can do, but we must always
+\t\t// return a Response object
+\t\treturn new Response('Network error happened', {
+\t\t\tstatus: 408,
+\t\t\theaders: {'Content-Type': 'text/plain'},
+\t\t});
+\t}
+};
+
+self.addEventListener('install', (event) => {
+\tself.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+\t//remove stale cache
+\tevent.waitUntil(
+\t\t(async () => {
+\t\t\tconst keys = await caches.keys();
+\t\t\treturn keys.map(async (cache) => {
+\t\t\t\tif (cache.includes(g_cacheNamePrefix) && !cache.includes(g_cacheName)) {
+\t\t\t\t\treturn await caches.delete(cache);
+\t\t\t\t}
+\t\t\t});
+\t\t})()
+\t);
+});
+
+self.addEventListener('fetch', (event) => {
+\tlet request = event.request;
+\tif (request.method !== "GET" || !patternPrefix.test(request.url)) {
+\t\treturn;
+\t}
+\tevent.respondWith(cacheFirst(event.request));
+});
+`
+		res.setHeader('Content-Type', 'text/javascript');
+		res.send(content);
+	});
 	app.use((err, req, res, next) => {
 		let ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
