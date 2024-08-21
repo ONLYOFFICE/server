@@ -1794,15 +1794,18 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
 };
 
 async function processWopiSaveAs(ctx, cmd) {
+  let res;
   const info = await docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
   // info.wopiParams is null if it is not wopi
   if (info?.wopiParams) {
-    const suggestedTargetType = `.${formatChecker.getStringFromFormat(cmd.getOutputFormat())}`;
+    const suggestedExt = `.${formatChecker.getStringFromFormat(cmd.getOutputFormat())}`;
+    const suggestedTarget = cmd.getSaveAsPath();
     const storageFilePath = `${cmd.getDocId()}${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
     const stream = await storage.createReadStream(ctx, storageFilePath);
     const { wopiSrc, access_token } = info.wopiParams.userAuth;
-    await wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, stream.readStream, stream.contentLength, suggestedTargetType, false);
+    res = await wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, stream.readStream, stream.contentLength, suggestedExt, suggestedTarget, false);
   }
+  return res;
 }
 exports.receiveTask = function(data, ack) {
   return co(function* () {
@@ -1824,9 +1827,13 @@ exports.receiveTask = function(data, ack) {
             yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), null, additionalOutput);
           } else if ('save' === command || 'savefromorigin' === command) {
             let status = yield getOutputData(ctx, cmd, outputData, cmd.getDocId() + cmd.getSaveKey(), null, additionalOutput);
-            if (commonDefines.FileStatus.Ok === status && cmd.getIsSaveAs()) {
-              yield processWopiSaveAs(ctx, cmd);
+            if (commonDefines.FileStatus.Ok === status && (undefined !== cmd.getSaveAsPath() || cmd.getIsSaveAs())) {
               //todo in case of wopi no need to send url. send it to avoid stubs in sdk
+              let saveAsRes = yield processWopiSaveAs(ctx, cmd);
+              if (!saveAsRes) {
+                outputData.setStatus('err');
+                outputData.setData(constants.UNKNOWN);
+              }
             }
           } else if ('sfcm' === command) {
             yield commandSfcCallback(ctx, cmd, true);
