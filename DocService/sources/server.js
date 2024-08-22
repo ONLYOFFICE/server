@@ -395,10 +395,14 @@ docsCoServer.install(server, () => {
 	});
 	app.get('/serviceworker.js', apicache.middleware("60 minutes"), async (req, res) => {
 		//todo put serviceworker.js in sdkjs and change location in nginx config
-		let content = `const g_version = '${commonDefines.buildVersion}-${commonDefines.buildNumber}';
+		let content = `let g_version = "unknown";//unknown for develop
+let pathnameParts = self.location.pathname.split('/');
+if (pathnameParts.length > 1 && pathnameParts[pathnameParts.length - 2]) {
+	g_version = pathnameParts[pathnameParts.length - 2];
+}
 const g_cacheNamePrefix = 'document_editor_static_';
 const g_cacheName = g_cacheNamePrefix + g_version;
-const patternPrefix = new RegExp(g_version + "\\\\w*/(web-apps|sdkjs|sdkjs-plugins|fonts|dictionaries)");
+const patternPrefix = new RegExp(g_version + "/(web-apps|sdkjs|sdkjs-plugins|fonts|dictionaries)");
 
 const putInCache = async (request, response) => {
 \tconst cache = await caches.open(g_cacheName);
