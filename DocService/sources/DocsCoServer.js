@@ -4415,3 +4415,22 @@ exports.shutdown = function(req, res) {
     }
   });
 };
+exports.getEditorConnectionsCount = function (req, res) {
+  let ctx = new operationContext.Context();
+  let count = 0;
+  try {
+    ctx.initFromRequest(req);
+    for (let i = 0; i < connections.length; ++i) {
+      let conn = connections[i];
+      if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view))) {
+        count++;
+      }
+    }
+    ctx.logger.info('getConnectionsCount count=%d', count);
+  } catch (err) {
+    ctx.logger.error('getConnectionsCount error %s', err.stack);
+  } finally {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(count.toString());
+  }
+};

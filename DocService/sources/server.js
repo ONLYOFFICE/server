@@ -239,6 +239,7 @@ docsCoServer.install(server, () => {
 	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+	app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
 
 	function checkWopiEnable(req, res, next) {
 		//todo may be move code into wopiClient or wopiClient.discovery...
