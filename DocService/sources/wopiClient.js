@@ -502,7 +502,7 @@ async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, ac
 }
 function getEditorHtml(req, res) {
   return co(function*() {
-    let params = {key: undefined, fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined, docs_api_config: {}};
+    let params = {key: undefined, apiQuery: '', fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined, docs_api_config: {}};
     let ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
@@ -520,6 +520,7 @@ function getEditorHtml(req, res) {
       ctx.logger.debug(`wopiEditor req.url:%s`, req.url);
       ctx.logger.debug(`wopiEditor req.query:%j`, req.query);
       ctx.logger.debug(`wopiEditor req.body:%j`, req.body);
+      params.apiQuery = `?${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrc)}`;
       params.documentType = req.params.documentType;
       let mode = req.params.mode;
       let sc = req.query['sc'];
