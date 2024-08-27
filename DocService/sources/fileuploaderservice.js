@@ -34,8 +34,6 @@
 const crypto = require('crypto');
 var multiparty = require('multiparty');
 var co = require('co');
-var jwt = require('jsonwebtoken');
-var taskResult = require('./taskresult');
 const utilsDocService = require('./utilsDocService');
 var docsCoServer = require('./DocsCoServer');
 var utils = require('./../../Common/sources/utils');
@@ -52,46 +50,6 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 
 const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 
-exports.uploadTempFile = function(req, res) {
-  return co(function* () {
-    var docId = 'uploadTempFile';
-    let ctx = new operationContext.Context();
-    try {
-      ctx.initFromRequest(req);
-      yield ctx.initTenantCache();
-      ctx.logger.info('uploadTempFile start');
-      let params;
-      let authRes = yield docsCoServer.getRequestParams(ctx, req, true);
-      if(authRes.code === constants.NO_ERROR){
-        params = authRes.params;
-      } else {
-        utils.fillResponse(req, res, new commonDefines.ConvertStatus(authRes.code), false);
-        return;
-      }
-      docId = params.key;
-      ctx.setDocId(docId);
-      ctx.logger.debug('Start uploadTempFile');
-      if (docId && constants.DOC_ID_REGEX.test(docId) && req.body && Buffer.isBuffer(req.body)) {
-        var task = yield* taskResult.addRandomKeyTask(ctx, docId);
-        var strPath = task.key + '/' + docId + '.tmp';
-        yield storageBase.putObject(ctx, strPath, req.body, req.body.length);
-        var url = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
-                                                 commonDefines.c_oAscUrlTypes.Temporary);
-        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.NO_ERROR, url), false);
-      } else {
-        if (!constants.DOC_ID_REGEX.test(docId)) {
-          ctx.logger.warn('Error uploadTempFile unexpected key');
-        }
-        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), false);
-      }
-    } catch (e) {
-      ctx.logger.error('Error uploadTempFile: %s', e.stack);
-      utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), false);
-    } finally {
-      ctx.logger.info('uploadTempFile end');
-    }
-  });
-};
 function* checkJwtUpload(ctx, errorName, token){
   let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
   return checkJwtUploadTransformRes(ctx, errorName, checkJwtRes);

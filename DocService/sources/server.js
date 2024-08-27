@@ -187,10 +187,6 @@ docsCoServer.install(server, () => {
 	app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
 	app.post('/converter', utils.checkClientIp, rawFileParser, converterService.convertJson);
 
-
-	app.get('/FileUploader.ashx', utils.checkClientIp, rawFileParser, fileUploaderService.uploadTempFile);
-	app.post('/FileUploader.ashx', utils.checkClientIp, rawFileParser, fileUploaderService.uploadTempFile);
-
 	app.param('docid', (req, res, next, val) => {
 		if (constants.DOC_ID_REGEX.test(val)) {
 			next();
