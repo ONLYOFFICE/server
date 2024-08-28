@@ -1203,7 +1203,7 @@ function receiveTask(data, ack) {
         res = yield* ExecuteTask(ctx, task);
       }
     } catch (err) {
-      ctx.logger.error(err);
+      ctx.logger.error('receiveTask %s', err.stack);
     } finally {
       clearTimeout(timeoutId);
       if (!outParams.isAck) {
