@@ -389,9 +389,9 @@ docsCoServer.install(server, () => {
 			}
 		});
 	});
-	app.get('/serviceworker.js', apicache.middleware("5 min"), async (req, res) => {
+	app.get('/document_editor_service_worker.js', apicache.middleware("5 min"), async (req, res) => {
 		//make handler only for development version
-		res.sendFile(path.resolve("../../sdkjs/common/serviceworker/serviceworker.js"));
+		res.sendFile(path.resolve("../../sdkjs/common/serviceworker/document_editor_service_worker.js"));
 	});
 	app.use((err, req, res, next) => {
 		let ctx = new operationContext.Context();
