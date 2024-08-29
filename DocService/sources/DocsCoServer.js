@@ -2748,6 +2748,7 @@ exports.install = function(server, callbackFunction) {
             return;
           } else {
             modifyConnectionEditorToView(ctx, conn);
+            conn.isCiriticalError = true;
           }
         } else if (commonDefines.FileStatus.None === status && conn.encrypted) {
           //ok
