@@ -2537,7 +2537,7 @@ exports.install = function(server, callbackFunction) {
       let docId = data.docid;
       const user = data.user;
 
-      let wopiParams = null, openedAtStr;
+      let wopiParams = null, wopiParamsFull = null, openedAtStr;
       if (data.documentCallbackUrl) {
         wopiParams = wopiClient.parseWopiCallback(ctx, data.documentCallbackUrl);
         if (wopiParams && wopiParams.userAuth) {
@@ -2556,7 +2556,6 @@ exports.install = function(server, callbackFunction) {
       let result = yield taskResult.select(ctx, docId);
       let resultRow = result.length > 0 ? result[0] : null;
       if (wopiParams) {
-        let wopiParamsFull;
         if (resultRow && resultRow.callback) {
           wopiParamsFull = wopiClient.parseWopiCallback(ctx, data.documentCallbackUrl, resultRow.callback);
           cmd?.setWopiParams(wopiParamsFull);
@@ -2788,7 +2787,16 @@ exports.install = function(server, callbackFunction) {
               var arrayBlocks = data['block'];
               var getLockRes = yield getLock(ctx, conn, data, true);
               if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
-                yield* authRestore(ctx, conn, data.sessionId);
+                let wopiLockRes = true;
+                if (wopiParamsFull) {
+                  wopiLockRes = yield wopiClient.lock(ctx, 'LOCK', wopiParamsFull.commonInfo.lockId,
+                    wopiParamsFull.commonInfo.fileInfo, wopiParamsFull.userAuth);
+                }
+                if (wopiLockRes) {
+                  yield* authRestore(ctx, conn, data.sessionId);
+                } else {
+                  yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Wopi lock error.', constants.RESTORE_CODE);
+                }
               } else {
                 yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Locks not checked.', constants.RESTORE_CODE);
               }
