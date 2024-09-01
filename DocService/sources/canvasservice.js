@@ -179,6 +179,9 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
     password = sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
     creationDate = row.created_at && row.created_at.getTime();
     openedAt = getOpenedAt(row);
+    if (optAdditionalOutput) {
+      optAdditionalOutput.row = row;
+    }
   }
   switch (status) {
     case commonDefines.FileStatus.SaveVersion:
@@ -1826,9 +1829,26 @@ exports.receiveTask = function(data, ack) {
         if (updateRes.affectedRows > 0) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
-          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null, needUrlIsCorrectPassword: undefined, creationDate: undefined, openedAt: undefined};
+          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null,
+            needUrlIsCorrectPassword: undefined, creationDate: undefined, openedAt: undefined, row: undefined};
           if ('open' === command || 'reopen' === command) {
             yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), null, additionalOutput);
+            //wopi from TemplateSource
+            if (additionalOutput.row) {
+              let row = additionalOutput.row;
+              let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
+              let wopiParams = wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback);
+              if (wopiParams?.commonInfo?.fileInfo?.TemplateSource) {
+                ctx.logger.debug('receiveTask: save document opened from TemplateSource');
+                //todo
+                //no need to wait to open file faster
+                void docsCoServer.startForceSave(ctx, cmd.getDocId(), commonDefines.c_oAscForceSaveTypes.Timeout,
+                  undefined, undefined, undefined, undefined,
+                  undefined, undefined, undefined, row.baseurl,
+                  undefined,undefined,undefined,undefined,
+                  undefined,cmd.getExternalChangeInfo());
+              }
+            }
           } else if ('save' === command || 'savefromorigin' === command) {
             let status = yield getOutputData(ctx, cmd, outputData, cmd.getDocId() + cmd.getSaveKey(), null, additionalOutput);
             if (commonDefines.FileStatus.Ok === status && (cmd.getSaveAsPath() || cmd.getIsSaveAs())) {
