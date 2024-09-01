@@ -927,7 +927,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
 }
 async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId,
                               opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl,
-                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams) {
+                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams, opt_changeInfo) {
   const tenForceSaveUsingButtonWithoutChanges = ctx.getCfg('services.CoAuthoring.server.forceSaveUsingButtonWithoutChanges', cfgForceSaveUsingButtonWithoutChanges);
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
@@ -940,15 +940,20 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     });
     if (!hasEncrypted) {
       let forceSave = await editorData.getForceSave(ctx, docId);
-      let startWithoutChanges = !forceSave && opt_conn && (commonDefines.c_oAscForceSaveTypes.Form === type ||
+      let forceSaveWithConnection = opt_conn && (commonDefines.c_oAscForceSaveTypes.Form === type ||
         (commonDefines.c_oAscForceSaveTypes.Button === type && tenForceSaveUsingButtonWithoutChanges));
+      let startWithoutChanges = !forceSave && (forceSaveWithConnection || opt_changeInfo);
       if (startWithoutChanges) {
         //stub to send forms without changes
         let newChangesLastDate = new Date();
         newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
         let newChangesLastTime = newChangesLastDate.getTime();
-        let baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
-        let changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime, opt_conn.lang);
+        let baseUrl = opt_baseUrl || "";
+        let changeInfo = opt_changeInfo;
+        if (opt_conn) {
+          baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
+          changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime, opt_conn.lang);
+        }
         await editorData.setForceSave(ctx, docId, newChangesLastTime, 0, baseUrl, changeInfo, null);
         forceSave = await editorData.getForceSave(ctx, docId);
       }
@@ -2815,6 +2820,12 @@ exports.install = function(server, callbackFunction) {
         let openedAt = openedAtStr ? sqlBase.DocumentAdditional.prototype.getOpenedAt(openedAtStr) : canvasService.getOpenedAt(resultRow);
         const endAuthRes = yield* endAuth(ctx, conn, false, documentCallback, openedAt);
         if (endAuthRes && cmd) {
+          //todo to allow forcesave TemplateSource after convertion(move to better place)
+          if (wopiParamsFull?.commonInfo?.fileInfo?.TemplateSource) {
+            let newChangesLastDate = new Date();
+            newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
+            cmd.setExternalChangeInfo(getExternalChangeInfo(conn.user, newChangesLastDate.getTime(), conn.lang));
+          }
           yield canvasService.openDocument(ctx, conn, cmd, upsertRes, bIsRestore);
         }
       }
