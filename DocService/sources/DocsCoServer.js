@@ -1207,7 +1207,7 @@ async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_u
     ctx.logger.error('postData error: url = %s;data = %j %s', uri, sendData, err.stack);
   }
   await onReplySendStatusDocument(ctx, docId, replyData);
-  return opt_callback;
+  return sendData;
 }
 function parseReplyData(ctx, replyData) {
   var res = null;
@@ -1304,12 +1304,10 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
       }
     }
   }
-  if (null === oCallbackUrl) {
-    return commonDefines.c_oAscServerCommandErrors.ParseError;
-  } else {
-    yield sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
-    return commonDefines.c_oAscServerCommandErrors.NoError;
+  if (null !== oCallbackUrl) {
+    return yield sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
   }
+  return null;
 }
 let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   //wopi unlock
@@ -4279,7 +4277,7 @@ function* commandLicense(ctx) {
  * @param ctx Local context.
  * @param params Request parameters.
  * @param req Request object.
- * @param output{{ key: string, error: number, version: undefined | string }} Mutable. Response body.
+ * @param output{{ key: string, error: number, version: undefined | string, users: [string]}}} Mutable. Response body.
  * @returns undefined.
  */
 function* commandHandle(ctx, params, req, output) {
@@ -4293,7 +4291,12 @@ function* commandHandle(ctx, params, req, output) {
       //If no files in the database means they have not been edited.
       const selectRes = yield taskResult.select(ctx, docId);
       if (selectRes.length > 0) {
-        output.error = yield* bindEvents(ctx, docId, params.callback, utils.getBaseUrlByRequest(ctx, req), undefined, params.userdata);
+        let sendData = yield* bindEvents(ctx, docId, params.callback, utils.getBaseUrlByRequest(ctx, req), undefined, params.userdata);
+        if (sendData) {
+          output.users = sendData.users || [];
+        } else {
+          output.error = commonDefines.c_oAscServerCommandErrors.ParseError;
+        }
       } else {
         output.error = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
       }
@@ -4386,7 +4389,7 @@ function* commandHandle(ctx, params, req, output) {
 // Command from the server (specifically teamlab)
 exports.commandFromServer = function (req, res) {
   return co(function* () {
-    const output = { key: 'commandFromServer', error: commonDefines.c_oAscServerCommandErrors.NoError, version: undefined };
+    const output = { key: 'commandFromServer', error: commonDefines.c_oAscServerCommandErrors.NoError, version: undefined, users: undefined};
     const ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
