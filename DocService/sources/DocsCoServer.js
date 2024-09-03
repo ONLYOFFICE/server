@@ -4272,6 +4272,18 @@ function* commandLicense(ctx) {
   };
 }
 
+async function proxyCommand(ctx, req, params) {
+  const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+  //todo gen shardkey as in sdkjs
+  const shardkey = params.key;
+  const baseUrl = utils.getBaseUrlByRequest(ctx, req);
+  let url = `${baseUrl}/coauthoring/command?&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardkey)}`;
+  for (let name in req.query) {
+    url += `&${name}=${encodeURIComponent(req.query[name])}`;
+  }
+  ctx.logger.info('commandFromServer proxy request with "key" to correctly process commands in sharded cluster to url:%s', url);
+  return await utils.postRequestPromise(ctx, url, req.body, null, req.body.length, tenCallbackRequestTimeout, undefined, req.headers);
+}
 /**
  * Server commands handler.
  * @param ctx Local context.
@@ -4391,6 +4403,7 @@ exports.commandFromServer = function (req, res) {
   return co(function* () {
     const output = { key: 'commandFromServer', error: commonDefines.c_oAscServerCommandErrors.NoError, version: undefined, users: undefined};
     const ctx = new operationContext.Context();
+    let postRes = null;
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
@@ -4401,21 +4414,27 @@ exports.commandFromServer = function (req, res) {
       output.key = params.key;
       output.error = validateInputParams(ctx, authRes, params);
       if (output.error === commonDefines.c_oAscServerCommandErrors.NoError) {
-        ctx.logger.debug('commandFromServer: c = %s', params.c);
         if (params.key && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
-          ctx.logger.warn('commandFromServer. Pass query string parameter "%s" to correctly process commands with "key" in sharded cluster', constants.SHARD_KEY_API_NAME);
+          postRes = yield proxyCommand(ctx, req, params);
+        } else {
+          ctx.logger.debug('commandFromServer: c = %s', params.c);
+          yield* commandHandle(ctx, params, req, output);
         }
-        yield *commandHandle(ctx, params, req, output);
       }
     } catch (err) {
       output.error = commonDefines.c_oAscServerCommandErrors.UnknownError;
       ctx.logger.error('Error commandFromServer: %s', err.stack);
     } finally {
-      const outputBuffer = Buffer.from(JSON.stringify(output), 'utf8');
+      let outputBuffer;
+      if (postRes) {
+        outputBuffer = postRes.body;
+      } else {
+        outputBuffer = Buffer.from(JSON.stringify(output), 'utf8');
+      }
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Length', outputBuffer.length);
       res.send(outputBuffer);
-      ctx.logger.info('commandFromServer end : %j', output);
+      ctx.logger.info('commandFromServer end : %s', outputBuffer);
     }
   });
 };
