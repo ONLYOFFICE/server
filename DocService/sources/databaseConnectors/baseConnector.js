@@ -297,6 +297,21 @@ function getExpired(ctx, maxCount, expireSeconds) {
     }, false, false, values);
   });
 }
+function getCountWithStatus(ctx, status) {
+  return new Promise(function(resolve, reject) {
+    const values = [];
+    const sqlParam = addSqlParameter(status, values);
+    const sqlCommand = `SELECT COUNT(id) AS count  FROM ${cfgTableResult} WHERE status=${sqlParam};`;
+    dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
+      if (error) {
+        reject(error);
+      } else {
+        let res = Number(result[0].count)
+        resolve(!isNaN(res) ? res : 0);
+      }
+    }, false, false, values);
+  });
+}
 
 function isLockCriticalSection(id) {
 	return !!(g_oCriticalSection[id]);
@@ -373,6 +388,7 @@ module.exports = {
   isLockCriticalSection,
   getDocumentsWithChanges,
   getExpired,
+  getCountWithStatus,
   healthCheck,
   getEmptyCallbacks,
   getTableColumns,
