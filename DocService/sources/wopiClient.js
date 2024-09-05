@@ -419,8 +419,9 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
           ctx.logger.debug('wopiEditor commonInfoStr=%s', commonInfoStr);
           ctx.logger.debug('wopiEditor unlockMarkStr=%s', unlockMarkStr);
           let hasUnlockMarker = isWopiUnlockMarker(unlockMarkStr);
-          ctx.logger.debug('wopiEditor hasUnlockMarker=%s', hasUnlockMarker);
-          if (hasUnlockMarker || !commonInfo.fileInfo.SupportsLocks) {
+          let isUpdateVersion = commonDefines.FileStatus.UpdateVersion === row.status;
+          ctx.logger.debug('wopiEditor hasUnlockMarker=%s isUpdateVersion=%s', hasUnlockMarker, isUpdateVersion);
+          if (hasUnlockMarker || isUpdateVersion || !commonInfo.fileInfo.SupportsLocks) {
             let fileInfoVersion = fileInfo.Version;
             let cacheVersion = commonInfo.fileInfo.Version;
             let fileInfoModified = fileInfo.LastModifiedTime;
