@@ -1912,6 +1912,12 @@ exports.install = function(server, callbackFunction) {
           yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
         }
       }
+      let sessionType = isView ? 'view' : 'edit';
+      let sessionTimeMs = new Date().getTime() - conn.sessionTimeConnect;
+      ctx.logger.debug(`closeDocument %s session time:%s`, sessionType, sessionTimeMs);
+      if(clientStatsD) {
+        clientStatsD.timing(`coauth.session.${sessionType}`, sessionTimeMs);
+      }
     }
   }
 
