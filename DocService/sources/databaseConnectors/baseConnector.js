@@ -297,11 +297,13 @@ function getExpired(ctx, maxCount, expireSeconds) {
     }, false, false, values);
   });
 }
-function getCountWithStatus(ctx, status) {
+function getCountWithStatus(ctx, status, expireMs) {
   return new Promise(function(resolve, reject) {
     const values = [];
-    const sqlParam = addSqlParameter(status, values);
-    const sqlCommand = `SELECT COUNT(id) AS count  FROM ${cfgTableResult} WHERE status=${sqlParam};`;
+    const expireDate = new Date(Date.now() - expireMs);
+    const sqlStatus = addSqlParameter(status, values);
+    const sqlDate = addSqlParameter(expireDate, values);
+    const sqlCommand = `SELECT COUNT(id) AS count FROM ${cfgTableResult} WHERE status=${sqlStatus} AND last_open_date>${sqlDate};`;
     dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);

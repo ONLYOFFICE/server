@@ -78,7 +78,7 @@ exports.shutdown = function(ctx, editorStat, status) {
           break;
         }
         var remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
-        let inSavingStatus = yield sqlBase.getCountWithStatus(ctx, commonDefines.FileStatus.SaveVersion);
+        let inSavingStatus = yield sqlBase.getCountWithStatus(ctx, commonDefines.FileStatus.SaveVersion, EXEC_TIMEOUT);
         ctx.logger.debug('shutdown remaining files editorStat:%d, db:%d', remainingFiles, inSavingStatus);
         if (!isStartWait && (remainingFiles + inSavingStatus) <= 0) {
           break;
