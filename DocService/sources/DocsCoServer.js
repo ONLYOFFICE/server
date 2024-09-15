@@ -2634,7 +2634,7 @@ exports.install = function(server, callbackFunction) {
       const curUserId = curUserIdOriginal + curIndexUser;
       conn.tenant = tenantManager.getTenantByConnection(ctx, conn);
       conn.docId = data.docid;
-      conn.permissions = data.permissions || {};
+      conn.permissions = data.permissions;
       conn.user = {
         id: curUserId,
         idOriginal: curUserIdOriginal,
