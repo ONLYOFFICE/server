@@ -3686,9 +3686,9 @@ exports.install = function(server, callbackFunction) {
             for (i = 0; i < participants.length; ++i) {
               participant = participants[i];
               if (data.needUrlKey) {
-                if (0 == data.needUrlMethod) {
+                if (0 === data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrls(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, data.creationDate));
-                } else if (1 == data.needUrlMethod) {
+                } else if (1 === data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrl(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, undefined, data.creationDate));
                 } else {
                   let url;

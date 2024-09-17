@@ -1856,7 +1856,8 @@ exports.receiveTask = function(data, ack) {
               let saveAsRes = yield processWopiSaveAs(ctx, cmd);
               if (!saveAsRes.res && saveAsRes.wopiParams) {
                 outputData.setStatus('err');
-                outputData.setData(constants.UNKNOWN);
+                outputData.setData(constants.CONVERT);
+                additionalOutput.needUrlKey = null;
               }
             }
           } else if ('sfcm' === command) {
