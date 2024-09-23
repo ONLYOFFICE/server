@@ -54,7 +54,7 @@
 					"email"
 				],
 				"template": {
-					"title": "License",
+					"title": "License limit",
 					"body": "%s limit exceeded!!!"
 				},
 				"policies": {
