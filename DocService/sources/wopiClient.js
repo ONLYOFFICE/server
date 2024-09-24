@@ -214,8 +214,8 @@ function discovery(req, res) {
           xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
           if (formsExts[ext.edit[j]]) {
-            xmlApp.ele('action', {name: 'formsubmit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
-            xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+            xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+            xmlApp.ele('action', {name: 'formsubmit', ext: ext.edit[j], requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
           } else {
             xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
           }
@@ -258,8 +258,8 @@ function discovery(req, res) {
             mimeTypes.forEach((value) => {
               let xmlApp = xmlZone.ele('app', {name: value});
               if (formsExts[ext.edit[j]]) {
-                xmlApp.ele('action', {name: 'formsubmit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
-                xmlApp.ele('action', {name: 'edit', ext: '', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+                xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
+                xmlApp.ele('action', {name: 'formsubmit', ext: '', requires: 'locks,update', urlsrc: urlTemplateFormSubmit}).up();
               } else {
                 xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
               }
