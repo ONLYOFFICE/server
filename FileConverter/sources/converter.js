@@ -539,9 +539,11 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     } else if (fs.existsSync(path.join(tempDirs.source, 'origin.pdf'))) {
       dataConvert.fileFrom = path.join(tempDirs.source, 'origin.pdf');
     }
-    let fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
-    fs.renameSync(dataConvert.fileFrom, fileFromNew);
-    dataConvert.fileFrom = fileFromNew;
+    if (fs.existsSync(dataConvert.fileFrom)) {
+      let fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
+      fs.renameSync(dataConvert.fileFrom, fileFromNew);
+      dataConvert.fileFrom = fileFromNew;
+    }
   }
 
   yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
