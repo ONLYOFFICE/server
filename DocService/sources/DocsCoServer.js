@@ -3988,7 +3988,7 @@ exports.install = function(server, callbackFunction) {
 exports.setLicenseInfo = async function(globalCtx, data, original) {
   tenantManager.setDefLicense(data, original);
 
-  utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
+  await utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
 
   const tenantsList = await tenantManager.getAllTenants(globalCtx);
   for (const tenant of tenantsList) {
@@ -3997,7 +3997,7 @@ exports.setLicenseInfo = async function(globalCtx, data, original) {
     await ctx.initTenantCache();
 
     const [licenseInfo] = await tenantManager.getTenantLicense(ctx);
-    utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
+    await utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
   }
 };
 exports.healthCheck = function(req, res) {

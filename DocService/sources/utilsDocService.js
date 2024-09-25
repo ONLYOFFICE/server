@@ -110,11 +110,11 @@ function humanFriendlyExpirationTime(endTime) {
 
 /**
  * Notify server user about license expiration via configured notification transports.
- * @param {string} ctx Context.
+ * @param {Context} ctx Context.
  * @param {Date} endDate Date of expiration.
  * @returns {undefined}
  */
-function notifyLicenseExpiration(ctx, endDate) {
+async function notifyLicenseExpiration(ctx, endDate) {
   if (!endDate) {
     ctx.logger.warn('notifyLicenseExpiration(): expiration date is not defined');
     return;
@@ -127,7 +127,7 @@ function notifyLicenseExpiration(ctx, endDate) {
 
     const state = endDate < currentDate ? 'expired' : 'expires';
     ctx.logger.warn('%s license %s on %s!!!', tenant, state, formattedExpirationTime);
-    notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, [tenant, state, formattedExpirationTime]);
+    await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, [tenant, state, formattedExpirationTime]);
   }
 }
 
