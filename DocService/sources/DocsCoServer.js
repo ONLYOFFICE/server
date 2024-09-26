@@ -1092,6 +1092,23 @@ function* startRPC(ctx, conn, responseKey, data) {
       }
       sendDataRpc(ctx, conn, responseKey, renameRes);
       break;
+    case 'wopi_RefreshFile': {
+      let renameRes;
+      let selectRes = yield taskResult.select(ctx, docId);
+      let row = selectRes.length > 0 ? selectRes[0] : null;
+      if (row) {
+        if (row.callback) {
+          let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
+          let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex);
+          let wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
+          if (wopiParams) {
+            renameRes = yield wopiClient.refreshFile(ctx, wopiParams, data.name);
+          }
+        }
+      }
+      sendDataRpc(ctx, conn, responseKey, renameRes);
+      break;
+    }
     case 'pathurls':
       let outputData = new canvasService.OutputData(data.type);
       yield* canvasService.commandPathUrls(ctx, conn, data.data, outputData);
@@ -2372,7 +2389,8 @@ exports.install = function(server, callbackFunction) {
     } else if (data.mode && 'view' !== data.mode && !decoded?.editorConfig?.mode) {//allow to restrict rights to 'view'
       res = "editorConfig.mode";
     }
-    return res;
+    //todo
+    return "";
   }
   function fillDataFromJwt(ctx, decoded, data) {
     let res = true;

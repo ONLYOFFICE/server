@@ -835,6 +835,26 @@ function renameFile(ctx, wopiParams, name) {
     return res;
   });
 }
+
+async function refreshFile(ctx, wopiParams) {
+  let fileInfo = {};
+  try {
+    ctx.logger.info('wopi RefreshFile start');
+    if (!wopiParams.userAuth) {
+      return res;
+    }
+    let userAuth = wopiParams.userAuth;
+
+    fileInfo = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
+    //todo jwt token
+
+    } catch (err) {
+    ctx.logger.error('wopi error RefreshFile:%s', err.stack);
+  } finally {
+    utils.fillResponseSimple(res, JSON.stringify(fileInfo), "application/json");
+    ctx.logger.info('wopi RefreshFile end');
+  }
+}
 function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
   return co(function* () {
     let fileInfo = undefined;
@@ -1099,6 +1119,7 @@ exports.putFile = putFile;
 exports.parsePutFileResponse = parsePutFileResponse;
 exports.putRelativeFile = putRelativeFile;
 exports.renameFile = renameFile;
+exports.refreshFile = refreshFile;
 exports.lock = lock;
 exports.unlock = unlock;
 exports.fillStandardHeaders = fillStandardHeaders;
