@@ -1054,6 +1054,30 @@ let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
     sendDataRpc(ctx, conn, responseKey, forceSaveRes);
   }
 })
+
+async function startWopiRPC(ctx, docId, userId, userIdOriginal, data) {
+  let res;
+  let selectRes = await taskResult.select(ctx, docId);
+  let row = selectRes.length > 0 ? selectRes[0] : null;
+  if (row) {
+    if (row.callback) {
+      let userIndex = utils.getIndexFromUserId(userId, userIdOriginal);
+      let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex);
+      let wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
+      if (wopiParams) {
+        switch (data.type) {
+          case 'wopi_RenameFile':
+            res = await wopiClient.renameFile(ctx, wopiParams, data.name);
+            break;
+          case 'wopi_RefreshFile':
+            res = await wopiClient.refreshFile(ctx, wopiParams, docId);
+            break;
+        }
+      }
+    }
+  }
+  return res;
+}
 function* startRPC(ctx, conn, responseKey, data) {
   let docId = conn.docId;
   ctx.logger.debug('startRPC start responseKey:%s , %j', responseKey, data);
@@ -1077,36 +1101,9 @@ function* startRPC(ctx, conn, responseKey, data) {
       break;
     }
     case 'wopi_RenameFile':
-      let renameRes;
-      let selectRes = yield taskResult.select(ctx, docId);
-      let row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row) {
-        if (row.callback) {
-          let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
-          let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex);
-          let wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
-          if (wopiParams) {
-            renameRes = yield wopiClient.renameFile(ctx, wopiParams, data.name);
-          }
-        }
-      }
-      sendDataRpc(ctx, conn, responseKey, renameRes);
-      break;
     case 'wopi_RefreshFile': {
-      let renameRes;
-      let selectRes = yield taskResult.select(ctx, docId);
-      let row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row) {
-        if (row.callback) {
-          let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
-          let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex);
-          let wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
-          if (wopiParams) {
-            renameRes = yield wopiClient.refreshFile(ctx, wopiParams, data.name);
-          }
-        }
-      }
-      sendDataRpc(ctx, conn, responseKey, renameRes);
+      let res = yield startWopiRPC(ctx, conn.docId, conn.user.id, conn.user.idOriginal, data);
+      sendDataRpc(ctx, conn, responseKey, res);
       break;
     }
     case 'pathurls':
@@ -2350,14 +2347,14 @@ exports.install = function(server, callbackFunction) {
           openCmd.userid = fileInfo.UserId;
         }
       }
-      let permissionsEdit = !fileInfo.ReadOnly && fileInfo.UserCanWrite && queryParams.formsubmit !== "1";
-      let permissionsFillForm = permissionsEdit || queryParams.formsubmit === "1";
+      let permissionsEdit = !fileInfo.ReadOnly && fileInfo.UserCanWrite && queryParams?.formsubmit !== "1";
+      let permissionsFillForm = permissionsEdit || queryParams?.formsubmit === "1";
       let permissions = {
         edit: permissionsEdit,
         review: (fileInfo.SupportsReviewing === false) ? false : (fileInfo.UserCanReview === false ? false : fileInfo.UserCanReview),
         copy: fileInfo.CopyPasteRestrictions !== "CurrentDocumentOnly" && fileInfo.CopyPasteRestrictions !== "BlockAll",
         print: !fileInfo.DisablePrint && !fileInfo.HidePrintOption,
-        chat: queryParams.dchat!=="1",
+        chat: queryParams?.dchat!=="1",
         fillForms: permissionsFillForm
       };
       //todo (review: undefiend)
@@ -2367,11 +2364,6 @@ exports.install = function(server, callbackFunction) {
       }
       //not '=' because if it jwt from previous version, we must use values from data
       Object.assign(data.permissions, permissions);
-    }
-
-    //issuer for secret
-    if (decoded.iss) {
-      data.iss = decoded.iss;
     }
     return res;
   }
@@ -2494,11 +2486,6 @@ exports.install = function(server, callbackFunction) {
     if (decoded.url || decoded.payload|| (decoded.key && !wopiClient.isWopiJwtToken(decoded))) {
       ctx.logger.warn('fillDataFromJwt token has invalid format');
       res = false;
-    }
-
-    //issuer for secret
-    if (decoded.iss) {
-      data.iss = decoded.iss;
     }
     return res;
   }
@@ -2774,6 +2761,7 @@ exports.install = function(server, callbackFunction) {
           var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
           if (!(updateIfRes.affectedRows > 0)) {
             // error version
+            //todo log level debug
             yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
             return;
           }

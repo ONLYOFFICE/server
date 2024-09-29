@@ -836,24 +836,33 @@ function renameFile(ctx, wopiParams, name) {
   });
 }
 
-async function refreshFile(ctx, wopiParams) {
-  let fileInfo = {};
+async function refreshFile(ctx, wopiParams, docId) {
+  let res = {};
   try {
     ctx.logger.info('wopi RefreshFile start');
-    if (!wopiParams.userAuth) {
-      return res;
-    }
     let userAuth = wopiParams.userAuth;
+    if (!userAuth) {
+      return;
+    }
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+    const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
+    const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
 
-    fileInfo = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
-    //todo jwt token
-
-    } catch (err) {
+    res.key = docId;
+    res.userAuth = userAuth;
+    res.fileInfo = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
+    res.queryParams = undefined;
+    if (tenTokenEnableBrowser) {
+      let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+      let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
+      res.token = jwt.sign(res, secret, options);
+    }
+  } catch (err) {
     ctx.logger.error('wopi error RefreshFile:%s', err.stack);
   } finally {
-    utils.fillResponseSimple(res, JSON.stringify(fileInfo), "application/json");
     ctx.logger.info('wopi RefreshFile end');
   }
+  return res;
 }
 function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
   return co(function* () {
