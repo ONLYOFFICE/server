@@ -1070,7 +1070,7 @@ async function startWopiRPC(ctx, docId, userId, userIdOriginal, data) {
             res = await wopiClient.renameFile(ctx, wopiParams, data.name);
             break;
           case 'wopi_RefreshFile':
-            res = await wopiClient.refreshFile(ctx, wopiParams, docId);
+            res = await wopiClient.refreshFile(ctx, wopiParams, row.baseurl);
             break;
         }
       }
