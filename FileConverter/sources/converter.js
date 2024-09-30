@@ -1221,7 +1221,7 @@ function createErrorResponse(ctx, task){
   ctx.logger.debug('createErrorResponse');
   //simulate error response
   let cmd = task.getCmd();
-  cmd.setStatusInfo(constants.CONVERT);
+  cmd.setStatusInfo(constants.CONVERT_TEMPORARY);
   let res = new commonDefines.TaskQueueData();
   res.setCtx(ctx);
   res.setCmd(cmd);

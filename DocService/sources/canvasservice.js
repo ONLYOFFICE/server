@@ -404,6 +404,8 @@ async function getUpdateResponse(ctx, cmd) {
         updateTask.password = password;
       }
     }
+  } else if (constants.CONVERT_TEMPORARY === statusInfo) {
+    updateTask.status = commonDefines.FileStatus.ErrToReload;
   } else if (constants.CONVERT_DOWNLOAD === statusInfo) {
     updateTask.status = commonDefines.FileStatus.ErrToReload;
   } else if (constants.CONVERT_LIMITS === statusInfo) {
