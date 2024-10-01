@@ -42,8 +42,9 @@
 					"email"
 				],
 				"template": {
-					"title": "License expiration",
-					"body": "%s license %s on %s!!!"
+					"title": "License expiration warning",
+					"bodyWarn": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.",
+					"bodyError": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
 				},
 				"policies": {
 					"repeatInterval": "1d"
@@ -54,8 +55,8 @@
 					"email"
 				],
 				"template": {
-					"title": "License limit",
-					"body": "%s limit exceeded!!!"
+					"title": "License connection limit warning",
+					"body": "Attention! You have reached %s%% of the %s limit set by your license."
 				},
 				"policies": {
 					"repeatInterval": "1h"

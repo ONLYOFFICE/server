@@ -108,6 +108,7 @@ const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataS
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const editorDataStorage = require('./' + cfgEditorDataStorage);
 const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
+const util = require("util");
 
 const cfgEditSingleton =  config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor =  config.get('services.CoAuthoring.editor');
@@ -137,6 +138,7 @@ const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgWarningLimitPercents = config.get('license.warning_limit_percents');
+const cfgNotificationRuleLicenseLimit = config.get('notification.rules.licenseLimit.template.body');
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('services.CoAuthoring.server.openProtectedFile');
 const cfgIsAnonymousSupport = config.get('services.CoAuthoring.server.isAnonymousSupport');
@@ -2664,11 +2666,7 @@ exports.install = function(server, callbackFunction) {
       conn.licenseType = c_LR.Success;
       let isLiveViewer = utils.isLiveViewer(conn);
       if (!conn.user.view || isLiveViewer) {
-        let logPrefixTenant = 'License of tenant: ';
-        let logPrefixServer = 'License: ';
-        let logPrefix = tenantManager.isMultitenantMode(ctx) ? logPrefixTenant : logPrefixServer;
-
-        let licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer, logPrefix);
+        let licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer);
         let aggregationCtx, licenseInfoAggregation;
         if ((c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) && tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
           //check server aggregation license
@@ -2676,7 +2674,7 @@ exports.install = function(server, callbackFunction) {
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache(); //no need
           licenseInfoAggregation = tenantManager.getServerLicense();
-          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, isLiveViewer, logPrefixServer);
+          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, isLiveViewer);
         }
         conn.licenseType = licenseType;
         if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!tenIsAnonymousSupport && data.IsAnonymousUser)) {
@@ -3479,96 +3477,66 @@ exports.install = function(server, callbackFunction) {
 		});
 	}
 
-  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer, logPrefix) {
+  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer) {
     const tenWarningLimitPercents = ctx.getCfg('license.warning_limit_percents', cfgWarningLimitPercents) / 100;
-
-    let licenseWarningLimitUsers = false;
-    let licenseWarningLimitUsersView = false;
-    let licenseWarningLimitConnections = false;
-    let licenseWarningLimitConnectionsLive = false;
+    const tenNotificationRuleLicenseLimit = ctx.getCfg(`notification.rules.licenseLimit.template.body`, cfgNotificationRuleLicenseLimit);
     const c_LR = constants.LICENSE_RESULT;
     let licenseType = licenseInfo.type;
     if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
+      let notificationLimit;
+      let notificationPercent = 0;
       if (licenseInfo.usersCount) {
         const nowUTC = getLicenseNowUtc();
         if(isLiveViewer) {
           const arrUsers = yield editorStat.getPresenceUniqueViewUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersViewCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
-            licenseType = c_LR.UsersViewCount;
+            licenseType = licenseInfo.hasLicense ? c_LR.UsersViewCount : c_LR.UsersViewCountOS;
+          } else if (licenseInfo.usersViewCount * tenWarningLimitPercents <= arrUsers.length) {
+            notificationPercent = tenWarningLimitPercents * 100;
           }
-          licenseWarningLimitUsersView = licenseInfo.usersViewCount * tenWarningLimitPercents <= arrUsers.length;
+          notificationLimit = 'live viewer users';
         } else {
           const arrUsers = yield editorStat.getPresenceUniqueUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
-            licenseType = c_LR.UsersCount;
+            licenseType = licenseInfo.hasLicense ? c_LR.UsersCount : c_LR.UsersCountOS;
+          } else if(licenseInfo.usersCount * tenWarningLimitPercents <= arrUsers.length) {
+            notificationPercent = tenWarningLimitPercents * 100;
           }
-          licenseWarningLimitUsers = licenseInfo.usersCount * tenWarningLimitPercents <= arrUsers.length;
+          notificationLimit = 'users';
         }
-      } else if(isLiveViewer) {
-        const connectionsLiveCount = licenseInfo.connectionsView;
-        const liveViewerConnectionsCount = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
-        if (liveViewerConnectionsCount >= connectionsLiveCount) {
-          licenseType = c_LR.ConnectionsLive;
-        }
-        licenseWarningLimitConnectionsLive = connectionsLiveCount * tenWarningLimitPercents <= liveViewerConnectionsCount;
       } else {
-        const connectionsCount = licenseInfo.connections;
-        const editConnectionsCount = yield editorStat.getEditorConnectionsCount(ctx, connections);
-        if (editConnectionsCount >= connectionsCount) {
-          licenseType = c_LR.Connections;
+        if (isLiveViewer) {
+          const connectionsLiveCount = licenseInfo.connectionsView;
+          const liveViewerConnectionsCount = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
+          if (liveViewerConnectionsCount >= connectionsLiveCount) {
+            licenseType = licenseInfo.hasLicense ? c_LR.ConnectionsLive : c_LR.ConnectionsLiveOS;
+          } else if(connectionsLiveCount * tenWarningLimitPercents <= liveViewerConnectionsCount){
+            notificationPercent = tenWarningLimitPercents * 100;
+          }
+          notificationLimit = 'live viewer connections';
+        } else {
+          const connectionsCount = licenseInfo.connections;
+          const editConnectionsCount = yield editorStat.getEditorConnectionsCount(ctx, connections);
+          if (editConnectionsCount >= connectionsCount) {
+            licenseType = licenseInfo.hasLicense ? c_LR.Connections : c_LR.ConnectionsOS;
+          } else if (connectionsCount * tenWarningLimitPercents <= editConnectionsCount) {
+            notificationPercent = tenWarningLimitPercents * 100;
+          }
+          notificationLimit = 'connections';
         }
-        licenseWarningLimitConnections = connectionsCount * tenWarningLimitPercents <= editConnectionsCount;
       }
-    }
-
-    let logPostfix = ' limit exceeded!!!';
-    let notificationPrefix;
-    if (c_LR.UsersCount === licenseType) {
-      if (!licenseInfo.hasLicense) {
-        licenseType = c_LR.UsersCountOS;
+      if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || notificationPercent > 0) {
+        let message;
+        if (notificationPercent > 0) {
+          message = util.format(tenNotificationRuleLicenseLimit, notificationPercent, notificationLimit);
+          ctx.logger.warn(tenNotificationRuleLicenseLimit, notificationPercent, notificationLimit);
+        } else {
+          message = util.format(tenNotificationRuleLicenseLimit, 100, notificationLimit);
+          ctx.logger.error(tenNotificationRuleLicenseLimit, 100, notificationLimit);
+        }
+        //todo with yield service could throw error
+        void notificationService.notify(ctx, notificationTypes.LICENSE_LIMIT, message);
       }
-      notificationPrefix = logPrefix + 'User';
-      ctx.logger.error(notificationPrefix + logPostfix);
-    } else if (c_LR.UsersViewCount === licenseType) {
-      if (!licenseInfo.hasLicense) {
-        licenseType = c_LR.UsersViewCountOS;
-      }
-      notificationPrefix = logPrefix + 'User Live Viewer';
-      ctx.logger.error(notificationPrefix + logPostfix);
-    } else if (c_LR.Connections === licenseType) {
-      if (!licenseInfo.hasLicense) {
-        licenseType = c_LR.ConnectionsOS;
-      }
-      notificationPrefix = logPrefix + 'Connection';
-      ctx.logger.error(notificationPrefix + logPostfix);
-    } else if (c_LR.ConnectionsLive === licenseType) {
-      if (!licenseInfo.hasLicense) {
-        licenseType = c_LR.ConnectionsLiveOS;
-      }
-      notificationPrefix = logPrefix + 'Connection Live Viewer';
-      ctx.logger.error(notificationPrefix + logPostfix);
-    } else {
-      if (licenseWarningLimitUsers) {
-        notificationPrefix = logPrefix + 'Warning User';
-        ctx.logger.warn(notificationPrefix + logPostfix);
-      }
-      if (licenseWarningLimitUsersView) {
-        notificationPrefix = logPrefix + 'Warning User Live Viewer';
-        ctx.logger.warn(notificationPrefix + logPostfix);
-      }
-      if (licenseWarningLimitConnections) {
-        notificationPrefix = logPrefix + 'Warning Connection';
-        ctx.logger.warn(notificationPrefix + logPostfix);
-      }
-      if (licenseWarningLimitConnectionsLive) {
-        notificationPrefix = logPrefix + 'Warning Connection Live Viewer';
-        ctx.logger.warn(notificationPrefix + logPostfix);
-      }
-    }
-
-    if (notificationPrefix) {
-      //todo with yield service could throw error
-      notificationService.notify(ctx, notificationTypes.LICENSE_LIMIT, [notificationPrefix]);
     }
     return licenseType;
   }

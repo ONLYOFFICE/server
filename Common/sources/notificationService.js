@@ -52,7 +52,7 @@ const notificationTypes = {
 
 class TransportInterface {
   async send(ctx, message) {}
-  contentGeneration(template, messageParams) {}
+  contentGeneration(template, message) {}
 }
 
 class MailTransport extends TransportInterface {
@@ -71,10 +71,10 @@ class MailTransport extends TransportInterface {
     return mailService.send(this.host, this.auth.user, message);
   }
 
-  contentGeneration(template, messageParams) {
+  contentGeneration(template, message) {
     return {
       subject: template.title,
-      text: util.format(template.body, ...messageParams)
+      text: message
     };
   }
 }
@@ -105,7 +105,7 @@ class Transport {
   }
 }
 
-async function notify(ctx, notificationType, messageParams) {
+async function notify(ctx, notificationType, message) {
   const tenNotificationEnable = ctx.getCfg('notification.enable', cfgNotificationEnable);
   if (!tenNotificationEnable) {
     return;
@@ -116,7 +116,7 @@ async function notify(ctx, notificationType, messageParams) {
   if (tenRule) {
     let checkRes = await checkRulePolicies(ctx, notificationType, tenRule);
     if (checkRes) {
-      await notifyRule(ctx, tenRule, messageParams);
+      await notifyRule(ctx, tenRule, message);
     }
   }
 }
@@ -136,12 +136,12 @@ async function checkRulePolicies(ctx, notificationType, tenRule) {
   return isLock;
 }
 
-async function notifyRule(ctx, tenRule, messageParams) {
+async function notifyRule(ctx, tenRule, message) {
   const transportObjects = tenRule.transportType.map(transport => new Transport(ctx, transport));
   for (const transportObject of transportObjects) {
     try {
-      const message = transportObject.transport.contentGeneration(tenRule.template, messageParams);
-      await transportObject.transport.send(ctx, message);
+      const mail = transportObject.transport.contentGeneration(tenRule.template, message);
+      await transportObject.transport.send(ctx, mail);
     } catch (error) {
       ctx.logger.error('Notification service: error: %s', error.stack);
     }

@@ -32,6 +32,7 @@
 
 'use strict';
 
+const util = require("util");
 const config = require('config');
 const exifParser = require('exif-parser');
 const Jimp = require('jimp');
@@ -42,6 +43,8 @@ const tenantManager = require('../../Common/sources/tenantManager');
 const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 
 const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
+const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template.bodyWarn');
+const cfgNotificationRuleLicenseExpirationError = config.get('notification.rules.licenseExpirationWarning.template.bodyError');
 
 async function fixImageExifRotation(ctx, buffer) {
   if (!buffer) {
@@ -123,11 +126,15 @@ async function notifyLicenseExpiration(ctx, endDate) {
   const currentDate = new Date();
   if (currentDate.getTime() >= endDate.getTime() - cfgStartNotifyFrom) {
     const formattedExpirationTime = humanFriendlyExpirationTime(endDate);
-    const tenant = tenantManager.isDefaultTenant(ctx) ? 'server' : ctx.tenant;
-
-    const state = endDate < currentDate ? 'expired' : 'expires';
-    ctx.logger.warn('%s license %s on %s!!!', tenant, state, formattedExpirationTime);
-    await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, [tenant, state, formattedExpirationTime]);
+    //todo one body template
+    let message;
+    if (endDate < currentDate) {
+      message = util.format(cfgNotificationRuleLicenseExpirationError, formattedExpirationTime);
+    } else {
+      message = util.format(cfgNotificationRuleLicenseExpirationWarning, formattedExpirationTime);
+    }
+    ctx.logger.warn(message);
+    await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, message);
   }
 }
 
