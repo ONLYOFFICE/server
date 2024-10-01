@@ -2903,7 +2903,7 @@ exports.install = function(server, callbackFunction) {
     }
     let lockDocument = null;
     let waitAuthUserId;
-    if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
+    if (!bIsRestore && 2 === countNoView && !tmpUser.view && firstParticipantNoView) {
       // lock a document
       const lockRes = yield editorData.lockAuth(ctx, docId, firstParticipantNoView.id, 2 * tenExpLockDoc);
       if (constants.CONN_CLOSED === conn.conn.readyState) {
