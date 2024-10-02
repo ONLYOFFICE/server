@@ -2538,14 +2538,15 @@ exports.install = function(server, callbackFunction) {
             let validationErr = validateAuthToken(data, decoded);
             if (!validationErr) {
               fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
-            } else if (tenTokenRequiredParams) {
-              ctx.logger.error("auth missing required parameter %s (since 7.1 version)", validationErr);
-              sendDataDisconnectReason(ctx, conn, constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
-              conn.disconnect(true);
-              return;
             } else {
-              ctx.logger.warn("auth missing required parameter %s (since 7.1 version)", validationErr);
-              fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
+              ctx.logger.error("auth missing required parameter %s (since 7.1 version)", validationErr);
+              if (tenTokenRequiredParams) {
+                sendDataDisconnectReason(ctx, conn, constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+                conn.disconnect(true);
+                return;
+              } else {
+                fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
+              }
             }
           }
           if(!fillDataFromJwtRes) {
