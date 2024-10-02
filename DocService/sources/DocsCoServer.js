@@ -1553,35 +1553,34 @@ exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
-function encryptPasswordParams(ctx, data) {
-  return co(function*(){
-    let dataWithPassword;
-    if (data.type === 'openDocument' && data.message) {
-      dataWithPassword = data.message;
-    } else if (data.type === 'auth' && data.openCmd) {
-      dataWithPassword = data.openCmd;
-    } else if (data.c === 'savefromorigin') {
-      dataWithPassword = data;
+
+async function encryptPasswordParams(ctx, data) {
+  let dataWithPassword;
+  if (data.type === 'openDocument' && data.message) {
+    dataWithPassword = data.message;
+  } else if (data.type === 'auth' && data.openCmd) {
+    dataWithPassword = data.openCmd;
+  } else if (data.c === 'savefromorigin') {
+    dataWithPassword = data;
+  }
+  if (dataWithPassword && dataWithPassword.password) {
+    if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
+      //todo send back error
+      ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
+      dataWithPassword.password = null;
+    } else {
+      dataWithPassword.password = await utils.encryptPassword(ctx, dataWithPassword.password);
     }
-    if (dataWithPassword && dataWithPassword.password) {
-      if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
-        //todo send back error
-        ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
-        dataWithPassword.password = null;
-      } else {
-        dataWithPassword.password = yield utils.encryptPassword(ctx, dataWithPassword.password);
-      }
+  }
+  if (dataWithPassword && dataWithPassword.savepassword) {
+    if (dataWithPassword.savepassword.length > constants.PASSWORD_MAX_LENGTH) {
+      //todo send back error
+      ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.savepassword.length, constants.PASSWORD_MAX_LENGTH);
+      dataWithPassword.savepassword = null;
+    } else {
+      dataWithPassword.savepassword = await utils.encryptPassword(ctx, dataWithPassword.savepassword);
     }
-    if (dataWithPassword && dataWithPassword.savepassword) {
-      if (dataWithPassword.savepassword.length > constants.PASSWORD_MAX_LENGTH) {
-        //todo send back error
-        ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.savepassword.length, constants.PASSWORD_MAX_LENGTH);
-        dataWithPassword.savepassword = null;
-      } else {
-        dataWithPassword.savepassword = yield utils.encryptPassword(ctx, dataWithPassword.savepassword);
-      }
-    }
-  });
+  }
 }
 exports.encryptPasswordParams = encryptPasswordParams;
 exports.getOpenFormatByEditor = getOpenFormatByEditor;
