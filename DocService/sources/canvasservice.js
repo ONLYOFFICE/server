@@ -170,7 +170,7 @@ function getOpenedAtJSONParams(row) {
 async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOutput, opt_bIsRestore) {
   const tenExpUpdateVersionStatus = ms(ctx.getCfg('services.CoAuthoring.expire.updateVersionStatus', cfgExpUpdateVersionStatus));
 
-  let status, statusInfo, password, creationDate, openedAt, row;
+  let status, statusInfo, password, creationDate, openedAt, originFormat, row;
   let selectRes = await taskResult.select(ctx, key);
   if (selectRes.length > 0) {
     row = selectRes[0];
@@ -179,6 +179,7 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
     password = sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
     creationDate = row.created_at && row.created_at.getTime();
     openedAt = getOpenedAt(row);
+    originFormat = row.change_id;
     if (optAdditionalOutput) {
       optAdditionalOutput.row = row;
     }
@@ -246,7 +247,7 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
           userPassword = await utils.decryptPassword(ctx, encryptedUserPassword);
           isCorrectPassword = decryptedPassword === userPassword;
         }
-        if(password && !isCorrectPassword) {
+        if(password && !isCorrectPassword && !formatChecker.isBrowserEditorFormat(originFormat)) {
           ctx.logger.debug("getOutputData password mismatch");
           if(encryptedUserPassword) {
             outputData.setStatus('needpassword');
@@ -312,9 +313,13 @@ function* addRandomKeyTaskCmd(ctx, cmd) {
   //set saveKey as postfix to fix vulnerability with path traversal to docId or other files
   cmd.setSaveKey(task.key.substring(docId.length));
 }
-function addPasswordToCmd(ctx, cmd, docPasswordStr) {
+function addPasswordToCmd(ctx, cmd, docPasswordStr, originFormat) {
   let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, docPasswordStr);
   if (docPassword.current) {
+    if (formatChecker.isBrowserEditorFormat(originFormat)) {
+      //todo not allowed different password
+      cmd.setPassword(docPassword.current);
+    }
     cmd.setSavePassword(docPassword.current);
   }
   if (docPassword.change) {
@@ -642,7 +647,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
     ctx.setWopiSrc(sqlBase.DocumentAdditional.prototype.getWopiSrc(row.additional));
   }
   yield* addRandomKeyTaskCmd(ctx, cmd);
-  addPasswordToCmd(ctx, cmd, row.password);
+  addPasswordToCmd(ctx, cmd, row.password, row.change_id);
   addOriginFormat(ctx, cmd, row);
   let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
@@ -866,19 +871,28 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
   const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
 
   let hasDocumentPassword = false;
+  let isDocumentPasswordModified = true;
   let selectRes = yield taskResult.select(ctx, cmd.getDocId());
   if (selectRes.length > 0) {
     let row = selectRes[0];
     hasPasswordCol = undefined !== row.password;
-    if (commonDefines.FileStatus.Ok === row.status && sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password)) {
-      hasDocumentPassword = true;
+    if (commonDefines.FileStatus.Ok === row.status) {
+      let documentPasswordCurEnc = sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
+      if (documentPasswordCurEnc) {
+        hasDocumentPassword = true;
+        const passwordCurPlain = yield utils.decryptPassword(ctx, documentPasswordCurEnc);
+        const passwordPlain = yield utils.decryptPassword(ctx, cmd.getPassword());
+        isDocumentPasswordModified = passwordCurPlain !== passwordPlain;
+      }
     }
   }
   //https://github.com/ONLYOFFICE/web-apps/blob/4a7879b4f88f315fe94d9f7d97c0ed8aa9f82221/apps/documenteditor/main/app/controller/Main.js#L1652
   //this.appOptions.isPasswordSupport = this.appOptions.isEdit && this.api.asc_isProtectionSupport() && (this.permissions.protect!==false);
   let isPasswordSupport = tenOpenProtectedFile && !conn.user?.view && false !== conn.permissions?.protect;
   ctx.logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s, hasPasswordCol=%s, isPasswordSupport=%s', conn.isEnterCorrectPassword, hasDocumentPassword, hasPasswordCol, isPasswordSupport);
-  if (isPasswordSupport && (conn.isEnterCorrectPassword || !hasDocumentPassword) && hasPasswordCol) {
+  if (isPasswordSupport && hasPasswordCol && hasDocumentPassword && !isDocumentPasswordModified) {
+    outputData.setStatus('ok');
+  } else if (isPasswordSupport && (conn.isEnterCorrectPassword || !hasDocumentPassword) && hasPasswordCol) {
     let updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = cmd.getDocId();
@@ -1439,7 +1453,7 @@ exports.downloadAs = function(req, res) {
       var selectRes = yield taskResult.select(ctx, docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
       if (!cmd.getWithoutPassword()) {
-        addPasswordToCmd(ctx, cmd, row && row.password);
+        addPasswordToCmd(ctx, cmd, row && row.password, row && row.change_id);
       }
       addOriginFormat(ctx, cmd, row);
       cmd.setData(req.body);
@@ -1777,7 +1791,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
         cmd.setLCID(opt_userLcid);
         let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
         cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
-        addPasswordToCmd(ctx, cmd, row && row.password);
+        addPasswordToCmd(ctx, cmd, row && row.password, row && row.change_id);
         addOriginFormat(ctx, cmd, row);
         yield* addRandomKeyTaskCmd(ctx, cmd);
         var queueData = getSaveTask(ctx, cmd);

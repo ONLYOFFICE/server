@@ -1123,9 +1123,11 @@ function* ExecuteTask(ctx, task) {
   let isTimeout = false;
   if (constants.NO_ERROR === error) {
     ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task, isInJwtToken));
-    if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
+    const canRollback = childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
       && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
-      && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
+      && !formatChecker.isOOXFormat(dataConvert.formatTo) && !formatChecker.isBrowserEditorFormat(dataConvert.formatTo)
+      && !cmd.getWopiParams();
+    if (canRollback) {
       ctx.logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s', formatChecker.getStringFromFormat(dataConvert.formatTo));
       let extOld = path.extname(dataConvert.fileTo);
       let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
