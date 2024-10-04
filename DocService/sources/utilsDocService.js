@@ -43,8 +43,8 @@ const tenantManager = require('../../Common/sources/tenantManager');
 const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 
 const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
-const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template.bodyWarn');
-const cfgNotificationRuleLicenseExpirationError = config.get('notification.rules.licenseExpirationWarning.template.bodyError');
+const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template.body');
+const cfgNotificationRuleLicenseExpirationError = config.get('notification.rules.licenseExpirationError.template.body');
 
 async function fixImageExifRotation(ctx, buffer) {
   if (!buffer) {
@@ -126,15 +126,17 @@ async function notifyLicenseExpiration(ctx, endDate) {
   const currentDate = new Date();
   if (currentDate.getTime() >= endDate.getTime() - cfgStartNotifyFrom) {
     const formattedExpirationTime = humanFriendlyExpirationTime(endDate);
-    //todo one body template
-    let message;
-    if (endDate < currentDate) {
-      message = util.format(cfgNotificationRuleLicenseExpirationError, formattedExpirationTime);
+    if (endDate <= currentDate) {
+      const tenNotificationRuleLicenseExpirationError = ctx.getCfg('notification.rules.licenseExpirationError.template.body', cfgNotificationRuleLicenseExpirationError);
+      const message = util.format(tenNotificationRuleLicenseExpirationError, formattedExpirationTime);
+      ctx.logger.error(message);
+      await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_ERROR, message);
     } else {
-      message = util.format(cfgNotificationRuleLicenseExpirationWarning, formattedExpirationTime);
+      const tenNotificationRuleLicenseExpirationWarning = ctx.getCfg('notification.rules.licenseExpirationWarning.template.body', cfgNotificationRuleLicenseExpirationWarning);
+      const message = util.format(tenNotificationRuleLicenseExpirationWarning, formattedExpirationTime);
+      ctx.logger.warn(message);
+      await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, message);
     }
-    ctx.logger.warn(message);
-    await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, message);
   }
 }
 

@@ -47,7 +47,9 @@ const editorStatStorage = require('./../../DocService/sources/' + (cfgEditorStat
 const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();
 const notificationTypes = {
   LICENSE_EXPIRATION_WARNING: 'licenseExpirationWarning',
-  LICENSE_LIMIT: 'licenseLimit'
+  LICENSE_EXPIRATION_ERROR: 'licenseExpirationError',
+  LICENSE_LIMIT_EDIT: 'licenseLimitEdit',
+  LICENSE_LIMIT_LIVE_VIEWER: 'licenseLimitLiveViewer'
 };
 
 class TransportInterface {
@@ -105,7 +107,7 @@ class Transport {
   }
 }
 
-async function notify(ctx, notificationType, message) {
+async function notify(ctx, notificationType, message, opt_cacheKey = undefined) {
   const tenNotificationEnable = ctx.getCfg('notification.enable', cfgNotificationEnable);
   if (!tenNotificationEnable) {
     return;
@@ -114,21 +116,21 @@ async function notify(ctx, notificationType, message) {
 
   const tenRule = ctx.getCfg(`notification.rules.${notificationType}`, config.get(`notification.rules.${notificationType}`));
   if (tenRule) {
-    let checkRes = await checkRulePolicies(ctx, notificationType, tenRule);
+    let checkRes = await checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey);
     if (checkRes) {
       await notifyRule(ctx, tenRule, message);
     }
   }
 }
 
-async function checkRulePolicies(ctx, notificationType, tenRule) {
+async function checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey) {
   const { repeatInterval } = tenRule.policies;
   //decrease repeatInterval by 1% to avoid race condition if timeout=repeatInterval
   let ttl = Math.floor(ms(repeatInterval) * 0.99 / 1000);
   let isLock = false;
   //todo for compatibility remove if after 8.2
   if (editorStat?.lockNotification) {
-    isLock = await editorStat.lockNotification(ctx, notificationType, ttl);
+    isLock = await editorStat.lockNotification(ctx, opt_cacheKey || notificationType, ttl);
   }
   if (!isLock) {
     ctx.logger.debug(`Notification service: skip rule "%s" due to repeat interval = %s`, notificationType, repeatInterval);
