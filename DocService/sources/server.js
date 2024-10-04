@@ -181,7 +181,7 @@ docsCoServer.install(server, () => {
 
 	app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 	app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
-	app.post('/coauthoring/command', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
+	app.post('/command', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 
 	app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
 	app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
