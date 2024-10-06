@@ -125,6 +125,10 @@ async function notifyLicenseExpiration(ctx, endDate) {
 
   const currentDate = new Date();
   if (currentDate.getTime() >= endDate.getTime() - cfgStartNotifyFrom) {
+    //todo remove stub for "new Date(1)" and "setMonth + 1" in license.js; bug 70676
+    if (endDate.getUTCFullYear() < 2000) {
+      endDate = currentDate;
+    }
     const formattedExpirationTime = humanFriendlyExpirationTime(endDate);
     if (endDate <= currentDate) {
       const tenNotificationRuleLicenseExpirationError = ctx.getCfg('notification.rules.licenseExpirationError.template.body', cfgNotificationRuleLicenseExpirationError);
