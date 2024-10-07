@@ -421,7 +421,7 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
           let hasUnlockMarker = isWopiUnlockMarker(unlockMarkStr);
           let isUpdateVersion = commonDefines.FileStatus.UpdateVersion === row.status;
           ctx.logger.debug('wopiEditor hasUnlockMarker=%s isUpdateVersion=%s', hasUnlockMarker, isUpdateVersion);
-          if (hasUnlockMarker || isUpdateVersion || !commonInfo.fileInfo.SupportsLocks) {
+          if (hasUnlockMarker || isUpdateVersion) {
             let fileInfoVersion = fileInfo.Version;
             let cacheVersion = commonInfo.fileInfo.Version;
             let fileInfoModified = fileInfo.LastModifiedTime;
@@ -905,10 +905,10 @@ async function unlock(ctx, wopiParams) {
       ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
       let postRes = await utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
       ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
-      res = true;
     } else {
       ctx.logger.info('wopi SupportsLocks = false');
     }
+    res = true;
   } catch (err) {
     ctx.logger.error('wopi error Unlock:%s', err.stack);
   } finally {

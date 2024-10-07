@@ -350,11 +350,11 @@
 				"forcesave": 604800,
 				"forcesaveLock": 5000,
 				"saved": 3600,
-				"documentsCron": "*/10 * * * * *",
+				"documentsCron": "0 */2 * * * *",
 				"files": 86400,
 				"filesCron": "00 00 */1 * * *",
 				"filesremovedatonce": 100,
-				"sessionidle": "10s",
+				"sessionidle": "1h",
 				"sessionabsolute": "30d",
 				"sessionclosecommand": "2m",
 				"pemStdTTL": "1h",
@@ -455,7 +455,7 @@
 	"license" : {
 		"license_file": "",
 		"warning_limit_percents": 70,
-		"packageType": 1,
+		"packageType": 0,
 		"warning_license_expiration": "30d"
 	},
 	"FileConverter": {
