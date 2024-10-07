@@ -39,7 +39,6 @@ const mailService = require('./mailService');
 
 const cfgMailServer = config.get('email.smtpServerConfiguration');
 const cfgMailMessageDefaults = config.get('email.contactDefaults');
-const cfgNotificationEnable = config.get('notification.enable');
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const editorStatStorage = require('./../../DocService/sources/' + (cfgEditorStatStorage || cfgEditorDataStorage));
@@ -108,14 +107,9 @@ class Transport {
 }
 
 async function notify(ctx, notificationType, message, opt_cacheKey = undefined) {
-  const tenNotificationEnable = ctx.getCfg('notification.enable', cfgNotificationEnable);
-  if (!tenNotificationEnable) {
-    return;
-  }
-  ctx.logger.debug('Notification service: notify "%s"',  notificationType);
-
   const tenRule = ctx.getCfg(`notification.rules.${notificationType}`, config.get(`notification.rules.${notificationType}`));
-  if (tenRule) {
+  if (tenRule?.enable) {
+    ctx.logger.debug('Notification service: notify "%s"',  notificationType);
     let checkRes = await checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey);
     if (checkRes) {
       await notifyRule(ctx, tenRule, message);

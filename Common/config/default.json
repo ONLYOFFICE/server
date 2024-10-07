@@ -35,9 +35,9 @@
 		}
 	},
 	"notification": {
-		"enable": false,
 		"rules": {
 			"licenseExpirationWarning": {
+				"enable": true,
 				"transportType": [
 					"email"
 				],
@@ -50,6 +50,7 @@
 				}
 			},
 			"licenseExpirationError": {
+				"enable": false,
 				"transportType": [
 					"email"
 				],
@@ -62,6 +63,7 @@
 				}
 			},
 			"licenseLimitEdit": {
+				"enable": true,
 				"transportType": [
 					"email"
 				],
@@ -74,6 +76,7 @@
 				}
 			},
 			"licenseLimitLiveViewer": {
+				"enable": true,
 				"transportType": [
 					"email"
 				],
@@ -347,11 +350,11 @@
 				"forcesave": 604800,
 				"forcesaveLock": 5000,
 				"saved": 3600,
-				"documentsCron": "0 */2 * * * *",
+				"documentsCron": "*/10 * * * * *",
 				"files": 86400,
 				"filesCron": "00 00 */1 * * *",
 				"filesremovedatonce": 100,
-				"sessionidle": "1h",
+				"sessionidle": "10s",
 				"sessionabsolute": "30d",
 				"sessionclosecommand": "2m",
 				"pemStdTTL": "1h",
@@ -452,7 +455,7 @@
 	"license" : {
 		"license_file": "",
 		"warning_limit_percents": 70,
-		"packageType": 0,
+		"packageType": 1,
 		"warning_license_expiration": "30d"
 	},
 	"FileConverter": {
