@@ -971,7 +971,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
     let forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
     let forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
     let callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
-    let uri, baseUrl, wopiParams;
+    let uri, baseUrl, wopiParams, lastOpenDate;
     let selectRes = yield taskResult.select(ctx, docId);
     let row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
@@ -982,6 +982,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
       if (row.baseurl) {
         baseUrl = row.baseurl;
       }
+      lastOpenDate = row.last_open_date;
     }
     var isSfcmSuccess = false;
     let storeForgotten = false;
@@ -1189,6 +1190,14 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
               if (isOpenFromForgotten) {
                 //remove forgotten file in cache
                 yield cleanupCache(ctx, docId);
+              }
+              if (lastOpenDate) {
+                //todo error case
+                let time = new Date() - lastOpenDate;
+                ctx.logger.debug('commandSfcCallback saveAfterEditingSessionClosed=%d', time);
+                if (clientStatsD) {
+                  clientStatsD.timing('coauth.saveAfterEditingSessionClosed', time);
+                }
               }
             } else {
               storeForgotten = true;
