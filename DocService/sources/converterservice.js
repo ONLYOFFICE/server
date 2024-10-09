@@ -530,9 +530,10 @@ function convertTo(req, res) {
         return;
       }
       let docId, fileTo, status, originalname;
-      if (req.file && req.file.originalname && req.file.buffer) {
-        originalname = req.file.originalname;
-        let filetype = path.extname(req.file.originalname).substring(1);
+      if (req.files?.length > 0 && req.files[0].originalname && req.files[0].buffer) {
+        const file = req.files[0];
+        originalname = file.originalname;
+        let filetype = path.extname(file.originalname).substring(1);
         if (filetype && !constants.EXTENTION_REGEX.test(filetype)) {
           ctx.logger.warn('convertRequest unexpected filetype = %s', filetype);
           res.sendStatus(400);
@@ -544,13 +545,12 @@ function convertTo(req, res) {
         ctx.setDocId(docId);
 
         //todo stream
-        let buffer = req.file.buffer;
+        let buffer = file.buffer;
         yield storageBase.putObject(ctx, docId + '/origin.' + filetype, buffer, buffer.length);
 
         let cmd = new commonDefines.InputCommand();
         cmd.setCommand('conv');
         cmd.setDocId(docId);
-        cmd.setSaveKey(docId);
         cmd.setFormat(filetype);
         cmd.setOutputFormat(outputFormat);
         cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
@@ -700,10 +700,9 @@ function getConverterHtmlHandler(req, res) {
 
         let metadata = yield storage.headObject(ctx, fileTo);
         let streamObj = yield storage.createReadStream(ctx, fileTo);
-        let postRes = yield wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, streamObj.readStream, metadata.ContentLength, `.${targetext}`, true);
-        if (postRes) {
-          let fileInfo = JSON.parse(postRes.body);
-          status.setUrl(fileInfo.HostEditUrl);
+        let putRelativeRes = yield wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, streamObj.readStream, metadata.ContentLength, `.${targetext}`, undefined, true);
+        if (putRelativeRes) {
+          status.setUrl(putRelativeRes.HostEditUrl);
           status.setExtName('.' + targetext);
         } else {
           status.err = constants.UNKNOWN;

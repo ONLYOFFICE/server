@@ -180,8 +180,8 @@ docsCoServer.install(server, () => {
 	let forms = multer();
 
 	app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
-	app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser,
-		docsCoServer.commandFromServer);
+	app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
+	app.post('/command', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 
 	app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
 	app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
@@ -235,6 +235,7 @@ docsCoServer.install(server, () => {
 	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+	app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
 
 	function checkWopiEnable(req, res, next) {
 		//todo may be move code into wopiClient or wopiClient.discovery...
@@ -275,8 +276,8 @@ docsCoServer.install(server, () => {
 	let fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 	app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
 	app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
-	app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
-	app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
+	app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
+	app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
 	app.post('/hosting/wopi/:documentType/:mode', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
 	app.post('/hosting/wopi/convert-and-edit/:ext/:targetext', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getConverterHtml);
 	app.get('/hosting/wopi/convert-and-edit-handler', checkWopiEnable, utils.lowercaseQueryString, converterService.getConverterHtmlHandler);

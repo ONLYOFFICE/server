@@ -231,6 +231,7 @@ exports.CONVERT_DRM = -90;
 exports.CONVERT_PASSWORD = -91;
 exports.CONVERT_ICU = -92;
 exports.CONVERT_LIMITS = -93;
+exports.CONVERT_TEMPORARY = -94;
 exports.CONVERT_DETECT = -95;
 exports.CONVERT_DEAD_LETTER = -99;
 exports.UPLOAD = -100;

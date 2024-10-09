@@ -170,7 +170,16 @@ function* walkDir(fsPath, results, optNoSubDir, optOnlyFolders) {
   const list = yield fsReadDir(fsPath);
   for (let i = 0; i < list.length; ++i) {
     const file = path.join(fsPath, list[i]);
-    const stats = yield fsStat(file);
+    let stats;
+    try {
+      stats = yield fsStat(file);
+    } catch (e) {
+      //exception if fsPath not exist
+      stats = null;
+    }
+    if (!stats) {
+      continue;
+    }
     if (stats.isDirectory()) {
       if (optNoSubDir) {
         optOnlyFolders && results.push(file);
@@ -554,6 +563,7 @@ exports.mapAscServerErrorToOldError = function(error) {
     case constants.CONVERT_CORRUPTED :
     case constants.CONVERT_UNKNOWN_FORMAT :
     case constants.CONVERT_READ_FILE :
+    case constants.CONVERT_TEMPORARY :
     case constants.CONVERT :
       res = -3;
       break;

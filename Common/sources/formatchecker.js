@@ -581,6 +581,12 @@ exports.isOOXFormat = function(format) {
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format;
 };
+exports.isBrowserEditorFormat = function(format) {
+  return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === format ||
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === format ||
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU === format ||
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === format;
+};
 function getDocumentFormatBySignature(buffer) {
   if (!buffer) {
     return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;

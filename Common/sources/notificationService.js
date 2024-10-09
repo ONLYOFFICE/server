@@ -39,18 +39,21 @@ const mailService = require('./mailService');
 
 const cfgMailServer = config.get('email.smtpServerConfiguration');
 const cfgMailMessageDefaults = config.get('email.contactDefaults');
-const cfgNotificationEnable = config.get('notification.enable');
+const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
+const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
+const editorStatStorage = require('./../../DocService/sources/' + (cfgEditorStatStorage || cfgEditorDataStorage));
 
-const infiniteRepeatInterval = Infinity;
-const repeatIntervalsExpired = new Map();
+const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();
 const notificationTypes = {
   LICENSE_EXPIRATION_WARNING: 'licenseExpirationWarning',
-  LICENSE_LIMIT: 'licenseLimit'
+  LICENSE_EXPIRATION_ERROR: 'licenseExpirationError',
+  LICENSE_LIMIT_EDIT: 'licenseLimitEdit',
+  LICENSE_LIMIT_LIVE_VIEWER: 'licenseLimitLiveViewer'
 };
 
 class TransportInterface {
   async send(ctx, message) {}
-  contentGeneration(template, messageParams) {}
+  contentGeneration(template, message) {}
 }
 
 class MailTransport extends TransportInterface {
@@ -69,10 +72,10 @@ class MailTransport extends TransportInterface {
     return mailService.send(this.host, this.auth.user, message);
   }
 
-  contentGeneration(template, messageParams) {
+  contentGeneration(template, message) {
     return {
       subject: template.title,
-      text: util.format(template.body, ...messageParams)
+      text: message
     };
   }
 }
@@ -103,40 +106,38 @@ class Transport {
   }
 }
 
-async function notify(ctx, notificationType, messageParams) {
-  const tenNotificationEnable = ctx.getCfg('notification.enable', cfgNotificationEnable);
-  if (!tenNotificationEnable) {
-    return;
-  }
-  ctx.logger.debug('Notification service: notify "%s"',  notificationType);
-
+async function notify(ctx, notificationType, message, opt_cacheKey = undefined) {
   const tenRule = ctx.getCfg(`notification.rules.${notificationType}`, config.get(`notification.rules.${notificationType}`));
-  if (tenRule && checkRulePolicies(ctx, notificationType, tenRule)) {
-    await notifyRule(ctx, tenRule, messageParams);
+  if (tenRule?.enable) {
+    ctx.logger.debug('Notification service: notify "%s"',  notificationType);
+    let checkRes = await checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey);
+    if (checkRes) {
+      await notifyRule(ctx, tenRule, message);
+    }
   }
 }
 
-function checkRulePolicies(ctx, notificationType, tenRule) {
+async function checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey) {
   const { repeatInterval } = tenRule.policies;
-  const intervalMilliseconds = repeatInterval ? ms(repeatInterval) : infiniteRepeatInterval;
-  const cacheKey = `${notificationType}_${ctx.tenant}`;
-  const expired = repeatIntervalsExpired.get(cacheKey);
-
-  if (!expired || expired <= Date.now()) {
-    repeatIntervalsExpired.set(cacheKey, Date.now() + intervalMilliseconds);
-    return true;
+  //decrease repeatInterval by 1% to avoid race condition if timeout=repeatInterval
+  let ttl = Math.floor(ms(repeatInterval) * 0.99 / 1000);
+  let isLock = false;
+  //todo for compatibility remove if after 8.2
+  if (editorStat?.lockNotification) {
+    isLock = await editorStat.lockNotification(ctx, opt_cacheKey || notificationType, ttl);
   }
-
-  ctx.logger.debug(`Notification service: skip rule "%s" due to repeat interval = %s`, notificationType, repeatInterval ?? "infinite");
-  return false;
+  if (!isLock) {
+    ctx.logger.debug(`Notification service: skip rule "%s" due to repeat interval = %s`, notificationType, repeatInterval);
+  }
+  return isLock;
 }
 
-async function notifyRule(ctx, tenRule, messageParams) {
+async function notifyRule(ctx, tenRule, message) {
   const transportObjects = tenRule.transportType.map(transport => new Transport(ctx, transport));
   for (const transportObject of transportObjects) {
     try {
-      const message = transportObject.transport.contentGeneration(tenRule.template, messageParams);
-      await transportObject.transport.send(ctx, message);
+      const mail = transportObject.transport.contentGeneration(tenRule.template, message);
+      await transportObject.transport.send(ctx, mail);
     } catch (error) {
       ctx.logger.error('Notification service: error: %s', error.stack);
     }

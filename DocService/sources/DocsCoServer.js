@@ -108,6 +108,7 @@ const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataS
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const editorDataStorage = require('./' + cfgEditorDataStorage);
 const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
+const util = require("util");
 
 const cfgEditSingleton =  config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor =  config.get('services.CoAuthoring.editor');
@@ -137,6 +138,8 @@ const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgWarningLimitPercents = config.get('license.warning_limit_percents');
+const cfgNotificationRuleLicenseLimitEdit = config.get('notification.rules.licenseLimitEdit.template.body');
+const cfgNotificationRuleLicenseLimitLiveViewer = config.get('notification.rules.licenseLimitLiveViewer.template.body');
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('services.CoAuthoring.server.openProtectedFile');
 const cfgIsAnonymousSupport = config.get('services.CoAuthoring.server.isAnonymousSupport');
@@ -864,7 +867,7 @@ async function checkForceSaveCache(ctx, convertInfo) {
   if (convertInfo) {
     res.hasCache = true;
     let cmd = new commonDefines.InputCommand(convertInfo, true);
-    const saveKey = cmd.getSaveKey();
+    const saveKey = cmd.getDocId() + cmd.getSaveKey();
     const outputPath = cmd.getOutputPath();
     if (saveKey && outputPath) {
       const savePathDoc = saveKey + '/' + outputPath;
@@ -927,7 +930,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
 }
 async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId,
                               opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl,
-                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams) {
+                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams, opt_changeInfo) {
   const tenForceSaveUsingButtonWithoutChanges = ctx.getCfg('services.CoAuthoring.server.forceSaveUsingButtonWithoutChanges', cfgForceSaveUsingButtonWithoutChanges);
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
@@ -940,15 +943,20 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
     });
     if (!hasEncrypted) {
       let forceSave = await editorData.getForceSave(ctx, docId);
-      let startWithoutChanges = !forceSave && opt_conn && (commonDefines.c_oAscForceSaveTypes.Form === type ||
+      let forceSaveWithConnection = opt_conn && (commonDefines.c_oAscForceSaveTypes.Form === type ||
         (commonDefines.c_oAscForceSaveTypes.Button === type && tenForceSaveUsingButtonWithoutChanges));
+      let startWithoutChanges = !forceSave && (forceSaveWithConnection || opt_changeInfo);
       if (startWithoutChanges) {
         //stub to send forms without changes
         let newChangesLastDate = new Date();
         newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
         let newChangesLastTime = newChangesLastDate.getTime();
-        let baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
-        let changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime, opt_conn.lang);
+        let baseUrl = opt_baseUrl || "";
+        let changeInfo = opt_changeInfo;
+        if (opt_conn) {
+          baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
+          changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime, opt_conn.lang);
+        }
         await editorData.setForceSave(ctx, docId, newChangesLastTime, 0, baseUrl, changeInfo, null);
         forceSave = await editorData.getForceSave(ctx, docId);
       }
@@ -1202,7 +1210,7 @@ async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_u
     ctx.logger.error('postData error: url = %s;data = %j %s', uri, sendData, err.stack);
   }
   await onReplySendStatusDocument(ctx, docId, replyData);
-  return opt_callback;
+  return sendData;
 }
 function parseReplyData(ctx, replyData) {
   var res = null;
@@ -1299,12 +1307,10 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
       }
     }
   }
-  if (null === oCallbackUrl) {
-    return commonDefines.c_oAscServerCommandErrors.ParseError;
-  } else {
-    yield sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
-    return commonDefines.c_oAscServerCommandErrors.NoError;
+  if (null !== oCallbackUrl) {
+    return yield sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, undefined, oCallbackUrl, baseUrl, opt_userData);
   }
+  return null;
 }
 let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   //wopi unlock
@@ -1418,9 +1424,14 @@ function getRequestParams(ctx, req, opt_isNotInBody) {
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
 
     let res = {code: constants.NO_ERROR, description: "", isDecoded: false, params: undefined};
-    if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0 && !opt_isNotInBody) {
-      res.params = JSON.parse(req.body.toString('utf8'));
-    } else {
+    if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0) {
+      try {
+        res.params = JSON.parse(req.body.toString('utf8'));
+      } catch(err) {
+        ctx.logger.debug('getRequestParams error parsing json body: %s', err.stack);
+      }
+    }
+    if (!res.params) {
       res.params = req.query;
     }
     if (tenTokenEnableRequestInbox) {
@@ -1543,35 +1554,34 @@ exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
 exports.checkJwtHeader = checkJwtHeader;
-function encryptPasswordParams(ctx, data) {
-  return co(function*(){
-    let dataWithPassword;
-    if (data.type === 'openDocument' && data.message) {
-      dataWithPassword = data.message;
-    } else if (data.type === 'auth' && data.openCmd) {
-      dataWithPassword = data.openCmd;
-    } else if (data.c === 'savefromorigin') {
-      dataWithPassword = data;
+
+async function encryptPasswordParams(ctx, data) {
+  let dataWithPassword;
+  if (data.type === 'openDocument' && data.message) {
+    dataWithPassword = data.message;
+  } else if (data.type === 'auth' && data.openCmd) {
+    dataWithPassword = data.openCmd;
+  } else if (data.c === 'savefromorigin') {
+    dataWithPassword = data;
+  }
+  if (dataWithPassword && dataWithPassword.password) {
+    if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
+      //todo send back error
+      ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
+      dataWithPassword.password = null;
+    } else {
+      dataWithPassword.password = await utils.encryptPassword(ctx, dataWithPassword.password);
     }
-    if (dataWithPassword && dataWithPassword.password) {
-      if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
-        //todo send back error
-        ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.password.length, constants.PASSWORD_MAX_LENGTH);
-        dataWithPassword.password = null;
-      } else {
-        dataWithPassword.password = yield utils.encryptPassword(ctx, dataWithPassword.password);
-      }
+  }
+  if (dataWithPassword && dataWithPassword.savepassword) {
+    if (dataWithPassword.savepassword.length > constants.PASSWORD_MAX_LENGTH) {
+      //todo send back error
+      ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.savepassword.length, constants.PASSWORD_MAX_LENGTH);
+      dataWithPassword.savepassword = null;
+    } else {
+      dataWithPassword.savepassword = await utils.encryptPassword(ctx, dataWithPassword.savepassword);
     }
-    if (dataWithPassword && dataWithPassword.savepassword) {
-      if (dataWithPassword.savepassword.length > constants.PASSWORD_MAX_LENGTH) {
-        //todo send back error
-        ctx.logger.warn('encryptPasswordParams password too long actual = %s; max = %s', dataWithPassword.savepassword.length, constants.PASSWORD_MAX_LENGTH);
-        dataWithPassword.savepassword = null;
-      } else {
-        dataWithPassword.savepassword = yield utils.encryptPassword(ctx, dataWithPassword.savepassword);
-      }
-    }
-  });
+  }
 }
 exports.encryptPasswordParams = encryptPasswordParams;
 exports.getOpenFormatByEditor = getOpenFormatByEditor;
@@ -1894,7 +1904,7 @@ exports.install = function(server, callbackFunction) {
           if (needSaveChanges && !conn.encrypted) {
             // Send changes to save server
             let user_lcid = utilsDocService.localeToLCID(conn.lang);
-            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex, user_lcid);
+            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex, user_lcid, undefined, getIsShutdown());
           } else if (needSendStatus) {
             yield* cleanDocumentOnExitNoChanges(ctx, docId, tmpUser.idOriginal, userIndex);
           } else {
@@ -1903,6 +1913,12 @@ exports.install = function(server, callbackFunction) {
         } else if (needSendStatus) {
           yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, tmpUser.idOriginal), userIndex);
         }
+      }
+      let sessionType = isView ? 'view' : 'edit';
+      let sessionTimeMs = new Date().getTime() - conn.sessionTimeConnect;
+      ctx.logger.debug(`closeDocument %s session time:%s`, sessionType, sessionTimeMs);
+      if(clientStatsD) {
+        clientStatsD.timing(`coauth.session.${sessionType}`, sessionTimeMs);
       }
     }
   }
@@ -1916,7 +1932,7 @@ exports.install = function(server, callbackFunction) {
     if (tenTokenEnableBrowser) {
       var checkJwtRes = yield checkJwt(ctx, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
       if (checkJwtRes.decoded) {
-        fillVersionHistoryFromJwt(checkJwtRes.decoded, cmd);
+        fillVersionHistoryFromJwt(ctx, checkJwtRes.decoded, cmd);
         docIdNew = cmd.getDocId();
         cmd.setWithAuthorization(true);
       } else {
@@ -2341,7 +2357,7 @@ exports.install = function(server, callbackFunction) {
     } else if (data.documentCallbackUrl && !decoded?.editorConfig?.callbackUrl) {
       //todo callbackUrl required
       res = "editorConfig.callbackUrl";
-    } else if (data.mode && !decoded?.editorConfig?.mode) {
+    } else if (data.mode && 'view' !== data.mode && !decoded?.editorConfig?.mode) {//allow to restrict rights to 'view'
       res = "editorConfig.mode";
     }
     return res;
@@ -2456,10 +2472,18 @@ exports.install = function(server, callbackFunction) {
     }
     return res;
   }
-  function fillVersionHistoryFromJwt(decoded, cmd) {
-    if (decoded.changesUrl && decoded.previous && (cmd.getServerVersion() === commonDefines.buildVersion)) {
-      cmd.setUrl(decoded.previous.url);
-      cmd.setDocId(decoded.previous.key);
+  function fillVersionHistoryFromJwt(ctx, decoded, cmd) {
+    if (decoded.changesUrl && decoded.previous) {
+      let versionMatch = cmd.getServerVersion() === commonDefines.buildVersion;
+      let openPreviousVersion = cmd.getDocId() === decoded.previous.key;
+      if (versionMatch && openPreviousVersion) {
+        cmd.setUrl(decoded.previous.url);
+        cmd.setDocId(decoded.previous.key);
+      } else {
+        ctx.logger.warn('fillVersionHistoryFromJwt serverVersion mismatch or mismatch between previous url and changes. serverVersion=%s docId=%s', cmd.getServerVersion(), cmd.getDocId());
+        cmd.setUrl(decoded.url);
+        cmd.setDocId(decoded.key);
+      }
     } else {
       cmd.setUrl(decoded.url);
       cmd.setDocId(decoded.key);
@@ -2524,7 +2548,7 @@ exports.install = function(server, callbackFunction) {
       let docId = data.docid;
       const user = data.user;
 
-      let wopiParams = null, openedAtStr;
+      let wopiParams = null, wopiParamsFull = null, openedAtStr;
       if (data.documentCallbackUrl) {
         wopiParams = wopiClient.parseWopiCallback(ctx, data.documentCallbackUrl);
         if (wopiParams && wopiParams.userAuth) {
@@ -2543,7 +2567,6 @@ exports.install = function(server, callbackFunction) {
       let result = yield taskResult.select(ctx, docId);
       let resultRow = result.length > 0 ? result[0] : null;
       if (wopiParams) {
-        let wopiParamsFull;
         if (resultRow && resultRow.callback) {
           wopiParamsFull = wopiClient.parseWopiCallback(ctx, data.documentCallbackUrl, resultRow.callback);
           cmd?.setWopiParams(wopiParamsFull);
@@ -2613,7 +2636,7 @@ exports.install = function(server, callbackFunction) {
       const curUserId = curUserIdOriginal + curIndexUser;
       conn.tenant = tenantManager.getTenantByConnection(ctx, conn);
       conn.docId = data.docid;
-      conn.permissions = data.permissions || {};
+      conn.permissions = data.permissions;
       conn.user = {
         id: curUserId,
         idOriginal: curUserIdOriginal,
@@ -2643,11 +2666,7 @@ exports.install = function(server, callbackFunction) {
       conn.licenseType = c_LR.Success;
       let isLiveViewer = utils.isLiveViewer(conn);
       if (!conn.user.view || isLiveViewer) {
-        let logPrefixTenant = 'License of tenant: ';
-        let logPrefixServer = 'License: ';
-        let logPrefix = tenantManager.isMultitenantMode(ctx) ? logPrefixTenant : logPrefixServer;
-
-        let licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer, logPrefix);
+        let licenseType = yield* _checkLicenseAuth(ctx, licenseInfo, conn.user.idOriginal, isLiveViewer);
         let aggregationCtx, licenseInfoAggregation;
         if ((c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) && tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
           //check server aggregation license
@@ -2655,7 +2674,7 @@ exports.install = function(server, callbackFunction) {
           aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
           //yield ctx.initTenantCache(); //no need
           licenseInfoAggregation = tenantManager.getServerLicense();
-          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, isLiveViewer, logPrefixServer);
+          licenseType = yield* _checkLicenseAuth(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, isLiveViewer);
         }
         conn.licenseType = licenseType;
         if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || (!tenIsAnonymousSupport && data.IsAnonymousUser)) {
@@ -2735,6 +2754,7 @@ exports.install = function(server, callbackFunction) {
             return;
           } else {
             modifyConnectionEditorToView(ctx, conn);
+            conn.isCiriticalError = true;
           }
         } else if (commonDefines.FileStatus.None === status && conn.encrypted) {
           //ok
@@ -2774,7 +2794,16 @@ exports.install = function(server, callbackFunction) {
               var arrayBlocks = data['block'];
               var getLockRes = yield getLock(ctx, conn, data, true);
               if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
-                yield* authRestore(ctx, conn, data.sessionId);
+                let wopiLockRes = true;
+                if (wopiParamsFull) {
+                  wopiLockRes = yield wopiClient.lock(ctx, 'LOCK', wopiParamsFull.commonInfo.lockId,
+                    wopiParamsFull.commonInfo.fileInfo, wopiParamsFull.userAuth);
+                }
+                if (wopiLockRes) {
+                  yield* authRestore(ctx, conn, data.sessionId);
+                } else {
+                  yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Wopi lock error.', constants.RESTORE_CODE);
+                }
               } else {
                 yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Locks not checked.', constants.RESTORE_CODE);
               }
@@ -2793,6 +2822,12 @@ exports.install = function(server, callbackFunction) {
         let openedAt = openedAtStr ? sqlBase.DocumentAdditional.prototype.getOpenedAt(openedAtStr) : canvasService.getOpenedAt(resultRow);
         const endAuthRes = yield* endAuth(ctx, conn, false, documentCallback, openedAt);
         if (endAuthRes && cmd) {
+          //todo to allow forcesave TemplateSource after convertion(move to better place)
+          if (wopiParamsFull?.commonInfo?.fileInfo?.TemplateSource) {
+            let newChangesLastDate = new Date();
+            newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
+            cmd.setExternalChangeInfo(getExternalChangeInfo(conn.user, newChangesLastDate.getTime(), conn.lang));
+          }
           yield canvasService.openDocument(ctx, conn, cmd, upsertRes, bIsRestore);
         }
       }
@@ -3442,96 +3477,69 @@ exports.install = function(server, callbackFunction) {
 		});
 	}
 
-  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer, logPrefix) {
+  function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer) {
     const tenWarningLimitPercents = ctx.getCfg('license.warning_limit_percents', cfgWarningLimitPercents) / 100;
-
-    let licenseWarningLimitUsers = false;
-    let licenseWarningLimitUsersView = false;
-    let licenseWarningLimitConnections = false;
-    let licenseWarningLimitConnectionsLive = false;
+    const tenNotificationRuleLicenseLimitEdit = ctx.getCfg(`notification.rules.licenseLimitEdit.template.body`, cfgNotificationRuleLicenseLimitEdit);
+    const tenNotificationRuleLicenseLimitLiveViewer = ctx.getCfg(`notification.rules.licenseLimitLiveViewer.template.body`, cfgNotificationRuleLicenseLimitLiveViewer);
     const c_LR = constants.LICENSE_RESULT;
     let licenseType = licenseInfo.type;
     if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
+      let notificationLimit;
+      let notificationTemplate = tenNotificationRuleLicenseLimitEdit;
+      let notificationType = notificationTypes.LICENSE_LIMIT_EDIT;
+      let notificationPercent = 100;
       if (licenseInfo.usersCount) {
         const nowUTC = getLicenseNowUtc();
+        notificationLimit = 'users';
         if(isLiveViewer) {
+          notificationTemplate = tenNotificationRuleLicenseLimitLiveViewer;
+          notificationType = notificationTypes.LICENSE_LIMIT_LIVE_VIEWER;
           const arrUsers = yield editorStat.getPresenceUniqueViewUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersViewCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
-            licenseType = c_LR.UsersViewCount;
+            licenseType = licenseInfo.hasLicense ? c_LR.UsersViewCount : c_LR.UsersViewCountOS;
+          } else if (licenseInfo.usersViewCount * tenWarningLimitPercents <= arrUsers.length) {
+            notificationPercent = tenWarningLimitPercents * 100;
           }
-          licenseWarningLimitUsersView = licenseInfo.usersViewCount * tenWarningLimitPercents <= arrUsers.length;
         } else {
           const arrUsers = yield editorStat.getPresenceUniqueUser(ctx, nowUTC);
           if (arrUsers.length >= licenseInfo.usersCount && (-1 === arrUsers.findIndex((element) => {return element.userid === userId}))) {
-            licenseType = c_LR.UsersCount;
+            licenseType = licenseInfo.hasLicense ? c_LR.UsersCount : c_LR.UsersCountOS;
+          } else if(licenseInfo.usersCount * tenWarningLimitPercents <= arrUsers.length) {
+            notificationPercent = tenWarningLimitPercents * 100;
           }
-          licenseWarningLimitUsers = licenseInfo.usersCount * tenWarningLimitPercents <= arrUsers.length;
         }
-      } else if(isLiveViewer) {
-        const connectionsLiveCount = licenseInfo.connectionsView;
-        const liveViewerConnectionsCount = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
-        if (liveViewerConnectionsCount >= connectionsLiveCount) {
-          licenseType = c_LR.ConnectionsLive;
-        }
-        licenseWarningLimitConnectionsLive = connectionsLiveCount * tenWarningLimitPercents <= liveViewerConnectionsCount;
       } else {
-        const connectionsCount = licenseInfo.connections;
-        const editConnectionsCount = yield editorStat.getEditorConnectionsCount(ctx, connections);
-        if (editConnectionsCount >= connectionsCount) {
-          licenseType = c_LR.Connections;
+        notificationLimit = 'connections';
+        if (isLiveViewer) {
+          notificationTemplate = tenNotificationRuleLicenseLimitLiveViewer;
+          notificationType = notificationTypes.LICENSE_LIMIT_LIVE_VIEWER;
+          const connectionsLiveCount = licenseInfo.connectionsView;
+          const liveViewerConnectionsCount = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
+          if (liveViewerConnectionsCount >= connectionsLiveCount) {
+            licenseType = licenseInfo.hasLicense ? c_LR.ConnectionsLive : c_LR.ConnectionsLiveOS;
+          } else if(connectionsLiveCount * tenWarningLimitPercents <= liveViewerConnectionsCount){
+            notificationPercent = tenWarningLimitPercents * 100;
+          }
+        } else {
+          const connectionsCount = licenseInfo.connections;
+          const editConnectionsCount = yield editorStat.getEditorConnectionsCount(ctx, connections);
+          if (editConnectionsCount >= connectionsCount) {
+            licenseType = licenseInfo.hasLicense ? c_LR.Connections : c_LR.ConnectionsOS;
+          } else if (connectionsCount * tenWarningLimitPercents <= editConnectionsCount) {
+            notificationPercent = tenWarningLimitPercents * 100;
+          }
         }
-        licenseWarningLimitConnections = connectionsCount * tenWarningLimitPercents <= editConnectionsCount;
       }
-    }
-
-    let logPostfix = ' limit exceeded!!!';
-    let notificationPrefix;
-    if (c_LR.UsersCount === licenseType) {
-      if (!licenseInfo.hasLicense) {
-        licenseType = c_LR.UsersCountOS;
+      if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || 100 !== notificationPercent) {
+        const message = util.format(notificationTemplate, notificationPercent, notificationLimit);
+        if (100 !== notificationPercent) {
+          ctx.logger.warn(message);
+        } else {
+          ctx.logger.error(message);
+        }
+        //todo with yield service could throw error
+        void notificationService.notify(ctx, notificationType, message, notificationType + notificationPercent);
       }
-      notificationPrefix = logPrefix + 'User';
-      ctx.logger.error(notificationPrefix + logPostfix);
-    } else if (c_LR.UsersViewCount === licenseType) {
-      if (!licenseInfo.hasLicense) {
-        licenseType = c_LR.UsersViewCountOS;
-      }
-      notificationPrefix = logPrefix + 'User Live Viewer';
-      ctx.logger.error(notificationPrefix + logPostfix);
-    } else if (c_LR.Connections === licenseType) {
-      if (!licenseInfo.hasLicense) {
-        licenseType = c_LR.ConnectionsOS;
-      }
-      notificationPrefix = logPrefix + 'Connection';
-      ctx.logger.error(notificationPrefix + logPostfix);
-    } else if (c_LR.ConnectionsLive === licenseType) {
-      if (!licenseInfo.hasLicense) {
-        licenseType = c_LR.ConnectionsLiveOS;
-      }
-      notificationPrefix = logPrefix + 'Connection Live Viewer';
-      ctx.logger.error(notificationPrefix + logPostfix);
-    } else {
-      if (licenseWarningLimitUsers) {
-        notificationPrefix = logPrefix + 'Warning User';
-        ctx.logger.warn(notificationPrefix + logPostfix);
-      }
-      if (licenseWarningLimitUsersView) {
-        notificationPrefix = logPrefix + 'Warning User Live Viewer';
-        ctx.logger.warn(notificationPrefix + logPostfix);
-      }
-      if (licenseWarningLimitConnections) {
-        notificationPrefix = logPrefix + 'Warning Connection';
-        ctx.logger.warn(notificationPrefix + logPostfix);
-      }
-      if (licenseWarningLimitConnectionsLive) {
-        notificationPrefix = logPrefix + 'Warning Connection Live Viewer';
-        ctx.logger.warn(notificationPrefix + logPostfix);
-      }
-    }
-
-    if (notificationPrefix) {
-      //todo with yield service could throw error
-      notificationService.notify(ctx, notificationTypes.LICENSE_LIMIT, [notificationPrefix]);
     }
     return licenseType;
   }
@@ -3649,9 +3657,9 @@ exports.install = function(server, callbackFunction) {
             for (i = 0; i < participants.length; ++i) {
               participant = participants[i];
               if (data.needUrlKey) {
-                if (0 == data.needUrlMethod) {
+                if (0 === data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrls(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, data.creationDate));
-                } else if (1 == data.needUrlMethod) {
+                } else if (1 === data.needUrlMethod) {
                   outputData.setData(yield storage.getSignedUrl(ctx, participant.baseUrl, data.needUrlKey, data.needUrlType, undefined, data.creationDate));
                 } else {
                   let url;
@@ -3951,7 +3959,7 @@ exports.install = function(server, callbackFunction) {
 exports.setLicenseInfo = async function(globalCtx, data, original) {
   tenantManager.setDefLicense(data, original);
 
-  utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
+  await utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
 
   const tenantsList = await tenantManager.getAllTenants(globalCtx);
   for (const tenant of tenantsList) {
@@ -3960,7 +3968,7 @@ exports.setLicenseInfo = async function(globalCtx, data, original) {
     await ctx.initTenantCache();
 
     const [licenseInfo] = await tenantManager.getTenantLicense(ctx);
-    utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
+    await utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
   }
 };
 exports.healthCheck = function(req, res) {
@@ -4241,12 +4249,24 @@ function* commandLicense(ctx) {
   };
 }
 
+async function proxyCommand(ctx, req, params) {
+  const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+  //todo gen shardkey as in sdkjs
+  const shardkey = params.key;
+  const baseUrl = utils.getBaseUrlByRequest(ctx, req);
+  let url = `${baseUrl}/coauthoring/command?&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardkey)}`;
+  for (let name in req.query) {
+    url += `&${name}=${encodeURIComponent(req.query[name])}`;
+  }
+  ctx.logger.info('commandFromServer proxy request with "key" to correctly process commands in sharded cluster to url:%s', url);
+  return await utils.postRequestPromise(ctx, url, req.body, null, req.body.length, tenCallbackRequestTimeout, undefined, req.headers);
+}
 /**
  * Server commands handler.
  * @param ctx Local context.
  * @param params Request parameters.
  * @param req Request object.
- * @param output{{ key: string, error: number, version: undefined | string }} Mutable. Response body.
+ * @param output{{ key: string, error: number, version: undefined | string, users: [string]}}} Mutable. Response body.
  * @returns undefined.
  */
 function* commandHandle(ctx, params, req, output) {
@@ -4260,7 +4280,12 @@ function* commandHandle(ctx, params, req, output) {
       //If no files in the database means they have not been edited.
       const selectRes = yield taskResult.select(ctx, docId);
       if (selectRes.length > 0) {
-        output.error = yield* bindEvents(ctx, docId, params.callback, utils.getBaseUrlByRequest(ctx, req), undefined, params.userdata);
+        let sendData = yield* bindEvents(ctx, docId, params.callback, utils.getBaseUrlByRequest(ctx, req), undefined, params.userdata);
+        if (sendData) {
+          output.users = sendData.users || [];
+        } else {
+          output.error = commonDefines.c_oAscServerCommandErrors.ParseError;
+        }
       } else {
         output.error = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
       }
@@ -4353,8 +4378,9 @@ function* commandHandle(ctx, params, req, output) {
 // Command from the server (specifically teamlab)
 exports.commandFromServer = function (req, res) {
   return co(function* () {
-    const output = { key: 'commandFromServer', error: commonDefines.c_oAscServerCommandErrors.NoError, version: undefined };
+    const output = { key: 'commandFromServer', error: commonDefines.c_oAscServerCommandErrors.NoError, version: undefined, users: undefined};
     const ctx = new operationContext.Context();
+    let postRes = null;
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
@@ -4365,21 +4391,27 @@ exports.commandFromServer = function (req, res) {
       output.key = params.key;
       output.error = validateInputParams(ctx, authRes, params);
       if (output.error === commonDefines.c_oAscServerCommandErrors.NoError) {
-        ctx.logger.debug('commandFromServer: c = %s', params.c);
         if (params.key && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
-          ctx.logger.warn('commandFromServer. Pass query string parameter "%s" to correctly process commands with "key" in sharded cluster', constants.SHARD_KEY_API_NAME);
+          postRes = yield proxyCommand(ctx, req, params);
+        } else {
+          ctx.logger.debug('commandFromServer: c = %s', params.c);
+          yield* commandHandle(ctx, params, req, output);
         }
-        yield *commandHandle(ctx, params, req, output);
       }
     } catch (err) {
       output.error = commonDefines.c_oAscServerCommandErrors.UnknownError;
       ctx.logger.error('Error commandFromServer: %s', err.stack);
     } finally {
-      const outputBuffer = Buffer.from(JSON.stringify(output), 'utf8');
+      let outputBuffer;
+      if (postRes) {
+        outputBuffer = postRes.body;
+      } else {
+        outputBuffer = Buffer.from(JSON.stringify(output), 'utf8');
+      }
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Length', outputBuffer.length);
       res.send(outputBuffer);
-      ctx.logger.info('commandFromServer end : %j', output);
+      ctx.logger.info('commandFromServer end : %s', outputBuffer);
     }
   });
 };
@@ -4401,4 +4433,23 @@ exports.shutdown = function(req, res) {
       ctx.logger.info('shutdown end');
     }
   });
+};
+exports.getEditorConnectionsCount = function (req, res) {
+  let ctx = new operationContext.Context();
+  let count = 0;
+  try {
+    ctx.initFromRequest(req);
+    for (let i = 0; i < connections.length; ++i) {
+      let conn = connections[i];
+      if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view))) {
+        count++;
+      }
+    }
+    ctx.logger.info('getConnectionsCount count=%d', count);
+  } catch (err) {
+    ctx.logger.error('getConnectionsCount error %s', err.stack);
+  } finally {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(count.toString());
+  }
 };
