@@ -719,7 +719,9 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         headers['Content-Type'] = mime.getType(getFileTypeByInfo(fileInfo));
 
         ctx.logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
-        postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, headers);
+        //isInJwtToken is true because it passed checkIpFilter for wopi
+        let isInJwtToken = true;
+        postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
         ctx.logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
         ctx.logger.debug('wopi PutFile response body:%s', postRes.body);
       } else {
@@ -754,7 +756,9 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       headers['Content-Type'] = mime.getType(suggestedExt);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
-      let postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, headers);
+      //isInJwtToken is true because it passed checkIpFilter for wopi
+      let isInJwtToken = true;
+      let postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
       ctx.logger.debug('wopi putRelativeFile response headers=%j', postRes.response.headers);
       ctx.logger.debug('wopi putRelativeFile response body:%s', postRes.body);
       res = JSON.parse(postRes.body);
@@ -793,7 +797,9 @@ function renameFile(ctx, wopiParams, name) {
         yield fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
 
         ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
+        //isInJwtToken is true because it passed checkIpFilter for wopi
+        let isInJwtToken = true;
+        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
         ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
         if (postRes.body) {
           res = JSON.parse(postRes.body);
@@ -830,8 +836,7 @@ function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
       }
       yield fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-      //todo false? (true because it passed checkIpFilter for wopi)
-      //todo use directIfIn
+      //isInJwtToken is true because it passed checkIpFilter for wopi
       let isInJwtToken = true;
       let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, isInJwtToken, headers);
       ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
@@ -866,7 +871,9 @@ function lock(ctx, command, lockId, fileInfo, userAuth) {
         let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
         yield fillStandardHeaders(ctx, headers, uri, access_token);
         ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
-        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
+        //isInJwtToken is true because it passed checkIpFilter for wopi
+        let isInJwtToken = true;
+        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
         ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
       } else {
         ctx.logger.info('wopi %s SupportsLocks = false', command);
@@ -903,7 +910,9 @@ async function unlock(ctx, wopiParams) {
       let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
       await fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-      let postRes = await utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, headers);
+      //isInJwtToken is true because it passed checkIpFilter for wopi
+      let isInJwtToken = true;
+      let postRes = await utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
       ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
     } else {
       ctx.logger.info('wopi SupportsLocks = false');

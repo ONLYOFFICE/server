@@ -736,6 +736,7 @@ async function getOriginalParticipantsId(ctx, docId) {
 
 async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
   const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+  const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
 
   ctx.logger.debug('postData request: url = %s;data = %j', uri, dataObject);
   let auth;
@@ -751,7 +752,8 @@ async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizat
     dataObject.setToken(bodyToken);
   }
   let headers = {'Content-Type': 'application/json'};
-  let postRes = await utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth, headers);
+  //isInJwtToken is true because callbackUrl is required field in jwt token
+  let postRes = await utils.postRequestPromise(ctx, uri, JSON.stringify(dataObject), undefined, undefined, tenCallbackRequestTimeout, auth, tenTokenEnableRequestInbox, headers);
   ctx.logger.debug('postData response: data = %s', postRes.body);
   return postRes.body;
 }
@@ -1634,7 +1636,7 @@ exports.install = function(server, callbackFunction) {
         return;
       }
       if (getIsShutdown()) {
-        sendFileError(ctx, conn, 'Server shutdow');
+        sendFileError(ctx, conn, 'Server shutdown');
         return;
       }
       conn.baseUrl = utils.getBaseUrlByConnection(ctx, conn);
@@ -4251,6 +4253,7 @@ function* commandLicense(ctx) {
 
 async function proxyCommand(ctx, req, params) {
   const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+  const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
   //todo gen shardkey as in sdkjs
   const shardkey = params.key;
   const baseUrl = utils.getBaseUrlByRequest(ctx, req);
@@ -4259,7 +4262,8 @@ async function proxyCommand(ctx, req, params) {
     url += `&${name}=${encodeURIComponent(req.query[name])}`;
   }
   ctx.logger.info('commandFromServer proxy request with "key" to correctly process commands in sharded cluster to url:%s', url);
-  return await utils.postRequestPromise(ctx, url, req.body, null, req.body.length, tenCallbackRequestTimeout, undefined, req.headers);
+  //isInJwtToken is true because 'command' is always internal
+  return await utils.postRequestPromise(ctx, url, req.body, null, req.body.length, tenCallbackRequestTimeout, undefined, tenTokenEnableRequestInbox, req.headers);
 }
 /**
  * Server commands handler.

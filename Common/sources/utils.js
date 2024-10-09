@@ -463,7 +463,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
     }
   });
 }
-function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_headers) {
+function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_isInJwtToken, opt_headers) {
   return new Promise(function(resolve, reject) {
     const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
     const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
@@ -474,8 +474,14 @@ function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, op
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     let options = config.util.extendDeep({}, tenTenantRequestDefaults);
     Object.assign(options, {uri: urlParsed, encoding: 'utf8', timeout: connectionAndInactivity});
-    //baseRequest creates new agent(win-ca injects in globalAgent)
-    options.agentOptions = https.globalAgent.options;
+    if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options)) {
+      reject(new Error('Block external request. See externalRequest config options'));
+      return;
+    }
+    if (!options.agent) {
+      //baseRequest creates new agent(win-ca injects in globalAgent)
+      options.agentOptions = https.globalAgent.options;
+    }
     if (postData) {
       options.body = postData;
     }
