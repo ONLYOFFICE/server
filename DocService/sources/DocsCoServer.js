@@ -4254,7 +4254,7 @@ async function proxyCommand(ctx, req, params) {
   //todo gen shardkey as in sdkjs
   const shardkey = params.key;
   const baseUrl = utils.getBaseUrlByRequest(ctx, req);
-  let url = `${baseUrl}/coauthoring/command?&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardkey)}`;
+  let url = `${baseUrl}/command?&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardkey)}`;
   for (let name in req.query) {
     url += `&${name}=${encodeURIComponent(req.query[name])}`;
   }
