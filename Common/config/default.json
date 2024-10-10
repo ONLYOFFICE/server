@@ -42,7 +42,7 @@
 					"email"
 				],
 				"template": {
-					"title": "License expiration warning",
+					"title": "%s Docs license expiration warning",
 					"body": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
 				},
 				"policies": {
@@ -55,7 +55,7 @@
 					"email"
 				],
 				"template": {
-					"title": "License expiration warning",
+					"title": "%s Docs license expiration warning",
 					"body": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
 				},
 				"policies": {
@@ -68,7 +68,7 @@
 					"email"
 				],
 				"template": {
-					"title": "License connection limit warning",
+					"title": "%s Docs license connection limit warning",
 					"body": "Attention! You have reached %s%% of the %s limit set by your license."
 				},
 				"policies": {
@@ -81,7 +81,7 @@
 					"email"
 				],
 				"template": {
-					"title": "License connection limit warning",
+					"title": "%s Docs license connection limit warning",
 					"body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
 				},
 				"policies": {
