@@ -37,7 +37,7 @@
 	"notification": {
 		"rules": {
 			"licenseExpirationWarning": {
-				"enable": true,
+				"enable": false,
 				"transportType": [
 					"email"
 				],
@@ -63,7 +63,7 @@
 				}
 			},
 			"licenseLimitEdit": {
-				"enable": true,
+				"enable": false,
 				"transportType": [
 					"email"
 				],
@@ -76,7 +76,7 @@
 				}
 			},
 			"licenseLimitLiveViewer": {
-				"enable": true,
+				"enable": false,
 				"transportType": [
 					"email"
 				],
