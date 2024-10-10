@@ -2104,13 +2104,17 @@ exports.install = function(server, callbackFunction) {
     });
   }
 
-  function sendFileError(ctx, conn, errorId, code) {
-    ctx.logger.warn('error description: errorId = %s', errorId);
+  function sendFileError(ctx, conn, errorId, code, opt_notWarn) {
+    if (opt_notWarn) {
+      ctx.logger.debug('error description: errorId = %s', errorId);
+    } else {
+      ctx.logger.warn('error description: errorId = %s', errorId);
+    }
     conn.isCiriticalError = true;
     sendData(ctx, conn, {type: 'error', description: errorId, code: code});
   }
 
-  function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code) {
+  function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code, opt_notWarn) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
     conn.sessionId = sessionId;//restore old
@@ -2127,7 +2131,7 @@ exports.install = function(server, callbackFunction) {
         let sessionToken = yield fillJwtByConnection(ctx, conn);
         sendDataRefreshToken(ctx, conn, sessionToken);
       }
-      sendFileError(ctx, conn, errorId, code);
+      sendFileError(ctx, conn, errorId, code, opt_notWarn);
     }
   }
 
@@ -2381,8 +2385,7 @@ exports.install = function(server, callbackFunction) {
     } else if (data.mode && 'view' !== data.mode && !decoded?.editorConfig?.mode) {//allow to restrict rights to 'view'
       res = "editorConfig.mode";
     }
-    //todo
-    return "";
+    return res;
   }
   function fillDataFromJwt(ctx, decoded, data) {
     let res = true;
@@ -2762,14 +2765,14 @@ exports.install = function(server, callbackFunction) {
           var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
           if (!(updateIfRes.affectedRows > 0)) {
             // error version
-            //todo log level debug
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
+            //log level is debug because error handled via refreshFile
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE, true);
             return;
           }
         } else if (commonDefines.FileStatus.UpdateVersion === status) {
           if (bIsRestore) {
             // error version
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE, true);
             return;
           } else {
             modifyConnectionEditorToView(ctx, conn);
@@ -2779,8 +2782,11 @@ exports.install = function(server, callbackFunction) {
           //ok
         } else if (bIsRestore) {
           // Other error
-          let code = null === status ? constants.NO_CACHE_CODE : undefined;
-          yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Other error', code);
+          if(null === status) {
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Other error', constants.NO_CACHE_CODE, true);
+          } else {
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Other error');
+          }
           return;
         }
       }
@@ -2821,17 +2827,17 @@ exports.install = function(server, callbackFunction) {
                 if (wopiLockRes) {
                   yield* authRestore(ctx, conn, data.sessionId);
                 } else {
-                  yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Wopi lock error.', constants.RESTORE_CODE);
+                  yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Wopi lock error.', constants.RESTORE_CODE, true);
                 }
               } else {
-                yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Locks not checked.', constants.RESTORE_CODE);
+                yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Locks not checked.', constants.RESTORE_CODE, true);
               }
             } else {
-              yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Document modified.', constants.RESTORE_CODE);
+              yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Document modified.', constants.RESTORE_CODE, true);
             }
           } catch (err) {
             ctx.logger.error("DataBase error: %s", err.stack);
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'DataBase error', constants.RESTORE_CODE);
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'DataBase error', constants.RESTORE_CODE, true);
           }
         } else {
           yield* authRestore(ctx, conn, data.sessionId);
