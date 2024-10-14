@@ -32,6 +32,7 @@
 
 'use strict';
 
+const { rm } = require('fs/promises');
 const config = require('config');
 const co = require('co');
 const NodeCache = require( "node-cache" );
@@ -406,6 +407,18 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
   return [res, oLicense];
 }
 
+
+async function deleteTenant(ctx) {
+  try {
+    if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
+      let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+      await rm(path.join(cfgTenantsBaseDir, tenantPath), {force: true, recursive: true, maxRetries: 3});
+    }
+  } catch (error) {
+    ctx.logger.error('deleteTenants error: ', error.stack);
+  }
+}
+
 exports.getAllTenants = getAllTenants;
 exports.getDefautTenant = getDefautTenant;
 exports.getTenantByConnection = getTenantByConnection;
@@ -419,3 +432,4 @@ exports.setDefLicense = setDefLicense;
 exports.isMultitenantMode = isMultitenantMode;
 exports.setMultitenantMode = setMultitenantMode;
 exports.isDefaultTenant = isDefaultTenant;
+exports.deleteTenant = deleteTenant;
