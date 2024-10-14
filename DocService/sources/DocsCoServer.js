@@ -1734,11 +1734,6 @@ exports.install = function(server, callbackFunction) {
               case 'close':
                 yield* closeDocument(ctx, conn);
                 break;
-              case 'versionHistory'          : {
-                let cmd = new commonDefines.InputCommand(data.cmd);
-                yield* versionHistory(ctx, conn, cmd);
-                break;
-              }
               case 'openDocument'      : {
                 var cmd = new commonDefines.InputCommand(data.message);
                 cmd.fillFromConnection(conn);
@@ -1949,42 +1944,6 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  function* versionHistory(ctx, conn, cmd) {
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
-
-    var docIdOld = conn.docId;
-    var docIdNew = cmd.getDocId();
-    //check jwt
-    if (tenTokenEnableBrowser) {
-      var checkJwtRes = yield checkJwt(ctx, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
-      if (checkJwtRes.decoded) {
-        fillVersionHistoryFromJwt(ctx, checkJwtRes.decoded, cmd);
-        docIdNew = cmd.getDocId();
-        cmd.setWithAuthorization(true);
-      } else {
-        sendData(ctx, conn, {type: "expiredToken", code: checkJwtRes.code, description: checkJwtRes.description});
-        return;
-      }
-    }
-    if (docIdOld !== docIdNew) {
-      //remove presence(other data was removed before in closeDocument)
-      yield removePresence(ctx, conn);
-      var hvals = yield editorData.getPresence(ctx, docIdOld, connections);
-      if (hvals.length <= 0) {
-        yield editorData.removePresenceDocument(ctx, docIdOld);
-      }
-
-      //apply new
-      conn.docId = docIdNew;
-      yield addPresence(ctx, conn, true);
-      if (tenTokenEnableBrowser) {
-        let sessionToken = yield fillJwtByConnection(ctx, conn);
-        sendDataRefreshToken(ctx, conn, sessionToken);
-      }
-    }
-    //open
-    yield canvasService.openDocument(ctx, conn, cmd, null);
-  }
   // Getting changes for the document (either from the cache or accessing the database, but only if there were saves)
   function* getDocumentChanges(ctx, docId, optStartIndex, optEndIndex) {
     // If during that moment, while we were waiting for a response from the database, everyone left, then nothing needs to be sent
@@ -2492,22 +2451,23 @@ exports.install = function(server, callbackFunction) {
     }
     return res;
   }
-  function fillVersionHistoryFromJwt(ctx, decoded, cmd) {
+  function fillVersionHistoryFromJwt(ctx, decoded, data) {
+    let openCmd = data.openCmd;
+    data.mode = 'view';
+    data.coEditingMode = 'strict';
+    data.docid = decoded.key;
+    openCmd.url = decoded.url;
     if (decoded.changesUrl && decoded.previous) {
-      let versionMatch = cmd.getServerVersion() === commonDefines.buildVersion;
-      let openPreviousVersion = cmd.getDocId() === decoded.previous.key;
+      let versionMatch = openCmd.serverVersion === commonDefines.buildVersion;
+      let openPreviousVersion = openCmd.id === decoded.previous.key;
       if (versionMatch && openPreviousVersion) {
-        cmd.setUrl(decoded.previous.url);
-        cmd.setDocId(decoded.previous.key);
+        data.docid = decoded.previous.key;
+        openCmd.url = decoded.previous.url;
       } else {
-        ctx.logger.warn('fillVersionHistoryFromJwt serverVersion mismatch or mismatch between previous url and changes. serverVersion=%s docId=%s', cmd.getServerVersion(), cmd.getDocId());
-        cmd.setUrl(decoded.url);
-        cmd.setDocId(decoded.key);
+        ctx.logger.warn('fillVersionHistoryFromJwt serverVersion mismatch or mismatch between previous url and changes. serverVersion=%s docId=%s', openCmd.serverVersion, openCmd.id);
       }
-    } else {
-      cmd.setUrl(decoded.url);
-      cmd.setDocId(decoded.key);
     }
+    return true;
   }
 
   function* auth(ctx, conn, data) {
@@ -2536,6 +2496,9 @@ exports.install = function(server, callbackFunction) {
           } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_sessionTimeConnect) {
             //reconnection
             fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
+          } else if (decoded.version) {//version required, but maybe add new type like jwtSession?
+            //version history
+            fillDataFromJwtRes = fillVersionHistoryFromJwt(ctx, decoded, data);
           } else {
             //opening
             let validationErr = validateAuthToken(data, decoded);
@@ -3668,13 +3631,7 @@ exports.install = function(server, callbackFunction) {
             output.fromObject(data.output);
             var outputData = output.getData();
 
-            var docConnectionId = cmd.getDocConnectionId();
-            var docId;
-            if(docConnectionId){
-              docId = docConnectionId;
-            } else {
-              docId = cmd.getDocId();
-            }
+            var docId = cmd.getDocId();
             if (cmd.getUserConnectionId()) {
               participants = getParticipantUser(docId, cmd.getUserConnectionId());
             } else {
