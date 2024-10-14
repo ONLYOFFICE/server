@@ -1273,6 +1273,15 @@ function dropUserFromDocument(ctx, docId, userId, description) {
     }
   }
 }
+
+function dropTenantConnections(ctx, code, description) {
+  for (let i = 0; i < connections.length; ++i) {
+    let conn = connections[i];
+    if (conn.tenant === ctx.tenant && !(conn.user?.view || conn.isCloseCoAuthoring)) {
+      sendDataDrop(ctx, conn, code, description);
+    }
+  }
+}
 function getLocalConnectionCount(ctx, docId) {
   let tenant = ctx.tenant;
   return connections.reduce(function(count, conn) {
@@ -3568,6 +3577,9 @@ exports.install = function(server, callbackFunction) {
               dropUserFromDocument(ctx, data.docId, data.users[i], data.description);
             }
             break;
+          case commonDefines.c_oPublishType.dropTenantConnections:
+            dropTenantConnections(ctx, constants.DROP_CODE, constants.DROP_REASON);
+            break;
           case commonDefines.c_oPublishType.closeConnection:
             closeUsersConnection(ctx, data.docId, data.usersMap, data.isOriginalId, data.code, data.description);
             break;
@@ -4194,7 +4206,7 @@ exports.licenseInfo = function(req, res) {
   });
 };
 function validateInputParams(ctx, authRes, command) {
-  const commandsWithoutKey = ['version', 'license', 'getForgottenList'];
+  const commandsWithoutKey = ['version', 'license', 'getForgottenList', 'deleteTenant'];
   const isValidWithoutKey = commandsWithoutKey.includes(command.c);
   const isDocIdString = typeof command.key === 'string';
 
@@ -4359,6 +4371,15 @@ function* commandHandle(ctx, params, req, output) {
     }
     case 'getForgottenList': {
       forgottenData.keys = yield* getFilesKeys(ctx, tenForgottenFiles);
+      break;
+    }
+    case 'deleteTenant': {
+      if (tenantManager.isMultitenantMode(ctx)) {
+        yield publish(ctx, {type: commonDefines.c_oPublishType.dropTenantConnections, ctx: ctx});
+        yield tenantManager.deleteTenant(ctx);
+      } else {
+        ctx.logger.warn('commandFromServer deleteTenant works only when tenants is enabled');
+      }
       break;
     }
     case 'version': {

@@ -1044,7 +1044,8 @@ const c_oPublishType = {
   closeConnection: 13,
   changesNotify: 14,
   changeConnecitonInfo: 15,
-  rpc: 16
+  rpc: 16,
+  dropTenantConnections: 17
 };
 const c_oAscCsvDelimiter = {
   None: 0,
