@@ -247,9 +247,16 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
           userPassword = await utils.decryptPassword(ctx, encryptedUserPassword);
           isCorrectPassword = decryptedPassword === userPassword;
         }
-        if(password && !isCorrectPassword && !formatChecker.isBrowserEditorFormat(originFormat)) {
+        let isNeedPassword = password && !isCorrectPassword;
+        if (isNeedPassword && formatChecker.isBrowserEditorFormat(originFormat)) {
+          //check pdf form
+          //todo check without storage
+          let formEditor = await storage.listObjects(ctx, key + '/Editor.bin');
+          isNeedPassword = 0 !== formEditor.length;
+        }
+        if (isNeedPassword) {
           ctx.logger.debug("getOutputData password mismatch");
-          if(encryptedUserPassword) {
+          if (encryptedUserPassword) {
             outputData.setStatus('needpassword');
             outputData.setData(constants.CONVERT_PASSWORD);
           } else {
