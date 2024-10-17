@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -36,6 +36,7 @@ var configCoAuthoring = config.get('services.CoAuthoring');
 var co = require('co');
 var logger = require('./../../Common/sources/logger');
 var pubsubService = require('./pubsubRabbitMQ');
+const sqlBase = require('./databaseConnectors/baseConnector');
 var commonDefines = require('./../../Common/sources/commondefines');
 var constants = require('./../../Common/sources/constants');
 var utils = require('./../../Common/sources/utils');
@@ -77,8 +78,9 @@ exports.shutdown = function(ctx, editorStat, status) {
           break;
         }
         var remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
-        ctx.logger.debug('shutdown remaining files:%d', remainingFiles);
-        if (!isStartWait && remainingFiles <= 0) {
+        let inSavingStatus = yield sqlBase.getCountWithStatus(ctx, commonDefines.FileStatus.SaveVersion, EXEC_TIMEOUT);
+        ctx.logger.debug('shutdown remaining files editorStat:%d, db:%d', remainingFiles, inSavingStatus);
+        if (!isStartWait && (remainingFiles + inSavingStatus) <= 0) {
           break;
         }
         yield utils.sleep(LOOP_TIMEOUT);

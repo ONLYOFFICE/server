@@ -4,7 +4,8 @@
   "homepage": "https://www.onlyoffice.com",
   "private": true,
   "dependencies": {
-    "@aws-sdk/client-s3": "3.370.0",
+    "@aws-sdk/client-s3": "3.637.0",
+    "@aws-sdk/node-http-handler": "3.374.0",
     "@aws-sdk/s3-request-presigner": "3.370.0",
     "amqplib": "0.8.0",
     "co": "4.6.0",
@@ -20,7 +21,7 @@
     "ms": "2.1.1",
     "node-cache": "4.2.1",
     "node-statsd": "0.1.1",
-    "openpgp": "4.10.11",
+    "nodemailer": "6.9.13",
     "request": "2.88.0",
     "request-filtering-agent": "1.0.5",
     "rhea": "1.0.24",

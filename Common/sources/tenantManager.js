@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -39,7 +39,7 @@ const license = require('./../../Common/sources/license');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
-const { readFile } = require('fs/promises');
+const { readFile, readdir } = require('fs/promises');
 const path = require('path');
 
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
@@ -55,6 +55,7 @@ const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
 
 let licenseInfo;
 let licenseOriginal;
+let licenseTuple;//to avoid array creating in getTenantLicense
 
 const c_LM = constants.LICENSE_MODE;
 
@@ -78,6 +79,18 @@ function getTenant(ctx, domain) {
     }
   }
   return tenant;
+}
+async function getAllTenants(ctx) {
+  let dirList = [];
+  try {
+    if (isMultitenantMode(ctx)) {
+      const entitiesList = await readdir(cfgTenantsBaseDir, { withFileTypes: true });
+      dirList = entitiesList.filter(direntObj => direntObj.isDirectory()).map(directory => directory.name);
+    }
+  } catch (error) {
+    ctx.logger.error('getAllTenants error: ', error.stack);
+  }
+  return dirList;
 }
 function getTenantByConnection(ctx, conn) {
   return isMultitenantMode(ctx) ? getTenant(ctx, utils.getDomainByConnection(ctx, conn)) : getDefautTenant();
@@ -174,6 +187,7 @@ function getTenantSecret(ctx, type) {
 function setDefLicense(data, original) {
   licenseInfo = data;
   licenseOriginal = original;
+  licenseTuple = [licenseInfo, licenseOriginal];
 }
 //todo move to license file?
 function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
@@ -191,13 +205,8 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
     licenseInfoTenant.mode |= c_LM.Developer;
     errors.push('developer');
   }
-  //can not turn off
-  if (licenseInfo.light && !licenseInfoTenant.light) {
-    licenseInfoTenant.light = licenseInfo.light;
-    errors.push('light');
-  }
   //can not turn on
-  let flags = ['plugins', 'branding', 'customization'];
+  let flags = ['branding', 'customization'];
   flags.forEach((flag) => {
     if (!licenseInfo[flag] && licenseInfoTenant[flag]) {
       licenseInfoTenant[flag] = licenseInfo[flag];
@@ -233,31 +242,31 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
     ctx.logger.warn('fixTenantLicense not allowed to improve these license fields: %s', errors.join(', '));
   }
 }
-function getTenantLicense(ctx) {
-  return co(function*() {
-    let res = licenseInfo;
-    if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
-      if (licenseInfo.alias) {
-        let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-        let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
-        let licenseInfoTenant = nodeCache.get(licensePath);
-        if (licenseInfoTenant) {
-          ctx.logger.debug('getTenantLicense from cache');
-        } else {
-          [licenseInfoTenant] = yield readLicenseTenant(ctx, licensePath, licenseInfo);
-          fixTenantLicense(ctx, licenseInfo, licenseInfoTenant);
-          nodeCache.set(licensePath, licenseInfoTenant);
-          ctx.logger.debug('getTenantLicense from %s', licensePath);
-        }
-        res = licenseInfoTenant;
+
+async function getTenantLicense(ctx) {
+  let res = licenseTuple;
+  if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
+    if (licenseInfo.alias) {
+      let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+      let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
+      let licenseTupleTenant = nodeCache.get(licensePath);
+      if (licenseTupleTenant) {
+        ctx.logger.debug('getTenantLicense from cache');
       } else {
-        res = {...res};
-        res.type = constants.LICENSE_RESULT.Error;
-        ctx.logger.error('getTenantLicense error: missing "alias" field');
+        licenseTupleTenant = await readLicenseTenant(ctx, licensePath, licenseInfo);
+        fixTenantLicense(ctx, licenseInfo, licenseTupleTenant[0]);
+        nodeCache.set(licensePath, licenseTupleTenant);
+        ctx.logger.debug('getTenantLicense from %s', licensePath);
       }
+      res = licenseTupleTenant;
+    } else {
+      res = [...res];
+      res[0] = {...res[0]};
+      res.type = constants.LICENSE_RESULT.Error;
+      ctx.logger.error('getTenantLicense error: missing "alias" field');
     }
-    return res;
-  });
+  }
+  return res;
 }
 function getServerLicense(ctx) {
   return licenseInfo;
@@ -283,6 +292,9 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     const oFile = (await readFile(licenseFile)).toString();
     res.hasLicense = true;
     oLicense = JSON.parse(oFile);
+    //do not verify tenant signature. verify main lic signature. 
+    //delete from object to keep signature secret
+    delete oLicense['signature'];
     if (oLicense['start_date']) {
       res.startDate = new Date(oLicense['start_date']);
     }
@@ -308,12 +320,6 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     }
     if (true === oLicense['developer']) {
       res.mode |= c_LM.Developer;
-    }
-    if (oLicense.hasOwnProperty('light')) {
-      res.light = (true === oLicense['light'] || 'true' === oLicense['light'] || 'True' === oLicense['light']); // Someone who likes to put json string instead of bool
-    }
-    if (oLicense.hasOwnProperty('plugins')) {
-      res.plugins = true === oLicense['plugins'];
     }
     if (oLicense.hasOwnProperty('branding')) {
       res.branding = (true === oLicense['branding'] || 'true' === oLicense['branding'] || 'True' === oLicense['branding']); // Someone who likes to put json string instead of bool
@@ -400,6 +406,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
   return [res, oLicense];
 }
 
+exports.getAllTenants = getAllTenants;
 exports.getDefautTenant = getDefautTenant;
 exports.getTenantByConnection = getTenantByConnection;
 exports.getTenantByRequest = getTenantByRequest;

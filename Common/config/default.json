@@ -16,6 +16,80 @@
 		"visibilityTimeout": 300,
 		"retentionPeriod": 900
 	},
+	"email": {
+		"smtpServerConfiguration": {
+			"host": "localhost",
+			"port": 587,
+			"auth": {
+				"user": "onlyoffice",
+				"pass": "onlyoffice"
+			}
+		},
+		"connectionConfiguration": {
+			"disableFileAccess": false,
+			"disableUrlAccess": false
+		},
+		"contactDefaults": {
+			"from": "from@example.com",
+			"to": "to@example.com"
+		}
+	},
+	"notification": {
+		"rules": {
+			"licenseExpirationWarning": {
+				"enable": false,
+				"transportType": [
+					"email"
+				],
+				"template": {
+					"title": "%s Docs license expiration warning",
+					"body": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+				},
+				"policies": {
+					"repeatInterval": "1d"
+				}
+			},
+			"licenseExpirationError": {
+				"enable": false,
+				"transportType": [
+					"email"
+				],
+				"template": {
+					"title": "%s Docs license expiration warning",
+					"body": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+				},
+				"policies": {
+					"repeatInterval": "1d"
+				}
+			},
+			"licenseLimitEdit": {
+				"enable": false,
+				"transportType": [
+					"email"
+				],
+				"template": {
+					"title": "%s Docs license connection limit warning",
+					"body": "Attention! You have reached %s%% of the %s limit set by your license."
+				},
+				"policies": {
+					"repeatInterval": "1h"
+				}
+			},
+			"licenseLimitLiveViewer": {
+				"enable": false,
+				"transportType": [
+					"email"
+				],
+				"template": {
+					"title": "%s Docs license connection limit warning",
+					"body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+				},
+				"policies": {
+					"repeatInterval": "1h"
+				}
+			}
+		}
+	},
 	"storage": {
 		"name": "storage-fs",
 		"fs": {
@@ -74,6 +148,15 @@
 			"passwords": ["verysecretstring"]
 		}
 	},
+	"aesEncrypt": {
+		"config": {
+			"keyByteLength": 32,
+			"saltByteLength": 64,
+			"initializationVectorByteLength": 16,
+			"iterationsByteLength": 5
+		},
+		"secret": "verysecretstring"
+	},
 	"bottleneck": {
 		"getChanges": {
 		}
@@ -91,18 +174,18 @@
 		"pdfView": ["djvu", "xps", "oxps"],
 		"pdfEdit": ["pdf"],
 		"forms": ["pdf"],
-		"wordView": ["doc", "dotx", "dotm", "dot", "fodt", "ott", "rtf", "mht", "mhtml", "html", "htm", "xml", "epub", "fb2", "sxw", "stw", "wps", "wpt", "docxf", "oform"],
-		"wordEdit": ["docx", "docm", "odt", "txt"],
-		"cellView": ["xls", "xlsb", "xltx", "xltm", "xlt", "fods", "ots", "sxc", "xml", "et", "ett"],
-		"cellEdit": ["xlsx", "xlsm", "ods", "csv"],
-		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potx", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt"],
-		"slideEdit": ["pptx", "pptm", "odp"],
+		"wordView": ["doc", "dotm", "dot", "fodt", "ott", "rtf", "mht", "mhtml", "html", "htm", "xml", "epub", "fb2", "sxw", "stw", "wps", "wpt", "docxf", "oform"],
+		"wordEdit": ["docx", "dotx", "docm", "odt", "txt"],
+		"cellView": ["xls", "xlsb", "xltm", "xlt", "fods", "ots", "sxc", "xml", "et", "ett"],
+		"cellEdit": ["xlsx", "xltx", "xlsm", "ods", "csv"],
+		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt"],
+		"slideEdit": ["pptx", "potx", "pptm", "odp"],
 		"publicKey": "BgIAAACkAABSU0ExAAgAAAEAAQBpTpiJQ2hD8plpGTfEEmcq4IKyr31HikXpuVSBraMfqyodn2PGXBJ3daNSmdPOc0Nz4HO9Auljn8YYXDPBdpiABptSKvEDPF23Q+Qytg0+vCRyondyBcW91w7KLzXce3fnk8ZfJ8QtbZPL9m11wJIWZueQF+l0HKYx4lty+nccbCanytFTADkGQ3SnmExGEF3rBz6I9+OcrDDK9NKPJgEmCiuyei/d4XbPgKls3EIG0h38X5mVF2VytfWm2Yu850B6z3N4MYhj4b4vsYT62zEC4pMRUeb8dIBy4Jsmr3avtmeO00MUH6DVyPC8nirixj2YIOPKk13CdVqGDSXA3cvl",
-		"modulus": "E5CBDDC0250D865A75C25D93CAE320983DC6E22A9EBCF0C8D5A01F1443D38E67B6AF76AF269BE0728074FCE6511193E20231DBFA84B12FBEE16388317873CF7A40E7BC8BD9A6F5B572651795995FFC1DD20642DC6CA980CF76E1DD2F7AB22B0A2601268FD2F4CA30AC9CE3F7883E07EB5D10464C98A7744306390053D1CAA7266C1C77FA725BE231A61C74E91790E7661692C0756DF6CB936D2DC4275FC693E7777BDC352FCA0ED7BDC5057277A27224BC3E0DB632E443B75D3C03F12A529B06809876C1335C18C69F63E902BD73E0734373CED39952A37577125CC6639F1D2AAB1FA3AD8154B9E9458A477DAFB282E02A6712C437196999F243684389984E69",
+		"modulus": "5cvdwCUNhlp1wl2TyuMgmD3G4iqevPDI1aAfFEPTjme2r3avJpvgcoB0/OZREZPiAjHb+oSxL77hY4gxeHPPekDnvIvZpvW1cmUXlZlf/B3SBkLcbKmAz3bh3S96sisKJgEmj9L0yjCsnOP3iD4H610QRkyYp3RDBjkAU9HKpyZsHHf6clviMaYcdOkXkOdmFpLAdW32y5NtLcQnX8aT53d73DUvyg7XvcUFcneiciS8Pg22MuRDt108A/EqUpsGgJh2wTNcGMafY+kCvXPgc0NzztOZUqN1dxJcxmOfHSqrH6OtgVS56UWKR32vsoLgKmcSxDcZaZnyQ2hDiZhOaQ==",
 		"exponent": 65537,
 		"privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDly93AJQ2GWnXC\nXZPK4yCYPcbiKp688MjVoB8UQ9OOZ7avdq8mm+BygHT85lERk+ICMdv6hLEvvuFj\niDF4c896QOe8i9mm9bVyZReVmV/8HdIGQtxsqYDPduHdL3qyKwomASaP0vTKMKyc\n4/eIPgfrXRBGTJindEMGOQBT0cqnJmwcd/pyW+Ixphx06ReQ52YWksB1bfbLk20t\nxCdfxpPnd3vcNS/KDte9xQVyd6JyJLw+DbYy5EO3XTwD8SpSmwaAmHbBM1wYxp9j\n6QK9c+BzQ3PO05lSo3V3ElzGY58dKqsfo62BVLnpRYpHfa+yguAqZxLENxlpmfJD\naEOJmE5pAgMBAAECggEALiL+RKOr0Xu8BOgQ0j1DwA03LxVrhXe6etmJI+JySTcd\ngKENjWziZVrRIi2DvUm5qMMl7WhSwslKK1eexxZJY7xASqSxcEoIwgz17T07/jxm\nfIdUBiUKDZ1Kv8PWmIr3oKW+fkXWi/m1zlIe0qXRpTmsGNEsHQLEqi0rmaiXTXOR\n/2Ldwi6kZR3sWFx97YS4Mx/pueGJTXEai6AVEZzN5Gog6xD8HXR1Rvq+hhd+MocG\nfnU4HgilKRfoJlWd9FOscgSufKG0L3ViO4fSKU46l5aullDYUk5ECMWiwuKSqSE7\nqD45jI3mbOre7S4u3S3TWdD3lzwiXL49LdwKlEC4mQKBgQD0sLr0GH4Wr+QX2xJE\nuA/Cb8QW41l8iSCBTRZZR/sJOd+o3rbcVidlzO/EbZblXG4ZPDmRjgBCGKIP5EZi\n0DsL+Wv32WOo44LpxJGhqExbm0H1iZ1zZ97l0P8fvIhHE42gmaLToOIGDhPSXGvv\nzlqOHbGbq4jsERc1jp1bej5q6wKBgQDwaueIc4pRchH98QYidcyr8Vwg9KhbnfYX\ny3W4RPlZtBdF34iJaio+ASzugo/zy1RTcVrsCskYWXyKDUQz1yu0iCng+fDCUnTm\nXGmEoEGNhk4vTJOt7hBav1/Ja/dUipGf6mXUuanwJ0e+1/Et/B0ah5X1Um5AyNZI\nM+SyRz3u+wKBgQCjvtUNXoqaghCBCmB6TjZ1prexnWkYFugCv2SSUMIk1W7gIlJ6\ntsjcrj1R1Qii6qzfBFd+GWoA0V06h0e2/qRVCg//p6GytrW33IycgvS+ZPLJ7tLI\nFR2r66WfRlpoPiSL8eRt/P7kkG0hXCn7K7ub2TEu/Ka/W1yNwad6PR8iCwKBgQC8\nXcZSrtQsxAc8w99emJVoEo9wcsCGJ9ltA0iUu9XyZpvlbyJ3J+s48YrWxQ0sop7L\nUgE+96Rfo51kPMi3JVtk81p8ntf4KMrWwokaFMXHsPcJMCJ1IBVIRLE0C5eZcYhv\nlyN57I4tT1lzOZYJxYK4Cot/zrn7oF/j6mTBGfh4iQKBgQCiJMUxRz01/czH/XSX\ngo3dVbHQ4FEOufWnE3Eb93S8r0/eq1RM118rb0TqzuiadW2xYDU4nucWQlrlmq0d\nFY/m+Hy97pqyk6jmoU5I/D+ssBIoYHWLnH9/xfvDEk2JGSJSHtzu0D4EDC/rgQ49\nMbYsO5oUrF8tPlhj5vzbf3GKLA==\n-----END PRIVATE KEY-----\n",
 		"publicKeyOld": "BgIAAACkAABSU0ExAAgAAAEAAQBpTpiJQ2hD8plpGTfEEmcq4IKyr31HikXpuVSBraMfqyodn2PGXBJ3daNSmdPOc0Nz4HO9Auljn8YYXDPBdpiABptSKvEDPF23Q+Qytg0+vCRyondyBcW91w7KLzXce3fnk8ZfJ8QtbZPL9m11wJIWZueQF+l0HKYx4lty+nccbCanytFTADkGQ3SnmExGEF3rBz6I9+OcrDDK9NKPJgEmCiuyei/d4XbPgKls3EIG0h38X5mVF2VytfWm2Yu850B6z3N4MYhj4b4vsYT62zEC4pMRUeb8dIBy4Jsmr3avtmeO00MUH6DVyPC8nirixj2YIOPKk13CdVqGDSXA3cvl",
-		"modulusOld": "E5CBDDC0250D865A75C25D93CAE320983DC6E22A9EBCF0C8D5A01F1443D38E67B6AF76AF269BE0728074FCE6511193E20231DBFA84B12FBEE16388317873CF7A40E7BC8BD9A6F5B572651795995FFC1DD20642DC6CA980CF76E1DD2F7AB22B0A2601268FD2F4CA30AC9CE3F7883E07EB5D10464C98A7744306390053D1CAA7266C1C77FA725BE231A61C74E91790E7661692C0756DF6CB936D2DC4275FC693E7777BDC352FCA0ED7BDC5057277A27224BC3E0DB632E443B75D3C03F12A529B06809876C1335C18C69F63E902BD73E0734373CED39952A37577125CC6639F1D2AAB1FA3AD8154B9E9458A477DAFB282E02A6712C437196999F243684389984E69",
+		"modulusOld": "5cvdwCUNhlp1wl2TyuMgmD3G4iqevPDI1aAfFEPTjme2r3avJpvgcoB0/OZREZPiAjHb+oSxL77hY4gxeHPPekDnvIvZpvW1cmUXlZlf/B3SBkLcbKmAz3bh3S96sisKJgEmj9L0yjCsnOP3iD4H610QRkyYp3RDBjkAU9HKpyZsHHf6clviMaYcdOkXkOdmFpLAdW32y5NtLcQnX8aT53d73DUvyg7XvcUFcneiciS8Pg22MuRDt108A/EqUpsGgJh2wTNcGMafY+kCvXPgc0NzztOZUqN1dxJcxmOfHSqrH6OtgVS56UWKR32vsoLgKmcSxDcZaZnyQ2hDiZhOaQ==",
 		"exponentOld": 65537,
 		"privateKeyOld": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDly93AJQ2GWnXC\nXZPK4yCYPcbiKp688MjVoB8UQ9OOZ7avdq8mm+BygHT85lERk+ICMdv6hLEvvuFj\niDF4c896QOe8i9mm9bVyZReVmV/8HdIGQtxsqYDPduHdL3qyKwomASaP0vTKMKyc\n4/eIPgfrXRBGTJindEMGOQBT0cqnJmwcd/pyW+Ixphx06ReQ52YWksB1bfbLk20t\nxCdfxpPnd3vcNS/KDte9xQVyd6JyJLw+DbYy5EO3XTwD8SpSmwaAmHbBM1wYxp9j\n6QK9c+BzQ3PO05lSo3V3ElzGY58dKqsfo62BVLnpRYpHfa+yguAqZxLENxlpmfJD\naEOJmE5pAgMBAAECggEALiL+RKOr0Xu8BOgQ0j1DwA03LxVrhXe6etmJI+JySTcd\ngKENjWziZVrRIi2DvUm5qMMl7WhSwslKK1eexxZJY7xASqSxcEoIwgz17T07/jxm\nfIdUBiUKDZ1Kv8PWmIr3oKW+fkXWi/m1zlIe0qXRpTmsGNEsHQLEqi0rmaiXTXOR\n/2Ldwi6kZR3sWFx97YS4Mx/pueGJTXEai6AVEZzN5Gog6xD8HXR1Rvq+hhd+MocG\nfnU4HgilKRfoJlWd9FOscgSufKG0L3ViO4fSKU46l5aullDYUk5ECMWiwuKSqSE7\nqD45jI3mbOre7S4u3S3TWdD3lzwiXL49LdwKlEC4mQKBgQD0sLr0GH4Wr+QX2xJE\nuA/Cb8QW41l8iSCBTRZZR/sJOd+o3rbcVidlzO/EbZblXG4ZPDmRjgBCGKIP5EZi\n0DsL+Wv32WOo44LpxJGhqExbm0H1iZ1zZ97l0P8fvIhHE42gmaLToOIGDhPSXGvv\nzlqOHbGbq4jsERc1jp1bej5q6wKBgQDwaueIc4pRchH98QYidcyr8Vwg9KhbnfYX\ny3W4RPlZtBdF34iJaio+ASzugo/zy1RTcVrsCskYWXyKDUQz1yu0iCng+fDCUnTm\nXGmEoEGNhk4vTJOt7hBav1/Ja/dUipGf6mXUuanwJ0e+1/Et/B0ah5X1Um5AyNZI\nM+SyRz3u+wKBgQCjvtUNXoqaghCBCmB6TjZ1prexnWkYFugCv2SSUMIk1W7gIlJ6\ntsjcrj1R1Qii6qzfBFd+GWoA0V06h0e2/qRVCg//p6GytrW33IycgvS+ZPLJ7tLI\nFR2r66WfRlpoPiSL8eRt/P7kkG0hXCn7K7ub2TEu/Ka/W1yNwad6PR8iCwKBgQC8\nXcZSrtQsxAc8w99emJVoEo9wcsCGJ9ltA0iUu9XyZpvlbyJ3J+s48YrWxQ0sop7L\nUgE+96Rfo51kPMi3JVtk81p8ntf4KMrWwokaFMXHsPcJMCJ1IBVIRLE0C5eZcYhv\nlyN57I4tT1lzOZYJxYK4Cot/zrn7oF/j6mTBGfh4iQKBgQCiJMUxRz01/czH/XSX\ngo3dVbHQ4FEOufWnE3Eb93S8r0/eq1RM118rb0TqzuiadW2xYDU4nucWQlrlmq0d\nFY/m+Hy97pqyk6jmoU5I/D+ssBIoYHWLnH9/xfvDEk2JGSJSHtzu0D4EDC/rgQ49\nMbYsO5oUrF8tPlhj5vzbf3GKLA==\n-----END PRIVATE KEY-----\n",
 		"refreshLockInterval": "10m",
@@ -170,7 +253,8 @@
 				"assemblyFormatAsOrigin": true,
 				"newFileTemplate" : "../../document-templates/new",
 				"downloadFileAllowExt": ["pdf", "xlsx"],
-				"tokenRequiredParams": true
+				"tokenRequiredParams": true,
+				"forceSaveUsingButtonWithoutChanges": false
 			},
 			"requestDefaults": {
 				"headers": {
@@ -231,7 +315,10 @@
 						"idleTimeoutMillis": 30000
 					}
 				},
-				"mysqlExtraOptions": {}
+				"mysqlExtraOptions": {
+					"connectTimeout": 60000,
+					"queryTimeout": 60000
+				}
 			},
 			"redis": {
 				"name": "redis",
@@ -368,7 +455,8 @@
 	"license" : {
 		"license_file": "",
 		"warning_limit_percents": 70,
-		"packageType": 0
+		"packageType": 0,
+		"warning_license_expiration": "30d"
 	},
 	"FileConverter": {
 		"converter": {

@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -40,6 +40,7 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const cfgExpMonthUniqueUsers = ms(config.get('services.CoAuthoring.expire.monthUniqueUsers'));
 
 function EditorCommon() {
+  this.data = {};
 }
 EditorCommon.prototype.connect = async function () {};
 EditorCommon.prototype.isConnected = function() {
@@ -54,15 +55,7 @@ EditorCommon.prototype.healthCheck = async function() {
   }
   return false;
 };
-
-function EditorData() {
-  EditorCommon.call(this);
-  this.data = {};
-  this.forceSaveTimer = {};
-}
-EditorData.prototype = Object.create(EditorCommon.prototype);
-EditorData.prototype.constructor = EditorData;
-EditorData.prototype._getDocumentData = function(ctx, docId) {
+EditorCommon.prototype._getDocumentData = function(ctx, docId) {
   let tenantData = this.data[ctx.tenant];
   if (!tenantData) {
     this.data[ctx.tenant] = tenantData = {};
@@ -73,7 +66,7 @@ EditorData.prototype._getDocumentData = function(ctx, docId) {
   }
   return options;
 };
-EditorData.prototype._checkAndLock = function(ctx, name, docId, fencingToken, ttl) {
+EditorCommon.prototype._checkAndLock = function(ctx, name, docId, fencingToken, ttl) {
   let data = this._getDocumentData(ctx, docId);
   const now = Date.now();
   let res = true;
@@ -85,7 +78,7 @@ EditorData.prototype._checkAndLock = function(ctx, name, docId, fencingToken, tt
   }
   return res;
 };
-EditorData.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) {
+EditorCommon.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) {
   let data = this._getDocumentData(ctx, docId);
   const now = Date.now();
   let res;
@@ -102,6 +95,13 @@ EditorData.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) 
   }
   return res;
 };
+
+function EditorData() {
+  EditorCommon.call(this);
+  this.forceSaveTimer = {};
+}
+EditorData.prototype = Object.create(EditorCommon.prototype);
+EditorData.prototype.constructor = EditorData;
 
 EditorData.prototype.addPresence = async function(ctx, docId, userId, userInfo) {};
 EditorData.prototype.updatePresence = async function(ctx, docId, userId) {};
@@ -496,6 +496,10 @@ EditorStat.prototype.getLicense = async function(key) {
 };
 EditorStat.prototype.removeLicense = async function(key) {
   delete this.license[key];
+};
+EditorStat.prototype.lockNotification = async function(ctx, notificationType, ttl) {
+  //true NaN !== NaN
+  return this._checkAndLock(ctx, notificationType, notificationType, NaN, ttl);
 };
 
 module.exports = {

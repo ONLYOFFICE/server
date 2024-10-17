@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -54,9 +54,9 @@ const constants = require('./constants');
 const commonDefines = require('./commondefines');
 const forwarded = require('forwarded');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
-const openpgp = require('openpgp');
 const https = require('https');
 const ca = require('win-ca/api');
+const util = require('util');
 
 if(!ca.disabled) {
   ca({inject: true});
@@ -80,14 +80,14 @@ const cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
 const cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
-const cfgPasswordEncrypt = config.get('openpgpjs.encrypt');
-const cfgPasswordDecrypt = config.get('openpgpjs.decrypt');
-const cfgPasswordConfig = config.get('openpgpjs.config');
+const cfgSecret = config.get('aesEncrypt.secret');
+const cfgAESConfig = config.get('aesEncrypt.config');
 const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
 const cfgStorageExternalHost = config.get('storage.externalHost');
 const cfgExternalRequestDirectIfIn = config.get('externalRequest.directIfIn');
 const cfgExternalRequestAction = config.get('externalRequest.action');
 
+const minimumIterationsByteLength = 4;
 const dnscache = getDnsCache(cfgDnsCache);
 
 var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
@@ -170,7 +170,16 @@ function* walkDir(fsPath, results, optNoSubDir, optOnlyFolders) {
   const list = yield fsReadDir(fsPath);
   for (let i = 0; i < list.length; ++i) {
     const file = path.join(fsPath, list[i]);
-    const stats = yield fsStat(file);
+    let stats;
+    try {
+      stats = yield fsStat(file);
+    } catch (e) {
+      //exception if fsPath not exist
+      stats = null;
+    }
+    if (!stats) {
+      continue;
+    }
     if (stats.isDirectory()) {
       if (optNoSubDir) {
         optOnlyFolders && results.push(file);
@@ -554,6 +563,7 @@ exports.mapAscServerErrorToOldError = function(error) {
     case constants.CONVERT_CORRUPTED :
     case constants.CONVERT_UNKNOWN_FORMAT :
     case constants.CONVERT_READ_FILE :
+    case constants.CONVERT_TEMPORARY :
     case constants.CONVERT :
       res = -3;
       break;
@@ -1044,23 +1054,77 @@ exports.canIncludeOutboxAuthorization = function (ctx, url) {
   }
   return false;
 };
-exports.encryptPassword = co.wrap(function* (ctx, password) {
-  const tenPasswordConfig = ctx.getCfg('openpgpjs.config', cfgPasswordConfig);
-  const tenPasswordEncrypt = ctx.getCfg('openpgpjs.encrypt', cfgPasswordEncrypt);
-  let params = {message: openpgp.message.fromText(password), config: tenPasswordConfig};
-  Object.assign(params, tenPasswordEncrypt);
-  const { data: encrypted } = yield openpgp.encrypt(params);
-  return encrypted;
-});
-exports.decryptPassword = co.wrap(function* (ctx, password) {
-  const tenPasswordConfig = ctx.getCfg('openpgpjs.config', cfgPasswordConfig);
-  const tenPasswordDecrypt = ctx.getCfg('openpgpjs.decrypt', cfgPasswordDecrypt);
-  const message = yield openpgp.message.readArmored(password);
-  let params = {message: message, config: tenPasswordConfig};
-  Object.assign(params, tenPasswordDecrypt);
-  const { data: decrypted } = yield openpgp.decrypt(params);
-  return decrypted;
-});
+/*
+  Code samples taken from here: https://gist.github.com/btxtiger/e8eaee70d6e46729d127f1e384e755d6
+ */
+exports.encryptPassword = async function (ctx, password) {
+  const pbkdf2Promise = util.promisify(crypto.pbkdf2);
+  const tenSecret = ctx.getCfg('aesEncrypt.secret', cfgSecret);
+  const tenAESConfig = ctx.getCfg('aesEncrypt.config', cfgAESConfig) ?? {};
+  const {
+    keyByteLength = 32,
+    saltByteLength = 64,
+    initializationVectorByteLength = 16,
+    iterationsByteLength = 5
+  } = tenAESConfig;
+
+  const salt = crypto.randomBytes(saltByteLength);
+  const initializationVector = crypto.randomBytes(initializationVectorByteLength);
+
+  const iterationsLength = iterationsByteLength < minimumIterationsByteLength ? minimumIterationsByteLength : iterationsByteLength;
+  // Generate random count of iterations; 10.000 - 99.999 -> 5 bytes
+  const lowerNumber = Math.pow(10, iterationsLength - 1);
+  const greaterNumber = Math.pow(10, iterationsLength) - 1;
+  const iterations = Math.floor(Math.random() * (greaterNumber - lowerNumber)) + lowerNumber;
+
+  const encryptionKey = await pbkdf2Promise(tenSecret, salt, iterations, keyByteLength, 'sha512');
+  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, initializationVector);
+  const encryptedData = Buffer.concat([cipher.update(password, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  const predicate = iterations.toString(16);
+  const data = Buffer.concat([salt, initializationVector, authTag, encryptedData]).toString('hex');
+
+  return `${predicate}:${data}`;
+};
+exports.decryptPassword = async function (ctx, password) {
+  const pbkdf2Promise = util.promisify(crypto.pbkdf2);
+  const tenSecret = ctx.getCfg('aesEncrypt.secret', cfgSecret);
+  const tenAESConfig = ctx.getCfg('aesEncrypt.config', cfgAESConfig) ?? {};
+  const {
+    keyByteLength = 32,
+    saltByteLength = 64,
+    initializationVectorByteLength = 16,
+  } = tenAESConfig;
+
+  const [iterations, dataHex] = password.split(':');
+  const data = Buffer.from(dataHex, 'hex');
+  // authTag in node.js equals 16 bytes(128 bits), see https://stackoverflow.com/questions/33976117/does-node-js-crypto-use-fixed-tag-size-with-gcm-mode
+  const delta = [saltByteLength, initializationVectorByteLength, 16];
+  const pointerArray = [];
+
+  for (let byte = 0, i = 0; i < delta.length; i++) {
+    const deltaValue = delta[i];
+    pointerArray.push(data.subarray(byte, byte + deltaValue));
+    byte += deltaValue;
+
+    if (i === delta.length - 1) {
+      pointerArray.push(data.subarray(byte));
+    }
+  }
+
+  const [
+    salt,
+    initializationVector,
+    authTag,
+    encryptedData
+  ] = pointerArray;
+
+  const decryptionKey = await pbkdf2Promise(tenSecret, salt, parseInt(iterations, 16), keyByteLength, 'sha512');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', decryptionKey, initializationVector);
+  decipher.setAuthTag(authTag);
+
+  return Buffer.concat([decipher.update(encryptedData, 'binary'), decipher.final()]).toString();
+};
 exports.getDateTimeTicks = function(date) {
   return BigInt(date.getTime() * 10000) + 621355968000000000n;
 };
@@ -1079,18 +1143,9 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.timelimited = 0 !== (constants.LICENSE_MODE.Limited & licenseInfo.mode);
   license.trial = 0 !== (constants.LICENSE_MODE.Trial & licenseInfo.mode);
   license.developer = 0 !== (constants.LICENSE_MODE.Developer & licenseInfo.mode);
-  if(license.developer) {
-    license.mode = 'developer';
-  } else if(license.trial) {
-    license.mode = 'trial';
-  } else {
-    license.mode = '';
-  }
-  license.light = licenseInfo.light;
   license.branding = licenseInfo.branding;
   license.customization = licenseInfo.customization;
   license.advanced_api = licenseInfo.advancedApi;
-  license.plugins = licenseInfo.plugins;
   license.connections = licenseInfo.connections;
   license.connections_view = licenseInfo.connectionsView;
   license.users_count = licenseInfo.usersCount;
@@ -1148,7 +1203,7 @@ function getMonthDiff(d1, d2) {
   months += d2.getUTCMonth();
   return months;
 }
-
+exports.getMonthDiff = getMonthDiff;
 exports.getLicensePeriod = function(startDate, now) {
   startDate = new Date(startDate.getTime());//clone
   startDate.addMonths(getMonthDiff(startDate, now));

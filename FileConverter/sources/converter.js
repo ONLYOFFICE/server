@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -96,7 +96,10 @@ let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(ctx, task) {
   var cmd = task.getCmd();
-  this.key = cmd.savekey ? cmd.savekey : cmd.id;
+  this.key = cmd.getDocId();
+  if (cmd.getSaveKey()) {
+    this.key += cmd.getSaveKey();
+  }
   this.fileFrom = null;
   this.fileTo = null;
   this.title = cmd.getTitle();
@@ -483,7 +486,10 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     if (task.getFromChanges()) {
       let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
       fs.mkdirSync(changesDir);
-      let filesCount = yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), changesDir);
+      let filesCount = 0;
+      if (cmd.getSaveKey()) {
+        filesCount = yield* downloadFileFromStorage(ctx, cmd.getDocId() + cmd.getSaveKey(), changesDir);
+      }
       if (filesCount > 0) {
         concatDir = changesDir;
         concatTemplate = "changes0";
@@ -495,7 +501,9 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     dataConvert.fileFrom = path.join(tempDirs.source, 'origin.' + cmd.getFormat());
   } else {
     //overwrite some files from m_sKey (for example Editor.bin or changes)
-    yield* downloadFileFromStorage(ctx, cmd.getSaveKey(), tempDirs.source);
+    if (cmd.getSaveKey()) {
+      yield* downloadFileFromStorage(ctx, cmd.getDocId() + cmd.getSaveKey(), tempDirs.source);
+    }
     let format = cmd.getFormat() || 'bin';
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
     concatDir = tempDirs.source;
@@ -506,7 +514,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   //mail merge
   let mailMergeSend = cmd.getMailMergeSend();
   if (mailMergeSend) {
-    yield* downloadFileFromStorage(ctx, mailMergeSend.getJsonKey(), tempDirs.source);
+    yield* downloadFileFromStorage(ctx, cmd.getDocId() + mailMergeSend.getJsonKey(), tempDirs.source);
     concatDir = tempDirs.source;
   }
   if (concatDir) {
@@ -520,14 +528,6 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
       });
     }
   }
-  if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
-    if(tenEditor['binaryChanges']) {
-      res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps);
-    } else {
-      res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps);
-    }
-  }
-  yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
   //todo rework
   if (!fs.existsSync(dataConvert.fileFrom)) {
     if (fs.existsSync(path.join(tempDirs.source, 'origin.docx'))) {
@@ -536,10 +536,25 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
       dataConvert.fileFrom = path.join(tempDirs.source, 'origin.xlsx');
     } else if (fs.existsSync(path.join(tempDirs.source, 'origin.pptx'))) {
       dataConvert.fileFrom = path.join(tempDirs.source, 'origin.pptx');
+    } else if (fs.existsSync(path.join(tempDirs.source, 'origin.pdf'))) {
+      dataConvert.fileFrom = path.join(tempDirs.source, 'origin.pdf');
     }
-    let fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
-    fs.renameSync(dataConvert.fileFrom, fileFromNew);
-    dataConvert.fileFrom = fileFromNew;
+    if (fs.existsSync(dataConvert.fileFrom)) {
+      let fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
+      fs.renameSync(dataConvert.fileFrom, fileFromNew);
+      dataConvert.fileFrom = fileFromNew;
+    }
+  }
+
+  yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
+
+  if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
+    let sha256 = yield utils.checksumFile('sha256', dataConvert.fileFrom)
+    if(tenEditor['binaryChanges']) {
+      res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256);
+    } else {
+      res = yield* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256);
+    }
   }
   return res;
 }
@@ -569,7 +584,7 @@ function* concatFiles(source, template) {
     }
   }
 }
-function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
+function* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256) {
   const tenStreamWriterBufferSize = ctx.getCfg('FileConverter.converter.streamWriterBufferSize', cfgStreamWriterBufferSize);
   const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
   let res = constants.NO_ERROR;
@@ -631,7 +646,7 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps) {
           yield* streamWriteBin(streamObj, Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
         }
         let strDate = baseConnector.getDateTime(change.change_date);
-        changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
+        changesHistory.changes.push({"documentSha256": sha256, 'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
       }
       changesAuthor = change.user_id_original;
       changesAuthorUnique = change.user_id;
@@ -689,7 +704,7 @@ function* streamEndBin(streamObj) {
   streamObj.writeStream.end();
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
-function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
+function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256) {
   const tenStreamWriterBufferSize = ctx.getCfg('FileConverter.converter.streamWriterBufferSize', cfgStreamWriterBufferSize);
   const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
   let res = constants.NO_ERROR;
@@ -749,7 +764,7 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps) {
           streamObj = yield* streamCreate(ctx, changesDir, indexFile++);
         }
         let strDate = baseConnector.getDateTime(change.change_date);
-        changesHistory.changes.push({'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
+        changesHistory.changes.push({"documentSha256": sha256, 'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
         yield* streamWrite(streamObj, '[');
       } else {
         yield* streamWrite(streamObj, ',');
@@ -1073,7 +1088,7 @@ function* ExecuteTask(ctx, task) {
     } else {
       error = constants.CONVERT_PARAMS;
     }
-  } else if (cmd.getSaveKey()) {
+  } else if (cmd.getSaveKey() || task.getFromOrigin() || task.getFromSettings()) {
     yield* downloadFileFromStorage(ctx, cmd.getDocId(), tempDirs.source);
     ctx.logger.debug('downloadFileFromStorage complete');
     if(clientStatsD) {
@@ -1108,9 +1123,11 @@ function* ExecuteTask(ctx, task) {
   let isTimeout = false;
   if (constants.NO_ERROR === error) {
     ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task, isInJwtToken));
-    if (childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
+    const canRollback = childRes && 0 !== childRes.status && !isTimeout && task.getFromChanges()
       && constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML !== dataConvert.formatTo
-      && !formatChecker.isOOXFormat(dataConvert.formatTo) && !cmd.getWopiParams()) {
+      && !formatChecker.isOOXFormat(dataConvert.formatTo) && !formatChecker.isBrowserEditorFormat(dataConvert.formatTo)
+      && !cmd.getWopiParams();
+    if (canRollback) {
       ctx.logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s', formatChecker.getStringFromFormat(dataConvert.formatTo));
       let extOld = path.extname(dataConvert.fileTo);
       let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
@@ -1190,7 +1207,7 @@ function receiveTask(data, ack) {
         res = yield* ExecuteTask(ctx, task);
       }
     } catch (err) {
-      ctx.logger.error(err);
+      ctx.logger.error('receiveTask %s', err.stack);
     } finally {
       clearTimeout(timeoutId);
       if (!outParams.isAck) {
@@ -1206,7 +1223,7 @@ function createErrorResponse(ctx, task){
   ctx.logger.debug('createErrorResponse');
   //simulate error response
   let cmd = task.getCmd();
-  cmd.setStatusInfo(constants.CONVERT);
+  cmd.setStatusInfo(constants.CONVERT_TEMPORARY);
   let res = new commonDefines.TaskQueueData();
   res.setCtx(ctx);
   res.setCmd(cmd);

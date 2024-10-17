@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -105,19 +105,17 @@ const updatePlugins = (eventType, filename) => {
 	updatePluginsTime = new Date();
 	pluginsLoaded = false;
 };
-const readLicense = function*() {
-	[licenseInfo, licenseOriginal] = yield* license.readLicense(cfgLicenseFile);
+const readLicense = async function () {
+	[licenseInfo, licenseOriginal] = await license.readLicense(cfgLicenseFile);
 };
-const updateLicense = () => {
-	return co(function*() {
-		try {
-			yield* readLicense();
-			docsCoServer.setLicenseInfo(licenseInfo, licenseOriginal);
-			operationContext.global.logger.info('End updateLicense');
-		} catch (err) {
-			operationContext.global.logger.error('updateLicense error: %s', err.stack);
-		}
-	});
+const updateLicense = async () => {
+	try {
+		await readLicense();
+		await docsCoServer.setLicenseInfo(operationContext.global, licenseInfo, licenseOriginal);
+		operationContext.global.logger.info('End updateLicense');
+	} catch (err) {
+		operationContext.global.logger.error('updateLicense error: %s', err.stack);
+	}
 };
 
 operationContext.global.logger.warn('Express server starting...');
@@ -154,7 +152,7 @@ docsCoServer.install(server, () => {
 			try {
 				ctx.initFromRequest(req);
 				yield ctx.initTenantCache();
-				let licenseInfo = yield tenantManager.getTenantLicense(ctx);
+				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
 				let buildVersion = commonDefines.buildVersion;
 				let buildNumber = commonDefines.buildNumber;
 				let buildDate, packageType, customerId = "", alias = "";
@@ -182,8 +180,8 @@ docsCoServer.install(server, () => {
 	let forms = multer();
 
 	app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
-	app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser,
-		docsCoServer.commandFromServer);
+	app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
+	app.post('/command', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 
 	app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
 	app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
@@ -241,6 +239,7 @@ docsCoServer.install(server, () => {
 	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+	app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
 
 	function checkWopiEnable(req, res, next) {
 		//todo may be move code into wopiClient or wopiClient.discovery...
@@ -281,8 +280,8 @@ docsCoServer.install(server, () => {
 	let fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 	app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
 	app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
-	app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
-	app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.single('data'), converterService.convertTo);
+	app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
+	app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
 	app.post('/hosting/wopi/:documentType/:mode', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getEditorHtml);
 	app.post('/hosting/wopi/convert-and-edit/:ext/:targetext', checkWopiEnable, urleEcodedParser, forms.none(), utils.lowercaseQueryString, wopiClient.getConverterHtml);
 	app.get('/hosting/wopi/convert-and-edit-handler', checkWopiEnable, utils.lowercaseQueryString, converterService.getConverterHtmlHandler);

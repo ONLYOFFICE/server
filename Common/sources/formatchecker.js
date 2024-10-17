@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -197,6 +197,9 @@ function getImageFormatBySignature(buffer) {
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
 exports.getFormatFromString = function(ext) {
+  if (!ext) {
+    return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
+  }
   switch (ext.toLowerCase()) {
     case 'docx':
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX;
@@ -259,6 +262,8 @@ exports.getFormatFromString = function(ext) {
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODP_FLAT;
     case 'otp':
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_OTP;
+    case 'odg':
+      return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODG;
 
     case 'xlsx':
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX;
@@ -275,7 +280,7 @@ exports.getFormatFromString = function(ext) {
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX;
     case 'xltm':
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM;
-    case 'xltb':
+    case 'xlsb':
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSB;
     case 'fods':
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_ODS_FLAT;
@@ -336,6 +341,18 @@ exports.getFormatFromString = function(ext) {
       return constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
     case 'odf':
       return constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF;
+    case 'vsdx':
+      return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDX;
+    case 'vssx':
+      return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSSX;
+    case 'vstx':
+      return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSTX;
+    case 'vsdm':
+      return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDM;
+    case 'vssm':
+      return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSSM;
+    case 'vstm':
+      return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSTM;
     default:
       return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
@@ -409,6 +426,8 @@ exports.getStringFromFormat = function(format) {
       return 'otp';
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX_PACKAGE:
       return 'xml';
+    case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODG:
+      return 'odg';
 
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX:
       return 'xlsx';
@@ -486,6 +505,7 @@ exports.getStringFromFormat = function(format) {
     case constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD:
     case constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET:
     case constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION:
+    case constants.AVS_OFFICESTUDIO_FILE_CANVAS_PDF:
       return 'bin';
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_OLD_DOCUMENT:
     case constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY:
@@ -500,6 +520,18 @@ exports.getStringFromFormat = function(format) {
       return 'ooxml';
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF:
       return 'odf';
+    case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDX:
+      return 'vsdx';
+    case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSSX:
+      return 'vssx';
+    case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSTX:
+      return 'vstx';
+    case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDM:
+      return 'vsdm';
+    case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSSM:
+      return 'vssm';
+    case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSTM:
+      return 'vstm';
     default:
       return '';
   }
@@ -548,6 +580,12 @@ exports.isOOXFormat = function(format) {
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM === format
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format;
+};
+exports.isBrowserEditorFormat = function(format) {
+  return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === format ||
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === format ||
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU === format ||
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === format;
 };
 function getDocumentFormatBySignature(buffer) {
   if (!buffer) {

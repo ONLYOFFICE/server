@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -33,11 +33,13 @@
 'use strict';
 const fs = require('fs');
 const url = require('url');
+const { Agent } = require('https');
 const path = require('path');
 const { S3Client, ListObjectsCommand, HeadObjectCommand} = require("@aws-sdk/client-s3");
 const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-sdk/client-s3");
 const { DeleteObjectsCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
 const mime = require('mime');
 const config = require('config');
 const utils = require('./utils');
@@ -45,6 +47,7 @@ const ms = require('ms');
 const commonDefines = require('./../../Common/sources/commondefines');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
+const cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
 
 //This operation enables you to delete multiple objects from a bucket using a single HTTP request. You may specify up to 1000 keys.
 const MAX_DELETE_OBJECTS = 1000;
@@ -71,6 +74,12 @@ function getS3Client(storageCfg) {
     configS3.tls = storageCfg.sslEnabled;
     configS3.forcePathStyle = storageCfg.s3ForcePathStyle;
   }
+  //todo dedicated options?
+  const agent = new Agent(cfgRequestDefaults);
+  configS3.requestHandler = new NodeHttpHandler({
+    httpAgent: agent,
+    httpsAgent: agent
+  });
   let configJson = JSON.stringify(configS3);
   let client = clients[configJson];
   if (!client) {

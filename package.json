@@ -61,6 +61,8 @@
     "grunt-contrib-copy": "1.0.0",
     "grunt-mkdir": "1.1.0",
     "grunt-stripcomments": "0.7.2",
+    "license-downloader": "1.0.8",
+    "license-report": "6.5.0",
     "npm-run-all": "4.1.5"
   },
   "devDependencies": {
@@ -80,6 +82,18 @@
     "install:DocService": "npm ci --prefix ./DocService",
     "install:FileConverter": "npm ci --prefix ./FileConverter",
     "install:Metrics": "npm ci --prefix ./Metrics",
+    "3d-party-lic-json:Common": "license-report --output=json --package=./Common/package.json --config ./3d-party-lic-report/license-report-config.json > ./3d-party-lic-report/license-report.json",
+    "3d-party-lic-json:DocService": "license-report --output=json --package=./DocService/package.json --config ./3d-party-lic-report/license-report-config.json > ./3d-party-lic-report/license-report.json",
+    "3d-party-lic-json:FileConverter": "license-report --output=json --package=./FileConverter/package.json --config ./3d-party-lic-report/license-report-config.json > ./3d-party-lic-report/license-report.json",
+    "3d-party-lic-json:Metrics": "license-report --output=json --package=./Metrics/package.json --config ./3d-party-lic-report/license-report-config.json > ./3d-party-lic-report/license-report.json",
+    "3d-party-lic-downloader": "license-downloader --source ./3d-party-lic-report/license-report.json",
+    "3d-party-lic-md-header": "node ./3d-party-lic-report/json2md.js ./3DPARTY.md",
+    "3d-party-lic-md": "node ./3d-party-lic-report/json2md.js ./3DPARTY.md ./3d-party-lic-report/license-report.ext.json",
+    "3d-party-lic-report:Common": "run-s 3d-party-lic-json:Common 3d-party-lic-downloader 3d-party-lic-md",
+    "3d-party-lic-report:DocService": "run-s 3d-party-lic-json:DocService 3d-party-lic-downloader 3d-party-lic-md",
+    "3d-party-lic-report:FileConverter": "run-s 3d-party-lic-json:FileConverter 3d-party-lic-downloader 3d-party-lic-md",
+    "3d-party-lic-report:Metrics": "run-s 3d-party-lic-json:Metrics 3d-party-lic-downloader 3d-party-lic-md",
+    "3d-party-lic-report": "run-s 3d-party-lic-md-header 3d-party-lic-report:*",
     "build": "run-p install:*"
   }
 }

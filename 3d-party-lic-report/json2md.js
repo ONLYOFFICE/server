@@ -30,18 +30,44 @@
  *
  */
 
-const platforms = {
-  'win32': 'windows',
-  'darwin': 'mac',
-  'linux': 'linux'
-};
-const platform = platforms[process.platform];
+'use strict';
+const { readFile, writeFile } = require("node:fs/promises");
 
-process.env.NODE_ENV = `development-${platform}`;
-process.env.NODE_CONFIG_DIR = '../Common/config';
+async function startTest() {
+  let args = process.argv.slice(2);
+  if (args.length < 1) {
+    console.error('missing arguments.USAGE: json2md.js [output.md] [input.json]');
+    return;
+  }
+  console.info("3d license report start");
+  let outputMd = '';
+  let outputFlag = 'a';
+  let outputPath = args[0];
+  let inputPath = args[1];
 
-if (platform === 'mac') {
-  process.env.DYLD_LIBRARY_PATH = '../FileConverter/bin/';
-} else if (platform === 'linux') {
-  process.env.LD_LIBRARY_PATH = '../FileConverter/bin/';
+  if (inputPath) {
+    let licensesText = await readFile(inputPath, 'utf-8');
+    let licensesJson = JSON.parse(licensesText);
+    console.info("3d license report license count: %d", licensesJson.length);
+
+    for (const element of licensesJson) {
+      let name = element['name'];
+      let installedVersion = element['installedVersion'];
+      let licenseType = element['licenseType'];
+      let licenseFileLink = element['licenseFileLink'];
+      outputMd += `- ${name} ${installedVersion} ([${licenseType}](${licenseFileLink}))\n`
+    }
+  } else {
+    outputMd = '\n## Third-party\n\n';
+    outputFlag = 'w';
+  }
+
+  await writeFile(outputPath, outputMd, {flag: outputFlag}, 'utf-8');
+  console.info("3d license report end");
 }
+
+startTest().catch((err) => {
+  console.error(err.stack);
+}).finally(() => {
+  process.exit(0);
+});

@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -47,12 +47,12 @@ if (cluster.isMaster) {
   const cfgMaxProcessCount = config.get('FileConverter.converter.maxprocesscount');
 
   var workersCount = 0;
-  const readLicense = function* () {
+  const readLicense = async function () {
     const numCPUs = os.cpus().length;
     const availableParallelism = os.availableParallelism?.();
     operationContext.global.logger.warn('num of CPUs: %d; availableParallelism: %s', numCPUs, availableParallelism);
     workersCount = Math.ceil((availableParallelism || numCPUs) * cfgMaxProcessCount);
-    let [licenseInfo] = yield* license.readLicense(cfgLicenseFile);
+    let [licenseInfo] = await license.readLicense(cfgLicenseFile);
     workersCount = Math.min(licenseInfo.count, workersCount);
     //todo send license to workers for multi-tenancy
   };
@@ -73,16 +73,14 @@ if (cluster.isMaster) {
       }
     }
   };
-  const updateLicense = () => {
-    return co(function*() {
-      try {
-        yield* readLicense();
-        operationContext.global.logger.warn('update cluster with %s workers', workersCount);
-        updateWorkers();
-      } catch (err) {
-        operationContext.global.logger.error('updateLicense error: %s', err.stack);
-      }
-    });
+  const updateLicense = async () => {
+    try {
+      await readLicense();
+      operationContext.global.logger.warn('update cluster with %s workers', workersCount);
+      updateWorkers();
+    } catch (err) {
+      operationContext.global.logger.error('updateLicense error: %s', err.stack);
+    }
   };
 
   cluster.on('exit', (worker, code, signal) => {
