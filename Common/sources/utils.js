@@ -58,10 +58,6 @@ const https = require('https');
 const ca = require('win-ca/api');
 const util = require('util');
 
-if(!ca.disabled) {
-  ca({inject: true});
-}
-
 const contentDisposition = require('content-disposition');
 const operationContext = require("./operationContext");
 
@@ -86,6 +82,9 @@ const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filteri
 const cfgStorageExternalHost = config.get('storage.externalHost');
 const cfgExternalRequestDirectIfIn = config.get('externalRequest.directIfIn');
 const cfgExternalRequestAction = config.get('externalRequest.action');
+const cfgWinCa = config.get('win-ca');
+
+ca(cfgWinCa);
 
 const minimumIterationsByteLength = 4;
 const dnscache = getDnsCache(cfgDnsCache);

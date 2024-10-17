@@ -161,6 +161,9 @@
 		"getChanges": {
 		}
 	},
+	"win-ca": {
+		"inject": "+"
+	},
 	"wopi": {
 		"enable": false,
 		"host" : "",
