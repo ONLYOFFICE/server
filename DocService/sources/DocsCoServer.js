@@ -138,8 +138,8 @@ const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgWarningLimitPercents = config.get('license.warning_limit_percents');
-const cfgNotificationRuleLicenseLimitEdit = config.get('notification.rules.licenseLimitEdit.template.body');
-const cfgNotificationRuleLicenseLimitLiveViewer = config.get('notification.rules.licenseLimitLiveViewer.template.body');
+const cfgNotificationRuleLicenseLimitEdit = config.get('notification.rules.licenseLimitEdit.template');
+const cfgNotificationRuleLicenseLimitLiveViewer = config.get('notification.rules.licenseLimitLiveViewer.template');
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const cfgOpenProtectedFile = config.get('services.CoAuthoring.server.openProtectedFile');
 const cfgIsAnonymousSupport = config.get('services.CoAuthoring.server.isAnonymousSupport');
@@ -3481,8 +3481,8 @@ exports.install = function(server, callbackFunction) {
 
   function* _checkLicenseAuth(ctx, licenseInfo, userId, isLiveViewer) {
     const tenWarningLimitPercents = ctx.getCfg('license.warning_limit_percents', cfgWarningLimitPercents) / 100;
-    const tenNotificationRuleLicenseLimitEdit = ctx.getCfg(`notification.rules.licenseLimitEdit.template.body`, cfgNotificationRuleLicenseLimitEdit);
-    const tenNotificationRuleLicenseLimitLiveViewer = ctx.getCfg(`notification.rules.licenseLimitLiveViewer.template.body`, cfgNotificationRuleLicenseLimitLiveViewer);
+    const tenNotificationRuleLicenseLimitEdit = ctx.getCfg(`notification.rules.licenseLimitEdit.template`, cfgNotificationRuleLicenseLimitEdit);
+    const tenNotificationRuleLicenseLimitLiveViewer = ctx.getCfg(`notification.rules.licenseLimitLiveViewer.template`, cfgNotificationRuleLicenseLimitLiveViewer);
     const c_LR = constants.LICENSE_RESULT;
     let licenseType = licenseInfo.type;
     if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
@@ -3533,14 +3533,16 @@ exports.install = function(server, callbackFunction) {
         }
       }
       if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || 100 !== notificationPercent) {
-        const message = util.format(notificationTemplate, notificationPercent, notificationLimit);
+        const applicationName = (process.env.APPLICATION_NAME || "").toUpperCase();
+        const title = util.format(notificationTemplate.title, applicationName);
+        const message = util.format(notificationTemplate.body, notificationPercent, notificationLimit);
         if (100 !== notificationPercent) {
           ctx.logger.warn(message);
         } else {
           ctx.logger.error(message);
         }
         //todo with yield service could throw error
-        void notificationService.notify(ctx, notificationType, message, notificationType + notificationPercent);
+        void notificationService.notify(ctx, notificationType, title, message, notificationType + notificationPercent);
       }
     }
     return licenseType;
@@ -4257,7 +4259,7 @@ async function proxyCommand(ctx, req, params) {
   //todo gen shardkey as in sdkjs
   const shardkey = params.key;
   const baseUrl = utils.getBaseUrlByRequest(ctx, req);
-  let url = `${baseUrl}/coauthoring/command?&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardkey)}`;
+  let url = `${baseUrl}/command?&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardkey)}`;
   for (let name in req.query) {
     url += `&${name}=${encodeURIComponent(req.query[name])}`;
   }

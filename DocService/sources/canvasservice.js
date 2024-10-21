@@ -880,9 +880,11 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
       let documentPasswordCurEnc = sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
       if (documentPasswordCurEnc) {
         hasDocumentPassword = true;
-        const passwordCurPlain = yield utils.decryptPassword(ctx, documentPasswordCurEnc);
-        const passwordPlain = yield utils.decryptPassword(ctx, cmd.getPassword());
-        isDocumentPasswordModified = passwordCurPlain !== passwordPlain;
+        if (cmd.getPassword()) {
+          const passwordCurPlain = yield utils.decryptPassword(ctx, documentPasswordCurEnc);
+          const passwordPlain = yield utils.decryptPassword(ctx, cmd.getPassword());
+          isDocumentPasswordModified = passwordCurPlain !== passwordPlain;
+        }
       }
     }
   }

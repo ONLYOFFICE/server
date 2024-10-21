@@ -53,7 +53,7 @@ const notificationTypes = {
 
 class TransportInterface {
   async send(ctx, message) {}
-  contentGeneration(template, message) {}
+  contentGeneration(title, message) {}
 }
 
 class MailTransport extends TransportInterface {
@@ -72,9 +72,9 @@ class MailTransport extends TransportInterface {
     return mailService.send(this.host, this.auth.user, message);
   }
 
-  contentGeneration(template, message) {
+  contentGeneration(title, message) {
     return {
-      subject: template.title,
+      subject: title,
       text: message
     };
   }
@@ -106,13 +106,13 @@ class Transport {
   }
 }
 
-async function notify(ctx, notificationType, message, opt_cacheKey = undefined) {
+async function notify(ctx, notificationType, title, message, opt_cacheKey = undefined) {
   const tenRule = ctx.getCfg(`notification.rules.${notificationType}`, config.get(`notification.rules.${notificationType}`));
   if (tenRule?.enable) {
     ctx.logger.debug('Notification service: notify "%s"',  notificationType);
     let checkRes = await checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey);
     if (checkRes) {
-      await notifyRule(ctx, tenRule, message);
+      await notifyRule(ctx, tenRule, title, message);
     }
   }
 }
@@ -132,11 +132,11 @@ async function checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey) {
   return isLock;
 }
 
-async function notifyRule(ctx, tenRule, message) {
+async function notifyRule(ctx, tenRule, title, message) {
   const transportObjects = tenRule.transportType.map(transport => new Transport(ctx, transport));
   for (const transportObject of transportObjects) {
     try {
-      const mail = transportObject.transport.contentGeneration(tenRule.template, message);
+      const mail = transportObject.transport.contentGeneration(title, message);
       await transportObject.transport.send(ctx, mail);
     } catch (error) {
       ctx.logger.error('Notification service: error: %s', error.stack);
