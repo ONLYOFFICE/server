@@ -1634,7 +1634,8 @@ exports.install = function(server, callbackFunction) {
         return;
       }
       if (getIsShutdown()) {
-        sendFileError(ctx, conn, 'Server shutdow');
+        sendDataDisconnectReason(ctx, conn, constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
+        conn.disconnect(true);
         return;
       }
       conn.baseUrl = utils.getBaseUrlByConnection(ctx, conn);
