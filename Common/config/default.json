@@ -115,11 +115,43 @@
 		"url": "amqp://guest:guest@localhost:5672",
 		"socketOptions": {},
 		"exchangepubsub": "ds.pubsub",
-		"queueconverttask": "ds.converttask",
+		"queuepubsubOptions": {
+			"autoDelete": true,
+			"exclusive": true,
+			"arguments": {
+				"x-queue-type": "classic"
+			}
+		},
+		"queueconverttask": "ds.converttask6",
+		"queueconverttaskOptions": {
+			"durable": true,
+			"maxPriority": 6,
+			"arguments": {
+				"x-queue-type": "classic"
+			}
+		},
 		"queueconvertresponse": "ds.convertresponse",
+		"queueconvertresponseOptions": {
+			"durable": true,
+			"arguments": {
+				"x-queue-type": "classic"
+			}
+		},
 		"exchangeconvertdead": "ds.exchangeconvertdead",
 		"queueconvertdead": "ds.convertdead",
-		"queuedelayed": "ds.delayed"
+		"queueconvertdeadOptions": {
+			"durable": true,
+			"arguments": {
+				"x-queue-type": "classic"
+			}
+		},
+		"queuedelayed": "ds.delayed",
+		"queuedelayedOptions": {
+			"durable": true,
+			"arguments": {
+				"x-queue-type": "classic"
+			}
+		}
 	},
 	"activemq": {
 		"connectOptions": {

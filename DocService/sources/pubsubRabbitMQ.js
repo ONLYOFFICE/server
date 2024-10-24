@@ -43,6 +43,7 @@ var activeMQCore = require('./../../Common/sources/activeMQCore');
 
 const cfgQueueType = config.get('queue.type');
 var cfgRabbitExchangePubSub = config.get('rabbitmq.exchangepubsub');
+const cfgRabbitQueuePubsubOptions = config.get('rabbitmq.queuepubsubOptions');
 var cfgActiveTopicPubSub = constants.ACTIVEMQ_TOPIC_PREFIX + config.get('activemq.topicpubsub');
 
 const optionsExchange = {durable: true};
@@ -64,7 +65,7 @@ function initRabbit(pubsub, callback) {
         'fanout', {durable: true});
 
       pubsub.channelReceive = yield rabbitMQCore.createChannelPromise(conn);
-      var queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, '', {autoDelete: true, exclusive: true});
+      var queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, '', cfgRabbitQueuePubsubOptions);
       pubsub.channelReceive.bindQueue(queue, cfgRabbitExchangePubSub, '');
       yield rabbitMQCore.consumePromise(pubsub.channelReceive, queue, function (message) {
         if(null != pubsub.channelReceive){
