@@ -1297,7 +1297,7 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
     }
   } else {
     oCallbackUrl = parseUrl(ctx, callback);
-    bChangeBase = c_oAscChangeBase.All;
+    bChangeBase = c_oAscChangeBase.No;
     if (null !== oCallbackUrl) {
       let filterStatus = yield* utils.checkHostFilter(ctx, oCallbackUrl.host);
       if (filterStatus > 0) {
