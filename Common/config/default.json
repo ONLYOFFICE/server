@@ -114,42 +114,63 @@
 	"rabbitmq": {
 		"url": "amqp://guest:guest@localhost:5672",
 		"socketOptions": {},
-		"exchangepubsub": "ds.pubsub",
-		"queuepubsubOptions": {
-			"autoDelete": true,
-			"exclusive": true,
-			"arguments": {
-				"x-queue-type": "classic"
+		"exchangepubsub": {
+			"name": "ds.pubsub",
+			"options": {
+				"durable": true
 			}
 		},
-		"queueconverttask": "ds.converttask6",
-		"queueconverttaskOptions": {
-			"durable": true,
-			"maxPriority": 6,
-			"arguments": {
-				"x-queue-type": "classic"
+		"queuepubsub": {
+			"name": "",
+			"options": {
+				"autoDelete": true,
+				"exclusive": true,
+				"arguments": {
+					"x-queue-type": "classic"
+				}
 			}
 		},
-		"queueconvertresponse": "ds.convertresponse",
-		"queueconvertresponseOptions": {
-			"durable": true,
-			"arguments": {
-				"x-queue-type": "classic"
+		"queueconverttask": {
+			"name": "ds.converttask6",
+			"options": {
+				"durable": true,
+				"maxPriority": 6,
+				"arguments": {
+					"x-queue-type": "classic"
+				}
 			}
 		},
-		"exchangeconvertdead": "ds.exchangeconvertdead",
-		"queueconvertdead": "ds.convertdead",
-		"queueconvertdeadOptions": {
-			"durable": true,
-			"arguments": {
-				"x-queue-type": "classic"
+		"queueconvertresponse": {
+			"name": "ds.convertresponse",
+			"options": {
+				"durable": true,
+				"arguments": {
+					"x-queue-type": "classic"
+				}
 			}
 		},
-		"queuedelayed": "ds.delayed",
-		"queuedelayedOptions": {
-			"durable": true,
-			"arguments": {
-				"x-queue-type": "classic"
+		"exchangeconvertdead": {
+			"name": "ds.exchangeconvertdead",
+			"options": {
+				"durable": true
+			}
+		},
+		"queueconvertdead": {
+			"name": "ds.convertdead",
+			"options": {
+				"durable": true,
+				"arguments": {
+					"x-queue-type": "classic"
+				}
+			}
+		},
+		"queuedelayed": {
+			"name": "ds.delayed",
+			"options": {
+				"durable": true,
+				"arguments": {
+					"x-queue-type": "classic"
+				}
 			}
 		}
 	},
