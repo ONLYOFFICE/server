@@ -521,7 +521,10 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
           cmd.setForgotten(cmd.getDocId());
         }
         //add task
-        cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+        if (!cmd.getOutputFormat()) {
+          //todo remove getOpenFormatByEditor after 8.2.1
+          cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+        }
         cmd.setEmbeddedFonts(false);
         var dataQueue = new commonDefines.TaskQueueData();
         dataQueue.setCtx(ctx);
@@ -576,7 +579,10 @@ function* commandReopen(ctx, conn, cmd, outputData) {
     if (upsertRes.affectedRows > 0) {
       //add task
       cmd.setUrl(null);//url may expire
-      cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+      if (!cmd.getOutputFormat()) {
+        //todo remove getOpenFormatByEditor after 8.2.1
+        cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+      }
       cmd.setEmbeddedFonts(false);
       if (isPassword) {
         cmd.setUserConnectionId(conn.user.id);

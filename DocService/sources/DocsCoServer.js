@@ -157,7 +157,8 @@ const cfgTableChanges = config.get('services.CoAuthoring.sql.tableChanges');
 const EditorTypes = {
   document : 0,
   spreadsheet : 1,
-  presentation : 2
+  presentation : 2,
+  draw : 3
 };
 
 const defaultHttpPort = 80, defaultHttpsPort = 443;	// Default ports (for http and https)
@@ -1498,6 +1499,9 @@ function getOpenFormatByEditor(editorType) {
       break;
     case EditorTypes.presentation:
       res = constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION;
+      break;
+    case EditorTypes.draw:
+      res = constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDX;
       break;
     default:
       res = constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
@@ -3113,6 +3117,7 @@ exports.install = function(server, callbackFunction) {
         fCheckLock = _checkLockExcel;
         break;
       case EditorTypes.presentation:
+      case EditorTypes.draw:
         // PP
         fCheckLock = _checkLockPresentation;
         break;
