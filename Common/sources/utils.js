@@ -1159,6 +1159,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.users_expire = licenseInfo.usersExpire / constants.LICENSE_EXPIRE_USERS_ONE_DAY;
   license.customer_id = licenseInfo.customerId;
   license.alias = licenseInfo.alias;
+  license.multitenancy = licenseInfo.multitenancy;
   return license;
 };
 exports.convertLicenseInfoToServerParams = function(licenseInfo) {

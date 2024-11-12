@@ -152,15 +152,16 @@ docsCoServer.install(server, () => {
 				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
 				let buildVersion = commonDefines.buildVersion;
 				let buildNumber = commonDefines.buildNumber;
-				let buildDate, packageType, customerId = "", alias = "";
+				let buildDate, packageType, customerId = "", alias = "", multitenancy="";
 				if (licenseInfo) {
 					buildDate = licenseInfo.buildDate.toISOString();
 					packageType = licenseInfo.packageType;
 					customerId = licenseInfo.customerId;
-					alias = licenseInfo.alias;
+					multitenancy = licenseInfo.multitenancy;
 				}
 				let output = `Server is functioning normally. Version: ${buildVersion}. Build: ${buildNumber}`;
-				output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}. Alias: ${alias}`;
+				output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}`;
+				output += `. Multitenancy: ${multitenancy}. Alias: ${alias}`;
 				res.send(output);
 			} catch (err) {
 				ctx.logger.error('index.html error: %s', err.stack);

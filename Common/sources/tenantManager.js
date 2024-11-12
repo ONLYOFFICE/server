@@ -246,7 +246,8 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
 async function getTenantLicense(ctx) {
   let res = licenseTuple;
   if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
-    if (licenseInfo.alias) {
+    //todo alias is deprecated. remove one year after 8.3
+    if (licenseInfo.multitenancy || licenseInfo.alias) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
       let licenseTupleTenant = nodeCache.get(licensePath);
@@ -263,7 +264,7 @@ async function getTenantLicense(ctx) {
       res = [...res];
       res[0] = {...res[0]};
       res.type = constants.LICENSE_RESULT.Error;
-      ctx.logger.error('getTenantLicense error: missing "alias" field');
+      ctx.logger.error('getTenantLicense error: missing "multitenancy" or "alias" field');
     }
   }
   return res;
@@ -310,6 +311,10 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
 
     if (oLicense['alias']) {
       res.alias = oLicense['alias'];
+    }
+
+    if (oLicense['multitenancy']) {
+      res.multitenancy = oLicense['multitenancy'];
     }
 
     if (true === oLicense['timelimited']) {
