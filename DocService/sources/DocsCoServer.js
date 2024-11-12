@@ -1259,17 +1259,15 @@ function closeUsersConnection(ctx, docId, usersMap, isOriginalId, code, descript
     }
   }
 }
-function* dropUsersFromDocument(ctx, docId, users) {
-  if (Array.isArray(users)) {
-    yield publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: users, description: ''});
-  }
+async function dropUsersFromDocument(ctx, docId, opt_users) {
+  await publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: opt_users, description: ''});
 }
 
-function dropUserFromDocument(ctx, docId, userId, description) {
+function dropUserFromDocument(ctx, docId, users, description) {
   var elConnection;
   for (var i = 0, length = connections.length; i < length; ++i) {
     elConnection = connections[i];
-    if (elConnection.docId === docId && userId === elConnection.user.idOriginal && !elConnection.isCloseCoAuthoring) {
+    if (elConnection.docId === docId && !elConnection.isCloseCoAuthoring && (!users || users.includes(elConnection.user.idOriginal)) ) {
       sendDataDrop(ctx, elConnection, description);
     }
   }
@@ -3571,9 +3569,7 @@ exports.install = function(server, callbackFunction) {
         let lockDocumentTimer, cmd;
         switch (data.type) {
           case commonDefines.c_oPublishType.drop:
-            for (i = 0; i < data.users.length; ++i) {
-              dropUserFromDocument(ctx, data.docId, data.users[i], data.description);
-            }
+            dropUserFromDocument(ctx, data.docId, data.users, data.description);
             break;
           case commonDefines.c_oPublishType.closeConnection:
             closeUsersConnection(ctx, data.docId, data.usersMap, data.isOriginalId, data.code, data.description);
@@ -4303,13 +4299,11 @@ function* commandHandle(ctx, params, req, output) {
       break;
     }
     case 'drop': {
-      if (params.userid) {
-        yield publish(ctx, {type: commonDefines.c_oPublishType.drop, ctx: ctx, docId: docId, users: [params.userid], description: params.description});
-      } else if (params.users) {
-        const users = (typeof params.users === 'string') ? JSON.parse(params.users) : params.users;
-        yield* dropUsersFromDocument(ctx, docId, users);
+      const users = (typeof params.users === 'string') ? JSON.parse(params.users) : params.users;
+      if (users && users.length > 0) {
+        yield dropUsersFromDocument(ctx, docId, users);
       } else {
-        output.error = commonDefines.c_oAscServerCommandErrors.UnknownCommand;
+        yield dropUsersFromDocument(ctx, docId);
       }
       break;
     }
