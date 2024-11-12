@@ -4299,8 +4299,8 @@ function* commandHandle(ctx, params, req, output) {
       break;
     }
     case 'drop': {
-      const users = (typeof params.users === 'string') ? JSON.parse(params.users) : params.users;
-      if (users && users.length > 0) {
+      if (params.users) {
+        const users = (typeof params.users === 'string') ? JSON.parse(params.users) : params.users;
         yield dropUsersFromDocument(ctx, docId, users);
       } else {
         yield dropUsersFromDocument(ctx, docId);
