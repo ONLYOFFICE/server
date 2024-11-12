@@ -58,6 +58,7 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
+const ms = require('ms');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
@@ -94,16 +95,12 @@ app.set("views", path.resolve(process.cwd(), cfgHtmlTemplate));
 app.set("view engine", "ejs");
 const server = http.createServer(app);
 
-let licenseInfo, licenseOriginal, updatePluginsTime, userPlugins, pluginsLoaded;
+let licenseInfo, licenseOriginal, updatePluginsTime, userPlugins;
+const updatePluginsCacheExpire = ms("5m");
 
 const updatePlugins = (eventType, filename) => {
-	operationContext.global.logger.info('update Folder: %s ; %s', eventType, filename);
-	if (updatePluginsTime && 1000 >= (new Date() - updatePluginsTime)) {
-		return;
-	}
 	operationContext.global.logger.info('update Folder true: %s ; %s', eventType, filename);
-	updatePluginsTime = new Date();
-	pluginsLoaded = false;
+	userPlugins = undefined;
 };
 const readLicense = async function () {
 	[licenseInfo, licenseOriginal] = await license.readLicense(cfgLicenseFile);
@@ -131,9 +128,15 @@ fs.watchFile(cfgLicenseFile, updateLicense);
 setInterval(updateLicense, 86400000);
 
 try {
-	fs.watch(config.get('services.CoAuthoring.plugins.path'), updatePlugins);
+	let staticContent = config.get('services.CoAuthoring.server.static_content');
+	let pluginsUri = config.get('services.CoAuthoring.plugins.uri');
+	let pluginsPath = undefined;
+	if (staticContent[pluginsUri]) {
+		pluginsPath = staticContent[pluginsUri].path;
+	}
+	fs.watch(pluginsPath, updatePlugins);
 } catch (e) {
-	operationContext.global.logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability');
+	operationContext.global.logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability. %s', e.stack);
 }
 
 // If you want to use 'development' and 'production',
@@ -299,12 +302,12 @@ docsCoServer.install(server, () => {
 	});
 
 	const sendUserPlugins = (res, data) => {
-		pluginsLoaded = true;
 		res.setHeader('Content-Type', 'application/json');
 		res.send(JSON.stringify(data));
 	};
 	app.get('/plugins.json', (req, res) => {
-		if (userPlugins && pluginsLoaded) {
+		//fs.watch is not reliable. Set cache expiry time
+		if (userPlugins && (new Date() - updatePluginsTime) < updatePluginsCacheExpire) {
 			sendUserPlugins(res, userPlugins);
 			return;
 		}
@@ -341,6 +344,7 @@ docsCoServer.install(server, () => {
 					}
 				}
 
+				updatePluginsTime = new Date();
 				userPlugins = {'url': '', 'pluginsData': result, 'autostart': pluginsAutostart};
 				sendUserPlugins(res, userPlugins);
 			});

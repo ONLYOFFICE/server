@@ -35,6 +35,10 @@
 const util = require("util");
 const config = require('config');
 const exifParser = require('exif-parser');
+//set global window to fix issue https://github.com/photopea/UTIF.js/issues/130
+if (!global.window) {
+  global.window = global;
+}
 const Jimp = require('jimp');
 const locale = require('windows-locale');
 const ms = require('ms');
