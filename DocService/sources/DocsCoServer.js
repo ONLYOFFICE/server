@@ -1767,6 +1767,13 @@ exports.install = function(server, callbackFunction) {
                 ctx.logger.debug("unknown command %j", data);
                 break;
             }
+
+            if (clientStatsD) {
+              let isSendMetric = 'auth' === data.type || 'getLock' === data.type || 'saveChanges' === data.type;
+              if (isSendMetric) {
+                clientStatsD.timing('coauth.data.' + data.type, new Date() - startDate);
+              }
+            }
           } catch (e) {
             ctx.logger.error("error receiving response: type = %s %s", (data && data.type) ? data.type : 'null', e.stack);
           }
