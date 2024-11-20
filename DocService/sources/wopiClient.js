@@ -976,7 +976,8 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
     // headers['X-WOPI-CorrelationId '] = "";
     // headers['X-WOPI-SessionId'] = "";
   }
-  headers['Authorization'] = `Bearer ${access_token}`;
+  //remove redundant header https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/common-headers#request-headers
+  // headers['Authorization'] = `Bearer ${access_token}`;
 }
 
 function checkIpFilter(ctx, uri){
