@@ -458,7 +458,7 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       .on('error', fError);
     if (optTimeout && optTimeout.wholeCycle) {
       timeoutId = setTimeout(function() {
-        raiseError(ro, 'ETIMEDOUT', 'Error: whole request cycle timeout');
+        raiseError(ro, 'ETIMEDOUT', `Error: whole request cycle timeout: ${optTimeout.wholeCycle}`);
       }, ms(optTimeout.wholeCycle));
     }
   });
@@ -526,7 +526,7 @@ function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, op
     });
     if (optTimeout && optTimeout.wholeCycle) {
       setTimeout(function() {
-        raiseError(ro, 'ETIMEDOUT', 'Error whole request cycle timeout');
+        raiseError(ro, 'ETIMEDOUT', `Error: whole request cycle timeout: ${optTimeout.wholeCycle}`);
       }, ms(optTimeout.wholeCycle));
     }
     if (postDataStream && !postData) {
