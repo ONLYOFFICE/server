@@ -75,11 +75,14 @@ const cfgWopiCellView = config.get('wopi.cellView');
 const cfgWopiCellEdit = config.get('wopi.cellEdit');
 const cfgWopiSlideView = config.get('wopi.slideView');
 const cfgWopiSlideEdit = config.get('wopi.slideEdit');
+const cfgWopiDrawView = config.get('wopi.drawView');
+const cfgWopiDrawEdit = config.get('wopi.drawEdit');
 const cfgWopiForms = config.get('wopi.forms');
 const cfgWopiFavIconUrlWord = config.get('wopi.favIconUrlWord');
 const cfgWopiFavIconUrlCell = config.get('wopi.favIconUrlCell');
 const cfgWopiFavIconUrlSlide = config.get('wopi.favIconUrlSlide');
 const cfgWopiFavIconUrlPdf = config.get('wopi.favIconUrlPdf');
+const cfgWopiFavIconUrlDraw = config.get('wopi.favIconUrlDraw');
 const cfgWopiPublicKey = config.get('wopi.publicKey');
 const cfgWopiModulus = config.get('wopi.modulus');
 const cfgWopiExponent = config.get('wopi.exponent');
@@ -97,6 +100,11 @@ let templatesFolderLocalesCache = null;
 let templatesFolderExtsCache = null;
 const templateFilesSizeCache = {};
 let shutdownFlag = false;
+
+//patch mimeDB
+if (mimeDB["application/vnd.visio"]) {
+  mimeDB["application/vnd.visio"].extensions.push("vsdx");
+}
 
 let mimeTypesByExt = (function() {
   let mimeTypesByExt = {};
@@ -149,11 +157,14 @@ function discovery(req, res) {
       const tenWopiCellEdit = ctx.getCfg('wopi.cellEdit', cfgWopiCellEdit);
       const tenWopiSlideView = ctx.getCfg('wopi.slideView', cfgWopiSlideView);
       const tenWopiSlideEdit = ctx.getCfg('wopi.slideEdit', cfgWopiSlideEdit);
+      const tenWopiDrawView = ctx.getCfg('wopi.slideView', cfgWopiDrawView);
+      const tenWopiDrawEdit = ctx.getCfg('wopi.slideEdit', cfgWopiDrawEdit);
       const tenWopiForms = ctx.getCfg('wopi.forms', cfgWopiForms);
       const tenWopiFavIconUrlWord = ctx.getCfg('wopi.favIconUrlWord', cfgWopiFavIconUrlWord);
       const tenWopiFavIconUrlCell = ctx.getCfg('wopi.favIconUrlCell', cfgWopiFavIconUrlCell);
       const tenWopiFavIconUrlSlide = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlSlide);
-      const tenWopiFavIconUrlPdf = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlPdf);
+      const tenWopiFavIconUrlPdf = ctx.getCfg('wopi.favIconUrlPdf', cfgWopiFavIconUrlPdf);
+      const tenWopiFavIconUrlDraw = ctx.getCfg('wopi.favIconUrlDraw', cfgWopiFavIconUrlDraw);
       const tenWopiPublicKey = ctx.getCfg('wopi.publicKey', cfgWopiPublicKey);
       const tenWopiModulus = ctx.getCfg('wopi.modulus', cfgWopiModulus);
       const tenWopiExponent = ctx.getCfg('wopi.exponent', cfgWopiExponent);
@@ -172,6 +183,12 @@ function discovery(req, res) {
         {targetext: null, view: tenWopiPdfView, edit: tenWopiPdfEdit}
       ];
       let documentTypes = [`word`, `cell`, `slide`, `pdf`];
+      if (true) {//todo check packageType
+        names.push('Visio');
+        favIconUrls.push(tenWopiFavIconUrlDraw);
+        exts.push({targetext: null, view: tenWopiDrawView, edit: tenWopiDrawEdit});
+        documentTypes.push(`draw`);
+      }
 
       let templatesFolderExtsCache = yield getTemplatesFolderExts(ctx);
       let formsExts = tenWopiForms.reduce((result, item, index, array) => {
