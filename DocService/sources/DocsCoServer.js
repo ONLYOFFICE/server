@@ -1298,7 +1298,7 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
     }
   } else {
     oCallbackUrl = parseUrl(ctx, callback);
-    bChangeBase = c_oAscChangeBase.All;
+    bChangeBase = c_oAscChangeBase.No;
     if (null !== oCallbackUrl) {
       let filterStatus = yield* utils.checkHostFilter(ctx, oCallbackUrl.host);
       if (filterStatus > 0) {
@@ -1638,7 +1638,8 @@ exports.install = function(server, callbackFunction) {
         return;
       }
       if (getIsShutdown()) {
-        sendFileError(ctx, conn, 'Server shutdown');
+        sendDataDisconnectReason(ctx, conn, constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
+        conn.disconnect(true);
         return;
       }
       conn.baseUrl = utils.getBaseUrlByConnection(ctx, conn);

@@ -128,9 +128,15 @@ fs.watchFile(cfgLicenseFile, updateLicense);
 setInterval(updateLicense, 86400000);
 
 try {
-	fs.watch(config.get('services.CoAuthoring.plugins.path'), updatePlugins);
+	let staticContent = config.get('services.CoAuthoring.server.static_content');
+	let pluginsUri = config.get('services.CoAuthoring.plugins.uri');
+	let pluginsPath = undefined;
+	if (staticContent[pluginsUri]) {
+		pluginsPath = staticContent[pluginsUri].path;
+	}
+	fs.watch(pluginsPath, updatePlugins);
 } catch (e) {
-	operationContext.global.logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability');
+	operationContext.global.logger.warn('Failed to subscribe to plugin folder updates. When changing the list of plugins, you must restart the server. https://nodejs.org/docs/latest/api/fs.html#fs_availability. %s', e.stack);
 }
 
 // If you want to use 'development' and 'production',
