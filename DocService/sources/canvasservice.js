@@ -1481,7 +1481,6 @@ exports.downloadAs = function(req, res) {
           yield* commandSave(ctx, cmd, outputData);
           break;
         case 'savefromorigin':
-          yield docsCoServer.encryptPasswordParams(ctx, cmd);
           yield* commandSaveFromOrigin(ctx, cmd, outputData, row && row.password);
           break;
         case 'sendmm':
