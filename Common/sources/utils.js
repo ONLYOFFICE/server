@@ -95,15 +95,14 @@ var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 BigInt.prototype.toJSON = function() { return this.toString() };
 
 var g_oIpFilterRules = new Map();
-function getIpFilterRules(rules) {
-  var res = [];
-  for (var i = 0; i < rules.length; ++i) {
-    var rule = rules[i];
-    var regExpStr = rule['address'].split('*').map(escapeStringRegexp).join('.*');
-    var exp = new RegExp('^' + regExpStr + '$', 'i');
-    res.push({allow: rule['allowed'], exp: exp});
+function getIpFilterRule(address) {
+  let exp = g_oIpFilterRules.get(address);
+  if (!exp) {
+    let regExpStr = address.split('*').map(escapeStringRegexp).join('.*');
+    exp = new RegExp('^' + regExpStr + '$', 'i');
+    g_oIpFilterRules.set(address, exp);
   }
-  return res;
+  return exp;
 }
 const pemfileCache = new NodeCache({stdTTL: ms(cfgExpPemStdTtl) / 1000, checkperiod: ms(cfgExpPemCheckPeriod) / 1000, errorOnMissing: false, useClones: true});
 
@@ -879,14 +878,13 @@ function* pipeFiles(from, to) {
 exports.pipeFiles = co.wrap(pipeFiles);
 function checkIpFilter(ctx, ipString, opt_hostname) {
   const tenIpFilterRules = ctx.getCfg('services.CoAuthoring.ipfilter.rules', cfgIpFilterRules);
-  const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
 
   var status = 0;
   var ip4;
   var ip6;
   if (ipaddr.isValid(ipString)) {
     var ip = ipaddr.parse(ipString);
-    if ('ipv6' == ip.kind()) {
+    if ('ipv6' === ip.kind()) {
       if (ip.isIPv4MappedAddress()) {
         ip4 = ip.toIPv4Address().toString();
       }
@@ -896,16 +894,13 @@ function checkIpFilter(ctx, ipString, opt_hostname) {
       ip6 = ip.toIPv4MappedAddress().toNormalizedString();
     }
   }
-  let ipFilterRules = g_oIpFilterRules.get(ctx.tenant);
-  if (!ipFilterRules) {
-    ipFilterRules = getIpFilterRules(tenIpFilterRules);
-    g_oIpFilterRules.set(ctx.tenant, ipFilterRules);
-  }
 
-  for (var i = 0; i < ipFilterRules.length; ++i) {
-    var rule = ipFilterRules[i];
-    if ((opt_hostname && rule.exp.test(opt_hostname)) || (ip4 && rule.exp.test(ip4)) || (ip6 && rule.exp.test(ip6))) {
-      if (!rule.allow) {
+  for (let i = 0; i < tenIpFilterRules.length; ++i) {
+    let rule = tenIpFilterRules[i];
+    let exp = getIpFilterRule(rule.address);
+    if ((opt_hostname && exp.test(opt_hostname)) || (ip4 && exp.test(ip4)) || (ip6 && exp.test(ip6))) {
+      if (!rule.allowed) {
+        const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
         status = tenIpFilterErrorCode;
       }
       break;
