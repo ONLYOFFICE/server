@@ -1054,6 +1054,30 @@ let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
     sendDataRpc(ctx, conn, responseKey, forceSaveRes);
   }
 })
+
+async function startWopiRPC(ctx, docId, userId, userIdOriginal, data) {
+  let res;
+  let selectRes = await taskResult.select(ctx, docId);
+  let row = selectRes.length > 0 ? selectRes[0] : null;
+  if (row) {
+    if (row.callback) {
+      let userIndex = utils.getIndexFromUserId(userId, userIdOriginal);
+      let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex);
+      let wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
+      if (wopiParams) {
+        switch (data.type) {
+          case 'wopi_RenameFile':
+            res = await wopiClient.renameFile(ctx, wopiParams, data.name);
+            break;
+          case 'wopi_RefreshFile':
+            res = await wopiClient.refreshFile(ctx, wopiParams, row.baseurl);
+            break;
+        }
+      }
+    }
+  }
+  return res;
+}
 function* startRPC(ctx, conn, responseKey, data) {
   let docId = conn.docId;
   ctx.logger.debug('startRPC start responseKey:%s , %j', responseKey, data);
@@ -1077,21 +1101,11 @@ function* startRPC(ctx, conn, responseKey, data) {
       break;
     }
     case 'wopi_RenameFile':
-      let renameRes;
-      let selectRes = yield taskResult.select(ctx, docId);
-      let row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row) {
-        if (row.callback) {
-          let userIndex = utils.getIndexFromUserId(conn.user.id, conn.user.idOriginal);
-          let uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex);
-          let wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
-          if (wopiParams) {
-            renameRes = yield wopiClient.renameFile(ctx, wopiParams, data.name);
-          }
-        }
-      }
-      sendDataRpc(ctx, conn, responseKey, renameRes);
+    case 'wopi_RefreshFile': {
+      let res = yield startWopiRPC(ctx, conn.docId, conn.user.id, conn.user.idOriginal, data);
+      sendDataRpc(ctx, conn, responseKey, res);
       break;
+    }
     case 'pathurls':
       let outputData = new canvasService.OutputData(data.type);
       yield* canvasService.commandPathUrls(ctx, conn, data.data, outputData);
@@ -1720,11 +1734,6 @@ exports.install = function(server, callbackFunction) {
               case 'close':
                 yield* closeDocument(ctx, conn);
                 break;
-              case 'versionHistory'          : {
-                let cmd = new commonDefines.InputCommand(data.cmd);
-                yield* versionHistory(ctx, conn, cmd);
-                break;
-              }
               case 'openDocument'      : {
                 var cmd = new commonDefines.InputCommand(data.message);
                 cmd.fillFromConnection(conn);
@@ -1935,42 +1944,6 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  function* versionHistory(ctx, conn, cmd) {
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
-
-    var docIdOld = conn.docId;
-    var docIdNew = cmd.getDocId();
-    //check jwt
-    if (tenTokenEnableBrowser) {
-      var checkJwtRes = yield checkJwt(ctx, cmd.getTokenHistory(), commonDefines.c_oAscSecretType.Browser);
-      if (checkJwtRes.decoded) {
-        fillVersionHistoryFromJwt(ctx, checkJwtRes.decoded, cmd);
-        docIdNew = cmd.getDocId();
-        cmd.setWithAuthorization(true);
-      } else {
-        sendData(ctx, conn, {type: "expiredToken", code: checkJwtRes.code, description: checkJwtRes.description});
-        return;
-      }
-    }
-    if (docIdOld !== docIdNew) {
-      //remove presence(other data was removed before in closeDocument)
-      yield removePresence(ctx, conn);
-      var hvals = yield editorData.getPresence(ctx, docIdOld, connections);
-      if (hvals.length <= 0) {
-        yield editorData.removePresenceDocument(ctx, docIdOld);
-      }
-
-      //apply new
-      conn.docId = docIdNew;
-      yield addPresence(ctx, conn, true);
-      if (tenTokenEnableBrowser) {
-        let sessionToken = yield fillJwtByConnection(ctx, conn);
-        sendDataRefreshToken(ctx, conn, sessionToken);
-      }
-    }
-    //open
-    yield canvasService.openDocument(ctx, conn, cmd, null);
-  }
   // Getting changes for the document (either from the cache or accessing the database, but only if there were saves)
   function* getDocumentChanges(ctx, docId, optStartIndex, optEndIndex) {
     // If during that moment, while we were waiting for a response from the database, everyone left, then nothing needs to be sent
@@ -2090,13 +2063,17 @@ exports.install = function(server, callbackFunction) {
     });
   }
 
-  function sendFileError(ctx, conn, errorId, code) {
-    ctx.logger.warn('error description: errorId = %s', errorId);
+  function sendFileError(ctx, conn, errorId, code, opt_notWarn) {
+    if (opt_notWarn) {
+      ctx.logger.debug('error description: errorId = %s', errorId);
+    } else {
+      ctx.logger.warn('error description: errorId = %s', errorId);
+    }
     conn.isCiriticalError = true;
     sendData(ctx, conn, {type: 'error', description: errorId, code: code});
   }
 
-  function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code) {
+  function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code, opt_notWarn) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
     conn.sessionId = sessionId;//restore old
@@ -2113,7 +2090,7 @@ exports.install = function(server, callbackFunction) {
         let sessionToken = yield fillJwtByConnection(ctx, conn);
         sendDataRefreshToken(ctx, conn, sessionToken);
       }
-      sendFileError(ctx, conn, errorId, code);
+      sendFileError(ctx, conn, errorId, code, opt_notWarn);
     }
   }
 
@@ -2333,14 +2310,14 @@ exports.install = function(server, callbackFunction) {
           openCmd.userid = fileInfo.UserId;
         }
       }
-      let permissionsEdit = !fileInfo.ReadOnly && fileInfo.UserCanWrite && queryParams.formsubmit !== "1";
-      let permissionsFillForm = permissionsEdit || queryParams.formsubmit === "1";
+      let permissionsEdit = !fileInfo.ReadOnly && fileInfo.UserCanWrite && queryParams?.formsubmit !== "1";
+      let permissionsFillForm = permissionsEdit || queryParams?.formsubmit === "1";
       let permissions = {
         edit: permissionsEdit,
         review: (fileInfo.SupportsReviewing === false) ? false : (fileInfo.UserCanReview === false ? false : fileInfo.UserCanReview),
         copy: fileInfo.CopyPasteRestrictions !== "CurrentDocumentOnly" && fileInfo.CopyPasteRestrictions !== "BlockAll",
         print: !fileInfo.DisablePrint && !fileInfo.HidePrintOption,
-        chat: queryParams.dchat!=="1",
+        chat: queryParams?.dchat!=="1",
         fillForms: permissionsFillForm
       };
       //todo (review: undefiend)
@@ -2350,11 +2327,6 @@ exports.install = function(server, callbackFunction) {
       }
       //not '=' because if it jwt from previous version, we must use values from data
       Object.assign(data.permissions, permissions);
-    }
-
-    //issuer for secret
-    if (decoded.iss) {
-      data.iss = decoded.iss;
     }
     return res;
   }
@@ -2477,29 +2449,25 @@ exports.install = function(server, callbackFunction) {
       ctx.logger.warn('fillDataFromJwt token has invalid format');
       res = false;
     }
-
-    //issuer for secret
-    if (decoded.iss) {
-      data.iss = decoded.iss;
-    }
     return res;
   }
-  function fillVersionHistoryFromJwt(ctx, decoded, cmd) {
+  function fillVersionHistoryFromJwt(ctx, decoded, data) {
+    let openCmd = data.openCmd;
+    data.mode = 'view';
+    data.coEditingMode = 'strict';
+    data.docid = decoded.key;
+    openCmd.url = decoded.url;
     if (decoded.changesUrl && decoded.previous) {
-      let versionMatch = cmd.getServerVersion() === commonDefines.buildVersion;
-      let openPreviousVersion = cmd.getDocId() === decoded.previous.key;
+      let versionMatch = openCmd.serverVersion === commonDefines.buildVersion;
+      let openPreviousVersion = openCmd.id === decoded.previous.key;
       if (versionMatch && openPreviousVersion) {
-        cmd.setUrl(decoded.previous.url);
-        cmd.setDocId(decoded.previous.key);
+        data.docid = decoded.previous.key;
+        openCmd.url = decoded.previous.url;
       } else {
-        ctx.logger.warn('fillVersionHistoryFromJwt serverVersion mismatch or mismatch between previous url and changes. serverVersion=%s docId=%s', cmd.getServerVersion(), cmd.getDocId());
-        cmd.setUrl(decoded.url);
-        cmd.setDocId(decoded.key);
+        ctx.logger.warn('fillVersionHistoryFromJwt serverVersion mismatch or mismatch between previous url and changes. serverVersion=%s docId=%s', openCmd.serverVersion, openCmd.id);
       }
-    } else {
-      cmd.setUrl(decoded.url);
-      cmd.setDocId(decoded.key);
     }
+    return true;
   }
 
   function* auth(ctx, conn, data) {
@@ -2528,19 +2496,23 @@ exports.install = function(server, callbackFunction) {
           } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_sessionTimeConnect) {
             //reconnection
             fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
+          } else if (decoded.version) {//version required, but maybe add new type like jwtSession?
+            //version history
+            fillDataFromJwtRes = fillVersionHistoryFromJwt(ctx, decoded, data);
           } else {
             //opening
             let validationErr = validateAuthToken(data, decoded);
             if (!validationErr) {
               fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
-            } else if (tenTokenRequiredParams) {
-              ctx.logger.error("auth missing required parameter %s (since 7.1 version)", validationErr);
-              sendDataDisconnectReason(ctx, conn, constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
-              conn.disconnect(true);
-              return;
             } else {
-              ctx.logger.warn("auth missing required parameter %s (since 7.1 version)", validationErr);
-              fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
+              ctx.logger.error("auth missing required parameter %s (since 7.1 version)", validationErr);
+              if (tenTokenRequiredParams) {
+                sendDataDisconnectReason(ctx, conn, constants.JWT_ERROR_CODE, constants.JWT_ERROR_REASON);
+                conn.disconnect(true);
+                return;
+              } else {
+                fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
+              }
             }
           }
           if(!fillDataFromJwtRes) {
@@ -2756,13 +2728,14 @@ exports.install = function(server, callbackFunction) {
           var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
           if (!(updateIfRes.affectedRows > 0)) {
             // error version
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
+            //log level is debug because error handled via refreshFile
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE, true);
             return;
           }
         } else if (commonDefines.FileStatus.UpdateVersion === status) {
           if (bIsRestore) {
             // error version
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE);
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE, true);
             return;
           } else {
             modifyConnectionEditorToView(ctx, conn);
@@ -2772,8 +2745,11 @@ exports.install = function(server, callbackFunction) {
           //ok
         } else if (bIsRestore) {
           // Other error
-          let code = null === status ? constants.NO_CACHE_CODE : undefined;
-          yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Other error', code);
+          if(null === status) {
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Other error', constants.NO_CACHE_CODE, true);
+          } else {
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Other error');
+          }
           return;
         }
       }
@@ -2814,17 +2790,17 @@ exports.install = function(server, callbackFunction) {
                 if (wopiLockRes) {
                   yield* authRestore(ctx, conn, data.sessionId);
                 } else {
-                  yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Wopi lock error.', constants.RESTORE_CODE);
+                  yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Wopi lock error.', constants.RESTORE_CODE, true);
                 }
               } else {
-                yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Locks not checked.', constants.RESTORE_CODE);
+                yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Locks not checked.', constants.RESTORE_CODE, true);
               }
             } else {
-              yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Document modified.', constants.RESTORE_CODE);
+              yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Document modified.', constants.RESTORE_CODE, true);
             }
           } catch (err) {
             ctx.logger.error("DataBase error: %s", err.stack);
-            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'DataBase error', constants.RESTORE_CODE);
+            yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'DataBase error', constants.RESTORE_CODE, true);
           }
         } else {
           yield* authRestore(ctx, conn, data.sessionId);
@@ -2897,7 +2873,7 @@ exports.install = function(server, callbackFunction) {
     }
     let lockDocument = null;
     let waitAuthUserId;
-    if (!bIsRestore && 2 === countNoView && !tmpUser.view) {
+    if (!bIsRestore && 2 === countNoView && !tmpUser.view && firstParticipantNoView) {
       // lock a document
       const lockRes = yield editorData.lockAuth(ctx, docId, firstParticipantNoView.id, 2 * tenExpLockDoc);
       if (constants.CONN_CLOSED === conn.conn.readyState) {
@@ -3655,13 +3631,7 @@ exports.install = function(server, callbackFunction) {
             output.fromObject(data.output);
             var outputData = output.getData();
 
-            var docConnectionId = cmd.getDocConnectionId();
-            var docId;
-            if(docConnectionId){
-              docId = docConnectionId;
-            } else {
-              docId = cmd.getDocId();
-            }
+            var docId = cmd.getDocId();
             if (cmd.getUserConnectionId()) {
               participants = getParticipantUser(docId, cmd.getUserConnectionId());
             } else {

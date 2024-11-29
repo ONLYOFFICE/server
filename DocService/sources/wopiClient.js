@@ -518,6 +518,41 @@ async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, ac
     }
   }
 }
+function createDocId(ctx, wopiSrc, mode, fileInfo) {
+  let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
+  let docId = undefined;
+  if ('view' !== mode) {
+    docId = `${fileId}`;
+  } else {
+    //todo rename operation requires lock
+    fileInfo.SupportsRename = false;
+    //todo change docId to avoid empty cache after editors are gone
+    if (fileInfo.LastModifiedTime) {
+      docId = `view.${fileId}.${fileInfo.LastModifiedTime}`;
+    } else {
+      docId = `view.${fileId}.${fileInfo.Version}`;
+    }
+    return docId;
+  }
+  docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
+  return docId;
+}
+async function preOpen(ctx, lockId, docId, fileInfo, userAuth, baseUrl, fileType) {
+  //todo move to lock and common info saving to websocket connection
+  //save common info
+  if (undefined === lockId) {
+    //Use deterministic(not random) lockId to fix issues with forgotten openings due to integrator failures
+    lockId = docId;
+    let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
+    await canvasService.commandOpenStartPromise(ctx, docId, baseUrl, commonInfo, fileType);
+  }
+  //Lock
+  if ('view' !== userAuth.mode) {
+    let lockRes = await lock(ctx, 'LOCK', lockId, fileInfo, userAuth);
+    return !!lockRes;
+  }
+  return true;
+}
 function getEditorHtml(req, res) {
   return co(function*() {
     let params = {key: undefined, apiQuery: '', fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined, docs_api_config: {}};
@@ -567,20 +602,8 @@ function getEditorHtml(req, res) {
         mode = 'view';
       }
       //docId
-      let docId = undefined;
-      if ('view' !== mode) {
-        docId = `${fileId}`;
-      } else {
-        //todo rename operation requires lock
-        fileInfo.SupportsRename = false;
-        //todo change docId to avoid empty cache after editors are gone
-        if (fileInfo.LastModifiedTime) {
-          docId = `view.${fileId}.${fileInfo.LastModifiedTime}`;
-        } else {
-          docId = `view.${fileId}.${fileInfo.Version}`;
-        }
-      }
-      docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
+      let docId = createDocId(ctx, wopiSrc, mode, fileInfo);
+      ctx.setDocId(fileId);
       ctx.logger.debug(`wopiEditor`);
       params.key = docId;
       let userAuth = params.userAuth = {
@@ -590,27 +613,15 @@ function getEditorHtml(req, res) {
 
       //check and invalidate cache
       let checkRes = yield checkAndInvalidateCache(ctx, docId, fileInfo);
-      let lockId = checkRes.lockId;
       if (!checkRes.success) {
         params.fileInfo = {};
         return;
       }
       if (!shutdownFlag) {
-        //save common info
-        if (undefined === lockId) {
-          //Use deterministic(not random) lockId to fix issues with forgotten openings due to integrator failures
-          lockId = docId;
-          let commonInfo = JSON.stringify({lockId: lockId, fileInfo: fileInfo});
-          yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByRequest(ctx, req), commonInfo, fileType);
-        }
-
-        //Lock
-        if ('view' !== mode) {
-          let lockRes = yield lock(ctx, 'LOCK', lockId, fileInfo, userAuth);
-          if (!lockRes) {
-            params.fileInfo = {};
-            return;
-          }
+        let preOpenRes = yield preOpen(ctx, checkRes.lockId, docId, fileInfo, userAuth, utils.getBaseUrlByRequest(ctx, req), fileType);
+        if (!preOpenRes) {
+          params.fileInfo = {};
+          return;
         }
       }
 
@@ -834,6 +845,47 @@ function renameFile(ctx, wopiParams, name) {
     }
     return res;
   });
+}
+
+async function refreshFile(ctx, wopiParams, baseUrl) {
+  let res = {};
+  try {
+    ctx.logger.info('wopi RefreshFile start');
+    let userAuth = wopiParams.userAuth;
+    if (!userAuth) {
+      return;
+    }
+    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+    const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
+    const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
+
+    const fileInfo = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
+    const fileType = getFileTypeByInfo(fileInfo);
+    const docId = createDocId(ctx, userAuth.wopiSrc, userAuth.mode, res.fileInfo);
+    res.key = docId;
+    res.userAuth = userAuth;
+    res.fileInfo = fileInfo;
+    res.queryParams = undefined;
+    if (tenTokenEnableBrowser) {
+      let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+      let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
+      res.token = jwt.sign(res, secret, options);
+    }
+    let checkRes = await checkAndInvalidateCache(ctx, docId, fileInfo);
+    if (!checkRes.success) {
+      res = {};
+      return;
+    }
+    let preOpenRes = await preOpen(ctx, checkRes.lockId, docId, fileInfo, userAuth, baseUrl, fileType);
+    if (!preOpenRes) {
+      res = {};
+    }
+  } catch (err) {
+    ctx.logger.error('wopi error RefreshFile:%s', err.stack);
+  } finally {
+    ctx.logger.info('wopi RefreshFile end');
+  }
+  return res;
 }
 function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
   return co(function* () {
@@ -1099,6 +1151,7 @@ exports.putFile = putFile;
 exports.parsePutFileResponse = parsePutFileResponse;
 exports.putRelativeFile = putRelativeFile;
 exports.renameFile = renameFile;
+exports.refreshFile = refreshFile;
 exports.lock = lock;
 exports.unlock = unlock;
 exports.fillStandardHeaders = fillStandardHeaders;
