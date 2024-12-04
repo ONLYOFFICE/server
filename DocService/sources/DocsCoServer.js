@@ -158,7 +158,7 @@ const EditorTypes = {
   document : 0,
   spreadsheet : 1,
   presentation : 2,
-  draw : 3
+  visio : 3
 };
 
 const defaultHttpPort = 80, defaultHttpsPort = 443;	// Default ports (for http and https)
@@ -1512,7 +1512,7 @@ function getOpenFormatByEditor(editorType) {
     case EditorTypes.presentation:
       res = constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION;
       break;
-    case EditorTypes.draw:
+    case EditorTypes.visio:
       res = constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDX;
       break;
     default:
@@ -3099,7 +3099,7 @@ exports.install = function(server, callbackFunction) {
         fCheckLock = _checkLockExcel;
         break;
       case EditorTypes.presentation:
-      case EditorTypes.draw:
+      case EditorTypes.visio:
         // PP
         fCheckLock = _checkLockPresentation;
         break;
