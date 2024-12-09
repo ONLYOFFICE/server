@@ -1579,8 +1579,6 @@ async function encryptPasswordParams(ctx, data) {
     dataWithPassword = data.message;
   } else if (data.type === 'auth' && data.openCmd) {
     dataWithPassword = data.openCmd;
-  } else if (data.c === 'savefromorigin') {
-    dataWithPassword = data;
   }
   if (dataWithPassword && dataWithPassword.password) {
     if (dataWithPassword.password.length > constants.PASSWORD_MAX_LENGTH) {
