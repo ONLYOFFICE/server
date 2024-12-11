@@ -102,8 +102,8 @@ const templateFilesSizeCache = {};
 let shutdownFlag = false;
 
 //patch mimeDB
-if (mimeDB["application/vnd.visio"]) {
-  mimeDB["application/vnd.visio"].extensions.push("vsdx");
+if (!mimeDB["application/vnd.visio2013"]) {
+  mimeDB["application/vnd.visio2013"] = {extensions: ["vsdx", "vstx", "vssx", "vsdm", "vstm", "vssm"]};
 }
 
 let mimeTypesByExt = (function() {
@@ -253,10 +253,16 @@ function discovery(req, res) {
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1&amp;${templateEnd}`;
         let urlTemplateFormSubmit = `${templateStart}/${documentTypes[i]}/edit?formsubmit=1&amp;${templateEnd}`;
+        let mimeTypesDuplicate = new Set();//to remove duplicates for each editor(allow html for word and excel)
         for (let j = 0; j < ext.view.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
+              if (mimeTypesDuplicate.has(value)) {
+                return;
+              } else {
+                mimeTypesDuplicate.add(value);
+              }
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
               xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
@@ -269,10 +275,16 @@ function discovery(req, res) {
             });
           }
         }
+        mimeTypesDuplicate.clear();
         for (let j = 0; j < ext.edit.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.edit[j]];
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
+              if (mimeTypesDuplicate.has(value)) {
+                return;
+              } else {
+                mimeTypesDuplicate.add(value);
+              }
               let xmlApp = xmlZone.ele('app', {name: value});
               if (formsExts[ext.edit[j]]) {
                 xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
