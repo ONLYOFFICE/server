@@ -853,7 +853,7 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
     let data = {type: forceSaveType, time: forceSave.getTime(), success: success};
     if(commonDefines.c_oAscForceSaveTypes.Form === forceSaveType || commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
       let code = success ? commonDefines.c_oAscServerCommandErrors.NoError : commonDefines.c_oAscServerCommandErrors.UnknownError;
-      data = {code: code, time: null, inProgress: false};
+      data = {code: code, time: forceSave.getTime(), inProgress: false};
       if (commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
         data.url = url;
       }
@@ -882,7 +882,7 @@ async function checkForceSaveCache(ctx, convertInfo) {
   return res;
 }
 async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId,
-                                   opt_responseKey, opt_formdata, opt_userId, opt_userIndex) {
+                                   opt_responseKey, opt_formdata, opt_userId, opt_userIndex, opt_prevTime) {
   let res = {ok: false, notModified: false, inProgress: false, startedForceSave: null};
   if (!forceSave) {
     res.notModified = true;
@@ -893,24 +893,26 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
     if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type || !forceSave.ended) {
       //c_oAscForceSaveTypes.Form has uniqueue options {'documentLayout': {'isPrint': true}}; dont use it for other types
       let forceSaveCached = forceSaveCache.cmd?.getForceSave()?.getType();
-      let cacheHasSameOptions = (commonDefines.c_oAscForceSaveTypes.Form === type &&
-          commonDefines.c_oAscForceSaveTypes.Form === forceSaveCached) ||
-        (commonDefines.c_oAscForceSaveTypes.Form !== type &&
-          commonDefines.c_oAscForceSaveTypes.Form !== forceSaveCached)
+      let cacheHasSameOptions = (commonDefines.c_oAscForceSaveTypes.Form === type && commonDefines.c_oAscForceSaveTypes.Form === forceSaveCached) ||
+        (commonDefines.c_oAscForceSaveTypes.Form !== type && commonDefines.c_oAscForceSaveTypes.Form !== forceSaveCached);
       if (forceSaveCache.hasValidCache && cacheHasSameOptions) {
-        let cmd = forceSaveCache.cmd;
-        cmd.setUserConnectionDocId(opt_userConnectionDocId);
-        cmd.setUserConnectionId(opt_userConnectionId);
-        cmd.setResponseKey(opt_responseKey);
-        cmd.setFormData(opt_formdata);
-        if (cmd.getForceSave()) {
-          cmd.getForceSave().setType(type);
-          cmd.getForceSave().setAuthorUserId(opt_userId);
-          cmd.getForceSave().setAuthorUserIndex(opt_userIndex);
+        if (commonDefines.c_oAscForceSaveTypes.Internal === type && forceSave.time === opt_prevTime) {
+          res.notModified = true;
+        } else {
+          let cmd = forceSaveCache.cmd;
+          cmd.setUserConnectionDocId(opt_userConnectionDocId);
+          cmd.setUserConnectionId(opt_userConnectionId);
+          cmd.setResponseKey(opt_responseKey);
+          cmd.setFormData(opt_formdata);
+          if (cmd.getForceSave()) {
+            cmd.getForceSave().setType(type);
+            cmd.getForceSave().setAuthorUserId(opt_userId);
+            cmd.getForceSave().setAuthorUserIndex(opt_userIndex);
+          }
+          //todo timeout because commandSfcCallback make request?
+          await canvasService.commandSfcCallback(ctx, cmd, true, false);
+          res.ok = true;
         }
-        //todo timeout because commandSfcCallback make request?
-        await canvasService.commandSfcCallback(ctx, cmd, true, false);
-        res.ok = true;
       } else {
         await editorData.checkAndSetForceSave(ctx, docId, forceSave.time, forceSave.index, false, false, null);
         res.startedForceSave = await editorData.checkAndStartForceSave(ctx, docId);
@@ -933,7 +935,8 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
 }
 async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId,
                               opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl,
-                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams, opt_changeInfo) {
+                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams, opt_changeInfo,
+                              opt_prevTime) {
   const tenForceSaveUsingButtonWithoutChanges = ctx.getCfg('services.CoAuthoring.server.forceSaveUsingButtonWithoutChanges', cfgForceSaveUsingButtonWithoutChanges);
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
@@ -964,7 +967,7 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
         forceSave = await editorData.getForceSave(ctx, docId);
       }
       let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId,
-        opt_userConnectionDocId, opt_responseKey, opt_formdata, opt_userId, opt_userIndex);
+        opt_userConnectionDocId, opt_responseKey, opt_formdata, opt_userId, opt_userIndex, opt_prevTime);
       startedForceSave = applyCacheRes.startedForceSave;
       if (applyCacheRes.notModified) {
         let selectRes = await taskResult.select(ctx, docId);
@@ -1048,7 +1051,8 @@ let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
     }
   }
   if (!forceSaveRes) {
-    forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey);
+    forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey,
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, data.time);
   }
   if (commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
     sendDataRpc(ctx, conn, responseKey, forceSaveRes);
