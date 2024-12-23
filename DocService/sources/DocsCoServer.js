@@ -1683,13 +1683,6 @@ exports.install = function(server, callbackFunction) {
               ctx.logger.debug('Server shutdown receive data');
               return;
             }
-            if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
-              'isSaveLock' == data.type)) {
-              ctx.logger.warn("conn.isCiriticalError send command: type = %s", data.type);
-              sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
-              conn.disconnect(true);
-              return;
-            }
             if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
               ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
               ctx.logger.warn("conn.user.view||isCloseCoAuthoring access deny: type = %s", data.type);
@@ -1854,7 +1847,7 @@ exports.install = function(server, callbackFunction) {
         }
       }
     } else {
-      if (!conn.isCloseCoAuthoring) {
+      if (!conn.isCloseCoAuthoring && !isView) {
         modifyConnectionEditorToView(ctx, conn);
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
@@ -1881,11 +1874,11 @@ exports.install = function(server, callbackFunction) {
       yield publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participants}, docId, tmpUser.id);
       tmpUser.view = tmpView;
 
-      // For this user, we remove the lock from saving
-      yield editorData.unlockSave(ctx, docId, conn.user.id);
-
       // editors only
       if (false === isView) {
+        // For this user, we remove the lock from saving
+        yield editorData.unlockSave(ctx, docId, conn.user.id);
+
         bHasEditors = yield* hasEditors(ctx, docId, hvals);
         bHasChanges = yield hasChanges(ctx, docId);
 
@@ -2071,7 +2064,6 @@ exports.install = function(server, callbackFunction) {
     } else {
       ctx.logger.warn('error description: errorId = %s', errorId);
     }
-    conn.isCiriticalError = true;
     sendData(ctx, conn, {type: 'error', description: errorId, code: code});
   }
 
@@ -2085,6 +2077,9 @@ exports.install = function(server, callbackFunction) {
     });
     //closing could happen during async action
     if (constants.CONN_CLOSED !== conn.conn.readyState) {
+      modifyConnectionEditorToView(ctx, conn);
+      conn.isCloseCoAuthoring = true;
+
       // We put it in an array, because we need to send data to open/save the document
       connections.push(conn);
       yield addPresence(ctx, conn, true);
@@ -2735,13 +2730,12 @@ exports.install = function(server, callbackFunction) {
             return;
           }
         } else if (commonDefines.FileStatus.UpdateVersion === status) {
+          modifyConnectionEditorToView(ctx, conn);
+          conn.isCloseCoAuthoring = true;
           if (bIsRestore) {
             // error version
             yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE, true);
             return;
-          } else {
-            modifyConnectionEditorToView(ctx, conn);
-            conn.isCiriticalError = true;
           }
         } else if (commonDefines.FileStatus.None === status && conn.encrypted) {
           //ok
