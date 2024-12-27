@@ -1078,7 +1078,8 @@ exports.encryptPassword = async function (ctx, password) {
   const iterations = Math.floor(Math.random() * (greaterNumber - lowerNumber)) + lowerNumber;
 
   const encryptionKey = await pbkdf2Promise(tenSecret, salt, iterations, keyByteLength, 'sha512');
-  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, initializationVector);
+  //todo chacha20-poly1305 (clean db)
+  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, initializationVector, {authTagLength:16});
   const encryptedData = Buffer.concat([cipher.update(password, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
   const predicate = iterations.toString(16);
@@ -1120,7 +1121,7 @@ exports.decryptPassword = async function (ctx, password) {
   ] = pointerArray;
 
   const decryptionKey = await pbkdf2Promise(tenSecret, salt, parseInt(iterations, 16), keyByteLength, 'sha512');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', decryptionKey, initializationVector);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', decryptionKey, initializationVector, {authTagLength:16});
   decipher.setAuthTag(authTag);
 
   return Buffer.concat([decipher.update(encryptedData, 'binary'), decipher.final()]).toString();
