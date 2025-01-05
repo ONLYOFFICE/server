@@ -224,13 +224,13 @@ function restoreInitialPassword(ctx, docId) {
   });
 }
 
-function addRandomKey(ctx, task, opt_prefix, opt_size) {
+function addRandomKey(ctx, task, key, opt_prefix, opt_size) {
   return new Promise(function(resolve, reject) {
     task.tenant = ctx.tenant;
     if (undefined !== opt_prefix && undefined !== opt_size) {
       task.key = opt_prefix + crypto.randomBytes(opt_size).toString("hex");
     } else {
-      task.key = task.key + '_' + Math.round(Math.random() * RANDOM_KEY_MAX);
+      task.key = key + '_' + Math.round(Math.random() * RANDOM_KEY_MAX);
     }
     task.completeDefaults();
     let values = [];
@@ -251,7 +251,7 @@ function addRandomKey(ctx, task, opt_prefix, opt_size) {
       } else {
         resolve(result);
       }
-    }, undefined, undefined, values);
+    }, undefined, true, values);
   });
 }
 function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
@@ -264,10 +264,10 @@ function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
   var addRes = null;
   while (nTryCount-- > 0) {
     try {
-      addRes = yield addRandomKey(ctx, task, opt_prefix, opt_size);
+      addRes = yield addRandomKey(ctx, task, key, opt_prefix, opt_size);
     } catch (e) {
       addRes = null;
-      //key exist, try again
+      ctx.logger.debug("addRandomKeyTask %s exists, try again", task.key);
     }
     if (addRes && addRes.affectedRows > 0) {
       break;
