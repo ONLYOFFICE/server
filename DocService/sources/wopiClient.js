@@ -1050,12 +1050,12 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
   if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
     headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKey);
     headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKeyOld);
-    headers['X-WOPI-TimeStamp'] = timeStamp;
-    headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
-    // todo
-    // headers['X-WOPI-CorrelationId '] = "";
-    // headers['X-WOPI-SessionId'] = "";
   }
+  headers['X-WOPI-TimeStamp'] = timeStamp;
+  headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
+  // todo
+  // headers['X-WOPI-CorrelationId '] = "";
+  // headers['X-WOPI-SessionId'] = "";
   //remove redundant header https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/common-headers#request-headers
   // headers['Authorization'] = `Bearer ${access_token}`;
 }
