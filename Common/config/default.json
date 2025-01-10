@@ -21,8 +21,8 @@
 			"host": "localhost",
 			"port": 587,
 			"auth": {
-				"user": "onlyoffice",
-				"pass": "onlyoffice"
+				"user": "",
+				"pass": ""
 			}
 		},
 		"connectionConfiguration": {
