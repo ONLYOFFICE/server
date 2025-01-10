@@ -364,7 +364,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
       ctx.logger.warn('License: License not active before start_date:%s.', startDate.toISOString());
     } else if (timeLimited) {
       // 30 days after end license = limited mode with 20 Connections
-      if (endDate.setDate(checkDate.getDate() + 30) >= checkDate) {
+      if (endDate.setDate(endDate.getDate() + 30) >= checkDate) {
         res.type = c_LR.SuccessLimit;
         res.connections = Math.min(res.connections, constants.LICENSE_CONNECTIONS);
         res.connectionsView = Math.min(res.connectionsView, constants.LICENSE_CONNECTIONS);
