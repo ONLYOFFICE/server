@@ -75,14 +75,14 @@ const cfgWopiCellView = config.get('wopi.cellView');
 const cfgWopiCellEdit = config.get('wopi.cellEdit');
 const cfgWopiSlideView = config.get('wopi.slideView');
 const cfgWopiSlideEdit = config.get('wopi.slideEdit');
-const cfgWopiVisioView = config.get('wopi.visioView');
-const cfgWopiVisioEdit = config.get('wopi.visioEdit');
+const cfgWopiDiagramView = config.get('wopi.diagramView');
+const cfgWopiDiagramEdit = config.get('wopi.diagramEdit');
 const cfgWopiForms = config.get('wopi.forms');
 const cfgWopiFavIconUrlWord = config.get('wopi.favIconUrlWord');
 const cfgWopiFavIconUrlCell = config.get('wopi.favIconUrlCell');
 const cfgWopiFavIconUrlSlide = config.get('wopi.favIconUrlSlide');
 const cfgWopiFavIconUrlPdf = config.get('wopi.favIconUrlPdf');
-const cfgWopiFavIconUrlVisio = config.get('wopi.favIconUrlVisio');
+const cfgWopiFavIconUrlDiagram = config.get('wopi.favIconUrlDiagram');
 const cfgWopiPublicKey = config.get('wopi.publicKey');
 const cfgWopiModulus = config.get('wopi.modulus');
 const cfgWopiExponent = config.get('wopi.exponent');
@@ -157,14 +157,14 @@ function discovery(req, res) {
       const tenWopiCellEdit = ctx.getCfg('wopi.cellEdit', cfgWopiCellEdit);
       const tenWopiSlideView = ctx.getCfg('wopi.slideView', cfgWopiSlideView);
       const tenWopiSlideEdit = ctx.getCfg('wopi.slideEdit', cfgWopiSlideEdit);
-      const tenWopiVisioView = ctx.getCfg('wopi.visioView', cfgWopiVisioView);
-      const tenWopiVisioEdit = ctx.getCfg('wopi.visioEdit', cfgWopiVisioEdit);
+      const tenWopiDiagramView = ctx.getCfg('wopi.slideView', cfgWopiDiagramView);
+      const tenWopiDiagramEdit = ctx.getCfg('wopi.slideEdit', cfgWopiDiagramEdit);
       const tenWopiForms = ctx.getCfg('wopi.forms', cfgWopiForms);
       const tenWopiFavIconUrlWord = ctx.getCfg('wopi.favIconUrlWord', cfgWopiFavIconUrlWord);
       const tenWopiFavIconUrlCell = ctx.getCfg('wopi.favIconUrlCell', cfgWopiFavIconUrlCell);
       const tenWopiFavIconUrlSlide = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlSlide);
       const tenWopiFavIconUrlPdf = ctx.getCfg('wopi.favIconUrlPdf', cfgWopiFavIconUrlPdf);
-      const tenWopiFavIconUrlVisio = ctx.getCfg('wopi.favIconUrlVisio', cfgWopiFavIconUrlVisio);
+      const tenWopiFavIconUrlDiagram = ctx.getCfg('wopi.favIconUrlDiagram', cfgWopiFavIconUrlDiagram);
       const tenWopiPublicKey = ctx.getCfg('wopi.publicKey', cfgWopiPublicKey);
       const tenWopiModulus = ctx.getCfg('wopi.modulus', cfgWopiModulus);
       const tenWopiExponent = ctx.getCfg('wopi.exponent', cfgWopiExponent);
@@ -185,9 +185,9 @@ function discovery(req, res) {
       let documentTypes = [`word`, `cell`, `slide`, `pdf`];
       if (true) {//todo check packageType
         names.push('Visio');
-        favIconUrls.push(tenWopiFavIconUrlVisio);
-        exts.push({targetext: null, view: tenWopiVisioView, edit: tenWopiVisioEdit});
-        documentTypes.push(`visio`);
+        favIconUrls.push(tenWopiFavIconUrlDiagram);
+        exts.push({targetext: null, view: tenWopiDiagramView, edit: tenWopiDiagramEdit});
+        documentTypes.push(`diagram`);
       }
 
       let templatesFolderExtsCache = yield getTemplatesFolderExts(ctx);
