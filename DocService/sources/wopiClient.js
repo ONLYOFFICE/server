@@ -57,6 +57,7 @@ const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
 const mime = require('mime');
+const license = require('./../../Common/sources/license');
 
 const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
@@ -75,14 +76,14 @@ const cfgWopiCellView = config.get('wopi.cellView');
 const cfgWopiCellEdit = config.get('wopi.cellEdit');
 const cfgWopiSlideView = config.get('wopi.slideView');
 const cfgWopiSlideEdit = config.get('wopi.slideEdit');
-const cfgWopiVisioView = config.get('wopi.visioView');
-const cfgWopiVisioEdit = config.get('wopi.visioEdit');
+const cfgWopiDiagramView = config.get('wopi.diagramView');
+const cfgWopiDiagramEdit = config.get('wopi.diagramEdit');
 const cfgWopiForms = config.get('wopi.forms');
 const cfgWopiFavIconUrlWord = config.get('wopi.favIconUrlWord');
 const cfgWopiFavIconUrlCell = config.get('wopi.favIconUrlCell');
 const cfgWopiFavIconUrlSlide = config.get('wopi.favIconUrlSlide');
 const cfgWopiFavIconUrlPdf = config.get('wopi.favIconUrlPdf');
-const cfgWopiFavIconUrlVisio = config.get('wopi.favIconUrlVisio');
+const cfgWopiFavIconUrlDiagram = config.get('wopi.favIconUrlDiagram');
 const cfgWopiPublicKey = config.get('wopi.publicKey');
 const cfgWopiModulus = config.get('wopi.modulus');
 const cfgWopiExponent = config.get('wopi.exponent');
@@ -102,8 +103,8 @@ const templateFilesSizeCache = {};
 let shutdownFlag = false;
 
 //patch mimeDB
-if (mimeDB["application/vnd.visio"]) {
-  mimeDB["application/vnd.visio"].extensions.push("vsdx");
+if (!mimeDB["application/vnd.visio2013"]) {
+  mimeDB["application/vnd.visio2013"] = {extensions: ["vsdx", "vstx", "vssx", "vsdm", "vstm", "vssm"]};
 }
 
 let mimeTypesByExt = (function() {
@@ -157,14 +158,14 @@ function discovery(req, res) {
       const tenWopiCellEdit = ctx.getCfg('wopi.cellEdit', cfgWopiCellEdit);
       const tenWopiSlideView = ctx.getCfg('wopi.slideView', cfgWopiSlideView);
       const tenWopiSlideEdit = ctx.getCfg('wopi.slideEdit', cfgWopiSlideEdit);
-      const tenWopiVisioView = ctx.getCfg('wopi.visioView', cfgWopiVisioView);
-      const tenWopiVisioEdit = ctx.getCfg('wopi.visioEdit', cfgWopiVisioEdit);
+      const tenWopiDiagramView = ctx.getCfg('wopi.slideView', cfgWopiDiagramView);
+      const tenWopiDiagramEdit = ctx.getCfg('wopi.slideEdit', cfgWopiDiagramEdit);
       const tenWopiForms = ctx.getCfg('wopi.forms', cfgWopiForms);
       const tenWopiFavIconUrlWord = ctx.getCfg('wopi.favIconUrlWord', cfgWopiFavIconUrlWord);
       const tenWopiFavIconUrlCell = ctx.getCfg('wopi.favIconUrlCell', cfgWopiFavIconUrlCell);
       const tenWopiFavIconUrlSlide = ctx.getCfg('wopi.favIconUrlSlide', cfgWopiFavIconUrlSlide);
       const tenWopiFavIconUrlPdf = ctx.getCfg('wopi.favIconUrlPdf', cfgWopiFavIconUrlPdf);
-      const tenWopiFavIconUrlVisio = ctx.getCfg('wopi.favIconUrlVisio', cfgWopiFavIconUrlVisio);
+      const tenWopiFavIconUrlDiagram = ctx.getCfg('wopi.favIconUrlDiagram', cfgWopiFavIconUrlDiagram);
       const tenWopiPublicKey = ctx.getCfg('wopi.publicKey', cfgWopiPublicKey);
       const tenWopiModulus = ctx.getCfg('wopi.modulus', cfgWopiModulus);
       const tenWopiExponent = ctx.getCfg('wopi.exponent', cfgWopiExponent);
@@ -183,11 +184,12 @@ function discovery(req, res) {
         {targetext: null, view: tenWopiPdfView, edit: tenWopiPdfEdit}
       ];
       let documentTypes = [`word`, `cell`, `slide`, `pdf`];
-      if (true) {//todo check packageType
+      //todo check sdkjs-ooxml addon
+      if (constants.PACKAGE_TYPE_OS !== license.packageType || process.env?.NODE_ENV?.startsWith("development-")) {
         names.push('Visio');
-        favIconUrls.push(tenWopiFavIconUrlVisio);
-        exts.push({targetext: null, view: tenWopiVisioView, edit: tenWopiVisioEdit});
-        documentTypes.push(`visio`);
+        favIconUrls.push(tenWopiFavIconUrlDiagram);
+        exts.push({targetext: null, view: tenWopiDiagramView, edit: tenWopiDiagramEdit});
+        documentTypes.push(`diagram`);
       }
 
       let templatesFolderExtsCache = yield getTemplatesFolderExts(ctx);
@@ -253,10 +255,16 @@ function discovery(req, res) {
         let urlTemplateEdit = `${templateStart}/${documentTypes[i]}/edit?${templateEnd}`;
         let urlTemplateMobileEdit = `${templateStart}/${documentTypes[i]}/edit?mobile=1&amp;${templateEnd}`;
         let urlTemplateFormSubmit = `${templateStart}/${documentTypes[i]}/edit?formsubmit=1&amp;${templateEnd}`;
+        let mimeTypesDuplicate = new Set();//to remove duplicates for each editor(allow html for word and excel)
         for (let j = 0; j < ext.view.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.view[j]];
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
+              if (mimeTypesDuplicate.has(value)) {
+                return;
+              } else {
+                mimeTypesDuplicate.add(value);
+              }
               let xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
               xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
@@ -269,10 +277,16 @@ function discovery(req, res) {
             });
           }
         }
+        mimeTypesDuplicate.clear();
         for (let j = 0; j < ext.edit.length; ++j) {
           let mimeTypes = mimeTypesByExt[ext.edit[j]];
           if (mimeTypes) {
             mimeTypes.forEach((value) => {
+              if (mimeTypesDuplicate.has(value)) {
+                return;
+              } else {
+                mimeTypesDuplicate.add(value);
+              }
               let xmlApp = xmlZone.ele('app', {name: value});
               if (formsExts[ext.edit[j]]) {
                 xmlApp.ele('action', {name: 'edit', ext: '', default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
@@ -1038,12 +1052,12 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
   if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
     headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKey);
     headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKeyOld);
-    headers['X-WOPI-TimeStamp'] = timeStamp;
-    headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
-    // todo
-    // headers['X-WOPI-CorrelationId '] = "";
-    // headers['X-WOPI-SessionId'] = "";
   }
+  headers['X-WOPI-TimeStamp'] = timeStamp;
+  headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
+  // todo
+  // headers['X-WOPI-CorrelationId '] = "";
+  // headers['X-WOPI-SessionId'] = "";
   //remove redundant header https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/common-headers#request-headers
   // headers['Authorization'] = `Bearer ${access_token}`;
 }

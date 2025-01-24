@@ -205,8 +205,6 @@ docsCoServer.install(server, () => {
 			res.sendStatus(403);
 		}
 	});
-	//'*' for backward compatible
-	app.post('/uploadold/:docid*', fileUploaderService.uploadImageFileOld);
 	app.post('/upload/:docid*', rawFileParser, fileUploaderService.uploadImageFile);
 
 	app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);

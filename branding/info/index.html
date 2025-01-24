@@ -330,7 +330,7 @@
                   var licdateStart = new Date(licenseInfo.startDate);
                   elem = document.getElementById('lic-start');
                   elem.innerText = licdateStart.toLocaleDateString();
-                  if (16 === licType || licdateStart > new Date()) {
+                  if (16 === licType || licdateStart > new Date(serverInfo.date)) {
                     elem.classList.add('critical');
                   }
                 }

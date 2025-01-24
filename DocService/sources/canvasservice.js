@@ -190,12 +190,10 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
     case commonDefines.FileStatus.Ok:
       if(commonDefines.FileStatus.Ok === status) {
         outputData.setStatus('ok');
-      } else if (optConn && (optConn.user.view || optConn.isCloseCoAuthoring)) {
-        if (optConn.isCiriticalError) {
-          outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
-        } else {
-          outputData.setStatus('ok');
-        }
+      } else if (optConn && optConn.isCloseCoAuthoring) {
+        outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
+      } else if (optConn && optConn.user.view) {
+        outputData.setStatus('ok');
       } else if (commonDefines.FileStatus.SaveVersion === status ||
         (!opt_bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
         Date.now() - statusInfo * 60000 > tenExpUpdateVersionStatus)) {

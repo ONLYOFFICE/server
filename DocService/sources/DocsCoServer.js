@@ -158,7 +158,7 @@ const EditorTypes = {
   document : 0,
   spreadsheet : 1,
   presentation : 2,
-  visio : 3
+  diagram : 3
 };
 
 const defaultHttpPort = 80, defaultHttpsPort = 443;	// Default ports (for http and https)
@@ -853,7 +853,7 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
     let data = {type: forceSaveType, time: forceSave.getTime(), success: success};
     if(commonDefines.c_oAscForceSaveTypes.Form === forceSaveType || commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
       let code = success ? commonDefines.c_oAscServerCommandErrors.NoError : commonDefines.c_oAscServerCommandErrors.UnknownError;
-      data = {code: code, time: null, inProgress: false};
+      data = {code: code, time: forceSave.getTime(), inProgress: false};
       if (commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
         data.url = url;
       }
@@ -882,7 +882,7 @@ async function checkForceSaveCache(ctx, convertInfo) {
   return res;
 }
 async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId,
-                                   opt_responseKey, opt_formdata, opt_userId, opt_userIndex) {
+                                   opt_responseKey, opt_formdata, opt_userId, opt_userIndex, opt_prevTime) {
   let res = {ok: false, notModified: false, inProgress: false, startedForceSave: null};
   if (!forceSave) {
     res.notModified = true;
@@ -893,24 +893,26 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
     if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type || !forceSave.ended) {
       //c_oAscForceSaveTypes.Form has uniqueue options {'documentLayout': {'isPrint': true}}; dont use it for other types
       let forceSaveCached = forceSaveCache.cmd?.getForceSave()?.getType();
-      let cacheHasSameOptions = (commonDefines.c_oAscForceSaveTypes.Form === type &&
-          commonDefines.c_oAscForceSaveTypes.Form === forceSaveCached) ||
-        (commonDefines.c_oAscForceSaveTypes.Form !== type &&
-          commonDefines.c_oAscForceSaveTypes.Form !== forceSaveCached)
+      let cacheHasSameOptions = (commonDefines.c_oAscForceSaveTypes.Form === type && commonDefines.c_oAscForceSaveTypes.Form === forceSaveCached) ||
+        (commonDefines.c_oAscForceSaveTypes.Form !== type && commonDefines.c_oAscForceSaveTypes.Form !== forceSaveCached);
       if (forceSaveCache.hasValidCache && cacheHasSameOptions) {
-        let cmd = forceSaveCache.cmd;
-        cmd.setUserConnectionDocId(opt_userConnectionDocId);
-        cmd.setUserConnectionId(opt_userConnectionId);
-        cmd.setResponseKey(opt_responseKey);
-        cmd.setFormData(opt_formdata);
-        if (cmd.getForceSave()) {
-          cmd.getForceSave().setType(type);
-          cmd.getForceSave().setAuthorUserId(opt_userId);
-          cmd.getForceSave().setAuthorUserIndex(opt_userIndex);
+        if (commonDefines.c_oAscForceSaveTypes.Internal === type && forceSave.time === opt_prevTime) {
+          res.notModified = true;
+        } else {
+          let cmd = forceSaveCache.cmd;
+          cmd.setUserConnectionDocId(opt_userConnectionDocId);
+          cmd.setUserConnectionId(opt_userConnectionId);
+          cmd.setResponseKey(opt_responseKey);
+          cmd.setFormData(opt_formdata);
+          if (cmd.getForceSave()) {
+            cmd.getForceSave().setType(type);
+            cmd.getForceSave().setAuthorUserId(opt_userId);
+            cmd.getForceSave().setAuthorUserIndex(opt_userIndex);
+          }
+          //todo timeout because commandSfcCallback make request?
+          await canvasService.commandSfcCallback(ctx, cmd, true, false);
+          res.ok = true;
         }
-        //todo timeout because commandSfcCallback make request?
-        await canvasService.commandSfcCallback(ctx, cmd, true, false);
-        res.ok = true;
       } else {
         await editorData.checkAndSetForceSave(ctx, docId, forceSave.time, forceSave.index, false, false, null);
         res.startedForceSave = await editorData.checkAndStartForceSave(ctx, docId);
@@ -933,7 +935,8 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
 }
 async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId,
                               opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl,
-                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams, opt_changeInfo) {
+                              opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams, opt_changeInfo,
+                              opt_prevTime) {
   const tenForceSaveUsingButtonWithoutChanges = ctx.getCfg('services.CoAuthoring.server.forceSaveUsingButtonWithoutChanges', cfgForceSaveUsingButtonWithoutChanges);
   ctx.logger.debug('startForceSave start');
   let res = {code: commonDefines.c_oAscServerCommandErrors.NoError, time: null, inProgress: false};
@@ -964,7 +967,7 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
         forceSave = await editorData.getForceSave(ctx, docId);
       }
       let applyCacheRes = await applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId,
-        opt_userConnectionDocId, opt_responseKey, opt_formdata, opt_userId, opt_userIndex);
+        opt_userConnectionDocId, opt_responseKey, opt_formdata, opt_userId, opt_userIndex, opt_prevTime);
       startedForceSave = applyCacheRes.startedForceSave;
       if (applyCacheRes.notModified) {
         let selectRes = await taskResult.select(ctx, docId);
@@ -1048,7 +1051,8 @@ let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
     }
   }
   if (!forceSaveRes) {
-    forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey);
+    forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey,
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, data.time);
   }
   if (commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
     sendDataRpc(ctx, conn, responseKey, forceSaveRes);
@@ -1512,7 +1516,7 @@ function getOpenFormatByEditor(editorType) {
     case EditorTypes.presentation:
       res = constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION;
       break;
-    case EditorTypes.visio:
+    case EditorTypes.diagram:
       res = constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDX;
       break;
     default:
@@ -1679,13 +1683,6 @@ exports.install = function(server, callbackFunction) {
               ctx.logger.debug('Server shutdown receive data');
               return;
             }
-            if (conn.isCiriticalError && ('message' == data.type || 'getLock' == data.type || 'saveChanges' == data.type ||
-              'isSaveLock' == data.type)) {
-              ctx.logger.warn("conn.isCiriticalError send command: type = %s", data.type);
-              sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
-              conn.disconnect(true);
-              return;
-            }
             if ((conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
               ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)) {
               ctx.logger.warn("conn.user.view||isCloseCoAuthoring access deny: type = %s", data.type);
@@ -1850,7 +1847,7 @@ exports.install = function(server, callbackFunction) {
         }
       }
     } else {
-      if (!conn.isCloseCoAuthoring) {
+      if (!conn.isCloseCoAuthoring && !isView) {
         modifyConnectionEditorToView(ctx, conn);
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
@@ -1877,11 +1874,11 @@ exports.install = function(server, callbackFunction) {
       yield publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx: ctx, docId: docId, userId: tmpUser.id, participantsTimestamp: participantsTimestamp, participants: participants}, docId, tmpUser.id);
       tmpUser.view = tmpView;
 
-      // For this user, we remove the lock from saving
-      yield editorData.unlockSave(ctx, docId, conn.user.id);
-
       // editors only
       if (false === isView) {
+        // For this user, we remove the lock from saving
+        yield editorData.unlockSave(ctx, docId, conn.user.id);
+
         bHasEditors = yield* hasEditors(ctx, docId, hvals);
         bHasChanges = yield hasChanges(ctx, docId);
 
@@ -2067,7 +2064,6 @@ exports.install = function(server, callbackFunction) {
     } else {
       ctx.logger.warn('error description: errorId = %s', errorId);
     }
-    conn.isCiriticalError = true;
     sendData(ctx, conn, {type: 'error', description: errorId, code: code});
   }
 
@@ -2081,6 +2077,9 @@ exports.install = function(server, callbackFunction) {
     });
     //closing could happen during async action
     if (constants.CONN_CLOSED !== conn.conn.readyState) {
+      modifyConnectionEditorToView(ctx, conn);
+      conn.isCloseCoAuthoring = true;
+
       // We put it in an array, because we need to send data to open/save the document
       connections.push(conn);
       yield addPresence(ctx, conn, true);
@@ -2731,13 +2730,12 @@ exports.install = function(server, callbackFunction) {
             return;
           }
         } else if (commonDefines.FileStatus.UpdateVersion === status) {
+          modifyConnectionEditorToView(ctx, conn);
+          conn.isCloseCoAuthoring = true;
           if (bIsRestore) {
             // error version
             yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Update Version error', constants.UPDATE_VERSION_CODE, true);
             return;
-          } else {
-            modifyConnectionEditorToView(ctx, conn);
-            conn.isCiriticalError = true;
           }
         } else if (commonDefines.FileStatus.None === status && conn.encrypted) {
           //ok
@@ -3097,7 +3095,7 @@ exports.install = function(server, callbackFunction) {
         fCheckLock = _checkLockExcel;
         break;
       case EditorTypes.presentation:
-      case EditorTypes.visio:
+      case EditorTypes.diagram:
         // PP
         fCheckLock = _checkLockPresentation;
         break;
