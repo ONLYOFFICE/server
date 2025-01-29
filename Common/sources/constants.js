@@ -233,6 +233,7 @@ exports.CONVERT_ICU = -92;
 exports.CONVERT_LIMITS = -93;
 exports.CONVERT_TEMPORARY = -94;
 exports.CONVERT_DETECT = -95;
+exports.CONVERT_CELLLIMITS = -96;
 exports.CONVERT_DEAD_LETTER = -99;
 exports.UPLOAD = -100;
 exports.UPLOAD_CONTENT_LENGTH = -101;
