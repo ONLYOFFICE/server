@@ -160,9 +160,9 @@ function getOpenedAt(row) {
   return;
 }
 function getOpenedAtJSONParams(row) {
-  let openedAt = getOpenedAt(row);
-  if (openedAt) {
-    return {'documentLayout': {'openedAt': openedAt}};
+  let documentLayout = row && sqlBase.DocumentAdditional.prototype.getDocumentLayout(row.additional);
+  if (documentLayout) {
+    return {'documentLayout': documentLayout};
   }
   return undefined;
 }

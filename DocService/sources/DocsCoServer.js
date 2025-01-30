@@ -2581,7 +2581,7 @@ exports.install = function(server, callbackFunction) {
         upsertRes = yield canvasService.commandOpenStartPromise(ctx, docId, utils.getBaseUrlByConnection(ctx, conn), data.documentCallbackUrl, format);
         curIndexUser = upsertRes.insertId;
         //todo update additional in commandOpenStartPromise
-        if ((upsertRes.isInsert || (wopiParams && 2 === curIndexUser)) && (undefined !== data.timezoneOffset || ctx.shardKey || ctx.wopiSrc)) {
+        if ((upsertRes.isInsert || (wopiParams && 2 === curIndexUser)) && (undefined !== data.timezoneOffset || data.headingsColor || ctx.shardKey || ctx.wopiSrc)) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
           if (false === canvasService.hasAdditionalCol) {
             let selectRes = yield taskResult.select(ctx, docId);
@@ -2591,9 +2591,9 @@ exports.install = function(server, callbackFunction) {
             let task = new taskResult.TaskResultData();
             task.tenant = ctx.tenant;
             task.key = docId;
-            if (undefined !== data.timezoneOffset) {
+            if (undefined !== data.timezoneOffset || data.headingsColor) {
               //todo duplicate created_at because CURRENT_TIMESTAMP uses server timezone
-              openedAtStr = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset);
+              openedAtStr = sqlBase.DocumentAdditional.prototype.setOpenedAt(Date.now(), data.timezoneOffset, data.headingsColor);
               task.additional = openedAtStr;
             }
             if (ctx.shardKey) {
