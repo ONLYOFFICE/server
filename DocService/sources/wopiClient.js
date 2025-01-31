@@ -158,8 +158,8 @@ function discovery(req, res) {
       const tenWopiCellEdit = ctx.getCfg('wopi.cellEdit', cfgWopiCellEdit);
       const tenWopiSlideView = ctx.getCfg('wopi.slideView', cfgWopiSlideView);
       const tenWopiSlideEdit = ctx.getCfg('wopi.slideEdit', cfgWopiSlideEdit);
-      const tenWopiDiagramView = ctx.getCfg('wopi.slideView', cfgWopiDiagramView);
-      const tenWopiDiagramEdit = ctx.getCfg('wopi.slideEdit', cfgWopiDiagramEdit);
+      const tenWopiDiagramView = ctx.getCfg('wopi.diagramView', cfgWopiDiagramView);
+      const tenWopiDiagramEdit = ctx.getCfg('wopi.diagramEdit', cfgWopiDiagramEdit);
       const tenWopiForms = ctx.getCfg('wopi.forms', cfgWopiForms);
       const tenWopiFavIconUrlWord = ctx.getCfg('wopi.favIconUrlWord', cfgWopiFavIconUrlWord);
       const tenWopiFavIconUrlCell = ctx.getCfg('wopi.favIconUrlCell', cfgWopiFavIconUrlCell);
@@ -185,7 +185,9 @@ function discovery(req, res) {
       ];
       let documentTypes = [`word`, `cell`, `slide`, `pdf`];
       //todo check sdkjs-ooxml addon
-      if (constants.PACKAGE_TYPE_OS !== license.packageType || process.env?.NODE_ENV?.startsWith("development-")) {
+      let addVisio = (tenWopiDiagramView.length > 0 || tenWopiDiagramEdit.length > 0)
+        && (constants.PACKAGE_TYPE_OS !== license.packageType || process.env?.NODE_ENV?.startsWith("development-"));
+      if (addVisio) {
         names.push('Visio');
         favIconUrls.push(tenWopiFavIconUrlDiagram);
         exts.push({targetext: null, view: tenWopiDiagramView, edit: tenWopiDiagramEdit});
