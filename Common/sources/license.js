@@ -59,7 +59,8 @@ exports.readLicense = async function () {
 		startDate: startDate,
 		endDate: null,
 		customerId: "",
-		alias: ""
+		alias: "",
+		multitenancy: false
 	}, null];
 };
 

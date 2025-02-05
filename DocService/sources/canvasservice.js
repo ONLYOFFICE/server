@@ -160,9 +160,9 @@ function getOpenedAt(row) {
   return;
 }
 function getOpenedAtJSONParams(row) {
-  let openedAt = getOpenedAt(row);
-  if (openedAt) {
-    return {'documentLayout': {'openedAt': openedAt}};
+  let documentLayout = row && sqlBase.DocumentAdditional.prototype.getDocumentLayout(row.additional);
+  if (documentLayout) {
+    return {'documentLayout': documentLayout};
   }
   return undefined;
 }
@@ -190,12 +190,10 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
     case commonDefines.FileStatus.Ok:
       if(commonDefines.FileStatus.Ok === status) {
         outputData.setStatus('ok');
-      } else if (optConn && (optConn.user.view || optConn.isCloseCoAuthoring)) {
-        if (optConn.isCiriticalError) {
-          outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
-        } else {
-          outputData.setStatus('ok');
-        }
+      } else if (optConn && optConn.isCloseCoAuthoring) {
+        outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
+      } else if (optConn && optConn.user.view) {
+        outputData.setStatus('ok');
       } else if (commonDefines.FileStatus.SaveVersion === status ||
         (!opt_bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
         Date.now() - statusInfo * 60000 > tenExpUpdateVersionStatus)) {
@@ -528,7 +526,10 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
           cmd.setForgotten(cmd.getDocId());
         }
         //add task
-        cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+        if (!cmd.getOutputFormat()) {
+          //todo remove getOpenFormatByEditor after 8.2.1
+          cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+        }
         cmd.setEmbeddedFonts(false);
         var dataQueue = new commonDefines.TaskQueueData();
         dataQueue.setCtx(ctx);
@@ -583,7 +584,10 @@ function* commandReopen(ctx, conn, cmd, outputData) {
     if (upsertRes.affectedRows > 0) {
       //add task
       cmd.setUrl(null);//url may expire
-      cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+      if (!cmd.getOutputFormat()) {
+        //todo remove getOpenFormatByEditor after 8.2.1
+        cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+      }
       cmd.setEmbeddedFonts(false);
       if (isPassword) {
         cmd.setUserConnectionId(conn.user.id);

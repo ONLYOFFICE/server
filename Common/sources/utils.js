@@ -95,15 +95,14 @@ var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 BigInt.prototype.toJSON = function() { return this.toString() };
 
 var g_oIpFilterRules = new Map();
-function getIpFilterRules(rules) {
-  var res = [];
-  for (var i = 0; i < rules.length; ++i) {
-    var rule = rules[i];
-    var regExpStr = rule['address'].split('*').map(escapeStringRegexp).join('.*');
-    var exp = new RegExp('^' + regExpStr + '$', 'i');
-    res.push({allow: rule['allowed'], exp: exp});
+function getIpFilterRule(address) {
+  let exp = g_oIpFilterRules.get(address);
+  if (!exp) {
+    let regExpStr = address.split('*').map(escapeStringRegexp).join('.*');
+    exp = new RegExp('^' + regExpStr + '$', 'i');
+    g_oIpFilterRules.set(address, exp);
   }
-  return res;
+  return exp;
 }
 const pemfileCache = new NodeCache({stdTTL: ms(cfgExpPemStdTtl) / 1000, checkperiod: ms(cfgExpPemCheckPeriod) / 1000, errorOnMissing: false, useClones: true});
 
@@ -457,12 +456,12 @@ function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_A
       .on('error', fError);
     if (optTimeout && optTimeout.wholeCycle) {
       timeoutId = setTimeout(function() {
-        raiseError(ro, 'ETIMEDOUT', 'Error: whole request cycle timeout');
+        raiseError(ro, 'ETIMEDOUT', `Error: whole request cycle timeout: ${optTimeout.wholeCycle}`);
       }, ms(optTimeout.wholeCycle));
     }
   });
 }
-function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_headers) {
+function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_isInJwtToken, opt_headers) {
   return new Promise(function(resolve, reject) {
     const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
     const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
@@ -473,8 +472,14 @@ function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, op
     let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
     let options = config.util.extendDeep({}, tenTenantRequestDefaults);
     Object.assign(options, {uri: urlParsed, encoding: 'utf8', timeout: connectionAndInactivity});
-    //baseRequest creates new agent(win-ca injects in globalAgent)
-    options.agentOptions = https.globalAgent.options;
+    if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options)) {
+      reject(new Error('Block external request. See externalRequest config options'));
+      return;
+    }
+    if (!options.agent) {
+      //baseRequest creates new agent(win-ca injects in globalAgent)
+      options.agentOptions = https.globalAgent.options;
+    }
     if (postData) {
       options.body = postData;
     }
@@ -519,7 +524,7 @@ function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, op
     });
     if (optTimeout && optTimeout.wholeCycle) {
       setTimeout(function() {
-        raiseError(ro, 'ETIMEDOUT', 'Error whole request cycle timeout');
+        raiseError(ro, 'ETIMEDOUT', `Error: whole request cycle timeout: ${optTimeout.wholeCycle}`);
       }, ms(optTimeout.wholeCycle));
     }
     if (postDataStream && !postData) {
@@ -533,6 +538,7 @@ exports.mapAscServerErrorToOldError = function(error) {
   var res = -1;
   switch (error) {
     case constants.NO_ERROR :
+    case constants.CONVERT_CELLLIMITS :
       res = 0;
       break;
     case constants.TASK_QUEUE :
@@ -873,14 +879,13 @@ function* pipeFiles(from, to) {
 exports.pipeFiles = co.wrap(pipeFiles);
 function checkIpFilter(ctx, ipString, opt_hostname) {
   const tenIpFilterRules = ctx.getCfg('services.CoAuthoring.ipfilter.rules', cfgIpFilterRules);
-  const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
 
   var status = 0;
   var ip4;
   var ip6;
   if (ipaddr.isValid(ipString)) {
     var ip = ipaddr.parse(ipString);
-    if ('ipv6' == ip.kind()) {
+    if ('ipv6' === ip.kind()) {
       if (ip.isIPv4MappedAddress()) {
         ip4 = ip.toIPv4Address().toString();
       }
@@ -890,16 +895,13 @@ function checkIpFilter(ctx, ipString, opt_hostname) {
       ip6 = ip.toIPv4MappedAddress().toNormalizedString();
     }
   }
-  let ipFilterRules = g_oIpFilterRules.get(ctx.tenant);
-  if (!ipFilterRules) {
-    ipFilterRules = getIpFilterRules(tenIpFilterRules);
-    g_oIpFilterRules.set(ctx.tenant, ipFilterRules);
-  }
 
-  for (var i = 0; i < ipFilterRules.length; ++i) {
-    var rule = ipFilterRules[i];
-    if ((opt_hostname && rule.exp.test(opt_hostname)) || (ip4 && rule.exp.test(ip4)) || (ip6 && rule.exp.test(ip6))) {
-      if (!rule.allow) {
+  for (let i = 0; i < tenIpFilterRules.length; ++i) {
+    let rule = tenIpFilterRules[i];
+    let exp = getIpFilterRule(rule.address);
+    if ((opt_hostname && exp.test(opt_hostname)) || (ip4 && exp.test(ip4)) || (ip6 && exp.test(ip6))) {
+      if (!rule.allowed) {
+        const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
         status = tenIpFilterErrorCode;
       }
       break;
@@ -1077,7 +1079,8 @@ exports.encryptPassword = async function (ctx, password) {
   const iterations = Math.floor(Math.random() * (greaterNumber - lowerNumber)) + lowerNumber;
 
   const encryptionKey = await pbkdf2Promise(tenSecret, salt, iterations, keyByteLength, 'sha512');
-  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, initializationVector);
+  //todo chacha20-poly1305 (clean db)
+  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, initializationVector, {authTagLength:16});
   const encryptedData = Buffer.concat([cipher.update(password, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
   const predicate = iterations.toString(16);
@@ -1119,7 +1122,7 @@ exports.decryptPassword = async function (ctx, password) {
   ] = pointerArray;
 
   const decryptionKey = await pbkdf2Promise(tenSecret, salt, parseInt(iterations, 16), keyByteLength, 'sha512');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', decryptionKey, initializationVector);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', decryptionKey, initializationVector, {authTagLength:16});
   decipher.setAuthTag(authTag);
 
   return Buffer.concat([decipher.update(encryptedData, 'binary'), decipher.final()]).toString();
@@ -1152,6 +1155,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.users_expire = licenseInfo.usersExpire / constants.LICENSE_EXPIRE_USERS_ONE_DAY;
   license.customer_id = licenseInfo.customerId;
   license.alias = licenseInfo.alias;
+  license.multitenancy = licenseInfo.multitenancy;
   return license;
 };
 exports.convertLicenseInfoToServerParams = function(licenseInfo) {

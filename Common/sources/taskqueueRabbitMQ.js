@@ -39,7 +39,6 @@ var utils = require('./utils');
 var constants = require('./constants');
 var rabbitMQCore = require('./rabbitMQCore');
 var activeMQCore = require('./activeMQCore');
-const logger = require('./logger');
 const commonDefines = require('./commondefines');
 const operationContext = require('./operationContext');
 
@@ -57,7 +56,6 @@ var cfgActiveQueueConvertResponse = constants.ACTIVEMQ_QUEUE_PREFIX + config.get
 var cfgActiveQueueConvertDead = constants.ACTIVEMQ_QUEUE_PREFIX + config.get('activemq.queueconvertdead');
 var cfgActiveQueueDelayed = constants.ACTIVEMQ_QUEUE_PREFIX + config.get('activemq.queuedelayed');
 
-const optionsExchnangeDead = {durable: true};
 function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, callback) {
   return co(function* () {
     var e = null;
@@ -72,24 +70,22 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
       });
       taskqueue.connection = conn;
       var bAssertTaskQueue = false;
-      var optionsTaskQueue = {
-        durable: true,
-        maxPriority: constants.QUEUE_PRIORITY_VERY_HIGH,
+      let optionsTaskQueueDefault = {
         messageTtl: cfgQueueRetentionPeriod * 1000,
-        deadLetterExchange: cfgRabbitExchangeConvertDead
+        deadLetterExchange: cfgRabbitExchangeConvertDead.name
       };
+      let optionsTaskQueue = {...optionsTaskQueueDefault, ...cfgRabbitQueueConvertTask.options};
       if (isAddTask) {
         taskqueue.channelConvertTask = yield rabbitMQCore.createConfirmChannelPromise(conn);
-        yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertTask, cfgRabbitQueueConvertTask,
+        yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertTask, cfgRabbitQueueConvertTask.name,
           optionsTaskQueue);
         bAssertTaskQueue = true;
       }
       var bAssertResponseQueue = false;
-      var optionsResponseQueue = {durable: true};
       if (isAddResponse) {
         taskqueue.channelConvertResponse = yield rabbitMQCore.createConfirmChannelPromise(conn);
-        yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertResponse, cfgRabbitQueueConvertResponse,
-          optionsResponseQueue);
+        yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertResponse, cfgRabbitQueueConvertResponse.name,
+          cfgRabbitQueueConvertResponse.options);
         bAssertResponseQueue = true;
       }
       var optionsReceive = {noAck: false};
@@ -97,10 +93,10 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
         taskqueue.channelConvertTaskReceive = yield rabbitMQCore.createChannelPromise(conn);
         taskqueue.channelConvertTaskReceive.prefetch(1);
         if (!bAssertTaskQueue) {
-          yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertTaskReceive, cfgRabbitQueueConvertTask,
+          yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertTaskReceive, cfgRabbitQueueConvertTask.name,
             optionsTaskQueue);
         }
-        yield rabbitMQCore.consumePromise(taskqueue.channelConvertTaskReceive, cfgRabbitQueueConvertTask,
+        yield rabbitMQCore.consumePromise(taskqueue.channelConvertTaskReceive, cfgRabbitQueueConvertTask.name,
           function (message) {
             co(function* () {
               let ack = function() {
@@ -118,10 +114,10 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
       if (isAddResponseReceive) {
         taskqueue.channelConvertResponseReceive = yield rabbitMQCore.createChannelPromise(conn);
         if (!bAssertResponseQueue) {
-          yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertResponseReceive, cfgRabbitQueueConvertResponse,
-            optionsResponseQueue);
+          yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertResponseReceive, cfgRabbitQueueConvertResponse.name,
+            cfgRabbitQueueConvertResponse.options);
         }
-        yield rabbitMQCore.consumePromise(taskqueue.channelConvertResponseReceive, cfgRabbitQueueConvertResponse,
+        yield rabbitMQCore.consumePromise(taskqueue.channelConvertResponseReceive, cfgRabbitQueueConvertResponse.name,
           function (message) {
             if (message) {
               taskqueue.emit('response', message.content.toString(), function() {
@@ -131,21 +127,20 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
           }, optionsReceive);
       }
       if (isAddDelayed) {
-        let optionsDelayedQueue = {
-          durable: true,
-          deadLetterExchange: cfgRabbitExchangeConvertDead
+        let optionsDelayedQueueDefault = {
+          deadLetterExchange: cfgRabbitExchangeConvertDead.name
         };
+        let optionsDelayedQueue = {...optionsDelayedQueueDefault, ...cfgRabbitQueueDelayed.options};
         taskqueue.channelDelayed = yield rabbitMQCore.createConfirmChannelPromise(conn);
-        yield rabbitMQCore.assertQueuePromise(taskqueue.channelDelayed, cfgRabbitQueueDelayed, optionsDelayedQueue);
+        yield rabbitMQCore.assertQueuePromise(taskqueue.channelDelayed, cfgRabbitQueueDelayed.name, optionsDelayedQueue);
       }
       if (isEmitDead) {
         taskqueue.channelConvertDead = yield rabbitMQCore.createChannelPromise(conn);
-        yield rabbitMQCore.assertExchangePromise(taskqueue.channelConvertDead, cfgRabbitExchangeConvertDead, 'fanout',
-          optionsExchnangeDead);
-        var queue = yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertDead, cfgRabbitQueueConvertDead,
-                                                          {durable: true});
+        yield rabbitMQCore.assertExchangePromise(taskqueue.channelConvertDead, cfgRabbitExchangeConvertDead.name, 'fanout',
+          cfgRabbitExchangeConvertDead.options);
+        var queue = yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertDead, cfgRabbitQueueConvertDead.name, cfgRabbitQueueConvertDead.options);
 
-        taskqueue.channelConvertDead.bindQueue(queue, cfgRabbitExchangeConvertDead, '');
+        taskqueue.channelConvertDead.bindQueue(queue, cfgRabbitExchangeConvertDead.name, '');
         yield rabbitMQCore.consumePromise(taskqueue.channelConvertDead, queue, function(message) {
           if (null != taskqueue.channelConvertDead) {
             if (message) {
@@ -369,7 +364,7 @@ function addTaskRabbit(taskqueue, content, priority, callback, opt_expiration, o
   if (undefined !== opt_headers) {
     options.headers = opt_headers;
   }
-  taskqueue.channelConvertTask.sendToQueue(cfgRabbitQueueConvertTask, content, options, callback);
+  taskqueue.channelConvertTask.sendToQueue(cfgRabbitQueueConvertTask.name, content, options, callback);
 }
 function addTaskActive(taskqueue, content, priority, callback, opt_expiration, opt_headers) {
   var msg = {durable: true, priority: priority, body: content, ttl: cfgQueueRetentionPeriod * 1000};
@@ -401,7 +396,7 @@ function addTaskString(taskqueue, task, priority, opt_expiration, opt_headers) {
 }
 function addResponseRabbit(taskqueue, content, callback) {
   var options = {persistent: true};
-  taskqueue.channelConvertResponse.sendToQueue(cfgRabbitQueueConvertResponse, content, options, callback);
+  taskqueue.channelConvertResponse.sendToQueue(cfgRabbitQueueConvertResponse.name, content, options, callback);
 }
 function addResponseActive(taskqueue, content, callback) {
   var msg = {durable: true, body: content};
@@ -418,7 +413,7 @@ function closeActive(conn) {
 }
 function addDelayedRabbit(taskqueue, content, ttl, callback) {
   var options = {persistent: true, expiration: ttl.toString()};
-  taskqueue.channelDelayed.sendToQueue(cfgRabbitQueueDelayed, content, options, callback);
+  taskqueue.channelDelayed.sendToQueue(cfgRabbitQueueDelayed.name, content, options, callback);
 }
 function addDelayedActive(taskqueue, content, ttl, callback) {
   var msg = {durable: true, body: content, ttl: ttl};
@@ -433,8 +428,8 @@ function healthCheckRabbit(taskqueue) {
     if (!taskqueue.channelConvertDead) {
       return false;
     }
-    const exchange = yield rabbitMQCore.assertExchangePromise(taskqueue.channelConvertDead, cfgRabbitExchangeConvertDead,
-      'fanout', optionsExchnangeDead);
+    const exchange = yield rabbitMQCore.assertExchangePromise(taskqueue.channelConvertDead, cfgRabbitExchangeConvertDead.name,
+      'fanout', cfgRabbitExchangeConvertDead.options);
     return !!exchange;
   });
 }

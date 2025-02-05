@@ -246,7 +246,8 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
 async function getTenantLicense(ctx) {
   let res = licenseTuple;
   if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
-    if (licenseInfo.alias) {
+    //todo alias is deprecated. remove one year after 8.3
+    if (licenseInfo.multitenancy || licenseInfo.alias) {
       let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
       let licenseTupleTenant = nodeCache.get(licensePath);
@@ -263,7 +264,7 @@ async function getTenantLicense(ctx) {
       res = [...res];
       res[0] = {...res[0]};
       res.type = constants.LICENSE_RESULT.Error;
-      ctx.logger.error('getTenantLicense error: missing "alias" field');
+      ctx.logger.error('getTenantLicense error: missing "multitenancy" or "alias" field');
     }
   }
   return res;
@@ -301,8 +302,10 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     const startDate = res.startDate;
     if (oLicense['end_date']) {
       res.endDate = new Date(oLicense['end_date']);
+    } else {
+      //spread copy do not copy date
+      res.endDate = new Date(res.endDate);
     }
-    const endDate = res.endDate;
 
     if (oLicense['customer_id']) {
       res.customerId = oLicense['customer_id']
@@ -310,6 +313,10 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
 
     if (oLicense['alias']) {
       res.alias = oLicense['alias'];
+    }
+
+    if (oLicense['multitenancy']) {
+      res.multitenancy = oLicense['multitenancy'];
     }
 
     if (true === oLicense['timelimited']) {
@@ -352,14 +359,14 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     const checkDate = ((res.mode & c_LM.Trial) || timeLimited) ? new Date() : licenseInfo.buildDate;
     //Calendar check of start_date allows to issue a license for old versions
     const checkStartDate = new Date();
-    if (startDate <= checkStartDate && checkDate <= endDate) {
+    if (startDate <= checkStartDate && checkDate <= res.endDate) {
       res.type = c_LR.Success;
     } else if (startDate > checkStartDate) {
       res.type = c_LR.NotBefore;
       ctx.logger.warn('License: License not active before start_date:%s.', startDate.toISOString());
     } else if (timeLimited) {
       // 30 days after end license = limited mode with 20 Connections
-      if (endDate.setDate(checkDate.getDate() + 30) >= checkDate) {
+      if (res.endDate.setUTCDate(res.endDate.getUTCDate() + 30) >= checkDate) {
         res.type = c_LR.SuccessLimit;
         res.connections = Math.min(res.connections, constants.LICENSE_CONNECTIONS);
         res.connectionsView = Math.min(res.connectionsView, constants.LICENSE_CONNECTIONS);

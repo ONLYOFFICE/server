@@ -50,7 +50,6 @@ function InputCommand(data, copyExplicit) {
     this['username'] = data['username'];
     this['tokenSession'] = data['tokenSession'];
     this['tokenDownload'] = data['tokenDownload'];
-    this['tokenHistory'] = data['tokenHistory'];
     this['data'] = data['data'];
     this['editorid'] = data['editorid'];
     this['format'] = data['format'];
@@ -84,7 +83,6 @@ function InputCommand(data, copyExplicit) {
     this['savekey'] = data['savekey'];
     this['userconnectionid'] = data['userconnectionid'];
     this['responsekey'] = data['responsekey'];
-    this['docconnectionid'] = data['docconnectionid'];
     this['jsonparams'] = data['jsonparams'];
     this['lcid'] = data['lcid'];
     this['useractionid'] = data['useractionid'];
@@ -101,7 +99,6 @@ function InputCommand(data, copyExplicit) {
     this['savepassword'] = data['savepassword'];
     this['withoutPassword'] = data['withoutPassword'];
     this['outputurls'] = data['outputurls'];
-    this['closeonerror'] = data['closeonerror'];
     this['serverVersion'] = data['serverVersion'];
     this['rediskey'] = data['rediskey'];
     this['nobase64'] = data['nobase64'];
@@ -127,7 +124,6 @@ function InputCommand(data, copyExplicit) {
     this['username'] = undefined;
     this['tokenSession'] = undefined;//string validate
     this['tokenDownload'] = undefined;//string validate
-    this['tokenHistory'] = undefined;//string validate
     this['data'] = undefined;//string
     //to open
     this['editorid'] = undefined;//int
@@ -152,7 +148,6 @@ function InputCommand(data, copyExplicit) {
     this['savekey'] = undefined;//int document id to save
     this['userconnectionid'] = undefined;//string internal
     this['responsekey'] = undefined;
-    this['docconnectionid'] = undefined;//string internal
     this['jsonparams'] = undefined;//string
     this['lcid'] = undefined;
     this['useractionid'] = undefined;
@@ -165,7 +160,6 @@ function InputCommand(data, copyExplicit) {
     this['savepassword'] = undefined;
     this['withoutPassword'] = undefined;
     this['outputurls'] = undefined;
-    this['closeonerror'] = undefined;
     this['serverVersion'] = undefined;
     this['rediskey'] = undefined;
     this['nobase64'] = true;
@@ -217,9 +211,6 @@ InputCommand.prototype = {
   },
   getTokenDownload: function() {
     return this['tokenDownload'];
-  },
-  getTokenHistory: function() {
-    return this['tokenHistory'];
   },
   getData: function() {
     return this['data'];
@@ -359,12 +350,6 @@ InputCommand.prototype = {
   setResponseKey: function(data) {
     this['responsekey'] = data;
   },
-  getDocConnectionId: function() {
-    return this['docconnectionid'];
-  },
-  setDocConnectionId: function(data) {
-    this['docconnectionid'] = data;
-  },
   getJsonParams: function() {
     return this['jsonparams'];
   },
@@ -446,12 +431,6 @@ InputCommand.prototype = {
   },
   getOutputUrls: function() {
     return this['outputurls'];
-  },
-  getCloseOnError: function() {
-    return this['closeonerror'];
-  },
-  setCloseOnError: function(data) {
-    this['closeonerror'] = data;
   },
   getServerVersion: function() {
     return this['serverVersion'];

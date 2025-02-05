@@ -42,10 +42,10 @@ var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 var activeMQCore = require('./../../Common/sources/activeMQCore');
 
 const cfgQueueType = config.get('queue.type');
-var cfgRabbitExchangePubSub = config.get('rabbitmq.exchangepubsub');
+const cfgRabbitExchangePubSub = config.get('rabbitmq.exchangepubsub');
+const cfgRabbitQueuePubsub = config.get('rabbitmq.queuepubsub');
 var cfgActiveTopicPubSub = constants.ACTIVEMQ_TOPIC_PREFIX + config.get('activemq.topicpubsub');
 
-const optionsExchange = {durable: true};
 function initRabbit(pubsub, callback) {
   return co(function* () {
     var e = null;
@@ -60,12 +60,12 @@ function initRabbit(pubsub, callback) {
       });
       pubsub.connection = conn;
       pubsub.channelPublish = yield rabbitMQCore.createChannelPromise(conn);
-      pubsub.exchangePublish = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub,
-        'fanout', {durable: true});
+      pubsub.exchangePublish = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub.name,
+        'fanout', cfgRabbitExchangePubSub.options);
 
       pubsub.channelReceive = yield rabbitMQCore.createChannelPromise(conn);
-      var queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, '', {autoDelete: true, exclusive: true});
-      pubsub.channelReceive.bindQueue(queue, cfgRabbitExchangePubSub, '');
+      var queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, cfgRabbitQueuePubsub.name, cfgRabbitQueuePubsub.options);
+      pubsub.channelReceive.bindQueue(queue, cfgRabbitExchangePubSub.name, '');
       yield rabbitMQCore.consumePromise(pubsub.channelReceive, queue, function (message) {
         if(null != pubsub.channelReceive){
           if (message) {
@@ -189,8 +189,8 @@ function healthCheckRabbit(pubsub) {
     if (!pubsub.channelPublish) {
       return false;
     }
-    const exchange = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub,
-      'fanout', optionsExchange);
+    const exchange = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub.name,
+      'fanout', cfgRabbitExchangePubSub.options);
     return !!exchange;
   });
 }

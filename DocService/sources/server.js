@@ -158,15 +158,16 @@ docsCoServer.install(server, () => {
 				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
 				let buildVersion = commonDefines.buildVersion;
 				let buildNumber = commonDefines.buildNumber;
-				let buildDate, packageType, customerId = "", alias = "";
+				let buildDate, packageType, customerId = "", alias = "", multitenancy="";
 				if (licenseInfo) {
 					buildDate = licenseInfo.buildDate.toISOString();
 					packageType = licenseInfo.packageType;
 					customerId = licenseInfo.customerId;
-					alias = licenseInfo.alias;
+					multitenancy = licenseInfo.multitenancy;
 				}
 				let output = `Server is functioning normally. Version: ${buildVersion}. Build: ${buildNumber}`;
-				output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}. Alias: ${alias}`;
+				output += `. Release date: ${buildDate}. Package type: ${packageType}. Customer Id: ${customerId}`;
+				output += `. Multitenancy: ${multitenancy}. Alias: ${alias}`;
 				res.send(output);
 			} catch (err) {
 				ctx.logger.error('index.html error: %s', err.stack);
@@ -190,10 +191,6 @@ docsCoServer.install(server, () => {
 	app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
 	app.post('/converter', utils.checkClientIp, rawFileParser, converterService.convertJson);
 
-
-	app.get('/FileUploader.ashx', utils.checkClientIp, rawFileParser, fileUploaderService.uploadTempFile);
-	app.post('/FileUploader.ashx', utils.checkClientIp, rawFileParser, fileUploaderService.uploadTempFile);
-
 	app.param('docid', (req, res, next, val) => {
 		if (constants.DOC_ID_REGEX.test(val)) {
 			next();
@@ -208,8 +205,6 @@ docsCoServer.install(server, () => {
 			res.sendStatus(403);
 		}
 	});
-	//'*' for backward compatible
-	app.post('/uploadold/:docid*', fileUploaderService.uploadImageFileOld);
 	app.post('/upload/:docid*', rawFileParser, fileUploaderService.uploadImageFile);
 
 	app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);
@@ -397,6 +392,10 @@ docsCoServer.install(server, () => {
 				ctx.logger.info('themes.json end');
 			}
 		});
+	});
+	app.get('/document_editor_service_worker.js', apicache.middleware("5 min"), async (req, res) => {
+		//make handler only for development version
+		res.sendFile(path.resolve("../../sdkjs/common/serviceworker/document_editor_service_worker.js"));
 	});
 	app.use((err, req, res, next) => {
 		let ctx = new operationContext.Context();

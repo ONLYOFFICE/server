@@ -233,6 +233,7 @@ exports.CONVERT_ICU = -92;
 exports.CONVERT_LIMITS = -93;
 exports.CONVERT_TEMPORARY = -94;
 exports.CONVERT_DETECT = -95;
+exports.CONVERT_CELLLIMITS = -96;
 exports.CONVERT_DEAD_LETTER = -99;
 exports.UPLOAD = -100;
 exports.UPLOAD_CONTENT_LENGTH = -101;
@@ -248,11 +249,14 @@ exports.VKEY_TIME_INCORRECT = -125;
 exports.EDITOR_CHANGES = -160;
 exports.PASSWORD = -180;
 
-exports.QUEUE_PRIORITY_VERY_LOW = 0;
-exports.QUEUE_PRIORITY_LOW = 1;
-exports.QUEUE_PRIORITY_NORMAL = 2;
-exports.QUEUE_PRIORITY_HIGH = 3;
-exports.QUEUE_PRIORITY_VERY_HIGH = 4;
+//Quorum queues internally only support two priorities: high and normal.
+//Messages without a priority set will be mapped to normal as will priorities 0 - 4.
+//Messages with a priority higher than 4 will be mapped to high.
+exports.QUEUE_PRIORITY_VERY_LOW = 2;
+exports.QUEUE_PRIORITY_LOW = 3;
+exports.QUEUE_PRIORITY_NORMAL = 4;
+exports.QUEUE_PRIORITY_HIGH = 5;
+exports.QUEUE_PRIORITY_VERY_HIGH = 6;
 
 exports.EDITOR_TYPE_WORD = 0;
 exports.EDITOR_TYPE_SPREADSHEET = 1;
