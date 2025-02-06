@@ -237,7 +237,7 @@
 		"cellEdit": ["xlsx", "xltx", "xlsm", "ods", "csv"],
 		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt", "key"],
 		"slideEdit": ["pptx", "potx", "pptm", "odp"],
-		"diagramView": [],
+		"diagramView": ["vsdx", "vstx", "vssx", "vsdm", "vstm", "vssm"],
 		"diagramEdit": [],
 		"publicKey": "",
 		"modulus": "",
