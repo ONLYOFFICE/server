@@ -901,7 +901,8 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     exitCode = childRes.status;
     exitSignal = childRes.signal;
   }
-  if (0 !== exitCode || null !== exitSignal) {
+  //CONVERT_CELLLIMITS is not an error, but an indicator that data was lost during opening (can be displayed as an error)
+  if ((0 !== exitCode && constants.CONVERT_CELLLIMITS !== -exitCode) || null !== exitSignal) {
     if (-1 !== exitCodesReturn.indexOf(-exitCode)) {
       error = -exitCode;
     } else if(isTimeout) {

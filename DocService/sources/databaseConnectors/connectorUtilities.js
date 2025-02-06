@@ -166,9 +166,9 @@ DocumentAdditional.prototype.fromString = function(str) {
     return JSON.parse(currentValue);
   });
 };
-DocumentAdditional.prototype.setOpenedAt = function(time, timezoneOffset) {
+DocumentAdditional.prototype.setOpenedAt = function(time, timezoneOffset, headingsColor) {
   let additional = new DocumentAdditional();
-  additional.data.push({time: time, timezoneOffset: timezoneOffset});
+  additional.data.push({time, timezoneOffset, headingsColor});
   return additional.toSQLInsert();
 };
 DocumentAdditional.prototype.getOpenedAt = function(str) {
@@ -182,6 +182,17 @@ DocumentAdditional.prototype.getOpenedAt = function(str) {
   });
   return res;
 };
+DocumentAdditional.prototype.getDocumentLayout = function(str) {
+  let res;
+  let val = new DocumentAdditional();
+  val.fromString(str);
+  val.data.forEach((elem) => {
+    if (undefined !== elem.timezoneOffset) {
+      res = {openedAt: elem.time - (elem.timezoneOffset * 60 * 1000), headingsColor: elem.headingsColor};
+    }
+  });
+  return res;
+}
 
 DocumentAdditional.prototype.setShardKey = function(shardKey) {
   let additional = new DocumentAdditional();
