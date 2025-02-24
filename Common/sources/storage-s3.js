@@ -201,7 +201,7 @@ async function listObjects(storageCfg, strPath) {
   let output = [];
   await listObjectsExec(storageCfg, output, params);
   if (output && Array.isArray(output) && output.length > 0) {
-    const escapedPath = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedPath = strPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`^${escapedPath}$|^${escapedPath}\\/`);
     output = output.filter(item => regex.test(item));
   }
