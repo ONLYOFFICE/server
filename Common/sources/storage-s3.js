@@ -63,12 +63,14 @@ function getS3Client(storageCfg) {
    */
   let configS3 = {
     region: storageCfg.region,
-    endpoint: storageCfg.endpoint,
-    credentials : {
+    endpoint: storageCfg.endpoint
+  };
+  if (storageCfg.accessKeyId && storageCfg.secretAccessKey) {
+    configS3.credentials = {
       accessKeyId: storageCfg.accessKeyId,
       secretAccessKey: storageCfg.secretAccessKey
     }
-  };
+  }
 
   if (configS3.endpoint) {
     configS3.tls = storageCfg.sslEnabled;

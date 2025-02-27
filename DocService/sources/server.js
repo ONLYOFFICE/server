@@ -394,8 +394,13 @@ docsCoServer.install(server, () => {
 		});
 	});
 	app.get('/document_editor_service_worker.js', apicache.middleware("5 min"), async (req, res) => {
-		//make handler only for development version
-		res.sendFile(path.resolve("../../sdkjs/common/serviceworker/document_editor_service_worker.js"));
+		let staticContent = config.get('services.CoAuthoring.server.static_content');
+		if (staticContent['/sdkjs']) {
+			//make handler only for development version
+			res.sendFile(path.resolve(staticContent['/sdkjs'].path + "/common/serviceworker/document_editor_service_worker.js"));
+		} else {
+			res.sendStatus(404);
+		}
 	});
 	app.use((err, req, res, next) => {
 		let ctx = new operationContext.Context();

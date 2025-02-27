@@ -383,7 +383,7 @@ async function getWopiFileUrl(ctx, fileInfo, userAuth) {
   } else if (fileInfo?.TemplateSource) {
     url = fileInfo.TemplateSource;
   } else if (userAuth) {
-    url = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+    url = `${userAuth.wopiSrc}/contents?access_token=${encodeURIComponent(userAuth.access_token)}`;
     await fillStandardHeaders(ctx, headers, url, userAuth.access_token);
   }
   ctx.logger.debug('getWopiFileUrl url=%s; headers=%j', url, headers);
@@ -740,7 +740,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
       }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       let userAuth = wopiParams.userAuth;
-      let uri = `${userAuth.wopiSrc}/contents?access_token=${userAuth.access_token}`;
+      let uri = `${userAuth.wopiSrc}/contents?access_token=${encodeURIComponent(userAuth.access_token)}`;
       let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return postRes;
@@ -785,7 +785,7 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       ctx.logger.info('wopi putRelativeFile start');
       const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
-      let uri = `${wopiSrc}?access_token=${access_token}`;
+      let uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
       let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return res;
@@ -825,7 +825,7 @@ function renameFile(ctx, wopiParams, name) {
       }
       let fileInfo = wopiParams.commonInfo.fileInfo;
       let userAuth = wopiParams.userAuth;
-      let uri = `${userAuth.wopiSrc}?access_token=${userAuth.access_token}`;
+      let uri = `${userAuth.wopiSrc}?access_token=${encodeURIComponent(userAuth.access_token)}`;
       let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return res;
@@ -909,7 +909,7 @@ function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
       ctx.logger.info('wopi checkFileInfo start');
       const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
 
-      let uri = `${encodeURI(wopiSrc)}?access_token=${encodeURIComponent(access_token)}`;
+      let uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
       let filterStatus = yield checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return fileInfo;
@@ -946,7 +946,7 @@ function lock(ctx, command, lockId, fileInfo, userAuth) {
         }
         let wopiSrc = userAuth.wopiSrc;
         let access_token = userAuth.access_token;
-        let uri = `${wopiSrc}?access_token=${access_token}`;
+        let uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
         let filterStatus = yield checkIpFilter(ctx, uri);
         if (0 !== filterStatus) {
           return false;
@@ -985,7 +985,7 @@ async function unlock(ctx, wopiParams) {
       let wopiSrc = wopiParams.userAuth.wopiSrc;
       let lockId = wopiParams.commonInfo.lockId;
       let access_token = wopiParams.userAuth.access_token;
-      let uri = `${wopiSrc}?access_token=${access_token}`;
+      let uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
       let filterStatus = await checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
         return;
