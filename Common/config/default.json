@@ -500,7 +500,7 @@
 				}
 			},
 			"callbackBackoffOptions": {
-				"retries": 0,
+				"retries": 3,
 				"timeout":{
 					"factor": 2,
 					"minTimeout": 1000,
