@@ -103,8 +103,8 @@
 		"storageFolderName": "files",
 		"cacheFolderName": "data",
 		"urlExpires": 604800,
-		"accessKeyId": "AKID",
-		"secretAccessKey": "SECRET",
+		"accessKeyId": "",
+		"secretAccessKey": "",
 		"sslEnabled": false,
 		"s3ForcePathStyle": true,
 		"externalHost": ""
