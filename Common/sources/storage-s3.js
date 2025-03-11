@@ -39,7 +39,7 @@ const { S3Client, ListObjectsCommand, HeadObjectCommand} = require("@aws-sdk/cli
 const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-sdk/client-s3");
 const { DeleteObjectsCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const mime = require('mime');
 const config = require('config');
 const utils = require('./utils');
@@ -47,7 +47,7 @@ const ms = require('ms');
 const commonDefines = require('./../../Common/sources/commondefines');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
-const cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
+const cfgRequestDefaults = config.util.cloneDeepconfig.get('services.CoAuthoring.requestDefaults');
 
 //This operation enables you to delete multiple objects from a bucket using a single HTTP request. You may specify up to 1000 keys.
 const MAX_DELETE_OBJECTS = 1000;

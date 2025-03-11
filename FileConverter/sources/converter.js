@@ -64,7 +64,7 @@ const cfgPresentationThemesDir = config.get('FileConverter.converter.presentatio
 const cfgX2tPath = config.get('FileConverter.converter.x2tPath');
 const cfgDocbuilderPath = config.get('FileConverter.converter.docbuilderPath');
 const cfgArgs = config.get('FileConverter.converter.args');
-const cfgSpawnOptions = config.get('FileConverter.converter.spawnOptions');
+const cfgSpawnOptions = config.util.cloneDeep(config.get('FileConverter.converter.spawnOptions'));
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const cfgInputLimits = config.get('FileConverter.converter.inputLimits');
 const cfgStreamWriterBufferSize = config.get('FileConverter.converter.streamWriterBufferSize');
@@ -74,7 +74,7 @@ const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgEditor = config.get('services.CoAuthoring.editor');
-const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
+const cfgRequesFilteringAgent = config.util.cloneDeep(config.get('services.CoAuthoring.request-filtering-agent'));
 const cfgExternalRequestDirectIfIn = config.get('externalRequest.directIfIn');
 const cfgExternalRequestAction = config.get('externalRequest.action');
 

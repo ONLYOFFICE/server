@@ -316,13 +316,12 @@
 				"forceSaveUsingButtonWithoutChanges": false
 			},
 			"requestDefaults": {
-				"headers": {
-					"User-Agent": "Node.js/6.13",
-					"Connection": "Keep-Alive"
-				},
-				"gzip": true,
-				"rejectUnauthorized": true
-			},
+        "headers": {
+          "User-Agent": "Node.js/6.13",
+          "Connection": "Keep-Alive"
+        },
+        "decompress": true
+      },
 			"autoAssembly": {
 				"enable": false,
 				"interval": "5m",
