@@ -47,7 +47,7 @@ const ms = require('ms');
 const commonDefines = require('./../../Common/sources/commondefines');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
-const cfgRequestDefaults = config.util.cloneDeepconfig.get('services.CoAuthoring.requestDefaults');
+const cfgRequestDefaults = config.util.cloneDeep(config.get('services.CoAuthoring.requestDefaults'));
 
 //This operation enables you to delete multiple objects from a bucket using a single HTTP request. You may specify up to 1000 keys.
 const MAX_DELETE_OBJECTS = 1000;
