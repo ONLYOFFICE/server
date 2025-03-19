@@ -55,6 +55,7 @@ const commonDefines = require('./commondefines');
 const forwarded = require('forwarded');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const https = require('https');
+const http = require('http');
 const ca = require('win-ca/api');
 const util = require('util');
 
@@ -274,7 +275,7 @@ function raiseErrorObj(ro, error) {
   ro.emit('error', error);
 }
 function isRedirectResponse(response) {
-  return response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location');
+  return response && response.status >= 300 && response.status < 400 && Object.keys(response.headers).some(key => key.toLowerCase() === 'location');
 }
 
 function isAllowDirectRequest(ctx, uri, isInJwtToken) {
@@ -296,28 +297,42 @@ function isAllowDirectRequest(ctx, uri, isInJwtToken) {
 function addExternalRequestOptions(ctx, uri, isInJwtToken, options) {
   let res = false;
   const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
-  const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
+  const tenRequestFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
   if (isAllowDirectRequest(ctx, uri, isInJwtToken)) {
     res = true;
   } else if (tenExternalRequestAction.allow) {
     res = true;
     if (tenExternalRequestAction.blockPrivateIP) {
-      const agentOptions = Object.assign({}, https.globalAgent.options, tenRequesFilteringAgent);
-      options.agent = getRequestFilterAgent(uri, agentOptions);
-    }
-    if (tenExternalRequestAction.proxyUrl) {
-      options.proxy = tenExternalRequestAction.proxyUrl;
+      const agentOptions = {
+        ...https.globalAgent.options,
+        ...tenRequestFilteringAgent
+      };
+
+      if (tenExternalRequestAction.proxyUrl) {
+        const proxyUrl = tenExternalRequestAction.proxyUrl;
+        const parsedProxyUrl = url.parse(proxyUrl);
+  
+        agentOptions.host = parsedProxyUrl.hostname;
+        agentOptions.port = parsedProxyUrl.port;
+        agentOptions.protocol = parsedProxyUrl.protocol;
+      }
+  
+      if (uri.startsWith('https:')) {
+        options.httpsAgent = new RequestFilteringHttpsAgent(agentOptions);
+      } else {
+        options.httpAgent = new RequestFilteringHttpAgent(agentOptions);
+      }
     }
     if (tenExternalRequestAction.proxyUser?.username) {
-      let user = tenExternalRequestAction.proxyUser.username;
-      let pass = tenExternalRequestAction.proxyUser.password;
-      options.headers = {'proxy-authorization': `${user}:${pass}`};
+      const user = tenExternalRequestAction.proxyUser.username;
+      const pass = tenExternalRequestAction.proxyUser.password || '';
+      options.headers['proxy-authorization'] = `${user}:${pass}`;
     }
     if (tenExternalRequestAction.proxyHeaders) {
-      if (!options.headers) {
-        options.headers = {};
-      }
-      Object.assign(options.headers, tenExternalRequestAction.proxyHeaders);
+      options.headers = {
+        ...options.headers,
+        ...tenExternalRequestAction.proxyHeaders
+      };
     }
   }
   return res;
@@ -353,13 +368,22 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-  // uri = URI.serialize(URI.parse(uri));
   const sizeLimit = optLimit || Number.MAX_VALUE
-  
+  uri = URI.serialize(URI.parse(uri));
   const connectionAndInactivity = optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined;
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
   if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options)) {
     throw new Error('Block external request. See externalRequest config options');
+  }
+
+  const protocol = new URL(uri).protocol;
+  if (!options.httpsAgent && !options.httpAgent) {
+    const agentOptions = { ...https.globalAgent.options };
+    if (protocol === 'https:') {
+      options.httpsAgent = new https.Agent(agentOptions);
+    } else if (protocol === 'http:') {
+      options.httpAgent = new http.Agent(agentOptions);
+    }
   }
 
   const headers = { ...options.headers };
@@ -370,8 +394,8 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
     Object.assign(headers, opt_headers);
   }
 
-  const agentOptions = options.agent ? undefined : (https.globalAgent.options || {});
   const axiosConfig = {
+    ...options,
     url: uri,
     method: 'GET',
     responseType: 'stream',
@@ -379,31 +403,29 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
     maxRedirects: 0,
     timeout: connectionAndInactivity,
     validateStatus: () => true,
-    httpsAgent: uri.protocol === 'https:' 
-    ? new https.Agent(agentOptions)
-    : undefined,
     cancelToken: new axios.CancelToken(cancel => {
       if (optTimeout?.wholeCycle) {
         setTimeout(() => cancel(`ETIMEDOUT: ${optTimeout.wholeCycle}`), ms(optTimeout.wholeCycle));
       }
-    })
+    }),
   };
 
   try {
     const response = await axios(axiosConfig);
     const { status, headers } = response;
 
-    if (isRedirectResponse(response)) {
-      const error = new Error(`Redirect ${status}`);
+    if (status !== 200 && status !== 206) {
+      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)};`);
+      error.statusCode = status;
       error.response = response;
       throw error;
     }
-
+  
     const contentLength = headers['content-length'];
     if (contentLength && parseInt(contentLength) > sizeLimit) {
-      throw new Error('EMSGSIZE: Content-Length exceeds limit');
+      throw new Error('EMSGSIZE: Error response: content-length:' + contentLength);
     }
-
+  
     return await processResponseStream(ctx, {
       response,
       sizeLimit,
@@ -416,18 +438,19 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
     if (axios.isCancel(err)) {
       const error = new Error(err.message);
       error.code = 'ETIMEDOUT';
-      throw error;
-    }
-
-    if (err.response) {
-      if (opt_streamWriter && !isRedirectResponse(err.response)) {
-        return processErrorResponseStream(err.response, {
-          sizeLimit,
-          opt_streamWriter,
-          timeout: optTimeout?.wholeCycle ? ms(optTimeout.wholeCycle) : null
-        });
+        throw error;
       }
-    }
+
+      if (err.response) {
+        if (opt_streamWriter && !isRedirectResponse(err.response)) {
+          delete err.response.headers['set-cookie'];
+          return processErrorResponseStream(err.response, {
+            sizeLimit,
+            opt_streamWriter,
+            timeout: optTimeout?.wholeCycle ? ms(optTimeout.wholeCycle) : null
+          });
+        }
+      }
     throw err;
   }
 }
@@ -453,7 +476,7 @@ async function processResponseStream(ctx, { response, sizeLimit, uri, opt_stream
       bufferLength += chunk.length;
       if (bufferLength > sizeLimit) {
         stream.destroy();
-        reject(new Error('EMSGSIZE: Response body exceeds limit'));
+        throw new Error('EMSGSIZE: Error response body.length');
       }
       if (!opt_streamWriter) buffer.push(chunk);
     });
@@ -468,12 +491,12 @@ async function processResponseStream(ctx, { response, sizeLimit, uri, opt_stream
         body: opt_streamWriter ? null : Buffer.concat(buffer)
       };
       
-      if (contentLength && result.body?.length !== parseInt(contentLength)) {
-        ctx.logger.warn('Body size mismatch: %s (expected %s, got %d)', 
+      if (!opt_streamWriter && contentLength && result.body?.length !== parseInt(contentLength)) {
+        ctx.logger.warn('Body size mismatch: %s (expected %s, got %d)',
           uri, contentLength, result.body?.length);
       }
       
-      resolve(result);
+      resolve(opt_streamWriter ? undefined : result);
     });
 
     if (opt_streamWriter) {
@@ -528,6 +551,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
   let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
   const wholeCycleTimeout = optTimeout?.wholeCycle ? ms(optTimeout.wholeCycle) : undefined;
+  uri = URI.serialize(URI.parse(uri));
   let options = config.util.extendDeep({}, tenTenantRequestDefaults);
   Object.assign(options, {
     method: 'post',
@@ -538,9 +562,14 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options)) {
     throw new Error('Block external request. See externalRequest config options')
   }
-  if (!options.agent) {
-    //baseRequest creates new agent(win-ca injects in globalAgent)
-    options.httpsAgent = new https.Agent(https.globalAgent.options);
+  const protocol = new URL(uri).protocol;
+  if (!options.httpsAgent && !options.httpAgent) {
+    const agentOptions = { ...https.globalAgent.options };
+    if (protocol === 'https:') {
+      options.httpsAgent = new https.Agent(agentOptions);
+    } else if (protocol === 'http:') {
+      options.httpAgent = new http.Agent(agentOptions);
+    }
   }
   if (postData) {
     options.data = postData;
