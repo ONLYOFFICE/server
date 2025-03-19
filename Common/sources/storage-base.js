@@ -58,8 +58,8 @@ function getStorageCfg(ctx, opt_specialDir) {
 function canCopyBetweenStorage(storageCfgSrc, storageCfgDst) {
   return storageCfgSrc.name === storageCfgDst.name && storageCfgSrc.endpoint === storageCfgDst.endpoint;
 }
-function isDiffrentPersistentStorage() {
-  return !canCopyBetweenStorage(cacheStorage, cfgPersistentStorage);
+function isDifferentPersistentStorage() {
+  return !canCopyBetweenStorage(cfgCacheStorage, cfgPersistentStorage);
 }
 
 async function headObject(ctx, strPath, opt_specialDir) {
@@ -209,7 +209,7 @@ module.exports = {
   getSignedUrlsArrayByArray,
   getSignedUrlsByArray,
   getRelativePath,
-  isDiffrentPersistentStorage,
+  isDifferentPersistentStorage,
   healthCheck,
   needServeStatic
 };

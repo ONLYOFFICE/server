@@ -3990,7 +3990,7 @@ exports.healthCheck = function(req, res) {
       //storage
       yield storage.healthCheck(ctx);
       ctx.logger.debug('healthCheck storage');
-      if (storage.isDiffrentPersistentStorage()) {
+      if (storage.isDifferentPersistentStorage()) {
         yield storage.healthCheck(ctx, cfgForgottenFiles);
         ctx.logger.debug('healthCheck storage persistent');
       }
