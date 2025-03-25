@@ -2,26 +2,15 @@
 const { describe, test, expect, beforeEach, afterAll, jest } = require('@jest/globals');
 const { Readable, Writable } = require('stream');
 // Setup mocks for axios
+const axiosReal = require('axios');
 jest.mock('axios');
 const axios = require('axios');
 const operationContext = require('../../Common/sources/operationContext');
 const utils = require('../../Common/sources/utils');
 
-// Mock axios CancelToken as both a constructor and an object with source method
-const cancelFn = jest.fn();
-axios.CancelToken = jest.fn().mockImplementation((executor) => {
-  // Execute the function passed to CancelToken constructor with our cancel function
-  if (typeof executor === 'function') {
-    executor(cancelFn);
-  }
-  return { cancel: cancelFn };
-});
-
-// Also mock the source method
-axios.CancelToken.source = jest.fn().mockReturnValue({
-  token: 'mock-token',
-  cancel: jest.fn()
-});
+// Assign real CancelToken from the imported axiosReal to the mocked axios
+axios.CancelToken = axiosReal.CancelToken;
+axios.CancelToken.source = axiosReal.CancelToken.source;
 
 // Create operation context for tests
 const ctx = new operationContext.Context();
@@ -47,9 +36,9 @@ const createMockWriter = () => {
 // Common test parameters
 const commonTestParams = {
   uri: 'https://example.com/api/data',
-  timeout: 5000,
+  timeout: { wholeCycle: '500ms', connectionAndInactivity: '200s' },
   limit: 1024 * 1024, // 1MB
-  authorization: 'Bearer token123',
+  authorization: 'token123',
   filterPrivate: true,
   headers: { 'Accept': 'application/json' }
 };
@@ -357,51 +346,373 @@ describe('HTTP Request Functionality', () => {
     });
 
     test('handles timeout correctly', async () => {
-      // Reset mocks
-      jest.clearAllMocks();
-      
-      // Setup axios mock to simulate a timeout by triggering the CancelToken cancel function
+      jest.useFakeTimers();
+      // Mock a never-resolving request
       axios.mockImplementation((config) => {
-        // Explicitly check for timeout config
-        expect(config).toHaveProperty('timeout');
-        expect(config).toHaveProperty('cancelToken');
-        
-        // Return a promise that never resolves - the cancel function 
-        // will be called by setTimeout in the implementation
-        return new Promise(() => {
-          // setTimeout is used in the real implementation, but we don't need to do anything here
-          // as the cancelFn mock will be called by the code under test
+        return new Promise((_, reject) => {
+          if (config.cancelToken) {
+            config.cancelToken.promise.then(cancel => {
+              reject(new axiosReal.Cancel(cancel.message));
+            });
+          }
         });
       });
+
+      const promise = utils.downloadUrlPromise(
+        ctx,
+        'https://example.com/timeout-test',
+        { wholeCycle: '500ms', connectionAndInactivity: '200s' },
+        1024,
+        null,
+        false,
+        null,
+        null
+      );
+
+      // Fast-forward exactly 1 second
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve(); // Flush pending promises
+
+      await expect(promise).rejects.toThrow('ETIMEDOUT: 500ms');
+
+      jest.useRealTimers();
+    });
+
+    test('throws an error on max redirects limit reached', async () => {
+      // Create a counter to track calls
+      let callCount = 0;
       
-      // Mock Implementation will call canceFn after "timeout" - simulate this
-      cancelFn.mockImplementation((message) => {
-        // This is what happens when the timeout occurs and cancel is called
-        const err = new Error(message || 'ETIMEDOUT: timeout');
-        err.isCancel = true; // axios sets this flag
-        throw err;
+      // Mock redirect response
+      const redirectResponse = {
+        status: 302,
+        headers: {
+          location: 'https://example.com/redirected'
+        }
+      };
+
+      // Mock success response after redirect
+      const successData = JSON.stringify({ success: true });
+      const successResponse = {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(successData, 'utf8'))
+        },
+        data: createMockStream(successData)
+      };
+
+      // Reset mocks and implement redirect then success
+      jest.clearAllMocks();
+      axios.mockImplementation(() => {
+        if (callCount < 12) {
+          callCount++;
+          // First call - simulate redirect by throwing error with response
+          const err = new Error('Redirect');
+          err.response = redirectResponse;
+          return Promise.reject(err);
+        } else {
+          // Second call - return success
+          return Promise.resolve(successResponse);
+        }
       });
 
-      // Call function and expect timeout error
+      // Call function with original URL
       await expect(utils.downloadUrlPromise(
         ctx,
-        'https://example.com/slow-response',
-        { connection: '100ms', inactivity: '100ms', wholeCycle: '200ms' }, // short timeout
+        'https://example.com/original',
+        commonTestParams.timeout,
         commonTestParams.limit,
         null,
         false,
         null,
         null
-      )).rejects.toThrow(/ETIMEDOUT/);
+      )).rejects.toThrow('Redirect');
+
+       expect(axios).toHaveBeenCalledTimes(11);
+    });
+
+    test('should block external request', async () => {
+
+      const addExternalRequestOptionsMock = jest.spyOn(utils, 'addExternalRequestOptions');
+  
+      addExternalRequestOptionsMock.mockReturnValue(false);  
+
+      await expect(utils.downloadUrlPromise(
+        ctx,
+        'https://example.com/original',
+        commonTestParams.timeout,
+        commonTestParams.limit,
+        null,
+        false,
+        null,
+        null
+      )).rejects.toThrow('Block external request. See externalRequest config options');
+
+      addExternalRequestOptionsMock.mockRestore();
+    });
+
+    test('should throw error on redirect with followRedirect=false', async () => {
+      let callCount = 0;
+      
+      // Mock redirect response
+      const redirectResponse = {
+        status: 302,
+        headers: {
+          location: 'https://example.com/redirected'
+        }
+      };
+
+      // Mock success response after redirect
+      const successData = JSON.stringify({ success: true });
+      const successResponse = {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(successData, 'utf8'))
+        },
+        data: createMockStream(successData)
+      };
+
+      // Reset mocks and implement redirect then success
+      jest.clearAllMocks();
+      axios.mockImplementation(() => {
+        if (callCount < 2) {
+          callCount++;
+          // First call - simulate redirect by throwing error with response
+          const err = new Error('Redirect');
+          err.response = redirectResponse;
+          return Promise.reject(err);
+        } else {
+          // Second call - return success
+          return Promise.resolve(successResponse);
+        }
+      });
+
+      const ctx = {
+        getCfg: function(key, _) {
+          switch (key) {
+            case 'services.CoAuthoring.requestDefaults':
+              return {
+                "headers": {
+                  "User-Agent": "Node.js/6.13",
+                  "Connection": "Keep-Alive"
+                },
+                "decompress": true,
+                "rejectUnauthorized": true,
+                "followRedirect": false
+              }
+            case 'services.CoAuthoring.token.outbox.header':
+              return "Authorization";
+            case 'services.CoAuthoring.token.outbox.prefix':
+              return "Bearer ";
+            case 'externalRequest.action':
+              return {
+                "allow": true,
+                "blockPrivateIP": true,
+                "proxyUrl": "",
+                "proxyUser": {
+                  "username": "",
+                  "password": ""
+                },
+                "proxyHeaders": {
+                }
+              };
+            case 'services.CoAuthoring.request-filtering-agent':
+              return {
+                "allowPrivateIPAddress": false,
+                "allowMetaIPAddress": false
+              }
+            case 'externalRequest.directIfIn':
+              return {
+                "allowList": [],
+                "jwtToken": true
+              }
+          }
+        },
+        logger: {
+          debug: function() {},
+        }
+      }
+
+      await expect(utils.downloadUrlPromise(
+        ctx,
+        'https://example.com/original',
+        commonTestParams.timeout,
+        commonTestParams.limit,
+        null,
+        false,
+        null,
+        null
+      )).rejects.toThrow('Redirect');
+    });
+  });
+
+  describe('postRequestPromise', () => {
+    test('properly sends post data and returns response', async () => {
+      // Mock successful response
+      const mockData = { success: true };
+      const mockResponse = {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        data: mockData
+      };
+    
+      // Setup axios mock
+      axios.mockImplementation(() => Promise.resolve(mockResponse));
+    
+      // Call the function
+      const result = await utils.postRequestPromise(
+        ctx,
+        'https://example.com/data',
+        { key: 'value' },
+        null,
+        null,
+        commonTestParams.timeout,
+        commonTestParams.authorization,
+        false,
+        null
+      );
+    
+      // Verify axios was called with the correct configuration
+      expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+        method: 'post',
+        url: 'https://example.com/data',
+        data: { key: 'value' },
+        validateStatus: expect.any(Function), 
+        timeout: expect.any(Number),
+      }));
+    
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty('response');
+      expect(result.response.statusCode).toBe(200);
+      expect(result.response.body).toBe(mockData);
+    });
+    
+
+    test('handles timeout and cancels request', async () => {
+      // Mock cancellation
+      const cancelMessage = 'Whole request cycle timeout: 500ms';
+      axios.mockImplementation(() => {
+        const error = new Error(cancelMessage);
+        error.code = 'ETIMEDOUT';
+        throw error;
+      });
+
+      // Call function and expect it to throw ETIMEDOUT error
+      await expect(utils.postRequestPromise(
+        ctx,
+        'https://example.com/data',
+        { key: 'value' },
+        null,
+        null,
+        commonTestParams.timeout,
+        commonTestParams.authorization,
+        false,
+        null
+      )).rejects.toThrowError(cancelMessage);
 
       // Verify axios was called
       expect(axios).toHaveBeenCalledTimes(1);
-      
-      // Verify timeout was properly configured
-      expect(axios).toHaveBeenCalledWith(expect.objectContaining({
-        timeout: expect.any(Number),
-        cancelToken: expect.anything()
-      }));
     });
-  });
+
+    test('throws error for non-200 status codes', async () => {
+      // Create mock error data
+      const errorData = JSON.stringify({ error: 'Not found' });
+      const mockErrorResponse = {
+        status: 404,
+        statusText: 'Not Found',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(errorData, 'utf8'))
+        },
+        data: errorData
+      };
+
+      // Setup axios mock
+      axios.mockImplementation(() => Promise.reject({ response: mockErrorResponse }));
+
+      // Call function and expect it to throw error
+      await expect(utils.postRequestPromise(
+        ctx,
+        'https://example.com/not-found',
+        { key: 'value' },
+        null,
+        null,
+        commonTestParams.timeout,
+        commonTestParams.authorization,
+        false,
+        null
+      )).rejects.toThrowError(/Error response: statusCode:404/);
+
+      // Verify axios was called
+      expect(axios).toHaveBeenCalledTimes(1);
+    });
+
+    test('handles post data stream correctly', async () => {
+      // Mock successful response with stream
+      const mockData = 'Sample streamed content';
+      const mockResponse = {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(mockData, 'utf8'))
+        },
+        data: mockData
+      };
+    
+      // Setup axios mock
+      axios.mockImplementation(() => Promise.resolve(mockResponse));
+    
+      // Call the function with postDataStream
+      const result = await utils.postRequestPromise(
+        ctx,
+        'https://example.com/upload',
+        null,
+        mockData,
+        null,
+        commonTestParams.timeout,
+        commonTestParams.authorization,
+        false,
+        null
+      );
+    
+      expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+        method: 'post',
+        url: 'https://example.com/upload',
+        headers: expect.objectContaining({
+          'Authorization': 'Bearer token123'
+        }),
+        data: mockData,
+        validateStatus: expect.any(Function),
+        timeout: expect.any(Number),
+      }));
+    
+      // Verify result
+      expect(result).toBeDefined();
+      expect(result.response.statusCode).toBe(200);
+      expect(result.response.body).toBe(mockData);
+    });
+
+    test('handles network errors correctly', async () => {
+      // Mock network error
+      const networkError = new Error('Network Error');
+      axios.mockImplementation(() => Promise.reject(networkError));
+
+      // Call function and expect it to throw network error
+      await expect(utils.postRequestPromise(
+        ctx,
+        'https://example.com/network-error',
+        { key: 'value' },
+        null,
+        null,
+        commonTestParams.timeout,
+        commonTestParams.authorization,
+        false,
+        null
+      )).rejects.toThrowError('Network Error');
+
+      // Verify axios was called
+      expect(axios).toHaveBeenCalledTimes(1);
+    });
+  })
 });

@@ -372,13 +372,13 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
   uri = URI.serialize(URI.parse(uri));
   const connectionAndInactivity = optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined;
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
-  if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options)) {
+  if (!exports.addExternalRequestOptions(ctx, uri, opt_filterPrivate, options)) {
     throw new Error('Block external request. See externalRequest config options');
   }
 
   const protocol = new URL(uri).protocol;
   if (!options.httpsAgent && !options.httpAgent) {
-    const agentOptions = { ...https.globalAgent.options };
+    const agentOptions = { ...https.globalAgent.options, rejectUnauthorized: tenTenantRequestDefaults.rejectUnauthorized === false? false : true};
     if (protocol === 'https:') {
       options.httpsAgent = new https.Agent(agentOptions);
     } else if (protocol === 'http:') {
@@ -393,7 +393,7 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
   if (opt_headers) {
     Object.assign(headers, opt_headers);
   }
-
+  
   const axiosConfig = {
     ...options,
     url: uri,
@@ -405,7 +405,9 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
     validateStatus: () => true,
     cancelToken: new axios.CancelToken(cancel => {
       if (optTimeout?.wholeCycle) {
-        setTimeout(() => cancel(`ETIMEDOUT: ${optTimeout.wholeCycle}`), ms(optTimeout.wholeCycle));
+        setTimeout(() => {
+          cancel(`ETIMEDOUT: ${optTimeout.wholeCycle}`);
+        }, ms(optTimeout.wholeCycle));
       }
     }),
   };
@@ -564,7 +566,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   }
   const protocol = new URL(uri).protocol;
   if (!options.httpsAgent && !options.httpAgent) {
-    const agentOptions = { ...https.globalAgent.options };
+    const agentOptions = { ...https.globalAgent.options, rejectUnauthorized: tenTenantRequestDefaults.rejectUnauthorized === false? false : true};
     if (protocol === 'https:') {
       options.httpsAgent = new https.Agent(agentOptions);
     } else if (protocol === 'http:') {
@@ -627,6 +629,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
 }
 exports.postRequestPromise = postRequestPromise;
 exports.downloadUrlPromise = downloadUrlPromise;
+exports.addExternalRequestOptions = addExternalRequestOptions;
 exports.mapAscServerErrorToOldError = function(error) {
   var res = -1;
   switch (error) {
