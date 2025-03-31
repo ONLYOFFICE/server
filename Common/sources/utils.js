@@ -338,37 +338,13 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options) {
   return res;
 }
 
-function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
-  const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
-  const maxRedirects = (undefined !== tenTenantRequestDefaults.maxRedirects) ? tenTenantRequestDefaults.maxRedirects : 10;
-  const followRedirect = (undefined !== tenTenantRequestDefaults.followRedirect) ? tenTenantRequestDefaults.followRedirect : true;
-  var redirectsFollowed = 0;
-  const doRequest = (curUrl) => {
-    return downloadUrlPromiseWithoutRedirect(ctx, curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
-      .catch(err => {
-        const response = err.response;
-        if (isRedirectResponse(response)) {
-          if (followRedirect && redirectsFollowed < maxRedirects) {
-            let redirectTo = response.headers.location;
-            if (!/^https?:/.test(redirectTo)) {
-              redirectTo = url.resolve(curUrl, redirectTo);
-            }
-
-            ctx.logger.debug('downloadUrlPromise redirectsFollowed:%d redirectTo: %s', redirectsFollowed, redirectTo);
-            redirectsFollowed++;
-            return doRequest(redirectTo);
-          }
-        }
-        throw err;
-      });
-  };
-  return doRequest(uri);
-}
-async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
+async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-  const sizeLimit = optLimit || Number.MAX_VALUE
+  const maxRedirects = (undefined !== tenTenantRequestDefaults.maxRedirects) ? tenTenantRequestDefaults.maxRedirects : 10;
+  const followRedirect = (undefined !== tenTenantRequestDefaults.followRedirect) ? tenTenantRequestDefaults.followRedirect : true;
+  const sizeLimit = optLimit || Number.MAX_VALUE;
   uri = URI.serialize(URI.parse(uri));
   const connectionAndInactivity = optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined;
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
@@ -393,16 +369,16 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
   if (opt_headers) {
     Object.assign(headers, opt_headers);
   }
-  
+
   const axiosConfig = {
     ...options,
     url: uri,
     method: 'GET',
     responseType: 'stream',
     headers,
-    maxRedirects: 0,
+    maxRedirects: followRedirect ? maxRedirects : 0,
     timeout: connectionAndInactivity,
-    validateStatus: () => true,
+    validateStatus: (status) => status >= 200 && status < 300,
     cancelToken: new axios.CancelToken(cancel => {
       if (optTimeout?.wholeCycle) {
         setTimeout(() => {
@@ -415,8 +391,7 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
   try {
     const response = await axios(axiosConfig);
     const { status, headers } = response;
-
-    if (status !== 200 && status !== 206) {
+    if (![200, 206].includes(status)) {
       const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)};`);
       error.statusCode = status;
       error.response = response;
@@ -427,7 +402,7 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
     if (contentLength && parseInt(contentLength) > sizeLimit) {
       throw new Error('EMSGSIZE: Error response: content-length:' + contentLength);
     }
-  
+
     return await processResponseStream(ctx, {
       response,
       sizeLimit,
@@ -440,19 +415,19 @@ async function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit,
     if (axios.isCancel(err)) {
       const error = new Error(err.message);
       error.code = 'ETIMEDOUT';
-        throw error;
-      }
+      throw error;
+    }
 
-      if (err.response) {
-        if (opt_streamWriter && !isRedirectResponse(err.response)) {
-          delete err.response.headers['set-cookie'];
-          return processErrorResponseStream(err.response, {
-            sizeLimit,
-            opt_streamWriter,
-            timeout: optTimeout?.wholeCycle ? ms(optTimeout.wholeCycle) : null
-          });
-        }
+    if (err.response) {
+      if (opt_streamWriter && !isRedirectResponse(err.response)) {
+        delete err.response.headers['set-cookie'];
+        return processErrorResponseStream(err.response, {
+          sizeLimit,
+          opt_streamWriter,
+          timeout: optTimeout?.wholeCycle ? ms(optTimeout.wholeCycle) : null
+        });
       }
+    }
     throw err;
   }
 }
@@ -554,7 +529,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
   const wholeCycleTimeout = optTimeout?.wholeCycle ? ms(optTimeout.wholeCycle) : undefined;
   uri = URI.serialize(URI.parse(uri));
-  let options = config.util.extendDeep({}, tenTenantRequestDefaults);
+  let options = { ...tenTenantRequestDefaults };
   Object.assign(options, {
     method: 'post',
     url: uri,
@@ -562,11 +537,14 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     validateStatus: (status) => status === 200 || status === 204
   });
   if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options)) {
-    throw new Error('Block external request. See externalRequest config options')
+    throw new Error('Block external request. See externalRequest config options');
   }
   const protocol = new URL(uri).protocol;
   if (!options.httpsAgent && !options.httpAgent) {
-    const agentOptions = { ...https.globalAgent.options, rejectUnauthorized: tenTenantRequestDefaults.rejectUnauthorized === false? false : true};
+    const agentOptions = { 
+      ...https.globalAgent.options, 
+      rejectUnauthorized: tenTenantRequestDefaults.rejectUnauthorized === false ? false : true 
+    };
     if (protocol === 'https:') {
       options.httpsAgent = new https.Agent(agentOptions);
     } else if (protocol === 'http:') {
@@ -616,7 +594,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
       const err = new Error(error.message);
       err.code = 'ETIMEDOUT';
       throw err;
-    } 
+    }
     if (error.response) {
       const { status, headers, data } = error.response;
       const err = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${data}`);
