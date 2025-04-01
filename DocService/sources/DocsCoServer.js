@@ -3111,7 +3111,7 @@ exports.install = function(server, callbackFunction) {
     let addRes = await editorData.addLocksNX(ctx, docId, locks);
     let documentLocks = addRes.allLocks;
     let isAllAdded = Object.keys(addRes.lockConflict).length === 0;
-    if (!isAllAdded || !fCheckLock(ctx, docId, documentLocks, locks, arrayBlocks, userId)) {
+    if (!isAllAdded && !fCheckLock(ctx, docId, documentLocks, locks, arrayBlocks, userId)) {
       //remove new locks
       let toRemove = {};
       for (let lockId in locks) {
