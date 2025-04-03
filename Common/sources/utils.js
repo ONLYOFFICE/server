@@ -296,6 +296,7 @@ function isAllowDirectRequest(ctx, uri, isInJwtToken) {
 }
 function addExternalRequestOptions(ctx, uri, isInJwtToken, options) {
   let res = false;
+  const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
   const tenRequestFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
   if (isAllowDirectRequest(ctx, uri, isInJwtToken)) {
@@ -315,6 +316,10 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options) {
         agentOptions.host = parsedProxyUrl.hostname;
         agentOptions.port = parsedProxyUrl.port;
         agentOptions.protocol = parsedProxyUrl.protocol;
+      }
+
+      if (tenTenantRequestDefaults.forever !== undefined) {
+        agentOptions.keepAlive = !!tenTenantRequestDefaults.forever;
       }
   
       if (uri.startsWith('https:')) {
@@ -348,6 +353,11 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   uri = URI.serialize(URI.parse(uri));
   const connectionAndInactivity = optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined;
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
+  if (options.gzip !== undefined && !options.gzip) {
+    options.headers = options.headers || {};
+    options.headers['Accept-Encoding'] = 'identity';
+    delete options.gzip;
+  }
   if (!exports.addExternalRequestOptions(ctx, uri, opt_filterPrivate, options)) {
     throw new Error('Block external request. See externalRequest config options');
   }
@@ -355,6 +365,9 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   const protocol = new URL(uri).protocol;
   if (!options.httpsAgent && !options.httpAgent) {
     const agentOptions = { ...https.globalAgent.options, rejectUnauthorized: tenTenantRequestDefaults.rejectUnauthorized === false? false : true};
+    if (tenTenantRequestDefaults.forever !== undefined) {
+      agentOptions.keepAlive = !!tenTenantRequestDefaults.forever;
+    }
     if (protocol === 'https:') {
       options.httpsAgent = new https.Agent(agentOptions);
     } else if (protocol === 'http:') {
@@ -536,6 +549,13 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     timeout: connectionAndInactivity,
     validateStatus: (status) => status === 200 || status === 204
   });
+  
+  if (options.gzip !== undefined && !options.gzip) {
+    options.headers = options.headers || {};
+    options.headers['Accept-Encoding'] = 'identity';
+    delete options.gzip;
+  }
+  
   if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options)) {
     throw new Error('Block external request. See externalRequest config options');
   }
@@ -545,6 +565,11 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
       ...https.globalAgent.options, 
       rejectUnauthorized: tenTenantRequestDefaults.rejectUnauthorized === false ? false : true 
     };
+    
+    if (tenTenantRequestDefaults.forever !== undefined) {
+      agentOptions.keepAlive = !!tenTenantRequestDefaults.forever;
+    }
+    
     if (protocol === 'https:') {
       options.httpsAgent = new https.Agent(agentOptions);
     } else if (protocol === 'http:') {

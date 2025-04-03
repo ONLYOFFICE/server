@@ -152,6 +152,35 @@ describe('HTTP Request Integration Tests', () => {
       const buffer = Buffer.alloc(2097152);
       res.send(buffer);
     });
+    app.get('/api/headers', (req, res) => {
+      // Ensure you're only sending headers, which won't contain circular references
+      res.json({ headers: req.headers });
+    });
+    
+    // Endpoint that returns connection header info
+    app.get('/api/connection', (req, res) => {
+      res.json({
+        connection: req.headers.connection,
+        keepAlive: req.headers.connection?.toLowerCase() === 'keep-alive'
+      });
+    });
+    
+    // Endpoint that returns only the accept-encoding header
+    app.get('/api/accept-encoding', (req, res) => {
+      res.json({
+        acceptEncoding: req.headers['accept-encoding'] || null
+      });
+    });
+    
+    // Endpoint that returns only the connection header
+    app.get('/api/connection-header', (req, res) => {
+      const connectionHeader = req.headers['connection'] || '';
+      res.json({
+        connection: connectionHeader,
+        keepAlive: connectionHeader.toLowerCase() === 'keep-alive'
+      });
+    });
+    
 
     // Start server
     server = http.createServer(app);
@@ -335,6 +364,163 @@ describe('HTTP Request Integration Tests', () => {
         null,
         null
       )).rejects.toThrow('Error response: content-length:2097152');
+    });
+
+    test('enables compression when gzip is true', async () => {
+      // Setup a simple server that captures headers
+      let capturedHeaders = {};
+      const app = express();
+      app.get('/test', (req, res) => {
+        capturedHeaders = {
+          acceptEncoding: req.headers['accept-encoding']
+        };
+        res.json({ success: true });
+      });
+      
+      const testServer = http.createServer(app);
+      const testPort = PORT + 1000;
+      await new Promise(resolve => testServer.listen(testPort, resolve));
+      
+      try {
+        const mockCtx = createMockContext({
+          'services.CoAuthoring.requestDefaults': {
+            headers: { "User-Agent": "Node.js/6.13" },
+            gzip: true,
+            rejectUnauthorized: false
+          }
+        });
+
+        await utils.downloadUrlPromise(
+          mockCtx,
+          `http://localhost:${testPort}/test`,
+          { wholeCycle: '2s' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        
+        // When gzip is true, 'accept-encoding' should include 'gzip'
+        expect(capturedHeaders.acceptEncoding).toBeDefined();
+        expect(capturedHeaders.acceptEncoding).toMatch(/gzip/i);
+      } finally {
+        await new Promise(resolve => testServer.close(resolve));
+      }
+    });
+
+    test('disables compression when gzip is false', async () => {
+      // Setup a simple server that captures headers
+      let capturedHeaders = {};
+      const app = express();
+      app.get('/test', (req, res) => {
+        capturedHeaders = {
+          acceptEncoding: req.headers['accept-encoding']
+        };
+        res.json({ success: true });
+      });
+      
+      const testServer = http.createServer(app);
+      const testPort = PORT + 1001;
+      await new Promise(resolve => testServer.listen(testPort, resolve));
+      
+      try {
+        const mockCtx = createMockContext({
+          'services.CoAuthoring.requestDefaults': {
+            headers: { "User-Agent": "Node.js/6.13" },
+            gzip: false,
+            rejectUnauthorized: false
+          }
+        });
+
+        await utils.downloadUrlPromise(
+          mockCtx,
+          `http://localhost:${testPort}/test`,
+          { wholeCycle: '2s' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        
+        expect(capturedHeaders.acceptEncoding === 'identity' || capturedHeaders.acceptEncoding === undefined).toBe(true);
+      } finally {
+        await new Promise(resolve => testServer.close(resolve));
+      }
+    });
+
+    test('enables keep-alive when forever is true', async () => {
+      // Setup a simple server that captures headers
+      let capturedHeaders = {};
+      const app = express();
+      app.get('/test', (req, res) => {
+        capturedHeaders = {
+          connection: req.headers['connection']
+        };
+        res.json({ success: true });
+      });
+      
+      const testServer = http.createServer(app);
+      const testPort = PORT + 1002;
+      await new Promise(resolve => testServer.listen(testPort, resolve));
+      
+      try {
+        const mockCtx = createMockContext({
+          'services.CoAuthoring.requestDefaults': {
+            headers: { "User-Agent": "Node.js/6.13" },
+            forever: true,
+            rejectUnauthorized: false
+          }
+        });
+
+        await utils.downloadUrlPromise(
+          mockCtx,
+          `http://localhost:${testPort}/test`,
+          { wholeCycle: '2s' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        
+        // When forever is true, connection should be 'keep-alive'
+        expect(capturedHeaders.connection?.toLowerCase()).toMatch(/keep-alive/i);
+      } finally {
+        await new Promise(resolve => testServer.close(resolve));
+      }
+    });
+
+    test('disables keep-alive when forever is false', async () => {
+      const mockCtx = createMockContext({
+        'services.CoAuthoring.requestDefaults': {
+          headers: {
+            "User-Agent": "Node.js/6.13"
+          },
+          forever: false,
+          rejectUnauthorized: false
+        }
+      });
+
+      const result = await utils.downloadUrlPromise(
+        mockCtx,
+        `${BASE_URL}/api/connection-header`,
+        { wholeCycle: '5s', connectionAndInactivity: '3s' },
+        1024 * 1024,
+        null,
+        false,
+        null,
+        null
+      );
+
+      expect(result).toBeDefined();
+      const responseData = JSON.parse(result.body.toString());
+      
+      // When forever is false, connection should NOT be 'keep-alive'
+      // Note: Different HTTP clients might handle this differently,
+      // so we're checking that keepAlive is false
+      expect(responseData.keepAlive).toBe(false);
     });
   });
 
@@ -768,5 +954,94 @@ describe('HTTP Request Integration Tests', () => {
         expect(error).toBeDefined();
       }
     });
+
+    test('applies gzip setting to POST requests', async () => {
+      // Setup a simple server that captures headers
+      let capturedHeaders = {};
+      const app = express();
+      app.post('/test', express.json(), (req, res) => {
+        capturedHeaders = {
+          acceptEncoding: req.headers['accept-encoding']
+        };
+        res.json({ success: true });
+      });
+      
+      const testServer = http.createServer(app);
+      const testPort = PORT + 1003;
+      await new Promise(resolve => testServer.listen(testPort, resolve));
+      
+      try {
+        const mockCtx = createMockContext({
+          'services.CoAuthoring.requestDefaults': {
+            headers: { "User-Agent": "Node.js/6.13" },
+            gzip: false,
+            rejectUnauthorized: false
+          }
+        });
+
+        const postData = JSON.stringify({ test: 'data' });
+        
+        await utils.postRequestPromise(
+          mockCtx,
+          `http://localhost:${testPort}/test`,
+          postData,
+          null,
+          postData.length,
+          { wholeCycle: '2s' },
+          null,
+          false,
+          { 'Content-Type': 'application/json' }
+        );
+        
+        expect(capturedHeaders.acceptEncoding === 'identity' || capturedHeaders.acceptEncoding === undefined).toBe(true);
+      } finally {
+        await new Promise(resolve => testServer.close(resolve));
+      }
+    });
+
+    test('applies forever setting to POST requests', async () => {
+      // Setup a simple server that captures headers
+      let capturedHeaders = {};
+      const app = express();
+      app.post('/test', express.json(), (req, res) => {
+        capturedHeaders = {
+          connection: req.headers['connection']
+        };
+        res.json({ success: true });
+      });
+      
+      const testServer = http.createServer(app);
+      const testPort = PORT + 1004;
+      await new Promise(resolve => testServer.listen(testPort, resolve));
+      
+      try {
+        const mockCtx = createMockContext({
+          'services.CoAuthoring.requestDefaults': {
+            headers: { "User-Agent": "Node.js/6.13" },
+            forever: true,
+            rejectUnauthorized: false
+          }
+        });
+
+        const postData = JSON.stringify({ test: 'data' });
+        
+        await utils.postRequestPromise(
+          mockCtx,
+          `http://localhost:${testPort}/test`,
+          postData,
+          null,
+          postData.length,
+          { wholeCycle: '2s' },
+          null,
+          false,
+          { 'Content-Type': 'application/json' }
+        );
+        
+        // When forever is true, connection should be 'keep-alive'
+        expect(capturedHeaders.connection?.toLowerCase()).toMatch(/keep-alive/i);
+      } finally {
+        await new Promise(resolve => testServer.close(resolve));
+      }
+    });
   });
-}); 
+});
