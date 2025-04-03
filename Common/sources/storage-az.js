@@ -26,8 +26,9 @@ function getBlobServiceClient(storageCfg) {
             storageCfg.accessKeyId,
             storageCfg.secretAccessKey
         );
+        const endpointUrl = new URL(storageCfg.endpoint.replace(/\/+$/, ''));
         blobServiceClients[configKey] = new BlobServiceClient(
-            `https://${storageCfg.accessKeyId}.blob.core.windows.net`,
+            `${endpointUrl.protocol}//${storageCfg.accessKeyId}.${endpointUrl.host}`,
             credential
         );
     }
