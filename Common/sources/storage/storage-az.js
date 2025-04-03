@@ -5,9 +5,9 @@ const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParam
 const mime = require('mime');
 const config = require('config');
 const { Readable } = require('stream');
-const utils = require('./utils');
+const utils = require('../utils');
 const ms = require('ms');
-const commonDefines = require('./../../Common/sources/commondefines');
+const commonDefines = require('../commondefines');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const MAX_DELETE_OBJECTS = 1000;

@@ -34,7 +34,7 @@ const { describe, test, expect, afterAll, beforeAll } = require('@jest/globals')
 const http = require('http');
 
 const { signToken } = require('../../../DocService/sources/DocsCoServer');
-const storage = require('../../../Common/sources/storage-base');
+const storage = require('../../../Common/sources/storage/storage-base');
 const constants = require('../../../Common/sources/commondefines');
 const operationContext = require('../../../Common/sources/operationContext');
 const utils = require("../../../Common/sources/utils");

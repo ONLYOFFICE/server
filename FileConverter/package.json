@@ -13,8 +13,9 @@
   },
   "pkg": {
     "scripts": [
-      "../Common/sources/storage-fs.js",
-      "../Common/sources/storage-s3.js",
+      "../Common/sources/storage/storage-fs.js",
+      "../Common/sources/storage/storage-s3.js",
+      "../Common/sources/storage/storage-az.js",
       "../DocService/sources/editorDataMemory.js",
       "../DocService/sources/editorDataRedis.js"
     ]

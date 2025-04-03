@@ -40,7 +40,7 @@ const {
 
 const co = require('co');
 const taskResult = require('./../../DocService/sources/taskresult');
-const storage = require('./../../Common/sources/storage-base');
+const storage = require('./../../Common/sources/storage/storage-base');
 const storageFs = require('./../../Common/sources/storage-fs');
 const operationContext = require('./../../Common/sources/operationContext');
 const utils = require('./../../Common/sources/utils');

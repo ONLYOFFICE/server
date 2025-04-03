@@ -49,7 +49,7 @@ const { cp } = require('fs/promises');
 
 const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
-const storage = require('../../../Common/sources/storage-base');
+const storage = require('../../../Common/sources/storage/storage-base');
 const utils = require('../../../Common/sources/utils');
 const commonDefines = require("../../../Common/sources/commondefines");
 const config = require('../../../Common/node_modules/config');
