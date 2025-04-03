@@ -1,6 +1,5 @@
 'use strict';
 const fs = require('fs');
-const url = require('url');
 const path = require('path');
 const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require('@azure/storage-blob');
 const mime = require('mime');
@@ -12,8 +11,14 @@ const commonDefines = require('./../../Common/sources/commondefines');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const MAX_DELETE_OBJECTS = 1000;
-let blobServiceClients = {};
+const blobServiceClients = {};
 
+/**
+ * Gets or creates a BlobServiceClient for the given storage configuration.
+ *
+ * @param {Object} storageCfg - configuration object from default.json
+ * @returns {BlobServiceClient} The Azure Blob Service client
+ */
 function getBlobServiceClient(storageCfg) {
     const configKey = `${storageCfg.accessKeyId}_${storageCfg.bucketName}`;
     if (!blobServiceClients[configKey]) {
@@ -29,19 +34,39 @@ function getBlobServiceClient(storageCfg) {
     return blobServiceClients[configKey];
 }
 
+/**
+ * Gets a ContainerClient for the specified storage configuration.
+ *
+ * @param {Object} storageCfg - configuration object from default.json
+ * @returns {ContainerClient} The Azure Container client
+ */
 function getContainerClient(storageCfg) {
     const blobServiceClient = getBlobServiceClient(storageCfg);
     return blobServiceClient.getContainerClient(storageCfg.bucketName);
 }
 
+/**
+ * Gets a BlockBlobClient for the specified storage configuration and blob name.
+ *
+ * @param {Object} storageCfg - configuration object from default.json
+ * @param {string} blobName - The name of the blob
+ * @returns {BlockBlobClient} The Azure Block Blob client
+ */
 function getBlobClient(storageCfg, blobName) {
   const containerClient = getContainerClient(storageCfg);
   return containerClient.getBlockBlobClient(blobName);
 }
 
+/**
+ * Constructs a full file path by combining the storage folder name and the path.
+ *
+ * @param {Object} storageCfg - configuration object from default.json
+ * @param {string} strPath - The relative path of the file
+ * @returns {string} The full file path
+ */
 function getFilePath(storageCfg, strPath) {
     const storageFolderName = storageCfg.storageFolderName;
-    return `${storageFolderName}/${strPath}`
+    return `${storageFolderName}/${strPath}`;
 }
 
 async function listObjectsExec(storageCfg, prefix, output = []) {
@@ -107,30 +132,19 @@ async function putObject(storageCfg, strPath, buffer, contentLength) {
 
 async function uploadObject(storageCfg, strPath, filePath) {
     const blockBlobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
-    const input = fs.createReadStream(filePath);
-    const uploadStream = input instanceof Readable ? input : new Readable({
-        read() {
-            this.push(input);
-            this.push(null);
-        }
-    });
-
-    await new Promise((resolve, reject) => {
-        uploadStream.on('error', reject);
-        blockBlobClient.uploadStream(
-            uploadStream,
-            undefined,
-            undefined,
-            {
-                blobHTTPHeaders: {
-                    contentType: mime.getType(strPath),
-                    contentDisposition: utils.getContentDisposition(path.basename(strPath))
-                }
+    const uploadStream = fs.createReadStream(filePath);
+    
+    await blockBlobClient.uploadStream(
+        uploadStream,
+        undefined,
+        undefined,
+        {
+            blobHTTPHeaders: {
+                contentType: mime.getType(strPath),
+                contentDisposition: utils.getContentDisposition(path.basename(strPath))
             }
-        )
-        .then(resolve)
-        .catch(reject);
-    });
+        }
+    );
 }
 
 async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
@@ -188,6 +202,11 @@ async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, o
     return await blobClient.generateSasUrl(sasOptions);
 }
 
+/**
+ * Determines if static routs is needed for cacheFolder
+ *
+ * @returns {boolean} Always returns false for Azure Blob Storage
+ */
 function needServeStatic() {
     return false;
 }
