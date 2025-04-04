@@ -43,7 +43,7 @@ const lcid = require('lcid');
 const ms = require('ms');
 
 var commonDefines = require('./../../Common/sources/commondefines');
-var storage = require('./../../Common/sources/storage-base');
+var storage = require('./../../Common/sources/storage/storage-base');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 var baseConnector = require('../../DocService/sources/databaseConnectors/baseConnector');

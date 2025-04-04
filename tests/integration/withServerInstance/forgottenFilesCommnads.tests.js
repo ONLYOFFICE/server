@@ -34,7 +34,7 @@ const { describe, test, expect, afterAll, beforeAll } = require('@jest/globals')
 const http = require('http');
 
 const { signToken } = require('../../../DocService/sources/DocsCoServer');
-const storage = require('../../../Common/sources/storage-base');
+const storage = require('../../../Common/sources/storage/storage-base');
 const constants = require('../../../Common/sources/commondefines');
 const operationContext = require('../../../Common/sources/operationContext');
 const utils = require("../../../Common/sources/utils");
@@ -50,6 +50,7 @@ const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enabl
 const cfgStorageName = config.get('storage.name');
 const cfgEndpoint = config.get('storage.endpoint');
 const cfgBucketName = config.get('storage.bucketName');
+const cfgAccessKeyId = config.get('storage.accessKeyId');
 const ctx = new operationContext.Context();
 
 const testFilesNames = {
@@ -184,8 +185,14 @@ describe('Command service', function () {
         let urlPattern;
         if ("storage-fs" === cfgStorageName) {
           urlPattern = 'http://localhost:8000/cache/files/forgotten/--key--/output.docx/output.docx';
-        } else {
+        } else if ("storage-s3" === cfgStorageName) {
           let host = cfgEndpoint.slice(0, "https://".length) + cfgBucketName + "." + cfgEndpoint.slice("https://".length);
+          if (host[host.length - 1] === '/') {
+            host = host.slice(0, -1);
+          }
+          urlPattern = host + '/files/forgotten/--key--/output.docx';
+        } else {
+          let host = cfgEndpoint.slice(0, "https://".length) + cfgAccessKeyId + "." + cfgEndpoint.slice("https://".length) + '/' + cfgBucketName;
           if (host[host.length - 1] === '/') {
             host = host.slice(0, -1);
           }
