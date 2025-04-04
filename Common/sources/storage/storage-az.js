@@ -26,11 +26,14 @@ function getBlobServiceClient(storageCfg) {
             storageCfg.accessKeyId,
             storageCfg.secretAccessKey
         );
-        const endpointUrl = new URL(storageCfg.endpoint.replace(/\/+$/, ''));
-        blobServiceClients[configKey] = new BlobServiceClient(
-            `${endpointUrl.protocol}//${storageCfg.accessKeyId}.${endpointUrl.host}`,
-            credential
-        );
+        if (storageCfg.endpoint.includes(storageCfg.accessKeyId)) {
+            blobServiceClients[configKey] = new BlobServiceClient(storageCfg.endpoint, credential);
+        } else {
+            const endpointUrl = new URL(storageCfg.endpoint.replace(/\/+$/, ''));
+            blobServiceClients[configKey] = new BlobServiceClient(
+                `${endpointUrl.protocol}//${storageCfg.accessKeyId}.${endpointUrl.host}`,
+            credential);
+        }
     }
     return blobServiceClients[configKey];
 }
