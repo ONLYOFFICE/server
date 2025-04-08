@@ -33,7 +33,8 @@
 'use strict';
 const fs = require('fs');
 const url = require('url');
-const { Agent } = require('https');
+const { Agent: HttpsAgent } = require('https');
+const { Agent: HttpAgent } = require('http');
 const path = require('path');
 const { S3Client, ListObjectsCommand, HeadObjectCommand} = require("@aws-sdk/client-s3");
 const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-sdk/client-s3");
@@ -76,11 +77,12 @@ function getS3Client(storageCfg) {
     configS3.tls = storageCfg.sslEnabled;
     configS3.forcePathStyle = storageCfg.s3ForcePathStyle;
   }
-  //todo dedicated options?
-  const agent = new Agent(cfgRequestDefaults);
+  //Use separate agents for HTTP and HTTPS
+  const httpsAgent = new HttpsAgent(cfgRequestDefaults);
+  const httpAgent = new HttpAgent(cfgRequestDefaults);
   configS3.requestHandler = new NodeHttpHandler({
-    httpAgent: agent,
-    httpsAgent: agent
+    httpAgent: httpAgent,
+    httpsAgent: httpsAgent
   });
   let configJson = JSON.stringify(configS3);
   let client = clients[configJson];
