@@ -78,6 +78,7 @@
     "integration tests with server instance": "cd ./DocService && jest integration/withServerInstance --inject-globals=false --config=../tests/jest.config.js",
     "integration database tests": "cd ./DocService && jest integration/databaseTests --inject-globals=false --config=../tests/jest.config.js",
     "tests": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js",
+    "tests:dev": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js --watch",
     "install:Common": "npm ci --prefix ./Common",
     "install:DocService": "npm ci --prefix ./DocService",
     "install:FileConverter": "npm ci --prefix ./FileConverter",

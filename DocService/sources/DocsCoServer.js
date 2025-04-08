@@ -84,7 +84,7 @@ const jwt = require('jsonwebtoken');
 const ms = require('ms');
 const deepEqual  = require('deep-equal');
 const bytes = require('bytes');
-const storage = require('./../../Common/sources/storage-base');
+const storage = require('./../../Common/sources/storage/storage-base');
 const constants = require('./../../Common/sources/constants');
 const utils = require('./../../Common/sources/utils');
 const utilsDocService = require('./utilsDocService');
@@ -3990,7 +3990,7 @@ exports.healthCheck = function(req, res) {
       //storage
       yield storage.healthCheck(ctx);
       ctx.logger.debug('healthCheck storage');
-      if (storage.isDiffrentPersistentStorage()) {
+      if (storage.isDifferentPersistentStorage()) {
         yield storage.healthCheck(ctx, cfgForgottenFiles);
         ctx.logger.debug('healthCheck storage persistent');
       }

@@ -51,8 +51,9 @@
       "./sources/editorDataMemory.js",
       "./sources/editorDataRedis.js",
       "./sources/pubsubRabbitMQ.js",
-      "../Common/sources/storage-fs.js",
-      "../Common/sources/storage-s3.js"
+      "../Common/sources/storage/storage-fs.js",
+      "../Common/sources/storage/storage-s3.js",
+      "../Common/sources/storage/storage-az.js"
     ]
   }
 }
