@@ -235,7 +235,7 @@
 		"wordEdit": ["docx", "dotx", "docm", "odt", "txt"],
 		"cellView": ["xls", "xltm", "xlt", "fods", "ots", "sxc", "xml", "et", "ett", "numbers"],
 		"cellEdit": ["xlsx", "xlsb", "xltx", "xlsm", "ods", "csv"],
-		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt", "key"],
+		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt", "key", "odg"],
 		"slideEdit": ["pptx", "potx", "pptm", "odp"],
 		"diagramView": ["vsdx", "vstx", "vssx", "vsdm", "vstm", "vssm"],
 		"diagramEdit": [],
