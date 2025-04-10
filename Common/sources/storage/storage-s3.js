@@ -36,6 +36,7 @@ const url = require('url');
 const { Agent: HttpsAgent } = require('https');
 const { Agent: HttpAgent } = require('http');
 const path = require('path');
+const crypto = require('crypto');
 const { S3Client, ListObjectsCommand, HeadObjectCommand} = require("@aws-sdk/client-s3");
 const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-sdk/client-s3");
 const { DeleteObjectsCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
@@ -49,6 +50,7 @@ const commonDefines = require('../commondefines');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const cfgRequestDefaults = config.util.cloneDeep(config.get('services.CoAuthoring.requestDefaults'));
+const cfgCacheStorage = config.get('storage');
 
 //This operation enables you to delete multiple objects from a bucket using a single HTTP request. You may specify up to 1000 keys.
 const MAX_DELETE_OBJECTS = 1000;
@@ -225,13 +227,51 @@ async function deletePath(storageCfg, strPath) {
   let list = await listObjects(storageCfg, strPath);
   await deleteObjects(storageCfg, list);
 }
+
 async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+  if (needServeStatic()) {
+      return await getSignedProxyUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate);
+  }
+  return await getSignedS3Url(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate);
+}
+
+async function getSignedProxyUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+  const storageUrlExpires = storageCfg.fs.urlExpires;
+  const secret = storageCfg.fs.secretString;
+  const userFriendlyName = optFilename ? optFilename : path.basename(strPath);
+  let uri = '/' + storageCfg.bucketName + '/' + storageCfg.storageFolderName + '/' + strPath + '/' + userFriendlyName;
+  
+  const date = Date.now();
+  let creationDate = opt_creationDate || date;
+  let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : storageUrlExpires) || 31536000;
+  //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
+  let expires = creationDate + Math.ceil(Math.abs(date - creationDate) / expiredAfter) * expiredAfter;
+  expires = Math.ceil(expires / 1000);
+  expires += expiredAfter;
+  
+  const signatureData = expires + decodeURIComponent(uri) + secret;
+  const md5Hash = crypto
+      .createHash('md5')
+      .update(signatureData)
+      .digest("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
+
+  const url = new URL(uri, utils.checkBaseUrl(ctx, baseUrl, storageCfg));
+  url.searchParams.append('md5', md5Hash);
+  url.searchParams.append('expires', expires);
+  return url.toString();
+}
+
+async function getSignedS3Url(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
   const storageUrlExpires = storageCfg.fs.urlExpires;
   let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
   // Signature version 4 presigned URLs must have an expiration date less than one week in the future
   expires = Math.min(expires, 604800);
-    let userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
-    let contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
+
+  let userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
+  let contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
 
   const input = {
     Bucket: storageCfg.bucketName,
@@ -250,7 +290,7 @@ async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, o
 }
 
 function needServeStatic() {
-  return false;
+  return cfgCacheStorage.proxyUrlsEnabled;
 }
 
 module.exports = {
