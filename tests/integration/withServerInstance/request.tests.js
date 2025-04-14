@@ -1,6 +1,8 @@
 const { describe, test, expect, beforeAll, afterAll } = require('@jest/globals');
 const { Writable, Readable } = require('stream');
+const { buffer } = require('node:stream/consumers');
 const http = require('http');
+const https = require('https');
 const express = require('express');
 const operationContext = require('../../../Common/sources/operationContext');
 const utils = require('../../../Common/sources/utils');
@@ -16,16 +18,6 @@ let testServer;
 const PORT = 3456;
 const BASE_URL = `http://localhost:${PORT}`;
 
-// Helper to create a writable stream for testing
-const createMockWriter = () => {
-  const chunks = [];
-  return new Writable({
-    write(chunk, encoding, callback) {
-      chunks.push(chunk);
-      callback();
-    }
-  });
-};
 
 const getStatusCode = (response) => response.statusCode || response.status;
 
@@ -101,14 +93,6 @@ describe('HTTP Request Integration Tests', () => {
       res.json({ success: true });
     });
 
-    // Endpoint that streams data
-    app.get('/api/stream', (req, res) => {
-      res.setHeader('content-type', 'application/octet-stream');
-      res.setHeader('content-length', '1024');
-      const buffer = Buffer.alloc(1024);
-      res.send(buffer);
-    });
-
     // Endpoint that simulates timeout
     app.get('/api/timeout', (req, res) => {
       // Never send response to trigger timeout
@@ -144,17 +128,18 @@ describe('HTTP Request Integration Tests', () => {
       res.send(binaryData);
     });
     
-
     // Large file endpoint
     app.get('/api/large', (req, res) => {
-      res.setHeader('content-length', '2097152'); // 2MB
       res.setHeader('content-type', 'application/octet-stream');
-      const buffer = Buffer.alloc(2097152);
-      res.send(buffer);
+      res.send(Buffer.alloc(2*1024*1024));//2MB
     });
-    app.get('/api/headers', (req, res) => {
-      // Ensure you're only sending headers, which won't contain circular references
-      res.json({ headers: req.headers });
+    
+    // Large file endpoint with truly no content-length header
+    app.get('/api/large-chunked', (req, res) => {
+      res.setHeader('content-type', 'application/octet-stream');
+      res.setHeader('transfer-encoding', 'chunked');
+      res.write(Buffer.alloc(2*1024*1024));
+      res.end();
     });
     
     // Endpoint that returns connection header info
@@ -180,7 +165,29 @@ describe('HTTP Request Integration Tests', () => {
         keepAlive: connectionHeader.toLowerCase() === 'keep-alive'
       });
     });
-    
+
+    // Endpoint that mirrors whole request - handles any HTTP method
+    app.use('/api/mirror', express.json(), express.urlencoded({ extended: true }), (req, res) => {
+      // Create a mirror response object with all request details
+      const mirror = {
+        method: req.method,
+        url: req.url,
+        path: req.path,
+        query: req.query,
+        params: req.params,
+        headers: req.headers,
+        body: req.body,
+        protocol: req.protocol,
+        ip: req.ip,
+        hostname: req.hostname,
+        originalUrl: req.originalUrl,
+        xhr: req.xhr,
+        secure: req.secure
+      };
+      
+      // Send the mirror response back
+      res.json(mirror);
+    });
 
     // Start server
     server = http.createServer(app);
@@ -210,47 +217,43 @@ describe('HTTP Request Integration Tests', () => {
       expect(JSON.parse(result.body.toString())).toEqual({ success: true });
     });
 
-    test('handles streaming with writer', async () => {
-      const mockStreamWriter = createMockWriter();
-
-      const result = await utils.downloadUrlPromise(
-        ctx,
-        `${BASE_URL}/api/stream`,
-        { wholeCycle: '5s', connectionAndInactivity: '3s' },
-        1024 * 1024,
-        null,
-        false,
-        null,
-        mockStreamWriter
-      );
-
-      expect(result).toBeUndefined();
-    });
-
     test('throws error on timeout', async () => {
-      await expect(utils.downloadUrlPromise(
-        ctx,
-        `${BASE_URL}/api/timeout`,
-        { wholeCycle: '1s', connectionAndInactivity: '500ms' },
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
-      )).rejects.toThrow(/(?:ESOCKETTIMEDOUT|timeout of 500ms exceeded)/);
+      try {
+        await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/timeout`,
+          { wholeCycle: '1s', connectionAndInactivity: '500ms' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        fail('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.message).toContain('canceled');
+        expect(error.code).toBe('ETIMEDOUT');
+      }
     });
 
     test('throws error on wholeCycle timeout', async () => {
-      await expect(utils.downloadUrlPromise(
-        ctx,
-        `${BASE_URL}/api/timeout`,
-        { wholeCycle: '1s', connectionAndInactivity: '5000ms' },
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
-      )).rejects.toThrow(/(?:ESOCKETTIMEDOUT|ETIMEDOUT: 1s|whole request cycle timeout: 1s)/);
+      try {
+        await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/timeout`,
+          { wholeCycle: '1s', connectionAndInactivity: '5000ms' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        fail('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.message).toContain('canceled');
+        expect(error.code).toBe('ETIMEDOUT');
+      }
+
     });
 
     test('follows redirects correctly', async () => {
@@ -354,16 +357,74 @@ describe('HTTP Request Integration Tests', () => {
     });
 
     test('throws error when content-length exceeds limit', async () => {
-      await expect(utils.downloadUrlPromise(
-        ctx,
-        `${BASE_URL}/api/large`,
-        { wholeCycle: '5s', connectionAndInactivity: '3s' },
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
-      )).rejects.toThrow('Error response: content-length:2097152');
+      try {
+        await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/large`,
+          { wholeCycle: '5s', connectionAndInactivity: '3s' },
+          1024 * 1024,
+          null,
+          false,
+          null
+        );
+        fail('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.message).toContain('EMSGSIZE:');
+        expect(error.code).toBe('EMSGSIZE');
+      }
+      
+      try {
+        await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/large-chunked`,
+          { wholeCycle: '5s', connectionAndInactivity: '3s' },
+          1024 * 1024,
+          null,
+          false,
+          null
+        );
+        fail('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.message).toContain('EMSGSIZE:');
+        expect(error.code).toBe('EMSGSIZE');
+      }
+    });
+
+    test('throws error when content-length exceeds limit with stream', async () => {
+      try {
+        const {stream} = await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/large`,
+          { wholeCycle: '5s', connectionAndInactivity: '3s' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          true
+        );
+        const receivedData = await buffer(stream);
+        fail('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.message).toContain('EMSGSIZE:');
+        expect(error.code).toBe('EMSGSIZE');
+      }
+      try {
+        const {stream} = await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/large-chunked`,
+          { wholeCycle: '5s', connectionAndInactivity: '3s' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          true
+        );
+        const receivedData = await buffer(stream);
+        fail('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.message).toContain('EMSGSIZE:');
+        expect(error.code).toBe('EMSGSIZE');
+      }
     });
 
     test('enables compression when gzip is true', async () => {
@@ -522,6 +583,31 @@ describe('HTTP Request Integration Tests', () => {
       // so we're checking that keepAlive is false
       expect(responseData.keepAlive).toBe(false);
     });
+
+    test('test requestDefaults', async () => {
+      const defaultHeaders = {"user-agent": "Node.js/6.13"};
+      const mockCtx = createMockContext({
+        'services.CoAuthoring.requestDefaults': {
+          headers: defaultHeaders
+        }
+      });
+      let customHeaders = {"custom-header": "test-value", "set-cookie": ["cookie"]};
+      let customQueryParams = {"custom-query-param": "value"};
+      const result = await utils.downloadUrlPromise(
+        mockCtx,
+        `${BASE_URL}/api/mirror?${new URLSearchParams(customQueryParams).toString()}`,
+        { wholeCycle: '5s', connectionAndInactivity: '3s' },
+        1024 * 1024,
+        null,
+        false,
+        customHeaders
+      );
+      expect(result).toBeDefined();
+      expect(result.response.status).toBe(200);
+      const body = JSON.parse(result.body);
+      expect(body.headers).toMatchObject({...defaultHeaders, ...customHeaders});
+      expect(body.query).toMatchObject(customQueryParams);
+    });
   });
 
   test('handles binary data correctly', async () => {
@@ -551,15 +637,7 @@ describe('HTTP Request Integration Tests', () => {
   });
 
   test('handles binary data with stream writer', async () => {
-    const chunks = [];
-    const mockStreamWriter = new Writable({
-      write(chunk, encoding, callback) {
-        chunks.push(chunk);
-        callback();
-      }
-    });
-
-    await utils.downloadUrlPromise(
+    const { stream } = await utils.downloadUrlPromise(
       ctx,
       `${BASE_URL}/api/binary`,
       { wholeCycle: '5s', connectionAndInactivity: '3s' },
@@ -567,11 +645,9 @@ describe('HTTP Request Integration Tests', () => {
       null,
       false,
       null,
-      mockStreamWriter
+      true
     );
-
-    // Combine chunks and verify
-    const receivedData = Buffer.concat(chunks);
+    const receivedData = await buffer(stream);
     const expectedData = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
     
     expect(Buffer.isBuffer(receivedData)).toBe(true);
