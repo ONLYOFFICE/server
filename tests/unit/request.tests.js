@@ -4,8 +4,8 @@ const { buffer } = require('node:stream/consumers');
 const http = require('http');
 const https = require('https');
 const express = require('express');
-const operationContext = require('../../../Common/sources/operationContext');
-const utils = require('../../../Common/sources/utils');
+const operationContext = require('../../Common/sources/operationContext');
+const utils = require('../../Common/sources/utils');
 const fs = require('fs').promises;
 const path = require('path');
 
