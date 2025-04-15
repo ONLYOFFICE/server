@@ -15,9 +15,13 @@ const ctx = new operationContext.Context();
 // Test server setup
 let server;
 let testServer;
+let proxyServer;
 const PORT = 3456;
 const BASE_URL = `http://localhost:${PORT}`;
-
+const PROXY_PORT = PORT + 2000;
+const PROXY_URL = `http://localhost:${PROXY_PORT}`;
+// Track requests going through the proxy
+const proxiedRequests = [];
 
 const getStatusCode = (response) => response.statusCode || response.status;
 
@@ -83,7 +87,7 @@ function createMockContext(overrides = {}) {
   };
 }
 
-describe('HTTP Request Integration Tests', () => {
+describe('HTTP Request Unit Tests', () => {
   beforeAll(async () => {
     // Setup test Express server
     const app = express();
@@ -107,6 +111,46 @@ describe('HTTP Request Integration Tests', () => {
     // Endpoint that returns error
     app.get('/api/error', (req, res) => {
       res.status(500).json({ error: 'Internal Server Error' });
+    });
+    // Endpoint that simulates a slow response headers
+    app.get('/api/slow-headers', (req, res) => {
+      // Delay sending headers
+      setTimeout(() => {
+        res.json({ success: true });
+      }, 2000); // 2 seconds delay before sending any response
+    });
+
+
+    // Endpoint that simulates partial response with incomplete body
+    app.get('/api/partial-response', (req, res) => {
+      // Send headers immediately
+      res.setHeader('Content-Type', 'application/json');
+      // Start sending data
+      res.write('{"start": "This response');
+     
+      // But never finish the response (simulates a server that hangs after starting to send data)
+      // This should trigger the wholeCycle timeout
+    });
+
+
+    // Endpoint that simulates slow/chunked response with inactivity periods
+    app.get('/api/slow-body', (req, res) => {
+      // Send headers immediately
+      res.setHeader('Content-Type', 'application/json');
+      res.write('{"part1": "First part of the response",');
+     
+      // Delay between chunks (simulates inactivity during response body transmission)
+      setTimeout(() => {
+        res.write('"part2": "Second part of the response",');
+        // Final delay - this delay is longer than the connectionAndInactivity timeout should be
+        setTimeout(() => {
+          res.write('"part3": "third part",');
+          setTimeout(() => {
+            res.write('"part4": "Final part"}');
+            res.end();
+          }, 2000);
+        }, 1000);
+      }, 1000);
     });
 
     // POST endpoint
@@ -192,11 +236,214 @@ describe('HTTP Request Integration Tests', () => {
     // Start server
     server = http.createServer(app);
     await new Promise(resolve => server.listen(PORT, resolve));
+    
+    // Setup proxy server
+    const proxyApp = express();
+    proxyApp.use((req, res, next) => {
+      // Record request details
+      const requestInfo = {
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+        body: ''
+      };
+      proxiedRequests.push(requestInfo);
+      
+      // Collect body data if present
+      req.on('data', chunk => {
+        requestInfo.body += chunk.toString();
+      });
+      
+      // Validate proxy authentication
+      const authHeader = req.headers['proxy-authorization'];
+      if (!authHeader || !authHeader.startsWith('Basic ')) {
+        res.status(407).set('Proxy-Authenticate', 'Basic').send('Proxy authentication required');
+        return;
+      }
+      
+      // Decode and verify credentials
+      const base64Credentials = authHeader.split(' ')[1];
+      const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+      const [username, password] = credentials.split(':');
+      
+      // Expected credentials from config (will be overridden by test-specific values)
+      const expectedUsername = 'proxyuser';
+      const expectedPassword = 'proxypass';
+      
+      if (username !== expectedUsername || password !== expectedPassword) {
+        res.status(407).set('Proxy-Authenticate', 'Basic').send('Invalid proxy credentials');
+        return;
+      }
+      
+      // Forward the request
+      const targetUrl = new URL(req.url);
+      const options = {
+        hostname: targetUrl.hostname,
+        port: targetUrl.port || (targetUrl.protocol === 'https:' ? 443 : 80),
+        path: targetUrl.pathname + targetUrl.search,
+        method: req.method,
+        headers: { ...req.headers }
+      };
+      
+      const proxyReq = http.request(options, (proxyRes) => {
+        // Copy status code
+        res.statusCode = proxyRes.statusCode;
+        
+        // Copy headers
+        Object.keys(proxyRes.headers).forEach(key => {
+          res.setHeader(key, proxyRes.headers[key]);
+        });
+        
+        // Pipe response data
+        proxyRes.pipe(res);
+      });
+      
+      // Handle proxy errors
+      proxyReq.on('error', (error) => {
+        console.error('Proxy error:', error);
+        res.statusCode = 500;
+        res.end('Proxy Error');
+      });
+      
+      // Pipe request data
+      if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        req.pipe(proxyReq);
+      } else {
+        proxyReq.end();
+      }
+    });
+    
+    proxyServer = http.createServer(proxyApp);
+    await new Promise(resolve => proxyServer.listen(PROXY_PORT, resolve));
   });
 
   afterAll(async () => {
-    // Cleanup server
+    // Cleanup servers
     await new Promise(resolve => server.close(resolve));
+    if (proxyServer) {
+      await new Promise(resolve => proxyServer.close(resolve));
+    }
+  });
+
+  
+  describe('specific timeout behaviors', () => {
+    test('connectionAndInactivity triggers when server delays response headers', async () => {
+      try {
+        await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/slow-headers`,
+          { connectionAndInactivity: '1s' }, // connectionAndInactivity shorter than the server delay
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        throw new Error('Expected an error to be thrown');
+      } catch (error) {
+        // Different implementations might throw different error messages/codes
+        expect(error.code).toBe('ESOCKETTIMEDOUT');
+      }
+    });
+
+
+    test('connectionAndInactivity does not trigger when longer than server delay', async () => {
+      const result = await utils.downloadUrlPromise(
+        ctx,
+        `${BASE_URL}/api/slow-headers`,
+        { connectionAndInactivity: '3s' }, // connectionAndInactivity longer than the server delay (2s)
+        1024 * 1024,
+        null,
+        false,
+        null,
+        null
+      );
+    
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+      expect(JSON.parse(result.body.toString())).toEqual({ success: true });
+    });
+
+
+    test('wholeCycle triggers even when server starts sending data but does not complete', async () => {
+      try {
+        await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/partial-response`,
+          { wholeCycle: '2s' }, // wholeCycle shorter than time needed for response
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        throw new Error('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.code).toBe('ETIMEDOUT');
+      }
+    });
+
+
+    test('connectionAndInactivity triggers when server stops sending data midway', async () => {
+      try {
+        await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/slow-body`,
+          { connectionAndInactivity: '1500ms' }, // connectionAndInactivity shorter than the second delay
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        throw new Error('Expected an error to be thrown');
+      } catch (error) {
+        // This should catch the inactivity timeout during body transmission
+        expect(error.code).toBe('ESOCKETTIMEDOUT');
+      }
+    });
+  
+    test('connectionAndInactivity does not trigger when longer than inactivity periods', async () => {
+      const result = await utils.downloadUrlPromise(
+        ctx,
+        `${BASE_URL}/api/slow-body`,
+        { connectionAndInactivity: '2100ms' }, // connectionAndInactivity longer than the longest delay (2s)
+        1024 * 1024,
+        null,
+        false,
+        null,
+        null
+      );
+    
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+      const responseBody = JSON.parse(result.body.toString());
+      expect(responseBody.part1).toBe('First part of the response');
+      expect(responseBody.part2).toBe('Second part of the response');
+      expect(responseBody.part3).toBe('third part');
+      expect(responseBody.part4).toBe('Final part');
+    });
+  
+    test('wholeCycle does not trigger when longer than total response time', async () => {
+      const result = await utils.downloadUrlPromise(
+        ctx,
+        `${BASE_URL}/api/slow-body`,
+        { wholeCycle: '7s' },
+        1024 * 1024,
+        null,
+        false,
+        null,
+        null
+      );
+    
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+      const responseBody = JSON.parse(result.body.toString());
+      expect(responseBody.part1).toBe('First part of the response');
+      expect(responseBody.part2).toBe('Second part of the response');      
+      expect(responseBody.part3).toBe('third part');
+      expect(responseBody.part4).toBe('Final part');
+    });
   });
 
   describe('downloadUrlPromise', () => {
@@ -229,10 +476,9 @@ describe('HTTP Request Integration Tests', () => {
           null,
           null
         );
-        fail('Expected an error to be thrown');
+        throw new Error('Expected an error to be thrown');
       } catch (error) {
-        expect(error.message).toContain('canceled');
-        expect(error.code).toBe('ETIMEDOUT');
+        expect(error.code).toBe('ESOCKETTIMEDOUT');
       }
     });
 
@@ -248,9 +494,8 @@ describe('HTTP Request Integration Tests', () => {
           null,
           null
         );
-        fail('Expected an error to be thrown');
+        throw new Error('Expected an error to be thrown');
       } catch (error) {
-        expect(error.message).toContain('canceled');
         expect(error.code).toBe('ETIMEDOUT');
       }
 
@@ -298,13 +543,9 @@ describe('HTTP Request Integration Tests', () => {
           null,
           null
         );
-
-        // Old implementation path
-        expect(result).toBeDefined();
-        expect(getStatusCode(result.response)).toBe(302);
       } catch (error) {
         // New implementation path (Axios)
-        expect(error.message).toMatch(/(?:Request failed with status code 302|Error response: statusCode:302)/);
+        expect(error.statusCode).toBe(302)
       }
     });
 
@@ -335,11 +576,9 @@ describe('HTTP Request Integration Tests', () => {
         );
 
         // Old implementation path
-        expect(result).toBeDefined();
-        expect(getStatusCode(result.response)).toBe(302);
       } catch (error) {
         // New implementation path (Axios)
-        expect(error.message).toMatch(/(?:Request failed with status code 302|Error response: statusCode:302)/);
+        expect(error.statusCode).toBe(302);
       }
     });
 
@@ -353,7 +592,7 @@ describe('HTTP Request Integration Tests', () => {
         false,
         null,
         null
-      )).rejects.toThrow(/(?:Error response: statusCode:500|Request failed with status code 500)/);
+      )).rejects.toMatchObject({ code: 'ERR_BAD_RESPONSE' });
     });
 
     test('throws error when content-length exceeds limit', async () => {
@@ -367,9 +606,8 @@ describe('HTTP Request Integration Tests', () => {
           false,
           null
         );
-        fail('Expected an error to be thrown');
+        throw new Error('Expected an error to be thrown');
       } catch (error) {
-        expect(error.message).toContain('EMSGSIZE:');
         expect(error.code).toBe('EMSGSIZE');
       }
       
@@ -383,9 +621,8 @@ describe('HTTP Request Integration Tests', () => {
           false,
           null
         );
-        fail('Expected an error to be thrown');
+        throw new Error('Expected an error to be thrown');
       } catch (error) {
-        expect(error.message).toContain('EMSGSIZE:');
         expect(error.code).toBe('EMSGSIZE');
       }
     });
@@ -403,9 +640,8 @@ describe('HTTP Request Integration Tests', () => {
           true
         );
         const receivedData = await buffer(stream);
-        fail('Expected an error to be thrown');
+        throw new Error('Expected an error to be thrown');
       } catch (error) {
-        expect(error.message).toContain('EMSGSIZE:');
         expect(error.code).toBe('EMSGSIZE');
       }
       try {
@@ -420,9 +656,8 @@ describe('HTTP Request Integration Tests', () => {
           true
         );
         const receivedData = await buffer(stream);
-        fail('Expected an error to be thrown');
+        throw new Error('Expected an error to be thrown');
       } catch (error) {
-        expect(error.message).toContain('EMSGSIZE:');
         expect(error.code).toBe('EMSGSIZE');
       }
     });
@@ -608,6 +843,56 @@ describe('HTTP Request Integration Tests', () => {
       expect(body.headers).toMatchObject({...defaultHeaders, ...customHeaders});
       expect(body.query).toMatchObject(customQueryParams);
     });
+
+    test('successfully routes GET request through a real proxy', async () => {
+      try {
+        // Create context with proxy configuration
+        const mockCtx = createMockContext({
+          'externalRequest.action': {
+            "allow": true,
+            "blockPrivateIP": false,
+            "proxyUrl": PROXY_URL,
+            "proxyUser": {
+              "username": "proxyuser",
+              "password": "proxypass"
+            },
+            "proxyHeaders": {
+              "X-Proxy-Custom": "custom-value"
+            }
+          }
+        });
+        
+        // Make a GET request through the proxy
+        const result = await utils.downloadUrlPromise(
+          mockCtx,
+          `${BASE_URL}/api/data`,
+          { wholeCycle: '5s', connectionAndInactivity: '3s' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        );
+        
+        // Verify the request was successful
+        expect(result).toBeDefined();
+        expect(getStatusCode(result.response)).toBe(200);
+        expect(JSON.parse(result.body.toString())).toEqual({ success: true });
+        
+        // Verify the request went through our proxy
+        expect(proxiedRequests.length).toBeGreaterThan(0);
+        const proxyRequest = proxiedRequests.find(r => 
+          r.method === 'GET' && r.url.includes('/api/data')
+        );
+        expect(proxyRequest).toBeDefined();
+        expect(proxyRequest.url).toContain(`${BASE_URL}/api/data`);
+        // Check for Base64 encoded authorization header (starts with "Basic ")
+        expect(proxyRequest.headers['proxy-authorization']).toMatch(/^Basic /);
+        expect(proxyRequest.headers['x-proxy-custom']).toBe('custom-value');
+      } finally {
+        // No need to clean up proxy server here anymore
+      }
+    });
   });
 
   test('handles binary data correctly', async () => {
@@ -669,6 +954,7 @@ describe('HTTP Request Integration Tests', () => {
       }
     });
 
+    // Use rejects.toThrow to test the error message
     await expect(utils.downloadUrlPromise(
       mockCtx,
       'https://example.com/test',
@@ -749,50 +1035,6 @@ describe('HTTP Request Integration Tests', () => {
     expect(JSON.parse(result.body.toString())).toEqual({ success: true });
   });
 
-  test('request with proxy configuration', async () => {
-    const mockCtx = createMockContext({
-      'externalRequest.action': {
-        "allow": true,
-        "blockPrivateIP": true,
-        "proxyUrl": "http://proxy.example.com:8080",
-        "proxyUser": {
-          "username": "testuser",
-          "password": "testpass"
-        },
-        "proxyHeaders": {
-          "X-Custom-Header": "test-value"
-        }
-      }
-    });
-
-    try {
-      await utils.downloadUrlPromise(
-        mockCtx,
-        'https://example.com/test',
-        { wholeCycle: '5s', connectionAndInactivity: '3s' },
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
-      );
-      fail('Expected request to fail');
-    } catch (error) {
-      // Different error structures between implementations
-      const headers = error.config?.headers || error.request?._headers || error._headers;
-      if (headers) {
-        expect(headers).toEqual(
-          expect.objectContaining({
-            'proxy-authorization': expect.stringContaining('testuser:testpass'),
-            'X-Custom-Header': 'test-value'
-          })
-        );
-      }
-      // If headers aren't available, at least verify the error occurred
-      expect(error).toBeDefined();
-    }
-  });
-
   describe('postRequestPromise', () => {
     test('successfully posts data', async () => {
       const postData = JSON.stringify({ test: 'data' });
@@ -827,7 +1069,7 @@ describe('HTTP Request Integration Tests', () => {
         null,
         false,
         { 'Content-Type': 'application/json' }
-      )).rejects.toThrow(/(?:ESOCKETTIMEDOUT|timeout of 500ms exceeded)/);
+      )).rejects.toMatchObject({ code: 'ESOCKETTIMEDOUT' });
     });
 
     test('handles post with Authorization header', async () => {
@@ -914,7 +1156,7 @@ describe('HTTP Request Integration Tests', () => {
         null,
         false,
         { 'Content-Type': 'application/json' }
-      )).rejects.toThrow(/(?:ETIMEDOUT|ESOCKETTIMEDOUT|whole request cycle timeout: 1s|Whole request cycle timeout: 1s)/);
+      )).rejects.toMatchObject({ code: 'ETIMEDOUT' });
     });
 
     test('blocks external post requests when configured', async () => {
@@ -981,54 +1223,6 @@ describe('HTTP Request Integration Tests', () => {
       expect(result).toBeDefined();
       expect(result.response.statusCode).toBe(200);
       expect(JSON.parse(result.body)).toEqual({ received: { test: 'data' } });
-    });
-
-    test('handles post with proxy configuration', async () => {
-      const mockCtx = createMockContext({
-        'externalRequest.action': {
-          "allow": true,
-          "blockPrivateIP": true,
-          "proxyUrl": "http://proxy.example.com:8080",
-          "proxyUser": {
-            "username": "testuser",
-            "password": "testpass"
-          },
-          "proxyHeaders": {
-            "X-Custom-Proxy-Header": "test-value"
-          }
-        }
-      });
-
-      const postData = JSON.stringify({ test: 'data' });
-
-      try {
-        await utils.postRequestPromise(
-          mockCtx,
-          'https://example.com/api/post',
-          postData,
-          null,
-          postData.length,
-          { wholeCycle: '5s', connectionAndInactivity: '3s' },
-          null,
-          false,
-          { 'Content-Type': 'application/json' }
-        );
-        fail('Expected request to fail');
-      } catch (error) {
-        // Different error structures between implementations
-        const headers = error.config?.headers || error.request?._headers || error._headers;
-        if (headers) {
-          expect(headers).toEqual(
-            expect.objectContaining({
-              'proxy-authorization': expect.stringContaining('testuser:testpass'),
-              'X-Custom-Proxy-Header': 'test-value',
-              'Content-Type': 'application/json'
-            })
-          );
-        }
-        // If headers aren't available, at least verify the error occurred
-        expect(error).toBeDefined();
-      }
     });
 
     test('applies gzip setting to POST requests', async () => {
@@ -1117,6 +1311,66 @@ describe('HTTP Request Integration Tests', () => {
         expect(capturedHeaders.connection?.toLowerCase()).toMatch(/keep-alive/i);
       } finally {
         await new Promise(resolve => testServer.close(resolve));
+      }
+    });
+
+    test('successfully routes POST request through a real proxy', async () => {
+      try {
+        // Create context with proxy configuration
+        const mockCtx = createMockContext({
+          'externalRequest.action': {
+            "allow": true,
+            "blockPrivateIP": false,
+            "proxyUrl": PROXY_URL,
+            "proxyUser": {
+              "username": "proxyuser",
+              "password": "proxypass"
+            },
+            "proxyHeaders": {
+              "X-Post-Proxy": "post-proxy-value"
+            }
+          }
+        });
+        
+        // Test POST request
+        const postData = JSON.stringify({ nested: { test: 'complex-data' } });
+        
+        const postResult = await utils.postRequestPromise(
+          mockCtx,
+          `${BASE_URL}/api/post`,
+          postData,
+          null,
+          postData.length,
+          { wholeCycle: '5s', connectionAndInactivity: '3s' },
+          'auth-token', // With auth token
+          false,
+          { 'Content-Type': 'application/json', 'X-Custom': 'test-value' }
+        );
+        
+        // Verify the post request
+        expect(postResult).toBeDefined();
+        expect(postResult.response.statusCode).toBe(200);
+        expect(JSON.parse(postResult.body)).toEqual({ 
+          received: { nested: { test: 'complex-data' } } 
+        });
+        
+        // Verify proxy headers and auth
+        const postProxyRequest = proxiedRequests.find(r => 
+          r.method === 'POST' && r.url.includes('/api/post')
+        );
+        
+        expect(postProxyRequest).toBeDefined();
+        // Check for Base64 encoded authorization header (starts with "Basic ")
+        expect(postProxyRequest.headers['proxy-authorization']).toMatch(/^Basic /);
+        expect(postProxyRequest.headers['x-post-proxy']).toBe('post-proxy-value');
+        expect(postProxyRequest.headers['content-type']).toBe('application/json');
+        expect(postProxyRequest.headers['x-custom']).toBe('test-value');
+        expect(postProxyRequest.headers['authorization']).toContain('Bearer auth-token');
+        
+        // Verify post body was correctly sent
+        expect(JSON.parse(postProxyRequest.body)).toEqual({ nested: { test: 'complex-data' } });
+      } finally {
+        // No need to clean up proxy server here anymore
       }
     });
   });

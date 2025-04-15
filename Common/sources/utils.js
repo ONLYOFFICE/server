@@ -315,9 +315,11 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
       const proxyUrl = tenExternalRequestAction.proxyUrl;
       const parsedProxyUrl = url.parse(proxyUrl);
 
-      options.proxy.host = parsedProxyUrl.hostname;
-      options.proxy.port = parsedProxyUrl.port;
-      options.proxy.protocol = parsedProxyUrl.protocol;
+      options.proxy = {
+        host: parsedProxyUrl.hostname,
+        port: parsedProxyUrl.port,
+        protocol: parsedProxyUrl.protocol
+      };
     }
 
     if (tenExternalRequestAction.proxyUser?.username) {
@@ -375,10 +377,10 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   const httpAgentOptions = { ...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
   
-  if (optTimeout.connectionAndInactivity) {
-    httpAgentOptions.timeout = ms(optTimeout.connectionAndInactivity);
-    httpsAgentOptions.timeout = ms(optTimeout.connectionAndInactivity);
-  }
+  // if (optTimeout.connectionAndInactivity) {
+  //   httpAgentOptions.timeout = ms(optTimeout.connectionAndInactivity);
+  //   httpsAgentOptions.timeout = ms(optTimeout.connectionAndInactivity);
+  // }
 
   if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
     throw new Error('Block external request. See externalRequest config options');
@@ -405,6 +407,7 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     headers,
     validateStatus: (status) => status >= 200 && status < 300,
     signal: optTimeout.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
+    timeout: optTimeout.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
     // cancelToken: new axios.CancelToken(cancel => {
     //   if (optTimeout?.wholeCycle) {
     //     setTimeout(() => {
@@ -444,104 +447,14 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   } catch (err) {
     if('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
+    } else if(['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      err.code = 'ESOCKETTIMEDOUT';
     }
-    // if (axios.isCancel(err)) {
-    //   const error = new Error(err.message);
-    //   error.code = 'ETIMEDOUT';
-    //   throw error;
-    // }
+    if (err.status){
+      err.statusCode = err.status;
+    }
     throw err;
   }
-}
-
-async function processResponseStream(ctx, { response, sizeLimit, uri, opt_streamWriter, contentLength, timeout }) {
-  return new Promise((resolve, reject) => {
-    const hash = crypto.createHash('sha256');
-    let buffer = [];
-    let bufferLength = 0;
-    let timeoutId;
-
-    const stream = response.data;
-
-    if (timeout) {
-      timeoutId = setTimeout(() => {
-        stream.destroy();
-        reject(new Error(`ETIMEDOUT: ${timeout}`));
-      }, timeout);
-    }
-
-    stream.on('data', chunk => {
-      hash.update(chunk);
-      bufferLength += chunk.length;
-      if (bufferLength > sizeLimit) {
-        stream.destroy();
-        throw new Error('EMSGSIZE: Error response body.length');
-      }
-      if (!opt_streamWriter) buffer.push(chunk);
-    });
-
-    stream.on('error', reject);
-
-    stream.on('end', () => {
-      clearTimeout(timeoutId);
-      const result = {
-        response,
-        sha256: hash.digest('hex'),
-        body: opt_streamWriter ? null : Buffer.concat(buffer)
-      };
-      
-      if (!opt_streamWriter && contentLength && result.body?.length !== parseInt(contentLength)) {
-        ctx.logger.warn('Body size mismatch: %s (expected %s, got %d)',
-          uri, contentLength, result.body?.length);
-      }
-      
-      resolve(opt_streamWriter ? undefined : result);
-    });
-
-    if (opt_streamWriter) {
-      pipeline(stream, opt_streamWriter)
-        .catch(reject);
-    }
-  });
-}
-
-async function processErrorResponseStream(response, { sizeLimit, opt_streamWriter, timeout }) {
-  return new Promise((resolve, reject) => {
-    const hash = crypto.createHash('sha256');
-    let bufferLength = 0;
-    let timeoutId;
-
-    const stream = response.data;
-
-    if (timeout) {
-      timeoutId = setTimeout(() => {
-        stream.destroy();
-        reject(new Error(`ETIMEDOUT: ${timeout}`));
-      }, timeout);
-    }
-
-    stream.on('data', chunk => {
-      hash.update(chunk);
-      bufferLength += chunk.length;
-      if (bufferLength > sizeLimit) {
-        stream.destroy();
-        reject(new Error('EMSGSIZE'));
-      }
-    });
-
-    stream.on('error', reject);
-
-    stream.on('end', () => {
-      clearTimeout(timeoutId);
-      resolve({
-        response,
-        sha256: hash.digest('hex')
-      });
-    });
-
-    pipeline(stream, opt_streamWriter)
-      .catch(reject);
-  });
 }
 
 async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_isInJwtToken, opt_headers) {
