@@ -284,6 +284,14 @@
 		}
 	},
 	"services": {
+		"AiApi": {
+			"endpoint": "",
+			"key": "",
+			"timeout": 30000,
+			"allowedCorsOrigins": [
+				"https://onlyoffice.github.io"
+			]
+		},
 		"CoAuthoring": {
 			"server": {
 				"port": 8000,
