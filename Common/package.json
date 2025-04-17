@@ -9,6 +9,7 @@
     "@aws-sdk/s3-request-presigner": "3.370.0",
     "@azure/storage-blob": "12.27.0",
     "amqplib": "0.8.0",
+    "axios": "1.8.4",
     "co": "4.6.0",
     "config": "2.0.1",
     "content-disposition": "0.5.3",
