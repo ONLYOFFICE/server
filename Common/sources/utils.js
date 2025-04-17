@@ -42,6 +42,7 @@ var path = require('path');
 const crypto = require('crypto');
 var url = require('url');
 var request = require('request');
+const axios = require('axios');
 var co = require('co');
 var URI = require("uri-js");
 const escapeStringRegexp = require('escape-string-regexp');
@@ -1273,3 +1274,4 @@ function deepMergeObjects(target, ...sources) {
 }
 exports.isObject = isObject;
 exports.deepMergeObjects = deepMergeObjects;
+exports.axios = axios;
