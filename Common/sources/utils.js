@@ -461,94 +461,83 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-  let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-  const wholeCycleTimeout = optTimeout?.wholeCycle ? ms(optTimeout.wholeCycle) : undefined;
   uri = URI.serialize(URI.parse(uri));
-  let options = { ...tenTenantRequestDefaults };
-  Object.assign(options, {
-    method: 'post',
-    url: uri,
-    timeout: connectionAndInactivity,
-    validateStatus: (status) => status === 200 || status === 204
-  });
+  const options = config.util.cloneDeep(tenTenantRequestDefaults);
   
-  if (options.gzip !== undefined && !options.gzip) {
-    options.headers = { ...options.headers, 'Accept-Encoding': 'identity' };
-    delete options.gzip;
-  }
+  const httpsAgentOptions = { ...https.globalAgent.options, ...options};
+  const httpAgentOptions = { ...http.globalAgent.options, ...options};
+  changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
   
-  if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options, http.globalAgent.options, https.globalAgent.options)) {
+  if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
     throw new Error('Block external request. See externalRequest config options');
   }
-  const protocol = new URL(uri).protocol;
-  if (!options.httpsAgent && !options.httpAgent) {
-    const agentOptions = { 
-      ...https.globalAgent.options, 
-      rejectUnauthorized: tenTenantRequestDefaults.rejectUnauthorized === false ? false : true 
-    };
-    
-    if (tenTenantRequestDefaults.forever !== undefined) {
-      agentOptions.keepAlive = !!tenTenantRequestDefaults.forever;
-    }
-    
-    if (protocol === 'https:') {
-      options.httpsAgent = new https.Agent(agentOptions);
-    } else if (protocol === 'http:') {
-      options.httpAgent = new http.Agent(agentOptions);
-    }
+
+  if (!options.httpsAgent || !options.httpAgent) {
+    options.httpsAgent = new https.Agent(httpsAgentOptions);
+    options.httpAgent = new http.Agent(httpAgentOptions);
   }
-  if (postData) {
-    options.data = postData;
-  } else if (postDataStream) {
-    options.data = postDataStream;
-  }
-  options.headers = options.headers || {};
+
+  const headers = { ...options.headers };
   if (opt_Authorization) {
-    //todo ctx.getCfg
-    options.headers[tenTokenOutboxHeader] = `${tenTokenOutboxPrefix}${opt_Authorization}`;
+    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
   }
   if (opt_headers) {
-    Object.assign(options.headers, opt_headers);
+    Object.assign(headers, opt_headers);
   }
   if (undefined !== postDataSize) {
-      //If no Content-Length is set, data will automatically be encoded in HTTP Chunked transfer encoding,
-      //so that server knows when the data ends. The Transfer-Encoding: chunked header is added.
-      //https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
-      //issue with Transfer-Encoding: chunked wopi and sharepoint 2019
-      //https://community.alteryx.com/t5/Dev-Space/Download-Tool-amp-Microsoft-SharePoint-Chunked-Request-Error/td-p/735824
-    options.headers['Content-Length'] = postDataSize;
+    //If no Content-Length is set, data will automatically be encoded in HTTP Chunked transfer encoding,
+    //so that server knows when the data ends. The Transfer-Encoding: chunked header is added.
+    //https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
+    //issue with Transfer-Encoding: chunked wopi and sharepoint 2019
+    //https://community.alteryx.com/t5/Dev-Space/Download-Tool-amp-Microsoft-SharePoint-Chunked-Request-Error/td-p/735824
+    headers['Content-Length'] = postDataSize;
   }
-  const cancelTokenSource = axios.CancelToken.source();
-  if (wholeCycleTimeout) {
-    setTimeout(() => {
-      cancelTokenSource.cancel(`Whole request cycle timeout: ${optTimeout.wholeCycle}`);
-    }, wholeCycleTimeout);
+
+  const axiosConfig = {
+    ...options,
+    url: uri,
+    method: 'POST',
+    headers,
+    validateStatus: (status) => status === 200 || status === 204,
+    signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
+    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
+  };
+
+  if (postData) {
+    axiosConfig.data = postData;
+  } else if (postDataStream) {
+    axiosConfig.data = postDataStream;
   }
-  options.cancelToken = cancelTokenSource.token;
+
   try {
-    const response = await axios(options);
+    const response = await axios(axiosConfig);
+    const { status, headers, data } = response;
+    
     return {
       response: {
-        statusCode: response.status,
-        headers: response.headers,
-        body: response.data
+        statusCode: status,
+        headers: headers,
+        body: data
       },
-      body: JSON.stringify(response.data)
-    }
-  } catch (error) {
-    if (axios.isCancel(error)) {
-      const err = new Error(error.message);
+      body: JSON.stringify(data)
+    };
+  } catch (err) {
+    if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
-      throw err;
+    } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      err.code = 'ESOCKETTIMEDOUT';
     }
-    if (error.response) {
-      const { status, headers, data } = error.response;
-      const err = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${data}`);
-      err.statusCode = status;
-      err.response = error.response;
-      throw err;
+    if (err.status) {
+      err.statusCode = err.status;
     }
-    throw error;
+    if (err.response) {
+      const { status, headers, data } = err.response;
+      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${data}`);
+      error.statusCode = status;
+      error.response = err.response;
+      throw error;
+    }
+    throw err;
   }
 }
 exports.postRequestPromise = postRequestPromise;
