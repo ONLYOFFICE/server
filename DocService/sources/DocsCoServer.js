@@ -708,6 +708,11 @@ function* addTask(data, priority, opt_queue, opt_expiration) {
   var realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addTask(data, priority, opt_expiration);
 }
+
+async function addTaskAsync(data, priority, opt_queue, opt_expiration) {
+  var realQueue = opt_queue ? opt_queue : queue;
+  await realQueue.addTask(data, priority, opt_expiration);
+}
 function* addResponse(data, opt_queue) {
   var realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addResponse(data);
@@ -1559,6 +1564,7 @@ exports.changeConnectionInfo = changeConnectionInfo;
 exports.signToken = signToken;
 exports.publish = publish;
 exports.addTask = addTask;
+exports.addTaskAsync = addTaskAsync;
 exports.addDelayed = addDelayed;
 exports.removeResponse = removeResponse;
 exports.hasEditors = hasEditors;

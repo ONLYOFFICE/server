@@ -320,6 +320,17 @@ function* addRandomKeyTaskCmd(ctx, cmd) {
   //set saveKey as postfix to fix vulnerability with path traversal to docId or other files
   cmd.setSaveKey(task.key.substring(docId.length));
 }
+
+async function addRandomKeyTaskCmdAsync(ctx, cmd) {
+  let docId = cmd.getDocId();
+  // Use the generator function with co to maintain compatibility
+  let task = await co(function*() {
+    return yield* taskResult.addRandomKeyTask(ctx, docId);
+  });
+  //set saveKey as postfix to fix vulnerability with path traversal to docId or other files
+  cmd.setSaveKey(task.key.substring(docId.length));
+}
+exports.addRandomKeyTaskCmdAsync = addRandomKeyTaskCmdAsync;
 function addPasswordToCmd(ctx, cmd, docPasswordStr, originFormat) {
   let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, docPasswordStr);
   if (docPassword.current) {
@@ -355,7 +366,7 @@ function changeFormatByOrigin(ctx, row, format) {
   }
   return format;
 }
-function* saveParts(ctx, cmd, filename) {
+async function saveParts(ctx, cmd, filename) {
   var result = false;
   var saveType = cmd.getSaveType();
   if (SAVE_TYPE_COMPLETE_ALL !== saveType) {
@@ -364,13 +375,13 @@ function* saveParts(ctx, cmd, filename) {
     filename = pathModule.basename(filename, ext) + saveIndex + ext;
   }
   if ((SAVE_TYPE_PART_START === saveType || SAVE_TYPE_COMPLETE_ALL === saveType) && !cmd.getSaveKey()) {
-    yield* addRandomKeyTaskCmd(ctx, cmd);
+    await addRandomKeyTaskCmdAsync(ctx, cmd);
   }
   if (cmd.getUrl()) {
     result = true;
   } else if (cmd.getData() && cmd.getData().length > 0 && cmd.getSaveKey()) {
     var buffer = cmd.getData();
-    yield storage.putObject(ctx, cmd.getDocId() + cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
+    await storage.putObject(ctx, cmd.getDocId() + cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
     //delete data to prevent serialize into json
     cmd.data = null;
     result = (SAVE_TYPE_COMPLETE_ALL === saveType || SAVE_TYPE_COMPLETE === saveType);
@@ -488,19 +499,19 @@ function commandOpenStartPromise(ctx, docId, baseUrl, opt_documentCallbackUrl, o
   }
   return taskResult.upsert(ctx, task);
 }
-function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
+async function commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore) {
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
 
   var upsertRes;
   if (opt_upsertRes) {
     upsertRes = opt_upsertRes;
   } else {
-    upsertRes = yield commandOpenStartPromise(ctx, cmd.getDocId(), utils.getBaseUrlByConnection(ctx, conn), undefined, cmd.getFormat());
+    upsertRes = await commandOpenStartPromise(ctx, cmd.getDocId(), utils.getBaseUrlByConnection(ctx, conn), undefined, cmd.getFormat());
   }
   let bCreate = upsertRes.isInsert;
   let needAddTask = bCreate;
   if (!bCreate) {
-    needAddTask = yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
+    needAddTask = await commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
   }
   if (conn.encrypted) {
     ctx.logger.debug("commandOpen encrypted %j", outputData);
@@ -518,9 +529,9 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
     task.status = commonDefines.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
-    let updateIfRes = yield taskResult.updateIf(ctx, task, updateMask);
+    let updateIfRes = await taskResult.updateIf(ctx, task, updateMask);
       if (updateIfRes.affectedRows > 0) {
-        let forgotten = yield storage.listObjects(ctx, cmd.getDocId(), tenForgottenFiles);
+        let forgotten = await storage.listObjects(ctx, cmd.getDocId(), tenForgottenFiles);
         //replace url with forgotten file because it absorbed all lost changes
         if (forgotten.length > 0) {
           ctx.logger.debug("commandOpen from forgotten");
@@ -545,29 +556,29 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
           constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === formatIn) {
           priority = constants.QUEUE_PRIORITY_LOW;
         }
-        yield* docsCoServer.addTask(dataQueue, priority);
+        await docsCoServer.addTaskAsync(dataQueue, priority);
       } else {
-        yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
+        await commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
       }
     }
   }
-function* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore) {
-  let status = yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
+async function commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore) {
+  let status = await getOutputData(ctx, cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
   return commonDefines.FileStatus.None === status;
 }
-function* commandReopen(ctx, conn, cmd, outputData) {
+async function commandReopen(ctx, conn, cmd, outputData) {
   const tenOpenProtectedFile = ctx.getCfg('services.CoAuthoring.server.openProtectedFile', cfgOpenProtectedFile);
 
   let res = true;
   let isPassword = undefined !== cmd.getPassword();
   if (isPassword) {
-    let selectRes = yield taskResult.select(ctx, cmd.getDocId());
+    let selectRes = await taskResult.select(ctx, cmd.getDocId());
     if (selectRes.length > 0) {
       let row = selectRes[0];
       if (sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password)) {
         ctx.logger.debug('commandReopen has password');
-        yield* commandOpenFillOutput(ctx, conn, cmd, outputData, false);
-        yield docsCoServer.modifyConnectionForPassword(ctx, conn, constants.FILE_STATUS_OK === outputData.getStatus());
+        await commandOpenFillOutput(ctx, conn, cmd, outputData, false);
+        await docsCoServer.modifyConnectionForPassword(ctx, conn, constants.FILE_STATUS_OK === outputData.getStatus());
         return res;
       }
     }
@@ -582,7 +593,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
     task.status = commonDefines.FileStatus.WaitQueue;
     task.statusInfo = constants.NO_ERROR;
 
-    var upsertRes = yield taskResult.updateIf(ctx, task, updateMask);
+    var upsertRes = await taskResult.updateIf(ctx, task, updateMask);
     if (upsertRes.affectedRows > 0) {
       //add task
       cmd.setUrl(null);//url may expire
@@ -599,7 +610,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
       dataQueue.setCmd(cmd);
       dataQueue.setToFile('Editor.bin');
       dataQueue.setFromSettings(true);
-      yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
+      await docsCoServer.addTaskAsync(dataQueue, constants.QUEUE_PRIORITY_HIGH);
     } else {
       outputData.setStatus('needpassword');
       outputData.setData(constants.CONVERT_PASSWORD);
@@ -609,33 +620,33 @@ function* commandReopen(ctx, conn, cmd, outputData) {
   }
   return res;
 }
-function* commandSave(ctx, cmd, outputData) {
+async function commandSave(ctx, cmd, outputData) {
   let format = cmd.getFormat() || 'bin';
-  var completeParts = yield* saveParts(ctx, cmd, "Editor." + format);
+  var completeParts = await saveParts(ctx, cmd, "Editor." + format);
   if (completeParts) {
     var queueData = getSaveTask(ctx, cmd);
-    yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
+    await docsCoServer.addTaskAsync(queueData, constants.QUEUE_PRIORITY_LOW);
   }
   outputData.setStatus('ok');
   outputData.setData(cmd.getSaveKey());
 }
-function* commandSendMailMerge(ctx, cmd, outputData) {
+async function commandSendMailMerge(ctx, cmd, outputData) {
   let mailMergeSend = cmd.getMailMergeSend();
   let isJson = mailMergeSend.getIsJsonKey();
-  var completeParts = yield* saveParts(ctx, cmd, isJson ? "Editor.json" : "Editor.bin");
+  var completeParts = await saveParts(ctx, cmd, isJson ? "Editor.json" : "Editor.bin");
   var isErr = false;
   if (completeParts && !isJson) {
     isErr = true;
-    var getRes = yield docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
+    var getRes = await docsCoServer.getCallback(ctx, cmd.getDocId(), cmd.getUserIndex());
     if (getRes && !getRes.wopiParams) {
       mailMergeSend.setUrl(getRes.server.href);
       mailMergeSend.setBaseUrl(getRes.baseUrl);
       //we change JsonKey and SaveKey, a new key is needed because a part is done in one conversion, and json is always needed
       mailMergeSend.setJsonKey(cmd.getSaveKey());
       mailMergeSend.setRecordErrorCount(0);
-      yield* addRandomKeyTaskCmd(ctx, cmd);
+      await addRandomKeyTaskCmdAsync(ctx, cmd);
       var queueData = getSaveTask(ctx, cmd);
-      yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
+      await docsCoServer.addTaskAsync(queueData, constants.QUEUE_PRIORITY_LOW);
       isErr = false;
     } else if (getRes.wopiParams) {
       ctx.logger.warn('commandSendMailMerge unexpected with wopi');
@@ -649,8 +660,8 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
     outputData.setData(cmd.getSaveKey());
   }
 }
-let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey) {
-  var selectRes = yield taskResult.select(ctx, cmd.getDocId());
+async function commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey) {
+  var selectRes = await taskResult.select(ctx, cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
   if (!row) {
     return false;
@@ -659,7 +670,7 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
     ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
     ctx.setWopiSrc(sqlBase.DocumentAdditional.prototype.getWopiSrc(row.additional));
   }
-  yield* addRandomKeyTaskCmd(ctx, cmd);
+  await addRandomKeyTaskCmdAsync(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password, row.change_id);
   addOriginFormat(ctx, cmd, row);
   let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
@@ -669,9 +680,9 @@ let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration,
   var queueData = getSaveTask(ctx, cmd);
   queueData.setFromChanges(true);
   let priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
-  yield* docsCoServer.addTask(queueData, priority, opt_queue, opt_expiration);
+  await docsCoServer.addTaskAsync(queueData, priority, opt_queue, opt_expiration);
   return true;
-});
+};
 function isDisplayedImage(strName) {
   var res = 0;
   if (strName) {
@@ -864,8 +875,8 @@ function* commandPathUrl(ctx, conn, cmd, outputData) {
     outputData.setExtName(pathModule.extname(strPath));
   }
 }
-function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
-  var completeParts = yield* saveParts(ctx, cmd, "changes0.json");
+async function commandSaveFromOrigin(ctx, cmd, outputData, password) {
+  var completeParts = await saveParts(ctx, cmd, "changes0.json");
   if (completeParts) {
     let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
     if (docPassword.initial) {
@@ -875,7 +886,7 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
     var queueData = getSaveTask(ctx, cmd);
     queueData.setFromOrigin(true);
     queueData.setFromChanges(true);
-    yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
+    await docsCoServer.addTaskAsync(queueData, constants.QUEUE_PRIORITY_LOW);
   }
   outputData.setStatus('ok');
   outputData.setData(cmd.getSaveKey());
@@ -1298,7 +1309,7 @@ function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChange
   }
   return res;
 }
-function* commandSendMMCallback(ctx, cmd) {
+async function commandSendMMCallback(ctx, cmd) {
   var docId = cmd.getDocId();
   ctx.logger.debug('Start commandSendMMCallback');
   var saveKey = docId + cmd.getSaveKey();
@@ -1313,7 +1324,7 @@ function* commandSendMMCallback(ctx, cmd) {
   var outputMailMerge = new commonDefines.OutputMailMerge(mailMergeSendData);
   outputSfc.setMailMerge(outputMailMerge);
   outputSfc.setUsers([mailMergeSendData.getUserId()]);
-  var data = yield storage.getObject(ctx, saveKey + '/' + cmd.getOutputPath());
+  var data = await storage.getObject(ctx, saveKey + '/' + cmd.getOutputPath());
   var xml = data.toString('utf8');
   var files = xml.match(/[< ]file.*?\/>/g);
   var recordRemain = (mailMergeSendData.getRecordTo() - mailMergeSendData.getRecordFrom() + 1);
@@ -1324,14 +1335,14 @@ function* commandSendMMCallback(ctx, cmd) {
     outputMailMerge.setTo(fieldRes[1]);
     outputMailMerge.setRecordIndex(recordIndexStart + i);
     var pathRes = /path=["'](.*?)["']/.exec(file);
-    var signedUrl = yield storage.getSignedUrl(ctx, mailMergeSendData.getBaseUrl(), saveKey + '/' + pathRes[1],
+    var signedUrl = await storage.getSignedUrl(ctx, mailMergeSendData.getBaseUrl(), saveKey + '/' + pathRes[1],
                                                commonDefines.c_oAscUrlTypes.Temporary);
     outputSfc.setUrl(signedUrl);
     outputSfc.setExtName(pathModule.extname(pathRes[1]));
     var uri = mailMergeSendData.getUrl();
     var replyStr = null;
     try {
-      replyStr = yield docsCoServer.sendServerRequest(ctx, uri, outputSfc);
+      replyStr = await docsCoServer.sendServerRequest(ctx, uri, outputSfc);
     } catch (err) {
       replyStr = null;
       ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
@@ -1350,9 +1361,9 @@ function* commandSendMMCallback(ctx, cmd) {
   var newRecordFrom = mailMergeSendData.getRecordFrom() + Math.max(files.length, 1);
   if (newRecordFrom <= mailMergeSendData.getRecordTo()) {
     mailMergeSendData.setRecordFrom(newRecordFrom);
-    yield* addRandomKeyTaskCmd(ctx, cmd);
+    await addRandomKeyTaskCmdAsync(ctx, cmd);
     var queueData = getSaveTask(ctx, cmd);
-    yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
+    await docsCoServer.addTaskAsync(queueData, constants.QUEUE_PRIORITY_LOW);
   } else {
     ctx.logger.debug('End MailMerge');
   }
@@ -1512,7 +1523,7 @@ exports.downloadAs = function(req, res) {
   });
 };
 exports.saveFile = function(req, res) {
-  return co(function*() {
+  return (async function() {
     let docId = 'null';
     let ctx = new operationContext.Context();
     try {
@@ -1521,7 +1532,7 @@ exports.saveFile = function(req, res) {
         startDate = new Date();
       }
       ctx.initFromRequest(req);
-      yield ctx.initTenantCache();
+      await ctx.initTenantCache();
       let strCmd = req.query['cmd'];
       let cmd = new commonDefines.InputCommand(JSON.parse(strCmd));
       docId = cmd.getDocId();
@@ -1531,7 +1542,7 @@ exports.saveFile = function(req, res) {
 
       if (tenTokenEnableBrowser) {
         let isValidJwt = false;
-        let checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+        let checkJwtRes = await docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
         if (checkJwtRes.decoded) {
           let doc = checkJwtRes.decoded.document;
           var edit = checkJwtRes.decoded.editorConfig;
@@ -1552,10 +1563,10 @@ exports.saveFile = function(req, res) {
       }
       ctx.setDocId(docId);
       cmd.setStatusInfo(constants.NO_ERROR);
-      yield* addRandomKeyTaskCmd(ctx, cmd);
+      await addRandomKeyTaskCmdAsync(ctx, cmd);
       cmd.setOutputPath(constants.OUTPUT_NAME + pathModule.extname(cmd.getOutputPath()));
-      yield storage.putObject(ctx, docId + cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
-      let replyStr = yield commandSfcCallback(ctx, cmd, false, true);
+      await storage.putObject(ctx, docId + cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
+      let replyStr = await commandSfcCallback(ctx, cmd, false, true);
       if (replyStr) {
         utils.fillResponseSimple(res, replyStr, 'application/json');
       } else {
@@ -1570,7 +1581,7 @@ exports.saveFile = function(req, res) {
       ctx.logger.error('Error saveFile: %s', e.stack);
       res.sendStatus(400);
     }
-  });
+  })();
 };
 function getPrintFileUrl(ctx, docId, baseUrl, filename) {
   return co(function*() {
@@ -1790,60 +1801,58 @@ exports.downloadFile = function(req, res) {
     }
   });
 };
-exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
-  return co(function* () {
-    try {
-      var startDate = null;
-      if(clientStatsD) {
-        startDate = new Date();
+exports.saveFromChanges = async function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
+  try {
+    var startDate = null;
+    if(clientStatsD) {
+      startDate = new Date();
+    }
+    ctx.logger.debug('Start saveFromChanges');
+    //we do a select, because during the timeout the information could change
+    var selectRes = await taskResult.select(ctx, docId);
+    var row = selectRes.length > 0 ? selectRes[0] : null;
+    if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo) {
+      if (null == optFormat) {
+        optFormat = changeFormatByOrigin(ctx, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
       }
-      ctx.logger.debug('Start saveFromChanges');
-      //we do a select, because during the timeout the information could change
-      var selectRes = yield taskResult.select(ctx, docId);
-      var row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo) {
-        if (null == optFormat) {
-          optFormat = changeFormatByOrigin(ctx, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
-        }
-        if (opt_initShardKey) {
-          ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
-          ctx.setWopiSrc(sqlBase.DocumentAdditional.prototype.getWopiSrc(row.additional));
-        }
-        var cmd = new commonDefines.InputCommand();
-        cmd.setCommand('sfc');
-        cmd.setDocId(docId);
-        cmd.setOutputFormat(optFormat);
-        cmd.setStatusInfoIn(statusInfo);
-        cmd.setUserActionId(opt_userId);
-        cmd.setUserActionIndex(opt_userIndex);
-        cmd.appendJsonParams(getOpenedAtJSONParams(row));
-        //todo lang and region are different
-        cmd.setLCID(opt_userLcid);
-        let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
-        cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
-        addPasswordToCmd(ctx, cmd, row && row.password, row && row.change_id);
-        addOriginFormat(ctx, cmd, row);
-        yield* addRandomKeyTaskCmd(ctx, cmd);
-        var queueData = getSaveTask(ctx, cmd);
-        queueData.setFromChanges(true);
-        yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_NORMAL, opt_queue);
-        if (docsCoServer.getIsShutdown()) {
-          yield docsCoServer.editorStat.addShutdown(redisKeyShutdown, docId);
-        }
-        ctx.logger.debug('AddTask saveFromChanges');
-      } else {
-        if (row) {
-          ctx.logger.debug('saveFromChanges status mismatch: row: %d; %d; expected: %d', row.status, row.status_info, statusInfo);
-        }
+      if (opt_initShardKey) {
+        ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
+        ctx.setWopiSrc(sqlBase.DocumentAdditional.prototype.getWopiSrc(row.additional));
       }
-      if (clientStatsD) {
-        clientStatsD.timing('coauth.saveFromChanges', new Date() - startDate);
+      var cmd = new commonDefines.InputCommand();
+      cmd.setCommand('sfc');
+      cmd.setDocId(docId);
+      cmd.setOutputFormat(optFormat);
+      cmd.setStatusInfoIn(statusInfo);
+      cmd.setUserActionId(opt_userId);
+      cmd.setUserActionIndex(opt_userIndex);
+      cmd.appendJsonParams(getOpenedAtJSONParams(row));
+      //todo lang and region are different
+      cmd.setLCID(opt_userLcid);
+      let userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
+      cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
+      addPasswordToCmd(ctx, cmd, row && row.password, row && row.change_id);
+      addOriginFormat(ctx, cmd, row);
+      await addRandomKeyTaskCmdAsync(ctx, cmd);
+      var queueData = getSaveTask(ctx, cmd);
+      queueData.setFromChanges(true);
+      await docsCoServer.addTaskAsync(queueData, constants.QUEUE_PRIORITY_NORMAL, opt_queue);
+      if (docsCoServer.getIsShutdown()) {
+        await docsCoServer.editorStat.addShutdown(redisKeyShutdown, docId);
+      }
+      ctx.logger.debug('AddTask saveFromChanges');
+    } else {
+      if (row) {
+        ctx.logger.debug('saveFromChanges status mismatch: row: %d; %d; expected: %d', row.status, row.status_info, statusInfo);
       }
     }
-    catch (e) {
-      ctx.logger.error('Error saveFromChanges: %s', e.stack);
+    if (clientStatsD) {
+      clientStatsD.timing('coauth.saveFromChanges', new Date() - startDate);
     }
-  });
+  }
+  catch (e) {
+    ctx.logger.error('Error saveFromChanges: %s', e.stack);
+  }
 };
 
 async function processWopiSaveAs(ctx, cmd) {
