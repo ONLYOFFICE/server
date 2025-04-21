@@ -117,7 +117,7 @@ describe('HTTP Request Unit Tests', () => {
       // Delay sending headers
       setTimeout(() => {
         res.json({ success: true });
-      }, 2000); // 2 seconds delay before sending any response
+      }, 200); // 200 ms delay before sending any response
     });
 
 
@@ -148,9 +148,9 @@ describe('HTTP Request Unit Tests', () => {
           setTimeout(() => {
             res.write('"part4": "Final part"}');
             res.end();
-          }, 2000);
-        }, 1000);
-      }, 1000);
+          }, 200);
+        }, 100);
+      }, 100);
     });
 
     // POST endpoint
@@ -186,30 +186,6 @@ describe('HTTP Request Unit Tests', () => {
       res.end();
     });
     
-    // Endpoint that returns connection header info
-    app.get('/api/connection', (req, res) => {
-      res.json({
-        connection: req.headers.connection,
-        keepAlive: req.headers.connection?.toLowerCase() === 'keep-alive'
-      });
-    });
-    
-    // Endpoint that returns only the accept-encoding header
-    app.get('/api/accept-encoding', (req, res) => {
-      res.json({
-        acceptEncoding: req.headers['accept-encoding'] || null
-      });
-    });
-    
-    // Endpoint that returns only the connection header
-    app.get('/api/connection-header', (req, res) => {
-      const connectionHeader = req.headers['connection'] || '';
-      res.json({
-        connection: connectionHeader,
-        keepAlive: connectionHeader.toLowerCase() === 'keep-alive'
-      });
-    });
-
     // Endpoint that mirrors whole request - handles any HTTP method
     app.use('/api/mirror', express.json(), express.urlencoded({ extended: true }), (req, res) => {
       // Create a mirror response object with all request details
@@ -332,7 +308,7 @@ describe('HTTP Request Unit Tests', () => {
         await utils.downloadUrlPromise(
           ctx,
           `${BASE_URL}/api/slow-headers`,
-          { connectionAndInactivity: '1s' }, // connectionAndInactivity shorter than the server delay
+          { connectionAndInactivity: '100ms' }, // connectionAndInactivity shorter than the server delay
           1024 * 1024,
           null,
           false,
@@ -351,7 +327,7 @@ describe('HTTP Request Unit Tests', () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/slow-headers`,
-        { connectionAndInactivity: '3s' }, // connectionAndInactivity longer than the server delay (2s)
+        { connectionAndInactivity: '300ms' }, // connectionAndInactivity longer than the server delay (200ms)
         1024 * 1024,
         null,
         false,
@@ -370,7 +346,7 @@ describe('HTTP Request Unit Tests', () => {
         await utils.downloadUrlPromise(
           ctx,
           `${BASE_URL}/api/partial-response`,
-          { wholeCycle: '2s' }, // wholeCycle shorter than time needed for response
+          { wholeCycle: '1s' }, // wholeCycle shorter than time needed for response
           1024 * 1024,
           null,
           false,
@@ -389,7 +365,7 @@ describe('HTTP Request Unit Tests', () => {
         await utils.downloadUrlPromise(
           ctx,
           `${BASE_URL}/api/slow-body`,
-          { connectionAndInactivity: '1500ms' }, // connectionAndInactivity shorter than the second delay
+          { connectionAndInactivity: '150ms' }, // connectionAndInactivity shorter than the second delay
           1024 * 1024,
           null,
           false,
@@ -407,7 +383,7 @@ describe('HTTP Request Unit Tests', () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/slow-body`,
-        { connectionAndInactivity: '2100ms' }, // connectionAndInactivity longer than the longest delay (2s)
+        { connectionAndInactivity: '250ms' }, // connectionAndInactivity longer than the longest delay (2s)
         1024 * 1024,
         null,
         false,
@@ -428,7 +404,7 @@ describe('HTTP Request Unit Tests', () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/slow-body`,
-        { wholeCycle: '7s' },
+        { wholeCycle: '1s' },
         1024 * 1024,
         null,
         false,
@@ -604,6 +580,7 @@ describe('HTTP Request Unit Tests', () => {
           1024 * 1024,
           null,
           false,
+          null,
           null
         );
         throw new Error('Expected an error to be thrown');
@@ -619,6 +596,7 @@ describe('HTTP Request Unit Tests', () => {
           1024 * 1024,
           null,
           false,
+          null,
           null
         );
         throw new Error('Expected an error to be thrown');
@@ -663,21 +641,6 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     test('enables compression when gzip is true', async () => {
-      // Setup a simple server that captures headers
-      let capturedHeaders = {};
-      const app = express();
-      app.get('/test', (req, res) => {
-        capturedHeaders = {
-          acceptEncoding: req.headers['accept-encoding']
-        };
-        res.json({ success: true });
-      });
-      
-      const testServer = http.createServer(app);
-      const testPort = PORT + 1000;
-      await new Promise(resolve => testServer.listen(testPort, resolve));
-      
-      try {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -686,9 +649,9 @@ describe('HTTP Request Unit Tests', () => {
           }
         });
 
-        await utils.downloadUrlPromise(
+      const response = await utils.downloadUrlPromise(
           mockCtx,
-          `http://localhost:${testPort}/test`,
+        `${BASE_URL}/api/mirror`,
           { wholeCycle: '2s' },
           1024 * 1024,
           null,
@@ -697,30 +660,15 @@ describe('HTTP Request Unit Tests', () => {
           null
         );
         
+      // Parse the response body assuming it's JSON
+      const responseBody = JSON.parse(response.body);
+
         // When gzip is true, 'accept-encoding' should include 'gzip'
-        expect(capturedHeaders.acceptEncoding).toBeDefined();
-        expect(capturedHeaders.acceptEncoding).toMatch(/gzip/i);
-      } finally {
-        await new Promise(resolve => testServer.close(resolve));
-      }
+      expect(responseBody.headers?.['accept-encoding']).toBeDefined();
+      expect(responseBody.headers?.['accept-encoding']).toMatch(/gzip/i);
     });
 
     test('disables compression when gzip is false', async () => {
-      // Setup a simple server that captures headers
-      let capturedHeaders = {};
-      const app = express();
-      app.get('/test', (req, res) => {
-        capturedHeaders = {
-          acceptEncoding: req.headers['accept-encoding']
-        };
-        res.json({ success: true });
-      });
-      
-      const testServer = http.createServer(app);
-      const testPort = PORT + 1001;
-      await new Promise(resolve => testServer.listen(testPort, resolve));
-      
-      try {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -729,9 +677,9 @@ describe('HTTP Request Unit Tests', () => {
           }
         });
 
-        await utils.downloadUrlPromise(
+      const response = await utils.downloadUrlPromise(
           mockCtx,
-          `http://localhost:${testPort}/test`,
+        `${BASE_URL}/api/mirror`,
           { wholeCycle: '2s' },
           1024 * 1024,
           null,
@@ -740,28 +688,13 @@ describe('HTTP Request Unit Tests', () => {
           null
         );
         
-        expect(capturedHeaders.acceptEncoding === 'identity' || capturedHeaders.acceptEncoding === undefined).toBe(true);
-      } finally {
-        await new Promise(resolve => testServer.close(resolve));
-      }
+      // Parse the response body assuming it's JSON
+      const responseBody = JSON.parse(response.body);
+
+      expect(responseBody.headers?.['accept-encoding'] === 'identity' || responseBody.headers?.['accept-encoding'] === undefined).toBe(true);
     });
 
     test('enables keep-alive when forever is true', async () => {
-      // Setup a simple server that captures headers
-      let capturedHeaders = {};
-      const app = express();
-      app.get('/test', (req, res) => {
-        capturedHeaders = {
-          connection: req.headers['connection']
-        };
-        res.json({ success: true });
-      });
-      
-      const testServer = http.createServer(app);
-      const testPort = PORT + 1002;
-      await new Promise(resolve => testServer.listen(testPort, resolve));
-      
-      try {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -770,9 +703,9 @@ describe('HTTP Request Unit Tests', () => {
           }
         });
 
-        await utils.downloadUrlPromise(
+      const response = await utils.downloadUrlPromise(
           mockCtx,
-          `http://localhost:${testPort}/test`,
+        `${BASE_URL}/api/mirror`,
           { wholeCycle: '2s' },
           1024 * 1024,
           null,
@@ -781,11 +714,11 @@ describe('HTTP Request Unit Tests', () => {
           null
         );
         
+      // Parse the response body assuming it's JSON
+      const responseBody = JSON.parse(response.body);
+
         // When forever is true, connection should be 'keep-alive'
-        expect(capturedHeaders.connection?.toLowerCase()).toMatch(/keep-alive/i);
-      } finally {
-        await new Promise(resolve => testServer.close(resolve));
-      }
+      expect(responseBody.headers?.connection?.toLowerCase()).toMatch(/keep-alive/i);
     }, 30000);
 
     test('disables keep-alive when forever is false', async () => {
@@ -801,7 +734,7 @@ describe('HTTP Request Unit Tests', () => {
 
       const result = await utils.downloadUrlPromise(
         mockCtx,
-        `${BASE_URL}/api/connection-header`,
+        `${BASE_URL}/api/mirror`,
         { wholeCycle: '5s', connectionAndInactivity: '3s' },
         1024 * 1024,
         null,
@@ -811,12 +744,14 @@ describe('HTTP Request Unit Tests', () => {
       );
 
       expect(result).toBeDefined();
-      const responseData = JSON.parse(result.body.toString());
+      expect(result.response).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+      const responseBody = JSON.parse(result.body.toString());
       
       // When forever is false, connection should NOT be 'keep-alive'
       // Note: Different HTTP clients might handle this differently,
       // so we're checking that keepAlive is false
-      expect(responseData.keepAlive).toBe(false);
+      expect(responseBody.headers?.connection?.toLowerCase()).not.toMatch(/keep-alive/i);
     });
 
     test('test requestDefaults', async () => {
@@ -838,7 +773,7 @@ describe('HTTP Request Unit Tests', () => {
         customHeaders
       );
       expect(result).toBeDefined();
-      expect(result.response.status).toBe(200);
+      expect(getStatusCode(result.response)).toBe(200);
       const body = JSON.parse(result.body);
       expect(body.headers).toMatchObject({...defaultHeaders, ...customHeaders});
       expect(body.query).toMatchObject(customQueryParams);
@@ -1226,21 +1161,6 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     test('applies gzip setting to POST requests', async () => {
-      // Setup a simple server that captures headers
-      let capturedHeaders = {};
-      const app = express();
-      app.post('/test', express.json(), (req, res) => {
-        capturedHeaders = {
-          acceptEncoding: req.headers['accept-encoding']
-        };
-        res.json({ success: true });
-      });
-      
-      const testServer = http.createServer(app);
-      const testPort = PORT + 1003;
-      await new Promise(resolve => testServer.listen(testPort, resolve));
-      
-      try {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -1251,9 +1171,9 @@ describe('HTTP Request Unit Tests', () => {
 
         const postData = JSON.stringify({ test: 'data' });
         
-        await utils.postRequestPromise(
+      const response = await utils.postRequestPromise(
           mockCtx,
-          `http://localhost:${testPort}/test`,
+        `${BASE_URL}/api/mirror`,
           postData,
           null,
           postData.length,
@@ -1263,28 +1183,13 @@ describe('HTTP Request Unit Tests', () => {
           { 'Content-Type': 'application/json' }
         );
         
-        expect(capturedHeaders.acceptEncoding === 'identity' || capturedHeaders.acceptEncoding === undefined).toBe(true);
-      } finally {
-        await new Promise(resolve => testServer.close(resolve));
-      }
+      // Parse the response body assuming it's JSON
+      const responseBody = JSON.parse(response.body);
+
+      expect(responseBody.headers?.['accept-encoding'] === 'identity' || responseBody.headers?.['accept-encoding'] === undefined).toBe(true);
     });
 
     test('applies forever setting to POST requests', async () => {
-      // Setup a simple server that captures headers
-      let capturedHeaders = {};
-      const app = express();
-      app.post('/test', express.json(), (req, res) => {
-        capturedHeaders = {
-          connection: req.headers['connection']
-        };
-        res.json({ success: true });
-      });
-      
-      const testServer = http.createServer(app);
-      const testPort = PORT + 1004;
-      await new Promise(resolve => testServer.listen(testPort, resolve));
-      
-      try {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -1295,9 +1200,9 @@ describe('HTTP Request Unit Tests', () => {
 
         const postData = JSON.stringify({ test: 'data' });
         
-        await utils.postRequestPromise(
+      const response = await utils.postRequestPromise(
           mockCtx,
-          `http://localhost:${testPort}/test`,
+        `${BASE_URL}/api/mirror`,
           postData,
           null,
           postData.length,
@@ -1307,11 +1212,11 @@ describe('HTTP Request Unit Tests', () => {
           { 'Content-Type': 'application/json' }
         );
         
+      // Parse the response body assuming it's JSON
+      const responseBody = JSON.parse(response.body);
+
         // When forever is true, connection should be 'keep-alive'
-        expect(capturedHeaders.connection?.toLowerCase()).toMatch(/keep-alive/i);
-      } finally {
-        await new Promise(resolve => testServer.close(resolve));
-      }
+      expect(responseBody.headers?.connection?.toLowerCase()).toMatch(/keep-alive/i);
     }, 30000);
 
     test('successfully routes POST request through a real proxy', async () => {

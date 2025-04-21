@@ -239,43 +239,11 @@ exports.readFile = function(file) {
     });
   });
 };
-function makeAndroidSafeFileName(str) {
-  for (var i = 0; i < str.length; i++) {
-    if (-1 == ANDROID_SAFE_FILENAME.indexOf(str[i])) {
-      str[i] = '_';
-    }
-  }
-  return str;
-}
-function encodeRFC5987ValueChars(str) {
-  return encodeURIComponent(str).
-    // Note that although RFC3986 reserves "!", RFC5987 does not,
-    // so we do not need to escape it
-    replace(/['()]/g, escape). // i.e., %27 %28 %29
-    replace(/\*/g, '%2A').
-    // The following are not required for percent-encoding per RFC5987,
-    //  so we can allow for a little better readability over the wire: |`^
-    replace(/%(?:7C|60|5E)/g, unescape);
-}
 function getContentDisposition (opt_filename, opt_useragent, opt_type) {
   let type = opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT;
   return contentDisposition(opt_filename, {type: type});
 }
 exports.getContentDisposition = getContentDisposition;
-function raiseError(ro, code, msg) {
-  ro.abort();
-  let error = new Error(msg);
-  error.code = code;
-  ro.emit('error', error);
-}
-function raiseErrorObj(ro, error) {
-  ro.abort();
-  ro.emit('error', error);
-}
-function isRedirectResponse(response) {
-  //All header names are lower cased and can be accessed using the bracket notation.
-  return response && response.status >= 300 && response.status < 400 && !!response.headers['location'];
-}
 
 function isAllowDirectRequest(ctx, uri, isInJwtToken) {
   let res = false;
@@ -377,11 +345,6 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   const httpAgentOptions = { ...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
   
-  // if (optTimeout.connectionAndInactivity) {
-  //   httpAgentOptions.timeout = ms(optTimeout.connectionAndInactivity);
-  //   httpsAgentOptions.timeout = ms(optTimeout.connectionAndInactivity);
-  // }
-
   if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
     throw new Error('Block external request. See externalRequest config options');
   }
@@ -406,15 +369,8 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     responseType: 'stream',
     headers,
     validateStatus: (status) => status >= 200 && status < 300,
-    signal: optTimeout.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
-    timeout: optTimeout.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
-    // cancelToken: new axios.CancelToken(cancel => {
-    //   if (optTimeout?.wholeCycle) {
-    //     setTimeout(() => {
-    //       cancel(`ETIMEDOUT: ${optTimeout.wholeCycle}`);
-    //     }, ms(optTimeout.wholeCycle));
-    //   }
-    // }),
+    signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
+    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
   };
   try {
     const response = await axios(axiosConfig);
