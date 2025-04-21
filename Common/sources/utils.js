@@ -368,7 +368,6 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     method: 'GET',
     responseType: 'stream',
     headers,
-    validateStatus: (status) => status >= 200 && status < 300,
     signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
     timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
   };
@@ -454,7 +453,6 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     url: uri,
     method: 'POST',
     headers,
-    validateStatus: (status) => status === 200 || status === 204,
     signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
     timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
   };
@@ -469,14 +467,21 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     const response = await axios(axiosConfig);
     const { status, headers, data } = response;
     
-    return {
-      response: {
-        statusCode: status,
-        headers: headers,
-        body: data
-      },
-      body: JSON.stringify(data)
-    };
+    if (status === 200 || status === 204) {
+      return {
+        response: {
+          statusCode: status,
+          headers: headers,
+          body: data
+        },
+        body: JSON.stringify(data)
+      };
+    } else {
+      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${data}`);
+      error.status = status;
+      error.response = response;
+      throw error;
+    }
   } catch (err) {
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
@@ -485,13 +490,6 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     }
     if (err.status) {
       err.statusCode = err.status;
-    }
-    if (err.response) {
-      const { status, headers, data } = err.response;
-      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${data}`);
-      error.statusCode = status;
-      error.response = err.response;
-      throw error;
     }
     throw err;
   }

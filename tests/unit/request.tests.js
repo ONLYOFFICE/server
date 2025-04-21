@@ -303,7 +303,7 @@ describe('HTTP Request Unit Tests', () => {
 
   
   describe('specific timeout behaviors', () => {
-    test('connectionAndInactivity triggers when server delays response headers', async () => {
+    test.concurrent('connectionAndInactivity triggers when server delays response headers', async () => {
       try {
         await utils.downloadUrlPromise(
           ctx,
@@ -323,7 +323,7 @@ describe('HTTP Request Unit Tests', () => {
     });
 
 
-    test('connectionAndInactivity does not trigger when longer than server delay', async () => {
+    test.concurrent('connectionAndInactivity does not trigger when longer than server delay', async () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/slow-headers`,
@@ -341,7 +341,7 @@ describe('HTTP Request Unit Tests', () => {
     });
 
 
-    test('wholeCycle triggers even when server starts sending data but does not complete', async () => {
+    test.concurrent('wholeCycle triggers even when server starts sending data but does not complete', async () => {
       try {
         await utils.downloadUrlPromise(
           ctx,
@@ -360,7 +360,7 @@ describe('HTTP Request Unit Tests', () => {
     });
 
 
-    test('connectionAndInactivity triggers when server stops sending data midway', async () => {
+    test.concurrent('connectionAndInactivity triggers when server stops sending data midway', async () => {
       try {
         await utils.downloadUrlPromise(
           ctx,
@@ -379,7 +379,7 @@ describe('HTTP Request Unit Tests', () => {
       }
     });
   
-    test('connectionAndInactivity does not trigger when longer than inactivity periods', async () => {
+    test.concurrent('connectionAndInactivity does not trigger when longer than inactivity periods', async () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/slow-body`,
@@ -400,7 +400,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(responseBody.part4).toBe('Final part');
     });
   
-    test('wholeCycle does not trigger when longer than total response time', async () => {
+    test.concurrent('wholeCycle does not trigger when longer than total response time', async () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/slow-body`,
@@ -423,7 +423,7 @@ describe('HTTP Request Unit Tests', () => {
   });
 
   describe('downloadUrlPromise', () => {
-    test('successfully downloads JSON data', async () => {
+    test.concurrent('successfully downloads JSON data', async () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/data`,
@@ -440,7 +440,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(JSON.parse(result.body.toString())).toEqual({ success: true });
     });
 
-    test('throws error on timeout', async () => {
+    test.concurrent('throws error on timeout', async () => {
       try {
         await utils.downloadUrlPromise(
           ctx,
@@ -458,7 +458,7 @@ describe('HTTP Request Unit Tests', () => {
       }
     });
 
-    test('throws error on wholeCycle timeout', async () => {
+    test.concurrent('throws error on wholeCycle timeout', async () => {
       try {
         await utils.downloadUrlPromise(
           ctx,
@@ -477,7 +477,7 @@ describe('HTTP Request Unit Tests', () => {
 
     });
 
-    test('follows redirects correctly', async () => {
+    test.concurrent('follows redirects correctly', async () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/redirect`,
@@ -494,7 +494,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(JSON.parse(result.body.toString())).toEqual({ success: true });
     });
 
-    test(`doesn't follow redirects(maxRedirects=0)`, async () => {
+    test.concurrent(`doesn't follow redirects(maxRedirects=0)`, async () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
           "headers": {
@@ -525,7 +525,7 @@ describe('HTTP Request Unit Tests', () => {
       }
     });
 
-    test(`doesn't follow redirects(followRedirect=false)`, async () => {
+    test.concurrent(`doesn't follow redirects(followRedirect=false)`, async () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
           "headers": {
@@ -558,7 +558,7 @@ describe('HTTP Request Unit Tests', () => {
       }
     });
 
-    test('throws error on server error', async () => {
+    test.concurrent('throws error on server error', async () => {
       await expect(utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/error`,
@@ -571,7 +571,7 @@ describe('HTTP Request Unit Tests', () => {
       )).rejects.toMatchObject({ code: 'ERR_BAD_RESPONSE' });
     });
 
-    test('throws error when content-length exceeds limit', async () => {
+    test.concurrent('throws error when content-length exceeds limit', async () => {
       try {
         await utils.downloadUrlPromise(
           ctx,
@@ -605,7 +605,7 @@ describe('HTTP Request Unit Tests', () => {
       }
     });
 
-    test('throws error when content-length exceeds limit with stream', async () => {
+    test.concurrent('throws error when content-length exceeds limit with stream', async () => {
       try {
         const {stream} = await utils.downloadUrlPromise(
           ctx,
@@ -640,7 +640,7 @@ describe('HTTP Request Unit Tests', () => {
       }
     });
 
-    test('enables compression when gzip is true', async () => {
+    test.concurrent('enables compression when gzip is true', async () => {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -668,7 +668,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(responseBody.headers?.['accept-encoding']).toMatch(/gzip/i);
     });
 
-    test('disables compression when gzip is false', async () => {
+    test.concurrent('disables compression when gzip is false', async () => {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -694,7 +694,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(responseBody.headers?.['accept-encoding'] === 'identity' || responseBody.headers?.['accept-encoding'] === undefined).toBe(true);
     });
 
-    test('enables keep-alive when forever is true', async () => {
+    test.concurrent('enables keep-alive when forever is true', async () => {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -719,9 +719,9 @@ describe('HTTP Request Unit Tests', () => {
 
         // When forever is true, connection should be 'keep-alive'
       expect(responseBody.headers?.connection?.toLowerCase()).toMatch(/keep-alive/i);
-    }, 30000);
+    });
 
-    test('disables keep-alive when forever is false', async () => {
+    test.concurrent('disables keep-alive when forever is false', async () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
           headers: {
@@ -754,7 +754,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(responseBody.headers?.connection?.toLowerCase()).not.toMatch(/keep-alive/i);
     });
 
-    test('test requestDefaults', async () => {
+    test.concurrent('test requestDefaults', async () => {
       const defaultHeaders = {"user-agent": "Node.js/6.13"};
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
@@ -779,7 +779,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(body.query).toMatchObject(customQueryParams);
     });
 
-    test('successfully routes GET request through a real proxy', async () => {
+    test.concurrent('successfully routes GET request through a real proxy', async () => {
       try {
         // Create context with proxy configuration
         const mockCtx = createMockContext({
@@ -830,7 +830,7 @@ describe('HTTP Request Unit Tests', () => {
     });
   });
 
-  test('handles binary data correctly', async () => {
+  test.concurrent('handles binary data correctly', async () => {
     const result = await utils.downloadUrlPromise(
       ctx,
       `${BASE_URL}/api/binary`,
@@ -856,7 +856,7 @@ describe('HTTP Request Unit Tests', () => {
     expect(Buffer.compare(result.body, expectedData)).toBe(0);
   });
 
-  test('handles binary data with stream writer', async () => {
+  test.concurrent('handles binary data with stream writer', async () => {
     const { stream } = await utils.downloadUrlPromise(
       ctx,
       `${BASE_URL}/api/binary`,
@@ -875,7 +875,7 @@ describe('HTTP Request Unit Tests', () => {
     expect(Buffer.compare(receivedData, expectedData)).toBe(0);
   });
 
-  test('block external requests', async () => {
+  test.concurrent('block external requests', async () => {
     const mockCtx = createMockContext({
       'externalRequest.action': {
         "allow": false,  // Block all external requests
@@ -902,7 +902,7 @@ describe('HTTP Request Unit Tests', () => {
     )).rejects.toThrow('Block external request. See externalRequest config options');
   });
 
-  test('allows request to external url in allowlist', async () => {
+  test.concurrent('allows request to external url in allowlist', async () => {
     const mockCtx = createMockContext({
       'externalRequest.action': {
         "allow": false,  // Block external requests by default
@@ -936,7 +936,7 @@ describe('HTTP Request Unit Tests', () => {
     expect(JSON.parse(result.body.toString())).toEqual({ success: true });
   });
 
-  test('allows request when URL is in JWT token', async () => {
+  test.concurrent('allows request when URL is in JWT token', async () => {
     const mockCtx = createMockContext({
       'externalRequest.action': {
         "allow": false,  // Block external requests by default
@@ -971,7 +971,7 @@ describe('HTTP Request Unit Tests', () => {
   });
 
   describe('postRequestPromise', () => {
-    test('successfully posts data', async () => {
+    test.concurrent('successfully posts data', async () => {
       const postData = JSON.stringify({ test: 'data' });
       
       const result = await utils.postRequestPromise(
@@ -991,7 +991,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(JSON.parse(result.body)).toEqual({ received: { test: 'data' } });
     });
 
-    test('handles timeout during post', async () => {
+    test.concurrent('handles timeout during post', async () => {
       const postData = JSON.stringify({ test: 'data' });
       
       await expect(utils.postRequestPromise(
@@ -1007,7 +1007,7 @@ describe('HTTP Request Unit Tests', () => {
       )).rejects.toMatchObject({ code: 'ESOCKETTIMEDOUT' });
     });
 
-    test('handles post with Authorization header', async () => {
+    test.concurrent('handles post with Authorization header', async () => {
       const postData = JSON.stringify({ test: 'data' });
       const authToken = 'test-auth-token';
       
@@ -1028,7 +1028,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(JSON.parse(result.body)).toEqual({ received: { test: 'data' } });
     });
 
-    test('handles post with custom headers', async () => {
+    test.concurrent('handles post with custom headers', async () => {
       const postData = JSON.stringify({ test: 'data' });
       const customHeaders = {
         'X-Custom-Header': 'test-value',
@@ -1052,7 +1052,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(JSON.parse(result.body)).toEqual({ received: { test: 'data' } });
     });
 
-    test('handles post with stream data', async () => {
+    test.concurrent('handles post with stream data', async () => {
       const postData = JSON.stringify({ test: 'stream-data' });
       const postStream = new Readable({
         read() {
@@ -1078,7 +1078,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(JSON.parse(result.body)).toEqual({ received: { test: 'stream-data' } });
     });
 
-    test('throws error on wholeCycle timeout during post', async () => {
+    test.concurrent('throws error on wholeCycle timeout during post', async () => {
       const postData = JSON.stringify({ test: 'data' });
       
       await expect(utils.postRequestPromise(
@@ -1094,7 +1094,7 @@ describe('HTTP Request Unit Tests', () => {
       )).rejects.toMatchObject({ code: 'ETIMEDOUT' });
     });
 
-    test('blocks external post requests when configured', async () => {
+    test.concurrent('blocks external post requests when configured', async () => {
       const mockCtx = createMockContext({
         'externalRequest.action': {
           "allow": false,
@@ -1123,7 +1123,7 @@ describe('HTTP Request Unit Tests', () => {
       )).rejects.toThrow('Block external request. See externalRequest config options');
     });
 
-    test('allows post request when URL is in JWT token', async () => {
+    test.concurrent('allows post request when URL is in JWT token', async () => {
       const mockCtx = createMockContext({
         'externalRequest.action': {
           "allow": false,
@@ -1160,7 +1160,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(JSON.parse(result.body)).toEqual({ received: { test: 'data' } });
     });
 
-    test('applies gzip setting to POST requests', async () => {
+    test.concurrent('applies gzip setting to POST requests', async () => {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -1189,7 +1189,7 @@ describe('HTTP Request Unit Tests', () => {
       expect(responseBody.headers?.['accept-encoding'] === 'identity' || responseBody.headers?.['accept-encoding'] === undefined).toBe(true);
     });
 
-    test('applies forever setting to POST requests', async () => {
+    test.concurrent('applies forever setting to POST requests', async () => {
         const mockCtx = createMockContext({
           'services.CoAuthoring.requestDefaults': {
             headers: { "User-Agent": "Node.js/6.13" },
@@ -1217,9 +1217,9 @@ describe('HTTP Request Unit Tests', () => {
 
         // When forever is true, connection should be 'keep-alive'
       expect(responseBody.headers?.connection?.toLowerCase()).toMatch(/keep-alive/i);
-    }, 30000);
+    });
 
-    test('successfully routes POST request through a real proxy', async () => {
+    test.concurrent('successfully routes POST request through a real proxy', async () => {
       try {
         // Create context with proxy configuration
         const mockCtx = createMockContext({
