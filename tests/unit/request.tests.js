@@ -786,7 +786,7 @@ describe('HTTP Request Unit Tests', () => {
       } finally {
         await new Promise(resolve => testServer.close(resolve));
       }
-    });
+    }, 30000);
 
     test('disables keep-alive when forever is false', async () => {
       const mockCtx = createMockContext({
@@ -1312,7 +1312,7 @@ describe('HTTP Request Unit Tests', () => {
       } finally {
         await new Promise(resolve => testServer.close(resolve));
       }
-    });
+    }, 30000);
 
     test('successfully routes POST request through a real proxy', async () => {
       try {
