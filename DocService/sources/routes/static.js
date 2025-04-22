@@ -76,7 +76,7 @@ function initCacheRouter(cfgStorage, routs) {
          
           const currentTime = Math.floor(Date.now() / 1000);
           if (currentTime > expires) {
-            res.sendStatus(403);
+            res.sendStatus(410);
             return;
           }
           
