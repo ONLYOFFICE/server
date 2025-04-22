@@ -37,8 +37,8 @@ const ms = require('ms');
 
 const mailService = require('./mailService');
 
-const cfgMailServer = config.get('email.smtpServerConfiguration');
-const cfgMailMessageDefaults = config.get('email.contactDefaults');
+const cfgMailServer = config.util.cloneDeep(config.get('email.smtpServerConfiguration'));
+const cfgMailMessageDefaults = config.util.cloneDeep(config.get('email.contactDefaults'));
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const editorStatStorage = require('./../../DocService/sources/' + (cfgEditorStatStorage || cfgEditorDataStorage));

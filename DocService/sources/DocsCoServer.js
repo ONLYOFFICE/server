@@ -130,7 +130,7 @@ const cfgTokenSessionAlgorithm = config.get('services.CoAuthoring.token.session.
 const cfgTokenSessionExpires = config.get('services.CoAuthoring.token.session.expires');
 const cfgTokenInboxHeader = config.get('services.CoAuthoring.token.inbox.header');
 const cfgTokenInboxPrefix = config.get('services.CoAuthoring.token.inbox.prefix');
-const cfgTokenVerifyOptions = config.get('services.CoAuthoring.token.verifyOptions');
+const cfgTokenVerifyOptions = config.util.cloneDeep(config.get('services.CoAuthoring.token.verifyOptions'));
 const cfgForceSaveEnable = config.get('services.CoAuthoring.autoAssembly.enable');
 const cfgForceSaveInterval = config.get('services.CoAuthoring.autoAssembly.interval');
 const cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
@@ -150,7 +150,7 @@ const cfgForceSaveUsingButtonWithoutChanges = config.get('services.CoAuthoring.s
 //todo tenant
 const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
 const cfgRefreshLockInterval = ms(config.get('wopi.refreshLockInterval'));
-const cfgSocketIoConnection = config.get('services.CoAuthoring.socketio.connection');
+const cfgSocketIoConnection = config.util.cloneDeep(config.get('services.CoAuthoring.socketio.connection'));
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
 const cfgTableChanges = config.get('services.CoAuthoring.sql.tableChanges');
 

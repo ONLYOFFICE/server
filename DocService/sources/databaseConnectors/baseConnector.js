@@ -50,7 +50,7 @@ const configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = configSql.get('tableResult');
 const cfgTableChanges = configSql.get('tableChanges');
 const maxPacketSize = configSql.get('max_allowed_packet'); // The default size for a query to the database is 1Mb - 1 (because it does not write 1048575, but writes 1048574)
-const cfgBottleneckGetChanges = config.get('bottleneck.getChanges');
+const cfgBottleneckGetChanges = config.util.cloneDeep(config.get('bottleneck.getChanges'));
 const dbType = configSql.get('type');
 
 const reservoirMaximum = cfgBottleneckGetChanges.reservoirIncreaseMaximum || cfgBottleneckGetChanges.reservoirRefreshAmount;

@@ -320,7 +320,6 @@
 					"User-Agent": "Node.js/6.13",
 					"Connection": "Keep-Alive"
 				},
-				"gzip": true,
 				"rejectUnauthorized": true
 			},
 			"autoAssembly": {

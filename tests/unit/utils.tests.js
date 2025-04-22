@@ -42,7 +42,7 @@ const minimumIterationsByteLength = 4;
 
 describe('AES encryption & decryption', function () {
   test('Iterations range', async function () {
-    const configuration = config.get('aesEncrypt.config');
+    const configuration = config.util.cloneDeep(config.get('aesEncrypt.config'));
     const encrypted = await utils.encryptPassword(ctx, 'secretstring');
     const { iterationsByteLength = 5 } = configuration;
 
