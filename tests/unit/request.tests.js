@@ -103,6 +103,10 @@ describe('HTTP Request Unit Tests', () => {
       return;
     });
 
+    app.use('/api/status/:code', (req, res) => {
+      res.status(Number(req.params.code)).send();
+    });
+
     // Endpoint that redirects
     app.get('/api/redirect', (req, res) => {
       res.redirect('/api/data');
@@ -828,6 +832,25 @@ describe('HTTP Request Unit Tests', () => {
         // No need to clean up proxy server here anymore
       }
     });
+
+    test.concurrent('should return 205 status code for /status/205', async () => {
+      try {
+        await utils.downloadUrlPromise(
+          ctx,
+          `${BASE_URL}/api/status/205`,
+          { wholeCycle: '5s', connectionAndInactivity: '3s' },
+          1024 * 1024,
+          null,
+          false,
+          null,
+          null
+        )
+        throw new Error('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.message).toContain('Error response:')
+        expect(error.statusCode).toBe(205);
+      }
+    });
   });
 
   test.concurrent('handles binary data correctly', async () => {
@@ -1276,6 +1299,28 @@ describe('HTTP Request Unit Tests', () => {
         expect(JSON.parse(postProxyRequest.body)).toEqual({ nested: { test: 'complex-data' } });
       } finally {
         // No need to clean up proxy server here anymore
+      }
+    });
+
+    test.concurrent('should return 205 status code for /status/205', async () => {
+      try {
+        const postData = JSON.stringify({ test: 'data' });
+
+        const result = await utils.postRequestPromise(
+          ctx,
+          `${BASE_URL}/api/status/205`,
+          postData,
+          null,
+          postData.length,
+          { wholeCycle: '5s', connectionAndInactivity: '3s' },
+          null,
+          false,
+          { 'Content-Type': 'application/json' }
+        );
+        throw new Error('Expected an error to be thrown');
+      } catch (error) {
+        expect(error.message).toContain('Error response:')
+        expect(error.statusCode).toBe(205);
       }
     });
   });
