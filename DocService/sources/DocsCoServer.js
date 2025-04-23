@@ -79,10 +79,10 @@ const os = require('os');
 const cluster = require('cluster');
 const crypto = require('crypto');
 const pathModule = require('path');
+const { isDeepStrictEqual } = require('util');
 const co = require('co');
 const jwt = require('jsonwebtoken');
 const ms = require('ms');
-const deepEqual  = require('deep-equal');
 const bytes = require('bytes');
 const storage = require('./../../Common/sources/storage/storage-base');
 const constants = require('./../../Common/sources/constants');
@@ -2317,8 +2317,8 @@ exports.install = function(server, callbackFunction) {
         chat: queryParams?.dchat!=="1",
         fillForms: permissionsFillForm
       };
-      //todo (review: undefiend)
-      // res = deepEqual(data.permissions, permissions, {strict: true});
+      //todo (review: undefined)
+      // res = isDeepStrictEqual(data.permissions, permissions);
       if (!data.permissions) {
         data.permissions = {};
       }
@@ -2355,7 +2355,7 @@ exports.install = function(server, callbackFunction) {
         }
       }
       if(doc.permissions) {
-        res = deepEqual(data.permissions, doc.permissions, {strict: true});
+        res = isDeepStrictEqual(data.permissions, doc.permissions);
         if (!res) {
           ctx.logger.warn('fillDataFromJwt token has modified permissions');
         }
