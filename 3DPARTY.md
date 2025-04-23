@@ -32,7 +32,6 @@
 - co 4.6.0 ([MIT](https://raw.githubusercontent.com/tj/co/master/LICENSE))
 - config 3.3.12 ([MIT](https://raw.githubusercontent.com/node-config/node-config/master/LICENSE))
 - cron 1.5.0 ([MIT](https://raw.githubusercontent.com/kelektiv/node-cron/main/LICENSE))
-- deep-equal 2.2.3 ([MIT](https://raw.githubusercontent.com/inspect-js/node-deep-equal/main/LICENSE))
 - dmdb 1.0.33801 ([none](https://www.npmjs.com/package/dmdb))
 - ejs 3.1.10 ([Apache-2.0](https://raw.githubusercontent.com/mde/ejs/main/LICENSE))
 - exif-parser 0.1.12 ([MIT](https://raw.githubusercontent.com/bwindels/exif-parser/master/LICENSE.md))
