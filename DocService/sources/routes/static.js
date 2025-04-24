@@ -32,7 +32,7 @@
 
 'use strict';
 const express = require('express');
-const config = require("config");
+const config = require('config');
 const operationContext = require('./../../../Common/sources/operationContext');
 const utils = require('./../../../Common/sources/utils');
 const storage = require('./../../../Common/sources/storage/storage-base');
@@ -40,7 +40,7 @@ const urlModule = require("url");
 const path = require("path");
 const mime = require("mime");
 
-const cfgStaticContent = config.has('services.CoAuthoring.server.static_content') ? config.get('services.CoAuthoring.server.static_content') : {};
+const cfgStaticContent = config.has('services.CoAuthoring.server.static_content') ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content')) : {};
 const cfgCacheStorage = config.get('storage');
 const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
