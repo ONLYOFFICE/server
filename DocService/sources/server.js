@@ -45,7 +45,6 @@ const urlModule = require('url');
 const path = require('path');
 const bodyParser = require("body-parser");
 const multer = require('multer');
-const mime = require('mime');
 const apicache = require('apicache');
 const docsCoServer = require('./DocsCoServer');
 const canvasService = require('./canvasservice');

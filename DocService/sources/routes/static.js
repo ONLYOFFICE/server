@@ -38,7 +38,10 @@ const utils = require('./../../../Common/sources/utils');
 const storage = require('./../../../Common/sources/storage/storage-base');
 const urlModule = require("url");
 const path = require("path");
-const mime = require("mime");
+let mime;
+import('mime').then(module => {
+  mime = module.default;
+})
 
 const cfgStaticContent = config.has('services.CoAuthoring.server.static_content') ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content')) : {};
 const cfgCacheStorage = config.get('storage');

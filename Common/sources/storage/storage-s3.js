@@ -41,7 +41,10 @@ const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-s
 const { DeleteObjectsCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
-const mime = require('mime');
+let mime;
+import('mime').then(module => {
+  mime = module.default;
+})
 const config = require('config');
 const utils = require('../utils');
 const ms = require('ms');

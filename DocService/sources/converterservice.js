@@ -35,7 +35,10 @@
 const path = require('path');
 var config = require('config');
 var co = require('co');
-const mime = require('mime');
+let mime;
+import('mime').then(module => {
+  mime = module.default;
+})
 var taskResult = require('./taskresult');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
