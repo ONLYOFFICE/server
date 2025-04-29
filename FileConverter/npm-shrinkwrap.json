@@ -41,9 +41,9 @@
       }
     },
     "invert-kv": {
-      "version": "3.0.1",
-      "resolved": "https://registry.npmjs.org/invert-kv/-/invert-kv-3.0.1.tgz",
-      "integrity": "sha512-CYdFeFexxhv/Bcny+Q0BfOV+ltRlJcd4BBZBYFX/O0u4npJrgZtIcjokegtiSMAvlMTJ+Koq0GBCc//3bueQxw=="
+      "version": "4.2.0",
+      "resolved": "https://registry.npmjs.org/invert-kv/-/invert-kv-4.2.0.tgz",
+      "integrity": "sha512-6veZJCvIUzuPAeYmmeAUTvlE1mOpvl33ZQoSBVvuWHJ1Ou5oMgAf95YDmK57+oLcSJrFWXfh/nQFYJl2uLOmrQ=="
     },
     "isexe": {
       "version": "2.0.0",
@@ -56,11 +56,11 @@
       "integrity": "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg=="
     },
     "lcid": {
-      "version": "3.1.1",
-      "resolved": "https://registry.npmjs.org/lcid/-/lcid-3.1.1.tgz",
-      "integrity": "sha512-M6T051+5QCGLBQb8id3hdvIW8+zeFV2FyBGFS9IEK5H9Wt4MueD4bW1eWikpHgZp+5xR3l5c8pZUkQsIA0BFZg==",
+      "version": "5.0.0",
+      "resolved": "https://registry.npmjs.org/lcid/-/lcid-5.0.0.tgz",
+      "integrity": "sha512-i0bOkKz5k41apRs5rzFHp5ukmUtGm+owHXj2LwtEir6xxww96mRH1l5Q1denx44LFm5LVKIjXu8ZseqZv7Oa9g==",
       "requires": {
-        "invert-kv": "^3.0.0"
+        "invert-kv": "^4.2.0"
       }
     },
     "ms": {

@@ -2,7 +2,10 @@
 const fs = require('fs');
 const path = require('path');
 const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require('@azure/storage-blob');
-const mime = require('mime');
+let mime;
+import('mime').then(module => {
+  mime = module.default;
+})
 const config = require('config');
 const { Readable } = require('stream');
 const utils = require('../utils');

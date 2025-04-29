@@ -39,7 +39,10 @@ var co = require('co');
 var config = require('config');
 var spawnAsync = require('@expo/spawn-async');
 const bytes = require('bytes');
-const lcid = require('lcid');
+let lcid;
+import('lcid').then(module => {
+  lcid = module.default;
+})
 const ms = require('ms');
 
 var commonDefines = require('./../../Common/sources/commondefines');
