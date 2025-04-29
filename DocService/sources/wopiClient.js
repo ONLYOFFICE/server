@@ -56,7 +56,10 @@ const sqlBase = require('./databaseConnectors/baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
-const mime = require('mime');
+let mime;
+import('mime').then(module => {
+  mime = module.default;
+})
 const license = require('./../../Common/sources/license');
 
 const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');

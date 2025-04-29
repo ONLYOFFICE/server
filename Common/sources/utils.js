@@ -45,8 +45,11 @@ const crypto = require('crypto');
 var url = require('url');
 var axios = require('../node_modules/axios/dist/node/axios.cjs');
 var co = require('co');
-var URI = require("uri-js");
-const escapeStringRegexp = require('escape-string-regexp');
+var URI = require("uri-js-replace");
+let escapeStringRegexp;
+import('escape-string-regexp').then(module => {
+  escapeStringRegexp = module.default;
+})
 const ipaddr = require('ipaddr.js');
 const getDnsCache = require('dnscache');
 const jwt = require('jsonwebtoken');
