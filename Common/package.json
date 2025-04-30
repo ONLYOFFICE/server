@@ -8,7 +8,7 @@
     "@aws-sdk/s3-request-presigner": "3.370.0",
     "@azure/storage-blob": "12.27.0",
     "@smithy/node-http-handler": "4.0.3",
-    "amqplib": "0.10.5",
+    "amqplib": "0.10.7",
     "axios": "1.8.3",
     "co": "4.6.0",
     "config": "3.3.12",
