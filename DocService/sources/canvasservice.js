@@ -868,8 +868,9 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
   var completeParts = yield* saveParts(ctx, cmd, "changes0.json");
   if (completeParts) {
     let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
-    if (docPassword.initial) {
-      cmd.setPassword(docPassword.initial);
+    //Use current password for pdf because password is entered in the browser when opening and is set via setPassword
+    if (docPassword.initial || docPassword.current) {
+      cmd.setPassword(docPassword.initial || docPassword.current);
     }
     //todo setLCID in browser
     var queueData = getSaveTask(ctx, cmd);
