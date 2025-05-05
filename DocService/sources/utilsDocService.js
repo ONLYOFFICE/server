@@ -32,19 +32,20 @@
 
 'use strict';
 
-const util = require("util");
-const config = require('config');
-const exifParser = require('exif-parser');
+import util from 'util';
+import config from 'config';
+import exifParser from 'exif-parser';
 //set global window to fix issue https://github.com/photopea/UTIF.js/issues/130
 if (!global.window) {
   global.window = global;
 }
-const Jimp = require('jimp');
-const locale = require('windows-locale');
-const ms = require('ms');
+import * as Jimp from 'jimp';
+import locale from 'windows-locale' with { type: "json" };
+import ms from 'ms';
 
-const tenantManager = require('../../Common/sources/tenantManager');
-const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
+import * as tenantManager from './../../Common/sources/tenantManager.js';
+import * as notificationModule from './../../Common/sources/notificationService.js';
+const { notificationTypes, ...notificationService } = notificationModule;
 
 const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
 const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template');
@@ -151,7 +152,9 @@ async function notifyLicenseExpiration(ctx, endDate) {
   }
 }
 
-module.exports.fixImageExifRotation = fixImageExifRotation;
-module.exports.convertImageToPng = convertImageToPng;
-module.exports.localeToLCID = localeToLCID;
-module.exports.notifyLicenseExpiration = notifyLicenseExpiration;
+export {
+  fixImageExifRotation,
+  convertImageToPng,
+  localeToLCID,
+  notifyLicenseExpiration,
+}

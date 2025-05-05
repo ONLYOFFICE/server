@@ -32,12 +32,12 @@
 
 'use strict';
 
-const constants = require('./constants');
+import * as constants from './constants.js';
 
 const buildDate = '6/29/2016';
 const oBuildDate = new Date(buildDate);
 
-exports.readLicense = async function () {
+export async function readLicense() {
 	const c_LR = constants.LICENSE_RESULT;
 	var now = new Date();
 	var startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));//first day of current month
@@ -62,6 +62,6 @@ exports.readLicense = async function () {
 		alias: "",
 		multitenancy: false
 	}, null];
-};
+}
 
-exports.packageType = constants.PACKAGE_TYPE_OS;
+export const packageType = constants.PACKAGE_TYPE_OS;

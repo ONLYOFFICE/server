@@ -32,9 +32,9 @@
 
 'use strict';
 
-var path = require('path');
-var constants = require('./constants');
-const {open} = require("node:fs/promises");
+import path from 'path';
+import * as constants from './constants.js';
+import { open } from 'node:fs/promises';
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
@@ -196,7 +196,8 @@ function getImageFormatBySignature(buffer) {
 
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
-exports.getFormatFromString = function(ext) {
+
+export function getFormatFromString(ext) {
   if (!ext) {
     return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
@@ -356,8 +357,9 @@ exports.getFormatFromString = function(ext) {
     default:
       return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
-};
-exports.getStringFromFormat = function(format) {
+}
+
+export function getStringFromFormat(format) {
   switch (format) {
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX:
       return 'docx';
@@ -535,8 +537,9 @@ exports.getStringFromFormat = function(format) {
     default:
       return '';
   }
-};
-exports.getImageFormat = function(ctx, buffer) {
+}
+
+export function getImageFormat(ctx, buffer) {
   var format = constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   try {
     //signature
@@ -546,23 +549,27 @@ exports.getImageFormat = function(ctx, buffer) {
     ctx.logger.error('error getImageFormat: %s', e.stack);
   }
   return format;
-};
-exports.isDocumentFormat = function(format) {
+}
+
+export function isDocumentFormat(format) {
   return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_DOCUMENT) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD ||
     format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY;
-};
-exports.isSpreadsheetFormat = function(format) {
+}
+
+export function isSpreadsheetFormat(format) {
   return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET ||
     format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY;
-};
-exports.isPresentationFormat = function(format) {
+}
+
+export function isPresentationFormat(format) {
   return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_PRESENTATION) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION ||
     format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
-};
-exports.isOOXFormat = function(format) {
+}
+
+export function isOOXFormat(format) {
   return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX === format
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM === format
   || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX === format
@@ -580,14 +587,16 @@ exports.isOOXFormat = function(format) {
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM === format
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format
   || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format;
-};
-exports.isBrowserEditorFormat = function(format) {
+}
+
+export function isBrowserEditorFormat(format) {
   return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === format ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === format ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU === format ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === format;
-};
-function getDocumentFormatBySignature(buffer) {
+}
+
+export function getDocumentFormatBySignature(buffer) {
   if (!buffer) {
     return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
@@ -609,8 +618,9 @@ function getDocumentFormatBySignature(buffer) {
 
   // Unknown format
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
-};
-async function getDocumentFormatByFile(file) {
+}
+
+export async function getDocumentFormatByFile(file) {
   let firstBytesLen = 100;
   let buffer;
   let fd;
@@ -626,6 +636,4 @@ async function getDocumentFormatByFile(file) {
     await fd?.close();
   }
   return getDocumentFormatBySignature(buffer);
-};
-exports.getDocumentFormatBySignature = getDocumentFormatBySignature;
-exports.getDocumentFormatByFile = getDocumentFormatByFile
+}

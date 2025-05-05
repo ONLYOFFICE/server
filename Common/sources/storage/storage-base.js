@@ -31,17 +31,35 @@
  */
 
 'use strict';
-const os = require('os');
-const cluster = require('cluster');
-var config = require('config');
-var utils = require('../utils');
+import os from 'os';
+import cluster from 'cluster';
+import config from 'config';
+import * as utils from '../utils.js';
 
 const cfgCacheStorage = config.get('storage');
 const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
 
-const cacheStorage = require('./' + cfgCacheStorage.name);
-const persistentStorage = require('./' + cfgPersistentStorage.name);
-const tenantManager = require('../tenantManager');
+let cacheStorage;
+let persistentStorage;
+let tenantManager;
+
+const init = async () => {
+    const [cacheStorageModule, persistentStorageModule, tenantManagerModule] = await Promise.all([
+        import('./' + cfgCacheStorage.name + '.js'),
+        import('./' + cfgPersistentStorage.name + '.js'),
+        import('../tenantManager.js')
+    ]);
+    
+    cacheStorage = cacheStorageModule;
+    persistentStorage = persistentStorageModule;
+    tenantManager = tenantManagerModule;
+};
+
+await init()
+
+// export { init };
+
+// export { cacheStorage, persistentStorage, tenantManager };
 
 const HEALTH_CHECK_KEY_MAX = 10000;
 
@@ -193,7 +211,7 @@ function needServeStatic(opt_specialDir) {
   return storage.needServeStatic();
 }
 
-module.exports = {
+export {
   headObject,
   getObject,
   createReadStream,

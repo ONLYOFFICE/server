@@ -41,10 +41,10 @@ const sqlDataBaseType = {
     oracle      : 'oracle'
 };
 
-const connectorUtilities = require('./connectorUtilities');
-const utils = require('../../../Common/sources/utils');
-const bottleneck = require('bottleneck');
-const config = require('config');
+import * as connectorUtilities from './connectorUtilities.js';
+import * as utils from '../../../Common/sources/utils.js';
+import bottleneck from 'bottleneck';
+import config from 'config';
 
 const configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = configSql.get('tableResult');
@@ -58,24 +58,26 @@ const group = new bottleneck.Group(cfgBottleneckGetChanges);
 const g_oCriticalSection = {};
 
 let dbInstance;
+const init = async () => {
 switch (dbType) {
   case sqlDataBaseType.mySql:
   case sqlDataBaseType.mariaDB:
-    dbInstance = require('./mysqlConnector');
+    dbInstance = (await import('./mysqlConnector.js'));
     break;
   case sqlDataBaseType.msSql:
-    dbInstance = require('./mssqlConnector');
+    dbInstance = (await import('./mssqlConnector.js'));
     break;
   case sqlDataBaseType.dameng:
-    dbInstance = require('./damengConnector');
+    dbInstance = (await import('./damengConnector.js'));
     break;
   case sqlDataBaseType.oracle:
-    dbInstance = require('./oracleConnector');
+    dbInstance = (await import('./oracleConnector.js'));
     break;
   default:
-    dbInstance = require('./postgreConnector');
+    dbInstance = (await import('./postgreConnector.js'));
     break;
-}
+}}
+await init()
 
 let isSupportFastInsert = !!dbInstance.insertChanges;
 const addSqlParameter = dbInstance.addSqlParameter;
@@ -383,7 +385,7 @@ function getTableColumns(ctx, tableName) {
   });
 }
 
-module.exports = {
+export {
   insertChangesPromise,
   deleteChangesPromise,
   deleteChanges,
@@ -396,7 +398,9 @@ module.exports = {
   healthCheck,
   getEmptyCallbacks,
   getTableColumns,
-  getDateTime: _getDateTime2,
-  ...connectorUtilities,
-  ...dbInstance
+  _getDateTime2 as getDateTime,
+  dbInstance
 };
+export const UserCallback = connectorUtilities.UserCallback;
+export const DocumentPassword = connectorUtilities.DocumentPassword;
+export const DocumentAdditional = connectorUtilities.DocumentAdditional;

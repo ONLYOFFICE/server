@@ -31,22 +31,23 @@
  */
 
 'use strict';
-var config = require('config');
-var configCoAuthoring = config.get('services.CoAuthoring');
-var co = require('co');
-var pubsubService = require('./pubsubRabbitMQ');
-var commonDefines = require('./../../Common/sources/commondefines');
-var constants = require('./../../Common/sources/constants');
-var utils = require('./../../Common/sources/utils');
-const storage = require('./../../Common/sources/storage/storage-base');
-const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
-const operationContext = require('./../../Common/sources/operationContext');
-const sqlBase = require('./databaseConnectors/baseConnector');
-const docsCoServer = require('./DocsCoServer');
-const taskResult = require('./taskresult');
+import config from 'config';
+import co from 'co';
+import * as pubsubService from './pubsubRabbitMQ.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as storage from './../../Common/sources/storage/storage-base.js';
+import * as queueService from './../../Common/sources/taskqueueRabbitMQ.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import * as sqlBase from './databaseConnectors/baseConnector.js';
+import * as docsCoServer from './DocsCoServer.js';
+import * as taskResult from './taskresult.js';
+
+const configCoAuthoring = config.get('services.CoAuthoring');
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
-const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
+const editorStatStorage = await import('./' + (cfgEditorStatStorage || cfgEditorDataStorage) + '.js');
 
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
@@ -58,7 +59,7 @@ var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
-let addSqlParam = sqlBase.addSqlParameter;
+let addSqlParam = sqlBase.dbInstance.addSqlParameter;
 
 function updateDoc(ctx, docId, status, callback) {
   return new Promise(function(resolve, reject) {
@@ -68,7 +69,7 @@ function updateDoc(ctx, docId, status, callback) {
     let p3 = addSqlParam(ctx.tenant, values);
     let p4 = addSqlParam(docId, values);
     let sqlCommand = `UPDATE ${cfgTableResult} SET status=${p1},callback=${p2} WHERE tenant=${p3} AND id=${p4};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlBase.dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -184,5 +185,6 @@ function shutdown() {
     return res;
   });
 };
-exports.shutdown = shutdown;
-shutdown();
+export {
+  shutdown
+}

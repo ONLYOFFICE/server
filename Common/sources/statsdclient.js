@@ -32,19 +32,21 @@
 
 'use strict';
 
-var statsD = require('node-statsd');
-var configStatsD = require('config').get('statsd');
+import statsD from 'node-statsd';
+import config from 'config';
 
-var cfgStatsDUseMetrics = configStatsD.get('useMetrics');
-var cfgStatsDHost = configStatsD.get('host');
-var cfgStatsDPort = configStatsD.get('port');
-var cfgStatsDPrefix = configStatsD.get('prefix');
+const configStatsD = config.get('statsd');
 
-var clientStatsD = null;
+const cfgStatsDUseMetrics = configStatsD.get('useMetrics');
+const cfgStatsDHost = configStatsD.get('host');
+const cfgStatsDPort = configStatsD.get('port');
+const cfgStatsDPrefix = configStatsD.get('prefix');
+
+let clientStatsD = null;
 if(cfgStatsDUseMetrics) {
   clientStatsD = new statsD({host: cfgStatsDHost, port:cfgStatsDPort, prefix: cfgStatsDPrefix});
 }
 
-exports.getClient = function() {
+export function getClient() {
   return clientStatsD;
-};
+}

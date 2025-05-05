@@ -31,17 +31,14 @@
  */
 
 'use strict';
-const express = require('express');
-const config = require('config');
-const operationContext = require('./../../../Common/sources/operationContext');
-const utils = require('./../../../Common/sources/utils');
-const storage = require('./../../../Common/sources/storage/storage-base');
-const urlModule = require("url");
-const path = require("path");
-let mime;
-import('mime').then(module => {
-  mime = module.default;
-})
+import express from 'express';
+import config from 'config';
+import * as operationContext from './../../../Common/sources/operationContext.js';
+import * as utils from './../../../Common/sources/utils.js';
+import * as storage from './../../../Common/sources/storage/storage-base.js';
+import urlModule from 'url';
+import path from 'path';
+import mime from 'mime';
 
 const cfgStaticContent = config.has('services.CoAuthoring.server.static_content') ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content')) : {};
 const cfgCacheStorage = config.get('storage');
@@ -104,4 +101,4 @@ if (storage.needServeStatic(cfgForgottenFiles)) {
   }
 }
 
-module.exports = router;
+export default router;
