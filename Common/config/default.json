@@ -5,6 +5,89 @@
 		"port": "8125",
 		"prefix": "ds."
 	},
+	"ai-api": {
+		"providers": [
+			{
+				"enable": true,
+				"name": "OpenAI",
+				"url": "https://api.openai.com",
+				"key": "",
+				"models": []
+			},
+			{
+				"enable": true,
+				"name": "Google Gemini",
+				"url": "https://generativelanguage.googleapis.com",
+				"key": "",
+				"models": []
+			},
+			{
+				"enable": true,
+				"name": "Anthropic Claude",
+				"url": "https://api.anthropic.com",
+				"key": "",
+				"models": []
+			},
+			{
+				"enable": true,
+				"name": "Azure OpenAI",
+				"url": "https://{region}.api.cognitive.microsoft.com",
+				"key": "",
+				"models": []
+			},
+			{
+				"enable": true,
+				"name": "Cohere",
+				"url": "https://api.cohere.ai",
+				"key": "",
+				"models": []
+			},
+			{
+				"enable": true,
+				"name": "Mistral AI",
+				"url": "https://api.mistral.ai",
+				"key": "",
+				"models": []
+			},
+			{
+				"enable": true,
+				"name": "Aleph Alpha",
+				"url": "https://api.aleph-alpha.com",
+				"key": "",
+				"models": []
+			}
+		],
+		"actions": {
+			"Chat": {
+				"name": "Ask AI",
+				"icon": "ask-ai",
+				"model": "llama-3.2-90b-vision-preview",
+				"capabilities": 1
+			},
+			"Summarization": {
+				"name": "Summarization",
+				"icon": "summarization",
+				"model": "llama3.2:latest",
+				"capabilities": 1
+			},
+			"Translation": {
+				"name": "Translation",
+				"icon": "translation",
+				"model": "gemini-1.5-pro-latest",
+				"capabilities": 1
+			},
+			"TextAnalyze": {
+				"name": "Text analysis",
+				"icon": "",
+				"model": "claude-3-sonnet-20240229",
+				"capabilities": 1
+			}
+		},
+		"timeout": 30000,
+		"allowedCorsOrigins": [
+			"https://onlyoffice.github.io"
+		]
+	},
 	"log": {
 		"filePath": "",
 		"options": {
