@@ -9,6 +9,7 @@
     "prepare4shutdown": "sources/shutdown.js"
   },
   "dependencies": {
+    "ajv": "8.17.1",
     "apicache": "1.6.3",
     "body-parser": "1.20.3",
     "bottleneck": "2.19.5",

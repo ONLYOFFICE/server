@@ -59,6 +59,7 @@ const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const ms = require('ms');
+const aiProxyHandler = require('./aiProxyHandler');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
@@ -287,6 +288,8 @@ docsCoServer.install(server, () => {
 	app.post('/wopi/files/:docid', checkWopiDummyEnable, wopiClient.dummyOk);
 	app.get('/wopi/files/:docid/contents', apicache.middleware("5 minutes"), checkWopiDummyEnable, wopiClient.dummyGetFile);
 	app.post('/wopi/files/:docid/contents', checkWopiDummyEnable, wopiClient.dummyOk);
+
+	app.use('/ai-proxy', rawFileParser, aiProxyHandler.proxyRequest);
 
 	app.post('/dummyCallback', utils.checkClientIp, apicache.middleware("5 minutes"), rawFileParser, function(req, res){
 		let ctx = new operationContext.Context();
