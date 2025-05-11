@@ -42,8 +42,8 @@ var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 var activeMQCore = require('./../../Common/sources/activeMQCore');
 
 const cfgQueueType = config.get('queue.type');
-const cfgRabbitExchangePubSub = config.get('rabbitmq.exchangepubsub');
-const cfgRabbitQueuePubsub = config.get('rabbitmq.queuepubsub');
+const cfgRabbitExchangePubSub = config.util.cloneDeep(config.get('rabbitmq.exchangepubsub'));
+const cfgRabbitQueuePubsub = config.util.cloneDeep(config.get('rabbitmq.queuepubsub'));
 var cfgActiveTopicPubSub = constants.ACTIVEMQ_TOPIC_PREFIX + config.get('activemq.topicpubsub');
 
 function initRabbit(pubsub, callback) {

@@ -34,6 +34,8 @@
 const crypto = require('crypto');
 var pathModule = require('path');
 var urlModule = require('url');
+const { pipeline } = require('node:stream/promises');
+const { buffer } = require('node:stream/consumers');
 var co = require('co');
 const ms = require('ms');
 const retry = require('retry');
@@ -866,8 +868,9 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
   var completeParts = yield* saveParts(ctx, cmd, "changes0.json");
   if (completeParts) {
     let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
-    if (docPassword.initial) {
-      cmd.setPassword(docPassword.initial);
+    //Use current password for pdf because password is entered in the browser when opening and is set via setPassword
+    if (docPassword.initial || docPassword.current) {
+      cmd.setPassword(docPassword.initial || docPassword.current);
     }
     //todo setLCID in browser
     var queueData = getSaveTask(ctx, cmd);
@@ -1746,7 +1749,14 @@ exports.downloadFile = function(req, res) {
           headers['Range'] = req.get('Range');
         }
 
-        yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, res);
+        const { response, stream } = yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, true);
+        //Set-Cookie resets browser session
+        delete response.headers['set-cookie'];
+        // Set the response headers to match the target response
+        res.set(response.headers);
+
+        // Use pipeline to pipe the response data to the client
+        yield pipeline(stream, res);
       }
 
       if (clientStatsD) {

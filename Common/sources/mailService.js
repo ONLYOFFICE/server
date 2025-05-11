@@ -35,7 +35,7 @@
 const config = require('config');
 const nodemailer = require('nodemailer');
 
-const cfgConnection = config.get('email.connectionConfiguration');
+const cfgConnection = config.util.cloneDeep(config.get('email.connectionConfiguration'));
 
 const connectionDefaultSettings = {
   pool: true,

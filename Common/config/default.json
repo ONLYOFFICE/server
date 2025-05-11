@@ -231,11 +231,11 @@
 		"pdfView": ["djvu", "xps", "oxps"],
 		"pdfEdit": ["pdf"],
 		"forms": ["pdf"],
-		"wordView": ["doc", "dotm", "dot", "fodt", "ott", "rtf", "mht", "mhtml", "html", "htm", "xml", "epub", "fb2", "sxw", "stw", "wps", "wpt", "pages", "docxf", "oform"],
+		"wordView": ["doc", "dotm", "dot", "fodt", "ott", "rtf", "mht", "mhtml", "html", "htm", "xml", "epub", "fb2", "sxw", "stw", "wps", "wpt", "pages", "docxf", "oform", "hwp", "hwpx", "md"],
 		"wordEdit": ["docx", "dotx", "docm", "odt", "txt"],
 		"cellView": ["xls", "xltm", "xlt", "fods", "ots", "sxc", "xml", "et", "ett", "numbers"],
 		"cellEdit": ["xlsx", "xlsb", "xltx", "xlsm", "ods", "csv"],
-		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt", "key"],
+		"slideView": ["ppt", "ppsx", "ppsm", "pps", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt", "key", "odg"],
 		"slideEdit": ["pptx", "potx", "pptm", "odp"],
 		"diagramView": ["vsdx", "vstx", "vssx", "vsdm", "vstm", "vssm"],
 		"diagramEdit": [],
@@ -320,7 +320,6 @@
 					"User-Agent": "Node.js/6.13",
 					"Connection": "Keep-Alive"
 				},
-				"gzip": true,
 				"rejectUnauthorized": true
 			},
 			"autoAssembly": {
