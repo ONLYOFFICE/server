@@ -30,7 +30,7 @@
  *
  */
 
-const constants = require('../../../Common/sources/constants');
+import * as constants from '../../../Common/sources/constants.js';
 
 function UserCallback() {
   this.userIndex = undefined;
@@ -228,7 +228,7 @@ DocumentAdditional.prototype.getWopiSrc = function(str) {
   return res;
 };
 
-module.exports = {
+export {
   UserCallback,
   DocumentPassword,
   DocumentAdditional

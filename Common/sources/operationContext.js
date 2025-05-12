@@ -32,10 +32,10 @@
 
 'use strict';
 
-const utils = require('./utils');
-const logger = require('./logger');
-const constants = require('./constants');
-const tenantManager = require('./tenantManager');
+import * as utils from './utils.js';
+import * as logger from './logger.js';
+import * as constants from './constants.js';
+import * as tenantManager from './tenantManager.js';
 
 function Context(){
   this.logger = logger.getLogger('nodeJS');
@@ -148,5 +148,5 @@ function getImpl(object, property) {
   return getImpl(value, elems.slice(1));
 };
 
-exports.Context = Context;
-exports.global = new Context();
+export { Context };
+export const global = new Context();

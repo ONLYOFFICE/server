@@ -1,16 +1,13 @@
 'use strict';
-const fs = require('fs');
-const path = require('path');
-const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require('@azure/storage-blob');
-let mime;
-import('mime').then(module => {
-  mime = module.default;
-})
-const config = require('config');
-const { Readable } = require('stream');
-const utils = require('../utils');
-const ms = require('ms');
-const commonDefines = require('../commondefines');
+import fs from 'fs';
+import path from 'path';
+import { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } from '@azure/storage-blob';
+import config from 'config';
+import { Readable } from 'stream';
+import * as utils from '../utils.js';
+import ms from 'ms';
+import * as commonDefines from '../commondefines.js';
+import mime from 'mime';
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const MAX_DELETE_OBJECTS = 1000;
@@ -218,7 +215,7 @@ function needServeStatic() {
     return false;
 }
 
-module.exports = {
+export {
     headObject,
     getObject,
     createReadStream,
@@ -228,6 +225,6 @@ module.exports = {
     listObjects,
     deleteObject,
     deletePath,
-    getSignedUrl: getSignedUrlWrapper,
-    needServeStatic
+    getSignedUrlWrapper as getSignedUrl,
+    needServeStatic,
 };

@@ -31,15 +31,15 @@
  */
 
 'use strict';
-var config = require('config');
-var amqp = require('amqplib/callback_api');
-var logger = require('./logger');
-const operationContext = require('./operationContext');
+import config from 'config';
+import amqp from 'amqplib/callback_api.js';
+import * as logger from './logger.js';
+import * as operationContext from './operationContext.js';
 
-var cfgRabbitUrl = config.get('rabbitmq.url');
-var cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOptions'));
+const cfgRabbitUrl = config.get('rabbitmq.url');
+const cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOptions'));
 
-var RECONNECT_TIMEOUT = 1000;
+const RECONNECT_TIMEOUT = 1000;
 
 function connetPromise(closeCallback) {
   return new Promise(function(resolve, reject) {
@@ -134,11 +134,13 @@ function closePromise(conn) {
   });
 }
 
-module.exports.connetPromise = connetPromise;
-module.exports.createChannelPromise = createChannelPromise;
-module.exports.createConfirmChannelPromise = createConfirmChannelPromise;
-module.exports.assertExchangePromise = assertExchangePromise;
-module.exports.assertQueuePromise = assertQueuePromise;
-module.exports.consumePromise = consumePromise;
-module.exports.closePromise = closePromise;
-module.exports.RECONNECT_TIMEOUT = RECONNECT_TIMEOUT;
+export {
+  connetPromise,
+  createChannelPromise,
+  createConfirmChannelPromise,
+  assertExchangePromise,
+  assertQueuePromise,
+  consumePromise,
+  closePromise,
+  RECONNECT_TIMEOUT
+};

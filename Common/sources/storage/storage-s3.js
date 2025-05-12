@@ -31,24 +31,21 @@
  */
 
 'use strict';
-const fs = require('fs');
-const url = require('url');
-const { Agent: HttpsAgent } = require('https');
-const { Agent: HttpAgent } = require('http');
-const path = require('path');
-const { S3Client, ListObjectsCommand, HeadObjectCommand} = require("@aws-sdk/client-s3");
-const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-sdk/client-s3");
-const { DeleteObjectsCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const { NodeHttpHandler } = require("@smithy/node-http-handler");
-let mime;
-import('mime').then(module => {
-  mime = module.default;
-})
-const config = require('config');
-const utils = require('../utils');
-const ms = require('ms');
-const commonDefines = require('../commondefines');
+import fs from 'fs';
+import url from 'url';
+import { Agent as HttpsAgent } from 'https';
+import { Agent as HttpAgent } from 'http';
+import path from 'path';
+import { S3Client, ListObjectsCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectsCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
+import mime from 'mime';
+import config from 'config';
+import * as utils from '../utils.js';
+import ms from 'ms';
+import * as commonDefines from '../commondefines.js';
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const cfgRequestDefaults = config.util.cloneDeep(config.get('services.CoAuthoring.requestDefaults'));
@@ -256,16 +253,16 @@ function needServeStatic() {
   return false;
 }
 
-module.exports = {
-  headObject,
-  getObject,
-  createReadStream,
-  putObject,
-  uploadObject,
-  copyObject,
-  listObjects,
-  deleteObject,
-  deletePath,
-  getSignedUrl: getSignedUrlWrapper,
-  needServeStatic
+export {
+    headObject,
+    getObject,
+    createReadStream,
+    putObject,
+    uploadObject,
+    copyObject,
+    listObjects,
+    deleteObject,
+    deletePath,
+    getSignedUrlWrapper as getSignedUrl,
+    needServeStatic,
 };

@@ -31,15 +31,15 @@
  */
 
 'use strict';
-var config = require('config');
-var events = require('events');
-var util = require('util');
-var co = require('co');
-var constants = require('./../../Common/sources/constants');
-const commonDefines = require('./../../Common/sources/commondefines');
-var utils = require('./../../Common/sources/utils');
-var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
-var activeMQCore = require('./../../Common/sources/activeMQCore');
+import config from 'config';
+import events from 'events';
+import util from 'util';
+import co from 'co';
+import * as constants from './../../Common/sources/constants.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as rabbitMQCore from './../../Common/sources/rabbitMQCore.js';
+import * as activeMQCore from './../../Common/sources/activeMQCore.js';
 
 const cfgQueueType = config.get('queue.type');
 const cfgRabbitExchangePubSub = config.util.cloneDeep(config.get('rabbitmq.exchangepubsub'));
@@ -260,4 +260,4 @@ PubsubRabbitMQ.prototype.healthCheck = function() {
   return healthCheck(this);
 };
 
-module.exports = PubsubRabbitMQ;
+export default PubsubRabbitMQ;

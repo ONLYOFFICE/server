@@ -32,9 +32,9 @@
 
 'use strict';
 
-const mysql = require('mysql2/promise');
-const connectorUtilities = require('./connectorUtilities');
-const config = require('config');
+import mysql from 'mysql2/promise';
+import * as connectorUtilities from './connectorUtilities.js';
+import config from 'config';
 
 const configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = configSql.get('tableResult');
@@ -166,8 +166,10 @@ async function upsert(ctx, task) {
   return { isInsert, insertId };
 }
 
-module.exports.sqlQuery = sqlQuery;
-module.exports.closePool = closePool;
-module.exports.addSqlParameter = addSqlParameter;
-module.exports.concatParams = concatParams;
-module.exports.upsert = upsert;
+export {
+  sqlQuery,
+  closePool,
+  addSqlParameter,
+  concatParams,
+  upsert
+};

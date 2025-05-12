@@ -32,9 +32,9 @@
 
 'use strict';
 
-const connectorUtilities = require('./connectorUtilities');
-const db = require('dmdb');
-const config = require('config');
+import * as connectorUtilities from './connectorUtilities.js';
+import db from 'dmdb';
+import config from 'config';
 
 const configSql = config.get('services.CoAuthoring.sql');
 const cfgDbHost = configSql.get('dbHost');
@@ -215,7 +215,7 @@ async function upsert(ctx, task) {
   return out;
 }
 
-module.exports = {
+export {
   sqlQuery,
   closePool,
   addSqlParameter,

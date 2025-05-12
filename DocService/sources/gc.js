@@ -32,22 +32,22 @@
 
 'use strict';
 
-const config = require('config');
-var co = require('co');
-var cron = require('cron');
-var ms = require('ms');
-var taskResult = require('./taskresult');
-var docsCoServer = require('./DocsCoServer');
-var canvasService = require('./canvasservice');
-var storage = require('./../../Common/sources/storage/storage-base');
-var utils = require('./../../Common/sources/utils');
-var logger = require('./../../Common/sources/logger');
-var constants = require('./../../Common/sources/constants');
-var commondefines = require('./../../Common/sources/commondefines');
-var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
-var operationContext = require('./../../Common/sources/operationContext');
-var pubsubService = require('./pubsubRabbitMQ');
-const sqlBase = require("./databaseConnectors/baseConnector");
+import config from 'config';
+import co from 'co';
+import cron from 'cron';
+import ms from 'ms';
+import * as taskResult from './taskresult.js';
+import * as docsCoServer from './DocsCoServer.js';
+import * as canvasService from './canvasservice.js';
+import * as storage from './../../Common/sources/storage/storage-base.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as logger from './../../Common/sources/logger.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import queueService from './../../Common/sources/taskqueueRabbitMQ.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import pubsubService from './pubsubRabbitMQ.js';
+import * as sqlBase from "./databaseConnectors/baseConnector.js";
 
 var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
 var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
@@ -55,7 +55,7 @@ var cfgExpFiles = config.get('services.CoAuthoring.expire.files');
 var cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
 var cfgForceSaveStep = ms(config.get('services.CoAuthoring.autoAssembly.step'));
 
-function getCronStep(cronTime){
+export function getCronStep(cronTime){
   let cronJob = new cron.CronJob(cronTime, function(){});
   let dates = cronJob.nextDates(2);
   return dates[1] - dates[0];
@@ -63,7 +63,7 @@ function getCronStep(cronTime){
 let expFilesStep = getCronStep(cfgExpFilesCron);
 let expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
-var checkFileExpire = function(expireSeconds) {
+export var checkFileExpire = function(expireSeconds) {
   return co(function* () {
     let ctx = new operationContext.Context();
     try {
@@ -203,10 +203,8 @@ let forceSaveTimeout = function() {
   });
 };
 
-exports.startGC = function() {
+export const startGC = function() {
   setTimeout(checkDocumentExpire, expDocumentsStep);
   setTimeout(checkFileExpire, expFilesStep);
   setTimeout(forceSaveTimeout, cfgForceSaveStep);
 };
-exports.getCronStep = getCronStep;
-exports.checkFileExpire = checkFileExpire;

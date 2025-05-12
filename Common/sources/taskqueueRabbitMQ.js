@@ -31,16 +31,16 @@
  */
 
 'use strict';
-var config = require('config');
-var events = require('events');
-var util = require('util');
-var co = require('co');
-var utils = require('./utils');
-var constants = require('./constants');
-var rabbitMQCore = require('./rabbitMQCore');
-var activeMQCore = require('./activeMQCore');
-const commonDefines = require('./commondefines');
-const operationContext = require('./operationContext');
+import config from 'config';
+import { EventEmitter } from 'events';
+import util from 'util';
+import co from 'co';
+import * as utils from './utils.js';
+import * as constants from './constants.js';
+import * as rabbitMQCore from './rabbitMQCore.js';
+import * as activeMQCore from './activeMQCore.js';
+import * as commonDefines from './commondefines.js';
+import * as operationContext from './operationContext.js';
 
 const cfgMaxRedeliveredCount = config.get('FileConverter.converter.maxRedeliveredCount');
 const cfgQueueType = config.get('queue.type');
@@ -496,115 +496,125 @@ if (commonDefines.c_oAscQueueType.rabbitmq === cfgQueueType) {
   healthCheck = healthCheckActive;
 }
 
-function TaskQueueRabbitMQ(simulateErrorResponse) {
-  this.isClose = false;
-  this.connection = null;
-  this.channelConvertTask = null;
-  this.channelConvertTaskReceive = null;
-  this.channelConvertDead = null;
-  this.channelConvertResponse = null;
-  this.channelConvertResponseReceive = null;
-  this.channelDelayed = null;
-  this.addTaskStore = [];
-  this.addDelayedStore = [];
-  this.channelConvertTaskData = {};
-  this.channelConvertResponseData = {};
-  this.channelDelayedData = {};
-  this.simulateErrorResponse = simulateErrorResponse;
-}
-util.inherits(TaskQueueRabbitMQ, events.EventEmitter);
-TaskQueueRabbitMQ.prototype.init = function (isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, callback) {
-  init(this, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, callback);
-};
-TaskQueueRabbitMQ.prototype.initPromise = function(isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed) {
-  var t = this;
-  return new Promise(function(resolve, reject) {
-    init(t, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, function(err) {
-      if (err) {
-        reject(err);
+class TaskQueueRabbitMQ extends EventEmitter {
+  constructor(simulateErrorResponse) {
+    super();
+    this.isClose = false;
+    this.connection = null;
+    this.channelConvertTask = null;
+    this.channelConvertTaskReceive = null;
+    this.channelConvertDead = null;
+    this.channelConvertResponse = null;
+    this.channelConvertResponseReceive = null;
+    this.channelDelayed = null;
+    this.addTaskStore = [];
+    this.addDelayedStore = [];
+    this.channelConvertTaskData = {};
+    this.channelConvertResponseData = {};
+    this.channelDelayedData = {};
+    this.simulateErrorResponse = simulateErrorResponse;
+  }
+
+  init(isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, callback) {
+    init(this, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, callback);
+  }
+
+  initPromise(isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed) {
+    var t = this;
+    return new Promise(function(resolve, reject) {
+      init(t, isAddTask, isAddResponse, isAddTaskReceive, isAddResponseReceive, isEmitDead, isAddDelayed, function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  addTask(task, priority, opt_expiration, opt_headers) {
+    task.setVisibilityTimeout(cfgVisibilityTimeout);
+    return addTaskString(this, JSON.stringify(task), priority, opt_expiration);
+  }
+
+  addResponse(task) {
+    var t = this;
+    return new Promise(function (resolve, reject) {
+      var content = Buffer.from(JSON.stringify(task));
+      if (null != t.channelConvertResponse) {
+        addResponse(t, content, function (err, ok) {
+          if (null != err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
       } else {
         resolve();
       }
     });
-  });
-};
-TaskQueueRabbitMQ.prototype.addTask = function (task, priority, opt_expiration, opt_headers) {
-  task.setVisibilityTimeout(cfgVisibilityTimeout);
-  return addTaskString(this, JSON.stringify(task), priority, opt_expiration);
-};
-TaskQueueRabbitMQ.prototype.addResponse = function (task) {
-  var t = this;
-  return new Promise(function (resolve, reject) {
-    var content = Buffer.from(JSON.stringify(task));
-    if (null != t.channelConvertResponse) {
-      addResponse(t, content, function (err, ok) {
-        if (null != err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    } else {
-      resolve();
-    }
-  });
-};
-TaskQueueRabbitMQ.prototype.addDelayed = function (task, ttl) {
-  var t = this;
-  return new Promise(function (resolve, reject) {
-    var content = new Buffer(JSON.stringify(task));
-    if (null != t.channelDelayed) {
-      addDelayed(t, content, ttl, function (err, ok) {
-        if (null != err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    } else {
-      t.addDelayedStore.push({task: content, ttl: ttl});
-      resolve();
-    }
-  });
-};
-TaskQueueRabbitMQ.prototype.close = function () {
-  let t = this;
-  return co(function* () {
-    t.isClose = true;
-    if (t.channelConvertTask) {
-      yield close(t.channelConvertTask);
-    }
-    if (t.channelConvertTaskReceive) {
-      yield close(t.channelConvertTaskReceive);
-    }
-    if (t.channelConvertDead) {
-      yield close(t.channelConvertDead);
-    }
-    if (t.channelConvertResponse) {
-      yield close(t.channelConvertResponse);
-    }
-    if (t.channelConvertResponseReceive) {
-      yield close(t.channelConvertResponseReceive);
-    }
-    if (t.channelDelayed) {
-      yield close(t.channelDelayed);
-    }
-    yield close(t.connection);
-  });
-};
-TaskQueueRabbitMQ.prototype.closeOrWait = function() {
-  if (commonDefines.c_oAscQueueType.rabbitmq === cfgQueueType) {
-    return this.close();
-  } else {
-    //todo remove sleep
-    //sleep to wait acknowledge
-    return this.close().then(() => {
-      return utils.sleep(1000);
+  }
+
+  addDelayed(task, ttl) {
+    var t = this;
+    return new Promise(function (resolve, reject) {
+      var content = new Buffer(JSON.stringify(task));
+      if (null != t.channelDelayed) {
+        addDelayed(t, content, ttl, function (err, ok) {
+          if (null != err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      } else {
+        t.addDelayedStore.push({task: content, ttl: ttl});
+        resolve();
+      }
     });
   }
-};
-TaskQueueRabbitMQ.prototype.healthCheck = function() {
-  return healthCheck(this);
-};
 
-module.exports = TaskQueueRabbitMQ;
+  async close() {
+    let t = this;
+    return co(function* () {
+      t.isClose = true;
+      if (t.channelConvertTask) {
+        yield close(t.channelConvertTask);
+      }
+      if (t.channelConvertTaskReceive) {
+        yield close(t.channelConvertTaskReceive);
+      }
+      if (t.channelConvertDead) {
+        yield close(t.channelConvertDead);
+      }
+      if (t.channelConvertResponse) {
+        yield close(t.channelConvertResponse);
+      }
+      if (t.channelConvertResponseReceive) {
+        yield close(t.channelConvertResponseReceive);
+      }
+      if (t.channelDelayed) {
+        yield close(t.channelDelayed);
+      }
+      yield close(t.connection);
+    });
+  }
+
+  closeOrWait() {
+    if (commonDefines.c_oAscQueueType.rabbitmq === cfgQueueType) {
+      return this.close();
+    } else {
+      //todo remove sleep
+      //sleep to wait acknowledge
+      return this.close().then(() => {
+        return utils.sleep(1000);
+      });
+    }
+  }
+
+  healthCheck() {
+    return healthCheck(this);
+  }
+}
+
+export default TaskQueueRabbitMQ;

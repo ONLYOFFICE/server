@@ -32,12 +32,12 @@
 
 'use strict';
 
-var pg = require('pg');
-var co = require('co');
-var types = require('pg').types;
-const connectorUtilities = require('./connectorUtilities');
-const operationContext = require('../../../Common/sources/operationContext');
-const config = require('config');
+import pg from 'pg';
+import co from 'co';
+import {types} from 'pg';
+import * as connectorUtilities from './connectorUtilities.js';
+import * as operationContext from '../../../Common/sources/operationContext.js';
+import config from 'config';
 var configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
 var pgPoolExtraOptions = config.util.cloneDeep(configSql.get('pgPoolExtraOptions'));
@@ -236,7 +236,7 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
   }, undefined, undefined, values);
 }
 
-module.exports = {
+export {
   sqlQuery,
   closePool,
   addSqlParameter,

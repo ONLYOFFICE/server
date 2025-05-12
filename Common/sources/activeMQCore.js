@@ -31,10 +31,9 @@
  */
 
 'use strict';
-var config = require('config');
-var container = require('rhea');
-var logger = require('./logger');
-const operationContext = require('./operationContext');
+import config from 'config';
+import container from 'rhea';
+import * as operationContext from './operationContext.js';
 
 const cfgRabbitSocketOptions = config.util.cloneDeep(config.get('activemq.connectOptions'));
 
@@ -97,8 +96,10 @@ function closePromise(conn) {
   });
 }
 
-module.exports.connetPromise = connetPromise;
-module.exports.openSenderPromise = openSenderPromise;
-module.exports.openReceiverPromise = openReceiverPromise;
-module.exports.closePromise = closePromise;
-module.exports.RECONNECT_TIMEOUT = RECONNECT_TIMEOUT;
+export {
+  connetPromise,
+  openSenderPromise,
+  openReceiverPromise,
+  closePromise,
+  RECONNECT_TIMEOUT
+};

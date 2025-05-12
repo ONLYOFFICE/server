@@ -31,32 +31,29 @@
  */
 
 'use strict';
-var os = require('os');
-var path = require('path');
-var fs = require('fs');
-var url = require('url');
-var co = require('co');
-var config = require('config');
-var spawnAsync = require('@expo/spawn-async');
-const bytes = require('bytes');
-let lcid;
-import('lcid').then(module => {
-  lcid = module.default;
-})
-const ms = require('ms');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import url from 'url';
+import co from 'co';
+import config from 'config';
+import spawnAsync from '@expo/spawn-async';
+import bytes from 'bytes';
+import ms from 'ms';
+import lcid from 'lcid';
 
-var commonDefines = require('./../../Common/sources/commondefines');
-var storage = require('./../../Common/sources/storage/storage-base');
-var utils = require('./../../Common/sources/utils');
-var constants = require('./../../Common/sources/constants');
-var baseConnector = require('../../DocService/sources/databaseConnectors/baseConnector');
-const wopiClient = require('./../../DocService/sources/wopiClient');
-const taskResult = require('./../../DocService/sources/taskresult');
-var statsDClient = require('./../../Common/sources/statsdclient');
-var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
-const formatChecker = require('./../../Common/sources/formatchecker');
-const operationContext = require('./../../Common/sources/operationContext');
-const tenantManager = require('./../../Common/sources/tenantManager');
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as storage from './../../Common/sources/storage/storage-base.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as baseConnector from '../../DocService/sources/databaseConnectors/baseConnector.js';
+import * as wopiClient from './../../DocService/sources/wopiClient.js';
+import * as taskResult from './../../DocService/sources/taskresult.js';
+import * as statsDClient from './../../Common/sources/statsdclient.js';
+import queueService from './../../Common/sources/taskqueueRabbitMQ.js';
+import * as formatChecker from './../../Common/sources/formatchecker.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import * as tenantManager from './../../Common/sources/tenantManager.js';
 
 const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
@@ -1250,4 +1247,15 @@ function run() {
     }
   });
 }
-exports.run = run;
+export {
+    TaskQueueDataConvert,
+    getTempDir,
+    changeFormatToExtendedPdf,
+    writeProcessOutputToLog,
+    ackTask,
+    receiveTaskSetTimeout,
+    receiveTask,
+    createErrorResponse,
+    simulateErrorResponse,
+    run
+};

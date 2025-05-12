@@ -3,6 +3,7 @@
   "version": "1.0.1",
   "homepage": "https://www.onlyoffice.com",
   "private": true,
+  "type": "module",
   "bin": {
     "docservice": "sources/server.js",
     "gc": "sources/gc.js",

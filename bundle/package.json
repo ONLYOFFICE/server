@@ -1,0 +1,16 @@
+{
+  "name": "your-project",
+  "version": "1.0.0",
+  "dependencies": {
+    "@azure/app-configuration": "^1.9.0",
+    "@azure/identity": "^4.9.1",
+    "@azure/keyvault-secrets": "^4.9.0",
+    "@azure/storage-blob": "12.27.0",
+    "oci-common": "^2.107.2",
+    "oci-objectstorage": "^2.107.2",
+    "oci-secrets": "^2.107.2",
+    "oracledb": "^6.8.0",
+    "snappy": "^7.2.2",
+    "win-ca": "^3.5.1"
+  }
+}

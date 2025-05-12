@@ -31,31 +31,31 @@
  */
 
 'use strict';
-const crypto = require('crypto');
-var pathModule = require('path');
-var urlModule = require('url');
-const { pipeline } = require('node:stream/promises');
-const { buffer } = require('node:stream/consumers');
-var co = require('co');
-const ms = require('ms');
-const retry = require('retry');
-const MultiRange = require('multi-integer-range').MultiRange;
-var sqlBase = require('./databaseConnectors/baseConnector');
-const utilsDocService = require('./utilsDocService');
-var docsCoServer = require('./DocsCoServer');
-var taskResult = require('./taskresult');
-var wopiClient = require('./wopiClient');
-var logger = require('./../../Common/sources/logger');
-var utils = require('./../../Common/sources/utils');
-var constants = require('./../../Common/sources/constants');
-var commonDefines = require('./../../Common/sources/commondefines');
-var storage = require('./../../Common/sources/storage/storage-base');
-var formatChecker = require('./../../Common/sources/formatchecker');
-var statsDClient = require('./../../Common/sources/statsdclient');
-var operationContext = require('./../../Common/sources/operationContext');
-var tenantManager = require('./../../Common/sources/tenantManager');
-var config = require('config');
-const path = require("path");
+import crypto from 'crypto';
+import pathModule from 'path';
+import urlModule from 'url';
+import { pipeline } from 'node:stream/promises';
+import { buffer } from 'node:stream/consumers';
+import co from 'co';
+import ms from 'ms';
+import retry from 'retry';
+import * as MultiRange from 'multi-integer-range';
+import * as sqlBase from './databaseConnectors/baseConnector.js';
+import * as utilsDocService from './utilsDocService.js';
+import * as docsCoServer from './DocsCoServer.js';
+import * as taskResult from './taskresult.js';
+import * as wopiClient from './wopiClient.js';
+import * as logger from './../../Common/sources/logger.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as storage from './../../Common/sources/storage/storage-base.js';
+import * as formatChecker from './../../Common/sources/formatchecker.js';
+import * as statsDClient from './../../Common/sources/statsdclient.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import * as tenantManager from './../../Common/sources/tenantManager.js';
+import config from 'config';
+import path from 'path';
 
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
@@ -83,7 +83,11 @@ var SAVE_TYPE_COMPLETE_ALL = 3;
 var clientStatsD = statsDClient.getClient();
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 let hasPasswordCol = false;//stub on upgradev630.sql update failure
-exports.hasAdditionalCol = false;//stub on upgradev710.sql update failure
+let _hasAdditionalCol = false;//stub on upgradev710.sql update failure
+export const hasAdditionalCol = () => _hasAdditionalCol;
+export const setHasAdditionalCol = (value) => {
+  _hasAdditionalCol = value;
+};
 
 function OutputDataWrap(type, data) {
   this['type'] = type;
@@ -1179,7 +1183,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
               }
             } catch (err) {
               ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
-              const retryHttpStatus = new MultiRange(tenCallbackBackoffOptions.httpStatus);
+              const retryHttpStatus = new MultiRange.MultiRange(tenCallbackBackoffOptions.httpStatus);
               if (!isEncrypted && !docsCoServer.getIsShutdown() && (!err.statusCode || retryHttpStatus.has(err.statusCode.toString()))) {
                 let attempt = cmd.getAttempt() || 0;
                 if (attempt < tenCallbackBackoffOptions.retries) {
@@ -1359,7 +1363,7 @@ function* commandSendMMCallback(ctx, cmd) {
   ctx.logger.debug('End commandSendMMCallback');
 }
 
-exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
+export const openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
   return co(function* () {
     var outputData;
     try {
@@ -1421,7 +1425,7 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
     }
   });
 };
-exports.downloadAs = function(req, res) {
+export const downloadAs = function(req, res) {
   return co(function* () {
     var docId = 'null';
     let ctx = new operationContext.Context();
@@ -1511,7 +1515,7 @@ exports.downloadAs = function(req, res) {
     }
   });
 };
-exports.saveFile = function(req, res) {
+export const saveFile = function(req, res) {
   return co(function*() {
     let docId = 'null';
     let ctx = new operationContext.Context();
@@ -1598,8 +1602,8 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     return res;
   });
 }
-exports.getPrintFileUrl = getPrintFileUrl;
-exports.printFile = function(req, res) {
+export { getPrintFileUrl };
+export const printFile = function(req, res) {
   return co(function*() {
     let docId = 'null';
     let ctx = new operationContext.Context();
@@ -1652,7 +1656,7 @@ exports.printFile = function(req, res) {
     }
   });
 };
-exports.downloadFile = function(req, res) {
+export const downloadFile = function(req, res) {
   return co(function*() {
     let ctx = new operationContext.Context();
     try {
@@ -1790,7 +1794,7 @@ exports.downloadFile = function(req, res) {
     }
   });
 };
-exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
+export const saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
   return co(function* () {
     try {
       var startDate = null;
@@ -1860,7 +1864,7 @@ async function processWopiSaveAs(ctx, cmd) {
   }
   return {res: res, wopiParams: info?.wopiParams};
 }
-exports.receiveTask = function(data, ack) {
+export const receiveTask = function(data, ack) {
   return co(function* () {
     let ctx = new operationContext.Context();
     try {
@@ -1939,13 +1943,15 @@ exports.receiveTask = function(data, ack) {
   });
 };
 
-exports.cleanupCache = cleanupCache;
-exports.cleanupCacheIf = cleanupCacheIf;
-exports.cleanupErrToReload = cleanupErrToReload;
-exports.getOpenedAt = getOpenedAt;
-exports.commandSfctByCmd = commandSfctByCmd;
-exports.commandOpenStartPromise = commandOpenStartPromise;
-exports.commandPathUrls = commandPathUrls;
-exports.commandSfcCallback = commandSfcCallback;
-exports.OutputDataWrap = OutputDataWrap;
-exports.OutputData = OutputData;
+export {
+  cleanupCache,
+  cleanupCacheIf,
+  cleanupErrToReload,
+  getOpenedAt,
+  commandSfctByCmd,
+  commandOpenStartPromise,
+  commandPathUrls,
+  commandSfcCallback,
+  OutputDataWrap,
+  OutputData
+}
