@@ -32,27 +32,24 @@
 
 'use strict';
 
-const path = require('path');
-var config = require('config');
-var co = require('co');
-let mime;
-import('mime').then(module => {
-  mime = module.default;
-})
-var taskResult = require('./taskresult');
-var utils = require('./../../Common/sources/utils');
-var constants = require('./../../Common/sources/constants');
-var commonDefines = require('./../../Common/sources/commondefines');
-var docsCoServer = require('./DocsCoServer');
-var canvasService = require('./canvasservice');
-var wopiClient = require('./wopiClient');
-var storage = require('./../../Common/sources/storage/storage-base');
-var formatChecker = require('./../../Common/sources/formatchecker');
-var statsDClient = require('./../../Common/sources/statsdclient');
-var storageBase = require('./../../Common/sources/storage/storage-base');
-var operationContext = require('./../../Common/sources/operationContext');
-const sqlBase = require('./databaseConnectors/baseConnector');
-const utilsDocService = require("./utilsDocService");
+import path from 'path';
+import config from 'config';
+import co from 'co';
+import * as taskResult from './taskresult.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as docsCoServer from './DocsCoServer.js';
+import * as canvasService from './canvasservice.js';
+import * as wopiClient from './wopiClient.js';
+import * as storage from './../../Common/sources/storage/storage-base.js';
+import * as formatChecker from './../../Common/sources/formatchecker.js';
+import * as statsDClient from './../../Common/sources/statsdclient.js';
+import * as storageBase from './../../Common/sources/storage/storage-base.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import * as sqlBase from './databaseConnectors/baseConnector.js';
+import * as utilsDocService from './utilsDocService.js';
+import mime from 'mime';
 
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
@@ -720,10 +717,12 @@ function getConverterHtmlHandler(req, res) {
     }
   });
 }
-exports.convertFromChanges = convertFromChanges;
-exports.convertJson = convertRequestJson;
-exports.convertXml = convertRequestXml;
-exports.convertTo = convertTo;
-exports.convertAndEdit = convertAndEdit;
-exports.getConverterHtmlHandler = getConverterHtmlHandler;
-exports.builder = builderRequest;
+export {
+  convertFromChanges,
+  convertRequestJson as convertJson,
+  convertRequestXml as convertXml,
+  convertTo,
+  convertAndEdit,
+  getConverterHtmlHandler,
+  builderRequest as builder
+};

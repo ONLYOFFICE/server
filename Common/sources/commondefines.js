@@ -32,8 +32,8 @@
 
 'use strict';
 
-const config = require('config');
-const constants = require('./constants');
+import config from 'config';
+import * as constants from './constants.js';
 
 function InputCommand(data, copyExplicit) {
   //must be set explicitly to prevent vulnerability(downloadAs(with url) creates request to integrator with authorization)
@@ -1163,28 +1163,30 @@ const FileStatus = {
 const buildVersion = '4.1.2';
 const buildNumber = 37;
 
-exports.TaskQueueData = TaskQueueData;
-exports.CMailMergeSendData = CMailMergeSendData;
-exports.CThumbnailData = CThumbnailData;
-exports.CTextParams = CTextParams;
-exports.CForceSaveData = CForceSaveData;
-exports.InputCommand = InputCommand;
-exports.OutputSfcData = OutputSfcData;
-exports.OutputMailMerge = OutputMailMerge;
-exports.OutputAction = OutputAction;
-exports.ConvertStatus = ConvertStatus;
-exports.c_oPublishType = c_oPublishType;
-exports.c_oAscCsvDelimiter = c_oAscCsvDelimiter;
-exports.c_oAscEncodings = c_oAscEncodings;
-exports.c_oAscEncodingsMap = c_oAscEncodingsMap;
-exports.c_oAscCodePageUtf8 = c_oAscCodePageUtf8;
-exports.c_oAscUserAction = c_oAscUserAction;
-exports.c_oAscServerCommandErrors = c_oAscServerCommandErrors;
-exports.c_oAscForceSaveTypes = c_oAscForceSaveTypes;
-exports.c_oAscUrlTypes = c_oAscUrlTypes;
-exports.c_oAscSecretType = c_oAscSecretType;
-exports.c_oAscQueueType = c_oAscQueueType;
-exports.c_oAscUnlockRes = c_oAscUnlockRes;
-exports.FileStatus = FileStatus;
-exports.buildVersion = buildVersion;
-exports.buildNumber = buildNumber;
+export {
+  TaskQueueData,
+  CMailMergeSendData,
+  CThumbnailData,
+  CTextParams,
+  CForceSaveData,
+  InputCommand,
+  OutputSfcData,
+  OutputMailMerge,
+  OutputAction,
+  ConvertStatus,
+  c_oPublishType,
+  c_oAscCsvDelimiter,
+  c_oAscEncodings,
+  c_oAscEncodingsMap,
+  c_oAscCodePageUtf8,
+  c_oAscUserAction,
+  c_oAscServerCommandErrors,
+  c_oAscForceSaveTypes,
+  c_oAscUrlTypes,
+  c_oAscSecretType,
+  c_oAscQueueType,
+  c_oAscUnlockRes,
+  FileStatus,
+  buildVersion,
+  buildNumber
+};

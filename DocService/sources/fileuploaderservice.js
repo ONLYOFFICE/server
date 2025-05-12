@@ -31,18 +31,18 @@
  */
 
 'use strict';
-const crypto = require('crypto');
-var multiparty = require('multiparty');
-var co = require('co');
-const utilsDocService = require('./utilsDocService');
-var docsCoServer = require('./DocsCoServer');
-var utils = require('./../../Common/sources/utils');
-var constants = require('./../../Common/sources/constants');
-var storageBase = require('./../../Common/sources/storage/storage-base');
-var formatChecker = require('./../../Common/sources/formatchecker');
-const commonDefines = require('./../../Common/sources/commondefines');
-const operationContext = require('./../../Common/sources/operationContext');
-var config = require('config');
+import crypto from 'crypto';
+import multiparty from 'multiparty';
+import co from 'co';
+import * as utilsDocService from './utilsDocService.js';
+import * as docsCoServer from './DocsCoServer.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as storageBase from './../../Common/sources/storage/storage-base.js';
+import * as formatChecker from './../../Common/sources/formatchecker.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import config from 'config';
 
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
@@ -75,7 +75,7 @@ function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
   }
   return res;
 }
-exports.uploadImageFile = function(req, res) {
+export const uploadImageFile = function(req, res) {
   return co(function* () {
     let httpStatus = 200;
     var docId = 'null';

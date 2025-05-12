@@ -31,11 +31,11 @@
  */
 
 'use strict';
-const config = require('config');
-const ms = require('ms');
-const utils = require('./../../Common/sources/utils');
-const commonDefines = require('./../../Common/sources/commondefines');
-const tenantManager = require('./../../Common/sources/tenantManager');
+import config from 'config';
+import ms from 'ms';
+import * as utils from './../../Common/sources/utils.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as tenantManager from './../../Common/sources/tenantManager.js';
 
 const cfgExpMonthUniqueUsers = ms(config.get('services.CoAuthoring.expire.monthUniqueUsers'));
 
@@ -502,7 +502,7 @@ EditorStat.prototype.lockNotification = async function(ctx, notificationType, tt
   return this._checkAndLock(ctx, notificationType, notificationType, NaN, ttl);
 };
 
-module.exports = {
+export {
   EditorData,
   EditorStat
 }

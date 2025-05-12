@@ -31,17 +31,24 @@
  */
 
 'use strict';
-const os = require('os');
-const cluster = require('cluster');
-var config = require('config');
-var utils = require('../utils');
+import os from 'os';
+import cluster from 'cluster';
+import config from 'config';
+import * as utils from '../utils.js';
+import * as storageFs from './storage-fs.js';
+import * as storageAz from './storage-az.js'; 
+import * as storageS3 from './storage-s3.js';
+import * as tenantManager from '../tenantManager.js';
 
 const cfgCacheStorage = config.get('storage');
 const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
 
-const cacheStorage = require('./' + cfgCacheStorage.name);
-const persistentStorage = require('./' + cfgPersistentStorage.name);
-const tenantManager = require('../tenantManager');
+const cacheStorage = cfgCacheStorage.name === 'storage-fs' ? storageFs : cfgCacheStorage.name === 'storage-az' ? storageAz : cfgCacheStorage.name === 'storage-s3' ? storageS3 : null;
+const persistentStorage = cfgPersistentStorage.name === 'storage-fs' ? storageFs : cfgPersistentStorage.name === 'storage-az' ? storageAz : cfgPersistentStorage.name === 'storage-s3' ? storageS3 : null;
+
+// export { init };
+
+// export { cacheStorage, persistentStorage, tenantManager };
 
 const HEALTH_CHECK_KEY_MAX = 10000;
 
@@ -193,7 +200,7 @@ function needServeStatic(opt_specialDir) {
   return storage.needServeStatic();
 }
 
-module.exports = {
+export {
   headObject,
   getObject,
   createReadStream,

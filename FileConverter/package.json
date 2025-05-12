@@ -4,6 +4,7 @@
   "homepage": "https://www.onlyoffice.com",
   "private": true,
   "bin": "sources/convertermaster.js",
+  "type": "module",
   "dependencies": {
     "@expo/spawn-async": "1.7.2",
     "bytes": "3.1.2",

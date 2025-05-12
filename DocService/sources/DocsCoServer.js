@@ -72,43 +72,46 @@
 
 'use strict';
 
-const { Server } = require("socket.io");
-const _ = require('underscore');
-const url = require('url');
-const os = require('os');
-const cluster = require('cluster');
-const crypto = require('crypto');
-const pathModule = require('path');
-const { isDeepStrictEqual } = require('util');
-const co = require('co');
-const jwt = require('jsonwebtoken');
-const ms = require('ms');
-const bytes = require('bytes');
-const storage = require('./../../Common/sources/storage/storage-base');
-const constants = require('./../../Common/sources/constants');
-const utils = require('./../../Common/sources/utils');
-const utilsDocService = require('./utilsDocService');
-const commonDefines = require('./../../Common/sources/commondefines');
-const statsDClient = require('./../../Common/sources/statsdclient');
-const config = require('config');
-const sqlBase = require('./databaseConnectors/baseConnector');
-const canvasService = require('./canvasservice');
-const converterService = require('./converterservice');
-const taskResult = require('./taskresult');
-const gc = require('./gc');
-const shutdown = require('./shutdown');
-const pubsubService = require('./pubsubRabbitMQ');
-const wopiClient = require('./wopiClient');
-const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
-const operationContext = require('./../../Common/sources/operationContext');
-const tenantManager = require('./../../Common/sources/tenantManager');
-const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
+import { Server } from "socket.io";
+import _ from 'underscore';
+import url from 'url';
+import os from 'os';
+import cluster from 'cluster';
+import crypto from 'crypto';
+import pathModule from 'path';
+import { isDeepStrictEqual } from 'util';
+import co from 'co';
+import jwt from 'jsonwebtoken';
+import ms from 'ms';
+import bytes from 'bytes';
+import * as storage from '../../Common/sources/storage/storage-base.js';
+import * as constants from '../../Common/sources/constants.js';
+import * as utils from '../../Common/sources/utils.js';
+import * as utilsDocService from './utilsDocService.js';
+import * as commonDefines from '../../Common/sources/commondefines.js';
+import * as statsDClient from '../../Common/sources/statsdclient.js';
+import config from 'config';
+import * as sqlBase from './databaseConnectors/baseConnector.js';
+import * as canvasService from './canvasservice.js';
+import * as converterService from './converterservice.js';
+import * as taskResult from './taskresult.js';
+import * as gc from './gc.js';
+import * as shutdownModule from './shutdown.js';
+import pubsubService from './pubsubRabbitMQ.js';
+import * as wopiClient from './wopiClient.js';
+import queueService from '../../Common/sources/taskqueueRabbitMQ.js';
+import * as operationContext from '../../Common/sources/operationContext.js';
+import * as tenantManager from '../../Common/sources/tenantManager.js';
+import * as notificationModule from '../../Common/sources/notificationService.js';
+import * as editorDataStorage from './editorDataMemory.js';
+import * as cfgEditorStatStorageModule from './editorDataRedis.js';
+const { notificationTypes, ...notificationService } = notificationModule;
 
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
-const editorDataStorage = require('./' + cfgEditorDataStorage);
-const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
-const util = require("util");
+
+let editorStatStorage = cfgEditorStatStorage? cfgEditorStatStorageModule: cfgEditorDataStorage ? editorDataStorage: null;
+import util from "util";
 
 const cfgEditSingleton =  config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor =  config.get('services.CoAuthoring.editor');
@@ -163,8 +166,8 @@ const EditorTypes = {
 
 const defaultHttpPort = 80, defaultHttpsPort = 443;	// Default ports (for http and https)
 //todo remove editorDataStorage constructor usage after 8.1
-const editorData = editorDataStorage.EditorData ? new editorDataStorage.EditorData() : new editorDataStorage();
-const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorDataStorage();
+export const editorData = new editorDataStorage.EditorData();
+export const editorStat = new editorStatStorage.EditorStat();
 const clientStatsD = statsDClient.getClient();
 let connections = []; // Active connections
 let lockDocumentsTimerId = {};//to drop connection that can't unlockDocument
@@ -181,7 +184,7 @@ const PRECISION = [{name: 'hour', val: ms('1h')}, {name: 'day', val: ms('1d')}, 
   {name: 'month', val: ms('31d')},
 ];
 
-function getIsShutdown() {
+export function getIsShutdown() {
   return shutdownFlag;
 }
 
@@ -222,7 +225,7 @@ DocumentChanges.prototype.concat = function(item) {
   this.arrChanges = this.arrChanges.concat(item);
 };
 
-const c_oAscServerStatus = {
+export const c_oAscServerStatus = {
   NotFound: 0,
   Editing: 1,
   MustSave: 2,
@@ -498,14 +501,14 @@ function removePresence(ctx, conn) {
   });
 }
 
-let changeConnectionInfo = co.wrap(function*(ctx, conn, cmd) {
+export let changeConnectionInfo = co.wrap(function*(ctx, conn, cmd) {
   if (!conn.denyChangeName && conn.user) {
     yield publish(ctx, {type: commonDefines.c_oPublishType.changeConnecitonInfo, ctx: ctx, docId: conn.docId, useridoriginal: conn.user.idOriginal, cmd: cmd});
     return true;
   }
   return false;
 });
-function signToken(ctx, payload, algorithm, expiresIn, secretElem) {
+export function signToken(ctx, payload, algorithm, expiresIn, secretElem) {
   return co(function*() {
     var options = {algorithm: algorithm, expiresIn: expiresIn};
     let secret = yield tenantManager.getTenantSecret(ctx, secretElem);
@@ -548,7 +551,7 @@ function fillJwtByConnection(ctx, conn) {
   });
 }
 
-function sendData(ctx, conn, data) {
+export function sendData(ctx, conn, data) {
   conn.emit('message', data);
   const type = data ? data.type : null;
   ctx.logger.debug('sendData: type = %s', type);
@@ -595,7 +598,7 @@ function sendReleaseLock(ctx, conn, userLocks) {
     };
   })});
 }
-function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
+export function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
   return co(function*() {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     if (isEnterCorrectPassword) {
@@ -659,7 +662,7 @@ function* getEditorsCount(ctx, docId, opt_hvals) {
   }
   return editorsCount;
 }
-function* hasEditors(ctx, docId, opt_hvals) {
+export function* hasEditors(ctx, docId, opt_hvals) {
   let editorsCount = yield* getEditorsCount(ctx, docId, opt_hvals);
   return editorsCount > 0;
 }
@@ -676,7 +679,7 @@ function* isUserReconnect(ctx, docId, userId, connectionId) {
 }
 
 let pubsubOnMessage = null;//todo move function
-async function publish(ctx, data, optDocId, optUserId, opt_pubsub) {
+export async function publish(ctx, data, optDocId, optUserId, opt_pubsub) {
   var needPublish = true;
   let hvals;
   if (optDocId && optUserId) {
@@ -704,7 +707,7 @@ async function publish(ctx, data, optDocId, optUserId, opt_pubsub) {
   }
   return needPublish;
 }
-function* addTask(data, priority, opt_queue, opt_expiration) {
+export function* addTask(data, priority, opt_queue, opt_expiration) {
   var realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addTask(data, priority, opt_expiration);
 }
@@ -712,11 +715,11 @@ function* addResponse(data, opt_queue) {
   var realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addResponse(data);
 }
-function* addDelayed(data, ttl, opt_queue) {
+export function* addDelayed(data, ttl, opt_queue) {
   var realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addDelayed(data, ttl);
 }
-function* removeResponse(data) {
+export function* removeResponse(data) {
   yield queue.removeResponse(data);
 }
 
@@ -735,7 +738,7 @@ async function getOriginalParticipantsId(ctx, docId) {
   return result;
 }
 
-async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
+export async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizationLength) {
   const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
   const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
 
@@ -759,7 +762,7 @@ async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizat
   return postRes.body;
 }
 
-function parseUrl(ctx, callbackUrl) {
+export function parseUrl(ctx, callbackUrl) {
   var result = null;
   try {
     //no need to do decodeURIComponent http://expressjs.com/en/4x/api.html#app.settings.table
@@ -786,7 +789,7 @@ function parseUrl(ctx, callbackUrl) {
   return result;
 }
 
-async function getCallback(ctx, id, opt_userIndex) {
+export async function getCallback(ctx, id, opt_userIndex) {
   var callbackUrl = null;
   var baseUrl = null;
   let wopiParams = null;
@@ -816,7 +819,7 @@ function* getChangesIndex(ctx, docId) {
   return res;
 }
 
-const hasChanges = co.wrap(function*(ctx, docId) {
+export const hasChanges = co.wrap(function*(ctx, docId) {
   //todo check editorData.getForceSave in case of "undo all changes"
   let puckerIndex = yield* getChangesIndex(ctx, docId);
   if (0 === puckerIndex) {
@@ -828,7 +831,7 @@ const hasChanges = co.wrap(function*(ctx, docId) {
   }
   return true;
 });
-function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
+export function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   let forceSaveType = forceSave.getType();
   let end = success;
   if (commonDefines.c_oAscForceSaveTypes.Form === forceSaveType || commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
@@ -933,7 +936,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
   }
   return res;
 }
-async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId,
+export async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_userId, opt_userConnectionId,
                               opt_userConnectionDocId, opt_userIndex, opt_responseKey, opt_baseUrl,
                               opt_queue, opt_pubsub, opt_conn, opt_initShardKey, opt_jsonParams, opt_changeInfo,
                               opt_prevTime) {
@@ -1019,10 +1022,10 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
   ctx.logger.debug('startForceSave end');
   return res;
 }
-function getExternalChangeInfo(user, date, lang) {
+export function getExternalChangeInfo(user, date, lang) {
   return {user_id: user.id, user_id_original: user.idOriginal, user_name: user.username, lang, change_date: date};
 }
-let resetForceSaveAfterChanges = co.wrap(function*(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
+export let resetForceSaveAfterChanges = co.wrap(function*(ctx, docId, newChangesLastTime, puckerIndex, baseUrl, changeInfo) {
   const tenForceSaveEnable = ctx.getCfg('services.CoAuthoring.autoAssembly.enable', cfgForceSaveEnable);
   const tenForceSaveInterval = ms(ctx.getCfg('services.CoAuthoring.autoAssembly.interval', cfgForceSaveInterval));
   //last save
@@ -1233,7 +1236,7 @@ async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_u
   await onReplySendStatusDocument(ctx, docId, replyData);
   return sendData;
 }
-function parseReplyData(ctx, replyData) {
+export function parseReplyData(ctx, replyData) {
   var res = null;
   if (replyData) {
     try {
@@ -1331,7 +1334,7 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
   }
   return null;
 }
-let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
+export let unlockWopiDoc = co.wrap(function*(ctx, docId, opt_userIndex) {
   //wopi unlock
   var getRes = yield getCallback(ctx, docId, opt_userIndex);
   if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
@@ -1365,7 +1368,7 @@ function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, op
   yield* cleanDocumentOnExit(ctx, docId, false, opt_userIndex);
 }
 
-function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_noDelay, opt_initShardKey) {
+export function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_noDelay, opt_initShardKey) {
   return co(function*(){
     const tenAscSaveTimeOutDelay = ctx.getCfg('services.CoAuthoring.server.savetimeoutdelay', cfgAscSaveTimeOutDelay);
 
@@ -1396,7 +1399,7 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
   });
 }
 
-function checkJwt(ctx, token, type) {
+export function checkJwt(ctx, token, type) {
   return co(function*() {
     const tenTokenVerifyOptions = ctx.getCfg('services.CoAuthoring.token.verifyOptions', cfgTokenVerifyOptions);
 
@@ -1421,7 +1424,7 @@ function checkJwt(ctx, token, type) {
     return res;
   });
 }
-function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
+export function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
   return co(function*() {
     const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
     const tenTokenInboxPrefix = ctx.getCfg('services.CoAuthoring.token.inbox.prefix', cfgTokenInboxPrefix);
@@ -1437,7 +1440,7 @@ function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
     return null;
   });
 }
-function getRequestParams(ctx, req, opt_isNotInBody) {
+export function getRequestParams(ctx, req, opt_isNotInBody) {
   return co(function*(){
     const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
@@ -1507,7 +1510,7 @@ let getParticipantMap = co.wrap(function*(ctx, docId, opt_hvals) {
   return participantsMap;
 });
 
-function getOpenFormatByEditor(editorType) {
+export function getOpenFormatByEditor(editorType) {
   let res;
   switch (editorType) {
     case EditorTypes.spreadsheet:
@@ -1546,38 +1549,11 @@ async function isSchemaCompatible([tableName, tableSchema]) {
   return true;
 }
 
-exports.c_oAscServerStatus = c_oAscServerStatus;
-exports.editorData = editorData;
-exports.editorStat = editorStat;
-exports.sendData = sendData;
-exports.modifyConnectionForPassword = modifyConnectionForPassword;
-exports.parseUrl = parseUrl;
-exports.parseReplyData = parseReplyData;
-exports.sendServerRequest = sendServerRequest;
-exports.createSaveTimer = createSaveTimer;
-exports.changeConnectionInfo = changeConnectionInfo;
-exports.signToken = signToken;
-exports.publish = publish;
-exports.addTask = addTask;
-exports.addDelayed = addDelayed;
-exports.removeResponse = removeResponse;
-exports.hasEditors = hasEditors;
-exports.getEditorsCountPromise = co.wrap(getEditorsCount);
-exports.getCallback = getCallback;
-exports.getIsShutdown = getIsShutdown;
-exports.hasChanges = hasChanges;
-exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
-exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
-exports.unlockWopiDoc = unlockWopiDoc;
-exports.setForceSave = setForceSave;
-exports.startForceSave = startForceSave;
-exports.resetForceSaveAfterChanges = resetForceSaveAfterChanges;
-exports.getExternalChangeInfo = getExternalChangeInfo;
-exports.checkJwt = checkJwt;
-exports.getRequestParams = getRequestParams;
-exports.checkJwtHeader = checkJwtHeader;
+export const getEditorsCountPromise = co.wrap(getEditorsCount);
+export const cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
+export const cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
 
-async function encryptPasswordParams(ctx, data) {
+export async function encryptPasswordParams(ctx, data) {
   let dataWithPassword;
   if (data.type === 'openDocument' && data.message) {
     dataWithPassword = data.message;
@@ -1603,9 +1579,7 @@ async function encryptPasswordParams(ctx, data) {
     }
   }
 }
-exports.encryptPasswordParams = encryptPasswordParams;
-exports.getOpenFormatByEditor = getOpenFormatByEditor;
-exports.install = function(server, callbackFunction) {
+export const install = function(server, callbackFunction) {
   const io = new Server(server, cfgSocketIoConnection);
 
   io.use((socket, next) => {
@@ -2583,11 +2557,11 @@ exports.install = function(server, callbackFunction) {
         //todo update additional in commandOpenStartPromise
         if ((upsertRes.isInsert || (wopiParams && 2 === curIndexUser)) && (undefined !== data.timezoneOffset || data.headingsColor || ctx.shardKey || ctx.wopiSrc)) {
           //todo insert in commandOpenStartPromise. insert here for database compatibility
-          if (false === canvasService.hasAdditionalCol) {
+          if (false === canvasService.hasAdditionalCol()) {
             let selectRes = yield taskResult.select(ctx, docId);
-            canvasService.hasAdditionalCol = selectRes.length > 0 && undefined !== selectRes[0].additional;
+            canvasService.setHasAdditionalCol(selectRes.length > 0 && undefined !== selectRes[0].additional);
           }
-          if (canvasService.hasAdditionalCol) {
+          if (canvasService.hasAdditionalCol()) {
             let task = new taskResult.TaskResultData();
             task.tenant = ctx.tenant;
             task.key = docId;
@@ -3935,7 +3909,7 @@ exports.install = function(server, callbackFunction) {
     });
   });
 };
-exports.setLicenseInfo = async function(globalCtx, data, original) {
+export const setLicenseInfo = async function(globalCtx, data, original) {
   tenantManager.setDefLicense(data, original);
 
   await utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
@@ -3950,7 +3924,7 @@ exports.setLicenseInfo = async function(globalCtx, data, original) {
     await utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
   }
 };
-exports.healthCheck = function(req, res) {
+export const healthCheck = function(req, res) {
   return co(function*() {
     let output = false;
     let ctx = new operationContext.Context();
@@ -4005,7 +3979,7 @@ exports.healthCheck = function(req, res) {
     }
   });
 };
-exports.licenseInfo = function(req, res) {
+export const licenseInfo = function(req, res) {
   return co(function*() {
     let isError = false;
     let serverDate = new Date();
@@ -4355,7 +4329,7 @@ function* commandHandle(ctx, params, req, output) {
 }
 
 // Command from the server (specifically teamlab)
-exports.commandFromServer = function (req, res) {
+export const commandFromServer = function (req, res) {
   return co(function* () {
     const output = { key: 'commandFromServer', error: commonDefines.c_oAscServerCommandErrors.NoError, version: undefined, users: undefined};
     const ctx = new operationContext.Context();
@@ -4395,7 +4369,7 @@ exports.commandFromServer = function (req, res) {
   });
 };
 
-exports.shutdown = function(req, res) {
+export function shutdown(req, res) {
   return co(function*() {
     let output = false;
     let ctx = new operationContext.Context();
@@ -4403,7 +4377,7 @@ exports.shutdown = function(req, res) {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('shutdown start');
-      output = yield shutdown.shutdown(ctx, editorStat, req.method === 'PUT');
+      output = yield shutdownModule.shutdown(ctx, editorStat, req.method === 'PUT');
     } catch (err) {
       ctx.logger.error('shutdown error %s', err.stack);
     } finally {
@@ -4413,7 +4387,7 @@ exports.shutdown = function(req, res) {
     }
   });
 };
-exports.getEditorConnectionsCount = function (req, res) {
+export const getEditorConnectionsCount = function (req, res) {
   let ctx = new operationContext.Context();
   let count = 0;
   try {

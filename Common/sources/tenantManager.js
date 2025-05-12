@@ -32,15 +32,15 @@
 
 'use strict';
 
-const config = require('config');
-const co = require('co');
-const NodeCache = require( "node-cache" );
-const license = require('./../../Common/sources/license');
-const constants = require('./../../Common/sources/constants');
-const commonDefines = require('./../../Common/sources/commondefines');
-const utils = require('./../../Common/sources/utils');
-const { readFile, readdir } = require('fs/promises');
-const path = require('path');
+import config from 'config';
+import co from 'co';
+import NodeCache from 'node-cache';
+import * as license from './license.js';
+import * as constants from './constants.js';
+import * as commonDefines from './commondefines.js';
+import * as utils from './utils.js';
+import { readFile, readdir } from 'fs/promises';
+import path from 'path';
 
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
 const cfgTenantsBaseDir = config.get('tenants.baseDir');
@@ -413,16 +413,18 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
   return [res, oLicense];
 }
 
-exports.getAllTenants = getAllTenants;
-exports.getDefautTenant = getDefautTenant;
-exports.getTenantByConnection = getTenantByConnection;
-exports.getTenantByRequest = getTenantByRequest;
-exports.getTenantPathPrefix = getTenantPathPrefix;
-exports.getTenantConfig = getTenantConfig;
-exports.getTenantSecret = getTenantSecret;
-exports.getTenantLicense = getTenantLicense;
-exports.getServerLicense = getServerLicense;
-exports.setDefLicense = setDefLicense;
-exports.isMultitenantMode = isMultitenantMode;
-exports.setMultitenantMode = setMultitenantMode;
-exports.isDefaultTenant = isDefaultTenant;
+export {
+  getAllTenants,
+  getDefautTenant,
+  getTenantByConnection,
+  getTenantByRequest,
+  getTenantPathPrefix,
+  getTenantConfig,
+  getTenantSecret,
+  getTenantLicense,
+  getServerLicense,
+  setDefLicense,
+  isMultitenantMode,
+  setMultitenantMode,
+  isDefaultTenant
+};

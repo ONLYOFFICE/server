@@ -32,17 +32,17 @@
 
 'use strict';
 
-const crypto = require('crypto');
-var sqlBase = require('./databaseConnectors/baseConnector');
-var constants = require('./../../Common/sources/constants');
-var commonDefines = require('./../../Common/sources/commondefines');
-var tenantManager = require('./../../Common/sources/tenantManager');
-var config = require('config');
+import crypto from 'crypto';
+import * as sqlBase from './databaseConnectors/baseConnector.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as tenantManager from './../../Common/sources/tenantManager.js';
+import config from 'config';
 
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
 
-let addSqlParam = sqlBase.addSqlParameter;
-let concatParams = sqlBase.concatParams;
+let addSqlParam = sqlBase.dbInstance.addSqlParameter;
+let concatParams = sqlBase.dbInstance.concatParams;
 
 var RANDOM_KEY_MAX = 10000;
 
@@ -96,7 +96,7 @@ TaskResultData.prototype.completeDefaults = function() {
 };
 
 function upsert(ctx, task) {
-  return sqlBase.upsert(ctx, task);
+  return sqlBase.dbInstance.upsert(ctx, task);
 }
 
 function select(ctx, docId) {
@@ -105,7 +105,7 @@ function select(ctx, docId) {
     let p1 = addSqlParam(ctx.tenant, values);
     let p2 = addSqlParam(docId, values);
     let sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE tenant=${p1} AND id=${p2};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlBase.dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -174,7 +174,7 @@ function update(ctx, task, setPassword) {
     let p1 = addSqlParam(task.tenant, values);
     let p2 = addSqlParam(task.key, values);
     let sqlCommand = `UPDATE ${cfgTableResult} SET ${sqlSet} WHERE tenant=${p1} AND id=${p2};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlBase.dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -194,7 +194,7 @@ function updateIf(ctx, task, mask) {
     let sqlSet = commandArg.join(', ');
     let sqlWhere = commandArgMask.join(' AND ');
     let sqlCommand = `UPDATE ${cfgTableResult} SET ${sqlSet} WHERE ${sqlWhere};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlBase.dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -245,7 +245,7 @@ function addRandomKey(ctx, task, key, opt_prefix, opt_size) {
     let p8 = addSqlParam(task.baseurl, values);
     let sqlCommand = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)` +
       ` VALUES (${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8});`;
-    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlBase.dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -286,7 +286,7 @@ function remove(ctx, docId) {
     let p1 = addSqlParam(ctx.tenant, values);
     let p2 = addSqlParam(docId, values);
     const sqlCommand = `DELETE FROM ${cfgTableResult} WHERE tenant=${p1} AND id=${p2};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlBase.dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -303,7 +303,7 @@ function removeIf(ctx, mask) {
     commandArgMask.push('id=' + addSqlParam(mask.key, values));
     let sqlWhere = commandArgMask.join(' AND ');
     const sqlCommand = `DELETE FROM ${cfgTableResult} WHERE ${sqlWhere};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlBase.dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
       if (error) {
         reject(error);
       } else {
@@ -313,13 +313,16 @@ function removeIf(ctx, mask) {
   });
 }
 
-exports.TaskResultData = TaskResultData;
-exports.upsert = upsert;
-exports.select = select;
-exports.update = update;
-exports.updateIf = updateIf;
-exports.restoreInitialPassword = restoreInitialPassword;
-exports.addRandomKeyTask = addRandomKeyTask;
-exports.remove = remove;
-exports.removeIf = removeIf;
-exports.getExpired = sqlBase.getExpired;
+export {
+  TaskResultData,
+  upsert,
+  select,
+  update,
+  updateIf,
+  restoreInitialPassword,
+  addRandomKeyTask,
+  remove,
+  removeIf,
+}
+
+export const getExpired = sqlBase.getExpired

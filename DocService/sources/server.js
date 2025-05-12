@@ -32,32 +32,33 @@
 
 'use strict';
 
-const config = require('config');
+import config from 'config';
 //process.env.NODE_ENV = config.get('services.CoAuthoring.server.mode');
-const logger = require('./../../Common/sources/logger');
-const co = require('co');
-const license = require('./../../Common/sources/license');
-const fs = require('fs');
+import * as logger from './../../Common/sources/logger.js';
+import co from 'co';
+import * as license from './../../Common/sources/license.js';
+import fs from 'fs';
 
-const express = require('express');
-const http = require('http');
-const urlModule = require('url');
-const path = require('path');
-const bodyParser = require("body-parser");
-const multer = require('multer');
-const apicache = require('apicache');
-const docsCoServer = require('./DocsCoServer');
-const canvasService = require('./canvasservice');
-const converterService = require('./converterservice');
-const fileUploaderService = require('./fileuploaderservice');
-const wopiClient = require('./wopiClient');
-const constants = require('./../../Common/sources/constants');
-const utils = require('./../../Common/sources/utils');
-const commonDefines = require('./../../Common/sources/commondefines');
-const operationContext = require('./../../Common/sources/operationContext');
-const tenantManager = require('./../../Common/sources/tenantManager');
-const staticRouter = require('./routes/static');
-const ms = require('ms');
+import express from 'express';
+import http from 'http';
+import urlModule from 'url';
+import path from 'path';
+import bodyParser from "body-parser";
+import multer from 'multer';
+import mime from 'mime';
+import apicache from 'apicache';
+import * as docsCoServer from './DocsCoServer.js';
+import * as canvasService from './canvasservice.js';
+import * as converterService from './converterservice.js';
+import * as fileUploaderService from './fileuploaderservice.js';
+import * as wopiClient from './wopiClient.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import * as tenantManager from './../../Common/sources/tenantManager.js';
+import staticRouter from './routes/static.js';
+import ms from 'ms';
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
@@ -68,24 +69,24 @@ const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enabl
 const cfgLicenseFile = config.get('license.license_file');
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 
-if (false) {
-	var cluster = require('cluster');
-	cluster.schedulingPolicy = cluster.SCHED_RR
-	if (cluster.isMaster) {
-		let workersCount = 2;
-		logger.warn('start cluster with %s workers %s', workersCount, cluster.schedulingPolicy);
-		for (let nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
-			var worker = cluster.fork().process;
-			logger.warn('worker %s started.', worker.pid);
-		}
+// if (false) {
+// 	var cluster = require('cluster');
+// 	cluster.schedulingPolicy = cluster.SCHED_RR
+// 	if (cluster.isMaster) {
+// 		let workersCount = 2;
+// 		logger.warn('start cluster with %s workers %s', workersCount, cluster.schedulingPolicy);
+// 		for (let nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
+// 			var worker = cluster.fork().process;
+// 			logger.warn('worker %s started.', worker.pid);
+// 		}
 
-		cluster.on('exit', function (worker) {
-			logger.warn('worker %s died. restart...', worker.process.pid);
-			cluster.fork();
-		});
-		return;
-	}
-}
+// 		cluster.on('exit', function (worker) {
+// 			logger.warn('worker %s died. restart...', worker.process.pid);
+// 			cluster.fork();
+// 		});
+// 		return;
+// 	}
+// }
 
 const app = express();
 app.disable('x-powered-by');

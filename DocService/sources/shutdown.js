@@ -31,16 +31,16 @@
  */
 
 'use strict';
-var config = require('config');
-var configCoAuthoring = config.get('services.CoAuthoring');
-var co = require('co');
-var logger = require('./../../Common/sources/logger');
-var pubsubService = require('./pubsubRabbitMQ');
-const sqlBase = require('./databaseConnectors/baseConnector');
-var commonDefines = require('./../../Common/sources/commondefines');
-var constants = require('./../../Common/sources/constants');
-var utils = require('./../../Common/sources/utils');
+import config from 'config';
+import co from 'co';
+import * as logger from './../../Common/sources/logger.js';
+import pubsubService from './pubsubRabbitMQ.js';
+import * as sqlBase from './databaseConnectors/baseConnector.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as utils from './../../Common/sources/utils.js';
 
+var configCoAuthoring = config.get('services.CoAuthoring');
 var cfgRedisPrefix = configCoAuthoring.get('redis.prefix');
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 
@@ -48,7 +48,7 @@ var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
-exports.shutdown = function(ctx, editorStat, status) {
+export const shutdown = function(ctx, editorStat, status) {
   return co(function*() {
     var res = true;
     try {
