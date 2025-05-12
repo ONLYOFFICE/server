@@ -41,10 +41,15 @@ const sqlDataBaseType = {
     oracle      : 'oracle'
 };
 
-const connectorUtilities = require('./connectorUtilities');
-const utils = require('../../../Common/sources/utils');
-const bottleneck = require('bottleneck');
-const config = require('config');
+import * as connectorUtilities from './connectorUtilities.js';
+import * as utils from '../../../Common/sources/utils.js';
+import bottleneck from 'bottleneck';
+import config from 'config';
+import * as mysqlConnector from './mysqlConnector.js';
+import * as mssqlConnector from './mssqlConnector.js';
+import * as damengConnector from './damengConnector.js';
+import * as oracleConnector from './oracleConnector.js';
+import * as postgreConnector from './postgreConnector.js';
 
 const configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = configSql.get('tableResult');
@@ -61,24 +66,24 @@ let dbInstance;
 switch (dbType) {
   case sqlDataBaseType.mySql:
   case sqlDataBaseType.mariaDB:
-    dbInstance = require('./mysqlConnector');
+    dbInstance = mysqlConnector;
     break;
   case sqlDataBaseType.msSql:
-    dbInstance = require('./mssqlConnector');
+    dbInstance = mssqlConnector;
     break;
   case sqlDataBaseType.dameng:
-    dbInstance = require('./damengConnector');
+    dbInstance = damengConnector;
     break;
   case sqlDataBaseType.oracle:
-    dbInstance = require('./oracleConnector');
+    dbInstance = oracleConnector;
     break;
   default:
-    dbInstance = require('./postgreConnector');
+    dbInstance = postgreConnector;
     break;
 }
-
 let isSupportFastInsert = !!dbInstance.insertChanges;
-const addSqlParameter = dbInstance.addSqlParameter;
+let addSqlParameter = dbInstance.addSqlParameter;
+
 
 function getChangesSize(changes) {
   return changes.reduce((accumulator, currentValue) => accumulator + currentValue.change_data.length, 0);
@@ -383,7 +388,7 @@ function getTableColumns(ctx, tableName) {
   });
 }
 
-module.exports = {
+export {
   insertChangesPromise,
   deleteChangesPromise,
   deleteChanges,
@@ -396,7 +401,9 @@ module.exports = {
   healthCheck,
   getEmptyCallbacks,
   getTableColumns,
-  getDateTime: _getDateTime2,
-  ...connectorUtilities,
-  ...dbInstance
+  _getDateTime2 as getDateTime,
+  dbInstance
 };
+export const UserCallback = connectorUtilities.UserCallback;
+export const DocumentPassword = connectorUtilities.DocumentPassword;
+export const DocumentAdditional = connectorUtilities.DocumentAdditional;

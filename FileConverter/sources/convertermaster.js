@@ -32,21 +32,21 @@
 
 'use strict';
 
-const cluster = require('cluster');
-const logger = require('./../../Common/sources/logger');
-const operationContext = require('./../../Common/sources/operationContext');
+import cluster from 'cluster';
+import * as logger from './../../Common/sources/logger.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import fs from 'fs';
+import co from 'co';
+import os from 'os';
+import config from 'config';
+import * as license from './../../Common/sources/license.js';
+import * as converter from './converter.js';
 
 if (cluster.isMaster) {
-  const fs = require('fs');
-  const co = require('co');
-  const os = require('os');
-  const config = require('config');
-  const license = require('./../../Common/sources/license');
-
   const cfgLicenseFile = config.get('license.license_file');
   const cfgMaxProcessCount = config.get('FileConverter.converter.maxprocesscount');
 
-  var workersCount = 0;
+  let workersCount = 0;
   const readLicense = async function () {
     const numCPUs = os.cpus().length;
     const availableParallelism = os.availableParallelism?.();
@@ -57,7 +57,7 @@ if (cluster.isMaster) {
     //todo send license to workers for multi-tenancy
   };
   const updateWorkers = () => {
-    var i;
+    let i;
     const arrKeyWorkers = Object.keys(cluster.workers);
     if (arrKeyWorkers.length < workersCount) {
       for (i = arrKeyWorkers.length; i < workersCount; ++i) {
@@ -93,7 +93,6 @@ if (cluster.isMaster) {
   fs.watchFile(cfgLicenseFile, updateLicense);
   setInterval(updateLicense, 86400000);
 } else {
-  const converter = require('./converter');
   converter.run();
 }
 

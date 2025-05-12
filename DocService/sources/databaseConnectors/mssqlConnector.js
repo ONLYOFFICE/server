@@ -32,10 +32,10 @@
 
 'use strict';
 
-const sql = require('mssql');
-const config = require('config');
-const connectorUtilities = require('./connectorUtilities');
-const utils = require('../../../Common/sources/utils');
+import sql from 'mssql';
+import config from 'config';
+import * as connectorUtilities from './connectorUtilities.js';
+import * as utils from '../../../Common/sources/utils.js';
 
 const configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = configSql.get('tableResult');
@@ -333,7 +333,7 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
   return result;
 }
 
-module.exports = {
+export {
   sqlQuery,
   closePool,
   addSqlParameter,

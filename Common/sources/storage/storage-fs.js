@@ -32,15 +32,14 @@
 
 'use strict';
 
-const { cp, rm, mkdir } = require('fs/promises');
-const { stat, readFile, writeFile } = require('fs/promises');
-var path = require('path');
-var utils = require("../utils");
-var crypto = require('crypto');
-const ms = require('ms');
-const config = require('config');
-const commonDefines = require('../commondefines');
-const constants = require('../constants');
+import { cp, rm, mkdir, stat, readFile, writeFile } from 'fs/promises';
+import path from 'path';
+import * as utils from '../utils.js';
+import crypto from 'crypto';
+import ms from 'ms';
+import config from 'config';
+import * as commonDefines from '../commondefines.js';
+import * as constants from '../constants.js';
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 
@@ -168,7 +167,7 @@ function needServeStatic() {
   return true;
 }
 
-module.exports = {
+export {
   headObject,
   getObject,
   createReadStream,

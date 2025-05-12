@@ -32,10 +32,9 @@
 
 'use strict';
 
-var config = require('config');
-var util = require('util');
-
-var log4js = require('log4js');
+import config from 'config';
+import util from 'util';
+import log4js from 'log4js';
 
 // https://stackoverflow.com/a/36643588
 var dateToJSONWithTZ = function (d) {
@@ -73,27 +72,35 @@ if (config.get('log.options.replaceConsole')) {
 	console.error = logger.error.bind(logger);
 	console.debug = logger.debug.bind(logger);
 }
-exports.getLogger = function (){
+
+export function getLogger() {
 	return log4js.getLogger.apply(log4js, Array.prototype.slice.call(arguments));
-};
-exports.trace = function (){
+}
+
+export function trace() {
 	return logger.trace.apply(logger, Array.prototype.slice.call(arguments));
-};
-exports.debug = function (){
+}
+
+export function debug() {
 	return logger.debug.apply(logger, Array.prototype.slice.call(arguments));
-};
-exports.info = function (){
+}
+
+export function info() {
 	return logger.info.apply(logger, Array.prototype.slice.call(arguments));
-};
-exports.warn = function (){
+}
+
+export function warn() {
 	return logger.warn.apply(logger, Array.prototype.slice.call(arguments));
-};
-exports.error = function (){
+}
+
+export function error() {
 	return logger.error.apply(logger, Array.prototype.slice.call(arguments));
-};
-exports.fatal = function (){
+}
+
+export function fatal() {
 	return logger.fatal.apply(logger, Array.prototype.slice.call(arguments));
-};
-exports.shutdown = function (callback) {
+}
+
+export function shutdown(callback) {
 	return log4js.shutdown(callback);
-};
+}

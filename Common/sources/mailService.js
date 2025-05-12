@@ -32,8 +32,8 @@
 
 'use strict';
 
-const config = require('config');
-const nodemailer = require('nodemailer');
+import config from 'config';
+import nodemailer from 'nodemailer';
 
 const cfgConnection = config.util.cloneDeep(config.get('email.connectionConfiguration'));
 
@@ -93,7 +93,7 @@ function transportersRelease() {
   smtpTransporters.clear();
 }
 
-module.exports = {
+export {
   createTransporter,
   send,
   deleteTransporter,

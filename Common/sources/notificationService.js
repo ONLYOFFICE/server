@@ -31,19 +31,20 @@
  */
 
 'use strict';
-const util = require('util');
-const config = require('config');
-const ms = require('ms');
-
-const mailService = require('./mailService');
+import util from 'util';
+import config from 'config';
+import ms from 'ms';
+import * as mailService from './mailService.js';
+import * as cfgEditorDataStorageModule from './../../DocService/sources/editorDataMemory.js';
+import * as cfgEditorStatStorageModule from './../../DocService/sources/editorDataRedis.js';
 
 const cfgMailServer = config.util.cloneDeep(config.get('email.smtpServerConfiguration'));
 const cfgMailMessageDefaults = config.util.cloneDeep(config.get('email.contactDefaults'));
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
-const editorStatStorage = require('./../../DocService/sources/' + (cfgEditorStatStorage || cfgEditorDataStorage));
 
-const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();
+const editorStatStorage = cfgEditorStatStorage? cfgEditorStatStorageModule: cfgEditorDataStorage ? cfgEditorDataStorageModule: null;
+const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage.default();
 const notificationTypes = {
   LICENSE_EXPIRATION_WARNING: 'licenseExpirationWarning',
   LICENSE_EXPIRATION_ERROR: 'licenseExpirationError',
@@ -144,7 +145,7 @@ async function notifyRule(ctx, tenRule, title, message) {
   }
 }
 
-module.exports = {
+export {
   notificationTypes,
   notify
 };

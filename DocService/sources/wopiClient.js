@@ -32,35 +32,32 @@
 
 'use strict';
 
-const path = require('path');
-const { pipeline } = require('node:stream/promises');
-const crypto = require('crypto');
-let util = require('util');
-const {URL} = require('url');
-const co = require('co');
-const jwt = require('jsonwebtoken');
-const config = require('config');
-const { createReadStream } = require('fs');
-const { stat, lstat, readdir } = require('fs/promises');
-const utf7 = require('utf7');
-const mimeDB = require('mime-db');
-const xmlbuilder2 = require('xmlbuilder2');
-const logger = require('./../../Common/sources/logger');
-const utils = require('./../../Common/sources/utils');
-const constants = require('./../../Common/sources/constants');
-const commonDefines = require('./../../Common/sources/commondefines');
-const formatChecker = require('./../../Common/sources/formatchecker');
-const operationContext = require('./../../Common/sources/operationContext');
-const tenantManager = require('./../../Common/sources/tenantManager');
-const sqlBase = require('./databaseConnectors/baseConnector');
-const taskResult = require('./taskresult');
-const canvasService = require('./canvasservice');
-const converterService = require('./converterservice');
-let mime;
-import('mime').then(module => {
-  mime = module.default;
-})
-const license = require('./../../Common/sources/license');
+import path from 'path';
+import { pipeline } from 'node:stream/promises';
+import crypto from 'crypto';
+import util from 'util';
+import {URL} from 'url';
+import co from 'co';
+import jwt from 'jsonwebtoken';
+import config from 'config';
+import { createReadStream } from 'fs';
+import { stat, lstat, readdir } from 'fs/promises';
+import utf7 from 'utf7';
+import mimeDB from 'mime-db';
+import xmlbuilder2 from 'xmlbuilder2';
+import * as logger from './../../Common/sources/logger.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as constants from './../../Common/sources/constants.js';
+import * as commonDefines from './../../Common/sources/commondefines.js';
+import * as formatChecker from './../../Common/sources/formatchecker.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import * as tenantManager from './../../Common/sources/tenantManager.js';
+import * as sqlBase from './databaseConnectors/baseConnector.js';
+import * as taskResult from './taskresult.js';
+import * as canvasService from './canvasservice.js';
+import * as converterService from './converterservice.js';
+import mime from 'mime';
+import * as license from './../../Common/sources/license.js';
 
 const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
@@ -1159,26 +1156,28 @@ function dummyOk(req, res) {
   res.sendStatus(200);
 }
 
-exports.checkIpFilter = checkIpFilter;
-exports.discovery = discovery;
-exports.collaboraCapabilities = collaboraCapabilities;
-exports.parseWopiCallback = parseWopiCallback;
-exports.getEditorHtml = getEditorHtml;
-exports.getConverterHtml = getConverterHtml;
-exports.putFile = putFile;
-exports.parsePutFileResponse = parsePutFileResponse;
-exports.putRelativeFile = putRelativeFile;
-exports.renameFile = renameFile;
-exports.refreshFile = refreshFile;
-exports.lock = lock;
-exports.unlock = unlock;
-exports.fillStandardHeaders = fillStandardHeaders;
-exports.getWopiUnlockMarker = getWopiUnlockMarker;
-exports.getWopiModifiedMarker = getWopiModifiedMarker;
-exports.getFileTypeByInfo = getFileTypeByInfo;
-exports.getWopiFileUrl = getWopiFileUrl;
-exports.isWopiJwtToken = isWopiJwtToken;
-exports.setIsShutdown = setIsShutdown;
-exports.dummyCheckFileInfo = dummyCheckFileInfo;
-exports.dummyGetFile = dummyGetFile;
-exports.dummyOk = dummyOk;
+export {
+  checkIpFilter,
+  discovery,
+  collaboraCapabilities,
+  parseWopiCallback,
+  getEditorHtml,
+  getConverterHtml,
+  putFile, 
+  parsePutFileResponse,
+  putRelativeFile,
+  renameFile,
+  refreshFile,
+  lock,
+  unlock,
+  fillStandardHeaders,
+  getWopiUnlockMarker,
+  getWopiModifiedMarker,
+  getFileTypeByInfo,
+  getWopiFileUrl,
+  isWopiJwtToken,
+  setIsShutdown,
+  dummyCheckFileInfo,
+  dummyGetFile,
+  dummyOk,
+}
