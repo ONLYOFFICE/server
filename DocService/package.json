@@ -22,7 +22,7 @@
     "exif-parser": "0.1.12",
     "express": "4.21.2",
     "ioredis": "5.6.1",
-    "jimp": "1.6.0",
+    "jimp": "0.22.10",
     "jsonwebtoken": "9.0.2",
     "mime": "4.0.7",
     "mime-db": "1.54.0",
