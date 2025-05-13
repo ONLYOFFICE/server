@@ -353,6 +353,11 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
       res.usersExpire = Math.max(constants.LICENSE_EXPIRE_USERS_ONE_DAY, (oLicense['users_expire'] >> 0) *
         constants.LICENSE_EXPIRE_USERS_ONE_DAY);
     }
+    
+    // Read grace_days setting from license file if available
+    if (oLicense.hasOwnProperty('grace_days')) {
+      res.graceDays = Math.max(0, oLicense['grace_days'] >> 0);
+    }
 
     const timeLimited = 0 !== (res.mode & c_LM.Limited);
 
@@ -365,8 +370,8 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
       res.type = c_LR.NotBefore;
       ctx.logger.warn('License: License not active before start_date:%s.', startDate.toISOString());
     } else if (timeLimited) {
-      // 30 days after end license = limited mode with 20 Connections
-      if (res.endDate.setUTCDate(res.endDate.getUTCDate() + 30) >= checkDate) {
+      // Grace period after end license = limited mode with limited connections
+      if (res.endDate.setUTCDate(res.endDate.getUTCDate() + res.graceDays) >= checkDate) {
         res.type = c_LR.SuccessLimit;
         res.connections = Math.min(res.connections, constants.LICENSE_CONNECTIONS);
         res.connectionsView = Math.min(res.connectionsView, constants.LICENSE_CONNECTIONS);
@@ -374,7 +379,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
         res.usersViewCount = Math.min(res.usersViewCount, constants.LICENSE_USERS);
         let errStr = res.usersCount ? `${res.usersCount} unique users` : `${res.connections} concurrent connections`;
         ctx.logger.error(`License: License needs to be renewed.\nYour users have only ${errStr} ` +
-          `available for document editing for the next 30 days.\nPlease renew the ` +
+          `available for document editing for the next ${graceDays} days.\nPlease renew the ` +
           'license to restore the full access');
       } else {
         res.type = c_LR.ExpiredLimited;
