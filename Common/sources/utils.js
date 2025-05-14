@@ -1118,6 +1118,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.customer_id = licenseInfo.customerId;
   license.alias = licenseInfo.alias;
   license.multitenancy = licenseInfo.multitenancy;
+  license.grace_days = licenseInfo.graceDays;
   return license;
 };
 exports.convertLicenseInfoToServerParams = function(licenseInfo) {
