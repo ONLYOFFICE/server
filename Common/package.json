@@ -26,7 +26,7 @@
     "nodemailer": "6.10.0",
     "request-filtering-agent": "1.0.5",
     "rhea": "3.0.3",
-    "uri-js": "4.4.1",
+    "uri-js-replace": "1.0.1",
     "win-ca": "3.5.1"
   }
 }
