@@ -30,15 +30,15 @@
  *
  */
 
-const { describe, test, expect, afterAll } = require('@jest/globals');
-const config = require('../../../Common/node_modules/config');
+import { describe, test, expect, afterAll } from '@jest/globals';
+import config from '../../../Common/node_modules/config';
 
-const baseConnector = require('../../../DocService/sources/databaseConnectors/baseConnector');
-const operationContext = require('../../../Common/sources/operationContext');
-const taskResult = require('../../../DocService/sources/taskresult');
-const commonDefines = require('../../../Common/sources/commondefines');
-const constants = require('../../../Common/sources/constants');
-const utils = require("../../../Common/sources/utils");
+import * as baseConnector from '../../../DocService/sources/databaseConnectors/baseConnector.js';
+import * as operationContext from '../../../Common/sources/operationContext.js';
+import * as taskResult from '../../../DocService/sources/taskresult.js';
+import * as commonDefines from '../../../Common/sources/commondefines.js';
+import * as constants from '../../../Common/sources/constants.js';
+import * as utils from "../../../Common/sources/utils.js";
 const configSql = config.get('services.CoAuthoring.sql');
 
 const ctx = new operationContext.Context();
@@ -155,7 +155,7 @@ function deleteRowsByIds(table, ids) {
 
 function executeSql(sql, values = []) {
   return new Promise((resolve, reject) => {
-    baseConnector.sqlQuery(ctx, sql, function (error, result) {
+    baseConnector.dbInstance.sqlQuery(ctx, sql, function (error, result) {
       if (error) {
         reject(error)
       } else {
@@ -189,15 +189,15 @@ function insertIntoResultTable(dateNow, task) {
   const columns = ['tenant', 'id', 'status', 'status_info', 'last_open_date', 'user_index', 'change_id', 'callback', 'baseurl'];
   const values = [];
   const placeholder = [
-    baseConnector.addSqlParameter(task.tenant, values),
-    baseConnector.addSqlParameter(task.key, values),
-    baseConnector.addSqlParameter(task.status, values),
-    baseConnector.addSqlParameter(task.statusInfo, values),
-    baseConnector.addSqlParameter(dateNow, values),
-    baseConnector.addSqlParameter(task.userIndex, values),
-    baseConnector.addSqlParameter(task.changeId, values),
-    baseConnector.addSqlParameter(cbInsert, values),
-    baseConnector.addSqlParameter(task.baseurl, values)
+    baseConnector.dbInstance.addSqlParameter(task.tenant, values),
+    baseConnector.dbInstance.addSqlParameter(task.key, values),
+    baseConnector.dbInstance.addSqlParameter(task.status, values),
+    baseConnector.dbInstance.addSqlParameter(task.statusInfo, values),
+    baseConnector.dbInstance.addSqlParameter(dateNow, values),
+    baseConnector.dbInstance.addSqlParameter(task.userIndex, values),
+    baseConnector.dbInstance.addSqlParameter(task.changeId, values),
+    baseConnector.dbInstance.addSqlParameter(cbInsert, values),
+    baseConnector.dbInstance.addSqlParameter(task.baseurl, values)
   ];
 
   return executeSql(`INSERT INTO ${cfgTableResult}(${columns.join(', ')}) VALUES(${placeholder.join(', ')});`, values);
@@ -440,7 +440,7 @@ describe('Base database connector', function () {
 
       await noRowsExistenceCheck(cfgTableResult, task.key);
 
-      const result = await baseConnector.upsert(ctx, task);
+      const result = await baseConnector.dbInstance.upsert(ctx, task);
 
       // isInsert should be true because of insert operation, insertId should be 1 by default.
       const expected = { isInsert: true, insertId: 1 };
@@ -456,11 +456,11 @@ describe('Base database connector', function () {
 
       await noRowsExistenceCheck(cfgTableResult, task.key);
 
-      await baseConnector.upsert(ctx, task);
+      await baseConnector.dbInstance.upsert(ctx, task);
 
       // Changing baseurl to verify upsert() changing the row.
       task.baseurl = 'some-updated-url';
-      const result = await baseConnector.upsert(ctx, task);
+      const result = await baseConnector.dbInstance.upsert(ctx, task);
 
       // isInsert should be false because of update operation, insertId should be 2 by updating clause.
       const expected = { isInsert: false, insertId: 2 };

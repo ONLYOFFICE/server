@@ -1,13 +1,13 @@
-const { describe, test, expect, beforeAll, afterAll } = require('@jest/globals');
-const { Writable, Readable } = require('stream');
-const { buffer } = require('node:stream/consumers');
-const http = require('http');
-const https = require('https');
-const express = require('express');
-const operationContext = require('../../Common/sources/operationContext');
-const utils = require('../../Common/sources/utils');
-const fs = require('fs').promises;
-const path = require('path');
+import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
+import { Writable, Readable } from 'stream';
+import { buffer } from 'node:stream/consumers';
+import http from 'http';
+import https from 'https';
+import express from 'express';
+import * as operationContext from '../../Common/sources/operationContext.js';
+import * as utils from '../../Common/sources/utils.js';
+import fs from 'fs/promises';
+import path from 'path';
 
 // Create operation context for tests
 const ctx = new operationContext.Context();

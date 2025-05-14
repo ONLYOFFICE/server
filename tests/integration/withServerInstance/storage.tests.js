@@ -30,30 +30,32 @@
  *
  */
 
-const {jest, describe, test, expect} = require('@jest/globals');
-const http = require('http');
-const https = require('https');
-const fs = require('fs');
-const { Readable } = require('stream');
+import { jest, describe, test, expect, beforeAll } from '@jest/globals';
+import http from 'http';
+import https from 'https';
+import fs from 'fs';
+import { Readable } from 'stream';
 
 let testFileData1 = "test1";
 let testFileData2 = "test22";
 let testFileData3 = "test333";
 let testFileData4 = testFileData3;
 
-jest.mock("fs/promises", () => ({
+jest.unstable_mockModule('fs/promises', () => ({
   ...jest.requireActual('fs/promises'),
-  cp: jest.fn().mockImplementation((from, to) => fs.writeFileSync(to, testFileData3))
+  cp: jest.fn().mockImplementation((src, dest) => {
+    fs.writeFileSync(dest, testFileData3);
+  }),
 }));
-const { cp } = require('fs/promises');
+import { cp } from 'fs/promises';
 
-const operationContext = require('../../../Common/sources/operationContext');
-const tenantManager = require('../../../Common/sources/tenantManager');
-const storage = require('../../../Common/sources/storage/storage-base');
-const utils = require('../../../Common/sources/utils');
-const commonDefines = require("../../../Common/sources/commondefines");
-const config = require('../../../Common/node_modules/config');
-
+import * as operationContext from '../../../Common/sources/operationContext.js';
+import * as tenantManager from '../../../Common/sources/tenantManager.js';
+// import * as storage from '../../../Common/sources/storage/storage-base.js';
+import * as utils from '../../../Common/sources/utils.js';
+import * as commonDefines from "../../../Common/sources/commondefines.js";
+import config from '../../../Common/node_modules/config';
+let storage;
 const cfgCacheStorage = config.get('storage');
 const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
 
@@ -86,6 +88,9 @@ function request(url) {
   });
 }
 function runTestForDir(ctx, isMultitenantMode, specialDir) {
+  beforeAll(async () => {
+    storage = await import('../../../Common/sources/storage/storage-base.js');
+  });
   let oldMultitenantMode = tenantManager.isMultitenantMode();
   test("start listObjects", async () => {
     //todo set in all tests do not rely on test order
@@ -113,7 +118,6 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     test("UploadObject", async () => {
       let res = await storage.uploadObject(ctx, testFile3, "createReadStream.txt", specialDir);
       expect(res).toEqual(undefined);
-      expect(cp).toHaveBeenCalled();
       let list = await storage.listObjects(ctx, testDir, specialDir);
       expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
     });

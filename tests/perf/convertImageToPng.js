@@ -32,18 +32,18 @@
 
 'use strict';
 
-const {
+import {
   createHistogram,
   performance,
   PerformanceObserver,
-} = require('node:perf_hooks');
+} from 'node:perf_hooks';
 
-const { readdir, mkdir, readFile, writeFile } = require("node:fs/promises");
-const path = require("path");
+import { readdir, mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "path";
 // const Jimp = require('Jimp');
-const utils = require('./../../Common/sources/utils');
-const operationContext = require('./../../Common/sources/operationContext');
-const utilsDocService = require("./../../DocService/sources/utilsDocService");
+import * as utils from './../../Common/sources/utils.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import * as utilsDocService from "./../../DocService/sources/utilsDocService.js";
 
 let ctx = operationContext.global;
 

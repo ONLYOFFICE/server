@@ -33,8 +33,8 @@
 'use strict';
 
 //Fix EPROTO error in node 8.x at some web sites(https://github.com/nodejs/node/issues/21513)
-import { DEFAULT_ECDH_CURVE } from 'tls';
-// DEFAULT_ECDH_CURVE = "auto";
+import { default as tls } from 'tls';
+tls.DEFAULT_ECDH_CURVE = 'auto';
 
 import { pipeline } from 'node:stream/promises';
 import { buffer } from 'node:stream/consumers';
