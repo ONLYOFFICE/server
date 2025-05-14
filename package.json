@@ -3,6 +3,7 @@
   "version": "1.0.1",
   "homepage": "https://www.onlyoffice.com",
   "private": true,
+  "type": "module",
   "dependencies": {
     "license-downloader": "1.0.8",
     "license-report": "6.7.2",
@@ -21,7 +22,7 @@
     "unit tests": "cd ./DocService && jest unit --inject-globals=false --config=../tests/jest.config.js",
     "integration tests with server instance": "cd ./DocService && jest integration/withServerInstance --inject-globals=false --config=../tests/jest.config.js",
     "integration database tests": "cd ./DocService && jest integration/databaseTests --inject-globals=false --config=../tests/jest.config.js",
-    "tests": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js",
+    "tests": "cd ./DocService && cross-env NODE_OPTIONS=--experimental-vm-modules jest --inject-globals=false --config=../tests/jest.config.js",
     "tests:dev": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js --watch",
     "install:Common": "npm ci --prefix ./Common",
     "install:DocService": "npm ci --prefix ./DocService",

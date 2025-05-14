@@ -30,7 +30,7 @@
  *
  */
 
-const { describe, test, expect } = require('@jest/globals');
+import { describe, test, expect } from '@jest/globals';
 
 describe('Successful and failure tests', function () {
   test('Successful test', function () {

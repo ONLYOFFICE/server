@@ -30,11 +30,11 @@
  *
  */
 
-const { describe, test, expect } = require('@jest/globals');
-const config = require('../../Common/node_modules/config');
+import { describe, test, expect } from '@jest/globals';
+import config from '../../Common/node_modules/config';
 
-const operationContext = require('../../Common/sources/operationContext');
-const utils = require('../../Common/sources/utils');
+import * as operationContext from '../../Common/sources/operationContext.js';
+import * as utils from '../../Common/sources/utils.js';
 
 const ctx = new operationContext.Context();
 const minimumIterationsByteLength = 4;

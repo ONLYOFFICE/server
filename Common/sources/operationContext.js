@@ -37,7 +37,7 @@ import * as logger from './logger.js';
 import * as constants from './constants.js';
 import * as tenantManager from './tenantManager.js';
 
-function Context(){
+export function Context(){
   this.logger = logger.getLogger('nodeJS');
   this.initDefault();
 }
@@ -148,5 +148,4 @@ function getImpl(object, property) {
   return getImpl(value, elems.slice(1));
 };
 
-export { Context };
 export const global = new Context();

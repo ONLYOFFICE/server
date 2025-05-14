@@ -35,7 +35,7 @@
  * https://jestjs.io/docs/configuration
  */
 
-module.exports = {
+export default {
   // All imported modules in your tests should be mocked automatically
   // automock: false,
 
@@ -188,6 +188,11 @@ module.exports = {
   testMatch: [
     "**/?(*.)+(spec|tests).[tj]s?(x)"
   ],
+  testEnvironment: 'node',
+  transform: {}, // Disable Babel transforms if not needed
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1', // Map .js imports to ESM
+  },
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
   // testPathIgnorePatterns: [
