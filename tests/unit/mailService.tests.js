@@ -1,8 +1,8 @@
-const { describe, test, expect, afterAll } = require('@jest/globals');
-const nodemailer = require('../../Common/node_modules/nodemailer');
+import { describe, test, expect, afterAll } from '@jest/globals';
+import nodemailer from '../../Common/node_modules/nodemailer';
 
-const operationContext = require('../../Common/sources/operationContext');
-const mailService = require('../../Common/sources/mailService');
+import * as operationContext from '../../Common/sources/operationContext.js';
+import * as mailService from '../../Common/sources/mailService.js';
 
 const ctx = new operationContext.Context();
 const defaultTestSMTPServer = {

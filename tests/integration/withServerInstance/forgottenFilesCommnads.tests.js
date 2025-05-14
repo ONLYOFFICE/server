@@ -30,16 +30,16 @@
  *
  */
 
-const { describe, test, expect, afterAll, beforeAll } = require('@jest/globals');
-const http = require('http');
+import { describe, test, expect, afterAll, beforeAll } from '@jest/globals';
+import http from 'http';
 
-const { signToken } = require('../../../DocService/sources/DocsCoServer');
-const storage = require('../../../Common/sources/storage/storage-base');
-const constants = require('../../../Common/sources/commondefines');
-const operationContext = require('../../../Common/sources/operationContext');
-const utils = require("../../../Common/sources/utils");
+import { signToken } from '../../../DocService/sources/DocsCoServer.js';
+import * as storage from '../../../Common/sources/storage/storage-base.js';
+import * as constants from '../../../Common/sources/constants.js';
+import * as operationContext from '../../../Common/sources/operationContext.js';
+import * as utils from "../../../Common/sources/utils.js";
 
-const config = require('../../../Common/node_modules/config');
+import config from '../../../Common/node_modules/config';
 
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');

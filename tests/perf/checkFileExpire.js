@@ -32,20 +32,20 @@
 
 'use strict';
 
-const {
+import {
   createHistogram,
   performance,
   PerformanceObserver,
-} = require('node:perf_hooks');
+} from 'node:perf_hooks';
 
-const co = require('co');
-const taskResult = require('./../../DocService/sources/taskresult');
-const storage = require('./../../Common/sources/storage/storage-base');
-const storageFs = require('./../../Common/sources/storage/storage-fs');
-const operationContext = require('./../../Common/sources/operationContext');
-const utils = require('./../../Common/sources/utils');
-const docsCoServer = require("./../../DocService/sources/DocsCoServer");
-const gc = require("./../../DocService/sources/gc");
+import co from 'co';
+import taskResult from './../../DocService/sources/taskresult.js';
+import * as storage from './../../Common/sources/storage/storage-base.js';
+import * as storageFs from './../../Common/sources/storage/storage-fs.js';
+import * as operationContext from './../../Common/sources/operationContext.js';
+import * as utils from './../../Common/sources/utils.js';
+import * as docsCoServer from "./../../DocService/sources/DocsCoServer.js";
+import * as gc from "./../../DocService/sources/gc.js";
 
 let ctx = operationContext.global;
 

@@ -1,3 +1,9 @@
+import { describe, test, expect, beforeAll, afterAll, it, jest } from '@jest/globals';
+import http from 'http';
+
+import * as operationContext from '../../Common/sources/operationContext.js';
+import * as utils from '../../Common/sources/utils.js';
+
 const GOOD_HOST = '127.0.0.1';
 const BAD_HOST = '127.0.0.2';
 
@@ -5,26 +11,55 @@ const GOOD_PORT = 4668;
 const GOOD_PORT_REDIRECT = 4667;
 const BAD_PORT = 4669;
 
-process.env['NODE_CONFIG'] = JSON.stringify({
-  "services": {
-    "CoAuthoring": {
-      "request-filtering-agent": {
-        "allowPrivateIPAddress": false,
-        "allowMetaIPAddress": false,
-        "allowIPAddressList": [
-          GOOD_HOST
-        ]
-      }
+const defaultCtx = {
+  getCfg: function(key, _) {
+    switch (key) {
+      case 'services.CoAuthoring.requestDefaults':
+        return {
+          "headers": {
+            "User-Agent": "Node.js/6.13",
+            "Connection": "Keep-Alive"
+          },
+          "decompress": true,
+          "rejectUnauthorized": true,
+          "followRedirect": false
+        };
+      case 'services.CoAuthoring.token.outbox.header':
+        return "Authorization";
+      case 'services.CoAuthoring.token.outbox.prefix':
+        return "Bearer ";
+      case 'externalRequest.action':
+        return {
+          "allow": true,
+          "blockPrivateIP": true,
+          "proxyUrl": "",
+          "proxyUser": {
+            "username": "",
+            "password": ""
+          },
+          "proxyHeaders": {}
+        };
+      case 'services.CoAuthoring.request-filtering-agent':
+        return {
+          "allowPrivateIPAddress": false,
+          "allowMetaIPAddress": false,
+          "allowIPAddressList": [
+            GOOD_HOST
+          ]
+        };
+      case 'externalRequest.directIfIn':
+        return {
+          "allowList": [],
+          "jwtToken": true
+        };
+      default:
+        return undefined;
     }
+  },
+  logger: {
+    debug: function() {},
   }
-});
-
-// Required modules
-const { describe, test, expect, beforeAll, afterAll, it, jest } = require('@jest/globals');
-const http = require('http');
-
-const operationContext = require('../../Common/sources/operationContext');
-const utils = require('../../Common/sources/utils');
+};
 
 
 // Common test parameters
@@ -78,7 +113,7 @@ describe('Server-Side Request Forgery (SSRF)', () => {
 
     it('should fetch', async () => {
       const result = await utils.downloadUrlPromise(
-        ctx,
+        defaultCtx,
         `http://${GOOD_HOST}:${GOOD_PORT}`,
         commonTestParams.timeout,
         commonTestParams.limit,
@@ -92,7 +127,7 @@ describe('Server-Side Request Forgery (SSRF)', () => {
 
     it('should not fetch: denied ip', async () => {
       await expect(utils.downloadUrlPromise(
-        ctx,
+        defaultCtx,
         `http://${BAD_HOST}:${BAD_PORT}`,
         commonTestParams.timeout,
         commonTestParams.limit,
@@ -104,7 +139,7 @@ describe('Server-Side Request Forgery (SSRF)', () => {
 
     it('should not fetch: redirect to denied ip', async () => {
       await expect(utils.downloadUrlPromise(
-        ctx,
+        defaultCtx,
         `http://${GOOD_HOST}:${GOOD_PORT_REDIRECT}`,
         commonTestParams.timeout,
         commonTestParams.limit,
