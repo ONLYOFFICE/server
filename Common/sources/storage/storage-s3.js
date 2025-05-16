@@ -32,7 +32,6 @@
 
 'use strict';
 const fs = require('fs');
-const url = require('url');
 const { Agent: HttpsAgent } = require('https');
 const { Agent: HttpAgent } = require('http');
 const path = require('path');
@@ -49,6 +48,7 @@ const commonDefines = require('../commondefines');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const cfgRequestDefaults = config.util.cloneDeep(config.get('services.CoAuthoring.requestDefaults'));
+const cfgCacheStorage = config.get('storage');
 
 //This operation enables you to delete multiple objects from a bucket using a single HTTP request. You may specify up to 1000 keys.
 const MAX_DELETE_OBJECTS = 1000;
@@ -225,13 +225,15 @@ async function deletePath(storageCfg, strPath) {
   let list = await listObjects(storageCfg, strPath);
   await deleteObjects(storageCfg, list);
 }
-async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+
+async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
   const storageUrlExpires = storageCfg.fs.urlExpires;
   let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
   // Signature version 4 presigned URLs must have an expiration date less than one week in the future
   expires = Math.min(expires, 604800);
-    let userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
-    let contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
+
+  let userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
+  let contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
 
   const input = {
     Bucket: storageCfg.bucketName,
@@ -242,7 +244,7 @@ async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, o
     //default Expires 900 seconds
   let options = {
     expiresIn: expires
-    };
+  };
   return await getSignedUrl(getS3Client(storageCfg), command, options);
   //extra query params cause SignatureDoesNotMatch
   //https://stackoverflow.com/questions/55503009/amazon-s3-signature-does-not-match-when-extra-query-params-ga-added-in-url
@@ -250,7 +252,7 @@ async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, o
 }
 
 function needServeStatic() {
-  return false;
+  return !cfgCacheStorage.useDirectStorageUrls;
 }
 
 module.exports = {
@@ -263,6 +265,6 @@ module.exports = {
   listObjects,
   deleteObject,
   deletePath,
-  getSignedUrl: getSignedUrlWrapper,
+  getDirectSignedUrl,
   needServeStatic
 };
