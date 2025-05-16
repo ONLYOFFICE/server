@@ -76,13 +76,16 @@ function getStorageCfg(specialDir) {
 }
 
 function request(url) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     let module = url.startsWith('https') ? https : http;
-    module.get(url, response => {
+    const req = module.get(url, response => {
       let data = '';
       response.on('data', _data => (data += _data));
+      response.on('error', error => reject(error));
       response.on('end', () => resolve(data));
     });
+    
+    req.on('error', error => reject(error));
   });
 }
 function runTestForDir(ctx, isMultitenantMode, specialDir) {

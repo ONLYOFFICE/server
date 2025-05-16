@@ -31,6 +31,8 @@
  */
 
 'use strict';
+
+const { pipeline } = require('node:stream/promises');
 const express = require('express');
 const config = require('config');
 const operationContext = require('./../../../Common/sources/operationContext');
@@ -105,8 +107,9 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
         return;
       }
 
+      const filename = urlParsed.pathname && decodeURIComponent(path.basename(urlParsed.pathname));
+      const filePath = decodeURI(req.url.substring(1, index));
       if (cfgStorage.name === 'storage-fs') {
-        const filename = urlParsed.pathname && decodeURIComponent(path.basename(urlParsed.pathname));
         const sendFileOptions = {
           root: rootPath,
           dotfiles: 'deny',
@@ -116,26 +119,25 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
           }
         };
 
-        const realUrl = decodeURI(req.url.substring(0, index));
-        res.sendFile(realUrl, sendFileOptions, (err) => {
+        res.sendFile(filePath, sendFileOptions, (err) => {
           if (err) {
             operationContext.global.logger.error(err);
             res.status(400).end();
           }
         });
       } else if (['storage-s3', 'storage-az'].includes(cfgStorage.name)) {
-        const filename = decodeURIComponent(path.basename(req.url));
-        const filePath = req.url.substring(1, index);
-        const result = await storage.createReadStream(cfgStorage, filePath);
+        const result = await storage.createReadStream(cfgStorage, filePath, rout);
         
         res.setHeader('Content-Type', mime.getType(filename));
         res.setHeader('Content-Length', result.contentLength);
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        result.readStream.pipe(res);
+        res.setHeader('Content-Disposition', utils.getContentDisposition(filename));
+        await pipeline(result.readStream, res);
+      } else {
+        res.sendStatus(404);
       }
     } catch (e) {
       operationContext.global.logger.error(e);
-      res.status(400).end();
+      res.sendStatus(400);
     }
   };
 }
@@ -150,9 +152,9 @@ if (storage.needServeStatic()) {
 }
 if (storage.needServeStatic(cfgForgottenFiles)) {
   let persistentRouts = [cfgForgottenFiles, cfgErrorFiles];
-  persistentRouts.filter((rout) => {return rout && rout.length > 0;});
+  persistentRouts = persistentRouts.filter((rout) => {return rout && rout.length > 0;});
   if (persistentRouts.length > 0) {
-    initCacheRouter(cfgPersistentStorage, [cfgForgottenFiles, cfgErrorFiles]);
+    initCacheRouter(cfgPersistentStorage, persistentRouts);
   }
 }
 

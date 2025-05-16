@@ -141,16 +141,17 @@ async function deletePath(ctx, strPath, opt_specialDir) {
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.deletePath(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
-async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir, storagePath) {
+async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir) {
   let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
-  storagePath = storagePath || getStoragePath(ctx, strPath, opt_specialDir);
+  let storagePath = getStoragePath(ctx, strPath, opt_specialDir);
 
-  if (storageCfg.useDirectStorageUrls && storageCfg.name !== 'storage-fs') {
+  if (storageCfg.useDirectStorageUrls && storage.getDirectSignedUrl) {
     return await storage.getDirectSignedUrl(ctx, storageCfg, baseUrl, storagePath, urlType, optFilename, opt_creationDate);
   } else {
     const storageSecretString = storageCfg.fs.secretString;
     const storageUrlExpires = storageCfg.fs.urlExpires;
+    //use fixed bucket name because it hard-coded in nginx
     const bucketName = storageCfg.name === 'storage-fs' ? 'cache' : 'storage-cache';
     const storageFolderName = storageCfg.storageFolderName;
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
@@ -172,38 +173,30 @@ async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_cre
 
     url += '?md5=' + encodeURIComponent(md5);
     url += '&expires=' + encodeURIComponent(expires);
-    if (storageCfg.name === 'storage-fs') {
-      if (ctx.shardKey) {
-        shardKeyCached = ctx.shardKey;
-        url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(ctx.shardKey)}`;
-      } else if (ctx.wopiSrc) {
-        wopiSrcCached = ctx.wopiSrc;
-        url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
-      } else if (process.env.DEFAULT_SHARD_KEY) {
-        //Set DEFAULT_SHARD_KEY from environment as shardkey in case of integrator did not pass this param
-        url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(process.env.DEFAULT_SHARD_KEY)}`;
-      } else if (shardKeyCached) {
-        //Add stubs for shardkey params until integrators pass these parameters to all requests
-        url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardKeyCached)}`;
-      } else if (wopiSrcCached) {
-        url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrcCached)}`;
-      }
+    if (ctx.shardKey) {
+      shardKeyCached = ctx.shardKey;
+      url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(ctx.shardKey)}`;
+    } else if (ctx.wopiSrc) {
+      wopiSrcCached = ctx.wopiSrc;
+      url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
+    } else if (process.env.DEFAULT_SHARD_KEY) {
+      //Set DEFAULT_SHARD_KEY from environment as shardkey in case of integrator did not pass this param
+      url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(process.env.DEFAULT_SHARD_KEY)}`;
+    } else if (shardKeyCached) {
+      //Add stubs for shardkey params until integrators pass these parameters to all requests
+      url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardKeyCached)}`;
+    } else if (wopiSrcCached) {
+      url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrcCached)}`;
     }
     url += '&filename=' + userFriendlyName;
     return url;
   }
 }
 async function getSignedUrls(ctx, baseUrl, strPath, urlType, opt_creationDate, opt_specialDir) {
-  let storagePathSrc = getStoragePath(ctx, strPath, opt_specialDir);
-  let storage = getStorage(opt_specialDir);
-  let storageCfg = getStorageCfg(ctx, opt_specialDir);
-  let list = await storage.listObjects(storageCfg, storagePathSrc, storageCfg);
-  let urls = await Promise.all(list.map(function(curValue) {
-    return getSignedUrl(ctx, baseUrl, curValue, urlType, undefined, opt_creationDate, undefined, curValue);
-  }));
+  let list = await listObjects(ctx, strPath, opt_specialDir);
   let outputMap = {};
-  for (let i = 0; i < list.length && i < urls.length; ++i) {
-    outputMap[getRelativePath(storagePathSrc, list[i])] = urls[i];
+  for (let i = 0; i < list.length; ++i) {
+    outputMap[getRelativePath(strPath, list[i])] = await getSignedUrl(ctx, baseUrl, list[i], urlType, undefined, opt_creationDate, opt_specialDir);
   }
   return outputMap;
 }
