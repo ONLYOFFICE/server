@@ -50,92 +50,94 @@ const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const router = express.Router();
 
 function initCacheRouter(cfgStorage, routs) {
-  const bucketName = cfgStorage.bucketName;
-  const storageFolderName = cfgStorage.storageFolderName;
-  const folderPath = cfgStorage.fs.folderPath;
-  const secret = cfgStorage.fs.secretString;
-  routs.forEach((rout) => {
-    //special dirs are empty by default
-    if (!rout) {
-      return;
-    }
-    let rootPath = path.join(folderPath, rout);
-    router.use(`/${bucketName}/${storageFolderName}/${rout}`, async (req, res, next) => {
-      const index = req.url.lastIndexOf('/'); 
+  const { storageFolderName, fs: { folderPath, secretString: secret } } = cfgStorage;
 
-      if ('GET' === req.method && index > 0) {
-        try {
-          const urlParsed = urlModule.parse(req.url, true);
-          const md5 = urlParsed.query.md5;
-          const expires = parseInt(urlParsed.query.expires);
-          
-          if (!md5 || !expires) {
-            res.sendStatus(403);
-            return;
-          }
-         
-          const currentTime = Math.floor(Date.now() / 1000);
-          if (currentTime > expires) {
-            res.sendStatus(410);
-            return;
-          }
-          
-          const uri = req.url.split('?')[0];
-          const fullPath = '/' + bucketName + '/' + storageFolderName + '/' + rout + uri;
-          
-          const signatureData = expires + decodeURIComponent(fullPath) + secret;
-          const expectedMd5 = crypto
-            .createHash('md5')
-            .update(signatureData)
-            .digest('base64')
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=/g, "");
-          
-          if (md5 !== expectedMd5) {
-            res.sendStatus(403);
-            return;
-          }
-          
-          if (
-            cfgStorage.name === 'storage-fs'
-          ) {
-            let sendFileOptions = {
-              root: rootPath,
-              dotfiles: 'deny',
-              headers: {
-                'Content-Disposition': 'attachment'
-              }
-            };
-            if (urlParsed && urlParsed.pathname) {
-              const filename = decodeURIComponent(path.basename(urlParsed.pathname));
-              sendFileOptions.headers['Content-Type'] = mime.getType(filename);
-            }
-            const realUrl = decodeURI(req.url.substring(0, index));
-            res.sendFile(realUrl, sendFileOptions, (err) => {
-              if (err) {
-                operationContext.global.logger.error(err);
-                res.status(400).end();
-              }
-            });
-          } else if (cfgStorage.name === 'storage-s3' || cfgStorage.name === 'storage-az') {  
-            const filename = decodeURIComponent(path.basename(req.url));
-            const filePath = req.url.substring(1, index);
-            const result = await storage.createReadStream(cfgStorage, filePath);
-            res.setHeader('Content-Type', mime.getType(filename));
-            res.setHeader('Content-Length', result.contentLength);
-            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-            result.readStream.pipe(res);
-          }
-        } catch (e) {
-          operationContext.global.logger.error(e);
-          res.status(400).end()
-        }
-      } else {
-        res.sendStatus(404);
-      }
+  routs.forEach((rout) => {
+    if (!rout) return;
+
+    const rootPath = path.join(folderPath, rout);
+
+    ['cache', 'storage-cache'].forEach(prefix => {
+      const route = `/${prefix}/${storageFolderName}/${rout}`;
+      router.use(route, createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout));
     });
   });
+}
+
+function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
+  return async (req, res) => {
+    const index = req.url.lastIndexOf('/');
+    if (req.method !== 'GET' || index <= 0) {
+      res.sendStatus(404);
+      return;
+    }
+
+    try {
+      const urlParsed = urlModule.parse(req.url, true);
+      const { md5, expires } = urlParsed.query;
+      const numericExpires = parseInt(expires);
+
+      if (!md5 || !numericExpires) {
+        res.sendStatus(403);
+        return;
+      }
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (currentTime > numericExpires) {
+        res.sendStatus(410);
+        return;
+      }
+
+      const uri = req.url.split('?')[0];
+      const fullPath = `/${prefix}/${cfgStorage.storageFolderName}/${rout}${uri}`;
+      const signatureData = numericExpires + decodeURIComponent(fullPath) + secret;
+
+      const expectedMd5 = crypto
+        .createHash('md5')
+        .update(signatureData)
+        .digest('base64')
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      if (md5 !== expectedMd5) {
+        res.sendStatus(403);
+        return;
+      }
+
+      if (cfgStorage.name === 'storage-fs') {
+        const filename = urlParsed.pathname && decodeURIComponent(path.basename(urlParsed.pathname));
+        const sendFileOptions = {
+          root: rootPath,
+          dotfiles: 'deny',
+          headers: {
+            'Content-Disposition': 'attachment',
+            ...(filename && { 'Content-Type': mime.getType(filename) })
+          }
+        };
+
+        const realUrl = decodeURI(req.url.substring(0, index));
+        res.sendFile(realUrl, sendFileOptions, (err) => {
+          if (err) {
+            operationContext.global.logger.error(err);
+            res.status(400).end();
+          }
+        });
+      } else if (['storage-s3', 'storage-az'].includes(cfgStorage.name)) {
+        const filename = decodeURIComponent(path.basename(req.url));
+        const filePath = req.url.substring(1, index);
+        const result = await storage.createReadStream(cfgStorage, filePath);
+        
+        res.setHeader('Content-Type', mime.getType(filename));
+        res.setHeader('Content-Length', result.contentLength);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        result.readStream.pipe(res);
+      }
+    } catch (e) {
+      operationContext.global.logger.error(e);
+      res.status(400).end();
+    }
+  };
 }
 
 for (let i in cfgStaticContent) {

@@ -187,44 +187,7 @@ async function deletePath(storageCfg, strPath) {
     await deleteObjects(storageCfg, list);
 }
 
-async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-    if (needServeStatic()) {
-        return await getSignedProxyUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate);
-    }
-    return await getSignedAzureUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate);
-}
-
-async function getSignedProxyUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-    const secret = storageCfg.fs.secretString;
-    const storageUrlExpires = storageCfg.fs.urlExpires;
-    const userFriendlyName = optFilename ? optFilename : path.basename(strPath);
-    let uri = '/' + storageCfg.bucketName + '/' + storageCfg.storageFolderName + '/' + strPath + '/' + userFriendlyName;
-
-    const date = Date.now();
-    let creationDate = opt_creationDate || date;
-    let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : storageUrlExpires) || 31536000;
-    //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
-    let expires = creationDate + Math.ceil(Math.abs(date - creationDate) / expiredAfter) * expiredAfter;
-    expires = Math.ceil(expires / 1000);
-    expires += expiredAfter;
-
-    const signatureData = expires + decodeURIComponent(uri) + secret;
-    const md5Hash = crypto
-        .createHash('md5')
-        .update(signatureData)
-        .digest("base64")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
-
-    const url = new URL(uri, utils.checkBaseUrl(ctx, baseUrl, storageCfg));
-    url.searchParams.append('md5', md5Hash);
-    url.searchParams.append('expires', expires);
-    return url.toString();
-}
-
-
-async function getSignedAzureUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
     const storageUrlExpires = storageCfg.fs.urlExpires;
     let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
     expires = Math.min(expires, 604800);
@@ -244,13 +207,8 @@ async function getSignedAzureUrl(ctx, storageCfg, baseUrl, strPath, urlType, opt
     return await blobClient.generateSasUrl(sasOptions);
 }
 
-/**
- * Determines if static routs is needed for cacheFolder
- *
- * @returns {boolean}
- */
 function needServeStatic() {
-    return cfgCacheStorage.proxyUrlsEnabled;
+    return !cfgCacheStorage.useDirectStorageUrls;
 }
 
 module.exports = {
@@ -263,6 +221,6 @@ module.exports = {
     listObjects,
     deleteObject,
     deletePath,
-    getSignedUrl: getSignedUrlWrapper,
+    getDirectSignedUrl,
     needServeStatic
 };

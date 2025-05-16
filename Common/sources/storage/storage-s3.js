@@ -228,43 +228,7 @@ async function deletePath(storageCfg, strPath) {
   await deleteObjects(storageCfg, list);
 }
 
-async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-  if (needServeStatic()) {
-      return await getSignedProxyUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate);
-  }
-  return await getSignedS3Url(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate);
-}
-
-async function getSignedProxyUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-  const storageUrlExpires = storageCfg.fs.urlExpires;
-  const secret = storageCfg.fs.secretString;
-  const userFriendlyName = optFilename ? optFilename : path.basename(strPath);
-  let uri = '/' + storageCfg.bucketName + '/' + storageCfg.storageFolderName + '/' + strPath + '/' + userFriendlyName;
-  
-  const date = Date.now();
-  let creationDate = opt_creationDate || date;
-  let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : storageUrlExpires) || 31536000;
-  //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
-  let expires = creationDate + Math.ceil(Math.abs(date - creationDate) / expiredAfter) * expiredAfter;
-  expires = Math.ceil(expires / 1000);
-  expires += expiredAfter;
-  
-  const signatureData = expires + decodeURIComponent(uri) + secret;
-  const md5Hash = crypto
-      .createHash('md5')
-      .update(signatureData)
-      .digest("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
-
-  const url = new URL(uri, utils.checkBaseUrl(ctx, baseUrl, storageCfg));
-  url.searchParams.append('md5', md5Hash);
-  url.searchParams.append('expires', expires);
-  return url.toString();
-}
-
-async function getSignedS3Url(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
   const storageUrlExpires = storageCfg.fs.urlExpires;
   let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
   // Signature version 4 presigned URLs must have an expiration date less than one week in the future
@@ -282,7 +246,7 @@ async function getSignedS3Url(ctx, storageCfg, baseUrl, strPath, urlType, optFil
     //default Expires 900 seconds
   let options = {
     expiresIn: expires
-    };
+  };
   return await getSignedUrl(getS3Client(storageCfg), command, options);
   //extra query params cause SignatureDoesNotMatch
   //https://stackoverflow.com/questions/55503009/amazon-s3-signature-does-not-match-when-extra-query-params-ga-added-in-url
@@ -290,7 +254,7 @@ async function getSignedS3Url(ctx, storageCfg, baseUrl, strPath, urlType, optFil
 }
 
 function needServeStatic() {
-  return cfgCacheStorage.proxyUrlsEnabled;
+  return !cfgCacheStorage.useDirectStorageUrls;
 }
 
 module.exports = {
@@ -303,6 +267,6 @@ module.exports = {
   listObjects,
   deleteObject,
   deletePath,
-  getSignedUrl: getSignedUrlWrapper,
+  getDirectSignedUrl,
   needServeStatic
 };
