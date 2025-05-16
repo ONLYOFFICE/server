@@ -32,11 +32,9 @@
 
 'use strict';
 const fs = require('fs');
-const url = require('url');
 const { Agent: HttpsAgent } = require('https');
 const { Agent: HttpAgent } = require('http');
 const path = require('path');
-const crypto = require('crypto');
 const { S3Client, ListObjectsCommand, HeadObjectCommand} = require("@aws-sdk/client-s3");
 const { GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require("@aws-sdk/client-s3");
 const { DeleteObjectsCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");

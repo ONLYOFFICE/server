@@ -36,17 +36,7 @@ const { cp, rm, mkdir } = require('fs/promises');
 const { stat, readFile, writeFile } = require('fs/promises');
 var path = require('path');
 var utils = require("../utils");
-var crypto = require('crypto');
-const ms = require('ms');
-const config = require('config');
-const commonDefines = require('../commondefines');
-const constants = require('../constants');
 
-const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
-
-//Stubs are needed until integrators pass these parameters to all requests
-let shardKeyCached;
-let wopiSrcCached;
 
 function getFilePath(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;

@@ -159,7 +159,7 @@ async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_cre
     //RFC 1123 does not allow underscores https://stackoverflow.com/questions/2180465/can-domain-name-subdomains-have-an-underscore-in-it
     var url = utils.checkBaseUrl(ctx, baseUrl, storageCfg).replace(/_/g, "%5f");
     url += uri;
-  
+
     var date = Date.now();
     let creationDate = opt_creationDate || date;
     let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : storageUrlExpires) || 31536000;
@@ -169,7 +169,7 @@ async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_cre
     expires += expiredAfter;
     var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(uri) + storageSecretString).digest("base64");
     md5 = md5.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-  
+
     url += '?md5=' + encodeURIComponent(md5);
     url += '&expires=' + encodeURIComponent(expires);
     if (storageCfg.name === 'storage-fs') {
