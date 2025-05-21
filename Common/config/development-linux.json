@@ -2,6 +2,9 @@
   "log": {
     "filePath": "../Common/config/log4js/development.json"
   },
+  "queue": {
+    "visibilityTimeout": 900
+  },
   "storage": {
     "fs": {
       "folderPath": "../App_Data"
