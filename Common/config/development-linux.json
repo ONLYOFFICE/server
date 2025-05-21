@@ -63,10 +63,34 @@
   },
   "FileConverter": {
     "converter": {
+      "maxDownloadBytes": 1073741824,
       "fontDir": "/usr/share/fonts",
       "presentationThemesDir": "../../sdkjs/slide/themes",
       "x2tPath": "../FileConverter/bin/x2t",
-      "docbuilderPath": "../FileConverter/bin/docbuilder"
+      "docbuilderPath": "../FileConverter/bin/docbuilder",
+      "inputLimits": [
+        {
+          "type": "docx;dotx;docm;dotm",
+          "zip": {
+            "uncompressed": "1GB",
+            "template": "*.xml"
+          }
+        },
+        {
+          "type": "xlsx;xltx;xlsm;xltm",
+          "zip": {
+            "uncompressed": "1GB",
+            "template": "*.xml"
+          }
+        },
+        {
+          "type": "pptx;ppsx;potx;pptm;ppsm;potm",
+          "zip": {
+            "uncompressed": "1GB",
+            "template": "*.xml"
+          }
+        }
+      ]
     }
   },
   "SpellChecker": {
