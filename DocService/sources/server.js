@@ -59,7 +59,7 @@ const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const ms = require('ms');
-const aiProxyHandler = require('./aiProxyHandler');
+const aiProxyHandler = require('./ai/aiProxyHandler');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
