@@ -1359,3 +1359,5 @@ function deepMergeObjects(target, ...sources) {
 }
 exports.isObject = isObject;
 exports.deepMergeObjects = deepMergeObjects;
+exports.NodeCache = NodeCache;//todo via require
+

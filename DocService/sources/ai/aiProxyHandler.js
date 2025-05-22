@@ -40,13 +40,16 @@ const operationContext = require('./../../../Common/sources/operationContext');
 const commonDefines = require('./../../../Common/sources/commondefines');
 const docsCoServer = require('./../DocsCoServer');
 
-// Import the new aiEngineWrapper module
-const aiEngineWrapper = require('./aiEngineWrapper');
+// Import the new aiEngine module
+const aiEngine = require('./aiEngineWrapper');
 
 const cfgAiApiAllowedOrigins = config.get('ai-api.allowedCorsOrigins');
 const cfgAiApiTimeout = config.get('ai-api.timeout');
+const cfgAiApiCache = config.get('ai-api.cache');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
+const AI = aiEngine.AI;
+const nodeCache = new utils.NodeCache(cfgAiApiCache);
 /**
  * Helper function to set CORS headers if the request origin is allowed
  * 
@@ -136,37 +139,21 @@ async function proxyRequest(req, res) {
     // Get request size limit if configured
     const sizeLimit = 10 * 1024 * 1024; // Default to 10MB
 
-    // Create a copy of the headers from the request
-    const headers = { ...body.headers };
     
-    // Get API key based on the target URL
-    const aiApi = config.get('ai-api');
-    let apiKey;
-    
+    let providerHeaders;
     // Determine which API key to use based on the target URL
     if (body.target) {
       // Find the provider that matches the target URL
-      const matchedProvider = aiApi.providers.find(provider => 
-        body.target.includes(provider.url));
-      
-      if (matchedProvider) {
-        apiKey = matchedProvider.key;
+      for (let providerName in AI.Providers) {//todo try for of
+        if (body.target.includes(AI.Providers[providerName].url)) {
+          providerHeaders = AI._getHeaders(AI.Providers[providerName]);
+          break;
+        }
       }
     }
-    
-    // Add authorization header if API key is available
-    if (apiKey) {
-      if (headers['x-api-key']) {
-        headers['x-api-key'] = apiKey;
-      } else if (body.target.includes('key=')) {
-        body.target = body.target.replace('key=', `key=${apiKey}&`);
-      } else {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      }
-    } else {
-      throw new Error('No API key found for the target URL');
-    }
-    
+    // Merge key in headers
+    const headers = { ...body.headers, ...providerHeaders };
+
     // Create request parameters object
     const requestParams = {
       method: body.method,
@@ -210,7 +197,7 @@ async function proxyRequest(req, res) {
 
   } catch (error) {
     ctx.logger.error(`AI API request error: %s`, error);
-    if(error.response){
+    if (error.response){
       // Set the response headers to match the target response
       res.set(error.response.headers);
 
@@ -269,27 +256,26 @@ function processActions(ctx, actions) {
  * 
  * @param {Object} ctx - Operation context
  * @param {Object} provider - Provider configuration
- * @param {boolean} includeDisabled - Whether to include disabled models
  * @returns {Promise<Object|null>} Processed provider with models or null if provider is invalid
  */
-async function processProvider(ctx, provider, includeDisabled) {
+async function processProvider(ctx, provider) {
   const logger = ctx.logger;
   
   if (!provider.url || !provider.key) {
     return null;
   }
   let engineModels = [];
+  let engineModelsUI = [];
   try {
     if (provider.url && provider.key) {
-      aiEngineWrapper.setCtx(ctx);
-      // logger.info("processProvider %j", AI.Providers);
-      aiEngineWrapper.AI.Providers[provider.name].key = provider.key;
+      AI.Providers[provider.name].key = provider.key;
       // Call getModels from engine.js
-      const result = await aiEngineWrapper.AI.getModels(provider);
-      logger.info(`Got ${JSON.stringify(result)} from AI.getModels for ${provider.name}`);
+      aiEngine.setCtx(ctx);
+      const result = await AI.getModels(provider);
       // Process result
-      if (!result.error && Array.isArray(result.models)) {
-        engineModels = result.models;
+      if (AI.TmpProviderForModels.models) {
+        engineModels = AI.TmpProviderForModels.models;
+        engineModelsUI = AI.TmpProviderForModels.modelsUI;
       }
     }
   } catch (error) {
@@ -300,7 +286,8 @@ async function processProvider(ctx, provider, includeDisabled) {
     name: provider.name,
     url: provider.url,
     key: "",
-    models: engineModels
+    models: engineModels,
+    modelsUI: engineModelsUI
   };
 }
 
@@ -308,16 +295,22 @@ async function processProvider(ctx, provider, includeDisabled) {
  * Retrieves all AI models from the configuration and dynamically from providers
  * 
  * @param {Object} ctx - Operation context
- * @param {boolean} [includeDisabled=false] - Whether to include disabled providers in the result
  * @returns {Promise<Object>} Object containing providers and their models along with action configurations
  */
-async function getPluginSettings(ctx, includeDisabled = false) {
+async function getPluginSettings(ctx) {
   const logger = ctx.logger;
   logger.info('Starting getPluginSettings');
+  let res = nodeCache.get(ctx.tenant);
+  if (res) {
+    ctx.logger.debug('getPluginSettings from cache');
+    return res;
+  }
   const result = {
+    version: 3,
     actions: {},
     providers: {},
-    models: []
+    models: [],
+    customProviders: {}
   };
   try {
     // Get AI API configuration
@@ -326,8 +319,8 @@ async function getPluginSettings(ctx, includeDisabled = false) {
     if (aiApi?.providers && Array.isArray(aiApi.providers)) {
       // Create an array of promises for each provider
       const providerPromises = aiApi.providers
-        .filter(provider => includeDisabled || provider.enable !== false || !provider.key || !provider.url)
-        .map(provider => processProvider(ctx, provider, includeDisabled));
+        .filter(provider => provider.enable !== false || !provider.key || !provider.url)
+        .map(provider => processProvider(ctx, provider));
       
       try {
         let providers = await Promise.allSettled(providerPromises);
@@ -340,8 +333,9 @@ async function getPluginSettings(ctx, includeDisabled = false) {
         for(let i = 0; i < providers.length; i++) {
           const provider = providers[i].value;
           totalModels += provider.models.length;
-          result.providers[provider.name] = provider
-          result.models.push(...provider.models);
+          result.models.push(...provider.modelsUI);
+          delete provider.modelsUI;//todo remove
+          result.providers[provider.name] = provider;
         }
         
         logger.info(`Successfully processed ${providerCount} providers with a total of ${totalModels} models`);
@@ -354,10 +348,12 @@ async function getPluginSettings(ctx, includeDisabled = false) {
     if (aiApi?.actions && typeof aiApi.actions === 'object') {
       result.actions = processActions(ctx, aiApi.actions);
     }
-
-    logger.info('Completed getPluginSettings successfully');
+    nodeCache.set(ctx.tenant, result);
   } catch (error) {
     logger.error('Error retrieving AI models from config:', error);
+  }
+  finally {
+    logger.info('Completed getPluginSettings');
   }
   return result;
 }

@@ -45,7 +45,8 @@ const cfgAiApiTimeout = config.get('ai-api.timeout');
 
 function setCtx(ctx) {
   sandbox.ctx = ctx;
-  sandbox.console = ctx.logger;
+  console.log = ctx.logger.debug.bind(ctx.logger);//todo make default in logger
+  console.error = ctx.logger.error.bind(ctx.logger);
 }
 
 // Set up the environment for the client-side engine.js
