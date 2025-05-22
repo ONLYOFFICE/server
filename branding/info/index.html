@@ -539,6 +539,40 @@
             document.querySelector('.td-link[value=' + value + ']').classList.add('current');
         }
 
+        function getConfig() {     
+            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+            return fetch(baseUrl + 'config')
+                .then(response => {
+                    if (!response.ok) throw new Error(`Failed to load: ${response.status}`);
+                    return response.json();
+                })
+                .catch(error => {
+                    console.error('Error fetching config:', error);
+                    return null;
+                });
+        }
+        function putConfig(config) { 
+            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+            return fetch(baseUrl + 'config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            })
+            .then(response => {
+                if (!response.ok) throw new Error(`Failed to save: ${response.status}`);
+                console.log('Configuration saved successfully');
+            })
+            .catch(error => {
+                console.error('Error fetching config:', error);
+            });
+        }
+        function updateConfig() {     
+            getConfig().then(config => {
+                config.field = 'value';
+                putConfig(config);
+            });
+        }
+
         (function(){
             try {
                 var xhrObj = _createXMLHTTPObject();
@@ -557,6 +591,7 @@
                                 fillStatistic(info);
                                 initEvents();
                                 applyMode();
+                                //updateConfig();
                             } else {
 								document.getElementById('doc-server-err').classList.remove("hidden");
                             }

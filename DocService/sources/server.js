@@ -58,6 +58,7 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
+const configRouter = require('./routes/config');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 
@@ -236,6 +237,7 @@ docsCoServer.install(server, () => {
 		converterService.builder(req, res);
 	});
 	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
+	app.use('/info/config', utils.checkClientIp, configRouter);
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
