@@ -865,22 +865,60 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
     }
   }
 }
+/**
+ * @param {commonDefines.InputCommand} cmd - Information about the document conversion
+ * @returns {string|null} The constructed document path if saveKey and outputPath exist, null otherwise
+ */
+function getForceSaveDocPath(cmd) {
+  if (cmd) {
+    const saveKey = cmd.getDocId() + cmd.getSaveKey();
+    const outputPath = cmd.getOutputPath();
+    if (saveKey && outputPath) {
+      return saveKey + '/' + outputPath;
+    }
+  }
+  return null;
+}
+/**
+ * Checks if a force save cache exists and is valid for the provided conversion information
+ * @param {operationContext.Context} ctx - The request context
+ * @param {Object} convertInfo - Information about the document conversion
+ * @returns {Promise<Object>} Object containing cache status information:
+ *   - hasCache {boolean} - Whether cache information exists
+ *   - hasValidCache {boolean} - Whether the cache is valid
+ *   - cmd {commonDefines.InputCommand|null} - Command object (if available)
+ */
 async function checkForceSaveCache(ctx, convertInfo) {
   let res = {hasCache: false, hasValidCache: false,  cmd: null};
   if (convertInfo) {
     res.hasCache = true;
     let cmd = new commonDefines.InputCommand(convertInfo, true);
-    const saveKey = cmd.getDocId() + cmd.getSaveKey();
-    const outputPath = cmd.getOutputPath();
-    if (saveKey && outputPath) {
-      const savePathDoc = saveKey + '/' + outputPath;
-      const metadata  = await storage.headObject(ctx, savePathDoc);
+    let docPath = getForceSaveDocPath(cmd);
+    if (docPath) {
+      const metadata  = await storage.headObject(ctx, docPath);
       res.hasValidCache = !!metadata;
       res.cmd = cmd;
     }
   }
   return res;
 }
+
+/**
+ * Generates a signed URL for accessing a force-saved document
+ * @param {operationContext.Context} ctx - The request context
+ * @param {string} baseUrl - Base URL for the document
+ * @param {Object} convertInfo - Information about the document conversion
+ * @returns {Promise<string|null>} The signed URL for the force-saved document or null if path cannot be generated
+ */
+async function getForceSaveUrl(ctx, baseUrl, convertInfo) {
+  let cmd = new commonDefines.InputCommand(convertInfo, true);
+  let docPath = getForceSaveDocPath(cmd);
+  if (docPath) {
+    return await storage.getSignedUrl(ctx, baseUrl, docPath, commonDefines.c_oAscUrlTypes.Temporary);
+  }
+  return null;
+}
+
 async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnectionId, opt_userConnectionDocId,
                                    opt_responseKey, opt_formdata, opt_userId, opt_userIndex, opt_prevTime) {
   let res = {ok: false, notModified: false, inProgress: false, startedForceSave: null};
@@ -896,6 +934,7 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
       let cacheHasSameOptions = (commonDefines.c_oAscForceSaveTypes.Form === type && commonDefines.c_oAscForceSaveTypes.Form === forceSaveCached) ||
         (commonDefines.c_oAscForceSaveTypes.Form !== type && commonDefines.c_oAscForceSaveTypes.Form !== forceSaveCached);
       if (forceSaveCache.hasValidCache && cacheHasSameOptions) {
+        //compare opt_prevTime because Internal command can be called by different users
         if (commonDefines.c_oAscForceSaveTypes.Internal === type && forceSave.time === opt_prevTime) {
           res.notModified = true;
         } else {
@@ -948,6 +987,10 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
       return !!JSON.parse(currentValue).encrypted;
     });
     if (!hasEncrypted) {
+      let baseUrl = opt_baseUrl || "";
+      if (opt_conn) {
+        baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
+      }
       let forceSave = await editorData.getForceSave(ctx, docId);
       let forceSaveWithConnection = opt_conn && (commonDefines.c_oAscForceSaveTypes.Form === type ||
         (commonDefines.c_oAscForceSaveTypes.Button === type && tenForceSaveUsingButtonWithoutChanges));
@@ -957,10 +1000,8 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
         let newChangesLastDate = new Date();
         newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
         let newChangesLastTime = newChangesLastDate.getTime();
-        let baseUrl = opt_baseUrl || "";
         let changeInfo = opt_changeInfo;
         if (opt_conn) {
-          baseUrl = utils.getBaseUrlByConnection(ctx, opt_conn);
           changeInfo = getExternalChangeInfo(opt_conn.user, newChangesLastTime, opt_conn.lang);
         }
         await editorData.setForceSave(ctx, docId, newChangesLastTime, 0, baseUrl, changeInfo, null);
@@ -973,6 +1014,7 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
         let selectRes = await taskResult.select(ctx, docId);
         if (selectRes.length > 0) {
           res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
+          res.url = await getForceSaveUrl(ctx, baseUrl, forceSave.convertInfo);
         } else {
           res.code = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
         }
@@ -1034,7 +1076,8 @@ let resetForceSaveAfterChanges = co.wrap(function*(ctx, docId, newChangesLastTim
     }
   }
 });
-let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
+
+async function saveRelativeFromChanges(ctx, conn, responseKey, data) {
   const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
   let docId = data.docId;
@@ -1042,7 +1085,7 @@ let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
   let forceSaveRes;
   if (tenTokenEnableBrowser) {
     docId = null;
-    let checkJwtRes = yield checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
+    let checkJwtRes = await checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
       docId = checkJwtRes.decoded.key;
     } else {
@@ -1051,13 +1094,13 @@ let saveRelativeFromChanges = co.wrap(function*(ctx, conn, responseKey, data) {
     }
   }
   if (!forceSaveRes) {
-    forceSaveRes = yield startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey,
-      undefined, undefined, undefined, undefined, undefined, undefined, undefined, data.time);
+    forceSaveRes = await startForceSave(ctx, docId, commonDefines.c_oAscForceSaveTypes.Internal, undefined, undefined, undefined, conn.user.id, conn.docId, undefined, responseKey,
+      undefined, undefined, undefined, conn, undefined, undefined, undefined, data.time);
   }
   if (commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
     sendDataRpc(ctx, conn, responseKey, forceSaveRes);
   }
-})
+}
 
 async function startWopiRPC(ctx, docId, userId, userIdOriginal, data) {
   let res;
