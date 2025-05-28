@@ -1,0 +1,146 @@
+/* AI Integration Styles */
+.ai-settings-section {
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.ai-spoiler {
+    cursor: pointer;
+    padding: 12px 15px;
+    background: #F5F5F5;
+    border: 1px solid #EFEFEF;
+    border-radius: 3px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333333;
+    user-select: none;
+    position: relative;
+}
+
+.ai-spoiler:hover {
+    background: #EEEEEE;
+}
+
+.ai-spoiler::after {
+    content: '▼';
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: transform 0.3s ease;
+    color: #666666;
+}
+
+.ai-spoiler.collapsed::after {
+    transform: translateY(-50%) rotate(-90deg);
+}
+
+.ai-content {
+    display: block;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    border: 1px solid #EFEFEF;
+    border-top: none;
+    border-radius: 0 0 3px 3px;
+    background: white;
+}
+
+.ai-content.collapsed {
+    display: none;
+}
+
+.ai-iframe-container {
+    position: relative;
+    background: white;
+    height: 500px;
+}
+
+.ai-iframe {
+    width: 100%;
+    height: 500px;
+    border: none;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.ai-iframe.hidden {
+    display: none;
+}
+
+.ai-iframe-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.ai-iframe-overlay.loading {
+    display: flex;
+}
+
+.ai-loading-text {
+    font-size: 14px;
+    color: #666666;
+}
+
+.ai-controls {
+    padding: 10px 15px;
+    background: #F9F9F9;
+    border-top: 1px solid #EFEFEF;
+    text-align: right;
+}
+
+.ai-btn {
+    display: inline-block;
+    padding: 6px 12px;
+    margin-left: 8px;
+    border: 1px solid #CCCCCC;
+    border-radius: 2px;
+    background: white;
+    color: #333333;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.ai-btn:hover {
+    background: #F5F5F5;
+    border-color: #AAAAAA;
+}
+
+.ai-btn.primary {
+    background: #3D4A6B;
+    color: white;
+    border-color: #3D4A6B;
+}
+
+.ai-btn.primary:hover {
+    background: #2E3B54;
+    border-color: #2E3B54;
+}
+
+.ai-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ai-btn:disabled:hover {
+    background: white;
+    border-color: #CCCCCC;
+}
+
+.ai-btn.primary:disabled:hover {
+    background: #3D4A6B;
+    border-color: #3D4A6B;
+}

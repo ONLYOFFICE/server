@@ -61,14 +61,6 @@ router.get('/', async (req, res) => {
     } catch (e) {
       ctx.logger.debug('config get error: %s', e.stack);
     }
-    //todo get default setting in separate request
-    let config = JSON.parse(result);
-    if (!(config.aiSettings && Object.keys(config.aiSettings?.actions).length > 0)) {
-      let pluginSettings = await aiProxyHandler.getPluginSettings(ctx);
-      config.aiSettings = pluginSettings;
-      result = JSON.stringify(config);
-    }
-    
   } catch (error) {
     ctx.logger.error('config get error: %s', error.stack);
   }
@@ -79,7 +71,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.put('/', rawFileParser, async (req, res) => {
+router.post('/', rawFileParser, async (req, res) => {
   let ctx = new operationContext.Context();
   try {
     ctx.initFromRequest(req);
@@ -87,7 +79,7 @@ router.put('/', rawFileParser, async (req, res) => {
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
       //todo
     }
-    
+    let newConfig = JSON.parse(req.body);
     // Define file paths
     let configPath = path.join(process.env.NODE_CONFIG_DIR, 'local.json');
     let backupPath = path.join(process.env.NODE_CONFIG_DIR, 'local.json.bak');
@@ -97,16 +89,18 @@ router.put('/', rawFileParser, async (req, res) => {
     try {
       sampleFileStat = await stat(backupPath); 
     } catch (backupError) {
-      ctx.logger.error('Failed to create configuration backup: %s', backupError.stack);
+      ctx.logger.debug('Configuration backup not found: %s', backupError.stack);
     }
     if(!sampleFileStat){
+      const oldConfig = JSON.parse(await readFile(configPath, {encoding: 'utf8'}));
+      newConfig = {...oldConfig, ...newConfig};
       await cp(configPath, backupPath, {force: true, recursive: true});
     }
-    
-    await writeFile(configPath, req.body, {encoding: 'utf8'});
+    const prettyConfig = JSON.stringify(newConfig, null, 2);
+    await writeFile(configPath, prettyConfig, {encoding: 'utf8'});
     res.sendStatus(200);
   } catch (error) {
-    ctx.logger.error('baseurl error: %s', error.stack);
+    ctx.logger.error('Configuration save error: %s', error.stack);
     res.status(500).json({
       error: 'Failed to save configuration',
       details: error.message

@@ -38,6 +38,7 @@
     var framesToInit = [];
     var urlSettings = 'plugin/settings';
     var urlModels = 'plugin/models';
+    var urlConfig = 'config';
     
         // Initialize AI functionality when DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
@@ -51,6 +52,23 @@
                 onInit(tmp[i]);
             }
         });
+        AIIntegration.onSave = async function() {
+            const config = {aiSettings: settings};
+            return await putConfig(config).then(function() {
+                return true;
+            }).catch(function() {
+                return false;
+            });
+        };
+        AIIntegration.onOk = function() {
+            var aiModelEditWindow = findIframeBySrcPart('aiModelEdit');
+            if(aiModelEditWindow) {
+                sendMessageToSettings({
+                    name: 'onSubmit'
+                }, aiModelEditWindow.contentWindow);
+            }
+            return;
+        };
     });
 
     function onInit(source) {
@@ -59,7 +77,7 @@
             return;
         }
         updateActions(source);
-        updateModels(source);
+        updateModels();
         sendMessageToSettings({
             name: 'onThemeChanged',
             data: {type:'light', name: 'theme-light'}
@@ -70,13 +88,8 @@
      * Get configuration from server
      * @returns {Promise<Object|null>} Configuration object or null if error
      */
-    /**
-     * Get configuration from server
-     * @returns {Promise<Object|null>} Configuration object or null if error
-     */
     function getSettings() {     
-        var baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-        return fetch(baseUrl + urlSettings).then(function(response) {
+        return fetch(urlSettings).then(function(response) {
             if (!response.ok) throw new Error('Failed to load: ' + response.status);
             return response.json();
         });
@@ -87,20 +100,14 @@
      * @param {Object} config - Configuration object to save
      * @returns {Promise<void>}
      */
-    /**
-     * Save configuration to server
-     * @param {Object} config - Configuration object to save
-     * @returns {Promise<void>}
-     */
     function putConfig(config) { 
-        var baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-        return fetch(baseUrl + 'config', {
-            method: 'PUT',
+        return fetch(urlConfig, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)
         }).then(function(response) {
             if (!response.ok) throw new Error('Failed to save: ' + response.status);
-            console.log('Configuration saved successfully');
+            //console.log('Configuration saved successfully');
         });
     }
 
@@ -113,11 +120,6 @@
         targetWindow.postMessage(message, '*'); 
     }
 
-    /**
-     * Finds an iframe element by partial match of its src attribute
-     * @param {string} srcPart - Partial string to match against iframe src attributes
-     * @returns {HTMLIFrameElement|null} - Returns the matching iframe or null if none found
-     */
     /**
      * Finds an iframe element by partial match of its src attribute
      * @param {string} srcPart - Partial string to match against iframe src attributes
@@ -147,18 +149,15 @@
         const message = event.data;
         if (!message || typeof message !== 'object') return;
         
-        console.log('Received message:', message);
+        // console.log('Received message:', message);
         
         // Handle different message types
         switch (message.name) {
             case 'onInit':
                 onInit(event.source);
                 break;
-            case 'onChangeAction':
-                updateActions(event.source);
-                break;
             case 'onOpenAiModelsModal':
-                updateModels(event.source);
+                AIIntegration.navigateToView('aiModelsList');
                 break;
             case 'onThemeChanged':
                 sendMessageToSettings({
@@ -173,24 +172,34 @@
                     }
                 }
                 break;
-            case 'onOpenAiModelsModal':
-                //todo
-                break;
             case 'onOpenEditModal':
+                AIIntegration.navigateToView('aiModelEdit');
                 var aiModelEditWindow = findIframeBySrcPart('aiModelEdit');
                 if(aiModelEditWindow) {
-                    var model = null;
+                    const providers = Object.keys(settings.providers).map(function(key) { return settings.providers[key]; });
+                    sendMessageToSettings({
+                        name: 'onProvidersUpdate',
+                        data: providers
+                    }, aiModelEditWindow.contentWindow);
+                    
+
+                    var model = {id: "", name: "", provider: "", capabilities: 0};
                     if (message.data.model) {
                         model = settings.models.find(function(model) { return model.name === message.data.model.name; });
                     }
                     var data = {
                         model : model,
-                        providers : Object.keys(settings.providers).map(function(key) { return settings.providers[key]; })
+                        providers : providers
                     }
                     sendMessageToSettings({
                         name: 'onModelInfo',
                         data: data
                     }, aiModelEditWindow.contentWindow);
+
+                    // sendMessageToSettings({
+                    //     name: 'onGetModels',
+                    //     data: {error: 1, models: []}
+                    // }, aiModelEditWindow.contentWindow);
                 }
                 break;
             case 'onDeleteAiModel':
@@ -199,11 +208,13 @@
                         delete settings.models[id];
                     }
                 }
-                break;
-            case 'onUpdateModels':
+                updateModels();
                 break;
             case 'onGetModels':
                 onGetModels(message.data, event.source);
+                break;
+            case 'onChangeModel':
+                onChangeModel(message.data);
                 break;
             case 'onThemeChanged':
                 sendMessageToSettings({
@@ -212,7 +223,7 @@
                 }, event.source);
                 break;
             default:
-                console.log('Unknown message action:', message.name);
+                // console.log('Unknown message action:', message.name);
         }
     }
     /**
@@ -233,19 +244,29 @@
             data: actions
         }, targetWindow);
     }
+
     /**
      * Updates model list and sends to target window
-     * @param {Window} targetWindow - The target window to send models to
      */
-    function updateModels(targetWindow) {
+    function updateModels() {
         let models = [];
         if (settings && settings.models) {
             models = settings.models;
         }
-        sendMessageToSettings({
-            name: 'onUpdateModels',
-            data: models
-        }, targetWindow);
+        var settingsWindow = findIframeBySrcPart('settings');
+        if (settingsWindow) {
+            sendMessageToSettings({
+                name: 'onUpdateModels',
+                data: models
+            }, settingsWindow.contentWindow);
+        }
+        var aiModelsListWindow = findIframeBySrcPart('aiModelsList');
+        if (aiModelsListWindow) {
+            sendMessageToSettings({
+                name: 'onUpdateModels',
+                data: models
+            }, aiModelsListWindow.contentWindow);
+        }
     }
     
     /**
@@ -255,14 +276,13 @@
      * @returns {Promise<void>}
      */
     function onGetModels(data, source) {
-        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-        return fetch(baseUrl + urlModels, {
+        return fetch(urlModels, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         }).then(function(response) {
             if (!response.ok) throw new Error('Failed to save: ' + response.status);
-            console.log('Configuration saved successfully');
+            // console.log('Configuration saved successfully');
             return response.json();
         }).then(function(models) {
             sendMessageToSettings({
@@ -270,6 +290,28 @@
                 data: models
             }, source);
         });
+    }
+
+    function onChangeModel(data) {
+        settings.providers[data.provider.name] = data.provider;
+
+        let isFoundModel = false;
+        for(let id in settings.models) {
+            if(settings.models[id].id == data.id) {
+                settings.models[id].provider = data.provider.name;
+                settings.models[id].name = data.name;
+                settings.models[id].capabilities = data.capabilities;
+                isFoundModel = true;
+            }
+        }
+
+        if (!isFoundModel) {
+            if(data.capabilities === undefined)
+                data.capabilities = 0xffff;
+            settings.models.push({id: data.id, name: data.name, provider: data.provider.name, capabilities: data.capabilities});
+        }
+
+        updateModels();
     }
 
 })(window, undefined);

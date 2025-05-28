@@ -81,6 +81,7 @@ const sandbox = {
       connectionAndInactivity: cfgAiApiTimeout,
       wholeCycle: cfgAiApiTimeout
     };
+    //console.log("fetch", url, options);
     return utils.httpRequest(
       sandbox.ctx,
       method,
@@ -130,7 +131,7 @@ function loadInternalProviders() {
         const providerCode = fs.readFileSync(providerPath, 'utf8');
         
         try {
-          sandbox.ctx.logger.debug(`Loading provider ${file}:`);
+          //sandbox.ctx.logger.debug(`Loading provider ${file}:`);
           let content = "(function(){\n" + providerCode + "\nreturn new Provider();})();";
           // Execute provider code in sandbox
           let provider = vm.runInNewContext(content, sandbox, {
@@ -154,10 +155,10 @@ function loadInternalProviders() {
  */
 function fillConfigObjects() {
   AI.Models = cfgAiApiModels;
-  for (let i in cfgAiApiActions)
+  for(let i = 0; i < cfgAiApiActions.length; i++)
   {
-    if (AI.Actions[i] && cfgAiApiActions[i].model) {
-      AI.Actions[i].model = cfgAiApiActions[i].model;
+    if (cfgAiApiActions[i].model && AI.Actions[cfgAiApiActions[i].id]) {
+      AI.Actions[cfgAiApiActions[i].id].model = cfgAiApiActions[i].model;
     }
   }
 }

@@ -3440,6 +3440,13 @@ exports.install = function(server, callbackFunction) {
 
 				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
 				let pluginSettings = yield aiProxyHandler.getPluginSettings(ctx);
+        if (pluginSettings.actions) {
+          const tmp = pluginSettings.actions;
+          pluginSettings.actions = {};
+          for (let i = 0; i < tmp.length; i++) {
+            pluginSettings.actions[tmp[i].id] = tmp[i];
+          }
+        }
 				sendData(ctx, conn, {
 					type: 'license',
 					license: {
@@ -3937,8 +3944,6 @@ exports.install = function(server, callbackFunction) {
       );
     });
   });
-
-  void aiProxyHandler.getPluginSettings(operationContext.global);
 };
 exports.setLicenseInfo = async function(globalCtx, data, original) {
   tenantManager.setDefLicense(data, original);

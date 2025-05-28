@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ONLYOFFICE™</title>
+    <title>ONLYOFFICE</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=IE8"/>
     <link href="img/favicon.ico" rel="icon" type="image/x-icon">
+    <link rel="stylesheet" href="css/ai-integration.css">
 
     <style type="text/css">
         html {
@@ -196,6 +197,7 @@
     <div class="main-panel">
         <div class="header0" id="doc-server-wait">Please, wait...</div>
         <div class="hidden" id="doc-server-ok">
+            <div id="ai-settings-section" class="ai-settings-section"></div>
             <div class="header1">Document Server information</div>
             <table width="672px">
                 <tr>
@@ -539,39 +541,6 @@
             document.querySelector('.td-link[value=' + value + ']').classList.add('current');
         }
 
-        function getConfig() {     
-            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-            return fetch(baseUrl + 'config')
-                .then(response => {
-                    if (!response.ok) throw new Error(`Failed to load: ${response.status}`);
-                    return response.json();
-                })
-                .catch(error => {
-                    console.error('Error fetching config:', error);
-                    return null;
-                });
-        }
-        function putConfig(config) { 
-            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-            return fetch(baseUrl + 'config', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            })
-            .then(response => {
-                if (!response.ok) throw new Error(`Failed to save: ${response.status}`);
-                console.log('Configuration saved successfully');
-            })
-            .catch(error => {
-                console.error('Error fetching config:', error);
-            });
-        }
-        function updateConfig() {     
-            getConfig().then(config => {
-                config.field = 'value';
-                putConfig(config);
-            });
-        }
 
         (function(){
             try {
@@ -591,7 +560,6 @@
                                 fillStatistic(info);
                                 initEvents();
                                 applyMode();
-                                //updateConfig();
                             } else {
 								document.getElementById('doc-server-err').classList.remove("hidden");
                             }
@@ -604,5 +572,7 @@
         })();
         
     </script>
+    <script type="text/javascript" src="js/ai-integration.js"></script>
+    <script type="text/javascript" src="js/ai-interface.js"></script>
 </body>
 </html>

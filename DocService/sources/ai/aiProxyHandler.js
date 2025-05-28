@@ -362,6 +362,9 @@ async function requestModels(req, res) {
   try {
     await ctx.initTenantCache();
     let body = JSON.parse(req.body);
+    if (body.key && AI.Providers[body.name]) {
+      AI.Providers[body.name].key = body.key;
+    }
 	  let models = await AI.getModels(body);
 	  res.json(models);
   } catch (error) {

@@ -26,7 +26,7 @@
              * @returns {void}
              */
             init: function() {
-                console.log("[ASC Plugin Stub] init called");
+                //console.log("[ASC Plugin Stub] init called");
                 // Call onInit after initialization
                 if (typeof this.sendToPlugin === 'function') {
                     this.sendToPlugin("onInit");
@@ -41,7 +41,7 @@
              * @returns {void}
              */
             sendToPlugin: function(name, data) {
-                console.log("[ASC Plugin Stub] sendToPlugin called:", data);
+                //console.log("[ASC Plugin Stub] sendToPlugin called:", data);
                 window.parent.postMessage({name, data}, "*")
             },
             
@@ -53,7 +53,7 @@
              * @returns {void}
              */
             attachEvent: function(eventName, handler) {
-                console.log("[ASC Plugin Stub] attachEvent:", eventName);
+                //console.log("[ASC Plugin Stub] attachEvent:", eventName);
                 
                 // Create event handler array if it doesn't exist
                 if (!eventHandlers[eventName]) {
@@ -72,7 +72,7 @@
              * @returns {void}
              */
             fireEvent: function(eventName, args) {
-                console.log("[ASC Plugin Stub] fireEvent:", eventName, args);
+                //console.log("[ASC Plugin Stub] fireEvent:", eventName, args);
                 
                 // Call registered handlers
                 if (eventHandlers[eventName]) {
@@ -93,7 +93,7 @@
              * @returns {void}
              */
             onThemeChangedBase: function(theme) {
-                console.log("[ASC Plugin Stub] onThemeChangedBase:", theme);
+                //console.log("[ASC Plugin Stub] onThemeChangedBase:", theme);
             },
             
             /**
@@ -103,7 +103,7 @@
              * @returns {void}
              */
             onThemeChanged: function(theme) {
-                console.log("[ASC Plugin Stub] onThemeChanged:", theme);
+                //console.log("[ASC Plugin Stub] onThemeChanged:", theme);
             },
             
             /**
@@ -112,7 +112,7 @@
              * @returns {void}
              */
             onTranslate: function() {
-                console.log("[ASC Plugin Stub] onTranslate called");
+                //console.log("[ASC Plugin Stub] onTranslate called");
             },
             
             /**
@@ -223,17 +223,17 @@
                 
                 // Provider functions
                 createProviderInstance: function(name, url, key, addon) {
-                    console.log("[AI Stub] createProviderInstance:", name, url, key);
+                    //console.log("[AI Stub] createProviderInstance:", name, url, key);
                     return new this.Provider(name, url, key);
                 },
                 
                 isInternalProvider: function(name) {
-                    console.log("[AI Stub] isInternalProvider:", name);
+                    //console.log("[AI Stub] isInternalProvider:", name);
                     return false;
                 },
                 
                 loadInternalProviders: async function() {
-                    console.log("[AI Stub] loadInternalProviders");
+                    //console.log("[AI Stub] loadInternalProviders");
                     setTimeout(() => {
                         if (typeof this.onLoadInternalProviders === 'function') {
                             this.onLoadInternalProviders();
@@ -243,11 +243,11 @@
                 },
                 
                 onLoadInternalProviders: function() {
-                    console.log("[AI Stub] onLoadInternalProviders");
+                    //console.log("[AI Stub] onLoadInternalProviders");
                 },
                 
                 loadCustomProviders: function() {
-                    console.log("[AI Stub] loadCustomProviders");
+                    //console.log("[AI Stub] loadCustomProviders");
                     this.InternalCustomProviders = [
                         { name: "Custom Provider 1", url: "", key: "" },
                         { name: "Custom Provider 2", url: "", key: "" }
@@ -255,35 +255,35 @@
                 },
                 
                 addCustomProvider: function(providerContent, isRegister) {
-                    console.log("[AI Stub] addCustomProvider");
+                    //console.log("[AI Stub] addCustomProvider");
                     return true;
                 },
                 
                 removeCustomProvider: function(name) {
-                    console.log("[AI Stub] removeCustomProvider:", name);
+                    //console.log("[AI Stub] removeCustomProvider:", name);
                     return true;
                 },
                 
                 getCustomProviders: function() {
-                    console.log("[AI Stub] getCustomProviders");
+                    //console.log("[AI Stub] getCustomProviders");
                     return this.InternalCustomProviders;
                 },
                 
                 // Storage stub
                 Storage: {
                     save: function() {
-                        console.log("[AI Stub] Storage.save");
+                        //console.log("[AI Stub] Storage.save");
                         return true;
                     },
                     load: function() {
-                        console.log("[AI Stub] Storage.load");
+                        //console.log("[AI Stub] Storage.load");
                         return true;
                     }
                 },
                 
                 // Utility functions
                 loadResourceAsText: async function(url) {
-                    console.log("[AI Stub] loadResourceAsText:", url);
+                    //console.log("[AI Stub] loadResourceAsText:", url);
                     return Promise.resolve("");
                 },
                 
@@ -333,7 +333,7 @@
 
     function receiveMessage(event) {
         const message = event.data;
-        console.log('Received message:', message);
+        //console.log('Received message:', message);
         window.Asc.plugin.fireEvent(message.name, message.data);
     }
     // Add event listener for messages from iframes
