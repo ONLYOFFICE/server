@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ONLYOFFICE™</title>
+    <title>ONLYOFFICE</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=IE8"/>
     <link href="img/favicon.ico" rel="icon" type="image/x-icon">
+    <link rel="stylesheet" href="css/ai-integration.css">
 
     <style type="text/css">
         html {
@@ -196,6 +197,7 @@
     <div class="main-panel">
         <div class="header0" id="doc-server-wait">Please, wait...</div>
         <div class="hidden" id="doc-server-ok">
+            <div id="ai-settings-section" class="ai-settings-section"></div>
             <div class="header1">Document Server information</div>
             <table width="672px">
                 <tr>
@@ -539,6 +541,7 @@
             document.querySelector('.td-link[value=' + value + ']').classList.add('current');
         }
 
+
         (function(){
             try {
                 var xhrObj = _createXMLHTTPObject();
@@ -569,5 +572,7 @@
         })();
         
     </script>
+    <script type="text/javascript" src="js/ai-integration.js"></script>
+    <script type="text/javascript" src="js/ai-interface.js"></script>
 </body>
 </html>

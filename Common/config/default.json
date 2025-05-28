@@ -5,6 +5,25 @@
 		"port": "8125",
 		"prefix": "ds."
 	},
+	"aiSettings": {
+		"actions": {
+		},
+		"models": [
+		],
+		"providers": {
+		},
+		"version": 3,
+		"timeout": "30s",
+		"allowedCorsOrigins": [
+			"https://onlyoffice.github.io"
+		],
+		"pluginDir" : "../branding/info/ai",
+		"cache": {
+			"enable": true,
+			"ttl": 300,
+			"cachesize": 1000
+		}
+	},
 	"log": {
 		"filePath": "",
 		"options": {

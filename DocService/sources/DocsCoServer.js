@@ -103,6 +103,7 @@ const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
+const aiProxyHandler = require('./ai/aiProxyHandler');
 
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
@@ -3481,9 +3482,17 @@ exports.install = function(server, callbackFunction) {
 				}
 
 				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
-
+				let pluginSettings = yield aiProxyHandler.getPluginSettings(ctx);
+        if (pluginSettings.actions) {
+          const tmp = pluginSettings.actions;
+          pluginSettings.actions = {};
+          for (let i = 0; i < tmp.length; i++) {
+            pluginSettings.actions[tmp[i].id] = tmp[i];
+          }
+        }
 				sendData(ctx, conn, {
-					type: 'license', license: {
+					type: 'license',
+					license: {
 						type: licenseInfo.type,
 						light: false,//todo remove in sdk
 						mode: licenseInfo.mode,
@@ -3496,7 +3505,8 @@ exports.install = function(server, callbackFunction) {
 						branding: licenseInfo.branding,
 						customization: licenseInfo.customization,
 						advancedApi: licenseInfo.advancedApi
-					}
+					},
+					aiPluginSettings: pluginSettings
 				});
 				ctx.logger.info('_checkLicense end');
 			} catch (err) {
