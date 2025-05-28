@@ -43,9 +43,9 @@ const docsCoServer = require('./../DocsCoServer');
 // Import the new aiEngine module
 const aiEngine = require('./aiEngineWrapper');
 
-const cfgAiApiAllowedOrigins = config.get('ai-api.allowedCorsOrigins');
-const cfgAiApiTimeout = config.get('ai-api.timeout');
-const cfgAiApiCache = config.get('ai-api.cache');
+const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
+const cfgAiApiTimeout = config.get('aiSettings.timeout');
+const cfgAiApiCache = config.get('aiSettings.cache');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
 const AI = aiEngine.AI;
@@ -217,41 +217,6 @@ async function proxyRequest(req, res) {
 }
 
 /**
- * Process AI actions from configuration
- * 
- * @param {Object} ctx - Operation context
- * @param {Object} actions - The actions from configuration
- * @returns {Object} Processed actions object
- */
-function processActions(ctx, actions) {
-  const logger = ctx.logger;
-  
-  if (!actions || typeof actions !== 'object') {
-    return {};
-  }
-  
-  try {
-    const processedActions = Object.entries(actions).reduce((acc, [key, value]) => {
-      if (value) {
-        acc[key] = {
-          name: value.name || key,
-          icon: value.icon || '',
-          model: value.model || '',
-          capabilities: Array.isArray(value.capabilities) ? value.capabilities : []
-        };
-      }
-      return acc;
-    }, {});
-    
-    logger.info(`Processed ${Object.keys(processedActions).length} AI actions`);
-    return processedActions;
-  } catch (error) {
-    logger.error('Error processing AI actions:', error);
-    return {};
-  }
-}
-
-/**
  * Process a single AI provider and its models
  * 
  * @param {Object} ctx - Operation context
@@ -261,17 +226,17 @@ function processActions(ctx, actions) {
 async function processProvider(ctx, provider) {
   const logger = ctx.logger;
   
-  if (!provider.url || !provider.key) {
+  if (!provider.url) {
     return null;
   }
   let engineModels = [];
   let engineModelsUI = [];
   try {
-    if (provider.url && provider.key) {
+    // Call getModels from engine.js
+    if (provider.key) {
       AI.Providers[provider.name].key = provider.key;
-      // Call getModels from engine.js
       aiEngine.setCtx(ctx);
-      const result = await AI.getModels(provider);
+      await AI.getModels(provider);
       // Process result
       if (AI.TmpProviderForModels.models) {
         engineModels = AI.TmpProviderForModels.models;
@@ -314,41 +279,61 @@ async function getPluginSettings(ctx) {
   };
   try {
     // Get AI API configuration
-    const aiApi = config.get('ai-api');
+    const aiApi = config.get('aiSettings');
     // Process providers and their models if configuration exists
-    if (aiApi?.providers && Array.isArray(aiApi.providers)) {
+    if (aiApi?.providers && typeof aiApi.providers === 'object') {
       // Create an array of promises for each provider
-      const providerPromises = aiApi.providers
-        .filter(provider => provider.enable !== false || !provider.key || !provider.url)
-        .map(provider => processProvider(ctx, provider));
+      // const providerPromises = aiApi.providers
+      //   .filter(provider => provider.enable !== false || !provider.key || !provider.url)
+      //   .map(provider => processProvider(ctx, provider));
       
-      try {
-        let providers = await Promise.allSettled(providerPromises);
-        providers = providers.filter(provider => provider.status === 'fulfilled' && provider.value && provider.value.name && provider.value.models?.length > 0);
+      // try {
+      //   let providers = await Promise.allSettled(providerPromises);
+      //   // providers = providers.filter(provider => provider.status === 'fulfilled' && provider.value && provider.value.name && provider.value.models?.length > 0);
+      //   providers = providers.filter(provider => provider.status === 'fulfilled' && provider.value && provider.value.name);
 
-        const providerCount = providers.length;
-        let totalModels = 0;
-        // Convert providers array to object by provider name
-        result.providers = {};
-        for(let i = 0; i < providers.length; i++) {
-          const provider = providers[i].value;
-          totalModels += provider.models.length;
-          result.models.push(...provider.modelsUI);
-          delete provider.modelsUI;//todo remove
+      //   const providerCount = providers.length;
+      //   let totalModels = 0;
+      //   // Convert providers array to object by provider name
+      //   result.providers = {};
+      //   for(let i = 0; i < providers.length; i++) {
+      //     const provider = providers[i].value;
+      //     totalModels += provider.models.length;
+      //     // result.models.push(...provider.modelsUI);
+      //     delete provider.modelsUI;//todo remove
+      //     //result.providers[provider.name] = provider;
+      //   }
+        
+      //   logger.info(`Successfully processed ${providerCount} providers with a total of ${totalModels} models`);
+      // } catch (error) {
+      //   logger.error('Error resolving provider promises:', error);
+      // }
+      if (true) {
+        const providers = AI.serializeProviders();
+        for (let i = 0; i < providers.length; i++) {
+          const provider = providers[i];
+          const cfgProvider = aiApi.providers[provider.name];
+          if (cfgProvider) {
+            //todo clone
+            provider.key = cfgProvider.key;
+          }
           result.providers[provider.name] = provider;
         }
-        
-        logger.info(`Successfully processed ${providerCount} providers with a total of ${totalModels} models`);
-      } catch (error) {
-        logger.error('Error resolving provider promises:', error);
       }
+    }
+    // Process AI actions
+    if (aiApi?.models && typeof aiApi.models === 'object') {
+      // result.actions = aiApi.actions;
+      result.models = AI.Storage.serializeModels();
     }
 
     // Process AI actions
     if (aiApi?.actions && typeof aiApi.actions === 'object') {
-      result.actions = processActions(ctx, aiApi.actions);
+      // result.actions = aiApi.actions;
+      result.actions = AI.ActionsGetSorted();
     }
-    nodeCache.set(ctx.tenant, result);
+    result.version = aiApi.version;
+    // nodeCache.set(ctx.tenant, result);
   } catch (error) {
     logger.error('Error retrieving AI models from config:', error);
   }
@@ -358,7 +343,36 @@ async function getPluginSettings(ctx) {
   return result;
 }
 
+async function requestSettings(req, res) {
+  const ctx = new operationContext.Context();
+	ctx.initFromRequest(req);
+  try {
+    await ctx.initTenantCache();
+	  const result = await getPluginSettings(ctx);
+	  res.json(result);
+  } catch (error) {
+    ctx.logger.error('getSettings error: %s', error.stack);
+    res.sendStatus(400);
+  }
+}
+
+async function requestModels(req, res) {
+  const ctx = new operationContext.Context();
+	ctx.initFromRequest(req);
+  try {
+    await ctx.initTenantCache();
+    let body = JSON.parse(req.body);
+	  let models = await AI.getModels(body);
+	  res.json(models);
+  } catch (error) {
+    ctx.logger.error('getModels error: %s', error.stack);
+    res.sendStatus(400);
+  }
+}
+
 module.exports = {
   proxyRequest,
-  getPluginSettings
+  getPluginSettings,
+  requestSettings,
+  requestModels
 };

@@ -1,0 +1,189 @@
+<!--
+ (c) Copyright Ascensio System SIA 2020
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<title>Settings</title>
+
+		<script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"></script>
+		<script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins-ui.js"></script>
+		<script src="vendor/jquery/jquery-3.7.1.min.js"></script>
+		<script type="text/javascript" src="scripts/engine/providers/base.js"></script>
+		<link rel="stylesheet" href="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.css">
+		<link rel="stylesheet" href="./resources/styles/common.css">
+
+		<style>
+			.container {
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				height: 100%;
+			}
+
+			#idx-lang-list .item {
+				height: 1.5rem;
+				display: flex;
+				justify-content: space-between;
+				padding: 0 20px;
+				align-items: center;
+			}
+			#idx-lang-list .item.selected::before {
+				position: absolute;
+				content: '\2713';
+				padding: 0 0px 3px 0;
+				left: 5px;
+				font-size: 12px;
+			}
+
+		</style>
+    </head>
+    <body class="noselect">
+		<script>
+			var localStorageKey = "onlyoffice_ai_plugin_translate_lang";
+
+			var langs = [
+				{"English": ""},
+				{"Русский": "Russian"},
+				{"Deutsch": "German"},
+				{"Français": "French"},
+				{"Español": "Spanish"},
+				{"Slovenčina": "Slovak"},
+				{"Čeština": "Czech"},
+				{"Italiano": "Italian"},
+				{"Português": "Portuguese"},
+				{"Polski": "Polish"},
+				{"繁體中文": "Chinese"},
+				{"Catalan": "Catalan"},
+				{"Dansk": "Danish"},
+				{"Ελληνικά": "Greek"},
+				{"Eesti": "Estonian"},
+				{"Suomi": "Finnish"},
+				{"Gaeilge": "Galego"},
+				{"עברית": "Hebrew"},
+				{"हिन्दी": "Hindi"},
+				{"Hrvatska": "Croatian"},
+				{"Magyar": "Hungarian"},
+				{"Հայերեն": "Armenian"},
+				{"Indonesian": "Indonesian"},
+				{"Norsk": "Norwegian"},
+				{"Romanian": "Romanian"},
+				{"Slovene": "Slovenian"},
+				{"Shqip": "Albanian"},
+				{"Svenska": "Swedish"},
+				{"Türkçe": "Turkish"},
+				{"日本語": "Japanese"},
+				{"한국어": "Korean"},
+				{"Български": "Bulgarian"},
+				{"Nederlands": "Dutch"},
+				{"Tiếng Việt": "Vietnamese"},
+				{"Latviešu valoda": "Latvian"},
+				{"Lietuvių kalba": "Lithuanian"},
+				{"Беларуская мова": "Belarusian"},
+				{"Украї́нська мо́ва": "Ukrainian"},
+				{"ພາສາລາວ": "Lao"},
+				{"Galego": "Galego"},
+				{"සිංහල": "Sinhala"},
+				{"اَلْعَرَبِيَّة": "Arabic"},
+				{"Srpski (Latin)": "Serbian"},
+			];
+		</script>
+		<div class="container">
+			<label id="description" class="i18n">Select language for AI translation.</label>
+			<div id="idx-lang-list" class="list">
+				<!-- Dynamic render items -->
+			</div>
+		</div>
+
+		<script>
+			function onThemeChanged(theme) {
+				window.Asc.plugin.onThemeChangedBase(theme);
+				themeType = theme.type || 'light';
+
+				var classes = document.body.className.split(' ');
+				classes.forEach(function(className) {
+					if (className.indexOf('theme-') != -1) {
+						document.body.classList.remove(className);
+					}
+				});
+				document.body.classList.add(theme.name);
+				document.body.classList.add('theme-type-' + themeType);
+			}
+
+			window.Asc.plugin.init = function() {
+				window.Asc.plugin.sendToPlugin("onInit");
+				window.Asc.plugin.attachEvent("onKeepLang", e => {
+					const newLang = getSelectedLang();
+					if ( window.localStorage && !!newLang ) {
+						window.localStorage.setItem(localStorageKey, newLang);
+					}
+				});
+				window.Asc.plugin.attachEvent("onThemeChanged", onThemeChanged);
+			}
+			window.Asc.plugin.onThemeChanged = onThemeChanged;
+
+			var scrollbarList = new PerfectScrollbar("#idx-lang-list", {});
+
+			+function fillLangs(array) {
+				const $list = $('#idx-lang-list');
+
+				let currLang;
+				if ( window.localStorage ) {
+					currLang = window.localStorage.getItem(window.localStorageKey);
+				}
+
+				let items = [], $selected = undefined;
+				array.forEach(element => {
+					const key = Object.keys(element)[0];
+					const value = Object.values(element)[0];
+					const $item = $(`<div class='item'>
+										<span>${key}</span>
+										<span lang>${value}</span>
+									</div>`);
+					if ( !!currLang && currLang == value ) {
+						$item.addClass('selected');
+						$selected = $item;
+					}
+
+					items.push($item);
+				});
+				$list.append(items);
+
+				if ( !!$selected ) {
+					$list.scrollTop($selected.offset().top - $list.offset().top - 50);
+				}
+
+				$list.on('click', '.item', e => {
+					const $target = $(e.currentTarget);
+
+					$('.item', $target.parent()).removeClass('selected');
+					$target.addClass('selected');
+				});
+
+				scrollbarList.update();
+				scrollbarList.update();
+			}(langs);
+
+			function getSelectedLang() {
+				const $list = $('#idx-lang-list');
+				const $selectd = $('.item.selected', $list);
+				return $('[lang]', $selectd).text();
+			}
+
+		</script>
+    </body>
+</html>

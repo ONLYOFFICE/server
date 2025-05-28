@@ -41,7 +41,10 @@ const path = require('path');
 const vm = require('vm');
 
 // Configuration constants
-const cfgAiApiTimeout = config.get('ai-api.timeout');
+const cfgAiApiTimeout = config.get('aiSettings.timeout');
+const cfgAiApiModels = config.get('aiSettings.models');
+const cfgAiApiActions = config.get('aiSettings.actions');
+const cfgAiPluginDir = config.get('aiSettings.pluginDir');
 
 function setCtx(ctx) {
   sandbox.ctx = ctx;
@@ -53,6 +56,14 @@ function setCtx(ctx) {
 const sandbox = {
   ctx: null,
   window: {AI: {}},
+  Asc: {
+    plugin: {
+    tr: function(text) {
+      // Just return the original text in the stub
+      return text;
+    }
+  }
+  },
   
   /**
    * Implementation of fetch that delegates to utils.httpRequest
@@ -98,7 +109,7 @@ const sandbox = {
 };
 
 // Initialize minimal AI object with required functionality
-sandbox.AI = sandbox.window.AI;
+const AI = sandbox.AI = sandbox.window.AI;
 setCtx(operationContext.global);
 
 /**
@@ -106,7 +117,7 @@ setCtx(operationContext.global);
  */
 function loadInternalProviders() {
   // Add simple provider loading logic
-  const enginePath = path.join(__dirname, 'engine', 'providers', 'internal');
+  const enginePath = path.join(cfgAiPluginDir, 'scripts/engine/providers/internal');
   
   try {
     // Read providers directory
@@ -138,21 +149,97 @@ function loadInternalProviders() {
     sandbox.ctx.logger.error('Error loading internal providers:', error);
   }
 }
+/**
+ * Simple loadInternalProviders implementation
+ */
+function fillConfigObjects() {
+  AI.Models = cfgAiApiModels;
+  for (let i in cfgAiApiActions)
+  {
+    if (AI.Actions[i] && cfgAiApiActions[i].model) {
+      AI.Actions[i].model = cfgAiApiActions[i].model;
+    }
+  }
+}
 
 // Load engine.js
 let engineCode = '';
-engineCode += fs.readFileSync(path.join(__dirname, 'engine', 'storage.js'), 'utf8');
-engineCode += fs.readFileSync(path.join(__dirname, 'engine', 'local_storage.js'), 'utf8');
-engineCode += fs.readFileSync(path.join(__dirname, 'engine', 'providers', 'base.js'), 'utf8');
-engineCode += fs.readFileSync(path.join(__dirname, 'engine', 'providers', 'provider.js'), 'utf8');
-engineCode += fs.readFileSync(path.join(__dirname, 'engine', 'engine.js'), 'utf8');
+engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/storage.js'), 'utf8');
+engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/local_storage.js'), 'utf8');
+engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/providers/base.js'), 'utf8');
+engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/providers/provider.js'), 'utf8');
+engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/engine.js'), 'utf8');
 vm.runInNewContext(engineCode, sandbox);
+
+//start from engine/register.js
+(function() {
+  const AI = sandbox.AI;
+  const Asc = sandbox.Asc;
+
+  AI.ActionType = {
+    Chat             : "Chat",
+    Summarization    : "Summarization",
+    Translation      : "Translation",
+    TextAnalyze      : "TextAnalyze",
+    ImageGeneration  : "ImageGeneration",
+    OCR              : "OCR",
+    Vision           : "Vision"
+  };
+
+  AI.Actions = {};
+
+  function ActionUI(name, icon, modelId, capabilities) {
+    this.name = name || "";
+    this.icon = icon || "";
+    this.model = modelId || "";
+    this.capabilities = (capabilities === undefined) ? AI.CapabilitiesUI.Chat : capabilities;
+  }
+
+  AI.Actions[AI.ActionType.Chat]            = new ActionUI("Chatbot", "ask-ai");
+  AI.Actions[AI.ActionType.Summarization]   = new ActionUI("Summarization", "summarization");
+  AI.Actions[AI.ActionType.Translation]     = new ActionUI("Translation", "translation");
+  AI.Actions[AI.ActionType.TextAnalyze]     = new ActionUI("Text analysis", "text-analysis-ai");
+  AI.Actions[AI.ActionType.ImageGeneration] = new ActionUI("Image generation", "image-ai", "", AI.CapabilitiesUI.Image);
+  AI.Actions[AI.ActionType.OCR]             = new ActionUI("OCR", "text-analysis-ai", "", AI.CapabilitiesUI.Vision);
+  AI.Actions[AI.ActionType.Vision]          = new ActionUI("Vision", "vision-ai", "", AI.CapabilitiesUI.Vision);
+
+  AI.ActionsGetKeys = function()
+  {
+    return [
+      AI.ActionType.Chat,
+      AI.ActionType.Summarization,
+      AI.ActionType.Translation,
+      AI.ActionType.TextAnalyze,
+      AI.ActionType.ImageGeneration,
+      AI.ActionType.OCR,
+      AI.ActionType.Vision
+    ];
+  };
+
+  AI.ActionsGetSorted = function()
+  {
+    let keys = AI.ActionsGetKeys();
+    let count = keys.length;
+    let actions = new Array(count);
+    for (let i = 0; i < count; i++)
+    {
+      let src = AI.Actions[keys[i]];
+      actions[i] = {
+        id : keys[i],
+        name : Asc.plugin.tr(src.name),
+        icon : src.icon,
+        model : src.model,
+        capabilities : src.capabilities
+      }
+    }
+    return actions;
+  };
+  //end from engine/register.js
+})();
 
 sandbox.AI.loadInternalProviders = loadInternalProviders;
 loadInternalProviders();
-
-
-
+fillConfigObjects();
 
 exports.setCtx = setCtx;
 exports.AI = sandbox.AI;

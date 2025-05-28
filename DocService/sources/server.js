@@ -238,6 +238,8 @@ docsCoServer.install(server, () => {
 	});
 	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
 	app.use('/info/config', utils.checkClientIp, configRouter);
+	app.get('/info/plugin/settings', utils.checkClientIp, aiProxyHandler.requestSettings);
+	app.post('/info/plugin/models', utils.checkClientIp, rawFileParser, aiProxyHandler.requestModels);
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);

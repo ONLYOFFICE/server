@@ -37,6 +37,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../Common/sources/tenantManager');
 const operationContext = require('../../../Common/sources/operationContext');
+const aiProxyHandler = require('../ai/aiProxyHandler');
 
 const router = express.Router();
 
@@ -49,17 +50,32 @@ router.get('/', async (req, res) => {
   try {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
+    ctx.logger.debug('config get start');
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
       //todo
     }
+
     let configPath = path.join(process.env.NODE_CONFIG_DIR, 'local.json');
-    result = await readFile(configPath);
+    try {
+      result = await readFile(configPath, {encoding: 'utf8'});
+    } catch (e) {
+      ctx.logger.debug('config get error: %s', e.stack);
+    }
+    //todo get default setting in separate request
+    let config = JSON.parse(result);
+    if (!(config.aiSettings && Object.keys(config.aiSettings?.actions).length > 0)) {
+      let pluginSettings = await aiProxyHandler.getPluginSettings(ctx);
+      config.aiSettings = pluginSettings;
+      result = JSON.stringify(config);
+    }
+    
   } catch (error) {
-    ctx.logger.error('baseurl error: %s', error.stack);
+    ctx.logger.error('config get error: %s', error.stack);
   }
   finally {
     res.setHeader('Content-Type', 'application/json');
     res.send(result);
+    ctx.logger.debug('config end');
   }
 });
 
