@@ -3483,6 +3483,18 @@ exports.install = function(server, callbackFunction) {
 
 				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
 				let pluginSettings = yield aiProxyHandler.getPluginSettings(ctx);
+				//check empty settings
+				if (pluginSettings && pluginSettings.actions) {
+					let isEmptySettings = true;
+					for (let key in pluginSettings.actions) {
+						if (pluginSettings.actions[key].model) {
+							isEmptySettings = false;
+						}
+					}
+					if (isEmptySettings) {
+						pluginSettings = undefined;
+					}
+				}
 				sendData(ctx, conn, {
 					type: 'license',
 					license: {
