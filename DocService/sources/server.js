@@ -57,6 +57,7 @@ const utils = require('./../../Common/sources/utils');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
+const configRouter = require('./routes/config');
 const staticRouter = require('./routes/static');
 const ms = require('ms');
 
@@ -175,6 +176,8 @@ docsCoServer.install(server, () => {
 			}
 		});
 	});
+
+	app.use('/configuration', configRouter);
 
 	app.use('/', staticRouter);
 
