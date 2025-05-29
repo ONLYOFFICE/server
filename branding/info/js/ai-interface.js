@@ -166,10 +166,8 @@
                 }, event.source);
                 break;
             case 'onChangeAction':
-                for (let id in settings.actions) {
-                    if (settings.actions[id].id == message.data.id) {
-                        settings.actions[id].model = message.data.model;
-                    }
+                if (settings.actions[message.data.id]) {
+                    settings.actions[message.data.id].model = message.data.model;
                 }
                 break;
             case 'onOpenEditModal':

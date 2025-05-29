@@ -282,43 +282,23 @@ async function getPluginSettings(ctx) {
     const aiApi = config.get('aiSettings');
     // Process providers and their models if configuration exists
     if (aiApi?.providers && typeof aiApi.providers === 'object') {
-      // Create an array of promises for each provider
-      // const providerPromises = aiApi.providers
-      //   .filter(provider => provider.enable !== false || !provider.key || !provider.url)
-      //   .map(provider => processProvider(ctx, provider));
-      
-      // try {
-      //   let providers = await Promise.allSettled(providerPromises);
-      //   // providers = providers.filter(provider => provider.status === 'fulfilled' && provider.value && provider.value.name && provider.value.models?.length > 0);
-      //   providers = providers.filter(provider => provider.status === 'fulfilled' && provider.value && provider.value.name);
-
-      //   const providerCount = providers.length;
-      //   let totalModels = 0;
-      //   // Convert providers array to object by provider name
-      //   result.providers = {};
-      //   for(let i = 0; i < providers.length; i++) {
-      //     const provider = providers[i].value;
-      //     totalModels += provider.models.length;
-      //     // result.models.push(...provider.modelsUI);
-      //     delete provider.modelsUI;//todo remove
-      //     //result.providers[provider.name] = provider;
-      //   }
-        
-      //   logger.info(`Successfully processed ${providerCount} providers with a total of ${totalModels} models`);
-      // } catch (error) {
-      //   logger.error('Error resolving provider promises:', error);
-      // }
-      if (true) {
-        const providers = AI.serializeProviders();
-        for (let i = 0; i < providers.length; i++) {
-          const provider = providers[i];
-          const cfgProvider = aiApi.providers[provider.name];
-          if (cfgProvider) {
-            //todo clone
-            provider.key = cfgProvider.key;
-          }
-          result.providers[provider.name] = provider;
+      const providers = AI.serializeProviders();
+      for (let i = 0; i < providers.length; i++) {
+        const provider = providers[i];
+        const cfgProvider = aiApi.providers[provider.name];
+        if (cfgProvider) {
+          //todo clone
+          provider.key = cfgProvider.key;
         }
+
+        try {
+          const providerProcessed = await processProvider(ctx, provider);
+          provider.models.push(...providerProcessed.models);
+        } catch (error) {
+          logger.warn('Error processing provider:', error);
+        }
+
+        result.providers[provider.name] = provider;
       }
     }
     // Process AI actions
@@ -330,10 +310,15 @@ async function getPluginSettings(ctx) {
     // Process AI actions
     if (aiApi?.actions && typeof aiApi.actions === 'object') {
       // result.actions = aiApi.actions;
-      result.actions = AI.ActionsGetSorted();
+      const actionSoted = AI.ActionsGetSorted();
+      result.actions = {};
+      for (let i = 0; i < actionSoted.length; i++) {
+        const action = actionSoted[i];
+        result.actions[action.id] = action;
+      }
     }
     result.version = aiApi.version;
-    // nodeCache.set(ctx.tenant, result);
+    nodeCache.set(ctx.tenant, result);
   } catch (error) {
     logger.error('Error retrieving AI models from config:', error);
   }

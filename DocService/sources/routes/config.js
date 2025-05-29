@@ -92,9 +92,13 @@ router.post('/', rawFileParser, async (req, res) => {
       ctx.logger.debug('Configuration backup not found: %s', backupError.stack);
     }
     if(!sampleFileStat){
+      await cp(configPath, backupPath, {force: true, recursive: true});
+    }
+    try {
       const oldConfig = JSON.parse(await readFile(configPath, {encoding: 'utf8'}));
       newConfig = {...oldConfig, ...newConfig};
-      await cp(configPath, backupPath, {force: true, recursive: true});
+    } catch (error) {
+      ctx.logger.debug('Configuration local.json not found: %s', error.stack);
     }
     const prettyConfig = JSON.stringify(newConfig, null, 2);
     await writeFile(configPath, prettyConfig, {encoding: 'utf8'});

@@ -155,10 +155,10 @@ function loadInternalProviders() {
  */
 function fillConfigObjects() {
   AI.Models = cfgAiApiModels;
-  for(let i = 0; i < cfgAiApiActions.length; i++)
-  {
-    if (cfgAiApiActions[i].model && AI.Actions[cfgAiApiActions[i].id]) {
-      AI.Actions[cfgAiApiActions[i].id].model = cfgAiApiActions[i].model;
+  for(let id in cfgAiApiActions) {
+    let action = cfgAiApiActions[id];
+    if (action.model && AI.Actions[id]) {
+      AI.Actions[id].model = action.model;
     }
   }
 }
