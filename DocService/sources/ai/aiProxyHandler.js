@@ -114,18 +114,18 @@ async function proxyRequest(req, res) {
     ctx.logger.info('Start proxyRequest');
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-    if (tenTokenEnableBrowser) {
-      let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
-      if (checkJwtRes.err) {
-        ctx.logger.error('checkJwtHeader error: %s', checkJwtRes.err);
-        res.sendStatus(403);
-        return;
-      }
-    }
-
     // 1. Handle CORS preflight (OPTIONS) requests if necessary
     if (handleCorsHeaders(req, res, ctx) === true) {
       return; // OPTIONS request handled, stop further processing
+    }
+
+    if (tenTokenEnableBrowser) {
+      let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+      if (!checkJwtRes || checkJwtRes.err) {
+        ctx.logger.error('checkJwtHeader error: %s', checkJwtRes?.err);
+        res.sendStatus(403);
+        return;
+      }
     }
 
     let body = JSON.parse(req.body);
