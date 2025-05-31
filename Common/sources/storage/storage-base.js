@@ -59,10 +59,10 @@ function getStoragePath(ctx, strPath, opt_specialDir) {
   return opt_specialDir + '/' + tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/');
 }
 function getStorage(opt_specialDir) {
-  return opt_specialDir ? persistentStorage : cacheStorage;
+  return (opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName) ? persistentStorage : cacheStorage;
 }
 function getStorageCfg(ctx, opt_specialDir) {
-  return opt_specialDir ? cfgPersistentStorage : cfgCacheStorage;
+  return (opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName) ? cfgPersistentStorage : cfgCacheStorage;
 }
 function canCopyBetweenStorage(storageCfgSrc, storageCfgDst) {
   return storageCfgSrc.name === storageCfgDst.name && storageCfgSrc.endpoint === storageCfgDst.endpoint;

@@ -126,7 +126,10 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
           }
         });
       } else if (['storage-s3', 'storage-az'].includes(cfgStorage.name)) {
-        const result = await storage.createReadStream(cfgStorage, filePath, rout);
+        const ctx = new operationContext.Context();
+        ctx.initFromRequest(req);
+        await ctx.initTenantCache();
+        const result = await storage.createReadStream(ctx, filePath, rout);
         
         res.setHeader('Content-Type', mime.getType(filename));
         res.setHeader('Content-Length', result.contentLength);
