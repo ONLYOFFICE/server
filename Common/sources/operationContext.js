@@ -36,6 +36,7 @@ const utils = require('./utils');
 const logger = require('./logger');
 const constants = require('./constants');
 const tenantManager = require('./tenantManager');
+const customConfigManager = require('./customConfigManager');
 
 function Context(){
   this.logger = logger.getLogger('nodeJS');
@@ -85,7 +86,10 @@ Context.prototype.initFromPubSub = function(data) {
   this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
 };
 Context.prototype.initTenantCache = async function() {
-  this.config = await tenantManager.getTenantConfig(this);
+  const tenantConfig = await tenantManager.getTenantConfig(this);
+  const customConfig = await customConfigManager.getCustomConfig(this);
+  this.config = utils.deepMergeObjects({}, tenantConfig, customConfig);
+  
   //todo license and secret
 };
 
