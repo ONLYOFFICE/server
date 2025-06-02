@@ -30,60 +30,171 @@
  *
  */
 
-const config = require('config');
+'use strict';
+
 const express = require('express');
-const bodyParser = require('body-parser');
-const tenantManager = require('../../../Common/sources/tenantManager');
 const operationContext = require('../../../Common/sources/operationContext');
-const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
+const customConfigManager = require('../../../Common/sources/customConfigManager');
+const utils = require('../../../Common/sources/utils');
+const bodyParser = require("body-parser");
 
 const router = express.Router();
+const jsonParser = bodyParser.json();
 
-const rawFileParser = bodyParser.raw(
-    {inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function() {return true;}});
+const ALLOWED_CONFIG_PATHS = [
+  'FileConverter.converter.inputLimits',
+  'FileConverter.converter.maxDownloadBytes'
+];
 
-router.get('/', async (req, res) => {
-  let ctx = new operationContext.Context();
-  let result = '{}';
-  try {
-    ctx.initFromRequest(req);
-    await ctx.initTenantCache();
-    ctx.logger.debug('config get start');
-    let cfg = ctx.getFullCfg();
-    result = JSON.stringify(cfg);
-  } catch (error) {
-    ctx.logger.error('config get error: %s', error.stack);
+// Load default configuration
+const defaultConfig = require('../../../Common/config/default.json');
+
+/**
+ * Validate multiple property paths against allowed paths
+ * @param {Array<String>} paths - Array of paths to validate
+ * @returns {Boolean}
+ */
+const isEveryPathValid = (paths) => {
+  const check = path => ALLOWED_CONFIG_PATHS.includes(path);
+  return paths.every(check)
+}
+
+/**
+ * Helper function to get a nested property from an object
+ * @param {Object} obj - Object to extract property from
+ * @param {String} path - Dot-notation path to the property
+ * @returns {*} The property value or undefined
+ */
+const getNestedProperty = (obj, path) => 
+  path.split('.').reduce((acc, part) => acc?.[part], obj);
+
+/**
+ * Helper function to set a nested property in an object
+ * @param {Object} obj - Object to set property in
+ * @param {String} path - Dot-notation path to the property
+ * @param {*} value - Value to set
+ * @returns {Object} The modified object
+ */
+const setNestedProperty = (obj, path, value) => {
+  const [last, ...parts] = path.split('.').reverse();
+  parts.reverse().reduce((acc, part) => 
+    acc[part] = (typeof acc[part] === 'object' && acc[part] || {}),
+    obj
+  )[last] = value;
+  return obj;
+};
+
+/**
+ * Filter configuration to only include allowed paths
+ * @param {Object} config - The configuration object
+ * @returns {Object} Filtered configuration
+ */
+const filterAllowedConfig = (configObj) => {
+  const result = {};
+  
+  for (const allowedPath of ALLOWED_CONFIG_PATHS) {
+    const value = getNestedProperty(configObj, allowedPath);
+    if (value !== undefined) {
+      setNestedProperty(result, allowedPath, value);
+    }
   }
-  finally {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(result);
-    ctx.logger.debug('config end');
+  
+  return result;
+};
+
+/**
+ * Helper function to flatten a nested object into key-value pairs
+ * where keys are dot-notation paths and values are the leaf values
+ * @param {Object} obj - Object to flatten
+ * @param {String} prefix - Prefix for the keys (used for recursion)
+ * @returns {Object} Flattened object with path keys and values
+ */
+const flattenObject = (obj, prefix = '') => {
+  const result = {};
+  
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const newKey = prefix ? `${prefix}.${key}` : key;
+      
+      if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+        // Recursively flatten nested objects
+        Object.assign(result, flattenObject(obj[key], newKey));
+      } else {
+        // Add leaf values to result
+        result[newKey] = obj[key];
+      }
+    }
+  }
+  
+  return result;
+};
+
+
+// Get the configuration from the context or file system
+// Supports property filtering with query param props=prop1,prop2,prop3
+router.get('/', async (req, res) => {
+  const ctx = new operationContext.Context();
+  ctx.initFromRequest(req);
+  await ctx.initTenantCache();
+
+  try {
+    const customConfig = await customConfigManager.getCustomConfig(ctx);
+    
+    // Filter to only include allowed paths
+    const allowedConfig = filterAllowedConfig(customConfig);
+    
+    // Flatten the filtered config into key-value pairs
+    const flattenedConfig = flattenObject(allowedConfig);
+    
+    // Return the flattened config
+    res.json(flattenedConfig);
+  } catch (err) {
+    ctx.logger.error('Error getting configuration: %s', err.stack);
+    res.status(500).json({ error: 'Failed to retrieve configuration' });
   }
 });
 
-router.post('/', rawFileParser, async (req, res) => {
-  let ctx = new operationContext.Context();
+router.patch('/', jsonParser, async (req, res) => {
+  const ctx = new operationContext.Context();
+  ctx.initFromRequest(req);
+  ctx.logger.debug('Updating configuration: %j', req.body);
   try {
-    ctx.initFromRequest(req);
-    await ctx.initTenantCache();
+    
+    // Validate that the request body is a valid object of key-value pairs
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Request body must be an object with property paths as keys and values to set' });
+    }
+    
+    // Validate all paths in the request body
+    const paths = Object.keys(req.body);
+    if (!isEveryPathValid(paths)) {
+      return res.status(400).json({
+        error: 'Access denied to some configuration paths',
+        invalidPaths: paths.filter(path => !isEveryPathValid([path]))
+      });
+    }
+    
+    const customConfig = await customConfigManager.getCustomConfig(ctx);
 
-    let newConfig = JSON.parse(req.body);
-
-    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-      await tenantManager.setTenantConfig(ctx, newConfig);
-    } else {
-      await runtimeConfigManager.saveConfig(ctx, newConfig);
+    for (const [propPath, value] of Object.entries(req.body)) {
+      setNestedProperty(customConfig, propPath, value);
     }
 
-    res.sendStatus(200);
-  } catch (error) {
-    ctx.logger.error('Configuration save error: %s', error.stack);
-    res.status(500).json({
-      error: 'Failed to save configuration',
-      details: error.message
+    const updatedConfig = await customConfigManager.saveCustomConfig(ctx, customConfig);
+    
+    if (ctx.config) {
+      ctx.config = { ...ctx.config, ...updatedConfig };
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Configuration updated successfully',
+      updatedProperties: Object.keys(req.body)
     });
+  } catch (err) {
+    ctx.logger.error('Error updating configuration: %s', err.stack);
+    res.status(500).json({ error: 'Failed to update configuration' });
   }
 });
-
 
 module.exports = router;
