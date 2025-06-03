@@ -238,7 +238,7 @@ async function processProvider(ctx, provider) {
       aiEngine.setCtx(ctx);
       await AI.getModels(provider);
       // Process result
-      if (AI.TmpProviderForModels.models) {
+      if (AI.TmpProviderForModels?.models) {
         engineModels = AI.TmpProviderForModels.models;
         engineModelsUI = AI.TmpProviderForModels.modelsUI;
       }

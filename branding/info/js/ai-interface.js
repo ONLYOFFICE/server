@@ -52,9 +52,17 @@
                 onInit(tmp[i]);
             }
         });
-        AIIntegration.onSave = async function() {
-            const config = {aiSettings: settings};
-            return await putConfig(config).then(function() {
+        AIIntegration.onSave = function() {
+            var settingsFiltered = Object.assign({}, settings);
+            if (settingsFiltered.providers) {
+                for (var id in settingsFiltered.providers) {
+                    if (settingsFiltered.providers.hasOwnProperty(id)) {
+                        settingsFiltered.providers[id].models = [];
+                    }
+                }
+            }
+            var config = {aiSettings: settingsFiltered};
+            return putConfig(config).then(function() {
                 return true;
             }).catch(function() {
                 return false;

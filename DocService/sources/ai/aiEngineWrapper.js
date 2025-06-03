@@ -81,7 +81,7 @@ const sandbox = {
       connectionAndInactivity: cfgAiApiTimeout,
       wholeCycle: cfgAiApiTimeout
     };
-    //console.log("fetch", url, options);
+    ctx.logger.debug("engineWrapper fetch", url, options);
     return utils.httpRequest(
       sandbox.ctx,
       method,
