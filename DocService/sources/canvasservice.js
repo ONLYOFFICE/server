@@ -44,6 +44,7 @@ var sqlBase = require('./databaseConnectors/baseConnector');
 const utilsDocService = require('./utilsDocService');
 var docsCoServer = require('./DocsCoServer');
 var taskResult = require('./taskresult');
+var wopiUtils = require('./wopiUtils');
 var wopiClient = require('./wopiClient');
 var logger = require('./../../Common/sources/logger');
 var utils = require('./../../Common/sources/utils');
@@ -1697,7 +1698,7 @@ exports.downloadFile = function(req, res) {
             //editnew case
             fromTemplate = pathModule.extname(decoded.fileInfo.BaseFileName).substring(1);
           } else {
-            ({url, headers} = yield wopiClient.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
+            ({url, headers} = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
             let filterStatus = yield wopiClient.checkIpFilter(ctx, url);
             if (0 === filterStatus) {
               //todo false? (true because it passed checkIpFilter for wopi)
