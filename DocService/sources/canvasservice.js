@@ -887,9 +887,11 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
 
   let hasDocumentPassword = false;
   let isDocumentPasswordModified = true;
+  let originFormat;
   let selectRes = yield taskResult.select(ctx, cmd.getDocId());
   if (selectRes.length > 0) {
     let row = selectRes[0];
+    originFormat = row.change_id;
     hasPasswordCol = undefined !== row.password;
     if (commonDefines.FileStatus.Ok === row.status) {
       let documentPasswordCurEnc = sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
@@ -921,7 +923,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     var task = new taskResult.TaskResultData();
     task.password = cmd.getPassword() || "";
     let changeInfo = null;
-    if (conn.user) {
+    if (conn.user && (hasDocumentPassword || !formatChecker.isBrowserEditorFormat(originFormat))) {
       changeInfo = task.innerPasswordChange = docsCoServer.getExternalChangeInfo(conn.user, newChangesLastDate.getTime(), conn.lang);
     }
 
@@ -931,9 +933,11 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
       if (!conn.isEnterCorrectPassword) {
         yield docsCoServer.modifyConnectionForPassword(ctx, conn, true);
       }
-      let forceSave = yield docsCoServer.editorData.getForceSave(ctx, cmd.getDocId());
-      let index = forceSave?.index || 0;
-      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), index, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
+      if (changeInfo) {
+        let forceSave = yield docsCoServer.editorData.getForceSave(ctx, cmd.getDocId());
+        let index = forceSave?.index || 0;
+        yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), index, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
+      }
     } else {
       ctx.logger.debug('commandSetPassword sql update error');
       outputData.setStatus('err');
