@@ -1116,6 +1116,11 @@ async function startWopiRPC(ctx, docId, userId, userIdOriginal, data) {
         switch (data.type) {
           case 'wopi_RenameFile':
             res = await wopiClient.renameFile(ctx, wopiParams, data.name);
+            //publish for coeditors
+            if (res?.Name) {
+              const meta = {"title": res.Name};
+              await publish(ctx, {type: commonDefines.c_oPublishType.meta, ctx: ctx, docId: docId, meta});
+            }
             break;
           case 'wopi_RefreshFile':
             res = await wopiClient.refreshFile(ctx, wopiParams, row.baseurl);

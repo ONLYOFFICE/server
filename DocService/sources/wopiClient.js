@@ -794,53 +794,58 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
     return res;
   });
 }
-function renameFile(ctx, wopiParams, name) {
-  return co(function* () {
-    let res = undefined;
-    try {
-      ctx.logger.info('wopi RenameFile start');
-      const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+/**
+ * Renames a file using the WOPI protocol
+ * @param {operationContext.Context} ctx - The operation context.
+ * @param {object} wopiParams - The WOPI parameters.
+ * @param {string} name - The new name for the file.
+ * @returns {Promise<{Name: string}|undefined>}
+ */
+async function renameFile(ctx, wopiParams, name) {
+  let res = undefined;
+  try {
+    ctx.logger.info('wopi RenameFile start');
+    const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
-      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
-        return res;
-      }
-      let fileInfo = wopiParams.commonInfo.fileInfo;
-      let userAuth = wopiParams.userAuth;
-      let uri = `${userAuth.wopiSrc}?access_token=${encodeURIComponent(userAuth.access_token)}`;
-      let filterStatus = yield checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        return res;
-      }
-
-      if (fileInfo && fileInfo.SupportsRename) {
-        let fileNameMaxLength = fileInfo.FileNameMaxLength || 255;
-        name = name.substring(0, fileNameMaxLength);
-        let commonInfo = wopiParams.commonInfo;
-
-        let headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
-        yield wopiUtils.fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
-
-        ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-        //isInJwtToken is true because it passed checkIpFilter for wopi
-        let isInJwtToken = true;
-        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
-        ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
-        if (postRes.body) {
-          res = JSON.parse(postRes.body);
-        } else {
-          //sharepoint send empty body(2016 allways, 2019 with same name)
-          res = {"Name": name};
-        }
-      } else {
-        ctx.logger.info('wopi SupportsRename = false');
-      }
-    } catch (err) {
-      ctx.logger.error('wopi error RenameFile:%s', err.stack);
-    } finally {
-      ctx.logger.info('wopi RenameFile end');
+    if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+      return res;
     }
-    return res;
-  });
+    const fileInfo = wopiParams.commonInfo.fileInfo;
+    const userAuth = wopiParams.userAuth;
+    const uri = `${userAuth.wopiSrc}?access_token=${encodeURIComponent(userAuth.access_token)}`;
+    const filterStatus = await checkIpFilter(ctx, uri);
+    if (0 !== filterStatus) {
+      return res;
+    }
+
+    if (fileInfo && fileInfo.SupportsRename) {
+      const fileNameMaxLength = fileInfo.FileNameMaxLength || 255;
+      name = name.substring(0, fileNameMaxLength);
+      const commonInfo = wopiParams.commonInfo;
+
+      const headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
+      await wopiUtils.fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
+
+      ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
+      //isInJwtToken is true because it passed checkIpFilter for wopi
+      const isInJwtToken = true;
+      const postRes = await utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
+      ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
+      if (postRes.body) {
+        res = JSON.parse(postRes.body);
+      } else {
+        //sharepoint send empty body(2016 allways, 2019 with same name)
+        res = {"Name": name};
+      }
+    } else {
+      ctx.logger.info('wopi SupportsRename = false');
+    }
+  } catch (err) {
+    ctx.logger.error('wopi error RenameFile:%s', err.stack);
+  } finally {
+    ctx.logger.info('wopi RenameFile end');
+  }
+  return res;
 }
 
 async function refreshFile(ctx, wopiParams, baseUrl) {
