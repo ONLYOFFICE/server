@@ -30,11 +30,23 @@
  *
  */
 
-const {jest, describe, test, expect} = require('@jest/globals');
+const {jest, describe, test, expect, beforeAll, afterAll} = require('@jest/globals');
+jest.mock('../../Common/sources/utils', () => {
+  const originalUtils = jest.requireActual('../../Common/sources/utils');
+  return {
+    ...originalUtils,
+    checkBaseUrl: jest.fn(() => 'http://localhost:7999') // or whatever base URL you want
+  };
+});
+
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const { Readable } = require('stream');
+const crypto = require('crypto');
+const express = require('express');
+const path = require('path');
+const mime = require('mime');
 
 let testFileData1 = "test1";
 let testFileData2 = "test22";
@@ -47,20 +59,18 @@ jest.mock("fs/promises", () => ({
 }));
 const { cp } = require('fs/promises');
 
-const operationContext = require('../../../Common/sources/operationContext');
-const tenantManager = require('../../../Common/sources/tenantManager');
-const storage = require('../../../Common/sources/storage/storage-base');
-const utils = require('../../../Common/sources/utils');
-const commonDefines = require("../../../Common/sources/commondefines");
-const config = require('../../../Common/node_modules/config');
+const operationContext = require('../../Common/sources/operationContext');
+const tenantManager = require('../../Common/sources/tenantManager');
+const storage = require('../../Common/sources/storage/storage-base');
+const utils = require('../../Common/sources/utils');
+const commonDefines = require("../../Common/sources/commondefines");
+const config = require('../../Common/node_modules/config');
 
 const cfgCacheStorage = config.get('storage');
 const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
-
 const ctx = operationContext.global;
 const rand = Math.floor(Math.random() * 1000000);
 const testDir = "DocService-DocsCoServer-storage-" + rand;
-const baseUrl = "http://localhost:8000";
 const urlType = commonDefines.c_oAscUrlTypes.Session;
 let testFile1 = testDir + "/test1.txt";
 let testFile2 = testDir + "/test2.txt";
@@ -68,6 +78,104 @@ let testFile3 = testDir + "/test3.txt";
 let testFile4 = testDir + "/test4.txt";
 let specialDirCache = "";
 let specialDirForgotten = "forgotten";
+
+// Override storage config for testing
+const testStorageConfig = {
+  ...cfgCacheStorage,
+  fs: {
+    ...cfgCacheStorage.fs,
+    secretString: "test-secret" // Use the same secret as in mock server
+  }
+};
+
+// Override the storage configuration
+jest.mock('../../Common/sources/storage/storage-base', () => {
+  const originalModule = jest.requireActual('../../Common/sources/storage/storage-base');
+  return {
+    ...originalModule,
+    getStorageConfig: () => testStorageConfig
+  };
+});
+
+// Mock server setup
+let mockServer;
+let serverPort = 7999;
+let baseUrl = `http://localhost:${serverPort}`;
+
+function createMockServer() {
+  const app = express();
+  
+  app.get('/cache/:storageFolderName/:rout/*', async (req, res) => {
+    try {
+      const urlParsed = new URL(req.url, baseUrl);
+      const params = Object.fromEntries(urlParsed.searchParams);
+      const { md5, expires } = params;
+      const numericExpires = parseInt(expires);
+
+      if (!md5 || !numericExpires) {
+        res.sendStatus(403);
+        return;
+      }
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (currentTime > numericExpires) {
+        res.sendStatus(410);
+        return;
+      }
+
+      const uri = req.url.split('?')[0];
+      const fullPath = uri;
+      const signatureData = numericExpires + decodeURIComponent(fullPath) + "verysecretstring";
+
+      const expectedMd5 = crypto
+        .createHash('md5')
+        .update(signatureData)
+        .digest('base64')
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      if (md5 !== expectedMd5) {
+        res.sendStatus(403);
+        return;
+      }
+
+      const filePath = decodeURI(req.url.substring(1, req.url.lastIndexOf('/')));
+      
+      // Map file paths to test data
+      const fileDataMap = {
+        [testFile1]: testFileData1,
+        [testFile2]: testFileData2,
+        [testFile3]: testFileData3,
+        [testFile4]: testFileData4
+      };
+
+      const match = filePath.match(/([^/]+\/[^/]+)$/);
+      const filePathRes = match ? match[0] : null;
+
+      const data = fileDataMap[filePathRes];
+      if (!data) {
+        res.sendStatus(404);
+        return;
+      }
+
+      res.setHeader('Content-Type','text/plain');
+      res.setHeader('Content-Length', data.length);
+      res.setHeader('Content-Disposition', 'attachment');
+      res.send(data);
+    } catch (e) {
+      console.error('Mock server error:', e);
+      res.sendStatus(400);
+    }
+  });
+
+  return new Promise((resolve) => {
+    mockServer = app.listen(serverPort, () => {
+      console.log(`Mock server running on port ${serverPort}`);
+      resolve();
+    });
+  });
+}
 
 console.debug(`testDir: ${testDir}`)
 
@@ -218,6 +326,7 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
   });
   test("getSignedUrl", async () => {
     let url, urls, data;
+    try {
     url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDir);
     data = await request(url);
     expect(data).toEqual(testFileData1);
@@ -233,6 +342,10 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     url = await storage.getSignedUrl(ctx, baseUrl, testFile4, urlType, undefined, undefined, specialDir);
     data = await request(url);
     expect(data).toEqual(testFileData4);
+  } catch (error) {
+    console.error('Test failed with error:', error);
+    throw error; // Re-throw after logging
+  }
   });
   test("getSignedUrls", async () => {
     let urls, data;
@@ -286,6 +399,17 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     tenantManager.setMultitenantMode(oldMultitenantMode);
   });
 }
+
+// Modify the test setup
+beforeAll(async () => {
+  await createMockServer();
+});
+
+afterAll(async () => {
+  if (mockServer) {
+    await new Promise((resolve) => mockServer.close(resolve));
+  }
+});
 
 // Assumed, that server is already up.
 describe('storage common dir', function () {
