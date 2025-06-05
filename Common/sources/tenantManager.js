@@ -39,7 +39,7 @@ const license = require('./../../Common/sources/license');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
-const { readFile, readdir } = require('fs/promises');
+const { readFile, readdir, writeFile } = require('fs/promises');
 const path = require('path');
 
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
@@ -123,6 +123,22 @@ async function getTenantConfig(ctx) {
   }
   return res;
 }
+/**
+ * Set tenant configuration for the current context
+ * @param {operationContext} ctx - Operation context
+ * @param {Object} config - Configuration data to save
+ * @returns {Object} Saved configuration object
+ */
+async function setTenantConfig(ctx, config) {
+  let newConfig = await getTenantConfig(ctx);
+  if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
+    newConfig = {...newConfig, ...config};
+    await writeFile(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
+    nodeCache.set(configPath, newConfig);
+  }
+  return newConfig;
+}
+
 function getTenantSecret(ctx, type) {
   return co(function*() {
     let cfgTenant;
@@ -428,6 +444,7 @@ exports.getTenantSecret = getTenantSecret;
 exports.getTenantLicense = getTenantLicense;
 exports.getServerLicense = getServerLicense;
 exports.setDefLicense = setDefLicense;
+exports.setTenantConfig = setTenantConfig;
 exports.isMultitenantMode = isMultitenantMode;
 exports.setMultitenantMode = setMultitenantMode;
 exports.isDefaultTenant = isDefaultTenant;
