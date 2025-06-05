@@ -34,14 +34,15 @@
 
 const express = require('express');
 const operationContext = require('../../../Common/sources/operationContext');
-const customConfigManager = require('../../../Common/sources/customConfigManager');
-const utils = require('../../../Common/sources/utils');
+const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
+const tenantManager = require('../../../Common/sources/tenantManager');
 const bodyParser = require("body-parser");
 
 const router = express.Router();
 const jsonParser = bodyParser.json();
 
 const ALLOWED_CONFIG_PATHS = [
+  'aiSettings',
   'FileConverter.converter.inputLimits',
   'FileConverter.converter.maxDownloadBytes'
 ];
@@ -138,10 +139,10 @@ router.get('/', async (req, res) => {
   await ctx.initTenantCache();
 
   try {
-    const customConfig = await customConfigManager.getCustomConfig(ctx);
+    const fullConfig = ctx.getFullCfg();
     
     // Filter to only include allowed paths
-    const allowedConfig = filterAllowedConfig(customConfig);
+    const allowedConfig = filterAllowedConfig(fullConfig);
     
     // Flatten the filtered config into key-value pairs
     const flattenedConfig = flattenObject(allowedConfig);
@@ -174,13 +175,18 @@ router.patch('/', jsonParser, async (req, res) => {
       });
     }
     
-    const customConfig = await customConfigManager.getCustomConfig(ctx);
+    const newConfig = {};
 
     for (const [propPath, value] of Object.entries(req.body)) {
-      setNestedProperty(customConfig, propPath, value);
+      setNestedProperty(newConfig, propPath, value);
     }
 
-    const updatedConfig = await customConfigManager.saveCustomConfig(ctx, customConfig);
+    let updatedConfig;
+    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
+      updatedConfig = await tenantManager.setTenantConfig(ctx, newConfig);
+    } else {
+      updatedConfig = await runtimeConfigManager.saveConfig(ctx, newConfig);
+    }
     
     if (ctx.config) {
       ctx.config = { ...ctx.config, ...updatedConfig };
