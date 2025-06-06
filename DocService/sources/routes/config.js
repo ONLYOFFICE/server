@@ -31,13 +31,11 @@
  */
 
 const config = require('config');
-const { readFile, writeFile, stat, cp } = require('fs/promises');
-const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../Common/sources/tenantManager');
 const operationContext = require('../../../Common/sources/operationContext');
-const aiProxyHandler = require('../ai/aiProxyHandler');
+const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
 
 const router = express.Router();
 
@@ -51,16 +49,8 @@ router.get('/', async (req, res) => {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
     ctx.logger.debug('config get start');
-    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-      //todo
-    }
-
-    let configPath = path.join(process.env.NODE_CONFIG_DIR, 'local.json');
-    try {
-      result = await readFile(configPath, {encoding: 'utf8'});
-    } catch (e) {
-      ctx.logger.debug('config get error: %s', e.stack);
-    }
+    let cfg = ctx.getFullCfg();
+    result = JSON.stringify(cfg);
   } catch (error) {
     ctx.logger.error('config get error: %s', error.stack);
   }
@@ -76,32 +66,15 @@ router.post('/', rawFileParser, async (req, res) => {
   try {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
-    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-      //todo
-    }
+
     let newConfig = JSON.parse(req.body);
-    // Define file paths
-    let configPath = path.join(process.env.NODE_CONFIG_DIR, 'local.json');
-    let backupPath = path.join(process.env.NODE_CONFIG_DIR, 'local.json.bak');
-    
-    // Create backup of current config before saving
-    let sampleFileStat = null;
-    try {
-      sampleFileStat = await stat(backupPath); 
-    } catch (backupError) {
-      ctx.logger.debug('Configuration backup not found: %s', backupError.stack);
+
+    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
+      await tenantManager.setTenantConfig(ctx, newConfig);
+    } else {
+      await runtimeConfigManager.saveConfig(ctx, newConfig);
     }
-    if(!sampleFileStat){
-      await cp(configPath, backupPath, {force: true, recursive: true});
-    }
-    try {
-      const oldConfig = JSON.parse(await readFile(configPath, {encoding: 'utf8'}));
-      newConfig = {...oldConfig, ...newConfig};
-    } catch (error) {
-      ctx.logger.debug('Configuration local.json not found: %s', error.stack);
-    }
-    const prettyConfig = JSON.stringify(newConfig, null, 2);
-    await writeFile(configPath, prettyConfig, {encoding: 'utf8'});
+
     res.sendStatus(200);
   } catch (error) {
     ctx.logger.error('Configuration save error: %s', error.stack);

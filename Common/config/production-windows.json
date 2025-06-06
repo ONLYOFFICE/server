@@ -2,6 +2,9 @@
   "log": {
     "filePath": "../../config/log4js/production.json"
   },
+  "runtimeConfig": {
+    "filePath": "./../runtime.json"
+  },
   "aiSettings": {
     "pluginDir" : "../info/ai"
   },

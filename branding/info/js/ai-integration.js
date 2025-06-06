@@ -229,6 +229,10 @@ const AIIntegration = {
 
     goBack() {
         this.navigateToView('settings');
+
+        if (this.onBack) {
+            this.onBack();
+        }
     },
     
     ok() {

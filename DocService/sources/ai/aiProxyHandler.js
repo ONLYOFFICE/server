@@ -47,6 +47,7 @@ const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
 const cfgAiApiCache = config.get('aiSettings.cache');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgAiSettings = config.get('aiSettings');
 
 const AI = aiEngine.AI;
 const nodeCache = new utils.NodeCache(cfgAiApiCache);
@@ -113,6 +114,7 @@ async function proxyRequest(req, res) {
   try {
     ctx.logger.info('Start proxyRequest');
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+    const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
 
     // 1. Handle CORS preflight (OPTIONS) requests if necessary
     if (handleCorsHeaders(req, res, ctx) === true) {
@@ -146,6 +148,10 @@ async function proxyRequest(req, res) {
       // Find the provider that matches the target URL
       for (let providerName in AI.Providers) {//todo try for of
         if (body.target.includes(AI.Providers[providerName].url)) {
+          if (tenAiApi?.providers?.[providerName]) {
+            AI.Providers[providerName].key = tenAiApi.providers[providerName].key;
+            AI.Providers[providerName].url = tenAiApi.providers[providerName].url;
+          }
           providerHeaders = AI._getHeaders(AI.Providers[providerName]);
           break;
         }
@@ -279,7 +285,8 @@ async function getPluginSettings(ctx) {
   };
   try {
     // Get AI API configuration
-    const aiApi = config.get('aiSettings');
+    const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
+    return tenAiApi;
     // Process providers and their models if configuration exists
     if (aiApi?.providers && typeof aiApi.providers === 'object') {
       const providers = AI.serializeProviders();
@@ -347,11 +354,13 @@ async function requestModels(req, res) {
   try {
     await ctx.initTenantCache();
     let body = JSON.parse(req.body);
-    if (body.key && AI.Providers[body.name]) {
+    if (AI.Providers[body.name]) {
       AI.Providers[body.name].key = body.key;
+      AI.Providers[body.name].url = body.url;
     }
-	  let models = await AI.getModels(body);
-	  res.json(models);
+    let getRes = await AI.getModels(body);
+    getRes.modelsApi = AI.TmpProviderForModels?.models;
+    res.json(getRes);
   } catch (error) {
     ctx.logger.error('getModels error: %s', error.stack);
     res.sendStatus(400);

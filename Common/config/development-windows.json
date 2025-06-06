@@ -2,6 +2,9 @@
   "log": {
     "filePath": "../Common/config/log4js/development.json"
   },
+  "runtimeConfig": {
+    "filePath": "./../runtime.json"
+  },
   "queue": {
     "visibilityTimeout": 900
   },

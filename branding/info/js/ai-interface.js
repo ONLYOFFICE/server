@@ -36,6 +36,7 @@
 
     var settings = null;
     var framesToInit = [];
+    var tempModels = null;
     var urlSettings = 'plugin/settings';
     var urlModels = 'plugin/models';
     var urlConfig = 'config';
@@ -53,15 +54,7 @@
             }
         });
         AIIntegration.onSave = function() {
-            var settingsFiltered = Object.assign({}, settings);
-            if (settingsFiltered.providers) {
-                for (var id in settingsFiltered.providers) {
-                    if (settingsFiltered.providers.hasOwnProperty(id)) {
-                        settingsFiltered.providers[id].models = [];
-                    }
-                }
-            }
-            var config = {aiSettings: settingsFiltered};
+            var config = {aiSettings: settings};
             return putConfig(config).then(function() {
                 return true;
             }).catch(function() {
@@ -76,6 +69,13 @@
                 }, aiModelEditWindow.contentWindow);
             }
             return;
+        };
+        AIIntegration.onBack = function() {
+            var settingsWindow = findIframeBySrcPart('settings');
+            if(settingsWindow) {
+                updateActions(settingsWindow.contentWindow);
+                updateModels();
+            }
         };
     });
 
@@ -183,12 +183,6 @@
                 var aiModelEditWindow = findIframeBySrcPart('aiModelEdit');
                 if(aiModelEditWindow) {
                     const providers = Object.keys(settings.providers).map(function(key) { return settings.providers[key]; });
-                    sendMessageToSettings({
-                        name: 'onProvidersUpdate',
-                        data: providers
-                    }, aiModelEditWindow.contentWindow);
-                    
-
                     var model = {id: "", name: "", provider: "", capabilities: 0};
                     if (message.data.model) {
                         model = settings.models.find(function(model) { return model.name === message.data.model.name; });
@@ -197,6 +191,13 @@
                         model : model,
                         providers : providers
                     }
+                    sendMessageToSettings({
+                        name: 'onProvidersUpdate',
+                        data: data
+                    }, aiModelEditWindow.contentWindow);
+                    
+
+                    
                     sendMessageToSettings({
                         name: 'onModelInfo',
                         data: data
@@ -209,9 +210,10 @@
                 }
                 break;
             case 'onDeleteAiModel':
-                for (let id in settings.models) {
-                    if (settings.models[id].id == message.data.id) {
-                        delete settings.models[id];
+                for (var i = 0; i < settings.models.length; i++) {
+                    if (settings.models[i].id == message.data.id) {
+                        settings.models.splice(i, 1);
+                        break;
                     }
                 }
                 updateModels();
@@ -291,6 +293,8 @@
             // console.log('Configuration saved successfully');
             return response.json();
         }).then(function(models) {
+            tempModels = models.modelsApi;
+            delete models.modelsApi;
             sendMessageToSettings({
                 name: 'onGetModels',
                 data: models
@@ -300,6 +304,10 @@
 
     function onChangeModel(data) {
         settings.providers[data.provider.name] = data.provider;
+        if (tempModels) {
+            settings.providers[data.provider.name].models = tempModels;
+            tempModels = null;
+        }
 
         let isFoundModel = false;
         for(let id in settings.models) {
