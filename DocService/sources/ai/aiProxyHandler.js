@@ -241,13 +241,13 @@ async function processProvider(ctx, provider) {
     // Call getModels from engine.js
     if (provider.key) {
       AI.Providers[provider.name].key = provider.key;
-      aiEngine.setCtx(ctx);
-      await AI.getModels(provider);
-      // Process result
-      if (AI.TmpProviderForModels?.models) {
-        engineModels = AI.TmpProviderForModels.models;
-        engineModelsUI = AI.TmpProviderForModels.modelsUI;
-      }
+      // aiEngine.setCtx(ctx);
+      // await AI.getModels(provider);
+      // // Process result
+      // if (AI.TmpProviderForModels?.models) {
+      //   engineModels = AI.TmpProviderForModels.models;
+      //   engineModelsUI = AI.TmpProviderForModels.modelsUI;
+      // }
     }
   } catch (error) {
     logger.error(`Error processing provider ${provider.name}:`, error);
@@ -285,18 +285,19 @@ async function getPluginSettings(ctx) {
   };
   try {
     // Get AI API configuration
-    const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
-    return tenAiApi;
+    const tenProviders = ctx.getCfg('aiSettings.providers', cfgAiSettings.providers);
     // Process providers and their models if configuration exists
-    if (aiApi?.providers && typeof aiApi.providers === 'object') {
+    if (tenProviders && Object.keys(tenProviders).length > 0) {
+      result.providers = tenProviders
+    } else {
       const providers = AI.serializeProviders();
       for (let i = 0; i < providers.length; i++) {
         const provider = providers[i];
-        const cfgProvider = aiApi.providers[provider.name];
-        if (cfgProvider) {
-          //todo clone
-          provider.key = cfgProvider.key;
-        }
+        // const cfgProvider = aiApi.providers[provider.name];
+        // if (cfgProvider) {
+        //   //todo clone
+        //   provider.key = cfgProvider.key;
+        // }
 
         try {
           const providerProcessed = await processProvider(ctx, provider);
@@ -308,14 +309,20 @@ async function getPluginSettings(ctx) {
         result.providers[provider.name] = provider;
       }
     }
+    const tenModels = ctx.getCfg('aiSettings.models', cfgAiSettings.models);
     // Process AI actions
-    if (aiApi?.models && typeof aiApi.models === 'object') {
+    if (tenModels && tenModels.length > 0) {
+      result.models = tenModels;
+    } else {
       // result.actions = aiApi.actions;
       result.models = AI.Storage.serializeModels();
     }
 
     // Process AI actions
-    if (aiApi?.actions && typeof aiApi.actions === 'object') {
+    const tenActions = ctx.getCfg('aiSettings.actions', cfgAiSettings.actions);
+    if (tenActions && Object.keys(tenActions).length > 0) {
+      result.actions = tenActions;
+    } else {
       // result.actions = aiApi.actions;
       const actionSoted = AI.ActionsGetSorted();
       result.actions = {};
@@ -324,8 +331,9 @@ async function getPluginSettings(ctx) {
         result.actions[action.id] = action;
       }
     }
-    result.version = aiApi.version;
-    nodeCache.set(ctx.tenant, result);
+    const tenVersion = ctx.getCfg('aiSettings.version', cfgAiSettings.version);
+    result.version = tenVersion;
+    // nodeCache.set(ctx.tenant, result);
   } catch (error) {
     logger.error('Error retrieving AI models from config:', error);
   }

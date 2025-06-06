@@ -132,7 +132,7 @@ Context.prototype.getCfg = function(property, defaultValue) {
  * @returns {object} The merged configuration object
  */
 Context.prototype.getFullCfg = function() {
-  return {...config.util.toObject(), ...this.config};
+  return utils.deepMergeObjects(config.util.toObject(), this.config);
 };
 
 /**

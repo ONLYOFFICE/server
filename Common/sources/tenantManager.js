@@ -132,7 +132,9 @@ async function getTenantConfig(ctx) {
 async function setTenantConfig(ctx, config) {
   let newConfig = await getTenantConfig(ctx);
   if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
-    newConfig = {...newConfig, ...config};
+    newConfig = utils.deepMergeObjects(newConfig, config);
+    let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+    let configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
     await writeFile(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
     nodeCache.set(configPath, newConfig);
   }
