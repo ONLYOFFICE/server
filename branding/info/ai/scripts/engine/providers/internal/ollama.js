@@ -3,7 +3,7 @@
 class Provider extends AI.Provider {
 
 	constructor() {
-		super("Ollama", "http://localhost:11434", "", "v1");
+		super("Ollama", "http://127.0.0.1:11434", "", "v1");
 	}
 
 	getImageGeneration(message, model) {
