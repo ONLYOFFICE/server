@@ -89,7 +89,7 @@ async function getConfig(ctx) {
 async function saveConfig(ctx, config) {
   await fs.mkdir(path.dirname(configFilePath), { recursive: true });
   let newConfig = await getConfig(ctx);
-  newConfig = utils.deepMergeObjects(newConfig, config);
+  newConfig = utils.deepMergeObjects(newConfig || {}, config);
   await fs.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), 'utf8');
   nodeCache.set(configFileName, newConfig);
   return newConfig;

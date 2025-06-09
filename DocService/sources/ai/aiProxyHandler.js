@@ -343,6 +343,29 @@ async function getPluginSettings(ctx) {
   return result;
 }
 
+async function getPluginSettingsForInterface(ctx) {
+  let pluginSettings = await getPluginSettings(ctx);
+  //check empty settings
+  if (pluginSettings && pluginSettings.actions) {
+    let isEmptySettings = true;
+    for (let key in pluginSettings.actions) {
+      if (pluginSettings.actions[key].model) {
+        isEmptySettings = false;
+      }
+    }
+    if (isEmptySettings) {
+      pluginSettings = undefined;
+    }
+  }
+  //remove keys from providers
+  if (pluginSettings && pluginSettings.providers) {
+    for (let key in pluginSettings.providers) {
+      pluginSettings.providers[key].key = "";
+    }
+  }
+  return pluginSettings;
+}
+
 async function requestSettings(req, res) {
   const ctx = new operationContext.Context();
 	ctx.initFromRequest(req);
@@ -378,6 +401,7 @@ async function requestModels(req, res) {
 module.exports = {
   proxyRequest,
   getPluginSettings,
+  getPluginSettingsForInterface,
   requestSettings,
   requestModels
 };
