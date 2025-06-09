@@ -1015,7 +1015,9 @@ async function startForceSave(ctx, docId, type, opt_userdata, opt_formdata, opt_
         let selectRes = await taskResult.select(ctx, docId);
         if (selectRes.length > 0) {
           res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
-          res.url = await getForceSaveUrl(ctx, baseUrl, forceSave.convertInfo);
+          if (forceSave) {
+            res.url = await getForceSaveUrl(ctx, baseUrl, forceSave.convertInfo);
+          }
         } else {
           res.code = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
         }
