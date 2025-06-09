@@ -62,7 +62,9 @@ async function getConfigFromFile(ctx) {
     const configData = await fs.readFile(configFilePath, 'utf8');
     return JSON.parse(configData);
   } catch (err) {
-    ctx.logger.debug('getConfigFromFile error: %s', err.stack);
+    if (err.code !== 'ENOENT') {
+      ctx.logger.error('getConfigFromFile error: %s', err.stack);
+    }
     return null;
   }
 }
@@ -74,7 +76,7 @@ async function getConfigFromFile(ctx) {
  */
 async function getConfig(ctx) {
   let config = nodeCache.get(configFileName);
-  if (!config) {
+  if (undefined === config) {
     config = await getConfigFromFile(ctx);
     nodeCache.set(configFileName, config);
   }
