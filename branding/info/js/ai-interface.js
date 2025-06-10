@@ -63,20 +63,19 @@
         };
         AIIntegration.onResetActions = function() {
             try {
-                var settingsWindow = findIframeBySrcPart('settings');
-                if (settingsWindow && settingsWindow.contentWindow) {
-                    if (settings && settings.actions) {
-                        for (let id in settings.actions) {
-                            if (settings.actions[id]) {
-                                settings.actions[id].model = "";
-                            }
+                if (settings && settings.actions) {
+                    for (let id in settings.actions) {
+                        if (settings.actions[id]) {
+                            settings.actions[id].model = "";
                         }
                     }
-                    sendMessageToSettings({
-                        name: 'onResetSelectors'
-                    }, settingsWindow.contentWindow);
-                    return Promise.resolve(true);
                 }
+                var settingsWindow = findIframeBySrcPart('settings');
+                if (settingsWindow && settingsWindow.contentWindow) {
+                    updateActions(settingsWindow.contentWindow);
+                }
+                updateModels();
+                return AIIntegration.onSave();
             } catch (error) {
                 console.error('Reset actions error:', error);
             }
@@ -113,12 +112,11 @@
                     // Update UI
                     var settingsWindow = findIframeBySrcPart('settings');
                     if (settingsWindow && settingsWindow.contentWindow) {
-                        sendMessageToSettings({
-                            name: 'onResetSelectors'
-                        }, settingsWindow.contentWindow);
+                        updateActions(settingsWindow.contentWindow);
                     }
+                    updateModels();
 
-                    return Promise.resolve(true);
+                    return AIIntegration.onSave();
                 }
             } catch (error) {
                 console.error('Reset all settings error:', error);

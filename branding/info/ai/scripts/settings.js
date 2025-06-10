@@ -25,9 +25,6 @@ window.Asc.plugin.init = function() {
 		updatedComboBoxes();
 	});
 	window.Asc.plugin.attachEvent("onThemeChanged", onThemeChanged);
-	window.Asc.plugin.attachEvent("onResetSelectors", function() {
-		$('.ai-model-select').val('').trigger('change');
-	});
 
 	$('#edit-ai-models label').click(function(e) {
 		window.Asc.plugin.sendToPlugin("onOpenAiModelsModal");

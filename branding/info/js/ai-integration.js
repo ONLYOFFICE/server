@@ -47,7 +47,7 @@ const AIIntegration = {
                     <button class="ai-btn" id="ai-btn-back" style="display: none;">Back</button>
                     <button class="ai-btn" id="ai-btn-cancel" style="display: none;">Cancel</button>
                     <button class="ai-btn" id="ai-btn-reset-all-settings" style="display: none;">Reset All Settings</button>
-                    <button class="ai-btn" id="ai-btn-reset-actions" style="display: none;">Reset</button>
+                    <button class="ai-btn" id="ai-btn-reset-actions" style="display: none;">Reset Tasks</button>
                     <button class="ai-btn primary" id="ai-btn-save" style="display: none;">Save</button>
                     <button class="ai-btn primary" id="ai-btn-ok" style="display: none;">OK</button>
                 </div>
