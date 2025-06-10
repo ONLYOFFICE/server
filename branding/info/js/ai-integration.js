@@ -13,6 +13,8 @@ const AIIntegration = {
     // Callback functions
     onSave: null,
     onOk: null,
+    onResetActions: null,
+    onResetAllSettings: null,
     
     // Initialize the AI integration
     init() {
@@ -44,6 +46,8 @@ const AIIntegration = {
                 <div class="ai-controls" id="ai-controls">
                     <button class="ai-btn" id="ai-btn-back" style="display: none;">Back</button>
                     <button class="ai-btn" id="ai-btn-cancel" style="display: none;">Cancel</button>
+                    <button class="ai-btn" id="ai-btn-reset-all-settings" style="display: none;">Reset All Settings</button>
+                    <button class="ai-btn" id="ai-btn-reset-actions" style="display: none;">Reset</button>
                     <button class="ai-btn primary" id="ai-btn-save" style="display: none;">Save</button>
                     <button class="ai-btn primary" id="ai-btn-ok" style="display: none;">OK</button>
                 </div>
@@ -60,6 +64,8 @@ const AIIntegration = {
         const btnCancel = document.getElementById('ai-btn-cancel');
         const btnSave = document.getElementById('ai-btn-save');
         const btnOk = document.getElementById('ai-btn-ok');
+        const btnResetActions = document.getElementById('ai-btn-reset-actions');
+        const btnResetAllSettings = document.getElementById('ai-btn-reset-all-settings');
         const iframeSettings = document.getElementById('ai-iframe-settings');
         const iframeEdit = document.getElementById('ai-iframe-edit');
         const iframeList = document.getElementById('ai-iframe-list');
@@ -82,6 +88,14 @@ const AIIntegration = {
         
         if (btnOk) {
             btnOk.addEventListener('click', () => this.ok());
+        }
+
+        if (btnResetActions) {
+            btnResetActions.addEventListener('click', () => this.resetActions());
+        }
+
+        if (btnResetAllSettings) {
+            btnResetAllSettings.addEventListener('click', () => this.resetAllSettings());
         }
         
         if (iframeSettings) {
@@ -164,9 +178,11 @@ const AIIntegration = {
         const btnCancel = document.getElementById('ai-btn-cancel');
         const btnSave = document.getElementById('ai-btn-save');
         const btnOk = document.getElementById('ai-btn-ok');
+        const btnResetActions = document.getElementById('ai-btn-reset-actions');
+        const btnResetAllSettings = document.getElementById('ai-btn-reset-all-settings');
         
         // Hide all buttons first
-        [btnBack, btnCancel, btnSave, btnOk].forEach(btn => {
+        [btnBack, btnCancel, btnSave, btnOk, btnResetActions, btnResetAllSettings].forEach(btn => {
             if (btn) btn.style.display = 'none';
         });
         
@@ -174,6 +190,8 @@ const AIIntegration = {
         switch (this.currentView) {
             case 'settings':
                 if (btnSave) btnSave.style.display = 'inline-block';
+                if (btnResetActions) btnResetActions.style.display = 'inline-block';
+                if (btnResetAllSettings) btnResetAllSettings.style.display = 'inline-block';
                 break;
             case 'aiModelEdit':
                 if (btnOk) btnOk.style.display = 'inline-block';
@@ -245,6 +263,40 @@ const AIIntegration = {
 
     cancel() {
         this.navigateToView('aiModelsList');
+    },
+
+    resetActions() {
+        if (this.onResetActions) {
+            this.onResetActions().then((res) => {
+                const btnResetActions = document.getElementById('ai-btn-reset-actions');
+                if (btnResetActions) {
+                    const originalText = btnResetActions.textContent;
+                    btnResetActions.textContent = res ? 'Actions Reset!' : 'Reset Failed!';
+                    btnResetActions.disabled = true;
+                    setTimeout(() => {
+                        btnResetActions.textContent = originalText;
+                        btnResetActions.disabled = false;
+                    }, 2000);
+                }
+            });
+        }
+    },
+
+    resetAllSettings() {
+        if (this.onResetAllSettings) {
+            this.onResetAllSettings().then((res) => {
+                const btnResetAllSettings = document.getElementById('ai-btn-reset-all-settings');
+                if (btnResetAllSettings) {
+                    const originalText = btnResetAllSettings.textContent;
+                    btnResetAllSettings.textContent = res ? 'Settings Reset!' : 'Reset Failed!';
+                    btnResetAllSettings.disabled = true;
+                    setTimeout(() => {
+                        btnResetAllSettings.textContent = originalText;
+                        btnResetAllSettings.disabled = false;
+                    }, 2000);
+                }
+            });
+        }
     }
 };
 

@@ -61,6 +61,70 @@
                 return false;
             });
         };
+        AIIntegration.onResetActions = function() {
+            try {
+                var settingsWindow = findIframeBySrcPart('settings');
+                if (settingsWindow && settingsWindow.contentWindow) {
+                    if (settings && settings.actions) {
+                        for (let id in settings.actions) {
+                            if (settings.actions[id]) {
+                                settings.actions[id].model = "";
+                            }
+                        }
+                    }
+                    sendMessageToSettings({
+                        name: 'onResetSelectors'
+                    }, settingsWindow.contentWindow);
+                    return Promise.resolve(true);
+                }
+            } catch (error) {
+                console.error('Reset actions error:', error);
+            }
+            return Promise.resolve(false);
+        };
+        AIIntegration.onResetAllSettings = function() {
+            try {
+                if (settings) {
+                    // Reset actions models
+                    if (settings.actions) {
+                        for (let id in settings.actions) {
+                            if (settings.actions[id]) {
+                                settings.actions[id].model = "";
+                            }
+                        }
+                    }
+
+                    // Reset models array
+                    settings.models = [];
+
+                    // Reset custom providers
+                    settings.customProviders = {};
+
+                    // Reset providers
+                    if (settings.providers) {
+                        for (let id in settings.providers) {
+                            if (settings.providers[id]) {
+                                settings.providers[id].key = "";
+                                settings.providers[id].models = [];
+                            }
+                        }
+                    }
+
+                    // Update UI
+                    var settingsWindow = findIframeBySrcPart('settings');
+                    if (settingsWindow && settingsWindow.contentWindow) {
+                        sendMessageToSettings({
+                            name: 'onResetSelectors'
+                        }, settingsWindow.contentWindow);
+                    }
+
+                    return Promise.resolve(true);
+                }
+            } catch (error) {
+                console.error('Reset all settings error:', error);
+            }
+            return Promise.resolve(false);
+        };
         AIIntegration.onOk = function() {
             var aiModelEditWindow = findIframeBySrcPart('aiModelEdit');
             if(aiModelEditWindow) {
