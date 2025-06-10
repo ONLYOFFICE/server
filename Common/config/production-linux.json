@@ -6,7 +6,7 @@
     "pluginDir" : "/var/www/onlyoffice/documentserver/server/info/ai"
   },
   "runtimeConfig": {
-    "filePath": "/var/www/onlyoffice/documentserver/../Data/runtime.json"
+    "filePath": "/etc/onlyoffice/documentserver/runtime.json"
   },
   "storage": {
     "fs": {
