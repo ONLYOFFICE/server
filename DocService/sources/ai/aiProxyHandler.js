@@ -62,14 +62,16 @@ const nodeCache = new utils.NodeCache(cfgAiApiCache);
  */
 function handleCorsHeaders(req, res, ctx, handleOptions = true) {
   const requestOrigin = req.headers.origin;
+
+  const tenAiApiAllowedOrigins = ctx.getCfg('aiSettings.allowedCorsOrigins', cfgAiApiAllowedOrigins);
   
   // If no origin in request or allowed origins list is empty, do nothing
-  if (!requestOrigin || cfgAiApiAllowedOrigins.length === 0) {
+  if (!requestOrigin || tenAiApiAllowedOrigins.length === 0) {
     return false;
   }
   
   // If the origin is in our allowed list
-  if (cfgAiApiAllowedOrigins.includes(requestOrigin)) {
+  if (tenAiApiAllowedOrigins.includes(requestOrigin)) {
     res.setHeader('Access-Control-Allow-Origin', requestOrigin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin'); // Important when using dynamic origin
@@ -113,7 +115,9 @@ async function proxyRequest(req, res) {
 
   try {
     ctx.logger.info('Start proxyRequest');
+    await ctx.initTenantCache();
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
+    const tenAiApiTimeout = ctx.getCfg('aiSettings.timeout', cfgAiApiTimeout);
     const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
 
     // 1. Handle CORS preflight (OPTIONS) requests if necessary
@@ -134,8 +138,8 @@ async function proxyRequest(req, res) {
 
     // Configure timeout options for the request
     const timeoutOptions = {
-      connectionAndInactivity: cfgAiApiTimeout,
-      wholeCycle: cfgAiApiTimeout
+      connectionAndInactivity: tenAiApiTimeout,
+      wholeCycle: tenAiApiTimeout
     };
     
     // Get request size limit if configured
