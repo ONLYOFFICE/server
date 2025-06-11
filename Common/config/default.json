@@ -15,7 +15,7 @@
 		"version": 3,
 		"timeout": "30s",
 		"allowedCorsOrigins": [
-			"https://onlyoffice.github.io"
+			"https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"
 		],
 		"pluginDir" : "../branding/info/ai",
 		"cache": {
