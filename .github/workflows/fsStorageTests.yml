@@ -1,0 +1,97 @@
+name: fs Storage Tests
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'tests/integration/withServerInstance/storage.tests.js'
+      - 'Common/sources/storage/**'
+
+jobs:
+  fs-storage-tests:
+    name: File System Storage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Caching dependencies
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: |
+            ./npm-shrinkwrap.json
+            ./Common/npm-shrinkwrap.json
+            ./DocService/npm-shrinkwrap.json
+
+      - name: Install modules
+        run: |
+          npm ci
+          npm --prefix Common ci
+          npm --prefix DocService ci
+
+      - name: Install and start RabbitMQ
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rabbitmq-server
+          sudo systemctl start rabbitmq-server
+          sudo rabbitmqctl status
+
+      - name: Install and configure PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-contrib
+          sudo systemctl start postgresql
+          sudo -u postgres psql -c "CREATE USER onlyoffice WITH PASSWORD 'onlyoffice';"
+          sudo -u postgres psql -c "CREATE DATABASE onlyoffice OWNER onlyoffice;"
+          sudo -u postgres psql -c "ALTER USER onlyoffice WITH SUPERUSER;"
+          sudo -u postgres psql -d onlyoffice -f schema/postgresql/createdb.sql
+
+      - name: Creating service configuration
+        run: |
+          mkdir -p Common/config
+          echo '{
+            "storage": {
+              "name": "storage-fs",
+              "fs": {
+                "folderPath": "/tmp/storage",
+                "urlExpires": 900,
+                "secretString": "verysecretstring"
+              },
+              "region": "",
+              "endpoint": "http://localhost/s3",
+              "bucketName": "cache",
+              "storageFolderName": "files",
+              "cacheFolderName": "data",
+              "urlExpires": 604800,
+              "accessKeyId": "",
+              "secretAccessKey": "",
+              "sslEnabled": false,
+              "s3ForcePathStyle": true,
+              "externalHost": "",
+              "useDirectStorageUrls": true
+            },
+          }' > Common/config/local.json
+
+      - name: Create storage directory
+        run: mkdir -p /tmp/storage
+
+      - name: Start server instance
+        run: |
+          cd DocService && npx cross-env NODE_ENV=development-linux NODE_CONFIG_DIR=../Common/config node sources/server.js &
+          sleep 10
+
+      - name: Run storage tests
+        run: |
+          cd ./DocService
+          npx jest ../tests/integration/withServerInstance/storage.tests.js --inject-globals=false --config=../tests/jest.config.js 
+
+      - name: Cleanup
+        if: always()
+        run: |
+          pkill -f "node sources/server.js" || true
+          rm -rf /tmp/storage
+          sudo systemctl stop rabbitmq-server
+          sudo systemctl stop postgresql 

@@ -1,0 +1,75 @@
+name: s3 Storage Tests
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'tests/integration/withServerInstance/storage.tests.js'
+      - 'Common/sources/storage/**'
+
+jobs:
+  storage-tests:
+    name: Storage Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run MinIO docker container
+        run: |
+          docker run --name minio \
+            -p 9000:9000 \
+            -p 9001:9001 \
+            -e "MINIO_ROOT_USER=minioadmin" \
+            -e "MINIO_ROOT_PASSWORD=minioadmin" \
+            -d minio/minio server /data --console-address ":9001"
+
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Caching dependencies
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: |
+            ./npm-shrinkwrap.json
+            ./Common/npm-shrinkwrap.json
+            ./DocService/npm-shrinkwrap.json
+
+      - name: Install modules
+        run: |
+          npm ci
+          npm --prefix Common ci
+          npm --prefix DocService ci
+
+      - name: Creating storage configuration
+        run: |
+          echo '{
+            "storage": {
+              "name": "storage-s3",
+              "region": "us-east-1",
+              "endpoint": "http://localhost:9000",
+              "accessKeyId": "minioadmin",
+              "secretAccessKey": "minioadmin",
+              "bucket": "cache",
+              "forcePathStyle": true
+            },
+            "persistentStorage": {
+              "name": "storage-s3",
+              "region": "us-east-1",
+              "endpoint": "http://localhost:9000",
+              "accessKeyId": "minioadmin",
+              "secretAccessKey": "minioadmin",
+              "bucket": "cache",
+              "forcePathStyle": true
+            }
+          }' >> Common/config/local.json
+
+      - name: Create MinIO buckets
+        run: |
+          docker exec minio mc alias set myminio http://localhost:9000 minioadmin minioadmin
+          docker exec minio mc mb myminio/cache
+
+      - name: Run storage tests
+        run: |
+          cd ./DocService
+          npx jest ../tests/integration/withServerInstance/storage.tests.js --inject-globals=false --config=../tests/jest.config.js 
