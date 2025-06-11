@@ -353,3 +353,39 @@ describe('storage mix common and forgotten dir', function () {
     expect(list.sort()).toEqual([].sort());
   });
 });
+
+// describe('storage direct URL testing', function () {
+//   test("getSignedUrl with direct URLs enabled", async () => {
+//     // we need to mock the getStorageCfg to return the config with direct URLs enabled
+
+//     let buffer = Buffer.from(testFileData1);
+//     let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
+//     expect(res).toEqual(undefined);
+
+//     let url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache);
+//     let data = await request(url);
+//     expect(data).toEqual(testFileData1);
+    
+//     if (cfgCacheStorage.name !== 'storage-fs') {
+//       expect(url).toContain(cfgCacheStorage.endpoint);
+//       expect(url).toContain(cfgCacheStorage.bucketName);
+//     }
+//   });
+
+
+//   test("getSignedUrl with direct URLs disabled", async () => {
+//     // we need to mock the getStorageCfg to return the config with direct URLs disabled
+
+//     let buffer = Buffer.from(testFileData1);
+//     let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
+//     expect(res).toEqual(undefined);
+   
+//     let url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache);
+//     let data = await request(url);
+//     expect(data).toEqual(testFileData1);
+   
+//     expect(url).toContain(`md5`);
+//     expect(url).toContain(`expires`);
+//     expect(url).toContain(cfgCacheStorage.storageFolderName);
+//   });
+// });
