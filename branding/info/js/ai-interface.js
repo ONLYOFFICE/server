@@ -40,6 +40,8 @@
     var urlSettings = 'plugin/settings';
     var urlModels = 'plugin/models';
     var urlConfig = 'config';
+
+    var tmpModel = null;
     
         // Initialize AI functionality when DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
@@ -152,6 +154,20 @@
             name: 'onThemeChanged',
             data: {type:'light', name: 'theme-light'}
         }, source);
+        const providers = Object.keys(settings.providers).map(function(key) { return settings.providers[key]; });
+        var model = {id: "", name: "", provider: "", capabilities: 0};
+        if (tmpModel) {
+            model = settings.models.find(function(model) { return model.name === tmpModel.name; });
+            tmpModel = null;
+        }
+        var data = {
+            model : model,
+            providers : providers
+        }
+        sendMessageToSettings({
+            name: 'onModelInfo',
+            data: data
+        }, source);
     }
 
     /**
@@ -241,35 +257,8 @@
                 }
                 break;
             case 'onOpenEditModal':
+                tmpModel = message.data.model;
                 AIIntegration.navigateToView('aiModelEdit');
-                var aiModelEditWindow = findIframeBySrcPart('aiModelEdit');
-                if(aiModelEditWindow) {
-                    const providers = Object.keys(settings.providers).map(function(key) { return settings.providers[key]; });
-                    var model = {id: "", name: "", provider: "", capabilities: 0};
-                    if (message.data.model) {
-                        model = settings.models.find(function(model) { return model.name === message.data.model.name; });
-                    }
-                    var data = {
-                        model : model,
-                        providers : providers
-                    }
-                    sendMessageToSettings({
-                        name: 'onProvidersUpdate',
-                        data: data
-                    }, aiModelEditWindow.contentWindow);
-                    
-
-                    
-                    sendMessageToSettings({
-                        name: 'onModelInfo',
-                        data: data
-                    }, aiModelEditWindow.contentWindow);
-
-                    // sendMessageToSettings({
-                    //     name: 'onGetModels',
-                    //     data: {error: 1, models: []}
-                    // }, aiModelEditWindow.contentWindow);
-                }
                 break;
             case 'onDeleteAiModel':
                 for (var i = 0; i < settings.models.length; i++) {

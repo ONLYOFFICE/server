@@ -134,6 +134,7 @@ const AIIntegration = {
     
     /**
      * Load the current view in the iframe
+     * @returns {void} No return value
      */
     loadCurrentView() {
         if (this.isCollapsed) return;
@@ -144,27 +145,34 @@ const AIIntegration = {
         
         if (!iframeSettings || !iframeEdit || !iframeList) return;
         
-        // Switch iframe visibility based on current view
+        // Hide all iframes first
+        [iframeSettings, iframeEdit, iframeList].forEach(iframe => {
+            iframe.classList.add('hidden');
+        });
+        
+        // Show loading overlay
+        const overlay = document.getElementById('ai-overlay');
+        if (overlay) {
+            overlay.classList.add('loading');
+        }
+        
+        // Always reassign src to force reload, then show the appropriate iframe
         switch (this.currentView) {
             case 'settings':
+                iframeSettings.src = 'ai/settings.html';
                 iframeSettings.classList.remove('hidden');
-                iframeEdit.classList.add('hidden');
-                iframeList.classList.add('hidden');
                 break;
             case 'aiModelEdit':
-                iframeSettings.classList.add('hidden');
+                iframeEdit.src = 'ai/aiModelEdit.html';
                 iframeEdit.classList.remove('hidden');
-                iframeList.classList.add('hidden');
                 break;
             case 'aiModelsList':
-                iframeSettings.classList.add('hidden');
-                iframeEdit.classList.add('hidden');
+                iframeList.src = 'ai/aiModelsList.html';
                 iframeList.classList.remove('hidden');
                 break;
             default:
+                iframeSettings.src = 'ai/settings.html';
                 iframeSettings.classList.remove('hidden');
-                iframeEdit.classList.add('hidden');
-                iframeList.classList.add('hidden');
         }
         
         this.updateControls();
@@ -205,11 +213,11 @@ const AIIntegration = {
     
     /**
      * Handle iframe load event
+     * @returns {void} No return value
      */
     onIframeLoad() {
-        this.loadedIframes++;
         const overlay = document.getElementById('ai-overlay');
-        if (overlay && this.loadedIframes === this.totalIframes) {
+        if (overlay) {
             // Hide loading overlay after a short delay
             setTimeout(() => {
                 overlay.classList.remove('loading');
