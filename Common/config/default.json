@@ -17,12 +17,7 @@
 		"allowedCorsOrigins": [
 			"https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"
 		],
-		"pluginDir" : "../branding/info/ai",
-		"cache": {
-			"enable": true,
-			"ttl": 300,
-			"cachesize": 1000
-		}
+		"pluginDir" : "../branding/info/ai"
 	},
 	"log": {
 		"filePath": "",

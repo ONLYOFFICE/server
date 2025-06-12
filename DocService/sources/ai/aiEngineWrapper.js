@@ -42,9 +42,9 @@ const vm = require('vm');
 
 // Configuration constants
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
-const cfgAiApiModels = config.get('aiSettings.models');
-const cfgAiApiActions = config.get('aiSettings.actions');
 const cfgAiPluginDir = config.get('aiSettings.pluginDir');
+
+const engineScriptsDir = path.join(cfgAiPluginDir, 'scripts/engine');
 
 function setCtx(ctx) {
   sandbox.ctx = ctx;
@@ -55,14 +55,29 @@ function setCtx(ctx) {
 // Set up the environment for the client-side engine.js
 const sandbox = {
   ctx: null,
-  window: {AI: {}},
+  window: {
+    AI: {
+      TmpProviderForModels: null,
+      Providers: {},
+      InternalProviders: [],
+      _getHeaders: function() {return {};},
+      serializeProviders: function() {return [];},
+      ActionsGetSorted: function() {return [];},
+      getModels: function() {return [];},
+      onLoadInternalProviders: function() {},
+      Storage: {
+        serializeModels: function() {return [];}
+      },
+      CapabilitiesUI: {}
+    }
+  },
   Asc: {
     plugin: {
-    tr: function(text) {
-      // Just return the original text in the stub
-      return text;
+      tr: function(text) {
+        // Just return the original text in the stub
+        return text;
+      }
     }
-  }
   },
   
   /**
@@ -89,7 +104,7 @@ const sandbox = {
       options.headers || {},
       options.body || null,
       timeoutOptions,
-      10 * 1024 * 1024,
+      null,
       false
     )
     .then(async (result) => {
@@ -110,7 +125,7 @@ const sandbox = {
 };
 
 // Initialize minimal AI object with required functionality
-const AI = sandbox.AI = sandbox.window.AI;
+sandbox.AI = sandbox.window.AI;
 setCtx(operationContext.global);
 
 /**
@@ -118,8 +133,15 @@ setCtx(operationContext.global);
  */
 function loadInternalProviders() {
   // Add simple provider loading logic
-  const enginePath = path.join(cfgAiPluginDir, 'scripts/engine/providers/internal');
+  const enginePath = path.join(engineScriptsDir, 'providers/internal');
   
+  // Check if the providers directory exists before trying to read it
+  if (!fs.existsSync(enginePath)) {
+    sandbox.ctx.logger.warn('Internal providers directory not found:', enginePath);
+    sandbox.AI.onLoadInternalProviders();
+    return;
+  }
+
   try {
     // Read providers directory
     const files = fs.readdirSync(enginePath);
@@ -150,27 +172,28 @@ function loadInternalProviders() {
     sandbox.ctx.logger.error('Error loading internal providers:', error);
   }
 }
-/**
- * Simple loadInternalProviders implementation
- */
-function fillConfigObjects() {
-  AI.Models = cfgAiApiModels;
-  for(let id in cfgAiApiActions) {
-    let action = cfgAiApiActions[id];
-    if (action.model && AI.Actions[id]) {
-      AI.Actions[id].model = action.model;
-    }
-  }
-}
 
 // Load engine.js
 let engineCode = '';
-engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/storage.js'), 'utf8');
-engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/local_storage.js'), 'utf8');
-engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/providers/base.js'), 'utf8');
-engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/providers/provider.js'), 'utf8');
-engineCode += fs.readFileSync(path.join(cfgAiPluginDir, 'scripts/engine/engine.js'), 'utf8');
-vm.runInNewContext(engineCode, sandbox);
+
+try {
+  engineCode += fs.readFileSync(path.join(engineScriptsDir, 'storage.js'), 'utf8');
+  engineCode += fs.readFileSync(path.join(engineScriptsDir, 'local_storage.js'), 'utf8');
+  engineCode += fs.readFileSync(path.join(engineScriptsDir, 'providers/base.js'), 'utf8');
+  engineCode += fs.readFileSync(path.join(engineScriptsDir, 'providers/provider.js'), 'utf8');
+  engineCode += fs.readFileSync(path.join(engineScriptsDir, 'engine.js'), 'utf8');
+} catch (error) {
+  sandbox.ctx.logger.warn('Error reading engine script files:', error);
+}
+
+// Run engine code if available
+if (engineCode) {
+  try {
+    vm.runInNewContext(engineCode, sandbox);
+  } catch (error) {
+    sandbox.ctx.logger.error('Error executing engine scripts:', error);
+  }
+}
 
 //start from engine/register.js
 (function() {
@@ -240,7 +263,6 @@ vm.runInNewContext(engineCode, sandbox);
 
 sandbox.AI.loadInternalProviders = loadInternalProviders;
 loadInternalProviders();
-fillConfigObjects();
 
 exports.setCtx = setCtx;
 exports.AI = sandbox.AI;

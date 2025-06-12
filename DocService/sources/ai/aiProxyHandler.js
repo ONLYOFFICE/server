@@ -33,7 +33,6 @@
 'use strict';
 
 const { pipeline } = require('stream/promises');
-const { buffer } = require('node:stream/consumers');
 const config = require('config');
 const utils = require('./../../../Common/sources/utils');
 const operationContext = require('./../../../Common/sources/operationContext');
@@ -45,12 +44,10 @@ const aiEngine = require('./aiEngineWrapper');
 
 const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
-const cfgAiApiCache = config.get('aiSettings.cache');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgAiSettings = config.get('aiSettings');
 
 const AI = aiEngine.AI;
-const nodeCache = new utils.NodeCache(cfgAiApiCache);
 /**
  * Helper function to set CORS headers if the request origin is allowed
  * 
@@ -103,7 +100,7 @@ function handleCorsHeaders(req, res, ctx, handleOptions = true) {
 
 /**
  * Makes an HTTP request to an AI API endpoint using the provided request and response objects
- * 
+ *
  * @param {object} req - Express request object
  * @param {object} res - Express response object
  * @returns {Promise<void>} - Promise resolving when the request is complete
@@ -142,10 +139,6 @@ async function proxyRequest(req, res) {
       wholeCycle: tenAiApiTimeout
     };
     
-    // Get request size limit if configured
-    const sizeLimit = 10 * 1024 * 1024; // Default to 10MB
-
-    
     let providerHeaders;
     // Determine which API key to use based on the target URL
     if (body.target) {
@@ -171,21 +164,13 @@ async function proxyRequest(req, res) {
       headers,
       body: body.data,
       timeout: timeoutOptions,
-      limit: sizeLimit,
+      limit: null,
       filterPrivate: false
     };
     
-    // Create a safe copy for logging without sensitive info
-    const safeLogParams = { ...requestParams };
-    // if (safeLogParams.headers) {
-    //   safeLogParams.headers = { ...safeLogParams.headers };
-    //   if (safeLogParams.headers.Authorization) {
-    //     safeLogParams.headers.Authorization = '[REDACTED]';
-    //   }
-    // }
     
     // Log the sanitized request parameters
-    ctx.logger.debug(`Proxying request: %j`, safeLogParams);
+    ctx.logger.debug(`Proxying request: %j`, requestParams);
     
     // Use utils.httpRequest to make the request
     const result = await utils.httpRequest(
@@ -221,9 +206,9 @@ async function proxyRequest(req, res) {
         }
       });
     }
-  } finally {
-    ctx.logger.info('End proxyRequest');
-  }
+    } finally {
+      ctx.logger.info('End proxyRequest');
+    }
 }
 
 /**
@@ -243,7 +228,7 @@ async function processProvider(ctx, provider) {
   let engineModelsUI = [];
   try {
     // Call getModels from engine.js
-    if (provider.key) {
+    if (provider.key && AI.Providers[provider.name]) {
       AI.Providers[provider.name].key = provider.key;
       // aiEngine.setCtx(ctx);
       // await AI.getModels(provider);
@@ -275,11 +260,6 @@ async function processProvider(ctx, provider) {
 async function getPluginSettings(ctx) {
   const logger = ctx.logger;
   logger.info('Starting getPluginSettings');
-  let res = nodeCache.get(ctx.tenant);
-  if (res) {
-    ctx.logger.debug('getPluginSettings from cache');
-    return res;
-  }
   const result = {
     version: 3,
     actions: {},
@@ -337,7 +317,6 @@ async function getPluginSettings(ctx) {
     }
     const tenVersion = ctx.getCfg('aiSettings.version', cfgAiSettings.version);
     result.version = tenVersion;
-    // nodeCache.set(ctx.tenant, result);
   } catch (error) {
     logger.error('Error retrieving AI models from config:', error);
   }
@@ -392,9 +371,9 @@ async function requestModels(req, res) {
     if (AI.Providers[body.name]) {
       AI.Providers[body.name].key = body.key;
       AI.Providers[body.name].url = body.url;
-    }
+        }
     let getRes = await AI.getModels(body);
-    getRes.modelsApi = AI.TmpProviderForModels?.models;
+        getRes.modelsApi = AI.TmpProviderForModels?.models;
     res.json(getRes);
   } catch (error) {
     ctx.logger.error('getModels error: %s', error.stack);
