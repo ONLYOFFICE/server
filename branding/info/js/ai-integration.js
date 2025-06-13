@@ -7,8 +7,6 @@ const AIIntegration = {
     // Current state
     currentView: 'settings',
     isCollapsed: true,
-    loadedIframes: 0,
-    totalIframes: 3,
     
     // Callback functions
     onSave: null,
@@ -46,7 +44,7 @@ const AIIntegration = {
                 <div class="ai-controls" id="ai-controls">
                     <button class="ai-btn" id="ai-btn-back" style="display: none;">Back</button>
                     <button class="ai-btn" id="ai-btn-cancel" style="display: none;">Cancel</button>
-                    <button class="ai-btn" id="ai-btn-reset-all-settings" style="display: none;">Reset All Settings</button>
+                    <button class="ai-btn" id="ai-btn-reset-all-settings" style="display: none;">Restore Defaults</button>
                     <button class="ai-btn" id="ai-btn-reset-actions" style="display: none;">Reset Tasks</button>
                     <button class="ai-btn primary" id="ai-btn-save" style="display: none;">Save</button>
                     <button class="ai-btn primary" id="ai-btn-ok" style="display: none;">OK</button>
@@ -230,7 +228,6 @@ const AIIntegration = {
      * @param {string} view - The view to navigate to ('settings', 'aiModelEdit', 'aiModelsList')
      */
     navigateToView(view) {
-        const previousView = this.currentView;
         this.currentView = view;
         this.loadCurrentView();
     },
@@ -310,8 +307,5 @@ const AIIntegration = {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait a bit for the main page to load
-    setTimeout(() => {
-        AIIntegration.init();
-    }, 500);
+    AIIntegration.init();
 });
