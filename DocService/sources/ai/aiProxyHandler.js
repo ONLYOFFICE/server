@@ -33,6 +33,7 @@
 'use strict';
 
 const { pipeline } = require('stream/promises');
+const { URL } = require('url');
 const config = require('config');
 const utils = require('./../../../Common/sources/utils');
 const operationContext = require('./../../../Common/sources/operationContext');
@@ -53,7 +54,7 @@ const AI = aiEngine.AI;
  * 
  * @param {object} req - Express request object
  * @param {object} res - Express response object
- * @param {object} ctx - Operation context for logging
+ * @param {operationContext.Context} ctx - Operation context for logging
  * @param {boolean} handleOptions - Whether to handle OPTIONS requests (default: true) 
  * @returns {boolean} - True if this was an OPTIONS request that was handled
  */
@@ -99,6 +100,45 @@ function handleCorsHeaders(req, res, ctx, handleOptions = true) {
 }
 
 /**
+ * Appends API key to the request URI if the provider passes it as a query parameter.
+ *
+ * @param {operationContext.Context} ctx - The operation context for logging.
+ * @param {object} provider - The AI provider configuration.
+ * @param {string} uri - The original request URI.
+ * @returns {string} The updated URI with API key as a query parameter, if applicable.
+ */
+function appendApiKeyToQuery(ctx, provider, uri) {
+    const urlWithKey = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
+
+    // To check if the key is part of the query, we get the URL without the key.
+    const originalKey = provider.key;
+    provider.key = undefined;
+    const urlWithoutKey = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
+    provider.key = originalKey; // Restore the key on the provider object.
+
+    if (urlWithKey !== urlWithoutKey) {
+        try {
+            const parsedUrlWithKey = new URL(urlWithKey);
+            if (parsedUrlWithKey.search) {
+                const parsedUri = new URL(uri);
+                for (const [key, value] of parsedUrlWithKey.searchParams) {
+                  if (originalKey === value) {
+                    parsedUri.searchParams.set(key, value);
+                    break;
+                  }
+                }
+                ctx.logger.debug(`appendApiKeyToQuery: Appended API key to URI for provider ${provider.name}`);
+                return parsedUri.toString();
+            }
+        } catch (error) {
+            ctx.logger.error(`appendApiKeyToQuery: Failed to parse provider URL for ${provider.name}: ${urlWithKey}`, error);
+        }
+    }
+
+    return uri;
+}
+
+/**
  * Makes an HTTP request to an AI API endpoint using the provided request and response objects
  *
  * @param {object} req - Express request object
@@ -125,49 +165,80 @@ async function proxyRequest(req, res) {
     if (tenTokenEnableBrowser) {
       let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
       if (!checkJwtRes || checkJwtRes.err) {
-        ctx.logger.error('checkJwtHeader error: %s', checkJwtRes?.err);
-        res.sendStatus(403);
+        ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.err);
+        res.status(403).json({
+          "error": {
+            "message": "proxyRequest: checkJwtHeader error",
+            "code": "403"
+          }
+        });
         return;
       }
     }
 
+    if (!tenAiApi?.providers) {
+      ctx.logger.error('proxyRequest: No providers configured');
+      res.status(403).json({
+        "error": {
+          "message": "proxyRequest: No providers configured",
+          "code": "403"
+        }
+      });
+      return;
+    }
+
     let body = JSON.parse(req.body);
+    let uri = body.target;
+
+    let providerHeaders;
+    let providerMatched = false;
+    // Determine which API key to use based on the target URL
+    if (uri) {
+      for (const providerName in tenAiApi.providers) {
+        const tenProvider = tenAiApi.providers[providerName];
+        if (uri.startsWith(tenProvider.url) && AI.Providers[tenProvider.name]) {
+          providerMatched = true;
+          const provider = AI.Providers[tenProvider.name];
+          provider.key = tenProvider.key;
+          provider.url = tenProvider.url;
+          providerHeaders = AI._getHeaders(provider);
+
+          uri = appendApiKeyToQuery(ctx, provider, uri);
+          break;
+        } 
+      }
+    }
+    // If body.target was provided but no provider was matched, return 403
+    if (!providerHeaders) {
+      ctx.logger.warn(`proxyRequest: target '${uri}' does not match any configured AI provider. Denying access.`);
+      res.status(403).json({
+        "error": {
+          "message": "proxyRequest: target does not match any configured AI provider",
+          "code": "403"
+        }
+      });
+      return;
+    }
+
+
+    // Merge key in headers
+    const headers = { ...body.headers, ...providerHeaders };
 
     // Configure timeout options for the request
     const timeoutOptions = {
       connectionAndInactivity: tenAiApiTimeout,
       wholeCycle: tenAiApiTimeout
     };
-    
-    let providerHeaders;
-    // Determine which API key to use based on the target URL
-    if (body.target) {
-      // Find the provider that matches the target URL
-      for (let providerName in AI.Providers) {//todo try for of
-        if (body.target.includes(AI.Providers[providerName].url)) {
-          if (tenAiApi?.providers?.[providerName]) {
-            AI.Providers[providerName].key = tenAiApi.providers[providerName].key;
-            AI.Providers[providerName].url = tenAiApi.providers[providerName].url;
-          }
-          providerHeaders = AI._getHeaders(AI.Providers[providerName]);
-          break;
-        }
-      }
-    }
-    // Merge key in headers
-    const headers = { ...body.headers, ...providerHeaders };
-
     // Create request parameters object
     const requestParams = {
       method: body.method,
-      uri: body.target,
+      uri: uri,
       headers,
       body: body.data,
       timeout: timeoutOptions,
       limit: null,
       filterPrivate: false
     };
-    
     
     // Log the sanitized request parameters
     ctx.logger.debug(`Proxying request: %j`, requestParams);
@@ -191,7 +262,7 @@ async function proxyRequest(req, res) {
     await pipeline(result.stream, res);
 
   } catch (error) {
-    ctx.logger.error(`AI API request error: %s`, error);
+    ctx.logger.error(`proxyRequest: AI API request error: %s`, error);
     if (error.response){
       // Set the response headers to match the target response
       res.set(error.response.headers);
@@ -201,7 +272,7 @@ async function proxyRequest(req, res) {
     } else {
       res.status(500).json({
         "error": {
-          "message": "AI API request error",
+          "message": "proxyRequest: AI API request error",
           "code": "500"
         }
       });
@@ -214,7 +285,7 @@ async function proxyRequest(req, res) {
 /**
  * Process a single AI provider and its models
  * 
- * @param {Object} ctx - Operation context
+ * @param {operationContext.Context} ctx - Operation context
  * @param {Object} provider - Provider configuration
  * @returns {Promise<Object|null>} Processed provider with models or null if provider is invalid
  */
@@ -254,7 +325,7 @@ async function processProvider(ctx, provider) {
 /**
  * Retrieves all AI models from the configuration and dynamically from providers
  * 
- * @param {Object} ctx - Operation context
+ * @param {operationContext.Context} ctx - Operation context
  * @returns {Promise<Object>} Object containing providers and their models along with action configurations
  */
 async function getPluginSettings(ctx) {

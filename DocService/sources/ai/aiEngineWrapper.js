@@ -61,6 +61,7 @@ const sandbox = {
       Providers: {},
       InternalProviders: [],
       _getHeaders: function() {return {};},
+      _getEndpointUrl: function() {return "";},
       serializeProviders: function() {return [];},
       ActionsGetSorted: function() {return [];},
       getModels: function() {return [];},
