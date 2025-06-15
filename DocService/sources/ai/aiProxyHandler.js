@@ -39,6 +39,7 @@ const utils = require('./../../../Common/sources/utils');
 const operationContext = require('./../../../Common/sources/operationContext');
 const commonDefines = require('./../../../Common/sources/commondefines');
 const docsCoServer = require('./../DocsCoServer');
+const statsDClient = require('./../../../Common/sources/statsdclient');
 
 // Import the new aiEngine module
 const aiEngine = require('./aiEngineWrapper');
@@ -49,6 +50,7 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 const cfgAiSettings = config.get('aiSettings');
 
 const AI = aiEngine.AI;
+const clientStatsD = statsDClient.getClient();
 /**
  * Helper function to set CORS headers if the request origin is allowed
  * 
@@ -149,6 +151,7 @@ async function proxyRequest(req, res) {
   // Create operation context for logging
   const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
+  const startDate = new Date();
 
   try {
     ctx.logger.info('Start proxyRequest');
@@ -278,6 +281,10 @@ async function proxyRequest(req, res) {
       });
     }
     } finally {
+      // Record the time taken for the proxyRequest in StatsD
+      if (clientStatsD) {
+        clientStatsD.timing('coauth.aiProxy', new Date() - startDate);
+      }
       ctx.logger.info('End proxyRequest');
     }
 }
