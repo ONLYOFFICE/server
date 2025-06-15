@@ -39,6 +39,7 @@ const utils = require('./../../../Common/sources/utils');
 const operationContext = require('./../../../Common/sources/operationContext');
 const commonDefines = require('./../../../Common/sources/commondefines');
 const docsCoServer = require('./../DocsCoServer');
+const statsDClient = require('./../../../Common/sources/statsdclient');
 
 // Import the new aiEngine module
 const aiEngine = require('./aiEngineWrapper');
@@ -49,6 +50,7 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 const cfgAiSettings = config.get('aiSettings');
 
 const AI = aiEngine.AI;
+const clientStatsD = statsDClient.getClient();
 /**
  * Helper function to set CORS headers if the request origin is allowed
  * 
@@ -149,6 +151,8 @@ async function proxyRequest(req, res) {
   // Create operation context for logging
   const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
+  const startDate = new Date();
+  let success = false;
 
   try {
     ctx.logger.info('Start proxyRequest');
@@ -260,6 +264,7 @@ async function proxyRequest(req, res) {
 
     // Use pipeline to pipe the response data to the client
     await pipeline(result.stream, res);
+    success = true;
 
   } catch (error) {
     ctx.logger.error(`proxyRequest: AI API request error: %s`, error);
@@ -278,6 +283,10 @@ async function proxyRequest(req, res) {
       });
     }
     } finally {
+      // Record the time taken for the proxyRequest in StatsD (skip cors requests and errors)
+      if (clientStatsD && success) {
+        clientStatsD.timing('coauth.aiProxy', new Date() - startDate);
+      }
       ctx.logger.info('End proxyRequest');
     }
 }
