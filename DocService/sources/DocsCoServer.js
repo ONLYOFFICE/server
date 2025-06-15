@@ -962,9 +962,21 @@ async function applyForceSaveCache(ctx, docId, forceSave, type, opt_userConnecti
       res.notModified = true;
     }
   } else if (!forceSave.started) {
-      res.startedForceSave = await editorData.checkAndStartForceSave(ctx, docId);
-      res.ok = !!res.startedForceSave;
-      return res;
+    const isTypeToSendFile = commonDefines.c_oAscForceSaveTypes.Command === type ||
+      commonDefines.c_oAscForceSaveTypes.Button === type ||
+      commonDefines.c_oAscForceSaveTypes.Timeout === type ||
+      commonDefines.c_oAscForceSaveTypes.Form === type;
+    if (isTypeToSendFile) {
+      const selectRes = await taskResult.selectWithCache(ctx, docId);
+      if (selectRes.length > 0 && !selectRes[0].callback) {
+        ctx.logger.debug('applyForceSaveCache empty callback: %s', docId);
+        res.notModified = true;
+        return res;
+      }
+    }
+    res.startedForceSave = await editorData.checkAndStartForceSave(ctx, docId);
+    res.ok = !!res.startedForceSave;
+    return res;
   } else if (commonDefines.c_oAscForceSaveTypes.Form === type || commonDefines.c_oAscForceSaveTypes.Internal === type) {
     res.ok = true;
     res.inProgress = true;
@@ -1407,13 +1419,13 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
   }
   yield unlockWopiDoc(ctx, docId, opt_userIndex);
 }
-function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, opt_forceClose) {
+function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, opt_forceClose, opt_deleteChanges) {
   var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // We send that everyone is gone and there are no changes (to set the status on the server about the end of editing)
   yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
   //if the user entered the document, the connection was broken, all information was deleted on the server,
   //when the connection is restored, the userIndex will be saved and it will match the userIndex of the next user
-  yield* cleanDocumentOnExit(ctx, docId, false, opt_userIndex);
+  yield* cleanDocumentOnExit(ctx, docId, opt_deleteChanges || false, opt_userIndex);
 }
 
 function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_noDelay, opt_initShardKey) {

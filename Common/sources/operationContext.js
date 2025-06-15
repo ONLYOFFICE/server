@@ -53,6 +53,8 @@ Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiS
   this.config = null;
   this.secret = null;
   this.license = null;
+  //cache
+  this.taskResultCache = null;
 };
 Context.prototype.initDefault = function() {
   this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID, undefined);
