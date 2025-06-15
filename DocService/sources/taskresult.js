@@ -98,7 +98,20 @@ TaskResultData.prototype.completeDefaults = function() {
 function upsert(ctx, task) {
   return sqlBase.upsert(ctx, task);
 }
-
+/**
+ * Return TaskResult rows for docId, caching the last query result on ctx.taskResultCache or fetching from the database.
+ * @param {object} ctx
+ * @param {string} docId
+ * @returns {Promise<Array<object>>}
+ */
+async function selectWithCache(ctx, docId) {
+  //todo merge with select and remove on update
+  if (ctx.taskResultCache && ctx.taskResultCache[0].id === docId) {
+    return ctx.taskResultCache;
+  }
+  ctx.taskResultCache = await select(ctx, docId);
+  return ctx.taskResultCache;
+}
 function select(ctx, docId) {
   return new Promise(function(resolve, reject) {
     let values = [];
@@ -316,6 +329,7 @@ function removeIf(ctx, mask) {
 exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
 exports.select = select;
+exports.selectWithCache = selectWithCache;
 exports.update = update;
 exports.updateIf = updateIf;
 exports.restoreInitialPassword = restoreInitialPassword;
