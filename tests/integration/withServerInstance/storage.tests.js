@@ -219,10 +219,8 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     let output, outputText;
 
     output = await storage.createReadStream(ctx, testFile1, specialDir);
-    await utils.sleep(100);
     expect(output.contentLength).toEqual(testFileData1.length);
     outputText = await utils.stream2Buffer(output.readStream);
-    await utils.sleep(100);
     expect(outputText.toString("utf8")).toEqual(testFileData1);
 
     output = await storage.createReadStream(ctx, testFile2, specialDir);
