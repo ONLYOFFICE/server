@@ -59,7 +59,7 @@ const cfgCacheStorage = config.get('storage');
 const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
 
 const ctx = operationContext.global;
-const PORT = 3456;
+const PORT = 3457;
 const rand = Math.floor(Math.random() * 1000000);
 const testDir = "DocService-DocsCoServer-storage-" + rand;
 const baseUrl = `http://localhost:${PORT}`;
