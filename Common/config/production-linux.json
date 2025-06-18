@@ -2,6 +2,12 @@
   "log": {
     "filePath": "/etc/onlyoffice/documentserver/log4js/production.json"
   },
+  "aiSettings": {
+    "pluginDir" : "/var/www/onlyoffice/documentserver/server/info/ai"
+  },
+  "runtimeConfig": {
+    "filePath": "/var/www/onlyoffice/documentserver/../Data/runtime.json"
+  },
   "storage": {
     "fs": {
       "folderPath": "/var/lib/onlyoffice/documentserver/App_Data/cache/files"

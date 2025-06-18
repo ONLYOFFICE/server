@@ -1,0 +1,56 @@
+<!--
+ (c) Copyright Ascensio System SIA 2020
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<title>Custom providers</title>
+
+		<script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"></script>
+		<script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins-ui.js"></script>
+		<script type="text/javascript" src="components/Tooltip/script.js"></script>
+		<script type="text/javascript" src="components/ListView/script.js"></script>
+		<script src="vendor/jquery/jquery-3.7.1.min.js"></script>
+		<link rel="stylesheet" href="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.css">		
+		<link rel="stylesheet" href="./resources/styles/common.css">
+		<link rel="stylesheet" href="./resources/styles/customProviders.css">
+		<link rel="stylesheet" href="components/Tooltip/style.css">
+		<link rel="stylesheet" href="components/ListView/style.css">
+    </head>
+    <body class="noselect">
+		<div id="label-row">
+			<label class="i18n">Connected custom providers</label>
+			<img id="alert-icon" class="icon" src="resources/icons/light/info.png"/>
+		</div>
+		<div id="list-row">
+			<div id="providers-list" class="empty">
+				<!-- Dynamic render items -->
+			</div>
+			<div id="buttons-block">
+				<button id="add-btn" class="btn-text-default">
+					<img src="resources/icons/light/btn-zoomup.png" class="icon"/>
+				</button>
+				<button id="delete-btn" class="btn-text-default" disabled>
+					<img src="resources/icons/light/btn-remove.png" class="icon"/>
+				</button>
+			</div>
+		</div>
+		<label id="error-label" class="hide"></label>
+		<input id="file-input" type="file" multiple accept=".js"/>
+		<script type="text/javascript" src="scripts/customProviders.js"></script>
+    </body>
+</html>

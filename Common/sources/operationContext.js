@@ -32,10 +32,12 @@
 
 'use strict';
 
+const config = require('config');
 const utils = require('./utils');
 const logger = require('./logger');
 const constants = require('./constants');
 const tenantManager = require('./tenantManager');
+const runtimeConfigManager = require('./runtimeConfigManager');
 
 function Context(){
   this.logger = logger.getLogger('nodeJS');
@@ -51,6 +53,8 @@ Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiS
   this.config = null;
   this.secret = null;
   this.license = null;
+  //cache
+  this.taskResultCache = null;
 };
 Context.prototype.initDefault = function() {
   this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID, undefined);
@@ -85,7 +89,10 @@ Context.prototype.initFromPubSub = function(data) {
   this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
 };
 Context.prototype.initTenantCache = async function() {
-  this.config = await tenantManager.getTenantConfig(this);
+  const runtimeConfig = await runtimeConfigManager.getConfig(this);
+  const tenantConfig = await tenantManager.getTenantConfig(this);
+  this.config = utils.deepMergeObjects({}, runtimeConfig, tenantConfig);
+
   //todo license and secret
 };
 
@@ -121,6 +128,13 @@ Context.prototype.getCfg = function(property, defaultValue) {
     return getImpl(this.config, property) ?? defaultValue;
   }
   return defaultValue;
+};
+/**
+ * Get the full configuration by combining system config with context config
+ * @returns {object} The merged configuration object
+ */
+Context.prototype.getFullCfg = function() {
+  return utils.deepMergeObjects(config.util.toObject(), this.config);
 };
 
 /**

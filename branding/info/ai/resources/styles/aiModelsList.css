@@ -1,0 +1,58 @@
+body {
+    display: flex;
+    justify-content: space-between;
+}
+
+#ai-models-list .item {
+    border-bottom: none;
+}
+#ai-models-list .item .content {
+    display: -webkit-inline-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: 1;
+}
+
+#buttons-block {
+    display: flex;
+    flex-direction: column;
+}
+
+#buttons-block button {
+    padding: 0;
+    height: auto;
+    display: flex;
+}
+
+#buttons-block button img {
+    width: 20px;
+    height: 20px;
+    margin: 1px;
+}
+
+#buttons-block button:not(:first-child) {
+    margin-top: 2px;
+}
+
+#ai-models-list {
+    margin-right: 4px;
+}
+
+/* Themes style for Item Models List */
+body.theme-classic-light #ai-models-list .item {
+    border-color: #cfcfcf;
+}
+
+body.theme-light #ai-models-list .item,
+body.theme-gray #ai-models-list .item {
+    border-color: #c0c0c0;
+}
+
+body.theme-dark #ai-models-list .item {
+    border-color: #666;
+}
+
+body.theme-contrast-dark #ai-models-list .item  {
+    border-color: #696969;
+}

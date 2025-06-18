@@ -34,8 +34,6 @@
 
 const path = require('path');
 const { pipeline } = require('node:stream/promises');
-const crypto = require('crypto');
-let util = require('util');
 const {URL} = require('url');
 const co = require('co');
 const jwt = require('jsonwebtoken');
@@ -49,7 +47,7 @@ const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
-const formatChecker = require('./../../Common/sources/formatchecker');
+const wopiUtils = require('./wopiUtils');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const sqlBase = require('./databaseConnectors/baseConnector');
@@ -94,8 +92,6 @@ const cfgWopiExponentOld = config.get('wopi.exponentOld');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
 const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
-
-let cryptoSign = util.promisify(crypto.sign);
 
 let templatesFolderLocalesCache = null;
 let templatesFolderExtsCache = null;
@@ -373,22 +369,7 @@ function getFileTypeByInfo(fileInfo) {
   fileType = fileInfo.FileExtension ? fileInfo.FileExtension.substr(1) : fileType;
   return fileType.toLowerCase();
 }
-async function getWopiFileUrl(ctx, fileInfo, userAuth) {
-  const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
-  let url;
-  let headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
-  if (fileInfo?.FileUrl) {
-    //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
-    url = fileInfo.FileUrl;
-  } else if (fileInfo?.TemplateSource) {
-    url = fileInfo.TemplateSource;
-  } else if (userAuth) {
-    url = `${userAuth.wopiSrc}/contents?access_token=${encodeURIComponent(userAuth.access_token)}`;
-    await fillStandardHeaders(ctx, headers, url, userAuth.access_token);
-  }
-  ctx.logger.debug('getWopiFileUrl url=%s; headers=%j', url, headers);
-  return {url, headers};
-}
+
 function isWopiJwtToken(decoded) {
   return !!decoded.fileInfo;
 }
@@ -751,7 +732,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         let commonInfo = wopiParams.commonInfo;
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
-        yield fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
+        yield wopiUtils.fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
         headers['X-LOOL-WOPI-IsModifiedByUser'] = isModifiedByUser;
         headers['X-LOOL-WOPI-IsAutosave'] = isAutosave;
         headers['X-LOOL-WOPI-IsExitSave'] = isExitSave;
@@ -795,7 +776,7 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       if (isFileConversion) {
         headers['X-WOPI-FileConversion'] = isFileConversion;
       }
-      yield fillStandardHeaders(ctx, headers, uri, access_token);
+      yield wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       headers['Content-Type'] = mime.getType(suggestedExt);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
@@ -813,53 +794,58 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
     return res;
   });
 }
-function renameFile(ctx, wopiParams, name) {
-  return co(function* () {
-    let res = undefined;
-    try {
-      ctx.logger.info('wopi RenameFile start');
-      const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+/**
+ * Renames a file using the WOPI protocol
+ * @param {operationContext.Context} ctx - The operation context.
+ * @param {object} wopiParams - The WOPI parameters.
+ * @param {string} name - The new name for the file.
+ * @returns {Promise<{Name: string}|undefined>}
+ */
+async function renameFile(ctx, wopiParams, name) {
+  let res = undefined;
+  try {
+    ctx.logger.info('wopi RenameFile start');
+    const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
-      if (!wopiParams.userAuth || !wopiParams.commonInfo) {
-        return res;
-      }
-      let fileInfo = wopiParams.commonInfo.fileInfo;
-      let userAuth = wopiParams.userAuth;
-      let uri = `${userAuth.wopiSrc}?access_token=${encodeURIComponent(userAuth.access_token)}`;
-      let filterStatus = yield checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        return res;
-      }
-
-      if (fileInfo && fileInfo.SupportsRename) {
-        let fileNameMaxLength = fileInfo.FileNameMaxLength || 255;
-        name = name.substring(0, fileNameMaxLength);
-        let commonInfo = wopiParams.commonInfo;
-
-        let headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
-        yield fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
-
-        ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-        //isInJwtToken is true because it passed checkIpFilter for wopi
-        let isInJwtToken = true;
-        let postRes = yield utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
-        ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
-        if (postRes.body) {
-          res = JSON.parse(postRes.body);
-        } else {
-          //sharepoint send empty body(2016 allways, 2019 with same name)
-          res = {"Name": name};
-        }
-      } else {
-        ctx.logger.info('wopi SupportsRename = false');
-      }
-    } catch (err) {
-      ctx.logger.error('wopi error RenameFile:%s', err.stack);
-    } finally {
-      ctx.logger.info('wopi RenameFile end');
+    if (!wopiParams.userAuth || !wopiParams.commonInfo) {
+      return res;
     }
-    return res;
-  });
+    const fileInfo = wopiParams.commonInfo.fileInfo;
+    const userAuth = wopiParams.userAuth;
+    const uri = `${userAuth.wopiSrc}?access_token=${encodeURIComponent(userAuth.access_token)}`;
+    const filterStatus = await checkIpFilter(ctx, uri);
+    if (0 !== filterStatus) {
+      return res;
+    }
+
+    if (fileInfo && fileInfo.SupportsRename) {
+      const fileNameMaxLength = fileInfo.FileNameMaxLength || 255;
+      name = name.substring(0, fileNameMaxLength);
+      const commonInfo = wopiParams.commonInfo;
+
+      const headers = {'X-WOPI-Override': 'RENAME_FILE', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-RequestedName': utf7.encode(name)};
+      await wopiUtils.fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
+
+      ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
+      //isInJwtToken is true because it passed checkIpFilter for wopi
+      const isInJwtToken = true;
+      const postRes = await utils.postRequestPromise(ctx, uri, undefined, undefined, undefined, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
+      ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
+      if (postRes.body) {
+        res = JSON.parse(postRes.body);
+      } else {
+        //sharepoint send empty body(2016 allways, 2019 with same name)
+        res = {"Name": name};
+      }
+    } else {
+      ctx.logger.info('wopi SupportsRename = false');
+    }
+  } catch (err) {
+    ctx.logger.error('wopi error RenameFile:%s', err.stack);
+  } finally {
+    ctx.logger.info('wopi RenameFile end');
+  }
+  return res;
 }
 
 async function refreshFile(ctx, wopiParams, baseUrl) {
@@ -918,7 +904,7 @@ function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
       if (opt_sc) {
         headers['X-WOPI-SessionContext'] = opt_sc;
       }
-      yield fillStandardHeaders(ctx, headers, uri, access_token);
+      yield wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
       //isInJwtToken is true because it passed checkIpFilter for wopi
       let isInJwtToken = true;
@@ -953,7 +939,7 @@ function lock(ctx, command, lockId, fileInfo, userAuth) {
         }
 
         let headers = {"X-WOPI-Override": command, "X-WOPI-Lock": lockId};
-        yield fillStandardHeaders(ctx, headers, uri, access_token);
+        yield wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
         ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
         //isInJwtToken is true because it passed checkIpFilter for wopi
         let isInJwtToken = true;
@@ -992,7 +978,7 @@ async function unlock(ctx, wopiParams) {
       }
 
       let headers = {"X-WOPI-Override": "UNLOCK", "X-WOPI-Lock": lockId};
-      await fillStandardHeaders(ctx, headers, uri, access_token);
+      await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
       //isInJwtToken is true because it passed checkIpFilter for wopi
       let isInJwtToken = true;
@@ -1009,31 +995,6 @@ async function unlock(ctx, wopiParams) {
   }
   return res;
 }
-function generateProofBuffer(url, accessToken, timeStamp) {
-  const accessTokenBytes = Buffer.from(accessToken, 'utf8');
-  const urlBytes = Buffer.from(url.toUpperCase(), 'utf8');
-
-  let offset = 0;
-  let buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
-  buffer.writeUInt32BE(accessTokenBytes.length, offset);
-  offset += 4;
-  accessTokenBytes.copy(buffer, offset, 0, accessTokenBytes.length);
-  offset += accessTokenBytes.length;
-  buffer.writeUInt32BE(urlBytes.length, offset);
-  offset += 4;
-  urlBytes.copy(buffer, offset, 0, urlBytes.length);
-  offset += urlBytes.length;
-  buffer.writeUInt32BE(8, offset);
-  offset += 4;
-  buffer.writeBigUInt64BE(timeStamp, offset);
-  return buffer;
-}
-
-async function generateProofSign(url, accessToken, timeStamp, privateKey) {
-  let data = generateProofBuffer(url, accessToken, timeStamp);
-  let sign = await cryptoSign('RSA-SHA256', data, privateKey);
-  return sign.toString('base64');
-}
 
 function numberToBase64(val) {
   // Convert to hexadecimal
@@ -1045,23 +1006,6 @@ function numberToBase64(val) {
   //Convert the hexadecimal string to a buffer
   const buffer = Buffer.from(hexString, 'hex');
   return  buffer.toString('base64');
-}
-
-async function fillStandardHeaders(ctx, headers, url, access_token) {
-  let timeStamp = utils.getDateTimeTicks(new Date());
-  const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
-  const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
-  if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
-    headers['X-WOPI-Proof'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKey);
-    headers['X-WOPI-ProofOld'] = await generateProofSign(url, access_token, timeStamp, tenWopiPrivateKeyOld);
-  }
-  headers['X-WOPI-TimeStamp'] = timeStamp;
-  headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
-  // todo
-  // headers['X-WOPI-CorrelationId '] = "";
-  // headers['X-WOPI-SessionId'] = "";
-  //remove redundant header https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/common-headers#request-headers
-  // headers['Authorization'] = `Bearer ${access_token}`;
 }
 
 function checkIpFilter(ctx, uri){
@@ -1169,11 +1113,9 @@ exports.renameFile = renameFile;
 exports.refreshFile = refreshFile;
 exports.lock = lock;
 exports.unlock = unlock;
-exports.fillStandardHeaders = fillStandardHeaders;
 exports.getWopiUnlockMarker = getWopiUnlockMarker;
 exports.getWopiModifiedMarker = getWopiModifiedMarker;
 exports.getFileTypeByInfo = getFileTypeByInfo;
-exports.getWopiFileUrl = getWopiFileUrl;
 exports.isWopiJwtToken = isWopiJwtToken;
 exports.setIsShutdown = setIsShutdown;
 exports.dummyCheckFileInfo = dummyCheckFileInfo;

@@ -32,7 +32,7 @@
 
 'use strict';
 
-const config = require("config");
+const config = require('config');
 const constants = require('./constants');
 
 function InputCommand(data, copyExplicit) {

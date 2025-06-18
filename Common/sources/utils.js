@@ -36,14 +36,16 @@
 require("tls").DEFAULT_ECDH_CURVE = "auto";
 
 const { pipeline } = require('node:stream/promises');
+const { buffer } = require('node:stream/consumers');
+const { Transform } = require('stream');
 var config = require('config');
 var fs = require('fs');
 var path = require('path');
 const crypto = require('crypto');
 var url = require('url');
-var request = require('request');
+var axios = require('../node_modules/axios/dist/node/axios.cjs');
 var co = require('co');
-var URI = require("uri-js");
+var URI = require("uri-js-replace");
 const escapeStringRegexp = require('escape-string-regexp');
 const ipaddr = require('ipaddr.js');
 const getDnsCache = require('dnscache');
@@ -55,13 +57,15 @@ const commonDefines = require('./commondefines');
 const forwarded = require('forwarded');
 const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
 const https = require('https');
+const http = require('http');
 const ca = require('win-ca/api');
 const util = require('util');
 
 const contentDisposition = require('content-disposition');
 const operationContext = require("./operationContext");
 
-const cfgDnsCache = config.get('dnscache');
+//Clone sealed config objects before passing to external libraries using config.util.cloneDeep
+const cfgDnsCache = config.util.cloneDeep(config.get('dnscache'));
 const cfgIpFilterRules = config.get('services.CoAuthoring.ipfilter.rules');
 const cfgIpFilterErrorCode = config.get('services.CoAuthoring.ipfilter.errorcode');
 const cfgIpFilterUseForRequest = config.get('services.CoAuthoring.ipfilter.useforrequest');
@@ -73,16 +77,16 @@ const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.al
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
 const cfgVisibilityTimeout = config.get('queue.visibilityTimeout');
 const cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
-const cfgRequestDefaults = config.get('services.CoAuthoring.requestDefaults');
+const cfgRequestDefaults = config.util.cloneDeep(config.get('services.CoAuthoring.requestDefaults'));
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxUrlExclusionRegex = config.get('services.CoAuthoring.token.outbox.urlExclusionRegex');
 const cfgSecret = config.get('aesEncrypt.secret');
-const cfgAESConfig = config.get('aesEncrypt.config');
+const cfgAESConfig = config.util.cloneDeep(config.get('aesEncrypt.config'));
 const cfgRequesFilteringAgent = config.get('services.CoAuthoring.request-filtering-agent');
 const cfgStorageExternalHost = config.get('storage.externalHost');
 const cfgExternalRequestDirectIfIn = config.get('externalRequest.directIfIn');
 const cfgExternalRequestAction = config.get('externalRequest.action');
-const cfgWinCa = config.get('win-ca');
+const cfgWinCa = config.util.cloneDeep(config.get('win-ca'));
 
 ca(cfgWinCa);
 
@@ -105,10 +109,6 @@ function getIpFilterRule(address) {
   return exp;
 }
 const pemfileCache = new NodeCache({stdTTL: ms(cfgExpPemStdTtl) / 1000, checkperiod: ms(cfgExpPemCheckPeriod) / 1000, errorOnMissing: false, useClones: true});
-
-function getRequestFilterAgent(url, options) {
-  return url.startsWith("https") ? new RequestFilteringHttpsAgent(options) : new RequestFilteringHttpAgent(options);
-}
 
 exports.getConvertionTimeout = function(opt_ctx) {
   if (opt_ctx) {
@@ -239,42 +239,11 @@ exports.readFile = function(file) {
     });
   });
 };
-function makeAndroidSafeFileName(str) {
-  for (var i = 0; i < str.length; i++) {
-    if (-1 == ANDROID_SAFE_FILENAME.indexOf(str[i])) {
-      str[i] = '_';
-    }
-  }
-  return str;
-}
-function encodeRFC5987ValueChars(str) {
-  return encodeURIComponent(str).
-    // Note that although RFC3986 reserves "!", RFC5987 does not,
-    // so we do not need to escape it
-    replace(/['()]/g, escape). // i.e., %27 %28 %29
-    replace(/\*/g, '%2A').
-    // The following are not required for percent-encoding per RFC5987,
-    //  so we can allow for a little better readability over the wire: |`^
-    replace(/%(?:7C|60|5E)/g, unescape);
-}
 function getContentDisposition (opt_filename, opt_useragent, opt_type) {
   let type = opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT;
   return contentDisposition(opt_filename, {type: type});
 }
 exports.getContentDisposition = getContentDisposition;
-function raiseError(ro, code, msg) {
-  ro.abort();
-  let error = new Error(msg);
-  error.code = code;
-  ro.emit('error', error);
-}
-function raiseErrorObj(ro, error) {
-  ro.abort();
-  ro.emit('error', error);
-}
-function isRedirectResponse(response) {
-  return response && response.statusCode >= 300 && response.statusCode < 400 && response.caseless.has('location');
-}
 
 function isAllowDirectRequest(ctx, uri, isInJwtToken) {
   let res = false;
@@ -292,246 +261,321 @@ function isAllowDirectRequest(ctx, uri, isInJwtToken) {
   }
   return res;
 }
-function addExternalRequestOptions(ctx, uri, isInJwtToken, options) {
+function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions) {
   let res = false;
   const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
-  const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
+  const tenRequestFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
   if (isAllowDirectRequest(ctx, uri, isInJwtToken)) {
     res = true;
   } else if (tenExternalRequestAction.allow) {
     res = true;
     if (tenExternalRequestAction.blockPrivateIP) {
-      const agentOptions = Object.assign({}, https.globalAgent.options, tenRequesFilteringAgent);
-      options.agent = getRequestFilterAgent(uri, agentOptions);
+      options.httpsAgent = new RequestFilteringHttpsAgent({
+        ...httpsAgentOptions,
+        ...tenRequestFilteringAgent
+      });
+      options.httpAgent = new RequestFilteringHttpAgent({
+        ...httpAgentOptions,
+        ...tenRequestFilteringAgent
+      });
     }
     if (tenExternalRequestAction.proxyUrl) {
-      options.proxy = tenExternalRequestAction.proxyUrl;
+      const proxyUrl = tenExternalRequestAction.proxyUrl;
+      const parsedProxyUrl = url.parse(proxyUrl);
+
+      options.proxy = {
+        host: parsedProxyUrl.hostname,
+        port: parsedProxyUrl.port,
+        protocol: parsedProxyUrl.protocol
+      };
     }
+
     if (tenExternalRequestAction.proxyUser?.username) {
-      let user = tenExternalRequestAction.proxyUser.username;
-      let pass = tenExternalRequestAction.proxyUser.password;
-      options.headers = {'proxy-authorization': `${user}:${pass}`};
+      //This will set an `Proxy-Authorization` header, overwriting any existing
+      //`Proxy-Authorization` custom headers you have set using `headers`.
+      options.proxy.auth = tenExternalRequestAction.proxyUser;
     }
     if (tenExternalRequestAction.proxyHeaders) {
-      if (!options.headers) {
-        options.headers = {};
-      }
-      Object.assign(options.headers, tenExternalRequestAction.proxyHeaders);
+      options.headers = {
+        ...options.headers,
+        ...tenExternalRequestAction.proxyHeaders
+      };
     }
   }
   return res;
 }
-
-function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
-  //todo replace deprecated request module
+/*
+ * @param {object} options - The options object to modify.
+ */
+function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions) {
+  if (false === options.followRedirect) {
+    options.maxRedirects = 0;
+  }
+  if (false === options.gzip) {
+    options.headers = { ...options.headers, 'Accept-Encoding': 'identity' };
+    delete options.gzip;
+  }
+  if (options.forever !== undefined) {
+    httpAgentOptions.keepAlive = !!options.forever;
+    httpsAgentOptions.keepAlive = !!options.forever;
+  }
+}
+/*
+ * Download a URL and return the response.
+ * @param {operationContext.Context} ctx - The operation context.
+ * @param {string} uri - The URL to download.
+ * @param {object} optTimeout - Optional timeout configuration.
+ * @param {number} optLimit - Optional limit on the size of the response.
+ * @param {string} opt_Authorization - Optional authorization header.
+ * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
+ * @param {object} opt_headers - Optional headers to include in the request.
+ * @param {boolean} opt_returnStream - Optional flag to return stream.
+ * @returns {Promise<{response: axios.AxiosResponse, sha256: string|null, body: Buffer|null, stream: NodeJS.ReadableStream|null}>} - A promise that resolves to object containing response, sha256 hash, and body (null if opt_streamWriter is provided).
+ */
+async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_returnStream) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
-  const maxRedirects = (undefined !== tenTenantRequestDefaults.maxRedirects) ? tenTenantRequestDefaults.maxRedirects : 10;
-  const followRedirect = (undefined !== tenTenantRequestDefaults.followRedirect) ? tenTenantRequestDefaults.followRedirect : true;
-  var redirectsFollowed = 0;
-  let doRequest = function(curUrl) {
-    return downloadUrlPromiseWithoutRedirect(ctx, curUrl, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter)
-      .catch(function(err) {
-        let response = err.response;
-        if (isRedirectResponse(response)) {
-          let redirectTo = response.caseless.get('location');
-          if (followRedirect && redirectsFollowed < maxRedirects) {
-            if (!/^https?:/.test(redirectTo) && err.request) {
-              redirectTo = url.resolve(err.request.uri.href, redirectTo)
-            }
+  const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
+  const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
+  let sizeLimit = optLimit || Number.MAX_VALUE;
+  uri = URI.serialize(URI.parse(uri));
+  const options = config.util.cloneDeep(tenTenantRequestDefaults);
 
-            ctx.logger.debug('downloadUrlPromise redirectsFollowed:%d redirectTo: %s', redirectsFollowed, redirectTo);
-            redirectsFollowed++;
-            return doRequest(redirectTo);
-          }
-        }
-        throw err;
-      });
+  //baseRequest creates new agent(win-ca injects in globalAgent)
+  const httpsAgentOptions = { ...https.globalAgent.options, ...options};
+  const httpAgentOptions = { ...http.globalAgent.options, ...options};
+  changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
+  
+  if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
+    throw new Error('Block external request. See externalRequest config options');
+  }
+
+  if (!options.httpsAgent || !options.httpAgent) {
+    options.httpsAgent = new https.Agent(httpsAgentOptions);
+    options.httpAgent = new http.Agent(httpAgentOptions);
+  }
+
+  const headers = { ...options.headers };
+  if (opt_Authorization) {
+    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
+  }
+  if (opt_headers) {
+    Object.assign(headers, opt_headers);
+  }
+
+  const axiosConfig = {
+    ...options,
+    url: uri,
+    method: 'GET',
+    responseType: 'stream',
+    headers,
+    signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
+    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
   };
-  return doRequest(uri);
+  try {
+    const response = await axios(axiosConfig);
+    const { status, headers } = response;
+    if (![200, 206].includes(status)) {
+      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)};`);
+      error.statusCode = status;
+      error.response = response;
+      throw error;
+    }
+  
+    const contentLength = headers['content-length'];
+    if (contentLength && parseInt(contentLength) > sizeLimit) {
+      // Close the stream to prevent downloading
+      const error = new Error('EMSGSIZE: Error response: content-length:' + contentLength);
+      error.code = 'EMSGSIZE';
+      response.data.destroy(error);
+      throw error;
+    }
+    const limitedStream = new SizeLimitStream(optLimit);
+    if (opt_returnStream) {
+      // When returning a stream, we'll return the response for the caller to handle streaming
+      // The content-length check is already done above
+      return { response, sha256: null, body: null, stream: response.data.pipe(limitedStream) };
+    }
+    
+    const body = await pipeline(response.data, limitedStream, buffer);
+    const sha256 = crypto.createHash('sha256').update(body).digest('hex');
+    return { response, sha256, body, stream: null };
+  } catch (err) {
+    if('ERR_CANCELED' === err.code) {
+      err.code = 'ETIMEDOUT';
+    } else if(['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      err.code = 'ESOCKETTIMEDOUT';
+    }
+    if (err.status){
+      err.statusCode = err.status;
+    }
+    throw err;
+  }
 }
-function downloadUrlPromiseWithoutRedirect(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_streamWriter) {
-  return new Promise(function (resolve, reject) {
-    const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
-    const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
-    const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-    //IRI to URI
-    uri = URI.serialize(URI.parse(uri));
-    var urlParsed = url.parse(uri);
-    let sizeLimit = optLimit || Number.MAX_VALUE;
-    let bufferLength = 0, timeoutId;
-    let hash = crypto.createHash('sha256');
-    //if you expect binary data, you should set encoding: null
-    let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    let options = config.util.extendDeep({}, tenTenantRequestDefaults);
-    Object.assign(options, {uri: urlParsed, encoding: null, timeout: connectionAndInactivity, followRedirect: false});
-    if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options)) {
-      reject(new Error('Block external request. See externalRequest config options'));
-      return;
-    }
 
-    if (!options.agent) {
-      //baseRequest creates new agent(win-ca injects in globalAgent)
-      options.agentOptions = https.globalAgent.options;
-    }
-    if (!options.headers) {
-      options.headers = {};
-    }
-    if (opt_Authorization) {
-      options.headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
-    }
-    if (opt_headers) {
-      Object.assign(options.headers, opt_headers);
-    }
-    let fError = function(err) {
-      clearTimeout(timeoutId);
-      reject(err);
-    }
-    if (!opt_streamWriter) {
-      fError = function() {};
-      let executed = false;
-      options.callback = function(err, response, body) {
-        if (executed) {
-          return;
-        }
-        executed = true;
-        if (err) {
-          clearTimeout(timeoutId);
-          reject(err);
-        } else {
-          var contentLength = response.caseless.get('content-length');
-          if (contentLength && body.length !== (contentLength - 0)) {
-            ctx.logger.warn('downloadUrlPromise body size mismatch: uri=%s; content-length=%s; body.length=%d', uri, contentLength, body.length);
-          }
-          let sha256 = hash.digest('hex');
-          clearTimeout(timeoutId);
-          resolve({response: response, body: body, sha256: sha256});
-        }
+async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_isInJwtToken, opt_headers) {
+  const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
+  const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
+  const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
+  uri = URI.serialize(URI.parse(uri));
+  const options = config.util.cloneDeep(tenTenantRequestDefaults);
+  
+  const httpsAgentOptions = { ...https.globalAgent.options, ...options};
+  const httpAgentOptions = { ...http.globalAgent.options, ...options};
+  changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
+  
+  if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
+    throw new Error('Block external request. See externalRequest config options');
+  }
+
+  if (!options.httpsAgent || !options.httpAgent) {
+    options.httpsAgent = new https.Agent(httpsAgentOptions);
+    options.httpAgent = new http.Agent(httpAgentOptions);
+  }
+
+  const headers = { ...options.headers };
+  if (opt_Authorization) {
+    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
+  }
+  if (opt_headers) {
+    Object.assign(headers, opt_headers);
+  }
+  if (undefined !== postDataSize) {
+    //If no Content-Length is set, data will automatically be encoded in HTTP Chunked transfer encoding,
+    //so that server knows when the data ends. The Transfer-Encoding: chunked header is added.
+    //https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
+    //issue with Transfer-Encoding: chunked wopi and sharepoint 2019
+    //https://community.alteryx.com/t5/Dev-Space/Download-Tool-amp-Microsoft-SharePoint-Chunked-Request-Error/td-p/735824
+    headers['Content-Length'] = postDataSize;
+  }
+
+  const axiosConfig = {
+    ...options,
+    url: uri,
+    method: 'POST',
+    headers,
+    signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
+    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
+  };
+
+  if (postData) {
+    axiosConfig.data = postData;
+  } else if (postDataStream) {
+    axiosConfig.data = postDataStream;
+  }
+
+  try {
+    const response = await axios(axiosConfig);
+    const { status, headers, data } = response;
+    
+    if (status === 200 || status === 204) {
+      return {
+        response: {
+          statusCode: status,
+          headers: headers,
+          body: data
+        },
+        body: JSON.stringify(data)
       };
+    } else {
+      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${data}`);
+      error.status = status;
+      error.response = response;
+      throw error;
     }
-    let fResponse = function(response) {
-      if (opt_streamWriter) {
-        //Set-Cookie resets browser session
-        response.caseless.del('Set-Cookie');
-      }
-      var contentLength = response.caseless.get('content-length');
-      if (contentLength && (contentLength - 0) > sizeLimit) {
-        raiseError(this, 'EMSGSIZE', 'Error response: content-length:' + contentLength);
-      } else if (response.statusCode !== 200 && response.statusCode !== 206) {
-        let code = response.statusCode;
-        let responseHeaders = JSON.stringify(response.headers);
-        let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders};`);
-        error.statusCode = response.statusCode;
-        error.request = this;
-        error.response = response;
-        if (opt_streamWriter && !isRedirectResponse(response)) {
-          this.off('error', fError);
-          pipeline(this, opt_streamWriter)
-            .then(resolve, reject)
-            .finally(() => {
-              clearTimeout(timeoutId);
-            });
-        } else {
-          raiseErrorObj(this, error);
-        }
-      } else if (opt_streamWriter) {
-        this.off('error', fError);
-        pipeline(this, opt_streamWriter)
-          .then(resolve, reject)
-          .finally(() => {
-            clearTimeout(timeoutId);
-          });
-      }
-    };
-    let fData = function(chunk) {
-      hash.update(chunk);
-      bufferLength += chunk.length;
-      if (bufferLength > sizeLimit) {
-        raiseError(this, 'EMSGSIZE', 'Error response body.length');
-      }
+  } catch (err) {
+    if ('ERR_CANCELED' === err.code) {
+      err.code = 'ETIMEDOUT';
+    } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      err.code = 'ESOCKETTIMEDOUT';
     }
+    if (err.status) {
+      err.statusCode = err.status;
+    }
+    throw err;
+  }
+}
+/**
+ * Performs an HTTP request with specified method and returns the raw response with a stream.
+ * @param {operationContext.Context} ctx - The operation context.
+ * @param {string} method - HTTP method (GET, POST, PUT, DELETE, etc).
+ * @param {string} uri - The URL for the request.
+ * @param {object} opt_headers - Optional headers to include in the request.
+ * @param {*} opt_body - Optional request body data.
+ * @param {object} opt_timeout - Optional timeout configuration.
+ * @param {number} opt_limit - Optional limit on the size of the response.
+ * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
+ * @returns {Promise<{response: axios.AxiosResponse, stream: SizeLimitStream}>} - A promise that resolves to an object containing the raw Axios response and a SizeLimitStream.
+ */
+async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout, opt_limit, opt_filterPrivate) {
+  const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
+  uri = URI.serialize(URI.parse(uri));
+  const options = config.util.cloneDeep(tenTenantRequestDefaults);
+  
+  const httpsAgentOptions = { ...https.globalAgent.options, ...options};
+  const httpAgentOptions = { ...http.globalAgent.options, ...options};
+  changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
+  
+  if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
+    throw new Error('Block external request. See externalRequest config options');
+  }
 
-    let ro = request.get(options)
-      .on('response', fResponse)
-      .on('data', fData)
-      .on('error', fError);
-    if (optTimeout && optTimeout.wholeCycle) {
-      timeoutId = setTimeout(function() {
-        raiseError(ro, 'ETIMEDOUT', `Error: whole request cycle timeout: ${optTimeout.wholeCycle}`);
-      }, ms(optTimeout.wholeCycle));
+  if (!options.httpsAgent || !options.httpAgent) {
+    options.httpsAgent = new https.Agent(httpsAgentOptions);
+    options.httpAgent = new http.Agent(httpAgentOptions);
+  }
+
+  const requestHeaders = { ...options.headers };
+  if (opt_headers) {
+    Object.assign(requestHeaders, opt_headers);
+  }
+
+  const axiosConfig = {
+    ...options,
+    url: uri,
+    method: method,
+    headers: requestHeaders,
+    responseType: 'stream',
+    signal: opt_timeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(opt_timeout.wholeCycle)) : undefined,
+    timeout: opt_timeout?.connectionAndInactivity ? ms(opt_timeout.connectionAndInactivity) : undefined,
+  };
+
+  if (opt_body) {
+    axiosConfig.data = opt_body;
+  }
+
+  try {
+    const response = await axios(axiosConfig);
+    const { status, headers, data } = response;
+
+    const contentLength = headers['content-length'];
+    if (opt_limit && contentLength && parseInt(contentLength) > opt_limit) {
+      const error = new Error('EMSGSIZE: Error response: content-length:' + contentLength);
+      error.code = 'EMSGSIZE';
+      response.data.destroy(error);
+      throw error;
     }
-  });
+    
+    const limitedStream = new SizeLimitStream(opt_limit || Number.MAX_VALUE);
+    response.data.pipe(limitedStream);
+    
+    return {
+      response,
+      stream: limitedStream
+    };
+  } catch (err) {
+    if ('ERR_CANCELED' === err.code) {
+      err.code = 'ETIMEDOUT';
+    } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      err.code = 'ESOCKETTIMEDOUT';
+    }
+    if (err.status) {
+      err.statusCode = err.status;
+    }
+    throw err;
+  }
 }
-function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_isInJwtToken, opt_headers) {
-  return new Promise(function(resolve, reject) {
-    const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
-    const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
-    const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-    //IRI to URI
-    uri = URI.serialize(URI.parse(uri));
-    var urlParsed = url.parse(uri);
-    let connectionAndInactivity = optTimeout && optTimeout.connectionAndInactivity && ms(optTimeout.connectionAndInactivity);
-    let options = config.util.extendDeep({}, tenTenantRequestDefaults);
-    Object.assign(options, {uri: urlParsed, encoding: 'utf8', timeout: connectionAndInactivity});
-    if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options)) {
-      reject(new Error('Block external request. See externalRequest config options'));
-      return;
-    }
-    if (!options.agent) {
-      //baseRequest creates new agent(win-ca injects in globalAgent)
-      options.agentOptions = https.globalAgent.options;
-    }
-    if (postData) {
-      options.body = postData;
-    }
-    if (!options.headers) {
-      options.headers = {};
-    }
-    if (opt_Authorization) {
-      //todo ctx.getCfg
-      options.headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
-    }
-    if (opt_headers) {
-      Object.assign(options.headers, opt_headers);
-    }
-    if (undefined !== postDataSize) {
-      //If no Content-Length is set, data will automatically be encoded in HTTP Chunked transfer encoding,
-      //so that server knows when the data ends. The Transfer-Encoding: chunked header is added.
-      //https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
-      //issue with Transfer-Encoding: chunked wopi and sharepoint 2019
-      //https://community.alteryx.com/t5/Dev-Space/Download-Tool-amp-Microsoft-SharePoint-Chunked-Request-Error/td-p/735824
-      options.headers['Content-Length'] = postDataSize;
-    }
-    let executed = false;
-    let ro = request.post(options, function(err, response, body) {
-      if (executed) {
-        return;
-      }
-      executed = true;
-      if (err) {
-        reject(err);
-      } else {
-        if (200 === response.statusCode || 204 === response.statusCode) {
-          resolve({response: response, body: body});
-        } else {
-          let code = response.statusCode;
-          let responseHeaders = JSON.stringify(response.headers);
-          let error = new Error(`Error response: statusCode:${code}; headers:${responseHeaders}; body:\r\n${body}`);
-          error.statusCode = response.statusCode;
-          error.response = response;
-          reject(error);
-        }
-      }
-    });
-    if (optTimeout && optTimeout.wholeCycle) {
-      setTimeout(function() {
-        raiseError(ro, 'ETIMEDOUT', `Error: whole request cycle timeout: ${optTimeout.wholeCycle}`);
-      }, ms(optTimeout.wholeCycle));
-    }
-    if (postDataStream && !postData) {
-      postDataStream.pipe(ro);
-    }
-  });
-}
+
+exports.httpRequest = httpRequest;
 exports.postRequestPromise = postRequestPromise;
 exports.downloadUrlPromise = downloadUrlPromise;
 exports.mapAscServerErrorToOldError = function(error) {
@@ -1156,6 +1200,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.customer_id = licenseInfo.customerId;
   license.alias = licenseInfo.alias;
   license.multitenancy = licenseInfo.multitenancy;
+  license.grace_days = licenseInfo.graceDays;
   return license;
 };
 exports.convertLicenseInfoToServerParams = function(licenseInfo) {
@@ -1207,6 +1252,47 @@ function getMonthDiff(d1, d2) {
   return months;
 }
 exports.getMonthDiff = getMonthDiff;
+
+/**
+ * A Transform stream that limits the size of data passing through it.
+ * It will throw an EMSGSIZE error if the size exceeds the limit.
+ * 
+ * @class SizeLimitStream
+ * @extends {Transform}
+ */
+class SizeLimitStream extends Transform {
+  /**
+   * Creates an instance of SizeLimitStream.
+   * @param {number} sizeLimit - Maximum size in bytes that can pass through the stream
+   * @memberof SizeLimitStream
+   */
+  constructor(sizeLimit) {
+    super();
+    this.sizeLimit = sizeLimit;
+    this.bytesReceived = 0;
+  }
+
+  /**
+   * Transform implementation that tracks the bytes received and enforces the size limit
+   * 
+   * @param {Buffer|string} chunk - The chunk of data to process
+   * @param {string} encoding - The encoding of the chunk if it's a string
+   * @param {Function} callback - Called when processing is complete
+   * @memberof SizeLimitStream
+   */
+  _transform(chunk, encoding, callback) {
+    this.bytesReceived += chunk.length;
+    
+    if (this.sizeLimit && this.bytesReceived > this.sizeLimit) {
+      const error = new Error(`EMSGSIZE: Response too large: ${this.bytesReceived} bytes (limit: ${this.sizeLimit} bytes)`);
+      error.code = 'EMSGSIZE';
+      callback(error);
+      return;
+    }
+    
+    callback(null, chunk);
+  }
+}
 exports.getLicensePeriod = function(startDate, now) {
   startDate = new Date(startDate.getTime());//clone
   startDate.addMonths(getMonthDiff(startDate, now));
@@ -1273,3 +1359,5 @@ function deepMergeObjects(target, ...sources) {
 }
 exports.isObject = isObject;
 exports.deepMergeObjects = deepMergeObjects;
+exports.NodeCache = NodeCache;//todo via require
+

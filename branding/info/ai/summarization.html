@@ -1,0 +1,81 @@
+<!--
+ (c) Copyright Ascensio System SIA 2020
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<title>Summarization</title>
+		<script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"></script>
+		<script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins-ui.js"></script>
+		<script src="vendor/jquery/jquery-3.7.1.min.js"></script>
+		<script src="vendor/select2-4.0.6-rc.1/dist/js/select2.js"></script>
+		<link rel="stylesheet" href="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.css">
+		<link rel="stylesheet" href="vendor/select2-4.0.6-rc.1/dist/css/select2.css"/>
+		<link rel="stylesheet" href="./resources/styles/common.css">
+		<link rel="stylesheet" href="./resources/styles/summarization.css">
+    </head>
+    <body class="noselect">
+		<div class="content">
+			<div class="column">
+				<div class="row-label">
+					<label class="i18n">Your text</label>
+					<div id="clear-btn" class="i18n">Clear</div>
+				</div>
+				<textarea id="original-textarea" style="height:45px;width: 100%;" class="form-control" placeholder="Insert your text here or select the part of the text"></textarea>
+				<div class="row-label">
+					<label class="i18n">Target language</label>
+				</div>
+				<div class="button-block">
+					<select id="target-lang-cmb" ></select>
+					<button id="summarize-btn" class="btn-text-default submit primary i18n">Summarize</button>
+				</div>
+			</div>
+			<div class="column">
+				<div class="row-label">
+					<label class="i18n">Summary result</label>
+					<button id="copy-btn" class="btn-text-default">
+						<img class="icon" src="resources/icons/light/copy.png" />
+					</button>
+				</div>
+				<div class="summary-wrapper">
+					<textarea id="result-textarea" style="height:45px;width: 100%;" class="form-control" placeholder="The AI output will be shown here" readonly></textarea>
+					<div id="error-alert" class="error">
+						<div class="error-title-block">
+							<img class="error-icon icon" src="resources/icons/light/error.png" />
+							<div class="error-title i18n">Error</div>
+						</div>
+						<div class="error-description"></div>
+					</div>
+				</div>
+				<div class="row-label">
+					<label class="i18n">Insert result</label>
+				</div>
+				<div class="button-block">
+					<select id="insert-as-cmb"></select>
+					<button id="insert-btn" class="btn-text-default i18n">Insert</button>
+				</div>
+			</div>
+		</div>
+		<div id="loader-wrapper" style="display: none;">
+			<div id="loader-block">
+				<div id="loader-spinner"></div>
+				<div id="loader-title" class="i18n">Summarization...</div>
+			</div>
+		</div>
+		<script type="text/javascript" src="scripts/summarization.js"></script>
+    </body>
+</html>

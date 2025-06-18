@@ -58,7 +58,9 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
+const configRouter = require('./routes/config');
 const ms = require('ms');
+const aiProxyHandler = require('./ai/aiProxyHandler');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
@@ -235,6 +237,9 @@ docsCoServer.install(server, () => {
 		converterService.builder(req, res);
 	});
 	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
+	app.use('/info/config', utils.checkClientIp, configRouter);
+	app.get('/info/plugin/settings', utils.checkClientIp, aiProxyHandler.requestSettings);
+	app.post('/info/plugin/models', utils.checkClientIp, rawFileParser, aiProxyHandler.requestModels);
 	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
 	app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
@@ -287,6 +292,8 @@ docsCoServer.install(server, () => {
 	app.post('/wopi/files/:docid', checkWopiDummyEnable, wopiClient.dummyOk);
 	app.get('/wopi/files/:docid/contents', apicache.middleware("5 minutes"), checkWopiDummyEnable, wopiClient.dummyGetFile);
 	app.post('/wopi/files/:docid/contents', checkWopiDummyEnable, wopiClient.dummyOk);
+
+	app.use('/ai-proxy', rawFileParser, aiProxyHandler.proxyRequest);
 
 	app.post('/dummyCallback', utils.checkClientIp, apicache.middleware("5 minutes"), rawFileParser, function(req, res){
 		let ctx = new operationContext.Context();

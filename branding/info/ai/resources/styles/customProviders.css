@@ -1,0 +1,89 @@
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+#label-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+}
+#label-row label {
+    font-weight: bold;
+}
+#alert-icon {
+    cursor: pointer;
+    margin-left: 4px;
+    width: 20px;
+    height: 20px;
+}
+
+#alert-inner-popover {
+    line-height: 14px;
+}
+
+#list-row {
+    display: flex;
+    justify-content: space-between;
+    flex: 1;
+    position: relative;
+    height: calc(100% - (20px + 4px) - (12px + 4px));
+}
+
+#providers-list {
+    margin-right: 4px;
+}
+
+#providers-list.empty {
+    cursor: pointer;
+}
+#providers-list.empty:hover {
+    opacity: 0.75;
+}
+
+#providers-list.dragged {
+    opacity: 0.75;
+    border-style: dashed;
+}
+
+#providers-list .item {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: none;
+}
+
+#buttons-block {
+    display: flex;
+    flex-direction: column;
+}
+
+#buttons-block button {
+    padding: 0;
+    height: auto;
+    display: flex;
+}
+
+#buttons-block button img {
+    width: 20px;
+    height: 20px;
+    margin: 1px;
+}
+
+#buttons-block button:not(:first-child) {
+    margin-top: 2px;
+}
+
+#file-input {
+    display: none;
+}
+
+#error-label {
+    height: 12px;
+    color: #F62211;
+    margin-top: 4px;
+    transition: 0.15s opacity;
+}
+#error-label.hide {
+    opacity: 0;
+}

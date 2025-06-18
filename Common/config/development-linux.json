@@ -2,6 +2,12 @@
   "log": {
     "filePath": "../Common/config/log4js/development.json"
   },
+  "runtimeConfig": {
+    "filePath": "./../runtime.json"
+  },
+  "queue": {
+    "visibilityTimeout": 900
+  },
   "storage": {
     "fs": {
       "folderPath": "../App_Data"
@@ -63,10 +69,39 @@
   },
   "FileConverter": {
     "converter": {
+      "maxDownloadBytes": 1073741824,
       "fontDir": "/usr/share/fonts",
       "presentationThemesDir": "../../sdkjs/slide/themes",
       "x2tPath": "../FileConverter/bin/x2t",
-      "docbuilderPath": "../FileConverter/bin/docbuilder"
+      "docbuilderPath": "../FileConverter/bin/docbuilder",
+      "spawnOptions": {
+        "env": {
+          "X2T_MEMORY_LIMIT": "16GB"
+        }
+      },
+      "inputLimits": [
+        {
+          "type": "docx;dotx;docm;dotm",
+          "zip": {
+            "uncompressed": "1GB",
+            "template": "*.xml"
+          }
+        },
+        {
+          "type": "xlsx;xltx;xlsm;xltm",
+          "zip": {
+            "uncompressed": "1GB",
+            "template": "*.xml"
+          }
+        },
+        {
+          "type": "pptx;ppsx;potx;pptm;ppsm;potm",
+          "zip": {
+            "uncompressed": "1GB",
+            "template": "*.xml"
+          }
+        }
+      ]
     }
   },
   "SpellChecker": {

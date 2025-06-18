@@ -34,6 +34,8 @@
 const crypto = require('crypto');
 var pathModule = require('path');
 var urlModule = require('url');
+const { pipeline } = require('node:stream/promises');
+const { buffer } = require('node:stream/consumers');
 var co = require('co');
 const ms = require('ms');
 const retry = require('retry');
@@ -42,12 +44,13 @@ var sqlBase = require('./databaseConnectors/baseConnector');
 const utilsDocService = require('./utilsDocService');
 var docsCoServer = require('./DocsCoServer');
 var taskResult = require('./taskresult');
+var wopiUtils = require('./wopiUtils');
 var wopiClient = require('./wopiClient');
 var logger = require('./../../Common/sources/logger');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 var commonDefines = require('./../../Common/sources/commondefines');
-var storage = require('./../../Common/sources/storage-base');
+var storage = require('./../../Common/sources/storage/storage-base');
 var formatChecker = require('./../../Common/sources/formatchecker');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var operationContext = require('./../../Common/sources/operationContext');
@@ -648,7 +651,7 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
   }
 }
 let commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey) {
-  var selectRes = yield taskResult.select(ctx, cmd.getDocId());
+  var selectRes = yield taskResult.selectWithCache(ctx, cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
   if (!row) {
     return false;
@@ -866,8 +869,9 @@ function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
   var completeParts = yield* saveParts(ctx, cmd, "changes0.json");
   if (completeParts) {
     let docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
-    if (docPassword.initial) {
-      cmd.setPassword(docPassword.initial);
+    //Use current password for pdf because password is entered in the browser when opening and is set via setPassword
+    if (docPassword.initial || docPassword.current) {
+      cmd.setPassword(docPassword.initial || docPassword.current);
     }
     //todo setLCID in browser
     var queueData = getSaveTask(ctx, cmd);
@@ -883,9 +887,11 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
 
   let hasDocumentPassword = false;
   let isDocumentPasswordModified = true;
+  let originFormat;
   let selectRes = yield taskResult.select(ctx, cmd.getDocId());
   if (selectRes.length > 0) {
     let row = selectRes[0];
+    originFormat = row.change_id;
     hasPasswordCol = undefined !== row.password;
     if (commonDefines.FileStatus.Ok === row.status) {
       let documentPasswordCurEnc = sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
@@ -917,7 +923,7 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     var task = new taskResult.TaskResultData();
     task.password = cmd.getPassword() || "";
     let changeInfo = null;
-    if (conn.user) {
+    if (conn.user && (hasDocumentPassword || !formatChecker.isBrowserEditorFormat(originFormat))) {
       changeInfo = task.innerPasswordChange = docsCoServer.getExternalChangeInfo(conn.user, newChangesLastDate.getTime(), conn.lang);
     }
 
@@ -927,9 +933,11 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
       if (!conn.isEnterCorrectPassword) {
         yield docsCoServer.modifyConnectionForPassword(ctx, conn, true);
       }
-      let forceSave = yield docsCoServer.editorData.getForceSave(ctx, cmd.getDocId());
-      let index = forceSave?.index || 0;
-      yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), index, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
+      if (changeInfo) {
+        let forceSave = yield docsCoServer.editorData.getForceSave(ctx, cmd.getDocId());
+        let index = forceSave?.index || 0;
+        yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), index, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
+      }
     } else {
       ctx.logger.debug('commandSetPassword sql update error');
       outputData.setStatus('err');
@@ -1694,7 +1702,7 @@ exports.downloadFile = function(req, res) {
             //editnew case
             fromTemplate = pathModule.extname(decoded.fileInfo.BaseFileName).substring(1);
           } else {
-            ({url, headers} = yield wopiClient.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
+            ({url, headers} = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
             let filterStatus = yield wopiClient.checkIpFilter(ctx, url);
             if (0 === filterStatus) {
               //todo false? (true because it passed checkIpFilter for wopi)
@@ -1746,7 +1754,14 @@ exports.downloadFile = function(req, res) {
           headers['Range'] = req.get('Range');
         }
 
-        yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, res);
+        const { response, stream } = yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, true);
+        //Set-Cookie resets browser session
+        delete response.headers['set-cookie'];
+        // Set the response headers to match the target response
+        res.set(response.headers);
+
+        // Use pipeline to pipe the response data to the client
+        yield pipeline(stream, res);
       }
 
       if (clientStatsD) {
@@ -1792,7 +1807,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
       //we do a select, because during the timeout the information could change
       var selectRes = yield taskResult.select(ctx, docId);
       var row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo) {
+      if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo && row.callback) {
         if (null == optFormat) {
           optFormat = changeFormatByOrigin(ctx, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
         }
@@ -1822,6 +1837,10 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
           yield docsCoServer.editorStat.addShutdown(redisKeyShutdown, docId);
         }
         ctx.logger.debug('AddTask saveFromChanges');
+      } else if(row && !row.callback) {
+        ctx.logger.debug('saveFromChanges empty callback: %s', docId);
+        yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId, opt_userId, opt_userIndex, false, true);
+        //todo restore status
       } else {
         if (row) {
           ctx.logger.debug('saveFromChanges status mismatch: row: %d; %d; expected: %d', row.status, row.status_info, statusInfo);

@@ -49,7 +49,7 @@ const { cp } = require('fs/promises');
 
 const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
-const storage = require('../../../Common/sources/storage-base');
+const storage = require('../../../Common/sources/storage/storage-base');
 const utils = require('../../../Common/sources/utils');
 const commonDefines = require("../../../Common/sources/commondefines");
 const config = require('../../../Common/node_modules/config');
@@ -76,13 +76,16 @@ function getStorageCfg(specialDir) {
 }
 
 function request(url) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     let module = url.startsWith('https') ? https : http;
-    module.get(url, response => {
+    const req = module.get(url, response => {
       let data = '';
       response.on('data', _data => (data += _data));
+      response.on('error', error => reject(error));
       response.on('end', () => resolve(data));
     });
+    
+    req.on('error', error => reject(error));
   });
 }
 function runTestForDir(ctx, isMultitenantMode, specialDir) {
@@ -119,13 +122,42 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     });
   } else {
     test("uploadObject", async () => {
-      const spy = jest.spyOn(fs, 'createReadStream').mockReturnValue(testFileData3);
+      const readStream = Readable.from(testFileData3);
+      readStream.size = testFileData3.length;
+      const spy = jest.spyOn(fs, 'createReadStream').mockReturnValue(readStream);
       let res = await storage.uploadObject(ctx, testFile3, "createReadStream.txt", specialDir);
       expect(res).toEqual(undefined);
       let list = await storage.listObjects(ctx, testDir, specialDir);
       expect(spy).toHaveBeenCalled();
       expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
       spy.mockRestore();
+    });
+
+    //todo fails with storage-s3
+    test.skip("uploadObject - stream error handling", async () => {
+      const streamErrorMessage = new Error("Test stream error");
+      const mockStream = Readable.from(async function* () {
+        yield "first chunk\n";
+        await new Promise(r => setTimeout(r, 5));
+        throw streamErrorMessage;
+      }());
+      mockStream.size = 1024;
+      
+      const spy = jest.spyOn(fs, 'createReadStream').mockReturnValue(mockStream);
+      // Verify that the uploadObject function rejects when the stream emits an error
+      await expect(storage.uploadObject(ctx, "test-error-file.txt", "nonexistent.txt", specialDir))
+        .rejects.toThrow(streamErrorMessage);
+      
+      spy.mockRestore();
+    });
+
+    test.skip("uploadObject - non-existent file handling", async () => {
+      const nonExistentFile = 'definitely-does-not-exist-' + Date.now() + '.txt';
+      // Verify the file actually doesn't exist
+      expect(fs.existsSync(nonExistentFile)).toBe(false);
+      // Verify that uploadObject properly handles and propagates the error
+      await expect(storage.uploadObject(ctx, "test-error-file.txt", nonExistentFile, specialDir))
+        .rejects.toThrow(/ENOENT/);
     });
   }
   test("copyObject", async () => {
