@@ -1,0 +1,73 @@
+{
+	"name" : "AI",
+	"nameLocale": {
+		"ru": "ИИ",
+		"fr": "AI",
+		"es": "AI",
+		"de": "AI",
+		"cs": "AI",
+		"zh": "AI",
+		"pt-BR": "AI",
+		"sr-Cyrl-RS": "AI",
+		"sr-Latn-RS": "AI",
+		"ja-JA": "AI",
+		"sq-AL": "AI",
+		"it": "IA"
+	},
+
+	"guid" : "asc.{9DC93CDB-B576-4F0C-B55E-FCC9C48DD007}",
+	"version": "2.2.8",
+	"minVersion" : "8.2.0",
+
+	"variations" : [
+		{
+			"description": "Use the AI chatbot to perform tasks which involve understanding or generating natural language or code.",
+			"descriptionLocale": {
+				"ru": "Используйте чат-бот AI для выполнения задач, связанных с пониманием или генерацией естественного языка или кода.",
+				"fr": "Utilisez le chatbot AI pour effectuer des tâches qui impliquent la compréhension ou la génération de langage naturel ou de code.",
+				"es": "Utilice el chatbot AI para realizar tareas que impliquen la comprensión o generación de lenguaje natural o de código.",
+				"pt-BR": "Use o chatbot AI para realizar tarefas que envolvam compreensão ou geração de linguagem ou código natural.",
+				"de": "Verwenden Sie den AI-Chatbot, um Aufgaben auszuführen, die das Verstehen oder Generieren von natürlicher Sprache oder Code beinhalten.",
+				"cs": "Použijte chatbota AI k provádění úkolů, který zahrnuje porozumění nebo generování přirozeného jazyka nebo kódu.",
+				"zh": "使用 AI 聊天机器人完成有关理解、生成自然语言或代码的任务。",
+				"sr-Cyrl-RS": "Користите AI чет робота за обављање задатака који укључују разумевање или генерисање природног језика или кода.",
+				"sr-Latn-RS": "Koristite AI čet robota za obavljanje zadataka koji uključuju razumevanje ili generisanje prirodnog jezika ili koda.",
+				"ja-JA": "自然言語やコードの理解または生成が必要なタスクを行うには、AIチャットボットを使用できます。",
+				"sq-AL": "Shtoni dhe selektoni modele AI për detyra të ndryshme.",
+				"it": "Utilizza il chatbot dell'IA per eseguire attività che implicano la comprensione o la generazione di codice o linguaggio naturale."
+			},
+
+			"url"         : "index.html",
+
+			"icons": "resources/%theme-type%(light|dark)/icon%scale%(default).%extension%(png)",			
+
+			"isViewer"            : false,
+			"EditorsSupport"      : ["word", "cell", "slide", "pdf"],
+			"type"                : "background",
+			"initDataType"        : "none",
+			"buttons"             : [],
+			"events"			  : ["onContextMenuShow", "onContextMenuClick", "onToolbarMenuClick"],
+
+			"store": {
+				"background": {
+					"light" : "linear-gradient(90deg, #F9B6FF 0%, #E370EE 102.01%)",
+					"dark" : "linear-gradient(90deg, #F9B6FF 0%, #E370EE 102.01%)"
+				},
+				"screenshots" :
+				[
+					"resources/store/screenshots/screen_1.png",
+					"resources/store/screenshots/screen_2.png",
+					"resources/store/screenshots/screen_3.png",
+					"resources/store/screenshots/screen_4.png",
+					"resources/store/screenshots/screen_5.png",
+					"resources/store/screenshots/screen_6.png"
+				],
+				"icons" : {
+					"light" : "resources/store/icons",
+					"dark"  : "resources/store/icons"
+				},
+				"categories": ["specAbilities", "work", "recommended"]
+			}
+		}
+	]
+}

@@ -36,17 +36,7 @@ const { cp, rm, mkdir } = require('fs/promises');
 const { stat, readFile, writeFile } = require('fs/promises');
 var path = require('path');
 var utils = require("../utils");
-var crypto = require('crypto');
-const ms = require('ms');
-const config = require('config');
-const commonDefines = require('../commondefines');
-const constants = require('../constants');
 
-const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
-
-//Stubs are needed until integrators pass these parameters to all requests
-let shardKeyCached;
-let wopiSrcCached;
 
 function getFilePath(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
@@ -120,50 +110,6 @@ async function deletePath(storageCfg, strPath) {
   return rm(fsPath, {force: true, recursive: true, maxRetries: 3});
 }
 
-async function getSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
-  const storageSecretString = storageCfg.fs.secretString;
-  const storageUrlExpires = storageCfg.fs.urlExpires;
-  const bucketName = storageCfg.bucketName;
-  const storageFolderName = storageCfg.storageFolderName;
-  //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
-  const userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, "%2f")) : path.basename(strPath);
-  var uri = '/' + bucketName + '/' + storageFolderName + '/' + strPath + '/' + userFriendlyName;
-  //RFC 1123 does not allow underscores https://stackoverflow.com/questions/2180465/can-domain-name-subdomains-have-an-underscore-in-it
-  var url = utils.checkBaseUrl(ctx, baseUrl, storageCfg).replace(/_/g, "%5f");
-  url += uri;
-
-  var date = Date.now();
-  let creationDate = opt_creationDate || date;
-  let expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : storageUrlExpires) || 31536000;
-  //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
-  var expires = creationDate + Math.ceil(Math.abs(date - creationDate) / expiredAfter) * expiredAfter;
-  expires = Math.ceil(expires / 1000);
-  expires += expiredAfter;
-
-  var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(uri) + storageSecretString).digest("base64");
-  md5 = md5.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-
-  url += '?md5=' + encodeURIComponent(md5);
-  url += '&expires=' + encodeURIComponent(expires);
-  if (ctx.shardKey) {
-    shardKeyCached = ctx.shardKey;
-    url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(ctx.shardKey)}`;
-  } else if (ctx.wopiSrc) {
-    wopiSrcCached = ctx.wopiSrc;
-    url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
-  } else if (process.env.DEFAULT_SHARD_KEY) {
-    //Set DEFAULT_SHARD_KEY from environment as shardkey in case of integrator did not pass this param
-    url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(process.env.DEFAULT_SHARD_KEY)}`;
-  } else if (shardKeyCached) {
-    //Add stubs for shardkey params until integrators pass these parameters to all requests
-    url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardKeyCached)}`;
-  } else if (wopiSrcCached) {
-    url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrcCached)}`;
-  }
-  url += '&filename=' + userFriendlyName;
-  return url;
-}
-
 function needServeStatic() {
   return true;
 }
@@ -178,6 +124,5 @@ module.exports = {
   listObjects,
   deleteObject,
   deletePath,
-  getSignedUrl,
   needServeStatic
 };

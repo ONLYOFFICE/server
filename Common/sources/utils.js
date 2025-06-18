@@ -45,7 +45,7 @@ const crypto = require('crypto');
 var url = require('url');
 var axios = require('../node_modules/axios/dist/node/axios.cjs');
 var co = require('co');
-var URI = require("uri-js");
+var URI = require("uri-js-replace");
 const escapeStringRegexp = require('escape-string-regexp');
 const ipaddr = require('ipaddr.js');
 const getDnsCache = require('dnscache');
@@ -494,6 +494,88 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     throw err;
   }
 }
+/**
+ * Performs an HTTP request with specified method and returns the raw response with a stream.
+ * @param {operationContext.Context} ctx - The operation context.
+ * @param {string} method - HTTP method (GET, POST, PUT, DELETE, etc).
+ * @param {string} uri - The URL for the request.
+ * @param {object} opt_headers - Optional headers to include in the request.
+ * @param {*} opt_body - Optional request body data.
+ * @param {object} opt_timeout - Optional timeout configuration.
+ * @param {number} opt_limit - Optional limit on the size of the response.
+ * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
+ * @returns {Promise<{response: axios.AxiosResponse, stream: SizeLimitStream}>} - A promise that resolves to an object containing the raw Axios response and a SizeLimitStream.
+ */
+async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout, opt_limit, opt_filterPrivate) {
+  const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
+  uri = URI.serialize(URI.parse(uri));
+  const options = config.util.cloneDeep(tenTenantRequestDefaults);
+  
+  const httpsAgentOptions = { ...https.globalAgent.options, ...options};
+  const httpAgentOptions = { ...http.globalAgent.options, ...options};
+  changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
+  
+  if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
+    throw new Error('Block external request. See externalRequest config options');
+  }
+
+  if (!options.httpsAgent || !options.httpAgent) {
+    options.httpsAgent = new https.Agent(httpsAgentOptions);
+    options.httpAgent = new http.Agent(httpAgentOptions);
+  }
+
+  const requestHeaders = { ...options.headers };
+  if (opt_headers) {
+    Object.assign(requestHeaders, opt_headers);
+  }
+
+  const axiosConfig = {
+    ...options,
+    url: uri,
+    method: method,
+    headers: requestHeaders,
+    responseType: 'stream',
+    signal: opt_timeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(opt_timeout.wholeCycle)) : undefined,
+    timeout: opt_timeout?.connectionAndInactivity ? ms(opt_timeout.connectionAndInactivity) : undefined,
+  };
+
+  if (opt_body) {
+    axiosConfig.data = opt_body;
+  }
+
+  try {
+    const response = await axios(axiosConfig);
+    const { status, headers, data } = response;
+
+    const contentLength = headers['content-length'];
+    if (opt_limit && contentLength && parseInt(contentLength) > opt_limit) {
+      const error = new Error('EMSGSIZE: Error response: content-length:' + contentLength);
+      error.code = 'EMSGSIZE';
+      response.data.destroy(error);
+      throw error;
+    }
+    
+    const limitedStream = new SizeLimitStream(opt_limit || Number.MAX_VALUE);
+    response.data.pipe(limitedStream);
+    
+    return {
+      response,
+      stream: limitedStream
+    };
+  } catch (err) {
+    if ('ERR_CANCELED' === err.code) {
+      err.code = 'ETIMEDOUT';
+    } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      err.code = 'ESOCKETTIMEDOUT';
+    }
+    if (err.status) {
+      err.statusCode = err.status;
+    }
+    throw err;
+  }
+}
+
+exports.httpRequest = httpRequest;
 exports.postRequestPromise = postRequestPromise;
 exports.downloadUrlPromise = downloadUrlPromise;
 exports.mapAscServerErrorToOldError = function(error) {
@@ -1118,6 +1200,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.customer_id = licenseInfo.customerId;
   license.alias = licenseInfo.alias;
   license.multitenancy = licenseInfo.multitenancy;
+  license.grace_days = licenseInfo.graceDays;
   return license;
 };
 exports.convertLicenseInfoToServerParams = function(licenseInfo) {
@@ -1276,3 +1359,5 @@ function deepMergeObjects(target, ...sources) {
 }
 exports.isObject = isObject;
 exports.deepMergeObjects = deepMergeObjects;
+exports.NodeCache = NodeCache;//todo via require
+

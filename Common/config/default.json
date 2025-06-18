@@ -5,10 +5,32 @@
 		"port": "8125",
 		"prefix": "ds."
 	},
+	"aiSettings": {
+		"actions": {
+		},
+		"models": [
+		],
+		"providers": {
+		},
+		"version": 3,
+		"timeout": "30s",
+		"allowedCorsOrigins": [
+			"https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"
+		],
+		"pluginDir" : "../branding/info/ai"
+	},
 	"log": {
 		"filePath": "",
 		"options": {
 			"replaceConsole": true
+		}
+	},
+	"runtimeConfig": {
+		"filePath": "",
+		"cache": {
+			"stdTTL": 300,
+			"checkperiod": 60,
+			"useClones": false
 		}
 	},
 	"queue": {
@@ -107,7 +129,8 @@
 		"secretAccessKey": "",
 		"sslEnabled": false,
 		"s3ForcePathStyle": true,
-		"externalHost": ""
+		"externalHost": "",
+		"useDirectStorageUrls": true
 	},
 	"persistentStorage": {
 	},

@@ -47,7 +47,7 @@ var storage = require('./../../Common/sources/storage/storage-base');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 var baseConnector = require('../../DocService/sources/databaseConnectors/baseConnector');
-const wopiClient = require('./../../DocService/sources/wopiClient');
+const wopiUtils = require('./../../DocService/sources/wopiUtils');
 const taskResult = require('./../../DocService/sources/taskresult');
 var statsDClient = require('./../../Common/sources/statsdclient');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
@@ -345,15 +345,13 @@ function* isUselessConvertion(ctx, task, cmd) {
   return constants.NO_ERROR;
 }
 async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
-  let forceSave = cmd.getForceSave();
-  let isSendForm = forceSave && forceSave.getType() === commonDefines.c_oAscForceSaveTypes.Form;
   let originFormat = cmd.getOriginFormat();
   let isOriginFormatWithForms = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === originFormat ||
     constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === originFormat ||
     constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === originFormat;
   let isFormatToPdf = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === dataConvert.formatTo ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === dataConvert.formatTo;
-  if (isFormatToPdf && isOriginFormatWithForms && !isSendForm) {
+  if (isFormatToPdf && isOriginFormatWithForms) {
     let format = await formatChecker.getDocumentFormatByFile(dataConvert.fileFrom);
     if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD === format) {
       ctx.logger.debug('change format to extended pdf');
@@ -1074,7 +1072,7 @@ function* ExecuteTask(ctx, task) {
         isInJwtToken = true;
         let fileInfo = wopiParams.commonInfo?.fileInfo;
         fileSize = fileInfo?.Size;
-        ({url, headers} = yield wopiClient.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
+        ({url, headers} = yield wopiUtils.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
       }
       if (undefined === fileSize || fileSize > 0) {
         error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers);
