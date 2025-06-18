@@ -141,12 +141,13 @@ async function deletePath(ctx, strPath, opt_specialDir) {
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   return await storage.deletePath(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
-async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir) {
+async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir, useDirectStorageUrls) {
   let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   let storagePath = getStoragePath(ctx, strPath, opt_specialDir);
+  const directUrlsEnabled = useDirectStorageUrls !== undefined ? useDirectStorageUrls : storageCfg.useDirectStorageUrls;
 
-  if (storageCfg.useDirectStorageUrls && storage.getDirectSignedUrl) {
+  if (directUrlsEnabled && storage.getDirectSignedUrl) {
     return await storage.getDirectSignedUrl(ctx, storageCfg, baseUrl, storagePath, urlType, optFilename, opt_creationDate);
   } else {
     const storageSecretString = storageCfg.fs.secretString;
