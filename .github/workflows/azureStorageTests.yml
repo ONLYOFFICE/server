@@ -1,0 +1,110 @@
+name: Azure Storage Tests
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'tests/integration/withServerInstance/storage.tests.js'
+      - 'Common/sources/storage/**'
+      - 'DocService/sources/routes/static.js'
+
+jobs:
+  azure-storage-tests:
+    name: Azure Storage Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Run Azurite docker container
+        run: |
+          docker run --name azurite \
+            -p 10000:10000 \
+            -p 10001:10001 \
+            -p 10002:10002 \
+            -d mcr.microsoft.com/azure-storage/azurite \
+            azurite-blob --blobHost 0.0.0.0 --loose
+
+      - name: Caching dependencies
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            ./npm-shrinkwrap.json
+            ./Common/npm-shrinkwrap.json
+            ./DocService/npm-shrinkwrap.json
+
+      - name: Install modules
+        run: |
+          npm ci
+          npm --prefix Common ci
+          npm --prefix DocService ci
+
+      - name: Setup Azure storage test environment
+        run: |
+          # Wait for Azurite to be ready
+          sleep 15
+          
+          # Create Azure storage configuration
+          cat > Common/config/local.json << 'EOF'
+          {
+            "storage": {
+              "name": "storage-az",
+              "region": "",
+              "endpoint": "http://127.0.0.1:10000/devstoreaccount1",
+              "bucketName": "test-container",
+              "storageFolderName": "files",
+              "cacheFolderName": "data",
+              "accessKeyId": "devstoreaccount1",
+              "secretAccessKey": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+            },
+            "persistentStorage": {
+              "storageFolderName": "files/persistent"
+            }
+          }
+          EOF
+          
+          echo "Azure storage configuration created"
+
+      - name: Create Azure container using Node.js from Common directory
+        run: |
+          # Wait a bit more for Azurite to be fully ready
+          sleep 10
+          
+          # Run Node.js script from Common directory where Azure dependencies are installed
+          cd Common
+          node -e "
+          const { BlobServiceClient, StorageSharedKeyCredential } = require('@azure/storage-blob');
+          
+          async function setupContainer() {
+            try {
+              const accountName = 'devstoreaccount1';
+              const accountKey = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==';
+              const endpoint = 'http://127.0.0.1:10000/devstoreaccount1';
+              
+              const credential = new StorageSharedKeyCredential(accountName, accountKey);
+              const blobServiceClient = new BlobServiceClient(endpoint, credential);
+              const containerClient = blobServiceClient.getContainerClient('test-container');
+              
+              console.log('Creating container...');
+              await containerClient.createIfNotExists();
+              console.log('Container created successfully');
+              
+              // Upload a test file if needed
+              const blockBlobClient = containerClient.getBlockBlobClient('testfile.txt');
+              await blockBlobClient.upload('Test content', Buffer.byteLength('Test content'));
+              console.log('Test file uploaded');
+              
+            } catch (error) {
+              console.error('Error setting up Azure storage:', error);
+              process.exit(1);
+            }
+          }
+          
+          setupContainer();
+          "
+
+      - name: Run storage tests
+        run: npm run storage-tests

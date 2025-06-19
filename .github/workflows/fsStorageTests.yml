@@ -1,0 +1,64 @@
+name: fs Storage Tests
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'tests/integration/withServerInstance/storage.tests.js'
+      - 'Common/sources/storage/**'
+      - 'DocService/sources/routes/static.js'
+
+jobs:
+  fs-storage-tests:
+    name: File System Storage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Caching dependencies
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            ./npm-shrinkwrap.json
+            ./Common/npm-shrinkwrap.json
+            ./DocService/npm-shrinkwrap.json
+
+      - name: Install modules
+        run: |
+          npm ci
+          npm --prefix Common ci
+          npm --prefix DocService ci
+
+      - name: Creating service configuration
+        run: |
+          mkdir -p /tmp/storage
+          mkdir -p Common/config
+          echo '{
+            "storage": {
+              "name": "storage-fs",
+              "fs": {
+                "folderPath": "/tmp/storage",
+                "urlExpires": 900,
+                "secretString": "verysecretstring"
+              },
+              "region": "",
+              "endpoint": "http://localhost/s3",
+              "bucketName": "cache",
+              "storageFolderName": "files",
+              "cacheFolderName": "data",
+              "urlExpires": 604800,
+              "accessKeyId": "",
+              "secretAccessKey": "",
+              "sslEnabled": false,
+              "s3ForcePathStyle": true,
+              "externalHost": "",
+              "useDirectStorageUrls": true
+            },
+          }' > Common/config/local.json
+
+      - name: Run storage tests
+        run: npm run storage-tests
