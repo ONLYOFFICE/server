@@ -54,13 +54,7 @@ jobs:
               "forcePathStyle": true
             },
             "persistentStorage": {
-              "name": "storage-s3",
-              "region": "us-east-1",
-              "endpoint": "http://localhost:9000",
-              "accessKeyId": "minioadmin",
-              "secretAccessKey": "minioadmin",
-              "bucket": "cache",
-              "forcePathStyle": true
+              "storageFolderName": "files/persistent"
             }
           }' >> Common/config/local.json
 
@@ -70,6 +64,4 @@ jobs:
           docker exec minio mc mb myminio/cache
 
       - name: Run storage tests
-        run: |
-          cd ./DocService
-          npx jest ../tests/integration/withServerInstance/storage.tests.js --inject-globals=false --config=../tests/jest.config.js 
+        run: npm run storage-tests

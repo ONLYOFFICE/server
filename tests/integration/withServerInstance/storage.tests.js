@@ -286,6 +286,33 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     }
     expect(data.sort()).toEqual([testFileData3, testFileData4].sort());
   });
+  test("getSignedUrl with direct URLs enabled", async () => {
+    let buffer = Buffer.from(testFileData1);
+    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
+    expect(res).toEqual(undefined);
+
+    let url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache, true);
+    let data = await request(url);
+    expect(data).toEqual(testFileData1);
+    
+    if (cfgCacheStorage.name !== 'storage-fs') {
+      expect(url).toContain(cfgCacheStorage.endpoint);
+      expect(url).toContain(cfgCacheStorage.bucketName);
+    }
+  });
+  test("getSignedUrl with direct URLs disabled", async () => {
+    let buffer = Buffer.from(testFileData1);
+    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
+    expect(res).toEqual(undefined);
+  
+    let url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache, false);
+    let data = await request(url);
+    expect(data).toEqual(testFileData1);
+  
+    expect(url).toContain('md5');
+    expect(url).toContain('expires');
+    expect(url).toContain(cfgCacheStorage.storageFolderName);
+  });
   test("deleteObject", async () => {
     let list;
     list = await storage.listObjects(ctx, testDir, specialDir);
@@ -376,38 +403,5 @@ describe('storage mix common and forgotten dir', function () {
 
     list = await storage.listObjects(ctx, testDir, specialDirForgotten);
     expect(list.sort()).toEqual([].sort());
-  });
-});
-
-describe('storage direct URL testing', function () {
-  test("getSignedUrl with direct URLs enabled", async () => {
-    let buffer = Buffer.from(testFileData1);
-    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
-    expect(res).toEqual(undefined);
-
-    let url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache, true);
-    let data = await request(url);
-    expect(data).toEqual(testFileData1);
-    
-    if (cfgCacheStorage.name !== 'storage-fs') {
-      expect(url).toContain(cfgCacheStorage.endpoint);
-      expect(url).toContain(cfgCacheStorage.bucketName);
-    }
-  });
-
-
-  test("getSignedUrl with direct URLs disabled", async () => {
-    let buffer = Buffer.from(testFileData1);
-    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
-    expect(res).toEqual(undefined);
-   
-    let url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache, false);
-    console.log("URL", url);
-    let data = await request(url);
-    expect(data).toEqual(testFileData1);
-   
-    expect(url).toContain('md5');
-    expect(url).toContain('expires');
-    expect(url).toContain(cfgCacheStorage.storageFolderName);
   });
 });

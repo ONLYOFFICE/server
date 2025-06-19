@@ -145,7 +145,7 @@ async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_cre
   let storage = getStorage(opt_specialDir);
   let storageCfg = getStorageCfg(ctx, opt_specialDir);
   let storagePath = getStoragePath(ctx, strPath, opt_specialDir);
-  const directUrlsEnabled = useDirectStorageUrls !== undefined ? useDirectStorageUrls : storageCfg.useDirectStorageUrls;
+  const directUrlsEnabled = useDirectStorageUrls ?? storageCfg.useDirectStorageUrls;
 
   if (directUrlsEnabled && storage.getDirectSignedUrl) {
     return await storage.getDirectSignedUrl(ctx, storageCfg, baseUrl, storagePath, urlType, optFilename, opt_creationDate);

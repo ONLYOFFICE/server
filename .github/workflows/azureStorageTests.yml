@@ -60,14 +60,7 @@ jobs:
               "secretAccessKey": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
             },
             "persistentStorage": {
-              "name": "storage-az",
-              "region": "",
-              "endpoint": "http://127.0.0.1:10000/devstoreaccount1",
-              "bucketName": "test-container",
-              "storageFolderName": "files",
-              "cacheFolderName": "data",
-              "accessKeyId": "devstoreaccount1",
-              "secretAccessKey": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+              "storageFolderName": "files/persistent"
             }
           }
           EOF
@@ -113,6 +106,4 @@ jobs:
           "
 
       - name: Run storage tests
-        run: |
-          cd ./DocService
-          npx jest ../tests/integration/withServerInstance/storage.tests.js --inject-globals=false --config=../tests/jest.config.js
+        run: npm run storage-tests
