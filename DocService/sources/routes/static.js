@@ -36,6 +36,7 @@ const { pipeline } = require('node:stream/promises');
 const express = require('express');
 const config = require('config');
 const operationContext = require('./../../../Common/sources/operationContext');
+const tenantManager = require('./../../../Common/sources/tenantManager');
 const utils = require('./../../../Common/sources/utils');
 const storage = require('./../../../Common/sources/storage/storage-base');
 const urlModule = require("url");
@@ -108,7 +109,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
       }
 
       const filename = urlParsed.pathname && decodeURIComponent(path.basename(urlParsed.pathname));
-      const filePath = decodeURI(req.url.substring(1, index));
+      let filePath = decodeURI(req.url.substring(1, index));
       if (cfgStorage.name === 'storage-fs') {
         const sendFileOptions = {
           root: rootPath,
@@ -129,6 +130,9 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
         const ctx = new operationContext.Context();
         ctx.initFromRequest(req);
         await ctx.initTenantCache();
+        if (tenantManager.isMultitenantMode(ctx) && filePath.startsWith(ctx.tenant + '/')) {
+          filePath = filePath.substring(ctx.tenant.length + 1);
+        }
         const result = await storage.createReadStream(ctx, filePath, rout);
         
         res.setHeader('Content-Type', mime.getType(filename));
