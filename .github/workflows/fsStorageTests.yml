@@ -6,6 +6,7 @@ on:
     paths:
       - 'tests/integration/withServerInstance/storage.tests.js'
       - 'Common/sources/storage/**'
+      - 'DocService/sources/routes/static.js'
 
 jobs:
   fs-storage-tests:
