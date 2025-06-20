@@ -735,7 +735,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       var urlSource = urls[i];
       var urlParsed;
       var data = undefined;
-      if (urlSource.startsWith('data:')) {
+      if (urlSource?.startsWith('data:')) {
         let delimiterIndex = urlSource.indexOf(',');
         if (-1 != delimiterIndex) {
           let dataLen = urlSource.length - (delimiterIndex + 1);
@@ -777,10 +777,10 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
         }
       }
 
-      data = yield utilsDocService.fixImageExifRotation(ctx, data);
-
       var outputUrl = {url: 'error', path: 'error'};
       if (data) {
+        data = yield utilsDocService.fixImageExifRotation(ctx, data);
+
         let format = formatChecker.getImageFormat(ctx, data);
         let formatStr;
         let isAllow = false;
