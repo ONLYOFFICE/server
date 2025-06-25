@@ -53,7 +53,7 @@ var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
 var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
 var cfgExpFiles = config.get('services.CoAuthoring.expire.files');
 var cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
-var cfgForceSaveStep = ms(config.get('services.CoAuthoring.autoAssembly.step'));
+var cfgForceSaveStep = config.get('services.CoAuthoring.autoAssembly.step');
 
 function getCronStep(cronTime){
   let cronJob = new cron.CronJob(cronTime, function(){});
@@ -73,7 +73,10 @@ var checkFileExpire = function(expireSeconds) {
       var currentRemovedCount;
       do {
         currentRemovedCount = 0;
-        expired = yield taskResult.getExpired(ctx, cfgExpFilesRemovedAtOnce, expireSeconds ?? cfgExpFiles);
+        yield ctx.initTenantCache();
+        const expFiles = ctx.getCfg('services.CoAuthoring.expire.files', cfgExpFiles);
+        const expFilesRemovedAtOnce = ctx.getCfg('services.CoAuthoring.expire.filesremovedatonce', cfgExpFilesRemovedAtOnce);
+        expired = yield taskResult.getExpired(ctx, expFilesRemovedAtOnce, expireSeconds ?? expFiles);
         for (var i = 0; i < expired.length; ++i) {
           let tenant = expired[i].tenant;
           let docId = expired[i].id;
@@ -99,7 +102,10 @@ var checkFileExpire = function(expireSeconds) {
     } catch (e) {
       ctx.logger.error('checkFileExpire error: %s', e.stack);
     } finally {
-      setTimeout(checkFileExpire, expFilesStep);
+      yield ctx.initTenantCache();
+      const currentFilesCron = ctx.getCfg('services.CoAuthoring.expire.filesCron', cfgExpFilesCron);
+      const currentExpFilesStep = getCronStep(currentFilesCron);
+      setTimeout(checkFileExpire, currentExpFilesStep);
     }
   });
 };
@@ -147,7 +153,10 @@ var checkDocumentExpire = function() {
       } catch (e) {
         ctx.logger.error('checkDocumentExpire error: %s', e.stack);
       }
-      setTimeout(checkDocumentExpire, expDocumentsStep);
+      yield ctx.initTenantCache();
+      const currentDocumentsCron = ctx.getCfg('services.CoAuthoring.expire.documentsCron', cfgExpDocumentsCron);
+      const currentExpDocumentsStep = getCronStep(currentDocumentsCron);
+      setTimeout(checkDocumentExpire, currentExpDocumentsStep);
     }
   });
 };
@@ -198,15 +207,26 @@ let forceSaveTimeout = function() {
       } catch (e) {
         ctx.logger.error('checkDocumentExpire error: %s', e.stack);
       }
-      setTimeout(forceSaveTimeout, cfgForceSaveStep);
+      yield ctx.initTenantCache();
+      const currentForceSaveStep = ctx.getCfg('services.CoAuthoring.autoAssembly.step', cfgForceSaveStep);
+      setTimeout(forceSaveTimeout, ms(currentForceSaveStep));
     }
   });
 };
 
-exports.startGC = function() {
-  setTimeout(checkDocumentExpire, expDocumentsStep);
-  setTimeout(checkFileExpire, expFilesStep);
-  setTimeout(forceSaveTimeout, cfgForceSaveStep);
+exports.startGC = async function() {
+  const ctx = new operationContext.Context();
+  await ctx.initTenantCache();
+  const currentDocumentsCron = ctx.getCfg('services.CoAuthoring.expire.documentsCron', cfgExpDocumentsCron);
+  const currentExpDocumentsStep = getCronStep(currentDocumentsCron);
+  setTimeout(checkDocumentExpire, currentExpDocumentsStep);
+
+  const currentFilesCron = ctx.getCfg('services.CoAuthoring.expire.filesCron', cfgExpFilesCron);
+  const currentExpFilesStep = getCronStep(currentFilesCron);
+  setTimeout(checkFileExpire, currentExpFilesStep);
+
+  const currentForceSaveStep = ctx.getCfg('services.CoAuthoring.autoAssembly.step', cfgForceSaveStep);
+  setTimeout(forceSaveTimeout, ms(currentForceSaveStep));
 };
 exports.getCronStep = getCronStep;
 exports.checkFileExpire = checkFileExpire;
