@@ -101,6 +101,7 @@ const pubsubService = require('./pubsubRabbitMQ');
 const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
+const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 const aiProxyHandler = require('./ai/aiProxyHandler');
@@ -3999,7 +4000,9 @@ exports.install = function(server, callbackFunction) {
       );
     });
   });
-  
+
+  //Initialize watch here to avoid circular import with operationContext
+  runtimeConfigManager.initRuntimeConfigWatcher(operationContext.global);
   void aiProxyHandler.getPluginSettings(operationContext.global);
 };
 exports.setLicenseInfo = async function(globalCtx, data, original) {
