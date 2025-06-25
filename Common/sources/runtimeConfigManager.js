@@ -46,7 +46,6 @@ const configFileName = path.basename(configFilePath);
 
 // Initialize cache with TTL and check for expired keys every minute
 const nodeCache = new NodeCache(cfgRuntimeConfig.cache);
-let isInitConfigWatcher = false;
 
 /**
  * Get runtime configuration for the current context
@@ -54,10 +53,7 @@ let isInitConfigWatcher = false;
  * @returns {Object} Runtime configuration object
  */
 async function getConfigFromFile(ctx) {
-  if (!isInitConfigWatcher) {
-    isInitConfigWatcher = true;
-    initConfigWatcher(ctx);
-  }
+
   try {
     const configData = await fs.readFile(configFilePath, 'utf8');
     return JSON.parse(configData);
@@ -116,20 +112,20 @@ function handleConfigFileChange(eventType, filename) {
 /**
  * Initialize the configuration directory watcher
  */
-function initConfigWatcher(ctx) {
+function initRuntimeConfigWatcher(ctx) {
   try {
     const configDir = path.dirname(configFilePath);
     const watcher = fsWatch.watch(configDir, handleConfigFileChange);
     watcher.on('error', (err) => {
-      ctx.logger.error(`initConfigWatcher error: ${err.message}`);
+      ctx.logger.error(`initRuntimeConfigWatcher error: ${err.message}`);
     });
-    ctx.logger.info(`initConfigWatcherWatching for changes in: ${configDir}`);
+    ctx.logger.info(`watching for runtime config changes in: ${configDir}`);
   } catch (watchErr) {
-    ctx.logger.error(`initConfigWatcher error: ${watchErr.message}`);
+    ctx.logger.error(`initRuntimeConfigWatcher error: ${watchErr.message}`);
   }
 }
-
 module.exports = {
+  initRuntimeConfigWatcher,
   getConfig,
   saveConfig
 };
