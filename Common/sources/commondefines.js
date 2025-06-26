@@ -108,6 +108,7 @@ function InputCommand(data, copyExplicit) {
     this['convertToOrigin'] = data['convertToOrigin'];
     this['isSaveAs'] = data['isSaveAs'];
     this['saveAsPath'] = data['saveAsPath'];
+    this['oformAsPdf'] = data['oformAsPdf'];
     if (copyExplicit) {
       this['withAuthorization'] = data['withAuthorization'];
       this['externalChangeInfo'] = data['externalChangeInfo'];
@@ -170,6 +171,7 @@ function InputCommand(data, copyExplicit) {
     this['originformat'] = undefined;
     this['isSaveAs'] = undefined;
     this['saveAsPath'] = undefined;
+    this['oformAsPdf'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -503,6 +505,12 @@ InputCommand.prototype = {
   },
   setSaveAsPath: function(data) {
     this['saveAsPath'] = data;
+  },
+  getOformAsPdf: function() {
+    return this['oformAsPdf'];
+  },
+  setOformAsPdf: function(data) {
+    this['oformAsPdf'] = data;
   }
 };
 
