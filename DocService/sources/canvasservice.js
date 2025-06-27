@@ -538,15 +538,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
         dataQueue.setCtx(ctx);
         dataQueue.setCmd(cmd);
         dataQueue.setToFile('Editor.bin');
-        var priority = constants.QUEUE_PRIORITY_HIGH;
-        var formatIn = formatChecker.getFormatFromString(cmd.getFormat());
-        //decrease pdf, djvu, xps convert priority becase long open time
-        if (constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === formatIn ||
-          constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU === formatIn ||
-          constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === formatIn) {
-          priority = constants.QUEUE_PRIORITY_LOW;
-        }
-        yield* docsCoServer.addTask(dataQueue, priority);
+        yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
       } else {
         yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
       }
