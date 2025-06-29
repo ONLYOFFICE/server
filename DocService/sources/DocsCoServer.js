@@ -1984,7 +1984,9 @@ exports.install = function(server, callbackFunction) {
           if (needSaveChanges && !conn.encrypted) {
             // Send changes to save server
             let user_lcid = utilsDocService.localeToLCID(conn.lang);
-            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex, user_lcid, undefined, getIsShutdown());
+            //noDelay=true if the client intentionally closes connection or server shuts down
+            const noDelay = !reason || getIsShutdown();
+            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex, user_lcid, undefined, noDelay);
           } else if (needSendStatus) {
             yield* cleanDocumentOnExitNoChanges(ctx, docId, tmpUser.idOriginal, userIndex);
           } else {
