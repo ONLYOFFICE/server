@@ -181,6 +181,19 @@
         "uuid": "^8.3.0"
       }
     },
+    "@hapi/hoek": {
+      "version": "9.3.0",
+      "resolved": "https://registry.npmjs.org/@hapi/hoek/-/hoek-9.3.0.tgz",
+      "integrity": "sha512-/c6rf4UJlmHlC9b5BaNvzAcFv7HZ2QHaV0D4/HNlBdvFnvQq8RI4kYdhyPCl7Xj+oWvTWQ8ujhqS53LIgAe6KQ=="
+    },
+    "@hapi/topo": {
+      "version": "5.1.0",
+      "resolved": "https://registry.npmjs.org/@hapi/topo/-/topo-5.1.0.tgz",
+      "integrity": "sha512-foQZKJig7Ob0BMAYBfcJk8d77QtOe7Wo4ox7ff1lQYoNNAb6jwcY1ncdoy2e9wQZzvNy7ODZCYJkK8kzmcAnAg==",
+      "requires": {
+        "@hapi/hoek": "^9.0.0"
+      }
+    },
     "@ioredis/commands": {
       "version": "1.2.0",
       "resolved": "https://registry.npmjs.org/@ioredis/commands/-/commands-1.2.0.tgz",
@@ -556,6 +569,24 @@
       "version": "1.1.0",
       "resolved": "https://registry.npmjs.org/@redis/time-series/-/time-series-1.1.0.tgz",
       "integrity": "sha512-c1Q99M5ljsIuc4YdaCwfUEXsofakb9c8+Zse2qxTadu8TalLXuAESzLvFAvNVbkmSlvlzIQOLpBCmWI9wTOt+g=="
+    },
+    "@sideway/address": {
+      "version": "4.1.5",
+      "resolved": "https://registry.npmjs.org/@sideway/address/-/address-4.1.5.tgz",
+      "integrity": "sha512-IqO/DUQHUkPeixNQ8n0JA6102hT9CmaljNTPmQ1u8MEhBo/R4Q8eKLN/vGZxuebwOroDB4cbpjheD4+/sKFK4Q==",
+      "requires": {
+        "@hapi/hoek": "^9.0.0"
+      }
+    },
+    "@sideway/formula": {
+      "version": "3.0.1",
+      "resolved": "https://registry.npmjs.org/@sideway/formula/-/formula-3.0.1.tgz",
+      "integrity": "sha512-/poHZJJVjx3L+zVD6g9KgHfYnb443oi7wLu/XKojDviHy6HOEOA6z1Trk5aR1dGcmPenJEgb2sK2I80LeS3MIg=="
+    },
+    "@sideway/pinpoint": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/@sideway/pinpoint/-/pinpoint-2.0.0.tgz",
+      "integrity": "sha512-RNiOoTPkptFtSVzQevY/yWtZwf/RxyVnPy/OcA9HBM3MlGDnBEYL5B41H0MTn0Uec8Hi+2qUtTfG2WWZBmMejQ=="
     },
     "@socket.io/component-emitter": {
       "version": "3.1.2",
@@ -1632,6 +1663,18 @@
         "regenerator-runtime": "^0.13.3"
       }
     },
+    "joi": {
+      "version": "17.13.3",
+      "resolved": "https://registry.npmjs.org/joi/-/joi-17.13.3.tgz",
+      "integrity": "sha512-otDA4ldcIx+ZXsKHWmp0YizCweVRZG96J10b0FevjfuncLO1oX59THoAmHkNubYJ+9gWsYsp5k8v4ib6oDv1fA==",
+      "requires": {
+        "@hapi/hoek": "^9.3.0",
+        "@hapi/topo": "^5.1.0",
+        "@sideway/address": "^4.1.5",
+        "@sideway/formula": "^3.0.1",
+        "@sideway/pinpoint": "^2.0.0"
+      }
+    },
     "jpeg-js": {
       "version": "0.4.4",
       "resolved": "https://registry.npmjs.org/jpeg-js/-/jpeg-js-0.4.4.tgz",
@@ -1650,6 +1693,11 @@
         "argparse": "^1.0.7",
         "esprima": "^4.0.0"
       }
+    },
+    "json-schema-traverse": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+      "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="
     },
     "json5": {
       "version": "2.2.3",
@@ -1725,6 +1773,11 @@
           "integrity": "sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg=="
         }
       }
+    },
+    "lodash": {
+      "version": "4.17.21",
+      "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz",
+      "integrity": "sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg=="
     },
     "lodash.defaults": {
       "version": "4.2.0",
@@ -2335,11 +2388,6 @@
       "version": "0.13.11",
       "resolved": "https://registry.npmjs.org/regenerator-runtime/-/regenerator-runtime-0.13.11.tgz",
       "integrity": "sha512-kY1AZVr2Ra+t+piVaJ4gxaFaReZVH40AKNo7UCX6W+dEwBo/2oZJzqfuN1qLq1oL45o56cPaTXELwrTh8Fpggg=="
-    },
-    "json-schema-traverse": {
-      "version": "1.0.0",
-      "resolved": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
-      "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="
     },
     "require-from-string": {
       "version": "2.0.2",

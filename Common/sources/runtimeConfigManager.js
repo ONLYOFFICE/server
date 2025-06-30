@@ -32,8 +32,8 @@
 
 'use strict';
 
-const fs = require('fs/promises');
-const fsWatch = require('fs');
+const fsPromises = require('fs/promises');
+const fs = require('fs');
 const path = require('path');
 const config = require('config');
 const NodeCache = require("node-cache");
@@ -59,7 +59,7 @@ async function getConfigFromFile(ctx) {
     initConfigWatcher(ctx);
   }
   try {
-    const configData = await fs.readFile(configFilePath, 'utf8');
+    const configData = await fsPromises.readFile(configFilePath, 'utf8');
     return JSON.parse(configData);
   } catch (err) {
     if (err.code !== 'ENOENT') {
@@ -89,10 +89,10 @@ async function getConfig(ctx) {
  * @returns {Object} Saved configuration object
  */
 async function saveConfig(ctx, config) {
-  await fs.mkdir(path.dirname(configFilePath), { recursive: true });
+  await fsPromises.mkdir(path.dirname(configFilePath), { recursive: true });
   let newConfig = await getConfig(ctx);
   newConfig = utils.deepMergeObjects(newConfig || {}, config);
-  await fs.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), 'utf8');
+  await fsPromises.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), 'utf8');
   nodeCache.set(configFileName, newConfig);
   return newConfig;
 }
@@ -119,7 +119,7 @@ function handleConfigFileChange(eventType, filename) {
 function initConfigWatcher(ctx) {
   try {
     const configDir = path.dirname(configFilePath);
-    const watcher = fsWatch.watch(configDir, handleConfigFileChange);
+    const watcher = fs.watch(configDir, handleConfigFileChange);
     watcher.on('error', (err) => {
       ctx.logger.error(`initConfigWatcher error: ${err.message}`);
     });
@@ -129,7 +129,19 @@ function initConfigWatcher(ctx) {
   }
 }
 
+function getFullConfigValueSync(path) {
+  try {
+    // TODO: cache config once it's read to avoid rereading
+    const configData = fs.readFileSync(configFilePath, 'utf8');
+    const runtimeConfig =  JSON.parse(configData);
+    return utils.getImpl(runtimeConfig, path)  ?? config.get(path);
+  } catch (err) {
+    return config.get(path);
+  }
+}
+
 module.exports = {
   getConfig,
-  saveConfig
+  saveConfig,
+  getFullConfigValueSync
 };
