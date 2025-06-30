@@ -58,7 +58,7 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
-const configRouter = require('./routes/config');
+const configRouter = require('./routes/config/router');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 
