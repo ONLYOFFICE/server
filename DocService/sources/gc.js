@@ -32,36 +32,33 @@
 
 'use strict';
 
-const config = require('config');
 var co = require('co');
 var cron = require('cron');
 var ms = require('ms');
 var taskResult = require('./taskresult');
 var docsCoServer = require('./DocsCoServer');
 var canvasService = require('./canvasservice');
-var storage = require('./../../Common/sources/storage/storage-base');
-var utils = require('./../../Common/sources/utils');
-var logger = require('./../../Common/sources/logger');
-var constants = require('./../../Common/sources/constants');
 var commondefines = require('./../../Common/sources/commondefines');
 var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var operationContext = require('./../../Common/sources/operationContext');
 var pubsubService = require('./pubsubRabbitMQ');
 const sqlBase = require("./databaseConnectors/baseConnector");
+const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
 
-var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
-var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
-var cfgExpFiles = config.get('services.CoAuthoring.expire.files');
-var cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
-var cfgForceSaveStep = config.get('services.CoAuthoring.autoAssembly.step');
+const cfgExpFilesCron = runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.expire.filesCron');
+const cfgExpDocumentsCron = runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.expire.documentsCron');
+const cfgExpFiles = runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.expire.files');
+const cfgExpFilesRemovedAtOnce = runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.expire.filesremovedatonce');
+const cfgForceSaveStep = ms(runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.autoAssembly.step'));
+
 
 function getCronStep(cronTime){
   let cronJob = new cron.CronJob(cronTime, function(){});
   let dates = cronJob.nextDates(2);
   return dates[1] - dates[0];
 }
-let expFilesStep = getCronStep(cfgExpFilesCron);
-let expDocumentsStep = getCronStep(cfgExpDocumentsCron);
+const expFilesStep = getCronStep(cfgExpFilesCron);
+const expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
 var checkFileExpire = function(expireSeconds) {
   return co(function* () {
@@ -214,19 +211,10 @@ let forceSaveTimeout = function() {
   });
 };
 
-exports.startGC = async function() {
-  const ctx = new operationContext.Context();
-  await ctx.initTenantCache();
-  const currentDocumentsCron = ctx.getCfg('services.CoAuthoring.expire.documentsCron', cfgExpDocumentsCron);
-  const currentExpDocumentsStep = getCronStep(currentDocumentsCron);
-  setTimeout(checkDocumentExpire, currentExpDocumentsStep);
-
-  const currentFilesCron = ctx.getCfg('services.CoAuthoring.expire.filesCron', cfgExpFilesCron);
-  const currentExpFilesStep = getCronStep(currentFilesCron);
-  setTimeout(checkFileExpire, currentExpFilesStep);
-
-  const currentForceSaveStep = ctx.getCfg('services.CoAuthoring.autoAssembly.step', cfgForceSaveStep);
-  setTimeout(forceSaveTimeout, ms(currentForceSaveStep));
+exports.startGC = function() {
+  setTimeout(checkDocumentExpire, expDocumentsStep);
+  setTimeout(checkFileExpire, expFilesStep);
+  setTimeout(forceSaveTimeout, cfgForceSaveStep);
 };
 exports.getCronStep = getCronStep;
 exports.checkFileExpire = checkFileExpire;
