@@ -53,7 +53,9 @@ const nodeCache = new NodeCache(cfgRuntimeConfig.cache);
  * @returns {Object} Runtime configuration object
  */
 async function getConfigFromFile(ctx) {
-
+  if (!configFilePath) {
+    return null;
+  }
   try {
     const configData = await fs.readFile(configFilePath, 'utf8');
     return JSON.parse(configData);
@@ -85,6 +87,9 @@ async function getConfig(ctx) {
  * @returns {Object} Saved configuration object
  */
 async function saveConfig(ctx, config) {
+  if (!configFilePath) {
+    throw new Error('runtimeConfig.filePath is not specified');
+  }
   await fs.mkdir(path.dirname(configFilePath), { recursive: true });
   let newConfig = await getConfig(ctx);
   newConfig = utils.deepMergeObjects(newConfig || {}, config);
@@ -113,15 +118,19 @@ function handleConfigFileChange(eventType, filename) {
  * Initialize the configuration directory watcher
  */
 function initRuntimeConfigWatcher(ctx) {
+  if (!configFilePath) {
+    ctx.logger.info(`runtimeConfig.filePath is not specified`);
+    return;
+  }
   try {
     const configDir = path.dirname(configFilePath);
     const watcher = fsWatch.watch(configDir, handleConfigFileChange);
     watcher.on('error', (err) => {
-      ctx.logger.error(`initRuntimeConfigWatcher error: ${err.message}`);
+      ctx.logger.warn(`initRuntimeConfigWatcher error: ${err.message}`);
     });
     ctx.logger.info(`watching for runtime config changes in: ${configDir}`);
   } catch (watchErr) {
-    ctx.logger.error(`initRuntimeConfigWatcher error: ${watchErr.message}`);
+    ctx.logger.warn(`initRuntimeConfigWatcher error: ${watchErr.message}`);
   }
 }
 module.exports = {
