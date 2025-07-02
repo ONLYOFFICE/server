@@ -129,12 +129,15 @@ function initConfigWatcher(ctx) {
   }
 }
 
-function getFullConfigValueSync(path) {
+function getValueSync(path) {
   try {
-    // TODO: cache config once it's read to avoid rereading
-    const configData = fs.readFileSync(configFilePath, 'utf8');
-    const runtimeConfig =  JSON.parse(configData);
-    return utils.getImpl(runtimeConfig, path)  ?? config.get(path);
+    let runtimeConfig = nodeCache.get(configFileName);
+    if (undefined === runtimeConfig) {
+      const configData = fs.readFileSync(configFilePath, 'utf8');
+      runtimeConfig = JSON.parse(configData);
+      nodeCache.set(configFileName, runtimeConfig);
+    }
+    return utils.getImpl(runtimeConfig, path) ?? config.get(path);
   } catch (err) {
     return config.get(path);
   }
@@ -143,5 +146,5 @@ function getFullConfigValueSync(path) {
 module.exports = {
   getConfig,
   saveConfig,
-  getFullConfigValueSync
+  getValueSync
 };

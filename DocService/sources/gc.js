@@ -43,13 +43,15 @@ var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var operationContext = require('./../../Common/sources/operationContext');
 var pubsubService = require('./pubsubRabbitMQ');
 const sqlBase = require("./databaseConnectors/baseConnector");
-const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
+const rc = require('./../../Common/sources/runtimeConfigManager');
 
-const cfgExpFilesCron = runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.expire.filesCron');
-const cfgExpDocumentsCron = runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.expire.documentsCron');
-const cfgExpFiles = runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.expire.files');
-const cfgExpFilesRemovedAtOnce = runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.expire.filesremovedatonce');
-const cfgForceSaveStep = ms(runtimeConfigManager.getFullConfigValueSync('services.CoAuthoring.autoAssembly.step'));
+const cfgExpFilesCron = rc.getValueSync('services.CoAuthoring.expire.filesCron');
+const cfgExpDocumentsCron = rc.getValueSync('services.CoAuthoring.expire.documentsCron');
+const cfgExpFiles = rc.getValueSync('services.CoAuthoring.expire.files');
+const cfgExpFilesRemovedAtOnce = rc.getValueSync('services.CoAuthoring.expire.filesremovedatonce');
+const cfgForceSaveStep = rc.getValueSync('services.CoAuthoring.autoAssembly.step');
+const autoAssembly = rc.getValueSync('services.CoAuthoring');
+console.log(autoAssembly);
 
 
 function getCronStep(cronTime){
@@ -210,11 +212,10 @@ let forceSaveTimeout = function() {
     }
   });
 };
-
 exports.startGC = function() {
   setTimeout(checkDocumentExpire, expDocumentsStep);
   setTimeout(checkFileExpire, expFilesStep);
-  setTimeout(forceSaveTimeout, cfgForceSaveStep);
+  setTimeout(forceSaveTimeout, ms(cfgForceSaveStep));
 };
 exports.getCronStep = getCronStep;
 exports.checkFileExpire = checkFileExpire;
