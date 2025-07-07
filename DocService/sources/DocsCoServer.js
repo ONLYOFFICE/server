@@ -3800,6 +3800,13 @@ exports.install = function(server, callbackFunction) {
                 sendDataRpc(ctx, participant, data.responseKey, data.data);
             });
             break;
+          case commonDefines.c_oPublishType.updateVersion:
+            // To finalize form or refresh file in live view
+            participants = getParticipants(data.docId);
+            _.each(participants, function(participant) {
+              sendData(ctx, participant, {type: "updateVersion", success: data.success});
+            });
+            break;
           default:
             ctx.logger.debug('pubsub unknown message type:%s', msg);
         }

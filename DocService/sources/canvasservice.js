@@ -972,6 +972,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
   const userLastChangeId = cmd.getUserId() || cmd.getUserActionId();
   const userLastChangeIndex = cmd.getUserIndex() || cmd.getUserActionIndex();
   let replyStr;
+  let isSfcmSuccess = false;
+  let isSfcSuccess = false;
+  let needRetry = false;
+  let needUpdateVersionEvent = !isSfcm && !isEncrypted;
   if (constants.EDITOR_CHANGES !== statusInfo || isSfcm) {
     var saveKey = docId + cmd.getSaveKey();
     var isError = constants.NO_ERROR != statusInfo;
@@ -997,9 +1001,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
       }
       lastOpenDate = row.last_open_date;
     }
-    var isSfcmSuccess = false;
     let storeForgotten = false;
-    let needRetry = false;
     var statusOk;
     var statusErr;
     if (isSfcm) {
@@ -1198,6 +1200,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
               ctx.logger.warn('sendServerRequest returned an error: data = %s', replyStr);
             }
             if (requestRes) {
+              isSfcSuccess = true;
               updateIfTask = undefined;
               yield docsCoServer.cleanDocumentOnExitPromise(ctx, docId, true, callbackUserIndex);
               if (isOpenFromForgotten) {
@@ -1217,7 +1220,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
             }
           } else {
             updateIfTask = undefined;
+            needUpdateVersionEvent = false;
           }
+        } else {
+          needUpdateVersionEvent = false;
         }
       }
     } else {
@@ -1253,7 +1259,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
         //cleanupRes can be false in case of simultaneous opening. it is OK
         let cleanupRes = yield cleanupCacheIf(ctx, updateMask);
         ctx.logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
-    }
+      }
     }
     if (forceSave) {
       yield* docsCoServer.setForceSave(ctx, docId, forceSave, cmd, isSfcmSuccess && !isError, outputSfc?.getUrl());
@@ -1271,6 +1277,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
   } else {
     ctx.logger.debug('commandSfcCallback cleanDocumentOnExitNoChangesPromise');
     yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId, undefined, userLastChangeIndex, true);
+  }
+
+  if (needUpdateVersionEvent && !needRetry) {
+    yield docsCoServer.publish(ctx, {type: commonDefines.c_oPublishType.updateVersion, ctx: ctx, docId: docId, success: isSfcSuccess});
   }
 
   if ((docsCoServer.getIsShutdown() && !isSfcm) || cmd.getRedisKey()) {
