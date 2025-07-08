@@ -130,6 +130,7 @@ function initConfigWatcher(ctx) {
 }
 
 function getValueSync(path) {
+  return config.get(path);
   try {
     let runtimeConfig = nodeCache.get(configFileName);
     if (undefined === runtimeConfig) {
