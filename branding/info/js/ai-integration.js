@@ -276,7 +276,7 @@ const AIIntegration = {
                 const btnResetActions = document.getElementById('ai-btn-reset-actions');
                 if (btnResetActions) {
                     const originalText = btnResetActions.textContent;
-                    btnResetActions.textContent = res ? 'Actions Reset!' : 'Reset Failed!';
+                    btnResetActions.textContent = res ? 'Tasks Reset!' : 'Reset Failed!';
                     btnResetActions.disabled = true;
                     setTimeout(() => {
                         btnResetActions.textContent = originalText;
@@ -293,7 +293,7 @@ const AIIntegration = {
                 const btnResetAllSettings = document.getElementById('ai-btn-reset-all-settings');
                 if (btnResetAllSettings) {
                     const originalText = btnResetAllSettings.textContent;
-                    btnResetAllSettings.textContent = res ? 'Settings Reset!' : 'Reset Failed!';
+                    btnResetAllSettings.textContent = res ? 'Defaults Restored!' : 'Restore Failed!';
                     btnResetAllSettings.disabled = true;
                     setTimeout(() => {
                         btnResetAllSettings.textContent = originalText;

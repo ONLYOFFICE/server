@@ -101,6 +101,7 @@ const pubsubService = require('./pubsubRabbitMQ');
 const wopiClient = require('./wopiClient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
+const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 const aiProxyHandler = require('./ai/aiProxyHandler');
@@ -1983,7 +1984,9 @@ exports.install = function(server, callbackFunction) {
           if (needSaveChanges && !conn.encrypted) {
             // Send changes to save server
             let user_lcid = utilsDocService.localeToLCID(conn.lang);
-            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex, user_lcid, undefined, getIsShutdown());
+            //noDelay=true if the client intentionally closes connection or server shuts down
+            const noDelay = !reason || getIsShutdown();
+            yield createSaveTimer(ctx, docId, tmpUser.idOriginal, userIndex, user_lcid, undefined, noDelay);
           } else if (needSendStatus) {
             yield* cleanDocumentOnExitNoChanges(ctx, docId, tmpUser.idOriginal, userIndex);
           } else {
@@ -3999,7 +4002,9 @@ exports.install = function(server, callbackFunction) {
       );
     });
   });
-  
+
+  //Initialize watch here to avoid circular import with operationContext
+  runtimeConfigManager.initRuntimeConfigWatcher(operationContext.global);
   void aiProxyHandler.getPluginSettings(operationContext.global);
 };
 exports.setLicenseInfo = async function(globalCtx, data, original) {
