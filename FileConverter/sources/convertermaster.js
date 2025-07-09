@@ -35,12 +35,13 @@
 const cluster = require('cluster');
 const logger = require('./../../Common/sources/logger');
 const operationContext = require('./../../Common/sources/operationContext');
+const moduleReloader = require('./../../Common/sources/moduleReloader');
+const config = moduleReloader.requireConfigWithRuntime();
 
 if (cluster.isMaster) {
   const fs = require('fs');
   const co = require('co');
   const os = require('os');
-  const config = require('config');
   const license = require('./../../Common/sources/license');
 
   const cfgLicenseFile = config.get('license.license_file');
