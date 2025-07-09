@@ -129,23 +129,7 @@ function initConfigWatcher(ctx) {
   }
 }
 
-function getValueSync(path) {
-  return config.get(path);
-  try {
-    let runtimeConfig = nodeCache.get(configFileName);
-    if (undefined === runtimeConfig) {
-      const configData = fs.readFileSync(configFilePath, 'utf8');
-      runtimeConfig = JSON.parse(configData);
-      nodeCache.set(configFileName, runtimeConfig);
-    }
-    return utils.getImpl(runtimeConfig, path) ?? config.get(path);
-  } catch (err) {
-    return config.get(path);
-  }
-}
-
 module.exports = {
   getConfig,
-  saveConfig,
-  getValueSync
+  saveConfig
 };
