@@ -43,16 +43,13 @@ var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 var operationContext = require('./../../Common/sources/operationContext');
 var pubsubService = require('./pubsubRabbitMQ');
 const sqlBase = require("./databaseConnectors/baseConnector");
-const rc = require('./../../Common/sources/runtimeConfigManager');
+var config = require('config');
 
-const cfgExpFilesCron = rc.getValueSync('services.CoAuthoring.expire.filesCron');
-const cfgExpDocumentsCron = rc.getValueSync('services.CoAuthoring.expire.documentsCron');
-const cfgExpFiles = rc.getValueSync('services.CoAuthoring.expire.files');
-const cfgExpFilesRemovedAtOnce = rc.getValueSync('services.CoAuthoring.expire.filesremovedatonce');
-const cfgForceSaveStep = rc.getValueSync('services.CoAuthoring.autoAssembly.step');
-const autoAssembly = rc.getValueSync('services.CoAuthoring');
-console.log(autoAssembly);
-
+var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
+var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
+var cfgExpFiles = config.get('services.CoAuthoring.expire.files');
+var cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
+var cfgForceSaveStep = config.get('services.CoAuthoring.autoAssembly.step');
 
 function getCronStep(cronTime){
   let cronJob = new cron.CronJob(cronTime, function(){});

@@ -85,7 +85,9 @@ function requireConfigWithRuntime(opt_additionalConfig) {
       config = reloadNpmModule('config');
     }
   } catch (err) {
-    console.error('Failed to load runtime config: %s', err.stack);
+    if (err.code !== 'ENOENT') {
+      console.error('Failed to load runtime config: %s', err.stack);
+    }
   }
   return config;
 }
