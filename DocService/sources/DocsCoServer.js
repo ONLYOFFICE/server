@@ -2370,11 +2370,14 @@ exports.install = function(server, callbackFunction) {
           openCmd.userid = fileInfo.UserId;
         }
       }
-      let permissionsEdit = !fileInfo.ReadOnly && fileInfo.UserCanWrite && queryParams?.formsubmit !== "1";
+      let permissionsEdit = !fileInfo.ReadOnly && (!fileInfo.UserCanOnlyComment && fileInfo.UserCanWrite) && queryParams?.formsubmit !== "1";
+      const permissionsReview = (fileInfo.UserCanOnlyComment || fileInfo.SupportsReviewing === false) ? false : (fileInfo.UserCanReview === false ? false : fileInfo.UserCanReview);
+      const permissionsComment = permissionsEdit || !!fileInfo.UserCanOnlyComment;
       let permissionsFillForm = permissionsEdit || queryParams?.formsubmit === "1";
       let permissions = {
         edit: permissionsEdit,
-        review: (fileInfo.SupportsReviewing === false) ? false : (fileInfo.UserCanReview === false ? false : fileInfo.UserCanReview),
+        review: permissionsReview,
+        comment: permissionsComment,
         copy: fileInfo.CopyPasteRestrictions !== "CurrentDocumentOnly" && fileInfo.CopyPasteRestrictions !== "BlockAll",
         print: !fileInfo.DisablePrint && !fileInfo.HidePrintOption,
         chat: queryParams?.dchat!=="1",
