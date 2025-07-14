@@ -4011,7 +4011,9 @@ exports.install = function(server, callbackFunction) {
   });
 
   //Initialize watch here to avoid circular import with operationContext
-  runtimeConfigManager.initRuntimeConfigWatcher(operationContext.global);
+  runtimeConfigManager.initRuntimeConfigWatcher(operationContext.global).catch(err => {
+    operationContext.global.logger.warn('initRuntimeConfigWatcher error: %s', err.stack);
+  });
   void aiProxyHandler.getPluginSettings(operationContext.global);
 };
 exports.setLicenseInfo = async function(globalCtx, data, original) {

@@ -99,15 +99,21 @@ async function saveConfig(ctx, config) {
 }
 
 /**
- * Handle configuration file change events
- * @param {string} eventType - Type of file system event (change, rename)
- * @param {string} filename - Name of the file that triggered the event
+ * Supports both fs.watch (eventType, filename) and fs.watchFile (current, previous) callbacks
  */
-function handleConfigFileChange(eventType, filename) {
+function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
   try {
-    if (configFileName === filename) {
+    let shouldReload = false;
+    
+    if (typeof eventTypeOrCurrent === 'object' && eventTypeOrCurrent.isFile) {
+      shouldReload = eventTypeOrCurrent.mtime !== filenameOrPrevious.mtime;
+      operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watchFile: ${configFileName}`);
+    } else {
+      shouldReload = configFileName === filenameOrPrevious;
+      operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watch ${eventTypeOrCurrent}: ${filenameOrPrevious}`);
+    }
+    if (shouldReload) {
       nodeCache.del(configFileName);
-      operationContext.global.logger.info(`handleConfigFileChange configuration ${eventType}: ${configFileName}`);
     }
   } catch (err) {
     operationContext.global.logger.error(`handleConfigFileChange error: ${err.message}`);
@@ -117,21 +123,13 @@ function handleConfigFileChange(eventType, filename) {
 /**
  * Initialize the configuration directory watcher
  */
-function initRuntimeConfigWatcher(ctx) {
+async function initRuntimeConfigWatcher(ctx) {
   if (!configFilePath) {
     ctx.logger.info(`runtimeConfig.filePath is not specified`);
     return;
   }
-  try {
-    const configDir = path.dirname(configFilePath);
-    const watcher = fsWatch.watch(configDir, handleConfigFileChange);
-    watcher.on('error', (err) => {
-      ctx.logger.warn(`initRuntimeConfigWatcher error: ${err.message}`);
-    });
-    ctx.logger.info(`watching for runtime config changes in: ${configDir}`);
-  } catch (watchErr) {
-    ctx.logger.warn(`initRuntimeConfigWatcher error: ${watchErr.message}`);
-  }
+  const configDir = path.dirname(configFilePath);
+  await utils.watchWithFallback(ctx, configDir, configFilePath, handleConfigFileChange);
 }
 module.exports = {
   initRuntimeConfigWatcher,
