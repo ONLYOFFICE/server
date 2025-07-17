@@ -795,8 +795,22 @@ function containsAllAsciiNP(str) {
   return /^[\040-\176]*$/.test(str);//non-printing characters
 }
 exports.containsAllAsciiNP = containsAllAsciiNP;
+/**
+ * Get domain from headers
+ * @param {string} hostHeader - Host header
+ * @param {string} forwardedHostHeader - X-Forwarded-Host header (may contain comma-separated values)
+ * @returns {string}
+ */
 function getDomain(hostHeader, forwardedHostHeader) {
-  return forwardedHostHeader || hostHeader || 'localhost';
+  if (forwardedHostHeader) {
+    // Handle comma-separated values, take first value(original host per RFC 7239)
+    return forwardedHostHeader.split(',')[0].trim();
+  }
+  if (hostHeader) {
+    // Header should contain one value(RFC 7230), apply same logic for protection against malformed requests
+    return hostHeader.split(',')[0].trim();
+  }
+  return 'localhost';
 };
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
