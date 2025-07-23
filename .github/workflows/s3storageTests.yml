@@ -49,9 +49,18 @@ jobs:
               "name": "storage-s3",
               "region": "us-east-1",
               "endpoint": "http://localhost:9000",
+              "bucketName": "cache",
+              "storageFolderName": "files",
+              "commandOptions": {
+                "putObject": {
+                  "ServerSideEncryption": "AES256"
+                },
+                "copyObject": {
+                  "ServerSideEncryption": "AES256"
+                }
+              },
               "accessKeyId": "minioadmin",
               "secretAccessKey": "minioadmin",
-              "bucket": "cache",
               "forcePathStyle": true
             },
             "persistentStorage": {

@@ -124,6 +124,19 @@
 		"bucketName": "cache",
 		"storageFolderName": "files",
 		"cacheFolderName": "data",
+		"commandOptions": {
+			"s3": {
+				"putObject": {},
+				"getObject": {},
+				"copyObject": {
+					"MetadataDirective": "COPY"
+				},
+				"listObjects": {
+					"MaxKeys": 1000
+				},
+				"deleteObject": {}
+			}
+		},
 		"urlExpires": 604800,
 		"accessKeyId": "",
 		"secretAccessKey": "",
