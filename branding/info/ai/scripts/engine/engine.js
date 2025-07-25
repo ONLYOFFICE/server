@@ -1,3 +1,35 @@
+/*
+ * (c) Copyright Ascensio System SIA 2010-2025
+ *
+ * This program is a free software product. You can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License (AGPL)
+ * version 3 as published by the Free Software Foundation. In accordance with
+ * Section 7(a) of the GNU AGPL its Section 15 shall be amended to the effect
+ * that Ascensio System SIA expressly excludes the warranty of non-infringement
+ * of any third-party rights.
+ *
+ * This program is distributed WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
+ * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
+ *
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
+ * street, Riga, Latvia, EU, LV-1050.
+ *
+ * The  interactive user interfaces in modified source and object code versions
+ * of the Program must display Appropriate Legal Notices, as required under
+ * Section 5 of the GNU AGPL version 3.
+ *
+ * Pursuant to Section 7(b) of the License you must retain the original Product
+ * logo when distributing the program. Pursuant to Section 7(e) we decline to
+ * grant you any rights under trademark law for use of our trademarks.
+ *
+ * All the Product's GUI elements, including illustrations and icon sets, as
+ * well as technical writing content are licensed under the terms of the
+ * Creative Commons Attribution-ShareAlike 4.0 International. See the License
+ * terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ */
+
 (function(window, undefined)
 {
 	window.AI = window.AI || {};
@@ -47,13 +79,122 @@
 			xhr.send(obj.body);
 		});
 	};
+
+	/*
+	window.fetchStreamed = function(url, obj) {
+		function StreamResponse(xhr) {
+			this.ok = xhr.status === 200 || xhr.status === 0;
+			this.status = xhr.status;
+			this.statusText = xhr.statusText;
+			this.url = url;
+			
+			if (false) {
+				this.headers = new Map();
+				const headerStr = xhr.getAllResponseHeaders();
+				if (headerStr) {
+					headerStr.split('\r\n').forEach(function(line) {
+						const colonIndex = line.indexOf(': ');
+						if (colonIndex > 0) {
+							const name = line.substring(0, colonIndex).toLowerCase();
+							const value = line.substring(colonIndex + 2);
+							this.headers.set(name, value);
+						}
+					});
+				}
+			}
+
+			let streamController;
+			let bufferLen = 0;
+			
+			this.body = new ReadableStream({
+				start: function(controller) {
+					streamController = controller;
+				}
+			});
+
+			const processStreamData = function() {
+				if (!xhr.response)
+					return;
+
+				let data = new Uint8Array(xhr.response);
+				if (0 === bufferLen) {
+					streamController.enqueue(data);
+				} else {
+					streamController.enqueue(data.slice(bufferLen));
+				}
+				bufferLen = data.length;
+				console.log("progress: " + bufferLen);
+			};
+
+			xhr.addEventListener('progress', function(){
+				processStreamData();
+			});
+			xhr.addEventListener('load', function() {
+				processStreamData();
+				streamController.close();
+			});
+			xhr.addEventListener('error', function() {
+				streamController.error(new Error('Stream error'));
+			});
+
+			this.text = async function() {
+				return xhr.responseText || "";
+			};
+
+			this.json = async function() {
+				let text = await this.text();
+				try {
+					return JSON.parse(text);
+				} catch (error) {
+					return {};
+				}
+			};
+		}
+
+		return new Promise(function(resolve, reject) {
+			const xhr = new XMLHttpRequest();
+			const method = obj.method || 'GET';
+		
+			xhr.open(method, url, true);
+
+			if (obj.headers) {
+				const headerKeys = Object.keys(obj.headers);
+				let i = 0;
+				while (i < headerKeys.length) {
+					const key = headerKeys[i];
+					xhr.setRequestHeader(key, obj.headers[key]);
+					i++;
+				}
+			}
+
+			xhr.responseType = "arraybuffer";
+			xhr.onreadystatechange = function() {
+				console.log("readyState: " + this.readyState);
+				if (this.readyState === 2) {
+					resolve(new StreamResponse(this, true));
+				}
+			};
+
+			xhr.onerror = function() {
+				reject(new Error('Network error'));
+			};
+
+			xhr.ontimeout = function() {
+				reject(new Error('Request timeout'));
+			};
+
+			xhr.send(obj.body || null);
+		});
+	};
+	*/
+
 })(window);
 
 (function(window, undefined)
 {
 	async function requestWrapper(message) {
 		return new Promise(function (resolve, reject) {
-			if (AI.isLocalDesktop && (AI.isLocalUrl(message.url) || message.isUseProxy)) {
+			if (AI.isLocalDesktopForNotStreamedRequests && (AI.isLocalUrl(message.url) || message.isUseProxy)) {
 				window.AscSimpleRequest.createRequest({
 					url: message.url,
 					method: message.method,
@@ -86,23 +227,178 @@
 								"data" : request.body
 							})
 						}
-						message.url = AI.PROXY_URL;					
+						if (AI.serverSettings){
+							message.url = AI.serverSettings.proxy;
+							request["headers"] = {
+								"Authorization" : "Bearer " + Asc.plugin.info.jwt,
+							}
+						} else {
+							message.url = AI.PROXY_URL;
+						}
 					}
 				}				
 
-				fetch(message.url, request)
-					.then(function(response) {
-						return response.json()
-					})
-					.then(function(data) {
-						if (data.error)
-							resolve({error: 1, message: data.error.message ? data.error.message : ((typeof data.error === "string") ? data.error : "")});
-						else
-							resolve({error: 0, data: data.data ? data.data : data});
-					})
-					.catch(function(error) {
-						resolve({error: 1, message: error.message ? error.message : ""});                        
+				try {
+					fetch(message.url, request)
+						.then(function(response) {
+							return response.json()
+						})
+						.then(function(data) {
+							if (data.error)
+								resolve({error: 1, message: data.error.message ? data.error.message : ((typeof data.error === "string") ? data.error : "")});
+							else
+								resolve({error: 0, data: data.data ? data.data : data});
+						})
+						.catch(function(error) {
+							resolve({error: 1, message: error.message ? error.message : ""});                        
+						});
+				} catch (error) {
+					resolve({error: 1, message: error.message ? error.message : ""});
+				}
+			}
+		});
+	}
+
+	async function requestWrapperStream(message) {
+
+		function FetchReader(reader) {
+			this.reader = reader;
+			this.decoder = new TextDecoder();
+
+			this.read = async function() {
+				try {
+					const { done, value } = await this.reader.read();
+					return {
+						done: done, 
+						value: done ? "" : this.decoder.decode(value, { stream: true })
+					};
+				}
+				catch (error) {
+					return { 
+						error: 1, 
+						message: error.message ? error.message : "" 
+					};
+				}
+			};
+		}
+
+		function SimpleRequestReader() {
+			this.decoder = new TextDecoder();
+			this.isComplete = false;
+			this.error = "";
+			this.data = null;
+			this.resolver = null;
+
+			this._complete = function(data) {
+				this.isComplete = true;
+				this._resolve();
+			};
+			
+			this._progress = function(data) {
+				this.data = AscCommon.Base64.decode(data);
+				this._resolve();
+			};
+
+			this._error = function(error) {
+				this.isComplete = true;
+				this.error = error;
+				this._resolve();
+			};
+
+			this._resolve = function() {
+				if (!this.resolver)
+					return;
+
+				if (this.isComplete) {
+					if ("" == this.error) {
+						this.resolver({
+							done: true, 
+							value: ""
+						});
+					}
+					else {
+						this.resolver({
+							error: 1, 
+							message: this.error
+						});
+					}
+					this.resolver = null;
+				}
+
+				if (this.data) {
+					this.resolver({
+						done: false, 
+						value: this.decoder.decode(this.data, { stream: true }) 
 					});
+					this.resolver = null;
+					this.data = null;
+				}				
+			};
+
+			this.read = async function() {
+				return new Promise((resolve) => {
+					this.resolver = resolve;
+					this._resolve();
+				});
+			};			
+		}
+
+		return new Promise(async function (resolve, reject) {
+			if (false) {
+				var reader = new SimpleRequestReader();
+				window.AscSimpleRequest.createRequest({
+					url: message.url,
+					method: message.method + ":stream",
+					headers: message.headers,
+					body: message.isBlob ? message.body : (message.body ? JSON.stringify(message.body) : ""),
+					complete: function(e, status) {
+						let data = JSON.parse(e.responseText);
+						reader._complete(data);
+					},
+					error: function(e, status, error) {
+						reader._error(error);
+					},
+					progress: function(e, status) {
+						reader._progress(e.responseText);
+					}
+				});
+				resolve(reader);
+			} else {
+				let request = {
+					method: message.method,
+					headers: message.headers
+				};
+				if (request.method != "GET") {
+					request.body = message.isBlob ? message.body : (message.body ? JSON.stringify(message.body) : "");
+
+					if (message.isUseProxy) {
+						request = {
+							"method" : request.method,
+							"body" : JSON.stringify({
+								"target" : message.url,
+								"method" : request.method,
+								"headers" : request.headers,
+								"data" : request.body
+							})
+						}
+						if (AI.serverSettings){
+							message.url = AI.serverSettings.proxy;
+							request["headers"] = {
+								"Authorization" : "Bearer " + Asc.plugin.info.jwt,
+							}
+						} else {
+							message.url = AI.PROXY_URL;
+						}
+					}
+				}
+				
+				try {
+					const response = await fetch(message.url, request);
+					resolve(response.body ? new FetchReader(response.body.getReader()) : null);
+				}
+				catch (error) {
+					resolve(null);
+				}
 			}
 		});
 	}
@@ -136,10 +432,10 @@
 				body[i] = bodyPr[i];
 		}
 
-		return provider.isUseProxy();
+		return provider.isUseProxy() || AI.serverSettings;
 	};
 
-	AI._getEndpointUrl = function(_provider, endpoint, model) {
+	AI._getEndpointUrl = function(_provider, endpoint, model, options) {
 		let provider = _provider.createInstance ? _provider : AI.Storage.getProvider(_provider.name);
 		if (!provider) provider = new AI.Provider(_provider.name, _provider.url, _provider.key);
 
@@ -147,6 +443,9 @@
 			provider.key = _provider.key;
 
 		let url = provider.url;
+		if (!_provider.createInstance && _provider.url !== undefined)
+			url = _provider.url;
+
 		if (url.endsWith("/"))
 			url = url.substring(0, url.length - 1);
 		if ("" !== provider.addon)
@@ -157,7 +456,7 @@
 				url += plus;
 		}
 
-		return url + provider.getEndpointUrl(endpoint, model);
+		return url + provider.getEndpointUrl(endpoint, model, options);
 	};
 
 	AI.getModels = async function(provider)
@@ -265,12 +564,13 @@
 		this.errorHandler = callback;
 	};
 
-	AI.Request.prototype._wrapRequest = async function(func, data, block) {
+	AI.Request.prototype._wrapRequest = async function(func, data, block, streamFunc) {
+		let isActionRestriction = (block && (undefined !== streamFunc)) ? true : undefined;
 		if (block)
 			await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + this.modelUI.name + ")"]);
 		let result = undefined;
 		try {
-			result = await func.call(this, data);
+			result = await func.call(this, data, streamFunc);
 		} catch (err) {
 			if (err.error) {
 				if (block)
@@ -279,10 +579,10 @@
 					this.errorHandler(err);
 				else {
 					if (true) {
-						await Asc.Library.SendError(err.message, -1);
+						await Asc.Library.SendError(err.message, 0);
 					} else {
 						// since 8.3.0!!!
-						await Asc.Editor.callMethod("ShowError", [err.message, -1]);
+						await Asc.Editor.callMethod("ShowError", [err.message, 0]);
 					}
 				}
 				return;
@@ -294,11 +594,11 @@
 	};
 
 	// CHAT REQUESTS
-	AI.Request.prototype.chatRequest = async function(content, block) {
-		return await this._wrapRequest(this._chatRequest, content, block !== false);
+	AI.Request.prototype.chatRequest = async function(content, block, streamFunc) {
+		return await this._wrapRequest(this._chatRequest, content, block !== false, streamFunc);
 	};
 
-	AI.Request.prototype._chatRequest = async function(content) {
+	AI.Request.prototype._chatRequest = async function(content, streamFunc) {
 		let provider = null;
 		if (this.modelUI)
 			provider = AI.Storage.getProvider(this.modelUI.provider);
@@ -354,6 +654,8 @@
 			isMessages = false;
 		}
 
+		let isStreaming = (undefined !== streamFunc);
+
 		if (isMessages)
 			isNoSplit = true;
 
@@ -385,7 +687,11 @@
 
 		let endpointType = isUseCompletionsInsteadChat ? AI.Endpoints.Types.v1.Completions :
 			AI.Endpoints.Types.v1.Chat_Completions;
-		objRequest.url = AI._getEndpointUrl(provider, endpointType, this.model);
+
+		let options = {
+			streaming : isStreaming
+		};
+		objRequest.url = AI._getEndpointUrl(provider, endpointType, this.model, options);
 
 		let requestBody = {};
 		let model = this.model;
@@ -409,22 +715,69 @@
 					requestBody.messages = messages[0];
 				else
 					requestBody.messages = [{role:"user",content:messages[0]}];
+
 				objRequest.body = provider.getChatCompletions(requestBody, this.model);
+
+				if (isStreaming && options.streamingBody !== false)
+					objRequest.body.stream = true;
 			} else {
-				objRequest.body = provider.getCompletions({ text : messages[0] });
+				objRequest.body = provider.getCompletions({ text : messages[0] }, model);
 			}
 
 			objRequest.isUseProxy = AI._extendBody(provider, objRequest.body);
 
-			let result = await requestWrapper(objRequest);
-			if (result.error) {
-				throw {
-					error : result.error, 
-					message : result.message
-				};
-				return;
+			let readerAsync = null;
+			if (isStreaming)
+				readerAsync = await requestWrapperStream(objRequest);
+
+			if (!readerAsync) {
+				let result = await requestWrapper(objRequest);
+				if (result.error) {
+					throw {
+						error : result.error, 
+						message : result.message
+					};
+					return;
+				} else {
+					return processResult(result);
+				}
 			} else {
-				return processResult(result);
+				
+				let allChunks = "";
+				let tail = "";
+				
+				while (true) {
+					const readData = await readerAsync.read();
+					if (readData.error) {
+						throw {
+							error : readData.error, 
+							message : readData.message
+						};
+					}
+
+					if (readData.done) 
+						break;
+
+					let resultObj = getStreamedResult(tail + readData.value);
+					tail = resultObj.tail;
+
+					let chunks = eval(resultObj.result);
+
+					let dataChunk = "";
+					for (let j = 0, len = chunks.length; j < len; j++) {
+						dataChunk += processResult(chunks[j]);
+
+						// TODO: MD support
+						dataChunk = dataChunk.replace(/\n\n/g, '\n');
+					}
+
+					//console.log(dataChunk);
+					allChunks += dataChunk;
+
+					if (streamFunc)
+						await streamFunc(dataChunk);
+				}
+				return allChunks;
 			}
 
 		} else {
@@ -453,13 +806,14 @@
 				return footer;
 			}
 
+			let resultText = "";
 			for (let i = 0, len = messages.length; i < len; i++) {
 				
 				let message = getHeader(i + 1, len) + messages[i] + getFooter(i + 1, len);
 				if (!isUseCompletionsInsteadChat) {
-					objRequest.body = provider.getChatCompletions({ messages : [{role:"user",content:message}] });
+					objRequest.body = provider.getChatCompletions({ messages : [{role:"user",content:message}] }, model);
 				} else {
-					objRequest.body = provider.getCompletions( { text : message });
+					objRequest.body = provider.getCompletions( { text : message }, model);
 				}
 
 				objRequest.isUseProxy = AI._extendBody(provider, objRequest.body);
@@ -470,12 +824,12 @@
 						error : result.error, 
 						message : result.message
 					};
-					return;
+					return resultText;
 				} else if (i === (len - 1)) {
-					return processResult(result);
-				}
-
+					resultText += processResult(result);
+				}				
 			}
+			return resultText;
 		}
 	};
 
@@ -765,5 +1119,75 @@
 		let index = url.indexOf(",");
 		return url.substring(index + 1);
 	};
+
+	function getStreamedResult(responseText) {
+		
+		let result = "[";
+
+		let isEscaped = false;
+		let inString = false;
+		let braceCount = 0;
+		let curObjectPos = 0;
+		let curObjectStartPos = 0;
+		let firstObject = true;
+		let inputLen = responseText.length;
+		
+		for (let i = 0; i < inputLen; i++) {
+			let char = responseText[i];
+			
+			if (char === '\n') {
+				this.lineNumber++;
+			}
+			
+			if (char === '"' && !isEscaped) {
+				inString = !inString;
+			}
+			
+			isEscaped = (char === '\\' && !isEscaped);
+			
+			if (!inString) {
+				if (char === '{') {
+					braceCount++;
+					if (braceCount === 1) {
+						curObjectStartPos = i;
+					}
+				}
+				else if (char === '}') {
+					braceCount--;
+
+					if (braceCount === 0) {
+						i++;
+
+						if (!firstObject)
+							result += ",";
+						firstObject = false;
+						
+						
+						result += ("{ data : " + responseText.substring(curObjectStartPos, i) + "}");
+
+						while (i < inputLen) {
+							char = responseText[i];
+							
+							if (char !== '\n' &&
+								char !== '\r' && 
+								char !== ' ' && 
+								char !== '\t') {
+								break;
+							}
+							i++;
+						}
+						
+						curObjectPos = i;
+					}
+				}				
+			}
+		}
+
+		result += "]";
+		return {
+			result : result,
+			tail : (curObjectPos === inputLen) ? "" : responseText.substring(curObjectPos)
+		};
+	}
 
 })(window);

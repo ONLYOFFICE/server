@@ -45,6 +45,14 @@ textarea {
     margin-left: 8px;
 }
 
+#summarize-btn {
+    color: var(--text-inverse);
+    background-color: var(--background-primary-dialog-button);
+}
+#summarize-btn:hover {
+    background-color: var(--highlight-primary-dialog-button-hover) !important;
+}
+
 #clear-btn {
     cursor: pointer;
     border-bottom: 1px dotted currentColor;
@@ -76,6 +84,7 @@ textarea {
     display: none;
     height: calc(100% - 7px);
     width: calc(100% - 4px);
+    background: #fff;
     background: var(--background-normal);
     box-sizing: border-box;
     top: 2px;
