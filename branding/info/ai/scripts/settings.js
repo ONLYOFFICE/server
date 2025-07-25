@@ -1,3 +1,35 @@
+/*
+ * (c) Copyright Ascensio System SIA 2010-2025
+ *
+ * This program is a free software product. You can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License (AGPL)
+ * version 3 as published by the Free Software Foundation. In accordance with
+ * Section 7(a) of the GNU AGPL its Section 15 shall be amended to the effect
+ * that Ascensio System SIA expressly excludes the warranty of non-infringement
+ * of any third-party rights.
+ *
+ * This program is distributed WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
+ * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
+ *
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
+ * street, Riga, Latvia, EU, LV-1050.
+ *
+ * The  interactive user interfaces in modified source and object code versions
+ * of the Program must display Appropriate Legal Notices, as required under
+ * Section 5 of the GNU AGPL version 3.
+ *
+ * Pursuant to Section 7(b) of the License you must retain the original Product
+ * logo when distributing the program. Pursuant to Section 7(e) we decline to
+ * grant you any rights under trademark law for use of our trademarks.
+ *
+ * All the Product's GUI elements, including illustrations and icon sets, as
+ * well as technical writing content are licensed under the terms of the
+ * Creative Commons Attribution-ShareAlike 4.0 International. See the License
+ * terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ */
+
 var themeType = 'light';
 var actionsList = [];
 var aiModelsList = [];
@@ -14,15 +46,49 @@ var capabilitiesList = {
 
 var scrollbarList = new PerfectScrollbar("#actions-list", {});
 
+var heightUpdateConditions = {
+	_updateActions: false,
+	_updateModels: false,
+	_translate: false,
+
+	_markReady: function(key) {
+		heightUpdateConditions[key] = true;
+		heightUpdateConditions.checkAllReady();
+	},
+
+	updateActionsReady: function() {
+		heightUpdateConditions._markReady('_updateActions');
+	},
+	updateModelsReady: function() {
+		heightUpdateConditions._markReady('_updateModels');
+	},
+	translateReady: function() {
+		heightUpdateConditions._markReady('_translate');
+	},
+
+	checkAllReady: function() {
+		if (
+			heightUpdateConditions._updateActions &&
+			heightUpdateConditions._updateModels &&
+			heightUpdateConditions._translate
+		) {
+			updateWindowHeight();
+		}
+	},
+};
+
+
 window.Asc.plugin.init = function() {
 	window.Asc.plugin.sendToPlugin("onInit");
 	window.Asc.plugin.attachEvent("onUpdateActions", function(list) {
 		actionsList = list;
 		renderActionsList();
+		heightUpdateConditions.updateActionsReady();
 	});
 	window.Asc.plugin.attachEvent("onUpdateModels", function(list) {
 		aiModelsList = list;
 		updatedComboBoxes();
+		heightUpdateConditions.updateModelsReady();
 	});
 	window.Asc.plugin.attachEvent("onThemeChanged", onThemeChanged);
 
@@ -37,6 +103,8 @@ window.Asc.plugin.onTranslate = function () {
 	elements.forEach(function(element) {
 		element.innerText = window.Asc.plugin.tr(element.innerText);
 	});
+
+	heightUpdateConditions.translateReady();
 };
 
 window.addEventListener("resize", onResize);
@@ -44,16 +112,11 @@ onResize();
 
 function onThemeChanged(theme) {
 	window.Asc.plugin.onThemeChangedBase(theme);
+
 	themeType = theme.type || 'light';
-	
-	var classes = document.body.className.split(' ');
-	classes.forEach(function(className) {
-		if (className.indexOf('theme-') != -1) {
-			document.body.classList.remove(className);
-		}
-	});
-	document.body.classList.add(theme.name);
-	document.body.classList.add('theme-type-' + themeType);
+	updateBodyThemeClasses(theme.type, theme.name);
+	updateThemeVariables(theme);
+
 	$('#actions-list img').each(function() {
 		var src = $(this).attr('src');
 		var newSrc = src.replace(/(icons\/)([^\/]+)(\/)/, '$1' + themeType + '$3');
@@ -118,6 +181,45 @@ function renderActionsList() {
 	scrollbarList.update();
 }
 
+function updateWindowHeight() {
+	var descriptionHeight = {
+		default: parseFloat($('#description').css('line-height')),
+		current: $('#description').height()
+	};
+	var listHeight = {
+		default: $('#actions-list').height(),
+		maxAllowed: 400,
+		current: 0
+	};
+	var maxVisibleItems = 5;
+	var bodyOverflow = $('body').css('overflow-y');
+	$('body').css('overflow-y', 'hidden');
+
+	var isBreak = false;
+	$('#actions-list .item').each(function(index, item) {
+		if(isBreak) return false;
+
+		var itemHeight = $(item).outerHeight();
+		if(index == maxVisibleItems-1) {
+			itemHeight -= parseFloat($(item).css('padding-bottom'));
+			isBreak = true;
+		}
+
+		if(listHeight.current + itemHeight <= listHeight.maxAllowed) {
+			listHeight.current += itemHeight;
+		} else {
+			isBreak = true;
+		}
+	});
+
+	if(listHeight.current > listHeight.default || descriptionHeight.current > descriptionHeight.default) {
+		$('#actions-list').css('height', listHeight.current + 'px');
+		scrollbarList.update();
+		window.Asc.plugin.sendToPlugin("onUpdateHeight", document.body.scrollHeight + 2);
+	}
+	$('body').css('overflow-y', bodyOverflow);
+}
+
 function toggleScrollbarPadding() {
 	var actionsListEl = document.getElementById('actions-list');
 	// Check if there is a scroll bar
@@ -142,25 +244,59 @@ function updatedComboBoxes() {
 			}
 		});
 
+		/*
+		if(options.length == 0) {
+			options.push({
+				id: 'empty',
+				text: window.Asc.plugin.tr("Models not found"),
+				disabled: true,
+			});
+		}
+		*/
+		options.push(
+			{
+				text: '-',
+				children: []
+			},
+			{
+				id: 'add',
+				text: window.Asc.plugin.tr("Add AI Model"),
+				handler: function() {
+					window.Asc.plugin.sendToPlugin("onOpenAddModal");
+				}
+			}
+		);
+
 		selectEl.select2().empty();
 		selectEl.select2({
 			data: options,
-			templateResult: function(option) {
-				var div = $('<div class="ellipsis-content"></div>');
-				div[0].innerText = option.text;
-				return div;
-			},
-			language: {
-				noResults: function() {
-					return window.Asc.plugin.tr("Models not found");
+			templateResult: function(option, el) {
+				if(option.text == '-') {
+					$(el).addClass('separator');
+					return '';
+				} else {
+					var div = $('<div class="ellipsis-content"></div>');
+					div[0].innerText = option.text;
+					return div;
 				}
 			},
 			minimumResultsForSearch: Infinity,
 			dropdownAutoWidth: true,
-			width : 150
+			width : 140
 		});
 		// TODO: If the active model is no longer in the list, set null and trigger an event to change the model.
 		selectEl.val(action.model);
 		selectEl.trigger('change');
+
+
+		selectEl.on('select2:selecting', function (e) {
+			var selectedOption = e.params.args.data;
+
+			if(selectedOption.handler) {
+				e.preventDefault();
+				selectedOption.handler();
+				selectEl.select2('close');
+			}
+		});
 	});
 }

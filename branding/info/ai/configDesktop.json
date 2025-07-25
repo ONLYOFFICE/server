@@ -1,0 +1,25 @@
+{
+	"name" : "AI Agent",
+	"nameLocale": {
+		"ru": "ИИ Агент"
+	},
+
+	"guid" : "asc.{9DC93CDB-B576-4F0C-B55E-FCC9C48DD007}",
+	"version": "2.4.1",
+	"minVersion" : "8.2.0",
+
+	"variations" : [
+        {
+            "description" : "AI Agent",
+            "url"         : "indexDesktop.html",
+
+            "icons"           : [],
+
+            "isSystem"        : true,
+            "initDataType"    : "desktop-external",
+            "initData"        : "none"
+		}
+    ],
+
+	"onlyofficeScheme": true
+}
