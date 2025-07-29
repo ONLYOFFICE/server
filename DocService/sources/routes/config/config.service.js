@@ -37,11 +37,13 @@ const tenantManager = require('../../../../Common/sources/tenantManager');
 const utils = require('../../../../Common/sources/utils');
 
 const tenantReadableFields = [
-  'services.CoAuthoring.expire.documentsCron',
+  'services.CoAuthoring.expire',
+  'FileConverter.converter.maxDownloadBytes',
 ]
 
 const adminReadableFields = [
   'services.CoAuthoring.expire',
+  'FileConverter.converter.maxDownloadBytes',
 ];
 
 function createSchema(isAdmin) {
@@ -49,11 +51,31 @@ function createSchema(isAdmin) {
     services: Joi.object({
         CoAuthoring: Joi.object({
             expire: Joi.object({
+               ...(isAdmin && {
                 filesCron: validation.cronSchema,
-                ...(isAdmin && {
-                  documentsCron: validation.cronSchema,
-                })
-            }).unknown(false)
+               }),
+               ...(isAdmin && {
+                documentsCron: validation.cronSchema,
+               }),
+               ...(isAdmin && {
+                files: Joi.number().min(0),
+               }),
+               ...(isAdmin && {
+                filesremovedatonce: Joi.number().min(0),
+               }),
+               ...(isAdmin && {
+                filesremovedatonce: Joi.number().min(0),
+               }),
+               
+            }).unknown(false),
+            autoAssembly: Joi.object({
+                step: Joi.any().valid('1m', '5m', '10m', '15m', '30m'),
+            }).unknown(false),
+        }).unknown(false)
+    }).unknown(false),
+    FileConverter: Joi.object({
+        converter: Joi.object({
+            maxDownloadBytes: Joi.number().min(0).max(104857600),
         }).unknown(false)
     }).unknown(false)
   };

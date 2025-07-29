@@ -39,17 +39,67 @@ const operationContext = require('../../../../Common/sources/operationContext');
 const runtimeConfigManager = require('../../../../Common/sources/runtimeConfigManager');
 const utils = require('../../../../Common/sources/utils');
 const { getFilteredConfig, validate } = require('./config.service');
+const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
+const cookieParser = require('cookie-parser');
 
 const router = express.Router();
+
+router.use(cookieParser());
 
 const rawFileParser = bodyParser.raw(
     {inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function() {return true;}});
 
-router.get('/', async (req, res) => {
+const validateJWT = async (req, res, next) => {
     let ctx = new operationContext.Context();
     try {
         ctx.initFromRequest(req);
         await ctx.initTenantCache();
+        const token = req.cookies.accessToken;
+        if (!token) {
+            return res.status(401).json({ error: 'Unauthorized - No token provided' });
+        }
+        
+        const defaultTenantSecret = config.get('services.CoAuthoring.secret.browser.string');
+        const tenantBaseDir = config.get('tenants.baseDir');
+        const filenameSecret = config.get('tenants.filenameSecret');
+        
+        try {
+            const decoded = jwt.verify(token, defaultTenantSecret);
+            if (ctx.tenant !== decoded.tenant) {
+                return res.status(401).json({ error: 'Unauthorized - Invalid tenant' });
+            }
+            req.user = decoded;
+            req.ctx = ctx;
+            return next();
+        } catch (defaultError) {
+            const tenantList = fs.readdirSync(tenantBaseDir);
+            for (const tenant of tenantList) {
+                try {
+                    const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
+                    const decoded = jwt.verify(token, tenantSecret);
+                    if (ctx.tenant !== decoded.tenant) {
+                        return res.status(401).json({ error: 'Unauthorized - Invalid tenant' });
+                    }
+                    req.user = decoded;
+                    req.ctx = ctx;
+                    return next();
+                } catch (tenantError) {
+                    continue;
+                }
+            }
+            return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+        }
+    } catch (error) {
+        console.log('JWT validation error:', error);
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+};
+
+router.get('/', validateJWT, async (req, res) => {
+    let ctx = req.ctx;
+    try {
         ctx.logger.debug('config get start');
         const filteredConfig = getFilteredConfig(ctx);
         res.setHeader('Content-Type', 'application/json');
@@ -61,11 +111,9 @@ router.get('/', async (req, res) => {
     }
 });
 
-router.post('/', rawFileParser, async (req, res) => {
-    let ctx = new operationContext.Context();
+router.patch('/', validateJWT, rawFileParser, async (req, res) => {
+    let ctx = req.ctx;
     try {
-        ctx.initFromRequest(req);
-        await ctx.initTenantCache();
         const currentConfig = ctx.getFullCfg();
         const updateData = JSON.parse(req.body);
         
