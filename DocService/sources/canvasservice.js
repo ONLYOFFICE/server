@@ -538,15 +538,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
         dataQueue.setCtx(ctx);
         dataQueue.setCmd(cmd);
         dataQueue.setToFile('Editor.bin');
-        var priority = constants.QUEUE_PRIORITY_HIGH;
-        var formatIn = formatChecker.getFormatFromString(cmd.getFormat());
-        //decrease pdf, djvu, xps convert priority becase long open time
-        if (constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === formatIn ||
-          constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU === formatIn ||
-          constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === formatIn) {
-          priority = constants.QUEUE_PRIORITY_LOW;
-        }
-        yield* docsCoServer.addTask(dataQueue, priority);
+        yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
       } else {
         yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
       }
@@ -735,7 +727,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       var urlSource = urls[i];
       var urlParsed;
       var data = undefined;
-      if (urlSource.startsWith('data:')) {
+      if (urlSource?.startsWith('data:')) {
         let delimiterIndex = urlSource.indexOf(',');
         if (-1 != delimiterIndex) {
           let dataLen = urlSource.length - (delimiterIndex + 1);
@@ -777,10 +769,10 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
         }
       }
 
-      data = yield utilsDocService.fixImageExifRotation(ctx, data);
-
       var outputUrl = {url: 'error', path: 'error'};
       if (data) {
+        data = yield utilsDocService.fixImageExifRotation(ctx, data);
+
         let format = formatChecker.getImageFormat(ctx, data);
         let formatStr;
         let isAllow = false;

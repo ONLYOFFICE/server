@@ -46,7 +46,6 @@ const configFileName = path.basename(configFilePath);
 
 // Initialize cache with TTL and check for expired keys every minute
 const nodeCache = new NodeCache(cfgRuntimeConfig.cache);
-let isInitConfigWatcher = false;
 
 /**
  * Get runtime configuration for the current context
@@ -54,9 +53,8 @@ let isInitConfigWatcher = false;
  * @returns {Object} Runtime configuration object
  */
 async function getConfigFromFile(ctx) {
-  if (!isInitConfigWatcher) {
-    isInitConfigWatcher = true;
-    initConfigWatcher(ctx);
+  if (!configFilePath) {
+    return null;
   }
   try {
     const configData = await fs.readFile(configFilePath, 'utf8');
@@ -89,6 +87,9 @@ async function getConfig(ctx) {
  * @returns {Object} Saved configuration object
  */
 async function saveConfig(ctx, config) {
+  if (!configFilePath) {
+    throw new Error('runtimeConfig.filePath is not specified');
+  }
   await fs.mkdir(path.dirname(configFilePath), { recursive: true });
   let newConfig = await getConfig(ctx);
   newConfig = utils.deepMergeObjects(newConfig || {}, config);
@@ -116,20 +117,24 @@ function handleConfigFileChange(eventType, filename) {
 /**
  * Initialize the configuration directory watcher
  */
-function initConfigWatcher(ctx) {
+function initRuntimeConfigWatcher(ctx) {
+  if (!configFilePath) {
+    ctx.logger.info(`runtimeConfig.filePath is not specified`);
+    return;
+  }
   try {
     const configDir = path.dirname(configFilePath);
     const watcher = fsWatch.watch(configDir, handleConfigFileChange);
     watcher.on('error', (err) => {
-      ctx.logger.error(`initConfigWatcher error: ${err.message}`);
+      ctx.logger.warn(`initRuntimeConfigWatcher error: ${err.message}`);
     });
-    ctx.logger.info(`initConfigWatcherWatching for changes in: ${configDir}`);
+    ctx.logger.info(`watching for runtime config changes in: ${configDir}`);
   } catch (watchErr) {
-    ctx.logger.error(`initConfigWatcher error: ${watchErr.message}`);
+    ctx.logger.warn(`initRuntimeConfigWatcher error: ${watchErr.message}`);
   }
 }
-
 module.exports = {
+  initRuntimeConfigWatcher,
   getConfig,
   saveConfig
 };
