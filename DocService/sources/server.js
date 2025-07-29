@@ -60,8 +60,10 @@ const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const configRouter = require('./routes/config');
+const adminpanelRouter = require('./routes/adminpanel/router');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
+const cors = require('cors');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
@@ -117,6 +119,12 @@ const updateLicense = async () => {
 		operationContext.global.logger.error('updateLicense error: %s', err.stack);
 	}
 };
+const corsWithCredentials = cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+});
 
 operationContext.global.logger.warn('Express server starting...');
 
@@ -234,16 +242,17 @@ docsCoServer.install(server, () => {
 		res.send("User-agent: *\nDisallow: /");
 	});
 
-	app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
-		converterService.builder(req, res);
-	});
-	app.get('/info/info.json', utils.checkClientIp, docsCoServer.licenseInfo);
-	app.use('/info/config', utils.checkClientIp, configRouter);
-	app.get('/info/plugin/settings', utils.checkClientIp, aiProxyHandler.requestSettings);
-	app.post('/info/plugin/models', utils.checkClientIp, rawFileParser, aiProxyHandler.requestModels);
-	app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
-	app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
-	app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
+  app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
+    converterService.builder(req, res);
+  });
+  app.get('/info/info.json', cors(), utils.checkClientIp, docsCoServer.licenseInfo);
+  app.use('/info/config', corsWithCredentials, utils.checkClientIp, configRouter);
+  app.use('/info/adminpanel', corsWithCredentials, utils.checkClientIp, adminpanelRouter);
+  app.get('/info/plugin/settings', utils.checkClientIp, aiProxyHandler.requestSettings);
+  app.post('/info/plugin/models', utils.checkClientIp, rawFileParser, aiProxyHandler.requestModels);
+  app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+  app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+  app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
 
 	function checkWopiEnable(req, res, next) {
 		//todo may be move code into wopiClient or wopiClient.discovery...
