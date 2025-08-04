@@ -1,0 +1,28 @@
+.input {
+  padding: 11px 20px;
+  border: 1px solid rgb(170, 170, 170);
+  border-radius: 3px;
+  font-size: 12px;
+  transition: border-color 0.2s ease;
+  background-color: rgb(249, 249, 249);
+}
+
+.input:focus {
+  outline: none;
+  border-color: #000000;
+}
+
+/* Remove number input spinners */
+.input[type="number"]::-webkit-outer-spin-button,
+.input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.inputError {
+  border-color: #dc3545;
+} 
