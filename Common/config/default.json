@@ -17,6 +17,7 @@
 		"allowedCorsOrigins": [
 			"https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"
 		],
+		"proxy": "",
 		"pluginDir" : "../branding/info/ai"
 	},
 	"log": {

@@ -38,6 +38,7 @@ const config = require('config');
 const utils = require('./../../../Common/sources/utils');
 const operationContext = require('./../../../Common/sources/operationContext');
 const commonDefines = require('./../../../Common/sources/commondefines');
+const tenantManager = require('./../../../Common/sources/tenantManager');
 const docsCoServer = require('./../DocsCoServer');
 const statsDClient = require('./../../../Common/sources/statsdclient');
 
@@ -45,8 +46,12 @@ const statsDClient = require('./../../../Common/sources/statsdclient');
 const aiEngine = require('./aiEngineWrapper');
 
 const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
+const cfgAiApiProxy = config.get('aiSettings.proxy');
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
+const cfgTokenEnableOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
+const cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
+const cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
 const cfgAiSettings = config.get('aiSettings');
 
 const AI = aiEngine.AI;
@@ -160,12 +165,15 @@ async function proxyRequest(req, res) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenAiApiTimeout = ctx.getCfg('aiSettings.timeout', cfgAiApiTimeout);
     const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
+    const tenAiApiProxy = ctx.getCfg('aiSettings.proxy', cfgAiApiProxy);
 
     // 1. Handle CORS preflight (OPTIONS) requests if necessary
     if (handleCorsHeaders(req, res, ctx) === true) {
       return; // OPTIONS request handled, stop further processing
     }
 
+    let docId = '';
+    let userId = '';
     if (tenTokenEnableBrowser) {
       let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
       if (!checkJwtRes || checkJwtRes.err) {
@@ -177,6 +185,11 @@ async function proxyRequest(req, res) {
           }
         });
         return;
+      } else {
+        userId = checkJwtRes?.decoded?.editorConfig?.user?.id;
+        docId = checkJwtRes?.decoded?.document?.key;
+        ctx.setDocId(docId);
+        ctx.setUserId(userId);
       }
     }
 
@@ -228,6 +241,34 @@ async function proxyRequest(req, res) {
     // Merge key in headers
     const headers = { ...body.headers, ...providerHeaders };
 
+    // use proxy instead of direct request
+    if (tenAiApiProxy) {
+      const tenTokenEnableOutbox = ctx.getCfg('services.CoAuthoring.token.enable.request.outbox', cfgTokenEnableOutbox);
+      if (tenTokenEnableOutbox) {
+        const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
+        const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
+        let [licenseInfo] = await tenantManager.getTenantLicense(ctx);
+
+        let dataObject = {
+          key: docId,
+          user: userId,
+          customer_id: licenseInfo.customerId
+        }
+        
+        let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+        let auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
+        headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + auth;
+      }
+      // Replace protocol, host and port in URI with proxy URL
+      const proxyUrl = new URL(tenAiApiProxy);
+      const targetUrl = new URL(uri);
+      targetUrl.protocol = proxyUrl.protocol;
+      targetUrl.host = proxyUrl.host;
+      targetUrl.port = proxyUrl.port || targetUrl.port;
+      uri = targetUrl.toString();
+      ctx.logger.debug(`proxyRequest: Updated URI to use proxy host: ${tenAiApiProxy}`);
+    }
+
     // Configure timeout options for the request
     const timeoutOptions = {
       connectionAndInactivity: tenAiApiTimeout,
@@ -245,7 +286,7 @@ async function proxyRequest(req, res) {
     };
     
     // Log the sanitized request parameters
-    ctx.logger.debug(`Proxying request: %j`, requestParams);
+    ctx.logger.debug(`proxyRequest request: %j`, requestParams);
     
     // Use utils.httpRequest to make the request
     const result = await utils.httpRequest(
