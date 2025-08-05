@@ -241,7 +241,7 @@ async function proxyRequest(req, res) {
       body: body.data,
       timeout: timeoutOptions,
       limit: null,
-      filterPrivate: false
+      isInJwtToken: providerMatched //true because it passed provider's filter
     };
     
     // Log the sanitized request parameters
@@ -256,7 +256,7 @@ async function proxyRequest(req, res) {
       requestParams.body,    // Request body
       requestParams.timeout, // Timeout configuration
       requestParams.limit,   // Size limit
-      requestParams.filterPrivate // Filter private requests
+      requestParams.isInJwtToken // Filter private requests
     );
     
     // Set the response headers to match the target response
@@ -451,9 +451,9 @@ async function requestModels(req, res) {
     if (AI.Providers[body.name]) {
       AI.Providers[body.name].key = body.key;
       AI.Providers[body.name].url = body.url;
-        }
+    }
     let getRes = await AI.getModels(body);
-        getRes.modelsApi = AI.TmpProviderForModels?.models;
+    getRes.modelsApi = AI.TmpProviderForModels?.models;
     res.json(getRes);
   } catch (error) {
     ctx.logger.error('getModels error: %s', error.stack);

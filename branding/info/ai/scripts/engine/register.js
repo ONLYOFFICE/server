@@ -1,5 +1,40 @@
+/*
+ * (c) Copyright Ascensio System SIA 2010-2025
+ *
+ * This program is a free software product. You can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License (AGPL)
+ * version 3 as published by the Free Software Foundation. In accordance with
+ * Section 7(a) of the GNU AGPL its Section 15 shall be amended to the effect
+ * that Ascensio System SIA expressly excludes the warranty of non-infringement
+ * of any third-party rights.
+ *
+ * This program is distributed WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
+ * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
+ *
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
+ * street, Riga, Latvia, EU, LV-1050.
+ *
+ * The  interactive user interfaces in modified source and object code versions
+ * of the Program must display Appropriate Legal Notices, as required under
+ * Section 5 of the GNU AGPL version 3.
+ *
+ * Pursuant to Section 7(b) of the License you must retain the original Product
+ * logo when distributing the program. Pursuant to Section 7(e) we decline to
+ * grant you any rights under trademark law for use of our trademarks.
+ *
+ * All the Product's GUI elements, including illustrations and icon sets, as
+ * well as technical writing content are licensed under the terms of the
+ * Creative Commons Attribution-ShareAlike 4.0 International. See the License
+ * terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ */
+
 function registerButtons(window, undefined)
 {
+	window.AI = window.AI || {};
+	var AI = window.AI;
+	
 	function getToolBarButtonIcons(icon) {
 		return "resources/icons/%theme-type%(light|dark)/big/" + icon + "%scale%(default).png";
 	}
@@ -374,6 +409,42 @@ function registerButtons(window, undefined)
 		});
 	}
 
+	const on_click_ocr = async function () {
+		let requestEngine = AI.Request.create(AI.ActionType.OCR);
+		if (!requestEngine)
+			return;
+
+		let content = await Asc.Library.GetSelectedImage();
+		if (!content) {
+			console.log("you need to select an image to use ocr")
+			return;
+		}
+
+		let result = await requestEngine.imageOCRRequest(content);
+		if (!result) return;
+
+		await Asc.Library.InsertAsMD(result, [Asc.PluginsMD.latex]);
+	}
+
+	const on_click_text_to_image = async function (params) {
+		let requestEngine = AI.Request.create(AI.ActionType.ImageGeneration);
+		if (!requestEngine)
+			return;
+
+		let content = await Asc.Library.GetSelectedText();
+		if (!content) {
+			console.log("you need to select text to generate image")
+			return;
+		}
+
+		let result = await requestEngine.imageGenerationRequest(content);
+		if (!result) return;
+
+			if (Asc.plugin.info.editorSubType === "pdf")
+				return await Asc.Library.AddGeneratedImage(result);
+			await Asc.Library.AddOleObject(result, content);
+	}
+
 	if (true)
 	{
 		let buttonImages = new Asc.ButtonContextMenu(buttonMain);
@@ -404,20 +475,7 @@ function registerButtons(window, undefined)
 		let buttonOCR = new Asc.ButtonContextMenu(buttonImages);
 		buttonOCR.text = "OCR";
 		buttonOCR.addCheckers("Image", "OleObject");
-		buttonOCR.attachOnClick(async function(){
-			let requestEngine = AI.Request.create(AI.ActionType.OCR);
-			if (!requestEngine)
-				return;
-
-			let content = await Asc.Library.GetSelectedImage();
-			if (!content)
-				return;
-
-			let result = await requestEngine.imageOCRRequest(content);
-			if (!result) return;
-
-			await Asc.Library.InsertAsMD(result, [Asc.PluginsMD.latex]);
-		});
+		buttonOCR.attachOnClick(on_click_ocr);
 
 		let buttonExplainImage = new Asc.ButtonContextMenu(buttonImages);
 		buttonExplainImage.text = "Image to Text";
@@ -472,7 +530,7 @@ function registerButtons(window, undefined)
 	window.buttonMainToolbar = buttonMainToolbar;
 	window.getToolBarButtonIcons = getToolBarButtonIcons;
 
-	if (true)
+	if (!AI.serverSettings)
 	{
 		let button1 = new Asc.ButtonToolbar(buttonMainToolbar);
 		button1.text = "Settings";
@@ -485,7 +543,10 @@ function registerButtons(window, undefined)
 	if (true)
 	{
 		let button1 = new Asc.ButtonToolbar(buttonMainToolbar);
-		button1.separator = true;
+
+		if (!AI.serverSettings)
+			button1.separator = true;
+		
 		button1.text = "Chatbot";
 		button1.icons = getToolBarButtonIcons("ask-ai");
 		button1.attachOnClick(function(data){
@@ -505,15 +566,12 @@ function registerButtons(window, undefined)
 			});
 		}
 
-		/*
-		// TODO:
-		let button3 = new Asc.ButtonToolbar(buttonMainToolbar);
-		button3.text = "Text to image";
-		button3.icons = getToolBarButtonIcons("text-to-image");
-		button3.attachOnClick(function(data){
-			console.log(data);
-		});
-		*/
+		if (false) {
+			let button3 = new Asc.ButtonToolbar(buttonMainToolbar);
+			button3.text = "Text to Image";
+			button3.icons = getToolBarButtonIcons("text-to-image");
+			button3.attachOnClick(on_click_text_to_image);
+		}
 
 		let button4 = new Asc.ButtonToolbar(buttonMainToolbar);
 		button4.text = "Translation";
@@ -545,11 +603,17 @@ function registerButtons(window, undefined)
 			result = Asc.Library.getTranslateResult(result, content);
 			await Asc.Library.PasteText(result);
 		});
+
+		if (false && Asc.Editor.getType() !== "pdf")
+		{
+			let button2 = new Asc.ButtonToolbar(buttonMainToolbar);
+			button2.text = "OCR";
+			button2.icons = getToolBarButtonIcons("ocr");
+			button2.attachOnClick(on_click_ocr);
+		}
 	}
 
 	// register actions
-	window.AI = window.AI || {};
-	var AI = window.AI;
 
 	AI.ActionType = {
 		Chat             : "Chat",
@@ -575,7 +639,7 @@ function registerButtons(window, undefined)
 	AI.Actions[AI.ActionType.Translation]     = new ActionUI("Translation", "translation");
 	AI.Actions[AI.ActionType.TextAnalyze]     = new ActionUI("Text analysis", "text-analysis-ai");
 	AI.Actions[AI.ActionType.ImageGeneration] = new ActionUI("Image generation", "image-ai", "", AI.CapabilitiesUI.Image);
-	AI.Actions[AI.ActionType.OCR]             = new ActionUI("OCR", "text-analysis-ai", "", AI.CapabilitiesUI.Vision);
+	AI.Actions[AI.ActionType.OCR]             = new ActionUI("OCR", "ocr", "", AI.CapabilitiesUI.Vision);
 	AI.Actions[AI.ActionType.Vision]          = new ActionUI("Vision", "vision-ai", "", AI.CapabilitiesUI.Vision);
 
 	AI.ActionsGetKeys = function()
@@ -629,7 +693,11 @@ function registerButtons(window, undefined)
 		let obj = null;
 		try
 		{
-			obj = JSON.parse(window.localStorage.getItem(actions_key));
+			if (AI.serverSettings) {
+				obj = AI.serverSettings.actions;
+			} else {
+				obj = JSON.parse(window.localStorage.getItem(actions_key));
+			}
 		}
 		catch (e)
 		{
@@ -657,5 +725,5 @@ function registerButtons(window, undefined)
 		}
 	};
 
-	AI.ActionsLoad();  
+	AI.ActionsLoad();
 }
