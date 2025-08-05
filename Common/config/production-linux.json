@@ -39,7 +39,12 @@
           },
           "/info": {
             "path": "/var/www/onlyoffice/documentserver/server/info",
-            "options": {"maxAge": "7d"}
+            "options": {
+              "maxAge": 0,
+              "cacheControl": "public, no-cache, must-revalidate",
+              "etag": true,
+              "lastModified": true
+            }
           },
           "/sdkjs-plugins": {
             "path": "/var/www/onlyoffice/documentserver/sdkjs-plugins",

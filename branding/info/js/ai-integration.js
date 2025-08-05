@@ -5,6 +5,7 @@
 
 const AIIntegration = {
     // Current state
+    prevView: null,
     currentView: 'settings',
     isCollapsed: true,
     
@@ -42,7 +43,7 @@ const AIIntegration = {
                     </div>
                 </div>
                 <div class="ai-controls" id="ai-controls">
-                    <button class="ai-btn" id="ai-btn-back" style="display: none;">Back</button>
+                    <button class="ai-btn" id="ai-btn-back" style="display: none;">OK</button>
                     <button class="ai-btn" id="ai-btn-cancel" style="display: none;">Cancel</button>
                     <button class="ai-btn" id="ai-btn-reset-all-settings" style="display: none;">Restore Defaults</button>
                     <button class="ai-btn" id="ai-btn-reset-actions" style="display: none;">Reset Tasks</button>
@@ -228,6 +229,7 @@ const AIIntegration = {
      * @param {string} view - The view to navigate to ('settings', 'aiModelEdit', 'aiModelsList')
      */
     navigateToView(view) {
+        this.prevView = this.currentView
         this.currentView = view;
         this.loadCurrentView();
     },
@@ -259,7 +261,7 @@ const AIIntegration = {
     },
     
     ok() {
-        this.navigateToView('aiModelsList');
+        this.navigateToView(this.prevView || 'aiModelsList');
 
         if (this.onOk) {
             this.onOk();
@@ -267,7 +269,7 @@ const AIIntegration = {
     },
 
     cancel() {
-        this.navigateToView('aiModelsList');
+        this.navigateToView(this.prevView || 'aiModelsList');
     },
 
     resetActions() {

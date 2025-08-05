@@ -40,6 +40,7 @@ const { buffer } = require('node:stream/consumers');
 const { Transform } = require('stream');
 var config = require('config');
 var fs = require('fs');
+const fsPromises = require('node:fs/promises');
 var path = require('path');
 const crypto = require('crypto');
 var url = require('url');
@@ -794,8 +795,22 @@ function containsAllAsciiNP(str) {
   return /^[\040-\176]*$/.test(str);//non-printing characters
 }
 exports.containsAllAsciiNP = containsAllAsciiNP;
+/**
+ * Get domain from headers
+ * @param {string} hostHeader - Host header
+ * @param {string} forwardedHostHeader - X-Forwarded-Host header (may contain comma-separated values)
+ * @returns {string}
+ */
 function getDomain(hostHeader, forwardedHostHeader) {
-  return forwardedHostHeader || hostHeader || 'localhost';
+  if (forwardedHostHeader) {
+    // Handle comma-separated values, take first value(original host per RFC 7239)
+    return forwardedHostHeader.split(',')[0].trim();
+  }
+  if (hostHeader) {
+    // Header should contain one value(RFC 7230), apply same logic for protection against malformed requests
+    return hostHeader.split(',')[0].trim();
+  }
+  return 'localhost';
 };
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
@@ -1361,3 +1376,66 @@ exports.isObject = isObject;
 exports.deepMergeObjects = deepMergeObjects;
 exports.NodeCache = NodeCache;//todo via require
 
+//like suggestion in https://github.com/paulmillr/chokidar/issues/242#issuecomment-76205459
+const UNSAFE_MAGIC = new Set([
+  0x6969,         // NFS
+  0xFF534D42,     // CIFS/SMB1
+  0xFE534D42,     // SMB2+
+  0x517B,         // legacy SMB
+  0x65735546,     // FUSE
+  0x794C7630,     // overlayfs
+  0x00C36400,     // CephFS
+  0x73757245,     // Coda
+  0x6B414653      // AFS
+]);
+
+/**
+ * Gets the file system type for the given path
+ * @param {operationContext} ctx - Operation context
+ * @param {string} path - Path to check
+ * @returns {Promise<number>} File system type
+ */
+async function getFsType(ctx, path) {
+  try {
+    const statfs = await fsPromises.statfs(path);
+    const fsType = Number(statfs.type);
+    ctx.logger.info(`getFsType fs type=${fsType} ${path}`);
+    return fsType;
+  } catch (err) {
+    ctx.logger.info(`getFsType error: ${path}: ${err.message}`);
+    return null;
+  }
+}
+
+
+/**
+ * File watcher with native events fallback to polling
+ * @param {operationContext} ctx - Operation context
+ * @param {string} dirPath - Directory path to watch
+ * @param {string} filePath - File path to watch
+ * @param {Function} listener - Change event callback
+ * @param {Object} opts - Options
+ * @returns {Promise<fs.FSWatcher|fs.StatWatcher>} Watcher instance
+ */
+exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, filePath, listener, opts = {}) {
+  const fsType = await getFsType(ctx, dirPath);
+  if (null === fsType || UNSAFE_MAGIC.has(fsType)) {
+    ctx.logger.info(`watchWithFallback fs type=${fsType} unsupport watch. fallback to watchFile ${filePath}`);
+    return fs.watchFile(filePath, opts, listener);
+  }
+  
+  //Try native watch
+  try {
+    const watcher = fs.watch(dirPath, opts, listener);
+    watcher.on('error', (err) => {
+      watcher.close();
+      ctx.logger.info(`watchWithFallback error ${dirPath} fallback to watchFile ${filePath}: ${err.message}`);
+      fs.watchFile(filePath, opts, listener);
+    });
+    ctx.logger.info(`watchWithFallback watch: ${dirPath}`);
+    return watcher;
+  } catch (err) {
+    ctx.logger.info(`watchWithFallback error ${dirPath} fallback to watchFile ${filePath}: ${err.message}`);
+    return fs.watchFile(filePath, opts, listener);
+  }
+}
