@@ -1,0 +1,20 @@
+node_modules
+dist
+build
+coverage
+.next
+out
+branding/info/ai/**
+branding/info/js/plugin-stub.js
+branding/info/js/plugins.js
+branding/info/js/plugins-ui.js
+*.min.js
+*.min.css
+package-lock.json
+npm-shrinkwrap.json
+*.log
+*.tmp
+*.temp
+
+# Config JSON files (tab-indented)
+Common/config/**/*.json
