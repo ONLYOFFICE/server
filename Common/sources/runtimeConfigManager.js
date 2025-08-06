@@ -30,17 +30,17 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const fs = require('fs/promises');
-const fsWatch = require('fs');
-const path = require('path');
-const config = require('config');
+const fs = require("fs/promises");
+const fsWatch = require("fs");
+const path = require("path");
+const config = require("config");
 const NodeCache = require("node-cache");
-const operationContext = require('./operationContext');
-const utils = require('./utils');
+const operationContext = require("./operationContext");
+const utils = require("./utils");
 
-const cfgRuntimeConfig = config.get('runtimeConfig');
+const cfgRuntimeConfig = config.get("runtimeConfig");
 const configFilePath = cfgRuntimeConfig.filePath;
 const configFileName = path.basename(configFilePath);
 
@@ -57,11 +57,11 @@ async function getConfigFromFile(ctx) {
     return null;
   }
   try {
-    const configData = await fs.readFile(configFilePath, 'utf8');
+    const configData = await fs.readFile(configFilePath, "utf8");
     return JSON.parse(configData);
   } catch (err) {
-    if (err.code !== 'ENOENT') {
-      ctx.logger.error('getConfigFromFile error: %s', err.stack);
+    if (err.code !== "ENOENT") {
+      ctx.logger.error("getConfigFromFile error: %s", err.stack);
     }
     return null;
   }
@@ -88,12 +88,12 @@ async function getConfig(ctx) {
  */
 async function saveConfig(ctx, config) {
   if (!configFilePath) {
-    throw new Error('runtimeConfig.filePath is not specified');
+    throw new Error("runtimeConfig.filePath is not specified");
   }
-  await fs.mkdir(path.dirname(configFilePath), { recursive: true });
+  await fs.mkdir(path.dirname(configFilePath), {recursive: true});
   let newConfig = await getConfig(ctx);
   newConfig = utils.deepMergeObjects(newConfig || {}, config);
-  await fs.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), 'utf8');
+  await fs.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), "utf8");
   nodeCache.set(configFileName, newConfig);
   return newConfig;
 }
@@ -104,13 +104,17 @@ async function saveConfig(ctx, config) {
 function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
   try {
     let shouldReload = false;
-    
-    if (typeof eventTypeOrCurrent === 'object' && eventTypeOrCurrent.isFile) {
+
+    if (typeof eventTypeOrCurrent === "object" && eventTypeOrCurrent.isFile) {
       shouldReload = eventTypeOrCurrent.mtime !== filenameOrPrevious.mtime;
-      operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watchFile: ${configFileName}`);
+      operationContext.global.logger.info(
+        `handleConfigFileChange reloaded=${shouldReload} watchFile: ${configFileName}`
+      );
     } else {
       shouldReload = configFileName === filenameOrPrevious;
-      operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watch ${eventTypeOrCurrent}: ${filenameOrPrevious}`);
+      operationContext.global.logger.info(
+        `handleConfigFileChange reloaded=${shouldReload} watch ${eventTypeOrCurrent}: ${filenameOrPrevious}`
+      );
     }
     if (shouldReload) {
       nodeCache.del(configFileName);
@@ -134,5 +138,5 @@ async function initRuntimeConfigWatcher(ctx) {
 module.exports = {
   initRuntimeConfigWatcher,
   getConfig,
-  saveConfig
+  saveConfig,
 };

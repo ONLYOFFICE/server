@@ -30,50 +30,52 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const connectorUtilities = require('./connectorUtilities');
-const db = require('dmdb');
-const config = require('config');
+const connectorUtilities = require("./connectorUtilities");
+const db = require("dmdb");
+const config = require("config");
 
-const configSql = config.get('services.CoAuthoring.sql');
-const cfgDbHost = configSql.get('dbHost');
-const cfgDbPort = configSql.get('dbPort');
-const cfgDbUser = configSql.get('dbUser');
-const cfgDbPass = configSql.get('dbPass');
-const cfgConnectionLimit = configSql.get('connectionlimit');
-const cfgTableResult = configSql.get('tableResult');
-const cfgDamengExtraOptions = config.util.cloneDeep(configSql.get('damengExtraOptions'));
+const configSql = config.get("services.CoAuthoring.sql");
+const cfgDbHost = configSql.get("dbHost");
+const cfgDbPort = configSql.get("dbPort");
+const cfgDbUser = configSql.get("dbUser");
+const cfgDbPass = configSql.get("dbPass");
+const cfgConnectionLimit = configSql.get("connectionlimit");
+const cfgTableResult = configSql.get("tableResult");
+const cfgDamengExtraOptions = config.util.cloneDeep(configSql.get("damengExtraOptions"));
 const forceClosingCountdownMs = 2000;
 
 // dmdb driver separates PoolAttributes and ConnectionAttributes.
 // For some reason if you use pool you must define connection attributes in connectString, they are not included in config object, and pool.getConnection() can't configure it.
 const poolHostInfo = `dm://${cfgDbUser}:${cfgDbPass}@${cfgDbHost}:${cfgDbPort}`;
-const connectionOptions = Object.entries(cfgDamengExtraOptions).map(option => option.join('=')).join('&');
+const connectionOptions = Object.entries(cfgDamengExtraOptions)
+  .map((option) => option.join("="))
+  .join("&");
 
 let pool = null;
 const poolConfig = {
   // String format dm://username:password@host:port[?prop1=val1[&prop2=val2]]
-  connectString: `${poolHostInfo}${connectionOptions.length > 0 ? '?' : ''}${connectionOptions}`,
+  connectString: `${poolHostInfo}${connectionOptions.length > 0 ? "?" : ""}${connectionOptions}`,
   poolMax: cfgConnectionLimit,
-  poolMin: 0
+  poolMin: 0,
 };
 
 function readLob(lob) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     let blobData = Buffer.alloc(0);
     let totalLength = 0;
 
-    lob.on('data', function(chunk) {
+    lob.on("data", function (chunk) {
       totalLength += chunk.length;
       blobData = Buffer.concat([blobData, chunk], totalLength);
     });
 
-    lob.on('error', function(err) {
+    lob.on("error", function (err) {
       reject(err);
     });
 
-    lob.on('end', function() {
+    lob.on("end", function () {
       resolve(blobData);
     });
   });
@@ -89,7 +91,7 @@ async function formatResult(result) {
         let columnName = result.metaData[j].name;
         if (row[j]?.on) {
           const buf = await readLob(row[j]);
-          out[columnName] = buf.toString('utf8');
+          out[columnName] = buf.toString("utf8");
         } else {
           out[columnName] = row[j];
         }
@@ -102,10 +104,17 @@ async function formatResult(result) {
   return res;
 }
 
-function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes = false, opt_noLog = false, opt_values = []) {
+function sqlQuery(
+  ctx,
+  sqlCommand,
+  callbackFunction,
+  opt_noModifyRes = false,
+  opt_noLog = false,
+  opt_values = []
+) {
   return executeQuery(ctx, sqlCommand, opt_values, opt_noModifyRes, opt_noLog).then(
-    result => callbackFunction?.(null, result),
-    error => callbackFunction?.(error)
+    (result) => callbackFunction?.(null, result),
+    (error) => callbackFunction?.(error)
   );
 }
 
@@ -117,23 +126,23 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
     }
 
     connection = await pool.getConnection();
-    const result = await connection.execute(sqlCommand, values, { resultSet: false });
+    const result = await connection.execute(sqlCommand, values, {resultSet: false});
 
     let output = result;
     if (!noModifyRes) {
       if (result?.rows) {
         output = await formatResult(result);
       } else if (result?.rowsAffected) {
-        output = { affectedRows: result.rowsAffected };
+        output = {affectedRows: result.rowsAffected};
       } else {
-        output = { rows: [], affectedRows: 0 };
+        output = {rows: [], affectedRows: 0};
       }
     }
 
     return output;
   } catch (error) {
     if (!noLog) {
-      ctx.logger.warn('sqlQuery error sqlCommand: %s: %s', sqlCommand.slice(0, 50), error.stack);
+      ctx.logger.warn("sqlQuery error sqlCommand: %s: %s", sqlCommand.slice(0, 50), error.stack);
     }
 
     throw error;
@@ -147,7 +156,7 @@ function closePool() {
 }
 
 function addSqlParameter(val, values) {
-  values.push({ val: val });
+  values.push({val: val});
   return `:${values.length}`;
 }
 
@@ -158,8 +167,14 @@ function concatParams(val1, val2) {
 async function getTableColumns(ctx, tableName) {
   let values = [];
   let sqlParam = addSqlParameter(tableName.toUpperCase(), values);
-  const result = await executeQuery(ctx, `SELECT column_name FROM DBA_TAB_COLUMNS WHERE table_name = ${sqlParam};`, values);
-  return result.map(row => { return { column_name: row.column_name.toLowerCase() }});
+  const result = await executeQuery(
+    ctx,
+    `SELECT column_name FROM DBA_TAB_COLUMNS WHERE table_name = ${sqlParam};`,
+    values
+  );
+  return result.map((row) => {
+    return {column_name: row.column_name.toLowerCase()};
+  });
 }
 
 async function upsert(ctx, task) {
@@ -200,8 +215,8 @@ async function upsert(ctx, task) {
     sqlCommand += `, baseurl = ${p11}`;
   }
 
-  sqlCommand += ', user_index = user_index + 1';
-  sqlCommand += ';';
+  sqlCommand += ", user_index = user_index + 1";
+  sqlCommand += ";";
   sqlCommand += `SELECT user_index FROM ${cfgTableResult} WHERE tenant = ${p0} AND id = ${p1};`;
 
   const out = {};
@@ -221,5 +236,5 @@ module.exports = {
   addSqlParameter,
   concatParams,
   getTableColumns,
-  upsert
+  upsert,
 };

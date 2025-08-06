@@ -30,38 +30,42 @@
  *
  */
 
-const config = require('config');
-const express = require('express');
-const bodyParser = require('body-parser');
-const tenantManager = require('../../../Common/sources/tenantManager');
-const operationContext = require('../../../Common/sources/operationContext');
-const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
+const config = require("config");
+const express = require("express");
+const bodyParser = require("body-parser");
+const tenantManager = require("../../../Common/sources/tenantManager");
+const operationContext = require("../../../Common/sources/operationContext");
+const runtimeConfigManager = require("../../../Common/sources/runtimeConfigManager");
 
 const router = express.Router();
 
-const rawFileParser = bodyParser.raw(
-    {inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function() {return true;}});
+const rawFileParser = bodyParser.raw({
+  inflate: true,
+  limit: config.get("services.CoAuthoring.server.limits_tempfile_upload"),
+  type: function () {
+    return true;
+  },
+});
 
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   let ctx = new operationContext.Context();
-  let result = '{}';
+  let result = "{}";
   try {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
-    ctx.logger.debug('config get start');
+    ctx.logger.debug("config get start");
     let cfg = ctx.getFullCfg();
     result = JSON.stringify(cfg);
   } catch (error) {
-    ctx.logger.error('config get error: %s', error.stack);
-  }
-  finally {
-    res.setHeader('Content-Type', 'application/json');
+    ctx.logger.error("config get error: %s", error.stack);
+  } finally {
+    res.setHeader("Content-Type", "application/json");
     res.send(result);
-    ctx.logger.debug('config end');
+    ctx.logger.debug("config end");
   }
 });
 
-router.post('/', rawFileParser, async (req, res) => {
+router.post("/", rawFileParser, async (req, res) => {
   let ctx = new operationContext.Context();
   try {
     ctx.initFromRequest(req);
@@ -77,13 +81,12 @@ router.post('/', rawFileParser, async (req, res) => {
 
     res.sendStatus(200);
   } catch (error) {
-    ctx.logger.error('Configuration save error: %s', error.stack);
+    ctx.logger.error("Configuration save error: %s", error.stack);
     res.status(500).json({
-      error: 'Failed to save configuration',
-      details: error.message
+      error: "Failed to save configuration",
+      details: error.message,
     });
   }
 });
-
 
 module.exports = router;

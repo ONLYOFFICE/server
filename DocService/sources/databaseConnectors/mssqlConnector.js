@@ -30,39 +30,39 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const sql = require('mssql');
-const config = require('config');
-const connectorUtilities = require('./connectorUtilities');
-const utils = require('../../../Common/sources/utils');
+const sql = require("mssql");
+const config = require("config");
+const connectorUtilities = require("./connectorUtilities");
+const utils = require("../../../Common/sources/utils");
 
-const configSql = config.get('services.CoAuthoring.sql');
-const cfgTableResult = configSql.get('tableResult');
-const cfgTableChanges = configSql.get('tableChanges');
-const cfgMaxPacketSize = configSql.get('max_allowed_packet');
+const configSql = config.get("services.CoAuthoring.sql");
+const cfgTableResult = configSql.get("tableResult");
+const cfgTableChanges = configSql.get("tableChanges");
+const cfgMaxPacketSize = configSql.get("max_allowed_packet");
 
 const connectionConfiguration = {
-  user: configSql.get('dbUser'),
-  password: configSql.get('dbPass'),
-  server: configSql.get('dbHost'),
-  port: parseInt(configSql.get('dbPort')),
-  database: configSql.get('dbName'),
+  user: configSql.get("dbUser"),
+  password: configSql.get("dbPass"),
+  server: configSql.get("dbHost"),
+  port: parseInt(configSql.get("dbPort")),
+  database: configSql.get("dbName"),
   pool: {
-    max: configSql.get('connectionlimit'),
-    min: 0
-  }
+    max: configSql.get("connectionlimit"),
+    min: 0,
+  },
 };
-const additionalOptions = config.util.cloneDeep(configSql.get('msSqlExtraOptions'));
+const additionalOptions = config.util.cloneDeep(configSql.get("msSqlExtraOptions"));
 const configuration = utils.deepMergeObjects({}, connectionConfiguration, additionalOptions);
 
-const placeholderPrefix = 'ph_';
+const placeholderPrefix = "ph_";
 
 function errorHandle(message, error, ctx) {
   ctx.logger.error(`${message}:`);
 
   if (error.precedingErrors?.length) {
-    error.precedingErrors.forEach(category => ctx.logger.error(category.originalError));
+    error.precedingErrors.forEach((category) => ctx.logger.error(category.originalError));
   } else {
     ctx.logger.error(error.originalError);
   }
@@ -71,15 +71,15 @@ function errorHandle(message, error, ctx) {
 function dataType(value) {
   let type = sql.TYPES.NChar(1);
   switch (typeof value) {
-    case 'number': {
+    case "number": {
       type = sql.TYPES.Decimal(18, 0);
       break;
     }
-    case 'string': {
+    case "string": {
       type = sql.TYPES.NVarChar(sql.MAX);
       break;
     }
-    case 'object': {
+    case "object": {
       if (value instanceof Date) {
         type = sql.TYPES.DateTime();
       }
@@ -106,11 +106,11 @@ function convertPlaceholdersValues(values) {
 
 function registerPlaceholderValues(values, statement) {
   if (values._typesMetadata !== undefined) {
-      for (const placeholderName of Object.keys(values._typesMetadata)) {
-        statement.input(placeholderName, values._typesMetadata[placeholderName]);
-      }
+    for (const placeholderName of Object.keys(values._typesMetadata)) {
+      statement.input(placeholderName, values._typesMetadata[placeholderName]);
+    }
 
-      delete values._typesMetadata;
+    delete values._typesMetadata;
   } else {
     for (const key of Object.keys(values)) {
       statement.input(key, dataType(values[key]));
@@ -118,10 +118,17 @@ function registerPlaceholderValues(values, statement) {
   }
 }
 
-function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes = false, opt_noLog = false, opt_values = {}) {
+function sqlQuery(
+  ctx,
+  sqlCommand,
+  callbackFunction,
+  opt_noModifyRes = false,
+  opt_noLog = false,
+  opt_values = {}
+) {
   return executeQuery(ctx, sqlCommand, opt_values, opt_noModifyRes, opt_noLog).then(
-    result => callbackFunction?.(null, result),
-    error => callbackFunction?.(error)
+    (result) => callbackFunction?.(null, result),
+    (error) => callbackFunction?.(error)
   );
 }
 
@@ -138,7 +145,7 @@ async function executeQuery(ctx, sqlCommand, values = {}, noModifyRes = false, n
     await statement.unprepare();
 
     if (!result.recordset && !result.rowsAffected?.length) {
-      return { rows: [], affectedRows: 0 };
+      return {rows: [], affectedRows: 0};
     }
 
     let output = result;
@@ -146,7 +153,7 @@ async function executeQuery(ctx, sqlCommand, values = {}, noModifyRes = false, n
       if (result.recordset) {
         output = result.recordset;
       } else {
-        output = { affectedRows: result.rowsAffected.pop() };
+        output = {affectedRows: result.rowsAffected.pop()};
       }
     }
 
@@ -165,7 +172,7 @@ async function executeBulk(ctx, table) {
     await sql.connect(configuration);
     const result = await new sql.Request().bulk(table);
 
-    return { affectedRows: result?.rowsAffected ?? 0 };
+    return {affectedRows: result?.rowsAffected ?? 0};
   } catch (error) {
     errorHandle(`sqlQuery() error while executing bulk for table ${table.name}`, error, ctx);
 
@@ -195,7 +202,7 @@ function addSqlParameter(parameter, accumulatedArray) {
 }
 
 function concatParams(...parameters) {
-  return `CONCAT(${parameters.join(', ')})`;
+  return `CONCAT(${parameters.join(", ")})`;
 }
 
 function getTableColumns(ctx, tableName) {
@@ -217,12 +224,12 @@ function getExpired(ctx, maxCount, expireSeconds) {
   utils.addSeconds(expireDate, -expireSeconds);
 
   const values = {};
-  const date = addSqlParameterObjectBased(expireDate, 'expireDate', sql.TYPES.DateTime(), values);
-  const count = addSqlParameterObjectBased(maxCount, 'maxCount', sql.TYPES.Int(), values);
-  const notExistingTenantAndId = `SELECT TOP(1) tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id`
+  const date = addSqlParameterObjectBased(expireDate, "expireDate", sql.TYPES.DateTime(), values);
+  const count = addSqlParameterObjectBased(maxCount, "maxCount", sql.TYPES.Int(), values);
+  const notExistingTenantAndId = `SELECT TOP(1) tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id`;
   const sqlCommand = `SELECT TOP(${count}) * FROM ${cfgTableResult} WHERE last_open_date <= ${date} AND NOT EXISTS(${notExistingTenantAndId});`;
 
- return executeQuery(ctx, sqlCommand, values);
+  return executeQuery(ctx, sqlCommand, values);
 }
 
 async function upsert(ctx, task) {
@@ -239,33 +246,53 @@ async function upsert(ctx, task) {
 
   const values = {};
   const insertValuesPlaceholder = [
-    addSqlParameterObjectBased(task.tenant, 'tenant', sql.TYPES.NVarChar(255), values),
-    addSqlParameterObjectBased(task.key, 'key', sql.TYPES.NVarChar(255), values),
-    addSqlParameterObjectBased(task.status, 'status', sql.TYPES.SmallInt(), values),
-    addSqlParameterObjectBased(task.statusInfo, 'statusInfo', sql.TYPES.Int(), values),
-    addSqlParameterObjectBased(dateNow, 'dateNow', sql.TYPES.DateTime(), values),
-    addSqlParameterObjectBased(task.userIndex, 'userIndex', sql.TYPES.Decimal(18, 0), values),
-    addSqlParameterObjectBased(task.changeId, 'changeId', sql.TYPES.Decimal(18, 0), values),
-    addSqlParameterObjectBased(cbInsert, 'cbInsert', sql.TYPES.NVarChar(sql.MAX), values),
-    addSqlParameterObjectBased(task.baseurl, 'baseurl', sql.TYPES.NVarChar(sql.MAX), values),
+    addSqlParameterObjectBased(task.tenant, "tenant", sql.TYPES.NVarChar(255), values),
+    addSqlParameterObjectBased(task.key, "key", sql.TYPES.NVarChar(255), values),
+    addSqlParameterObjectBased(task.status, "status", sql.TYPES.SmallInt(), values),
+    addSqlParameterObjectBased(task.statusInfo, "statusInfo", sql.TYPES.Int(), values),
+    addSqlParameterObjectBased(dateNow, "dateNow", sql.TYPES.DateTime(), values),
+    addSqlParameterObjectBased(task.userIndex, "userIndex", sql.TYPES.Decimal(18, 0), values),
+    addSqlParameterObjectBased(task.changeId, "changeId", sql.TYPES.Decimal(18, 0), values),
+    addSqlParameterObjectBased(cbInsert, "cbInsert", sql.TYPES.NVarChar(sql.MAX), values),
+    addSqlParameterObjectBased(task.baseurl, "baseurl", sql.TYPES.NVarChar(sql.MAX), values),
   ];
 
   const tenant = insertValuesPlaceholder[0];
   const id = insertValuesPlaceholder[1];
   const lastOpenDate = insertValuesPlaceholder[4];
   const baseUrl = insertValuesPlaceholder[8];
-  const insertValues = insertValuesPlaceholder.join(', ');
-  const columns = ['tenant', 'id', 'status', 'status_info', 'last_open_date', 'user_index', 'change_id', 'callback', 'baseurl'];
-  const sourceColumns = columns.join(', ');
-  const sourceValues = columns.map(column => `source.${column}`).join(', ');
+  const insertValues = insertValuesPlaceholder.join(", ");
+  const columns = [
+    "tenant",
+    "id",
+    "status",
+    "status_info",
+    "last_open_date",
+    "user_index",
+    "change_id",
+    "callback",
+    "baseurl",
+  ];
+  const sourceColumns = columns.join(", ");
+  const sourceValues = columns.map((column) => `source.${column}`).join(", ");
 
   const condition = `target.tenant = ${tenant} AND target.id = ${id}`;
   let updateColumns = `target.last_open_date = ${lastOpenDate}`;
 
   if (task.callback) {
-    const parameter = addSqlParameterObjectBased(JSON.stringify(task.callback), 'callback', sql.TYPES.NVarChar(sql.MAX), values);
+    const parameter = addSqlParameterObjectBased(
+      JSON.stringify(task.callback),
+      "callback",
+      sql.TYPES.NVarChar(sql.MAX),
+      values
+    );
     const concatenatedColumns = concatParams(
-      'target.callback', `'${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":'`, '(target.user_index + 1)', `',"callback":'`, parameter, `'}'`
+      "target.callback",
+      `'${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":'`,
+      "(target.user_index + 1)",
+      `',"callback":'`,
+      parameter,
+      `'}'`
     );
 
     updateColumns += `, target.callback = ${concatenatedColumns}`;
@@ -275,58 +302,87 @@ async function upsert(ctx, task) {
     updateColumns += `, target.baseurl = ${baseUrl}`;
   }
 
-  updateColumns += ', target.user_index = target.user_index + 1';
+  updateColumns += ", target.user_index = target.user_index + 1";
 
-  let sqlMerge = `MERGE INTO ${cfgTableResult} AS target `
-    + `USING(VALUES(${insertValues})) AS source(${sourceColumns}) `
-    + `ON(${condition}) `
-    + `WHEN MATCHED THEN UPDATE SET ${updateColumns} `
-    + `WHEN NOT MATCHED THEN INSERT(${sourceColumns}) VALUES(${sourceValues}) `
-    + `OUTPUT $ACTION as action, INSERTED.user_index as insertId;`;
+  let sqlMerge =
+    `MERGE INTO ${cfgTableResult} AS target ` +
+    `USING(VALUES(${insertValues})) AS source(${sourceColumns}) ` +
+    `ON(${condition}) ` +
+    `WHEN MATCHED THEN UPDATE SET ${updateColumns} ` +
+    `WHEN NOT MATCHED THEN INSERT(${sourceColumns}) VALUES(${sourceValues}) ` +
+    `OUTPUT $ACTION as action, INSERTED.user_index as insertId;`;
 
   const result = await executeQuery(ctx, sqlMerge, values, true);
   const insertId = result.recordset[0].insertId;
-  const isInsert = result.recordset[0].action === 'INSERT';
+  const isInsert = result.recordset[0].action === "INSERT";
 
-  return { isInsert, insertId };
+  return {isInsert, insertId};
 }
 
 function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, user, callback) {
   insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user).then(
-    result => callback(null, result, true),
-    error => callback(error, null, true)
+    (result) => callback(null, result, true),
+    (error) => callback(error, null, true)
   );
 }
 
 async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user) {
   if (startIndex === objChanges.length) {
-    return { affectedRows: 0 };
+    return {affectedRows: 0};
   }
 
   const table = new sql.Table(tableChanges);
-  table.columns.add('tenant', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('id', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('change_id', sql.TYPES.Int, { nullable: false });
-  table.columns.add('user_id', sql.TYPES.NVarChar(sql.MAX), { nullable: false , length: 'max' });
-  table.columns.add('user_id_original', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('user_name', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('change_data', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('change_date', sql.TYPES.DateTime, { nullable: false });
+  table.columns.add("tenant", sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: "max"});
+  table.columns.add("id", sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: "max"});
+  table.columns.add("change_id", sql.TYPES.Int, {nullable: false});
+  table.columns.add("user_id", sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: "max"});
+  table.columns.add("user_id_original", sql.TYPES.NVarChar(sql.MAX), {
+    nullable: false,
+    length: "max",
+  });
+  table.columns.add("user_name", sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: "max"});
+  table.columns.add("change_data", sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: "max"});
+  table.columns.add("change_date", sql.TYPES.DateTime, {nullable: false});
 
   const indexBytes = 4;
   const timeBytes = 8;
   let bytes = 0;
   let currentIndex = startIndex;
   for (; currentIndex < objChanges.length && bytes <= cfgMaxPacketSize; ++currentIndex, ++index) {
-    bytes += indexBytes + timeBytes
-      + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
+    bytes +=
+      indexBytes +
+      timeBytes +
+      4 *
+        (ctx.tenant.length +
+          docId.length +
+          user.id.length +
+          user.idOriginal.length +
+          user.username.length +
+          objChanges[currentIndex].change.length);
 
-    table.rows.add(ctx.tenant, docId, index, user.id, user.idOriginal, user.username, objChanges[currentIndex].change, objChanges[currentIndex].time);
+    table.rows.add(
+      ctx.tenant,
+      docId,
+      index,
+      user.id,
+      user.idOriginal,
+      user.username,
+      objChanges[currentIndex].change,
+      objChanges[currentIndex].time
+    );
   }
 
   const result = await executeBulk(ctx, table);
   if (currentIndex < objChanges.length) {
-    const recursiveValue = await insertChangesAsync(ctx, tableChanges, currentIndex, objChanges, docId, index, user);
+    const recursiveValue = await insertChangesAsync(
+      ctx,
+      tableChanges,
+      currentIndex,
+      objChanges,
+      docId,
+      index,
+      user
+    );
     result.affectedRows += recursiveValue.affectedRows;
   }
 
@@ -342,5 +398,5 @@ module.exports = {
   getDocumentsWithChanges,
   getExpired,
   upsert,
-  insertChanges
+  insertChanges,
 };

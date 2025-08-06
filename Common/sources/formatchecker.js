@@ -30,20 +30,20 @@
  *
  */
 
-'use strict';
+"use strict";
 
-var path = require('path');
-var constants = require('./constants');
+var path = require("path");
+var constants = require("./constants");
 const {open} = require("node:fs/promises");
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
   //1000 for svg(xml header and creator comment)
-  var startText = buffer.toString('ascii', 0, 1000);
+  var startText = buffer.toString("ascii", 0, 1000);
 
   //jpeg
   // Hex: FF D8 FF
-  if ((3 <= length) && (0xFF == buffer[0]) && (0xD8 == buffer[1]) && (0xFF == buffer[2])) {
+  if (3 <= length && 0xff == buffer[0] && 0xd8 == buffer[1] && 0xff == buffer[2]) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_JPG;
   }
 
@@ -56,12 +56,32 @@ function getImageFormatBySignature(buffer) {
   //Hex (position 29): 00
   //Hex (position 30): 00 || 01 || 02 || 03 || 04 || 05
   //Hex (position 31): 00 00 00
-  if ((34 <= length) && (0x42 == buffer[0]) && (0x4D == buffer[1]) && (0x00 == buffer[6]) && (0x00 == buffer[7]) &&
-    (0x01 == buffer[26]) && (0x00 == buffer[27]) && ((0x00 == buffer[28]) || (0x01 == buffer[28]) ||
-    (0x04 == buffer[28]) || (0x08 == buffer[28]) || (0x10 == buffer[28]) || (0x18 == buffer[28]) ||
-    (0x20 == buffer[28])) && (0x00 == buffer[29]) && ((0x00 == buffer[30]) || (0x01 == buffer[30]) ||
-    (0x02 == buffer[30]) || (0x03 == buffer[30]) || (0x04 == buffer[30]) || (0x05 == buffer[30])) &&
-    (0x00 == buffer[31]) && (0x00 == buffer[32]) && (0x00 == buffer[33])) {
+  if (
+    34 <= length &&
+    0x42 == buffer[0] &&
+    0x4d == buffer[1] &&
+    0x00 == buffer[6] &&
+    0x00 == buffer[7] &&
+    0x01 == buffer[26] &&
+    0x00 == buffer[27] &&
+    (0x00 == buffer[28] ||
+      0x01 == buffer[28] ||
+      0x04 == buffer[28] ||
+      0x08 == buffer[28] ||
+      0x10 == buffer[28] ||
+      0x18 == buffer[28] ||
+      0x20 == buffer[28]) &&
+    0x00 == buffer[29] &&
+    (0x00 == buffer[30] ||
+      0x01 == buffer[30] ||
+      0x02 == buffer[30] ||
+      0x03 == buffer[30] ||
+      0x04 == buffer[30] ||
+      0x05 == buffer[30]) &&
+    0x00 == buffer[31] &&
+    0x00 == buffer[32] &&
+    0x00 == buffer[33]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_BMP;
   }
 
@@ -74,29 +94,54 @@ function getImageFormatBySignature(buffer) {
   //or for GIF89a...
   //Hex: 47 49 46 38 39 61
   //ASCII: GIF89a
-  if (0 == startText.indexOf('GIF8')) {
+  if (0 == startText.indexOf("GIF8")) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_GIF;
   }
-  if (0 == startText.indexOf('GIF87a') || 0 == startText.indexOf('GIF89a')) {
+  if (0 == startText.indexOf("GIF87a") || 0 == startText.indexOf("GIF89a")) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_GIF;
   }
 
   //png
   //Hex: 89 50 4E 47 0D 0A 1A 0A 00 00 00 0D 49 48 44 52
   //ASCII: .PNG........IHDR
-  if ((16 <= length) && (0x89 == buffer[0]) && (0x50 == buffer[1]) && (0x4E == buffer[2]) && (0x47 == buffer[3]) &&
-    (0x0D == buffer[4]) && (0x0A == buffer[5]) && (0x1A == buffer[6]) && (0x0A == buffer[7]) &&
-    (0x00 == buffer[8]) && (0x00 == buffer[9]) && (0x00 == buffer[10]) && (0x0D == buffer[11]) &&
-    (0x49 == buffer[12]) && (0x48 == buffer[13]) && (0x44 == buffer[14]) && (0x52 == buffer[15])) {
+  if (
+    16 <= length &&
+    0x89 == buffer[0] &&
+    0x50 == buffer[1] &&
+    0x4e == buffer[2] &&
+    0x47 == buffer[3] &&
+    0x0d == buffer[4] &&
+    0x0a == buffer[5] &&
+    0x1a == buffer[6] &&
+    0x0a == buffer[7] &&
+    0x00 == buffer[8] &&
+    0x00 == buffer[9] &&
+    0x00 == buffer[10] &&
+    0x0d == buffer[11] &&
+    0x49 == buffer[12] &&
+    0x48 == buffer[13] &&
+    0x44 == buffer[14] &&
+    0x52 == buffer[15]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
   }
 
   //CR2
   //Hex: 49 49 2A 00 10 00 00 00 43 52
   //ASCII: II*.....CR
-  if ((10 <= length) && (0x49 == buffer[0]) && (0x49 == buffer[1]) && (0x2A == buffer[2]) &&
-    (0x00 == buffer[3]) && (0x10 == buffer[4]) && (0x00 == buffer[5]) && (0x00 == buffer[6]) &&
-    (0x00 == buffer[7]) && (0x43 == buffer[8]) && (0x52 == buffer[9])) {
+  if (
+    10 <= length &&
+    0x49 == buffer[0] &&
+    0x49 == buffer[1] &&
+    0x2a == buffer[2] &&
+    0x00 == buffer[3] &&
+    0x10 == buffer[4] &&
+    0x00 == buffer[5] &&
+    0x00 == buffer[6] &&
+    0x00 == buffer[7] &&
+    0x43 == buffer[8] &&
+    0x52 == buffer[9]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_CR2;
   }
 
@@ -110,9 +155,11 @@ function getImageFormatBySignature(buffer) {
   //Hex: 49 49 2A 00
   //ASCII: II*
   if (4 <= length) {
-    if (((0x49 == buffer[0]) && (0x49 == buffer[1]) && (0x2A == buffer[2]) && (0x00 == buffer[3])) ||
-      ((0x4D == buffer[0]) && (0x4D == buffer[1]) && (0x00 == buffer[2]) && (0x2A == buffer[3])) ||
-      ((0x49 == buffer[0]) && (0x49 == buffer[1]) && (0x2A == buffer[2]) && (0x00 == buffer[3]))) {
+    if (
+      (0x49 == buffer[0] && 0x49 == buffer[1] && 0x2a == buffer[2] && 0x00 == buffer[3]) ||
+      (0x4d == buffer[0] && 0x4d == buffer[1] && 0x00 == buffer[2] && 0x2a == buffer[3]) ||
+      (0x49 == buffer[0] && 0x49 == buffer[1] && 0x2a == buffer[2] && 0x00 == buffer[3])
+    ) {
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF;
     }
   }
@@ -122,9 +169,20 @@ function getImageFormatBySignature(buffer) {
   //or for Windows 3.x
   //Hex: 01 00 09 00 00 03
   if (6 <= length) {
-    if (((0xD7 == buffer[0]) && (0xCD == buffer[1]) && (0xC6 == buffer[2]) && (0x9A == buffer[3]) &&
-      (0x00 == buffer[4]) && (0x00 == buffer[5])) || ((0x01 == buffer[0]) && (0x00 == buffer[1]) &&
-      (0x09 == buffer[2]) && (0x00 == buffer[3]) && (0x00 == buffer[4]) && (0x03 == buffer[5]))) {
+    if (
+      (0xd7 == buffer[0] &&
+        0xcd == buffer[1] &&
+        0xc6 == buffer[2] &&
+        0x9a == buffer[3] &&
+        0x00 == buffer[4] &&
+        0x00 == buffer[5]) ||
+      (0x01 == buffer[0] &&
+        0x00 == buffer[1] &&
+        0x09 == buffer[2] &&
+        0x00 == buffer[3] &&
+        0x00 == buffer[4] &&
+        0x03 == buffer[5])
+    ) {
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_WMF;
     }
   }
@@ -132,8 +190,17 @@ function getImageFormatBySignature(buffer) {
   //emf ( http://wvware.sourceforge.net/caolan/ora-wmf.html )
   //Hex: 01 00 00 00
   //Hex (position 40): 20 45 4D 46
-  if ((44 <= length) && (0x01 == buffer[0]) && (0x00 == buffer[1]) && (0x00 == buffer[2]) && (0x00 == buffer[3]) &&
-    (0x20 == buffer[40]) && (0x45 == buffer[41]) && (0x4D == buffer[42]) && (0x46 == buffer[43])) {
+  if (
+    44 <= length &&
+    0x01 == buffer[0] &&
+    0x00 == buffer[1] &&
+    0x00 == buffer[2] &&
+    0x00 == buffer[3] &&
+    0x20 == buffer[40] &&
+    0x45 == buffer[41] &&
+    0x4d == buffer[42] &&
+    0x46 == buffer[43]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_EMF;
   }
 
@@ -141,9 +208,17 @@ function getImageFormatBySignature(buffer) {
   //Hex (position 0): 0A
   //Hex (position 1): 00 || 01 || 02 || 03 || 04 || 05
   //Hex (position 3): 01 || 02 || 04 || 08 ( Bytes per pixel )
-  if ((4 <= length) && (0x0A == buffer[0]) && (0x00 == buffer[1] || 0x01 == buffer[1] ||
-    0x02 == buffer[1] || 0x03 == buffer[1] || 0x04 == buffer[1] || 0x05 == buffer[1]) &&
-    (0x01 == buffer[3] || 0x02 == buffer[3] || 0x04 == buffer[3] || 0x08 == buffer[3])) {
+  if (
+    4 <= length &&
+    0x0a == buffer[0] &&
+    (0x00 == buffer[1] ||
+      0x01 == buffer[1] ||
+      0x02 == buffer[1] ||
+      0x03 == buffer[1] ||
+      0x04 == buffer[1] ||
+      0x05 == buffer[1]) &&
+    (0x01 == buffer[3] || 0x02 == buffer[3] || 0x04 == buffer[3] || 0x08 == buffer[3])
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PCX;
   }
 
@@ -155,17 +230,29 @@ function getImageFormatBySignature(buffer) {
   //DATA TYPE 10-RUN-LENGTH ENCODED(RLE),TRUE-COLOR IMAGES		: Hex (position 1) : 00 0A
   //DATA TYPE 11-RUN-LENGTH ENCODED(RLE),BLACK AND WHITE IMAGES	: Hex (position 1) : 00 0B
   // + Bytes per pixel											: Hex (position 16): 0x08 || 0x10 || 0x18 || 0x20
-  if ((17 <= length) && ((0x01 == buffer[1] && 0x01 == buffer[2]) || (0x00 == buffer[1] && 0x02 == buffer[2]) ||
-    (0x00 == buffer[1] && 0x03 == buffer[2]) || (0x01 == buffer[1] && 0x09 == buffer[2]) ||
-    (0x00 == buffer[1] && 0x0A == buffer[2]) || (0x00 == buffer[1] && 0x0B == buffer[2])) &&
-    (0x08 == buffer[16] || 0x10 == buffer[16] || 0x18 == buffer[16] || 0x20 == buffer[16])) {
+  if (
+    17 <= length &&
+    ((0x01 == buffer[1] && 0x01 == buffer[2]) ||
+      (0x00 == buffer[1] && 0x02 == buffer[2]) ||
+      (0x00 == buffer[1] && 0x03 == buffer[2]) ||
+      (0x01 == buffer[1] && 0x09 == buffer[2]) ||
+      (0x00 == buffer[1] && 0x0a == buffer[2]) ||
+      (0x00 == buffer[1] && 0x0b == buffer[2])) &&
+    (0x08 == buffer[16] || 0x10 == buffer[16] || 0x18 == buffer[16] || 0x20 == buffer[16])
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_TGA;
   }
 
   //ras
   //Hex: 59 A6 6A 95
   //ASCII: Y
-  if ((4 <= length) && (0x59 == buffer[0]) && (0xA6 == buffer[1]) && (0x6A == buffer[2]) && (0x95 == buffer[3])) {
+  if (
+    4 <= length &&
+    0x59 == buffer[0] &&
+    0xa6 == buffer[1] &&
+    0x6a == buffer[2] &&
+    0x95 == buffer[3]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_RAS;
   }
 
@@ -175,417 +262,444 @@ function getImageFormatBySignature(buffer) {
   //psd
   //Hex: 38 42 50 53 00 01 00 00 00 00 00 00 00
   //ASCII: 8BPS
-  if ((13 <= length) && (0x38 == buffer[0]) && (0x42 == buffer[1]) && (0x50 == buffer[2]) &&
-    (0x53 == buffer[3]) && (0x00 == buffer[4]) && (0x01 == buffer[5]) && (0x00 == buffer[6]) &&
-    (0x00 == buffer[7]) && (0x00 == buffer[8]) && (0x00 == buffer[9]) && (0x00 == buffer[10]) &&
-    (0x00 == buffer[11]) && (0x00 == buffer[12])) {
+  if (
+    13 <= length &&
+    0x38 == buffer[0] &&
+    0x42 == buffer[1] &&
+    0x50 == buffer[2] &&
+    0x53 == buffer[3] &&
+    0x00 == buffer[4] &&
+    0x01 == buffer[5] &&
+    0x00 == buffer[6] &&
+    0x00 == buffer[7] &&
+    0x00 == buffer[8] &&
+    0x00 == buffer[9] &&
+    0x00 == buffer[10] &&
+    0x00 == buffer[11] &&
+    0x00 == buffer[12]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PSD;
   }
 
   //ico
   //Hex: 00 00 01 00
-  if (4 <= length && 0x00 == buffer[0] && 0x00 == buffer[1] && 0x01 == buffer[2] && 0x00 == buffer[3]) {
+  if (
+    4 <= length &&
+    0x00 == buffer[0] &&
+    0x00 == buffer[1] &&
+    0x01 == buffer[2] &&
+    0x00 == buffer[3]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_ICO;
   }
 
   //svg
   //todo sax parser
-  if (-1 !== startText.indexOf('<svg')) {
+  if (-1 !== startText.indexOf("<svg")) {
     return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG;
   }
 
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
-exports.getFormatFromString = function(ext) {
+exports.getFormatFromString = function (ext) {
   if (!ext) {
     return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
   switch (ext.toLowerCase()) {
-    case 'docx':
+    case "docx":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX;
-    case 'doc':
-    case 'wps':
+    case "doc":
+    case "wps":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC;
-    case 'odt':
+    case "odt":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT;
-    case 'rtf':
+    case "rtf":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_RTF;
-    case 'txt':
-    case 'xml':
-    case 'xslt':
+    case "txt":
+    case "xml":
+    case "xslt":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_TXT;
-    case 'htm':
-    case 'html':
+    case "htm":
+    case "html":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML;
-    case 'mht':
-    case 'mhtml':
+    case "mht":
+    case "mhtml":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_MHT;
-    case 'epub':
+    case "epub":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_EPUB;
-    case 'fb2':
+    case "fb2":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_FB2;
-    case 'mobi':
+    case "mobi":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_MOBI;
-    case 'docm':
+    case "docm":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM;
-    case 'dotx':
+    case "dotx":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX;
-    case 'dotm':
+    case "dotm":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM;
-    case 'fodt':
+    case "fodt":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT_FLAT;
-    case 'ott':
+    case "ott":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OTT;
-    case 'oform':
+    case "oform":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM;
-    case 'docxf':
+    case "docxf":
       return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF;
 
-    case 'pptx':
+    case "pptx":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX;
-    case 'ppt':
-    case 'dps':
+    case "ppt":
+    case "dps":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPT;
-    case 'odp':
+    case "odp":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODP;
-    case 'ppsx':
+    case "ppsx":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSX;
-    case 'pptm':
+    case "pptm":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTM;
-    case 'ppsm':
+    case "ppsm":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSM;
-    case 'potx':
+    case "potx":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTX;
-    case 'potm':
+    case "potm":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTM;
-    case 'fodp':
+    case "fodp":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODP_FLAT;
-    case 'otp':
+    case "otp":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_OTP;
-    case 'odg':
+    case "odg":
       return constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODG;
 
-    case 'xlsx':
+    case "xlsx":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX;
-    case 'xls':
-    case 'et':
+    case "xls":
+    case "et":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLS;
-    case 'ods':
+    case "ods":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_ODS;
-    case 'csv':
+    case "csv":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_CSV;
-    case 'xlsm':
+    case "xlsm":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM;
-    case 'xltx':
+    case "xltx":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX;
-    case 'xltm':
+    case "xltm":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM;
-    case 'xlsb':
+    case "xlsb":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSB;
-    case 'fods':
+    case "fods":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_ODS_FLAT;
-    case 'ots':
+    case "ots":
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_OTS;
 
-    case 'jpeg':
-    case 'jpe':
-    case 'jpg':
+    case "jpeg":
+    case "jpe":
+    case "jpg":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_JPG;
-    case 'tif':
-    case 'tiff':
+    case "tif":
+    case "tiff":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF;
-    case 'tga':
+    case "tga":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_TGA;
-    case 'gif':
+    case "gif":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_GIF;
-    case 'png':
+    case "png":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
-    case 'emf':
+    case "emf":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_EMF;
-    case 'wmf':
+    case "wmf":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_WMF;
-    case 'bmp':
+    case "bmp":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_BMP;
-    case 'cr2':
+    case "cr2":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_CR2;
-    case 'pcx':
+    case "pcx":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PCX;
-    case 'ras':
+    case "ras":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_RAS;
-    case 'psd':
+    case "psd":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PSD;
-    case 'ico':
+    case "ico":
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_ICO;
 
-    case 'pdf':
+    case "pdf":
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF;
-    case 'pdfa':
+    case "pdfa":
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA;
-    case 'swf':
+    case "swf":
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SWF;
-    case 'djvu':
+    case "djvu":
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU;
-    case 'xps':
+    case "xps":
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS;
-    case 'svg':
+    case "svg":
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG;
-    case 'htmlr':
+    case "htmlr":
       return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_HTMLR;
-    case 'doct':
+    case "doct":
       return constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY;
-    case 'xlst':
+    case "xlst":
       return constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY;
-    case 'pptt':
+    case "pptt":
       return constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
-    case 'ooxml':
+    case "ooxml":
       return constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
-    case 'odf':
+    case "odf":
       return constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF;
-    case 'vsdx':
+    case "vsdx":
       return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDX;
-    case 'vssx':
+    case "vssx":
       return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSSX;
-    case 'vstx':
+    case "vstx":
       return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSTX;
-    case 'vsdm':
+    case "vsdm":
       return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDM;
-    case 'vssm':
+    case "vssm":
       return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSSM;
-    case 'vstm':
+    case "vstm":
       return constants.AVS_OFFICESTUDIO_FILE_DRAW_VSTM;
     default:
       return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
 };
-exports.getStringFromFormat = function(format) {
+exports.getStringFromFormat = function (format) {
   switch (format) {
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX:
-      return 'docx';
+      return "docx";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC:
-      return 'doc';
+      return "doc";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT:
-      return 'odt';
+      return "odt";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_RTF:
-      return 'rtf';
+      return "rtf";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_TXT:
-      return 'txt';
+      return "txt";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML:
-      return 'html';
+      return "html";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_MHT:
-      return 'mht';
+      return "mht";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_EPUB:
-      return 'epub';
+      return "epub";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_FB2:
-      return 'fb2';
+      return "fb2";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_MOBI:
-      return 'mobi';
+      return "mobi";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM:
-      return 'docm';
+      return "docm";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX:
-      return 'dotx';
+      return "dotx";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM:
-      return 'dotm';
+      return "dotm";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_ODT_FLAT:
-      return 'fodt';
+      return "fodt";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OTT:
-      return 'ott';
+      return "ott";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC_FLAT:
-      return 'doc';
+      return "doc";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX_FLAT:
-      return 'docx';
+      return "docx";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML_IN_CONTAINER:
-      return 'doc';
+      return "doc";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX_PACKAGE:
-      return 'xml';
+      return "xml";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM:
-      return 'oform';
+      return "oform";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF:
-      return 'docxf';
+      return "docxf";
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF:
-      return 'pdf';
+      return "pdf";
 
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX:
-      return 'pptx';
+      return "pptx";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPT:
-      return 'ppt';
+      return "ppt";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODP:
-      return 'odp';
+      return "odp";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSX:
-      return 'ppsx';
+      return "ppsx";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTM:
-      return 'pptm';
+      return "pptm";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSM:
-      return 'ppsm';
+      return "ppsm";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTX:
-      return 'potx';
+      return "potx";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTM:
-      return 'potm';
+      return "potm";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODP_FLAT:
-      return 'fodp';
+      return "fodp";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_OTP:
-      return 'otp';
+      return "otp";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX_PACKAGE:
-      return 'xml';
+      return "xml";
     case constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODG:
-      return 'odg';
+      return "odg";
 
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX:
-      return 'xlsx';
+      return "xlsx";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLS:
-      return 'xls';
+      return "xls";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_ODS:
-      return 'ods';
+      return "ods";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_CSV:
-      return 'csv';
+      return "csv";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM:
-      return 'xlsm';
+      return "xlsm";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX:
-      return 'xltx';
+      return "xltx";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM:
-      return 'xltm';
+      return "xltm";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSB:
-      return 'xlsb';
+      return "xlsb";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_ODS_FLAT:
-      return 'fods';
+      return "fods";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_OTS:
-      return 'ots';
+      return "ots";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX_FLAT:
-      return 'xlsx';
+      return "xlsx";
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX_PACKAGE:
-      return 'xml';
+      return "xml";
 
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF:
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA:
-      return 'pdf';
+      return "pdf";
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SWF:
-      return 'swf';
+      return "swf";
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU:
-      return 'djvu';
+      return "djvu";
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS:
-      return 'xps';
+      return "xps";
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_SVG:
-      return 'svg';
+      return "svg";
     case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_HTMLR:
-      return 'htmlr';
+      return "htmlr";
 
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_HTMLZIP:
-      return 'zip';
+      return "zip";
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_JSON:
-      return 'json';
+      return "json";
 
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE:
-      return 'zip';
+      return "zip";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_JPG:
-      return 'jpg';
+      return "jpg";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF:
-      return 'tiff';
+      return "tiff";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_TGA:
-      return 'tga';
+      return "tga";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_GIF:
-      return 'gif';
+      return "gif";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG:
-      return 'png';
+      return "png";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_EMF:
-      return 'emf';
+      return "emf";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_WMF:
-      return 'wmf';
+      return "wmf";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_BMP:
-      return 'bmp';
+      return "bmp";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_CR2:
-      return 'cr2';
+      return "cr2";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_PCX:
-      return 'pcx';
+      return "pcx";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_RAS:
-      return 'ras';
+      return "ras";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_PSD:
-      return 'psd';
+      return "psd";
     case constants.AVS_OFFICESTUDIO_FILE_IMAGE_ICO:
-      return 'ico';
+      return "ico";
 
     case constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD:
     case constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET:
     case constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION:
     case constants.AVS_OFFICESTUDIO_FILE_CANVAS_PDF:
-      return 'bin';
+      return "bin";
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_OLD_DOCUMENT:
     case constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY:
-      return 'doct';
+      return "doct";
     case constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY:
-      return 'xlst';
+      return "xlst";
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_OLD_PRESENTATION:
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_OLD_DRAWING:
     case constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY:
-      return 'pptt';
+      return "pptt";
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML:
-      return 'ooxml';
+      return "ooxml";
     case constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF:
-      return 'odf';
+      return "odf";
     case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDX:
-      return 'vsdx';
+      return "vsdx";
     case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSSX:
-      return 'vssx';
+      return "vssx";
     case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSTX:
-      return 'vstx';
+      return "vstx";
     case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSDM:
-      return 'vsdm';
+      return "vsdm";
     case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSSM:
-      return 'vssm';
+      return "vssm";
     case constants.AVS_OFFICESTUDIO_FILE_DRAW_VSTM:
-      return 'vstm';
+      return "vstm";
     default:
-      return '';
+      return "";
   }
 };
-exports.getImageFormat = function(ctx, buffer) {
+exports.getImageFormat = function (ctx, buffer) {
   var format = constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   try {
     //signature
     format = getImageFormatBySignature(buffer);
-  }
-  catch (e) {
-    ctx.logger.error('error getImageFormat: %s', e.stack);
+  } catch (e) {
+    ctx.logger.error("error getImageFormat: %s", e.stack);
   }
   return format;
 };
-exports.isDocumentFormat = function(format) {
-  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_DOCUMENT) ||
+exports.isDocumentFormat = function (format) {
+  return (
+    0 !== (format & constants.AVS_OFFICESTUDIO_FILE_DOCUMENT) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD ||
-    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY;
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY
+  );
 };
-exports.isSpreadsheetFormat = function(format) {
-  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET) ||
+exports.isSpreadsheetFormat = function (format) {
+  return (
+    0 !== (format & constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET ||
-    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY;
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY
+  );
 };
-exports.isPresentationFormat = function(format) {
-  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_PRESENTATION) ||
+exports.isPresentationFormat = function (format) {
+  return (
+    0 !== (format & constants.AVS_OFFICESTUDIO_FILE_PRESENTATION) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION ||
-    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY
+  );
 };
-exports.isOOXFormat = function(format) {
-  return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSX === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTM === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSM === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTX === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTM === format
-  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX === format
-  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM === format
-  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format
-  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format;
+exports.isOOXFormat = function (format) {
+  return (
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format
+  );
 };
-exports.isBrowserEditorFormat = function(format) {
-  return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === format ||
+exports.isBrowserEditorFormat = function (format) {
+  return (
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === format ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === format ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU === format ||
-    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === format;
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === format
+  );
 };
 function getDocumentFormatBySignature(buffer) {
   if (!buffer) {
@@ -593,30 +707,48 @@ function getDocumentFormatBySignature(buffer) {
   }
   let text = buffer.toString("latin1");
   // Check for binary DOCT format.
-  if (4 <= text.length && text[0] === 'D' && text[1] === 'O' && text[2] === 'C' && text[3] === 'Y') {
+  if (
+    4 <= text.length &&
+    text[0] === "D" &&
+    text[1] === "O" &&
+    text[2] === "C" &&
+    text[3] === "Y"
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
   }
 
   // Check for binary XLST format
-  if (4 <= text.length && text[0] === 'X' && text[1] === 'L' && text[2] === 'S' && text[3] === 'Y') {
+  if (
+    4 <= text.length &&
+    text[0] === "X" &&
+    text[1] === "L" &&
+    text[2] === "S" &&
+    text[3] === "Y"
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET;
   }
 
   // Check for binary PPTT format
-  if (4 <= text.length && text[0] === 'P' && text[1] === 'P' && text[2] === 'T' && text[3] === 'Y') {
+  if (
+    4 <= text.length &&
+    text[0] === "P" &&
+    text[1] === "P" &&
+    text[2] === "T" &&
+    text[3] === "Y"
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION;
   }
 
   // Unknown format
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
-};
+}
 async function getDocumentFormatByFile(file) {
   let firstBytesLen = 100;
   let buffer;
   let fd;
   try {
-    fd = await open(file, 'r');
-    const stream = fd.createReadStream({ start: 0, end: firstBytesLen });
+    fd = await open(file, "r");
+    const stream = fd.createReadStream({start: 0, end: firstBytesLen});
     let chunks = [];
     for await (const chunk of stream) {
       chunks.push(Buffer.from(chunk));
@@ -626,6 +758,6 @@ async function getDocumentFormatByFile(file) {
     await fd?.close();
   }
   return getDocumentFormatBySignature(buffer);
-};
+}
 exports.getDocumentFormatBySignature = getDocumentFormatBySignature;
-exports.getDocumentFormatByFile = getDocumentFormatByFile
+exports.getDocumentFormatByFile = getDocumentFormatByFile;

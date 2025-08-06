@@ -1,359 +1,299 @@
-(function(window, undefined)
-{
-	function generateGuid()
-	{
-		if (!window.crypto || !window.crypto.getRandomValues)
-		{
-			function s4() {
-				return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
-			}
-			return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
-		}
-		
-		var array = new Uint16Array(8);
-		window.crypto.getRandomValues(array);
-		var index = 0;
-		function s4() {
-			var value = 0x10000 + array[index++];
-			return value.toString(16).substring(1);
-		}
-		return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
-	}
+(function (window, undefined) {
+  function generateGuid() {
+    if (!window.crypto || !window.crypto.getRandomValues) {
+      function s4() {
+        return Math.floor((1 + Math.random()) * 0x10000)
+          .toString(16)
+          .substring(1);
+      }
+      return s4() + s4() + "-" + s4() + "-" + s4() + "-" + s4() + "-" + s4() + s4() + s4();
+    }
 
-	function translateItem(text) {
-		return window.Asc.plugin.tr(text);
-	};
+    var array = new Uint16Array(8);
+    window.crypto.getRandomValues(array);
+    var index = 0;
+    function s4() {
+      var value = 0x10000 + array[index++];
+      return value.toString(16).substring(1);
+    }
+    return s4() + s4() + "-" + s4() + "-" + s4() + "-" + s4() + "-" + s4() + s4() + s4();
+  }
 
-	window.Asc = window.Asc || {};
-	var Asc = window.Asc;
-	
-	Asc.Buttons = {};
-	Asc.Buttons.ButtonsContextMenu = [];
-	Asc.Buttons.ButtonsToolbar = [];
+  function translateItem(text) {
+    return window.Asc.plugin.tr(text);
+  }
 
-	Asc.Buttons.registerContextMenu = function()
-	{
-		window.Asc.plugin.attachEvent("onContextMenuShow", function(options) {
-			if (!options)
-				return;
+  window.Asc = window.Asc || {};
+  var Asc = window.Asc;
 
-			let items = {
-				guid: window.Asc.plugin.guid,
-			};
-			for (let i = 0, len = Asc.Buttons.ButtonsContextMenu.length; i < len; i++)
-			{
-				let button = Asc.Buttons.ButtonsContextMenu[i];
-				if (button.parent === null)
-				{
-					button.onContextMenuShow(options, items);
-				}
-			}
-	
-			if (items.items)
-				window.Asc.plugin.executeMethod("AddContextMenuItem", [items]);
-		});
-	};
+  Asc.Buttons = {};
+  Asc.Buttons.ButtonsContextMenu = [];
+  Asc.Buttons.ButtonsToolbar = [];
 
-	Asc.Buttons.registerToolbarMenu = function()
-	{
-		let items = {
-			guid : window.Asc.plugin.guid,
-			tabs : []
-		};
+  Asc.Buttons.registerContextMenu = function () {
+    window.Asc.plugin.attachEvent("onContextMenuShow", function (options) {
+      if (!options) return;
 
-		for (let i = 0, len = Asc.Buttons.ButtonsToolbar.length; i < len; i++)
-		{
-			let button = Asc.Buttons.ButtonsToolbar[i];
-			if (button.parent === null)
-			{
-				button.toToolbar(items);
-			}
+      let items = {
+        guid: window.Asc.plugin.guid,
+      };
+      for (let i = 0, len = Asc.Buttons.ButtonsContextMenu.length; i < len; i++) {
+        let button = Asc.Buttons.ButtonsContextMenu[i];
+        if (button.parent === null) {
+          button.onContextMenuShow(options, items);
+        }
+      }
 
-			if (!!button.menu) {
-				for (item of button.menu) {
-					if (!!item.onclick) {
-						window.Asc.plugin.attachToolbarMenuClickEvent(item.id, item.onclick);
-					}
-				}
-			}
-		}
+      if (items.items) window.Asc.plugin.executeMethod("AddContextMenuItem", [items]);
+    });
+  };
 
-		if (items.tabs.length > 0)
-			window.Asc.plugin.executeMethod("AddToolbarMenuItem", [items]);
-	};
+  Asc.Buttons.registerToolbarMenu = function () {
+    let items = {
+      guid: window.Asc.plugin.guid,
+      tabs: [],
+    };
 
-	Asc.Buttons.updateToolbarMenu = function(id, name, buttons)
-	{
-		let buttonMainToolbar = new Asc.ButtonToolbar(null, id);
-		buttonMainToolbar.text = name;
+    for (let i = 0, len = Asc.Buttons.ButtonsToolbar.length; i < len; i++) {
+      let button = Asc.Buttons.ButtonsToolbar[i];
+      if (button.parent === null) {
+        button.toToolbar(items);
+      }
 
-		let items = {
-			guid : window.Asc.plugin.guid,
-			tabs : []
-		};
+      if (!!button.menu) {
+        for (item of button.menu) {
+          if (!!item.onclick) {
+            window.Asc.plugin.attachToolbarMenuClickEvent(item.id, item.onclick);
+          }
+        }
+      }
+    }
 
-		buttonMainToolbar.childs = buttons;
-		for (let i = 0, len = buttons.length; i < len; i++)
-			buttons[i].parent = buttonMainToolbar;
+    if (items.tabs.length > 0) window.Asc.plugin.executeMethod("AddToolbarMenuItem", [items]);
+  };
 
-		buttonMainToolbar.toToolbar(items);
+  Asc.Buttons.updateToolbarMenu = function (id, name, buttons) {
+    let buttonMainToolbar = new Asc.ButtonToolbar(null, id);
+    buttonMainToolbar.text = name;
 
-		if (items.tabs.length > 0)
-			window.Asc.plugin.executeMethod("UpdateToolbarMenuItem", [items]);
-	};
+    let items = {
+      guid: window.Asc.plugin.guid,
+      tabs: [],
+    };
 
-	var ToolbarButtonType = {
-		Button : "button",
-		BigButton : "big-button"
-	};
+    buttonMainToolbar.childs = buttons;
+    for (let i = 0, len = buttons.length; i < len; i++) buttons[i].parent = buttonMainToolbar;
 
-	var ItemType = {
-		None : 0,
-		ContextMenu : 1,
-		Toolbar : 2
-	};
+    buttonMainToolbar.toToolbar(items);
 
-	function Button(parent, id)
-	{
-		this.itemType = ItemType.None;
-		this.editors = ["word", "cell", "slide"];
+    if (items.tabs.length > 0) window.Asc.plugin.executeMethod("UpdateToolbarMenuItem", [items]);
+  };
 
-		this.id = (id === undefined) ? generateGuid() : id;
+  var ToolbarButtonType = {
+    Button: "button",
+    BigButton: "big-button",
+  };
 
-		this.icons = null;
-		
-		this.text = "";
-		this.hint = null;
-		this.data = "";
+  var ItemType = {
+    None: 0,
+    ContextMenu: 1,
+    Toolbar: 2,
+  };
 
-		this.separator = false;
-		this.lockInViewMode = true;
-		this.enableToggle = false;
-		this.disabled = false;
-		this.removed = false;
+  function Button(parent, id) {
+    this.itemType = ItemType.None;
+    this.editors = ["word", "cell", "slide"];
 
-		this.parent = parent ? parent : null;
-		this.childs = null;
+    this.id = id === undefined ? generateGuid() : id;
 
-		if (this.parent)
-		{
-			if (!this.parent.childs)
-				this.parent.childs = [];
-			this.parent.childs.push(this);
-		}
-	}
+    this.icons = null;
 
-	Button.prototype.toItem = function() 
-	{
-		let item = {
-			id : this.id,
-			text : translateItem(this.text)            
-		};
+    this.text = "";
+    this.hint = null;
+    this.data = "";
 
-		if (this.hint !== null)
-			item.hint = translateItem(this.hint === "" ? this.hint : this.text);
-		
-		if (this.separator)
-			item.separator = true;
+    this.separator = false;
+    this.lockInViewMode = true;
+    this.enableToggle = false;
+    this.disabled = false;
+    this.removed = false;
 
-		if (this.data)
-			item.data = this.data;
+    this.parent = parent ? parent : null;
+    this.childs = null;
 
-		if (this.lockInViewMode)
-			item.lockInViewMode = true;
+    if (this.parent) {
+      if (!this.parent.childs) this.parent.childs = [];
+      this.parent.childs.push(this);
+    }
+  }
 
-		if (this.enableToggle)
-			item.enableToggle = true;
+  Button.prototype.toItem = function () {
+    let item = {
+      id: this.id,
+      text: translateItem(this.text),
+    };
 
-		if (this.disabled)
-			item.disabled = true;
-		else
-			item.disabled = false;
+    if (this.hint !== null) item.hint = translateItem(this.hint === "" ? this.hint : this.text);
 
-		if (this.removed)
-			item.removed = true;
+    if (this.separator) item.separator = true;
 
-		if (this.icons)
-			item.icons = this.icons;
+    if (this.data) item.data = this.data;
 
-		if (this.itemType === ItemType.Toolbar)
-			item.type = this.type;
+    if (this.lockInViewMode) item.lockInViewMode = true;
 
-		if (this.menu)
-			item.items = this.menu.map(function(menuItem) {
-				menuItem.text = translateItem(menuItem.text);
-				return menuItem;
-			});
+    if (this.enableToggle) item.enableToggle = true;
 
-		if (this.split)
-			item.split = true;
+    if (this.disabled) item.disabled = true;
+    else item.disabled = false;
 
-		return item;
-	};
+    if (this.removed) item.removed = true;
 
-	Button.prototype.attachOnClick = function(handler)
-	{
-	};
+    if (this.icons) item.icons = this.icons;
 
-	Button.prototype.onClick = function() 
-	{
-		console.log("BUTTON: " + this.text);
-	};
+    if (this.itemType === ItemType.Toolbar) item.type = this.type;
 
-	function ButtonContextMenu(parent, id)
-	{
-		Button.call(this, parent, id);
+    if (this.menu)
+      item.items = this.menu.map(function (menuItem) {
+        menuItem.text = translateItem(menuItem.text);
+        return menuItem;
+      });
 
-		this.itemType = ItemType.ContextMenu;
-		this.showOnOptionsType = [];
+    if (this.split) item.split = true;
 
-		Asc.Buttons.ButtonsContextMenu.push(this);
-	}
+    return item;
+  };
 
-	ButtonContextMenu.prototype = Object.create(Button.prototype);
-	ButtonContextMenu.prototype.constructor = ButtonContextMenu;
+  Button.prototype.attachOnClick = function (handler) {};
 
-	ButtonContextMenu.prototype.copy = function()
-	{
-		let ret = new ButtonContextMenu(this.parent, this.id);
-		ret.editors = this.editors;
+  Button.prototype.onClick = function () {
+    console.log("BUTTON: " + this.text);
+  };
 
-		ret.separator = this.separator;
-		ret.lockInViewMode = this.lockInViewMode;
-		ret.enableToggle = this.enableToggle;
-		ret.disabled = this.disabled;
-		ret.showOnOptionsType = this.showOnOptionsType.slice();
+  function ButtonContextMenu(parent, id) {
+    Button.call(this, parent, id);
 
-		return ret;
-	};
+    this.itemType = ItemType.ContextMenu;
+    this.showOnOptionsType = [];
 
-	ButtonContextMenu.prototype.addCheckers = function()
-	{
-		let len = arguments.length;
-		this.showOnOptionsType = new Array(len);
-		for (let i = 0; i < len; i++)
-			this.showOnOptionsType[i] = arguments[i];
-	};
+    Asc.Buttons.ButtonsContextMenu.push(this);
+  }
 
-	ButtonContextMenu.prototype.attachOnClick = function(handler)
-	{
-		window.Asc.plugin.attachContextMenuClickEvent(this.id, handler);  
-	};
+  ButtonContextMenu.prototype = Object.create(Button.prototype);
+  ButtonContextMenu.prototype.constructor = ButtonContextMenu;
 
-	ButtonContextMenu.prototype.onContextMenuShowAnalyze = function(options, parent)
-	{        
-		return false;
-	};
+  ButtonContextMenu.prototype.copy = function () {
+    let ret = new ButtonContextMenu(this.parent, this.id);
+    ret.editors = this.editors;
 
-	ButtonContextMenu.prototype.onContextMenuShowExtendItem = function(options, item)
-	{        
-	};
+    ret.separator = this.separator;
+    ret.lockInViewMode = this.lockInViewMode;
+    ret.enableToggle = this.enableToggle;
+    ret.disabled = this.disabled;
+    ret.showOnOptionsType = this.showOnOptionsType.slice();
 
-	ButtonContextMenu.prototype.onContextMenuShow = function(options, parent) 
-	{
-		if (this.onContextMenuShowAnalyze(options, parent))
-			return;
+    return ret;
+  };
 
-		let isSupport = false;
-		for (let i = 0, len = this.editors.length; i < len; i++)
-		{
-			if (Asc.plugin.info.editorType === this.editors[i])
-			{
-				isSupport = true;
-				break;
-			}
-		}
+  ButtonContextMenu.prototype.addCheckers = function () {
+    let len = arguments.length;
+    this.showOnOptionsType = new Array(len);
+    for (let i = 0; i < len; i++) this.showOnOptionsType[i] = arguments[i];
+  };
 
-		if (!isSupport)
-			return;
+  ButtonContextMenu.prototype.attachOnClick = function (handler) {
+    window.Asc.plugin.attachContextMenuClickEvent(this.id, handler);
+  };
 
-		for (let i = 0, len = this.showOnOptionsType.length; i < len; i++)
-		{
-			if (options.type === this.showOnOptionsType[i] || this.showOnOptionsType[i] === "All")
-			{
-				if (!parent.items)
-					parent.items = [];
+  ButtonContextMenu.prototype.onContextMenuShowAnalyze = function (options, parent) {
+    return false;
+  };
 
-				let curItem = this.toItem();   
-				this.onContextMenuShowExtendItem(options, curItem);                           
-				
-				if (this.childs)
-				{
-					for (let j = 0, childsLen = this.childs.length; j < childsLen; j++)
-					{
-						this.childs[j].onContextMenuShow(options, curItem);
-					}
-				}
+  ButtonContextMenu.prototype.onContextMenuShowExtendItem = function (options, item) {};
 
-				parent.items.push(curItem);
-				return;
-			}
-		}
-	};
+  ButtonContextMenu.prototype.onContextMenuShow = function (options, parent) {
+    if (this.onContextMenuShowAnalyze(options, parent)) return;
 
-	function ButtonToolbar(parent, id)
-	{
-		Button.call(this, parent, id);
+    let isSupport = false;
+    for (let i = 0, len = this.editors.length; i < len; i++) {
+      if (Asc.plugin.info.editorType === this.editors[i]) {
+        isSupport = true;
+        break;
+      }
+    }
 
-		this.itemType = ItemType.Toolbar;
-		this.type = ToolbarButtonType.BigButton;
-		this.tab = "";
-		
-		Asc.Buttons.ButtonsToolbar.push(this);
-	}
+    if (!isSupport) return;
 
-	ButtonToolbar.prototype = Object.create(Button.prototype);
-	ButtonToolbar.prototype.constructor = ButtonToolbar;
+    for (let i = 0, len = this.showOnOptionsType.length; i < len; i++) {
+      if (options.type === this.showOnOptionsType[i] || this.showOnOptionsType[i] === "All") {
+        if (!parent.items) parent.items = [];
 
-	ButtonToolbar.prototype.attachOnClick = function(handler)
-	{
-		window.Asc.plugin.attachToolbarMenuClickEvent(this.id, handler);
-	};
+        let curItem = this.toItem();
+        this.onContextMenuShowExtendItem(options, curItem);
 
-	ButtonToolbar.prototype.toItem = function(items)
-	{        
-		let item = Button.prototype.toItem.call(this);
-		item.type = this.type;
-		return item;
-	};
+        if (this.childs) {
+          for (let j = 0, childsLen = this.childs.length; j < childsLen; j++) {
+            this.childs[j].onContextMenuShow(options, curItem);
+          }
+        }
 
-	ButtonToolbar.prototype.toToolbar = function(items)
-	{
-		let currentItem = null;
-		if (this.parent === null)
-		{
-			let tab = {
-				id : this.id,
-				text : translateItem(this.text),
-				items : []
-			};
-			if (this.hint !== null)
-				tab.hint = translateItem(this.hint === "" ? this.hint : this.text);
+        parent.items.push(curItem);
+        return;
+      }
+    }
+  };
 
-			items.tabs.push(tab);
+  function ButtonToolbar(parent, id) {
+    Button.call(this, parent, id);
 
-			currentItem = tab;
-		}
-		else
-		{
-			currentItem = this.toItem();
-			
-			if (!items.items)
-				items.items = [];
-			
-			items.items.push(currentItem);
-		}
+    this.itemType = ItemType.Toolbar;
+    this.type = ToolbarButtonType.BigButton;
+    this.tab = "";
 
-		if (this.childs)
-		{
-			for (let j = 0, childsLen = this.childs.length; j < childsLen; j++)
-			{
-				this.childs[j].toToolbar(currentItem);
-			}
-		}
-	};
+    Asc.Buttons.ButtonsToolbar.push(this);
+  }
 
-	Asc.ToolbarButtonType = ToolbarButtonType;
-	Asc.ButtonContextMenu = ButtonContextMenu;
-	Asc.ButtonToolbar = ButtonToolbar;
+  ButtonToolbar.prototype = Object.create(Button.prototype);
+  ButtonToolbar.prototype.constructor = ButtonToolbar;
+
+  ButtonToolbar.prototype.attachOnClick = function (handler) {
+    window.Asc.plugin.attachToolbarMenuClickEvent(this.id, handler);
+  };
+
+  ButtonToolbar.prototype.toItem = function (items) {
+    let item = Button.prototype.toItem.call(this);
+    item.type = this.type;
+    return item;
+  };
+
+  ButtonToolbar.prototype.toToolbar = function (items) {
+    let currentItem = null;
+    if (this.parent === null) {
+      let tab = {
+        id: this.id,
+        text: translateItem(this.text),
+        items: [],
+      };
+      if (this.hint !== null) tab.hint = translateItem(this.hint === "" ? this.hint : this.text);
+
+      items.tabs.push(tab);
+
+      currentItem = tab;
+    } else {
+      currentItem = this.toItem();
+
+      if (!items.items) items.items = [];
+
+      items.items.push(currentItem);
+    }
+
+    if (this.childs) {
+      for (let j = 0, childsLen = this.childs.length; j < childsLen; j++) {
+        this.childs[j].toToolbar(currentItem);
+      }
+    }
+  };
+
+  Asc.ToolbarButtonType = ToolbarButtonType;
+  Asc.ButtonContextMenu = ButtonContextMenu;
+  Asc.ButtonToolbar = ButtonToolbar;
 })(window);

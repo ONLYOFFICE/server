@@ -30,25 +30,32 @@
  *
  */
 
-'use strict';
+"use strict";
 
 const util = require("util");
-const config = require('config');
-const exifParser = require('exif-parser');
+const config = require("config");
+const exifParser = require("exif-parser");
 //set global window to fix issue https://github.com/photopea/UTIF.js/issues/130
 if (!global.window) {
   global.window = global;
 }
-const Jimp = require('jimp');
-const locale = require('windows-locale');
-const ms = require('ms');
+const Jimp = require("jimp");
+const locale = require("windows-locale");
+const ms = require("ms");
 
-const tenantManager = require('../../Common/sources/tenantManager');
-const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
+const tenantManager = require("../../Common/sources/tenantManager");
+const {
+  notificationTypes,
+  ...notificationService
+} = require("../../Common/sources/notificationService");
 
-const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
-const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template');
-const cfgNotificationRuleLicenseExpirationError = config.get('notification.rules.licenseExpirationError.template');
+const cfgStartNotifyFrom = ms(config.get("license.warning_license_expiration"));
+const cfgNotificationRuleLicenseExpirationWarning = config.get(
+  "notification.rules.licenseExpirationWarning.template"
+);
+const cfgNotificationRuleLicenseExpirationError = config.get(
+  "notification.rules.licenseExpirationError.template"
+);
 
 async function fixImageExifRotation(ctx, buffer) {
   if (!buffer) {
@@ -59,11 +66,11 @@ async function fixImageExifRotation(ctx, buffer) {
     let parser = exifParser.create(buffer);
     let exif = parser.parse();
     if (exif.tags?.Orientation > 1) {
-      ctx.logger.debug('fixImageExifRotation remove exif and rotate:%j', exif);
+      ctx.logger.debug("fixImageExifRotation remove exif and rotate:%j", exif);
       buffer = convertImageTo(ctx, buffer, Jimp.AUTO);
     }
   } catch (e) {
-    ctx.logger.debug('fixImageExifRotation error:%s', e.stack);
+    ctx.logger.debug("fixImageExifRotation error:%s", e.stack);
   }
   return buffer;
 }
@@ -72,7 +79,7 @@ async function convertImageToPng(ctx, buffer) {
 }
 async function convertImageTo(ctx, buffer, mime) {
   try {
-    ctx.logger.debug('convertImageTo %s', mime);
+    ctx.logger.debug("convertImageTo %s", mime);
     let image = await Jimp.read(buffer);
     //remove exif
     image.bitmap.exifBuffer = undefined;
@@ -82,7 +89,7 @@ async function convertImageTo(ctx, buffer, mime) {
     image.deflateLevel(7);
     buffer = await image.getBufferAsync(mime);
   } catch (e) {
-    ctx.logger.debug('convertImageTo error:%s', e.stack);
+    ctx.logger.debug("convertImageTo error:%s", e.stack);
   }
   return buffer;
 }
@@ -98,21 +105,21 @@ function localeToLCID(lang) {
 
 function humanFriendlyExpirationTime(endTime) {
   const month = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December'
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
-  return `${month[endTime.getUTCMonth()]} ${endTime.getUTCDate()}, ${endTime.getUTCFullYear()}`
+  return `${month[endTime.getUTCMonth()]} ${endTime.getUTCDate()}, ${endTime.getUTCFullYear()}`;
 }
 
 /**
@@ -123,7 +130,7 @@ function humanFriendlyExpirationTime(endTime) {
  */
 async function notifyLicenseExpiration(ctx, endDate) {
   if (!endDate) {
-    ctx.logger.warn('notifyLicenseExpiration(): expiration date is not defined');
+    ctx.logger.warn("notifyLicenseExpiration(): expiration date is not defined");
     return;
   }
 
@@ -136,17 +143,39 @@ async function notifyLicenseExpiration(ctx, endDate) {
     const formattedExpirationTime = humanFriendlyExpirationTime(endDate);
     const applicationName = (process.env.APPLICATION_NAME || "").toUpperCase();
     if (endDate <= currentDate) {
-      const tenNotificationRuleLicenseExpirationError = ctx.getCfg('notification.rules.licenseExpirationError.template', cfgNotificationRuleLicenseExpirationError);
+      const tenNotificationRuleLicenseExpirationError = ctx.getCfg(
+        "notification.rules.licenseExpirationError.template",
+        cfgNotificationRuleLicenseExpirationError
+      );
       const title = util.format(tenNotificationRuleLicenseExpirationError.title, applicationName);
-      const message = util.format(tenNotificationRuleLicenseExpirationError.body, formattedExpirationTime);
+      const message = util.format(
+        tenNotificationRuleLicenseExpirationError.body,
+        formattedExpirationTime
+      );
       ctx.logger.error(message);
-      await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_ERROR, title, message);
+      await notificationService.notify(
+        ctx,
+        notificationTypes.LICENSE_EXPIRATION_ERROR,
+        title,
+        message
+      );
     } else {
-      const tenNotificationRuleLicenseExpirationWarning = ctx.getCfg('notification.rules.licenseExpirationWarning.template', cfgNotificationRuleLicenseExpirationWarning);
+      const tenNotificationRuleLicenseExpirationWarning = ctx.getCfg(
+        "notification.rules.licenseExpirationWarning.template",
+        cfgNotificationRuleLicenseExpirationWarning
+      );
       const title = util.format(tenNotificationRuleLicenseExpirationWarning.title, applicationName);
-      const message = util.format(tenNotificationRuleLicenseExpirationWarning.body, formattedExpirationTime);
+      const message = util.format(
+        tenNotificationRuleLicenseExpirationWarning.body,
+        formattedExpirationTime
+      );
       ctx.logger.warn(message);
-      await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_WARNING, title, message);
+      await notificationService.notify(
+        ctx,
+        notificationTypes.LICENSE_EXPIRATION_WARNING,
+        title,
+        message
+      );
     }
   }
 }

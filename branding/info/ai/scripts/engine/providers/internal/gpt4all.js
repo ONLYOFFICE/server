@@ -33,19 +33,17 @@
 "use strict";
 
 class Provider extends AI.Provider {
+  constructor() {
+    super("GPT4All", "http://127.0.0.1:4891", "", "v1");
+  }
 
-	constructor() {
-		super("GPT4All", "http://127.0.0.1:4891", "", "v1");
-	}
+  getRequestBodyOptions() {
+    return {
+      max_tokens: 4096,
+    };
+  }
 
-	getRequestBodyOptions() {
-		return {
-			max_tokens : 4096
-		};
-	}
-
-	isOnlyDesktop() {
-		return true;
-	}
-
+  isOnlyDesktop() {
+    return true;
+  }
 }

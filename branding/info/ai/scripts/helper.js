@@ -30,59 +30,54 @@
  *
  */
 
-(function(window, undefined) {
+(function (window, undefined) {
+  window.Asc.plugin.init = function () {
+    let input = document.getElementById("input-action");
+    if (input) {
+      input.addEventListener("keydown", function (event) {
+        if (event.keyCode === 27) {
+          window.Asc.plugin.sendToPlugin("onHelperClose");
+          return;
+        }
 
-	window.Asc.plugin.init = function() {		
-		let input = document.getElementById("input-action");
-		if (input) {
-			input.addEventListener('keydown', function(event) {
-				if (event.keyCode === 27) {
-					window.Asc.plugin.sendToPlugin("onHelperClose");
-					return;
-				}
+        if (event.keyCode === 13 && !event.shiftKey) {
+          window.Asc.plugin.sendToPlugin("onHelperAction", input.value);
+          return;
+        }
+      });
+    }
 
-				if (event.keyCode === 13 && !event.shiftKey) {
-					window.Asc.plugin.sendToPlugin("onHelperAction", input.value);
-					return;
-				}
-			});		
-		}
+    window.addEventListener("focus", function () {
+      let input = document.getElementById("input-action");
+      if (input) input.focus();
+    });
 
-		window.addEventListener("focus", function() {
-			let input = document.getElementById("input-action");
-			if (input)
-				input.focus();
-		});
+    if (input) {
+      input.addEventListener("blur", function () {
+        window.Asc.plugin.sendToPlugin("onHelperClose");
+      });
+    }
 
-		if (input) {
-			input.addEventListener("blur", function() {
-				window.Asc.plugin.sendToPlugin("onHelperClose");
-			});
-		}
+    window.Asc.plugin.sendToPlugin("onHelperShow", input.value);
+  };
 
-		window.Asc.plugin.sendToPlugin("onHelperShow", input.value);
-	};
+  function onThemeChanged(theme) {
+    window.Asc.plugin.onThemeChangedBase(theme);
 
-	function onThemeChanged(theme) {
-		window.Asc.plugin.onThemeChangedBase(theme);
+    let input = document.getElementById("input-action");
+    if (input) {
+      let themeType = theme.type || "light";
+      //input.style.backgroundColor = (themeType === "light") ? "rgb(255, 255, 255)" : "rgba(64, 64, 64)";
+      input.style.backgroundColor = theme["canvas-anim-pane-background"];
+      input.style["box-shadow"] = theme["canvas-cell-title-border-selected"] + " 0 0 4px 1px";
 
-		let input = document.getElementById("input-action");
-		if (input) {
-			let themeType = theme.type || "light";
-			//input.style.backgroundColor = (themeType === "light") ? "rgb(255, 255, 255)" : "rgba(64, 64, 64)";
-			input.style.backgroundColor = theme["canvas-anim-pane-background"];
-			input.style['box-shadow'] = theme["canvas-cell-title-border-selected"] + ' 0 0 4px 1px';
+      input.style.caretColor = themeType === "light" ? "#000000" : "#FFFFFF";
+      input.style.color = input.style.caretColor = themeType === "light" ? "#000000" : "#FFFFFF";
+    }
+  }
 
-			input.style.caretColor = (themeType === "light") ? "#000000" : "#FFFFFF";
-			input.style.color = input.style.caretColor = (themeType === "light") ? "#000000" : "#FFFFFF";
-		}
-	}
+  window.Asc.plugin.onTranslate = function () {};
 
-	window.Asc.plugin.onTranslate = function() {
-		
-	};
-
-	window.Asc.plugin.onThemeChanged = onThemeChanged;
-	window.Asc.plugin.attachEvent("onThemeChanged", onThemeChanged);
-
+  window.Asc.plugin.onThemeChanged = onThemeChanged;
+  window.Asc.plugin.attachEvent("onThemeChanged", onThemeChanged);
 })(window, undefined);

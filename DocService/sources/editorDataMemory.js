@@ -30,32 +30,34 @@
  *
  */
 
-'use strict';
-const config = require('config');
-const ms = require('ms');
-const utils = require('./../../Common/sources/utils');
-const commonDefines = require('./../../Common/sources/commondefines');
-const tenantManager = require('./../../Common/sources/tenantManager');
+"use strict";
+const config = require("config");
+const ms = require("ms");
+const utils = require("./../../Common/sources/utils");
+const commonDefines = require("./../../Common/sources/commondefines");
+const tenantManager = require("./../../Common/sources/tenantManager");
 
-const cfgExpMonthUniqueUsers = ms(config.get('services.CoAuthoring.expire.monthUniqueUsers'));
+const cfgExpMonthUniqueUsers = ms(config.get("services.CoAuthoring.expire.monthUniqueUsers"));
 
 function EditorCommon() {
   this.data = {};
 }
 EditorCommon.prototype.connect = async function () {};
-EditorCommon.prototype.isConnected = function() {
+EditorCommon.prototype.isConnected = function () {
   return true;
 };
-EditorCommon.prototype.ping = async function() {return "PONG"};
-EditorCommon.prototype.close = async function() {};
-EditorCommon.prototype.healthCheck = async function() {
+EditorCommon.prototype.ping = async function () {
+  return "PONG";
+};
+EditorCommon.prototype.close = async function () {};
+EditorCommon.prototype.healthCheck = async function () {
   if (this.isConnected()) {
     await this.ping();
     return true;
   }
   return false;
 };
-EditorCommon.prototype._getDocumentData = function(ctx, docId) {
+EditorCommon.prototype._getDocumentData = function (ctx, docId) {
   let tenantData = this.data[ctx.tenant];
   if (!tenantData) {
     this.data[ctx.tenant] = tenantData = {};
@@ -66,7 +68,7 @@ EditorCommon.prototype._getDocumentData = function(ctx, docId) {
   }
   return options;
 };
-EditorCommon.prototype._checkAndLock = function(ctx, name, docId, fencingToken, ttl) {
+EditorCommon.prototype._checkAndLock = function (ctx, name, docId, fencingToken, ttl) {
   let data = this._getDocumentData(ctx, docId);
   const now = Date.now();
   let res = true;
@@ -78,7 +80,7 @@ EditorCommon.prototype._checkAndLock = function(ctx, name, docId, fencingToken, 
   }
   return res;
 };
-EditorCommon.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) {
+EditorCommon.prototype._checkAndUnlock = function (ctx, name, docId, fencingToken) {
   let data = this._getDocumentData(ctx, docId);
   const now = Date.now();
   let res;
@@ -103,10 +105,10 @@ function EditorData() {
 EditorData.prototype = Object.create(EditorCommon.prototype);
 EditorData.prototype.constructor = EditorData;
 
-EditorData.prototype.addPresence = async function(ctx, docId, userId, userInfo) {};
-EditorData.prototype.updatePresence = async function(ctx, docId, userId) {};
-EditorData.prototype.removePresence = async function(ctx, docId, userId) {};
-EditorData.prototype.getPresence = async function(ctx, docId, connections) {
+EditorData.prototype.addPresence = async function (ctx, docId, userId, userInfo) {};
+EditorData.prototype.updatePresence = async function (ctx, docId, userId) {};
+EditorData.prototype.removePresence = async function (ctx, docId, userId) {};
+EditorData.prototype.getPresence = async function (ctx, docId, connections) {
   let hvals = [];
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
@@ -119,32 +121,32 @@ EditorData.prototype.getPresence = async function(ctx, docId, connections) {
   return hvals;
 };
 
-EditorData.prototype.lockSave = async function(ctx, docId, userId, ttl) {
-  return this._checkAndLock(ctx, 'lockSave', docId, userId, ttl);
+EditorData.prototype.lockSave = async function (ctx, docId, userId, ttl) {
+  return this._checkAndLock(ctx, "lockSave", docId, userId, ttl);
 };
-EditorData.prototype.unlockSave = async function(ctx, docId, userId) {
-  return this._checkAndUnlock(ctx, 'lockSave', docId, userId);
+EditorData.prototype.unlockSave = async function (ctx, docId, userId) {
+  return this._checkAndUnlock(ctx, "lockSave", docId, userId);
 };
-EditorData.prototype.lockAuth = async function(ctx, docId, userId, ttl) {
-  return this._checkAndLock(ctx, 'lockAuth', docId, userId, ttl);
+EditorData.prototype.lockAuth = async function (ctx, docId, userId, ttl) {
+  return this._checkAndLock(ctx, "lockAuth", docId, userId, ttl);
 };
-EditorData.prototype.unlockAuth = async function(ctx, docId, userId) {
-  return this._checkAndUnlock(ctx, 'lockAuth', docId, userId);
+EditorData.prototype.unlockAuth = async function (ctx, docId, userId) {
+  return this._checkAndUnlock(ctx, "lockAuth", docId, userId);
 };
 
-EditorData.prototype.getDocumentPresenceExpired = async function(now) {
+EditorData.prototype.getDocumentPresenceExpired = async function (now) {
   return [];
 };
-EditorData.prototype.removePresenceDocument = async function(ctx, docId) {};
+EditorData.prototype.removePresenceDocument = async function (ctx, docId) {};
 
-EditorData.prototype.addLocks = async function(ctx, docId, locks) {
+EditorData.prototype.addLocks = async function (ctx, docId, locks) {
   let data = this._getDocumentData(ctx, docId);
   if (!data.locks) {
     data.locks = {};
   }
   Object.assign(data.locks, locks);
 };
-EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
+EditorData.prototype.addLocksNX = async function (ctx, docId, locks) {
   let data = this._getDocumentData(ctx, docId);
   if (!data.locks) {
     data.locks = {};
@@ -159,7 +161,7 @@ EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
   }
   return {lockConflict, allLocks: data.locks};
 };
-EditorData.prototype.removeLocks = async function(ctx, docId, locks) {
+EditorData.prototype.removeLocks = async function (ctx, docId, locks) {
   let data = this._getDocumentData(ctx, docId);
   if (data.locks) {
     for (let lockId in locks) {
@@ -167,50 +169,58 @@ EditorData.prototype.removeLocks = async function(ctx, docId, locks) {
     }
   }
 };
-EditorData.prototype.removeAllLocks = async function(ctx, docId) {
+EditorData.prototype.removeAllLocks = async function (ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   data.locks = undefined;
 };
-EditorData.prototype.getLocks = async function(ctx, docId) {
+EditorData.prototype.getLocks = async function (ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   return data.locks || {};
 };
 
-EditorData.prototype.addMessage = async function(ctx, docId, msg) {
+EditorData.prototype.addMessage = async function (ctx, docId, msg) {
   let data = this._getDocumentData(ctx, docId);
   if (!data.messages) {
     data.messages = [];
   }
   data.messages.push(msg);
 };
-EditorData.prototype.removeMessages = async function(ctx, docId) {
+EditorData.prototype.removeMessages = async function (ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   data.messages = undefined;
 };
-EditorData.prototype.getMessages = async function(ctx, docId) {
+EditorData.prototype.getMessages = async function (ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   return data.messages || [];
 };
 
-EditorData.prototype.setSaved = async function(ctx, docId, status) {
+EditorData.prototype.setSaved = async function (ctx, docId, status) {
   let data = this._getDocumentData(ctx, docId);
   data.saved = status;
 };
-EditorData.prototype.getdelSaved = async function(ctx, docId) {
+EditorData.prototype.getdelSaved = async function (ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   let res = data.saved;
   data.saved = null;
   return res;
 };
-EditorData.prototype.setForceSave = async function(ctx, docId, time, index, baseUrl, changeInfo, convertInfo) {
+EditorData.prototype.setForceSave = async function (
+  ctx,
+  docId,
+  time,
+  index,
+  baseUrl,
+  changeInfo,
+  convertInfo
+) {
   let data = this._getDocumentData(ctx, docId);
   data.forceSave = {time, index, baseUrl, changeInfo, started: false, ended: false, convertInfo};
 };
-EditorData.prototype.getForceSave = async function(ctx, docId) {
+EditorData.prototype.getForceSave = async function (ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   return data.forceSave || null;
 };
-EditorData.prototype.checkAndStartForceSave = async function(ctx, docId) {
+EditorData.prototype.checkAndStartForceSave = async function (ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && !data.forceSave.started) {
@@ -220,7 +230,15 @@ EditorData.prototype.checkAndStartForceSave = async function(ctx, docId) {
   }
   return res;
 };
-EditorData.prototype.checkAndSetForceSave = async function(ctx, docId, time, index, started, ended, convertInfo) {
+EditorData.prototype.checkAndSetForceSave = async function (
+  ctx,
+  docId,
+  time,
+  index,
+  started,
+  ended,
+  convertInfo
+) {
   let data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && time === data.forceSave.time && index === data.forceSave.index) {
@@ -231,12 +249,12 @@ EditorData.prototype.checkAndSetForceSave = async function(ctx, docId, time, ind
   }
   return res;
 };
-EditorData.prototype.removeForceSave = async function(ctx, docId) {
+EditorData.prototype.removeForceSave = async function (ctx, docId) {
   let data = this._getDocumentData(ctx, docId);
   data.forceSave = undefined;
 };
 
-EditorData.prototype.cleanDocumentOnExit = async function(ctx, docId) {
+EditorData.prototype.cleanDocumentOnExit = async function (ctx, docId) {
   let tenantData = this.data[ctx.tenant];
   if (tenantData) {
     delete tenantData[docId];
@@ -247,7 +265,7 @@ EditorData.prototype.cleanDocumentOnExit = async function(ctx, docId) {
   }
 };
 
-EditorData.prototype.addForceSaveTimerNX = async function(ctx, docId, expireAt) {
+EditorData.prototype.addForceSaveTimerNX = async function (ctx, docId, expireAt) {
   let tenantTimer = this.forceSaveTimer[ctx.tenant];
   if (!tenantTimer) {
     this.forceSaveTimer[ctx.tenant] = tenantTimer = {};
@@ -256,7 +274,7 @@ EditorData.prototype.addForceSaveTimerNX = async function(ctx, docId, expireAt) 
     tenantTimer[docId] = expireAt;
   }
 };
-EditorData.prototype.getForceSaveTimer = async function(now) {
+EditorData.prototype.getForceSaveTimer = async function (now) {
   let res = [];
   for (let tenant in this.forceSaveTimer) {
     if (this.forceSaveTimer.hasOwnProperty(tenant)) {
@@ -286,14 +304,14 @@ function EditorStat() {
 }
 EditorStat.prototype = Object.create(EditorCommon.prototype);
 EditorStat.prototype.constructor = EditorStat;
-EditorStat.prototype.addPresenceUniqueUser = async function(ctx, userId, expireAt, userInfo) {
+EditorStat.prototype.addPresenceUniqueUser = async function (ctx, userId, expireAt, userInfo) {
   let tenantUser = this.uniqueUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUser[ctx.tenant] = tenantUser = {};
   }
   tenantUser[userId] = {expireAt: expireAt, userInfo: userInfo};
 };
-EditorStat.prototype.getPresenceUniqueUser = async function(ctx, nowUTC) {
+EditorStat.prototype.getPresenceUniqueUser = async function (ctx, nowUTC) {
   let res = [];
   let tenantUser = this.uniqueUser[ctx.tenant];
   if (!tenantUser) {
@@ -313,18 +331,23 @@ EditorStat.prototype.getPresenceUniqueUser = async function(ctx, nowUTC) {
   }
   return res;
 };
-EditorStat.prototype.addPresenceUniqueUsersOfMonth = async function(ctx, userId, period, userInfo) {
+EditorStat.prototype.addPresenceUniqueUsersOfMonth = async function (
+  ctx,
+  userId,
+  period,
+  userInfo
+) {
   let tenantUser = this.uniqueUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
-  if(!tenantUser[period]) {
+  if (!tenantUser[period]) {
     let expireAt = Date.now() + cfgExpMonthUniqueUsers;
     tenantUser[period] = {expireAt: expireAt, data: {}};
   }
   tenantUser[period].data[userId] = userInfo;
 };
-EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function(ctx) {
+EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function (ctx) {
   let res = {};
   let nowUTC = Date.now();
   let tenantUser = this.uniqueUsersOfMonth[ctx.tenant];
@@ -344,14 +367,14 @@ EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function(ctx) {
   return res;
 };
 
-EditorStat.prototype.addPresenceUniqueViewUser = async function(ctx, userId, expireAt, userInfo) {
+EditorStat.prototype.addPresenceUniqueViewUser = async function (ctx, userId, expireAt, userInfo) {
   let tenantUser = this.uniqueViewUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUser[ctx.tenant] = tenantUser = {};
   }
   tenantUser[userId] = {expireAt: expireAt, userInfo: userInfo};
 };
-EditorStat.prototype.getPresenceUniqueViewUser = async function(ctx, nowUTC) {
+EditorStat.prototype.getPresenceUniqueViewUser = async function (ctx, nowUTC) {
   let res = [];
   let tenantUser = this.uniqueViewUser[ctx.tenant];
   if (!tenantUser) {
@@ -371,18 +394,23 @@ EditorStat.prototype.getPresenceUniqueViewUser = async function(ctx, nowUTC) {
   }
   return res;
 };
-EditorStat.prototype.addPresenceUniqueViewUsersOfMonth = async function(ctx, userId, period, userInfo) {
+EditorStat.prototype.addPresenceUniqueViewUsersOfMonth = async function (
+  ctx,
+  userId,
+  period,
+  userInfo
+) {
   let tenantUser = this.uniqueViewUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
-  if(!tenantUser[period]) {
+  if (!tenantUser[period]) {
     let expireAt = Date.now() + cfgExpMonthUniqueUsers;
     tenantUser[period] = {expireAt: expireAt, data: {}};
   }
   tenantUser[period].data[userId] = userInfo;
 };
-EditorStat.prototype.getPresenceUniqueViewUsersOfMonth = async function(ctx) {
+EditorStat.prototype.getPresenceUniqueViewUsersOfMonth = async function (ctx) {
   let res = {};
   let nowUTC = Date.now();
   let tenantUser = this.uniqueViewUsersOfMonth[ctx.tenant];
@@ -401,7 +429,14 @@ EditorStat.prototype.getPresenceUniqueViewUsersOfMonth = async function(ctx) {
   }
   return res;
 };
-EditorStat.prototype.setEditorConnections = async function(ctx, countEdit, countLiveView, countView, now, precision) {
+EditorStat.prototype.setEditorConnections = async function (
+  ctx,
+  countEdit,
+  countLiveView,
+  countView,
+  now,
+  precision
+) {
   let tenantStat = this.stat[ctx.tenant];
   if (!tenantStat) {
     this.stat[ctx.tenant] = tenantStat = [];
@@ -413,68 +448,83 @@ EditorStat.prototype.setEditorConnections = async function(ctx, countEdit, count
   }
   tenantStat.splice(0, i);
 };
-EditorStat.prototype.getEditorConnections = async function(ctx) {
+EditorStat.prototype.getEditorConnections = async function (ctx) {
   let tenantStat = this.stat[ctx.tenant];
   if (!tenantStat) {
     this.stat[ctx.tenant] = tenantStat = [];
   }
   return tenantStat;
 };
-EditorStat.prototype.setEditorConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrEditorConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.getEditorConnectionsCount = async function(ctx, connections) {
+EditorStat.prototype.setEditorConnectionsCountByShard = async function (ctx, shardId, count) {};
+EditorStat.prototype.incrEditorConnectionsCountByShard = async function (ctx, shardId, count) {};
+EditorStat.prototype.getEditorConnectionsCount = async function (ctx, connections) {
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
       let conn = connections[i];
-      if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+      if (
+        !(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
+        ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)
+      ) {
         count++;
       }
     }
   }
   return count;
 };
-EditorStat.prototype.setViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.getViewerConnectionsCount = async function(ctx, connections) {
+EditorStat.prototype.setViewerConnectionsCountByShard = async function (ctx, shardId, count) {};
+EditorStat.prototype.incrViewerConnectionsCountByShard = async function (ctx, shardId, count) {};
+EditorStat.prototype.getViewerConnectionsCount = async function (ctx, connections) {
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
       let conn = connections[i];
-      if (conn.isCloseCoAuthoring || (conn.user && conn.user.view) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+      if (
+        conn.isCloseCoAuthoring ||
+        (conn.user &&
+          conn.user.view &&
+          ctx.tenant === tenantManager.getTenantByConnection(ctx, conn))
+      ) {
         count++;
       }
     }
   }
   return count;
 };
-EditorStat.prototype.setLiveViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrLiveViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.getLiveViewerConnectionsCount = async function(ctx, connections) {
+EditorStat.prototype.setLiveViewerConnectionsCountByShard = async function (ctx, shardId, count) {};
+EditorStat.prototype.incrLiveViewerConnectionsCountByShard = async function (
+  ctx,
+  shardId,
+  count
+) {};
+EditorStat.prototype.getLiveViewerConnectionsCount = async function (ctx, connections) {
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
       let conn = connections[i];
-      if (utils.isLiveViewer(conn) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+      if (
+        utils.isLiveViewer(conn) &&
+        ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)
+      ) {
         count++;
       }
     }
   }
   return count;
 };
-EditorStat.prototype.addShutdown = async function(key, docId) {
+EditorStat.prototype.addShutdown = async function (key, docId) {
   if (!this.shutdown[key]) {
     this.shutdown[key] = {};
   }
   this.shutdown[key][docId] = 1;
 };
-EditorStat.prototype.removeShutdown = async function(key, docId) {
+EditorStat.prototype.removeShutdown = async function (key, docId) {
   if (!this.shutdown[key]) {
     this.shutdown[key] = {};
   }
   delete this.shutdown[key][docId];
 };
-EditorStat.prototype.getShutdownCount = async function(key) {
+EditorStat.prototype.getShutdownCount = async function (key) {
   let count = 0;
   if (this.shutdown[key]) {
     for (let docId in this.shutdown[key]) {
@@ -485,24 +535,24 @@ EditorStat.prototype.getShutdownCount = async function(key) {
   }
   return count;
 };
-EditorStat.prototype.cleanupShutdown = async function(key) {
+EditorStat.prototype.cleanupShutdown = async function (key) {
   delete this.shutdown[key];
 };
-EditorStat.prototype.setLicense = async function(key, val) {
+EditorStat.prototype.setLicense = async function (key, val) {
   this.license[key] = val;
 };
-EditorStat.prototype.getLicense = async function(key) {
+EditorStat.prototype.getLicense = async function (key) {
   return this.license[key] || null;
 };
-EditorStat.prototype.removeLicense = async function(key) {
+EditorStat.prototype.removeLicense = async function (key) {
   delete this.license[key];
 };
-EditorStat.prototype.lockNotification = async function(ctx, notificationType, ttl) {
+EditorStat.prototype.lockNotification = async function (ctx, notificationType, ttl) {
   //true NaN !== NaN
   return this._checkAndLock(ctx, notificationType, notificationType, NaN, ttl);
 };
 
 module.exports = {
   EditorData,
-  EditorStat
-}
+  EditorStat,
+};

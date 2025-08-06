@@ -30,30 +30,32 @@
  *
  */
 
-'use strict';
+"use strict";
 
 const sqlDataBaseType = {
-	mySql		: 'mysql',
-	mariaDB		: 'mariadb',
-    msSql       : 'mssql',
-	postgreSql	: 'postgres',
-	dameng	    : 'dameng',
-    oracle      : 'oracle'
+  mySql: "mysql",
+  mariaDB: "mariadb",
+  msSql: "mssql",
+  postgreSql: "postgres",
+  dameng: "dameng",
+  oracle: "oracle",
 };
 
-const connectorUtilities = require('./connectorUtilities');
-const utils = require('../../../Common/sources/utils');
-const bottleneck = require('bottleneck');
-const config = require('config');
+const connectorUtilities = require("./connectorUtilities");
+const utils = require("../../../Common/sources/utils");
+const bottleneck = require("bottleneck");
+const config = require("config");
 
-const configSql = config.get('services.CoAuthoring.sql');
-const cfgTableResult = configSql.get('tableResult');
-const cfgTableChanges = configSql.get('tableChanges');
-const maxPacketSize = configSql.get('max_allowed_packet'); // The default size for a query to the database is 1Mb - 1 (because it does not write 1048575, but writes 1048574)
-const cfgBottleneckGetChanges = config.util.cloneDeep(config.get('bottleneck.getChanges'));
-const dbType = configSql.get('type');
+const configSql = config.get("services.CoAuthoring.sql");
+const cfgTableResult = configSql.get("tableResult");
+const cfgTableChanges = configSql.get("tableChanges");
+const maxPacketSize = configSql.get("max_allowed_packet"); // The default size for a query to the database is 1Mb - 1 (because it does not write 1048575, but writes 1048574)
+const cfgBottleneckGetChanges = config.util.cloneDeep(config.get("bottleneck.getChanges"));
+const dbType = configSql.get("type");
 
-const reservoirMaximum = cfgBottleneckGetChanges.reservoirIncreaseMaximum || cfgBottleneckGetChanges.reservoirRefreshAmount;
+const reservoirMaximum =
+  cfgBottleneckGetChanges.reservoirIncreaseMaximum ||
+  cfgBottleneckGetChanges.reservoirRefreshAmount;
 const group = new bottleneck.Group(cfgBottleneckGetChanges);
 const g_oCriticalSection = {};
 
@@ -61,19 +63,19 @@ let dbInstance;
 switch (dbType) {
   case sqlDataBaseType.mySql:
   case sqlDataBaseType.mariaDB:
-    dbInstance = require('./mysqlConnector');
+    dbInstance = require("./mysqlConnector");
     break;
   case sqlDataBaseType.msSql:
-    dbInstance = require('./mssqlConnector');
+    dbInstance = require("./mssqlConnector");
     break;
   case sqlDataBaseType.dameng:
-    dbInstance = require('./damengConnector');
+    dbInstance = require("./damengConnector");
     break;
   case sqlDataBaseType.oracle:
-    dbInstance = require('./oracleConnector');
+    dbInstance = require("./oracleConnector");
     break;
   default:
-    dbInstance = require('./postgreConnector');
+    dbInstance = require("./postgreConnector");
     break;
 }
 
@@ -81,12 +83,15 @@ let isSupportFastInsert = !!dbInstance.insertChanges;
 const addSqlParameter = dbInstance.addSqlParameter;
 
 function getChangesSize(changes) {
-  return changes.reduce((accumulator, currentValue) => accumulator + currentValue.change_data.length, 0);
+  return changes.reduce(
+    (accumulator, currentValue) => accumulator + currentValue.change_data.length,
+    0
+  );
 }
 
 function insertChangesPromiseCompatibility(ctx, objChanges, docId, index, user) {
-  return new Promise(function(resolve, reject) {
-    _insertChangesCallback(ctx, 0, objChanges, docId, index, user, function(error, result) {
+  return new Promise(function (resolve, reject) {
+    _insertChangesCallback(ctx, 0, objChanges, docId, index, user, function (error, result) {
       if (error) {
         reject(error);
       } else {
@@ -97,19 +102,28 @@ function insertChangesPromiseCompatibility(ctx, objChanges, docId, index, user) 
 }
 
 function insertChangesPromiseFast(ctx, objChanges, docId, index, user) {
-  return new Promise(function(resolve, reject) {
-    dbInstance.insertChanges(ctx, cfgTableChanges, 0, objChanges, docId, index, user, function(error, result, isSupported) {
-      isSupportFastInsert = isSupported;
-      if (error) {
-        if (!isSupportFastInsert) {
-          resolve(insertChangesPromiseCompatibility(ctx, objChanges, docId, index, user));
+  return new Promise(function (resolve, reject) {
+    dbInstance.insertChanges(
+      ctx,
+      cfgTableChanges,
+      0,
+      objChanges,
+      docId,
+      index,
+      user,
+      function (error, result, isSupported) {
+        isSupportFastInsert = isSupported;
+        if (error) {
+          if (!isSupportFastInsert) {
+            resolve(insertChangesPromiseCompatibility(ctx, objChanges, docId, index, user));
+          } else {
+            reject(error);
+          }
         } else {
-          reject(error);
+          resolve(result);
         }
-      } else {
-        resolve(result);
       }
-    });
+    );
   });
 }
 
@@ -122,28 +136,48 @@ function insertChangesPromise(ctx, objChanges, docId, index, user) {
 }
 
 function _getDateTime2(oDate) {
-  return oDate.toISOString().slice(0, 19).replace('T', ' ');
+  return oDate.toISOString().slice(0, 19).replace("T", " ");
 }
 
 function _insertChangesCallback(ctx, startIndex, objChanges, docId, index, user, callback) {
   var sqlCommand = `INSERT INTO ${cfgTableChanges} VALUES`;
-  var i = startIndex, l = objChanges.length, lengthUtf8Current = sqlCommand.length, lengthUtf8Row = 0, values = [];
-  if (i === l)
-    return;
+  var i = startIndex,
+    l = objChanges.length,
+    lengthUtf8Current = sqlCommand.length,
+    lengthUtf8Row = 0,
+    values = [];
+  if (i === l) return;
 
   const indexBytes = 4;
   const timeBytes = 8;
   for (; i < l; ++i, ++index) {
     //49 - length of "($1001,... $1008),"
     //4 is max utf8 bytes per symbol
-    lengthUtf8Row = 49 + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + indexBytes + timeBytes;
+    lengthUtf8Row =
+      49 +
+      4 *
+        (ctx.tenant.length +
+          docId.length +
+          user.id.length +
+          user.idOriginal.length +
+          user.username.length +
+          objChanges[i].change.length) +
+      indexBytes +
+      timeBytes;
     if (lengthUtf8Row + lengthUtf8Current >= maxPacketSize && i > startIndex) {
-      sqlCommand += ';';
-      (function(tmpStart, tmpIndex) {
-        dbInstance.sqlQuery(ctx, sqlCommand, function() {
-          // do not remove lock, but we continue to add
-          _insertChangesCallback(ctx, tmpStart, objChanges, docId, tmpIndex, user, callback);
-        }, undefined, undefined, values);
+      sqlCommand += ";";
+      (function (tmpStart, tmpIndex) {
+        dbInstance.sqlQuery(
+          ctx,
+          sqlCommand,
+          function () {
+            // do not remove lock, but we continue to add
+            _insertChangesCallback(ctx, tmpStart, objChanges, docId, tmpIndex, user, callback);
+          },
+          undefined,
+          undefined,
+          values
+        );
       })(i, index);
       return;
     }
@@ -156,18 +190,19 @@ function _insertChangesCallback(ctx, startIndex, objChanges, docId, index, user,
     let p6 = addSqlParameter(objChanges[i].change, values);
     let p7 = addSqlParameter(objChanges[i].time, values);
     if (i > startIndex) {
-      sqlCommand += ',';
+      sqlCommand += ",";
     }
     sqlCommand += `(${p0},${p1},${p2},${p3},${p4},${p5},${p6},${p7})`;
     lengthUtf8Current += lengthUtf8Row;
   }
 
-  sqlCommand += ';';
+  sqlCommand += ";";
   dbInstance.sqlQuery(ctx, sqlCommand, callback, undefined, undefined, values);
 }
 
 function deleteChangesCallback(ctx, docId, deleteIndex, callback) {
-  let sqlCommand, values = [];
+  let sqlCommand,
+    values = [];
   let p1 = addSqlParameter(ctx.tenant, values);
   let p2 = addSqlParameter(docId, values);
   if (null !== deleteIndex) {
@@ -180,8 +215,8 @@ function deleteChangesCallback(ctx, docId, deleteIndex, callback) {
 }
 
 function deleteChangesPromise(ctx, docId, deleteIndex) {
-  return new Promise(function(resolve, reject) {
-    deleteChangesCallback(ctx, docId, deleteIndex, function(error, result) {
+  return new Promise(function (resolve, reject) {
+    deleteChangesCallback(ctx, docId, deleteIndex, function (error, result) {
       if (error) {
         reject(error);
       } else {
@@ -192,11 +227,15 @@ function deleteChangesPromise(ctx, docId, deleteIndex) {
 }
 
 function deleteChanges(ctx, docId, deleteIndex) {
-	lockCriticalSection(docId, function () {_deleteChanges(ctx, docId, deleteIndex);});
+  lockCriticalSection(docId, function () {
+    _deleteChanges(ctx, docId, deleteIndex);
+  });
 }
 
-function _deleteChanges (ctx, docId, deleteIndex) {
-  deleteChangesCallback(ctx, docId, deleteIndex, function () {unLockCriticalSection(docId);});
+function _deleteChanges(ctx, docId, deleteIndex) {
+  deleteChangesCallback(ctx, docId, deleteIndex, function () {
+    unLockCriticalSection(docId);
+  });
 }
 
 function getChangesIndex(ctx, docId, callback) {
@@ -208,8 +247,8 @@ function getChangesIndex(ctx, docId, callback) {
 }
 
 function getChangesIndexPromise(ctx, docId) {
-  return new Promise(function(resolve, reject) {
-    getChangesIndex(ctx, docId, function(error, result) {
+  return new Promise(function (resolve, reject) {
+    getChangesIndex(ctx, docId, function (error, result) {
       if (error) {
         reject(error);
       } else {
@@ -222,7 +261,7 @@ function getChangesIndexPromise(ctx, docId) {
 function getChangesPromise(ctx, docId, optStartIndex, optEndIndex, opt_time) {
   let limiter = group.key(`${ctx.tenant}\t${docId}\tchanges`);
   return limiter.schedule(() => {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       let values = [];
       let sqlParam = addSqlParameter(ctx.tenant, values);
       let sqlWhere = `tenant=${sqlParam}`;
@@ -243,109 +282,134 @@ function getChangesPromise(ctx, docId, optStartIndex, optEndIndex, opt_time) {
         sqlParam = addSqlParameter(opt_time, values);
         sqlWhere += ` AND change_date<=${sqlParam}`;
       }
-      sqlWhere += ' ORDER BY change_id ASC';
+      sqlWhere += " ORDER BY change_id ASC";
       var sqlCommand = `SELECT * FROM ${cfgTableChanges} WHERE ${sqlWhere};`;
 
-      dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
-        if (error) {
-          reject(error);
-        } else {
-          if (reservoirMaximum > 0) {
-            let size = Math.min(getChangesSize(result), reservoirMaximum);
-            let cur = limiter.incrementReservoir(-size).then((cur) => {
-              ctx.logger.debug("getChangesPromise bottleneck reservoir cur=%s", cur);
-              resolve(result);
-            });
+      dbInstance.sqlQuery(
+        ctx,
+        sqlCommand,
+        function (error, result) {
+          if (error) {
+            reject(error);
           } else {
-            resolve(result);
+            if (reservoirMaximum > 0) {
+              let size = Math.min(getChangesSize(result), reservoirMaximum);
+              let cur = limiter.incrementReservoir(-size).then((cur) => {
+                ctx.logger.debug("getChangesPromise bottleneck reservoir cur=%s", cur);
+                resolve(result);
+              });
+            } else {
+              resolve(result);
+            }
           }
-        }
-      }, undefined, undefined, values);
+        },
+        undefined,
+        undefined,
+        values
+      );
     });
   });
 }
 
 function getDocumentsWithChanges(ctx) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE EXISTS(SELECT id FROM ${cfgTableChanges} WHERE tenant=${cfgTableResult}.tenant AND id = ${cfgTableResult}.id LIMIT 1);`;
-    dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, false, false);
+    dbInstance.sqlQuery(
+      ctx,
+      sqlCommand,
+      function (error, result) {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      false,
+      false
+    );
   });
 }
 
-
 function getExpired(ctx, maxCount, expireSeconds) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     const values = [];
     const expireDate = new Date();
     utils.addSeconds(expireDate, -expireSeconds);
     const date = addSqlParameter(expireDate, values);
     const count = addSqlParameter(maxCount, values);
-    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date}` +
+    const sqlCommand =
+      `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date}` +
       ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${count};`;
-    dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, false, false, values);
+    dbInstance.sqlQuery(
+      ctx,
+      sqlCommand,
+      function (error, result) {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      false,
+      false,
+      values
+    );
   });
 }
 function getCountWithStatus(ctx, status, expireMs) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     const values = [];
     const expireDate = new Date(Date.now() - expireMs);
     const sqlStatus = addSqlParameter(status, values);
     const sqlDate = addSqlParameter(expireDate, values);
     const sqlCommand = `SELECT COUNT(id) AS count FROM ${cfgTableResult} WHERE status=${sqlStatus} AND last_open_date>${sqlDate};`;
-    dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        let res = Number(result[0].count)
-        resolve(!isNaN(res) ? res : 0);
-      }
-    }, false, false, values);
+    dbInstance.sqlQuery(
+      ctx,
+      sqlCommand,
+      function (error, result) {
+        if (error) {
+          reject(error);
+        } else {
+          let res = Number(result[0].count);
+          resolve(!isNaN(res) ? res : 0);
+        }
+      },
+      false,
+      false,
+      values
+    );
   });
 }
 
 function isLockCriticalSection(id) {
-	return !!(g_oCriticalSection[id]);
+  return !!g_oCriticalSection[id];
 }
 
 // critical section
 function lockCriticalSection(id, callback) {
-	if (g_oCriticalSection[id]) {
-		// wait
-		g_oCriticalSection[id].push(callback);
-		return;
-	}
-	// lock
-	g_oCriticalSection[id] = [];
-	g_oCriticalSection[id].push(callback);
-	callback();
+  if (g_oCriticalSection[id]) {
+    // wait
+    g_oCriticalSection[id].push(callback);
+    return;
+  }
+  // lock
+  g_oCriticalSection[id] = [];
+  g_oCriticalSection[id].push(callback);
+  callback();
 }
 
 function unLockCriticalSection(id) {
-	var arrCallbacks = g_oCriticalSection[id];
-	arrCallbacks.shift();
-	if (0 < arrCallbacks.length)
-		arrCallbacks[0]();
-	else
-		delete g_oCriticalSection[id];
+  var arrCallbacks = g_oCriticalSection[id];
+  arrCallbacks.shift();
+  if (0 < arrCallbacks.length) arrCallbacks[0]();
+  else delete g_oCriticalSection[id];
 }
 
 function healthCheck(ctx) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     //SELECT 1; usefull for H2, MySQL, Microsoft SQL Server, PostgreSQL, SQLite
     //http://stackoverflow.com/questions/3668506/efficient-sql-test-query-or-validation-query-that-will-work-across-all-or-most
-    dbInstance.sqlQuery(ctx, 'SELECT 1;', function(error, result) {
+    dbInstance.sqlQuery(ctx, "SELECT 1;", function (error, result) {
       if (error) {
         reject(error);
       } else {
@@ -356,9 +420,9 @@ function healthCheck(ctx) {
 }
 
 function getEmptyCallbacks(ctx) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     const sqlCommand = `SELECT DISTINCT t1.tenant, t1.id FROM ${cfgTableChanges} t1 LEFT JOIN ${cfgTableResult} t2 ON t2.tenant = t1.tenant AND t2.id = t1.id WHERE t2.callback = '';`;
-    dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
+    dbInstance.sqlQuery(ctx, sqlCommand, function (error, result) {
       if (error) {
         reject(error);
       } else {
@@ -369,17 +433,24 @@ function getEmptyCallbacks(ctx) {
 }
 
 function getTableColumns(ctx, tableName) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     let values = [];
     let sqlParam = addSqlParameter(tableName, values);
     const sqlCommand = `SELECT column_name as "column_name" FROM information_schema.COLUMNS WHERE TABLE_NAME = ${sqlParam};`;
-    dbInstance.sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+    dbInstance.sqlQuery(
+      ctx,
+      sqlCommand,
+      function (error, result) {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
   });
 }
 
@@ -398,5 +469,5 @@ module.exports = {
   getTableColumns,
   getDateTime: _getDateTime2,
   ...connectorUtilities,
-  ...dbInstance
+  ...dbInstance,
 };

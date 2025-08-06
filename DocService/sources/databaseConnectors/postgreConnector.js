@@ -30,50 +30,50 @@
  *
  */
 
-'use strict';
+"use strict";
 
-var pg = require('pg');
-var co = require('co');
-var types = require('pg').types;
-const connectorUtilities = require('./connectorUtilities');
-const operationContext = require('../../../Common/sources/operationContext');
-const config = require('config');
-var configSql = config.get('services.CoAuthoring.sql');
-const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
-var pgPoolExtraOptions = config.util.cloneDeep(configSql.get('pgPoolExtraOptions'));
-const cfgEditor = config.get('services.CoAuthoring.editor');
+var pg = require("pg");
+var co = require("co");
+var types = require("pg").types;
+const connectorUtilities = require("./connectorUtilities");
+const operationContext = require("../../../Common/sources/operationContext");
+const config = require("config");
+var configSql = config.get("services.CoAuthoring.sql");
+const cfgTableResult = config.get("services.CoAuthoring.sql.tableResult");
+var pgPoolExtraOptions = config.util.cloneDeep(configSql.get("pgPoolExtraOptions"));
+const cfgEditor = config.get("services.CoAuthoring.editor");
 
 let connectionConfig = {
-  host: configSql.get('dbHost'),
-  port: parseInt(configSql.get('dbPort')),
-  user: configSql.get('dbUser'),
-  password: configSql.get('dbPass'),
-  database: configSql.get('dbName'),
-  max: configSql.get('connectionlimit'),
+  host: configSql.get("dbHost"),
+  port: parseInt(configSql.get("dbPort")),
+  user: configSql.get("dbUser"),
+  password: configSql.get("dbPass"),
+  database: configSql.get("dbName"),
+  max: configSql.get("connectionlimit"),
   min: 0,
-  ssl: false
+  ssl: false,
 };
 //clone pgPoolExtraOptions to resolve 'TypeError: Cannot redefine property: key' in pg-pool
 //timeouts from https://github.com/brianc/node-postgres/issues/3018#issuecomment-1619729794
 config.util.extendDeep(connectionConfig, pgPoolExtraOptions);
 var pool = new pg.Pool(connectionConfig);
 //listen "error" event otherwise - unhandled exception(https://github.com/brianc/node-postgres/issues/2764#issuecomment-1163475426)
-pool.on('error', (err, client) => {
-  operationContext.global.logger.error(`postgresql pool error %s`, err.stack)
-})
+pool.on("error", (err, client) => {
+  operationContext.global.logger.error(`postgresql pool error %s`, err.stack);
+});
 //todo datetime timezone
 pg.defaults.parseInputDatesAsUTC = true;
-types.setTypeParser(1114, function(stringValue) {
-  return new Date(stringValue + '+0000');
+types.setTypeParser(1114, function (stringValue) {
+  return new Date(stringValue + "+0000");
 });
-types.setTypeParser(1184, function(stringValue) {
-  return new Date(stringValue + '+0000');
+types.setTypeParser(1184, function (stringValue) {
+  return new Date(stringValue + "+0000");
 });
 
-var maxPacketSize = configSql.get('max_allowed_packet');
+var maxPacketSize = configSql.get("max_allowed_packet");
 
 function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
-  co(function *() {
+  co(function* () {
     var result = null;
     var error = null;
     try {
@@ -81,13 +81,13 @@ function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog,
     } catch (err) {
       error = err;
       if (!opt_noLog) {
-        ctx.logger.warn('sqlQuery error sqlCommand: %s: %s', sqlCommand.slice(0, 50), err.stack);
+        ctx.logger.warn("sqlQuery error sqlCommand: %s: %s", sqlCommand.slice(0, 50), err.stack);
       }
     } finally {
       if (callbackFunction) {
         var output = result;
         if (result && !opt_noModifyRes) {
-          if ('SELECT' === result.command) {
+          if ("SELECT" === result.command) {
             output = result.rows;
           } else {
             output = {affectedRows: result.rowCount};
@@ -105,7 +105,7 @@ function closePool() {
 
 function addSqlParameter(val, values) {
   values.push(val);
-  return '$' + values.length;
+  return "$" + values.length;
 }
 
 function concatParams(val1, val2) {
@@ -155,29 +155,36 @@ function getUpsertString(task, values) {
 }
 
 function upsert(ctx, task) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     let values = [];
     var sqlCommand = getUpsertString(task, values);
-    sqlQuery(ctx, sqlCommand, function(error, result) {
-      if (error) {
-        if (isSupportOnConflict && '42601' === error.code) {
-          //SYNTAX ERROR
-          isSupportOnConflict = false;
-          ctx.logger.warn('checkIsSupportOnConflict false');
-          resolve(upsert(ctx, task));
+    sqlQuery(
+      ctx,
+      sqlCommand,
+      function (error, result) {
+        if (error) {
+          if (isSupportOnConflict && "42601" === error.code) {
+            //SYNTAX ERROR
+            isSupportOnConflict = false;
+            ctx.logger.warn("checkIsSupportOnConflict false");
+            resolve(upsert(ctx, task));
+          } else {
+            reject(error);
+          }
         } else {
-          reject(error);
+          if (result && result.rows.length > 0) {
+            var first = result.rows[0];
+            result = {};
+            result.isInsert = task.userIndex === first.userindex;
+            result.insertId = first.userindex;
+          }
+          resolve(result);
         }
-      } else {
-        if (result && result.rows.length > 0) {
-          var first = result.rows[0];
-          result = {};
-          result.isInsert = task.userIndex === first.userindex;
-          result.insertId = first.userindex;
-        }
-        resolve(result);
-      }
-    }, true, undefined, values);
+      },
+      true,
+      undefined,
+      values
+    );
   });
 }
 
@@ -197,25 +204,40 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
   let time = [];
   //Postgres 9.4 multi-argument unnest
   let sqlCommand = `INSERT INTO ${tableChanges} (tenant, id, change_id, user_id, user_id_original, user_name, change_data, change_date) `;
-  let changesType = cfgEditor['binaryChanges'] ? 'bytea' : 'text';
+  let changesType = cfgEditor["binaryChanges"] ? "bytea" : "text";
   sqlCommand += `SELECT * FROM UNNEST ($1::text[], $2::text[], $3::int[], $4::text[], $5::text[], $6::text[], $7::${changesType}[], $8::timestamp[]);`;
   let values = [tenant, id, changeId, userId, userIdOriginal, username, change, time];
   let curLength = sqlCommand.length;
   for (; i < objChanges.length; ++i) {
     //4 is max utf8 bytes per symbol
-    curLength += 4 * (docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + 4 + 8;
+    curLength +=
+      4 *
+        (docId.length +
+          user.id.length +
+          user.idOriginal.length +
+          user.username.length +
+          objChanges[i].change.length) +
+      4 +
+      8;
     if (curLength >= maxPacketSize && i > startIndex) {
-      sqlQuery(ctx, sqlCommand, function(error, output) {
-        if (error && '42883' == error.code) {
-          isSupported = false;
-          ctx.logger.warn('postgresql does not support UNNEST');
-        }
-        if (error) {
-          callback(error, output, isSupported);
-        } else {
-          insertChanges(ctx, tableChanges, i, objChanges, docId, index, user, callback);
-        }
-      }, undefined, undefined, values);
+      sqlQuery(
+        ctx,
+        sqlCommand,
+        function (error, output) {
+          if (error && "42883" == error.code) {
+            isSupported = false;
+            ctx.logger.warn("postgresql does not support UNNEST");
+          }
+          if (error) {
+            callback(error, output, isSupported);
+          } else {
+            insertChanges(ctx, tableChanges, i, objChanges, docId, index, user, callback);
+          }
+        },
+        undefined,
+        undefined,
+        values
+      );
       return;
     }
     tenant.push(ctx.tenant);
@@ -227,13 +249,20 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
     change.push(objChanges[i].change);
     time.push(objChanges[i].time);
   }
-  sqlQuery(ctx, sqlCommand, function(error, output) {
-    if (error && '42883' == error.code) {
-      isSupported = false;
-      ctx.logger.warn('postgresql does not support UNNEST');
-    }
-    callback(error, output, isSupported);
-  }, undefined, undefined, values);
+  sqlQuery(
+    ctx,
+    sqlCommand,
+    function (error, output) {
+      if (error && "42883" == error.code) {
+        isSupported = false;
+        ctx.logger.warn("postgresql does not support UNNEST");
+      }
+      callback(error, output, isSupported);
+    },
+    undefined,
+    undefined,
+    values
+  );
 }
 
 module.exports = {
@@ -242,5 +271,5 @@ module.exports = {
   addSqlParameter,
   concatParams,
   upsert,
-  insertChanges
+  insertChanges,
 };

@@ -30,267 +30,258 @@
  *
  */
 
-(function(exports, undefined)
-{
-	exports.AI = exports.AI || {};
-	var AI = exports.AI;
+(function (exports, undefined) {
+  exports.AI = exports.AI || {};
+  var AI = exports.AI;
 
-	AI.DEFAULT_SERVER_SETTINGS = null;
-	
-	var localStorageKey = "onlyoffice_ai_plugin_storage_key";
+  AI.DEFAULT_SERVER_SETTINGS = null;
 
-	AI.Providers = {};
-	
-	AI.serializeProviders = function() {
-		let result = [];
-		for (let i in AI.Providers) {
-			if (AI.Providers[i].name) {
+  var localStorageKey = "onlyoffice_ai_plugin_storage_key";
 
-				let url = AI.Providers[i].url;
-				if (url.endsWith("/"))
-					url = url.substring(0, url.length - 1);
-				if ("" !== AI.Providers[i].addon)
-				{
-					let plus = "/" + AI.Providers[i].addon;
-					let pos = url.lastIndexOf(plus);
-					if (pos === -1 || pos !== (url.length - plus.length))
-						url += plus;
-				}
+  AI.Providers = {};
 
-				result.push({
-					name : AI.Providers[i].name,
-					url : url,
-					key : AI.Providers[i].key,
-					models : AI.Providers[i].models
-				});
-			}
-		}
+  AI.serializeProviders = function () {
+    let result = [];
+    for (let i in AI.Providers) {
+      if (AI.Providers[i].name) {
+        let url = AI.Providers[i].url;
+        if (url.endsWith("/")) url = url.substring(0, url.length - 1);
+        if ("" !== AI.Providers[i].addon) {
+          let plus = "/" + AI.Providers[i].addon;
+          let pos = url.lastIndexOf(plus);
+          if (pos === -1 || pos !== url.length - plus.length) url += plus;
+        }
 
-		result.sort(function(a, b) {
-			const weightA = AI.providersWeights[a.name] !== undefined ? AI.providersWeights[a.name] : 100000;
-			const weightB = AI.providersWeights[b.name] !== undefined ? AI.providersWeights[b.name] : 100000;
-			return weightA - weightB;
-		});
-		return result;
-	};
+        result.push({
+          name: AI.Providers[i].name,
+          url: url,
+          key: AI.Providers[i].key,
+          models: AI.Providers[i].models,
+        });
+      }
+    }
 
-	AI.Models = [];
+    result.sort(function (a, b) {
+      const weightA =
+        AI.providersWeights[a.name] !== undefined ? AI.providersWeights[a.name] : 100000;
+      const weightB =
+        AI.providersWeights[b.name] !== undefined ? AI.providersWeights[b.name] : 100000;
+      return weightA - weightB;
+    });
+    return result;
+  };
 
-	AI.Storage.save = function() {
-		try {
-			let obj = {
-				version : AI.Storage.Version,
-				providers : {},
-				models : AI.Models,
-				customProviders : AI.InternalCustomProvidersSources
-			};
+  AI.Models = [];
 
-			for (let pr in AI.Providers)
-			{
-				obj.providers[pr] = {};
-				obj.providers[pr].name = AI.Providers[pr].name;
-				obj.providers[pr].url = AI.Providers[pr].url;
-				obj.providers[pr].key = AI.Providers[pr].key;
-				obj.providers[pr].models = AI.Providers[pr].models;
-			}
+  AI.Storage.save = function () {
+    try {
+      let obj = {
+        version: AI.Storage.Version,
+        providers: {},
+        models: AI.Models,
+        customProviders: AI.InternalCustomProvidersSources,
+      };
 
-			window.localStorage.setItem(localStorageKey, JSON.stringify(obj));
+      for (let pr in AI.Providers) {
+        obj.providers[pr] = {};
+        obj.providers[pr].name = AI.Providers[pr].name;
+        obj.providers[pr].url = AI.Providers[pr].url;
+        obj.providers[pr].key = AI.Providers[pr].key;
+        obj.providers[pr].models = AI.Providers[pr].models;
+      }
 
-			if (this.onChangeStorage)
-				this.onChangeStorage();
-			return true;
-		}
-		catch (e) {
-		}
-		return false;
-	};
+      window.localStorage.setItem(localStorageKey, JSON.stringify(obj));
 
-	AI.Storage.load = function() {
-		let obj = null;
-		try {
-			if (AI.serverSettings) {
-				obj = AI.serverSettings;
-			} else {
-				obj = JSON.parse(window.localStorage.getItem(localStorageKey));
-			}
-		} catch (e) {
-			obj = AI.DEFAULT_SERVER_SETTINGS;
+      if (this.onChangeStorage) this.onChangeStorage();
+      return true;
+    } catch (e) {}
+    return false;
+  };
 
-			if (obj) {
-				AI.DEFAULT_SERVER_SETTINGS.version = AI.Storage.Version;
-			}
-		}
+  AI.Storage.load = function () {
+    let obj = null;
+    try {
+      if (AI.serverSettings) {
+        obj = AI.serverSettings;
+      } else {
+        obj = JSON.parse(window.localStorage.getItem(localStorageKey));
+      }
+    } catch (e) {
+      obj = AI.DEFAULT_SERVER_SETTINGS;
 
-		if (obj) {
-			let fixVersion2 = false;
-			switch (obj.version)
-			{
-			case undefined:
-			case 1:
-				obj = null;
-				break;
-			case 2:
-				// redesign provider url: add /v1
-				fixVersion2 = true;
-				break;
-			case 3:
-			default:
-				break;
-			}
-			
-			if (obj) {
-				let oldProviders = AI.Providers;
-				AI.Providers = {};
+      if (obj) {
+        AI.DEFAULT_SERVER_SETTINGS.version = AI.Storage.Version;
+      }
+    }
 
-				AI.InternalCustomProvidersSources = obj.customProviders || {};
-				AI.loadCustomProviders();
+    if (obj) {
+      let fixVersion2 = false;
+      switch (obj.version) {
+        case undefined:
+        case 1:
+          obj = null;
+          break;
+        case 2:
+          // redesign provider url: add /v1
+          fixVersion2 = true;
+          break;
+        case 3:
+        default:
+          break;
+      }
 
-				for (let i = 0, len = AI.InternalCustomProviders.length; i < len; i++) {
-					let pr = AI.InternalCustomProviders[i];
-					oldProviders[pr.name] = pr;
-				}
+      if (obj) {
+        let oldProviders = AI.Providers;
+        AI.Providers = {};
 
-				for (let i = 0, len = AI.InternalCustomProviders.length; i < len; i++) {
-					if (AI.InternalCustomProviders[i].name === name) {
-						AI.InternalCustomProviders.splice(i, 1);
-						break;
-					}				
-				}
+        AI.InternalCustomProvidersSources = obj.customProviders || {};
+        AI.loadCustomProviders();
 
-				for (let i in obj.providers) {
-					let pr = obj.providers[i];
-					AI.Providers[i] = AI.createProviderInstance(pr.name, pr.url, pr.key, pr.addon);
-					AI.Providers[i].models = pr.models || [];
+        for (let i = 0, len = AI.InternalCustomProviders.length; i < len; i++) {
+          let pr = AI.InternalCustomProviders[i];
+          oldProviders[pr.name] = pr;
+        }
 
-					if (fixVersion2) {
-						if (!AI.isInternalProvider(pr.name))
-							AI.Providers[i].addon = "v1";
-					}
-				}
+        for (let i = 0, len = AI.InternalCustomProviders.length; i < len; i++) {
+          if (AI.InternalCustomProviders[i].name === name) {
+            AI.InternalCustomProviders.splice(i, 1);
+            break;
+          }
+        }
 
-				for (let pr in oldProviders)
-				{
-					if (!AI.Providers[pr])
-						AI.Providers[pr] = oldProviders[pr];
-				}
+        for (let i in obj.providers) {
+          let pr = obj.providers[i];
+          AI.Providers[i] = AI.createProviderInstance(pr.name, pr.url, pr.key, pr.addon);
+          AI.Providers[i].models = pr.models || [];
 
-				// correct old models information
-				for (let pr in AI.Providers)
-				{
-					if (AI.Providers[pr] && AI.Providers[pr].name === "OpenAI")
-					{
-						let models = AI.Providers[pr].models;
-						for (let i = 0, len = models.length; i < len; i++) {
-							if (models[i].name.startsWith("gpt-4")) {
-								if (models[i].options && 
-									undefined !== models[i].options.max_input_tokens &&
-									models[i].options.max_input_tokens < AI.InputMaxTokens["128k"]) {
-									models[i].options.max_input_tokens = AI.InputMaxTokens["128k"];
-								}
-							}
-						}
-					}						
-				}
+          if (fixVersion2) {
+            if (!AI.isInternalProvider(pr.name)) AI.Providers[i].addon = "v1";
+          }
+        }
 
-				AI.Models = obj.models;
-			}
+        for (let pr in oldProviders) {
+          if (!AI.Providers[pr]) AI.Providers[pr] = oldProviders[pr];
+        }
 
-			return true;
-		}
-		return false;
-	};
+        // correct old models information
+        for (let pr in AI.Providers) {
+          if (AI.Providers[pr] && AI.Providers[pr].name === "OpenAI") {
+            let models = AI.Providers[pr].models;
+            for (let i = 0, len = models.length; i < len; i++) {
+              if (models[i].name.startsWith("gpt-4")) {
+                if (
+                  models[i].options &&
+                  undefined !== models[i].options.max_input_tokens &&
+                  models[i].options.max_input_tokens < AI.InputMaxTokens["128k"]
+                ) {
+                  models[i].options.max_input_tokens = AI.InputMaxTokens["128k"];
+                }
+              }
+            }
+          }
+        }
 
-	AI.Storage.addModel = function(model) {
+        AI.Models = obj.models;
+      }
 
-		if (AI.Providers[model.provider.name]) {
-			AI.Providers[model.provider.name].name = model.provider.name;
-			AI.Providers[model.provider.name].url = model.provider.url;
-			AI.Providers[model.provider.name].key = model.provider.key;
-		} else {
-			AI.Providers[model.provider.name] = 
-				AI.createProviderInstance(model.provider.name, model.provider.url, model.provider.key);
-		}
+      return true;
+    }
+    return false;
+  };
 
-		if (AI.TmpProviderForModels && 
-			model.provider.name === AI.TmpProviderForModels.name && 
-			AI.TmpProviderForModels.models.length > 0) {
-			AI.Providers[model.provider.name].models = AI.TmpProviderForModels.models;
-		}
+  AI.Storage.addModel = function (model) {
+    if (AI.Providers[model.provider.name]) {
+      AI.Providers[model.provider.name].name = model.provider.name;
+      AI.Providers[model.provider.name].url = model.provider.url;
+      AI.Providers[model.provider.name].key = model.provider.key;
+    } else {
+      AI.Providers[model.provider.name] = AI.createProviderInstance(
+        model.provider.name,
+        model.provider.url,
+        model.provider.key
+      );
+    }
 
-		let isFoundModel = false;
-		for (let i = 0, len = AI.Models.length; i < len; i++)
-		{
-			if (AI.Models[i].id === model.id)
-			{
-				AI.Models[i].provider = model.provider.name;
-				AI.Models[i].name = model.name;
-				AI.Models[i].capabilities = model.capabilities;
-				isFoundModel = true;
-			}
-		}
+    if (
+      AI.TmpProviderForModels &&
+      model.provider.name === AI.TmpProviderForModels.name &&
+      AI.TmpProviderForModels.models.length > 0
+    ) {
+      AI.Providers[model.provider.name].models = AI.TmpProviderForModels.models;
+    }
 
-		if (!isFoundModel)
-			AI.Models.push(new AI.UI.Model(model.name, model.id, model.provider.name, 
-				model.capabilities === undefined ? AI.CapabilitiesUI.All : model.capabilities));
+    let isFoundModel = false;
+    for (let i = 0, len = AI.Models.length; i < len; i++) {
+      if (AI.Models[i].id === model.id) {
+        AI.Models[i].provider = model.provider.name;
+        AI.Models[i].name = model.name;
+        AI.Models[i].capabilities = model.capabilities;
+        isFoundModel = true;
+      }
+    }
 
-		this.save();
-	};
+    if (!isFoundModel)
+      AI.Models.push(
+        new AI.UI.Model(
+          model.name,
+          model.id,
+          model.provider.name,
+          model.capabilities === undefined ? AI.CapabilitiesUI.All : model.capabilities
+        )
+      );
 
-	AI.Storage.removeModel = function(modelId) {
-		for (let i = 0, len = AI.Models.length; i < len; i++)
-		{
-			if (AI.Models[i].id === modelId)
-			{
-				AI.Models.splice(i, 1);
-				this.save();
-				return;
-			}
-		}
-	};
+    this.save();
+  };
 
-	AI.Storage.getModelByName = function(name) {
-		for (let i in AI.Models) {
-			if (AI.Models[i].name === name)
-				return AI.Models[i];
-		}
-		return null;
-	};
+  AI.Storage.removeModel = function (modelId) {
+    for (let i = 0, len = AI.Models.length; i < len; i++) {
+      if (AI.Models[i].id === modelId) {
+        AI.Models.splice(i, 1);
+        this.save();
+        return;
+      }
+    }
+  };
 
-	AI.Storage.getModelById = function(id) {
-		for (let i in AI.Models) {
-			if (AI.Models[i].id === id)
-				return AI.Models[i];
-		}
-		return null;
-	};
+  AI.Storage.getModelByName = function (name) {
+    for (let i in AI.Models) {
+      if (AI.Models[i].name === name) return AI.Models[i];
+    }
+    return null;
+  };
 
-	AI.Storage.serializeModels = function() {
-		let result = [];
-		for (let i in AI.Models) {
-			if (AI.Models[i].id) {
-				result.push({
-					name : AI.Models[i].name,
-					id : AI.Models[i].id,
-					provider : AI.Models[i].provider,
-					capabilities : AI.Models[i].capabilities,
-				});
-			}
-		}
-		return result;
-	};
+  AI.Storage.getModelById = function (id) {
+    for (let i in AI.Models) {
+      if (AI.Models[i].id === id) return AI.Models[i];
+    }
+    return null;
+  };
 
-	AI.Storage.getProvider = function(name) {
-		if (AI.Providers[name])
-			return AI.Providers[name];
-		return null;
-	};
+  AI.Storage.serializeModels = function () {
+    let result = [];
+    for (let i in AI.Models) {
+      if (AI.Models[i].id) {
+        result.push({
+          name: AI.Models[i].name,
+          id: AI.Models[i].id,
+          provider: AI.Models[i].provider,
+          capabilities: AI.Models[i].capabilities,
+        });
+      }
+    }
+    return result;
+  };
 
-	AI.onLoadInternalProviders = function() {
-		for (let i = 0, len = AI.InternalProviders.length; i < len; i++) {
-			let pr = AI.InternalProviders[i].createDuplicate();
-			AI.Providers[pr.name] = pr;
-		}
-		AI.Storage.load();
-	};
+  AI.Storage.getProvider = function (name) {
+    if (AI.Providers[name]) return AI.Providers[name];
+    return null;
+  };
 
+  AI.onLoadInternalProviders = function () {
+    for (let i = 0, len = AI.InternalProviders.length; i < len; i++) {
+      let pr = AI.InternalProviders[i].createDuplicate();
+      AI.Providers[pr.name] = pr;
+    }
+    AI.Storage.load();
+  };
 })(window);

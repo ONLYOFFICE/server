@@ -30,32 +30,32 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const config = require('config');
-const co = require('co');
-const NodeCache = require( "node-cache" );
-const license = require('./../../Common/sources/license');
-const constants = require('./../../Common/sources/constants');
-const commonDefines = require('./../../Common/sources/commondefines');
-const utils = require('./../../Common/sources/utils');
-const { readFile, readdir, writeFile } = require('fs/promises');
-const path = require('path');
+const config = require("config");
+const co = require("co");
+const NodeCache = require("node-cache");
+const license = require("./../../Common/sources/license");
+const constants = require("./../../Common/sources/constants");
+const commonDefines = require("./../../Common/sources/commondefines");
+const utils = require("./../../Common/sources/utils");
+const {readFile, readdir, writeFile} = require("fs/promises");
+const path = require("path");
 
-const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
-const cfgTenantsBaseDir = config.get('tenants.baseDir');
-const cfgTenantsFilenameSecret = config.get('tenants.filenameSecret');
-const cfgTenantsFilenameLicense = config.get('tenants.filenameLicense');
-const cfgTenantsFilenameConfig = config.get('tenants.filenameConfig');
-const cfgTenantsDefaultTenant = config.get('tenants.defaultTenant');
-const cfgTenantsCache = config.util.cloneDeep(config.get('tenants.cache'));
-const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
-const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
-const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
+const cfgTenantsBaseDomain = config.get("tenants.baseDomain");
+const cfgTenantsBaseDir = config.get("tenants.baseDir");
+const cfgTenantsFilenameSecret = config.get("tenants.filenameSecret");
+const cfgTenantsFilenameLicense = config.get("tenants.filenameLicense");
+const cfgTenantsFilenameConfig = config.get("tenants.filenameConfig");
+const cfgTenantsDefaultTenant = config.get("tenants.defaultTenant");
+const cfgTenantsCache = config.util.cloneDeep(config.get("tenants.cache"));
+const cfgSecretInbox = config.get("services.CoAuthoring.secret.inbox");
+const cfgSecretOutbox = config.get("services.CoAuthoring.secret.outbox");
+const cfgSecretSession = config.get("services.CoAuthoring.secret.session");
 
 let licenseInfo;
 let licenseOriginal;
-let licenseTuple;//to avoid array creating in getTenantLicense
+let licenseTuple; //to avoid array creating in getTenantLicense
 
 const c_LM = constants.LICENSE_MODE;
 
@@ -68,11 +68,11 @@ function getTenant(ctx, domain) {
   let tenant = getDefautTenant();
   if (domain) {
     //remove port
-    domain = domain.replace(/\:.*$/, '');
+    domain = domain.replace(/\:.*$/, "");
 
-    if (cfgTenantsBaseDomain && domain.endsWith('.' + cfgTenantsBaseDomain)) {
+    if (cfgTenantsBaseDomain && domain.endsWith("." + cfgTenantsBaseDomain)) {
       tenant = domain.substring(0, domain.length - cfgTenantsBaseDomain.length - 1);
-    } else if(cfgTenantsBaseDomain === domain) {
+    } else if (cfgTenantsBaseDomain === domain) {
       tenant = getDefautTenant();
     } else {
       tenant = domain;
@@ -84,22 +84,28 @@ async function getAllTenants(ctx) {
   let dirList = [];
   try {
     if (isMultitenantMode(ctx)) {
-      const entitiesList = await readdir(cfgTenantsBaseDir, { withFileTypes: true });
-      dirList = entitiesList.filter(direntObj => direntObj.isDirectory()).map(directory => directory.name);
+      const entitiesList = await readdir(cfgTenantsBaseDir, {withFileTypes: true});
+      dirList = entitiesList
+        .filter((direntObj) => direntObj.isDirectory())
+        .map((directory) => directory.name);
     }
   } catch (error) {
-    ctx.logger.error('getAllTenants error: ', error.stack);
+    ctx.logger.error("getAllTenants error: ", error.stack);
   }
   return dirList;
 }
 function getTenantByConnection(ctx, conn) {
-  return isMultitenantMode(ctx) ? getTenant(ctx, utils.getDomainByConnection(ctx, conn)) : getDefautTenant();
+  return isMultitenantMode(ctx)
+    ? getTenant(ctx, utils.getDomainByConnection(ctx, conn))
+    : getDefautTenant();
 }
 function getTenantByRequest(ctx, req) {
-  return isMultitenantMode(ctx) ? getTenant(ctx, utils.getDomainByRequest(ctx, req)) : getDefautTenant();
+  return isMultitenantMode(ctx)
+    ? getTenant(ctx, utils.getDomainByRequest(ctx, req))
+    : getDefautTenant();
 }
 function getTenantPathPrefix(ctx) {
-  return isMultitenantMode(ctx) ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
+  return isMultitenantMode(ctx) ? utils.removeIllegalCharacters(ctx.tenant) + "/" : "";
 }
 async function getTenantConfig(ctx) {
   let res = null;
@@ -108,14 +114,14 @@ async function getTenantConfig(ctx) {
     let configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
     res = nodeCache.get(configPath);
     if (res) {
-      ctx.logger.debug('getTenantConfig from cache');
+      ctx.logger.debug("getTenantConfig from cache");
     } else {
       try {
-        let cfgString = await readFile(configPath, {encoding: 'utf8'});
+        let cfgString = await readFile(configPath, {encoding: "utf8"});
         res = config.util.parseString(cfgString, path.extname(configPath).substring(1));
-        ctx.logger.debug('getTenantConfig from %s', configPath);
+        ctx.logger.debug("getTenantConfig from %s", configPath);
       } catch (e) {
-        ctx.logger.debug('getTenantConfig error: %s', e.stack);
+        ctx.logger.debug("getTenantConfig error: %s", e.stack);
       } finally {
         nodeCache.set(configPath, res);
       }
@@ -135,26 +141,26 @@ async function setTenantConfig(ctx, config) {
     newConfig = utils.deepMergeObjects(newConfig || {}, config);
     let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
     let configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
-    await writeFile(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
+    await writeFile(configPath, JSON.stringify(newConfig, null, 2), "utf8");
     nodeCache.set(configPath, newConfig);
   }
   return newConfig;
 }
 
 function getTenantSecret(ctx, type) {
-  return co(function*() {
+  return co(function* () {
     let cfgTenant;
     //check config
     switch (type) {
       case commonDefines.c_oAscSecretType.Browser:
       case commonDefines.c_oAscSecretType.Inbox:
-        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.inbox', undefined);
+        cfgTenant = ctx.getCfg("services.CoAuthoring.secret.inbox", undefined);
         break;
       case commonDefines.c_oAscSecretType.Outbox:
-        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.outbox', undefined);
+        cfgTenant = ctx.getCfg("services.CoAuthoring.secret.outbox", undefined);
         break;
       case commonDefines.c_oAscSecretType.Session:
-        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.session', undefined);
+        cfgTenant = ctx.getCfg("services.CoAuthoring.secret.session", undefined);
         break;
     }
     if (undefined !== cfgTenant) {
@@ -167,19 +173,22 @@ function getTenantSecret(ctx, type) {
       let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
       res = nodeCache.get(secretPath);
       if (res) {
-        ctx.logger.debug('getTenantSecret from cache');
+        ctx.logger.debug("getTenantSecret from cache");
       } else {
         try {
-          let secret = yield readFile(secretPath, {encoding: 'utf8'});
+          let secret = yield readFile(secretPath, {encoding: "utf8"});
           //trim whitespace plus line terminators from string (newline is common on Posix systems)
           res = secret.trim();
           if (res.length !== secret.length) {
-            ctx.logger.warn('getTenantSecret secret in %s contains a leading or trailing whitespace that has been trimmed', secretPath);
+            ctx.logger.warn(
+              "getTenantSecret secret in %s contains a leading or trailing whitespace that has been trimmed",
+              secretPath
+            );
           }
-          ctx.logger.debug('getTenantSecret from %s', secretPath);
+          ctx.logger.debug("getTenantSecret from %s", secretPath);
         } catch (e) {
           res = undefined;
-          ctx.logger.warn('getTenantConfig error: %s', e.stack);
+          ctx.logger.warn("getTenantConfig error: %s", e.stack);
         } finally {
           nodeCache.set(secretPath, res);
         }
@@ -213,18 +222,21 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
   //bitwise
   if (0 !== (licenseInfo.mode & c_LM.Limited) && 0 === (licenseInfoTenant.mode & c_LM.Limited)) {
     licenseInfoTenant.mode |= c_LM.Limited;
-    errors.push('timelimited');
+    errors.push("timelimited");
   }
   if (0 !== (licenseInfo.mode & c_LM.Trial) && 0 === (licenseInfoTenant.mode & c_LM.Trial)) {
     licenseInfoTenant.mode |= c_LM.Trial;
-    errors.push('trial');
+    errors.push("trial");
   }
-  if (0 !== (licenseInfo.mode & c_LM.Developer) && 0 === (licenseInfoTenant.mode & c_LM.Developer)) {
+  if (
+    0 !== (licenseInfo.mode & c_LM.Developer) &&
+    0 === (licenseInfoTenant.mode & c_LM.Developer)
+  ) {
     licenseInfoTenant.mode |= c_LM.Developer;
-    errors.push('developer');
+    errors.push("developer");
   }
   //can not turn on
-  let flags = ['branding', 'customization'];
+  let flags = ["branding", "customization"];
   flags.forEach((flag) => {
     if (!licenseInfo[flag] && licenseInfoTenant[flag]) {
       licenseInfoTenant[flag] = licenseInfo[flag];
@@ -233,7 +245,7 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
   });
   if (!licenseInfo.advancedApi && licenseInfoTenant.advancedApi) {
     licenseInfoTenant.advancedApi = licenseInfo.advancedApi;
-    errors.push('advanced_api');
+    errors.push("advanced_api");
   }
   //can not up limits
   // if (licenseInfo.connections < licenseInfoTenant.connections) {
@@ -252,12 +264,19 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
   //   licenseInfoTenant.usersViewCount = licenseInfo.usersViewCount;
   //   errors.push('users_view_count');
   // }
-  if (licenseInfo.endDate && licenseInfoTenant.endDate && licenseInfo.endDate < licenseInfoTenant.endDate) {
+  if (
+    licenseInfo.endDate &&
+    licenseInfoTenant.endDate &&
+    licenseInfo.endDate < licenseInfoTenant.endDate
+  ) {
     licenseInfoTenant.endDate = licenseInfo.endDate;
-    errors.push('end_date');
+    errors.push("end_date");
   }
   if (errors.length > 0) {
-    ctx.logger.warn('fixTenantLicense not allowed to improve these license fields: %s', errors.join(', '));
+    ctx.logger.warn(
+      "fixTenantLicense not allowed to improve these license fields: %s",
+      errors.join(", ")
+    );
   }
 }
 
@@ -270,12 +289,12 @@ async function getTenantLicense(ctx) {
       let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
       let licenseTupleTenant = nodeCache.get(licensePath);
       if (licenseTupleTenant) {
-        ctx.logger.debug('getTenantLicense from cache');
+        ctx.logger.debug("getTenantLicense from cache");
       } else {
         licenseTupleTenant = await readLicenseTenant(ctx, licensePath, licenseInfo);
         fixTenantLicense(ctx, licenseInfo, licenseTupleTenant[0]);
         nodeCache.set(licensePath, licenseTupleTenant);
-        ctx.logger.debug('getTenantLicense from %s', licensePath);
+        ctx.logger.debug("getTenantLicense from %s", licensePath);
       }
       res = licenseTupleTenant;
     } else {
@@ -296,7 +315,7 @@ function isMultitenantMode(ctx) {
 }
 function setMultitenantMode(val) {
   //for tests only!!
-  return hasBaseDir = val;
+  return (hasBaseDir = val);
 }
 function isDefaultTenant(ctx) {
   return ctx.tenant === cfgTenantsDefaultTenant;
@@ -311,82 +330,90 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     const oFile = (await readFile(licenseFile)).toString();
     res.hasLicense = true;
     oLicense = JSON.parse(oFile);
-    //do not verify tenant signature. verify main lic signature. 
+    //do not verify tenant signature. verify main lic signature.
     //delete from object to keep signature secret
-    delete oLicense['signature'];
-    if (oLicense['start_date']) {
-      res.startDate = new Date(oLicense['start_date']);
+    delete oLicense["signature"];
+    if (oLicense["start_date"]) {
+      res.startDate = new Date(oLicense["start_date"]);
     }
     const startDate = res.startDate;
-    if (oLicense['end_date']) {
-      res.endDate = new Date(oLicense['end_date']);
+    if (oLicense["end_date"]) {
+      res.endDate = new Date(oLicense["end_date"]);
     } else {
       //spread copy do not copy date
       res.endDate = new Date(res.endDate);
     }
 
-    if (oLicense['customer_id']) {
-      res.customerId = oLicense['customer_id']
+    if (oLicense["customer_id"]) {
+      res.customerId = oLicense["customer_id"];
     }
 
-    if (oLicense['alias']) {
-      res.alias = oLicense['alias'];
+    if (oLicense["alias"]) {
+      res.alias = oLicense["alias"];
     }
 
-    if (oLicense['multitenancy']) {
-      res.multitenancy = oLicense['multitenancy'];
+    if (oLicense["multitenancy"]) {
+      res.multitenancy = oLicense["multitenancy"];
     }
 
-    if (true === oLicense['timelimited']) {
+    if (true === oLicense["timelimited"]) {
       res.mode |= c_LM.Limited;
     }
-    if (oLicense.hasOwnProperty('trial')) {
-      res.mode |= ((true === oLicense['trial'] || 'true' === oLicense['trial'] || 'True' === oLicense['trial']) ? c_LM.Trial : c_LM.None); // Someone who likes to put json string instead of bool
+    if (oLicense.hasOwnProperty("trial")) {
+      res.mode |=
+        true === oLicense["trial"] || "true" === oLicense["trial"] || "True" === oLicense["trial"]
+          ? c_LM.Trial
+          : c_LM.None; // Someone who likes to put json string instead of bool
     }
-    if (true === oLicense['developer']) {
+    if (true === oLicense["developer"]) {
       res.mode |= c_LM.Developer;
     }
-    if (oLicense.hasOwnProperty('branding')) {
-      res.branding = (true === oLicense['branding'] || 'true' === oLicense['branding'] || 'True' === oLicense['branding']); // Someone who likes to put json string instead of bool
+    if (oLicense.hasOwnProperty("branding")) {
+      res.branding =
+        true === oLicense["branding"] ||
+        "true" === oLicense["branding"] ||
+        "True" === oLicense["branding"]; // Someone who likes to put json string instead of bool
     }
-    if (oLicense.hasOwnProperty('customization')) {
-      res.customization = !!oLicense['customization'];
+    if (oLicense.hasOwnProperty("customization")) {
+      res.customization = !!oLicense["customization"];
     }
-    if (oLicense.hasOwnProperty('advanced_api')) {
-      res.advancedApi = !!oLicense['advanced_api'];
+    if (oLicense.hasOwnProperty("advanced_api")) {
+      res.advancedApi = !!oLicense["advanced_api"];
     }
-    if (oLicense.hasOwnProperty('connections')) {
-      res.connections = oLicense['connections'] >> 0;
+    if (oLicense.hasOwnProperty("connections")) {
+      res.connections = oLicense["connections"] >> 0;
     }
-    if (oLicense.hasOwnProperty('connections_view')) {
-      res.connectionsView = oLicense['connections_view'] >> 0;
+    if (oLicense.hasOwnProperty("connections_view")) {
+      res.connectionsView = oLicense["connections_view"] >> 0;
     }
-    if (oLicense.hasOwnProperty('users_count')) {
-      res.usersCount = oLicense['users_count'] >> 0;
+    if (oLicense.hasOwnProperty("users_count")) {
+      res.usersCount = oLicense["users_count"] >> 0;
     }
-    if (oLicense.hasOwnProperty('users_view_count')) {
-      res.usersViewCount = oLicense['users_view_count'] >> 0;
+    if (oLicense.hasOwnProperty("users_view_count")) {
+      res.usersViewCount = oLicense["users_view_count"] >> 0;
     }
-    if (oLicense.hasOwnProperty('users_expire')) {
-      res.usersExpire = Math.max(constants.LICENSE_EXPIRE_USERS_ONE_DAY, (oLicense['users_expire'] >> 0) *
-        constants.LICENSE_EXPIRE_USERS_ONE_DAY);
+    if (oLicense.hasOwnProperty("users_expire")) {
+      res.usersExpire = Math.max(
+        constants.LICENSE_EXPIRE_USERS_ONE_DAY,
+        (oLicense["users_expire"] >> 0) * constants.LICENSE_EXPIRE_USERS_ONE_DAY
+      );
     }
-    
+
     // Read grace_days setting from license file if available
-    if (oLicense.hasOwnProperty('grace_days')) {
-      res.graceDays = Math.max(0, oLicense['grace_days'] >> 0);
+    if (oLicense.hasOwnProperty("grace_days")) {
+      res.graceDays = Math.max(0, oLicense["grace_days"] >> 0);
     }
 
     const timeLimited = 0 !== (res.mode & c_LM.Limited);
 
-    const checkDate = ((res.mode & c_LM.Trial) || timeLimited) ? new Date() : licenseInfo.buildDate;
+    const checkDate = res.mode & c_LM.Trial || timeLimited ? new Date() : licenseInfo.buildDate;
     //Calendar check of start_date allows to issue a license for old versions
     const checkStartDate = new Date();
     if (startDate <= checkStartDate && checkDate <= res.endDate) {
       res.type = c_LR.Success;
     } else if (startDate > checkStartDate) {
       res.type = c_LR.NotBefore;
-      ctx.logger.warn('License: License not active before start_date:%s.', startDate.toISOString());
+      ctx.logger.warn("License: License not active before start_date:%s.", startDate.toISOString());
     } else if (timeLimited) {
       // Grace period after end license = limited mode with limited connections
       if (res.endDate.setUTCDate(res.endDate.getUTCDate() + res.graceDays) >= checkDate) {
@@ -395,10 +422,14 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
         res.connectionsView = Math.min(res.connectionsView, constants.LICENSE_CONNECTIONS);
         res.usersCount = Math.min(res.usersCount, constants.LICENSE_USERS);
         res.usersViewCount = Math.min(res.usersViewCount, constants.LICENSE_USERS);
-        let errStr = res.usersCount ? `${res.usersCount} unique users` : `${res.connections} concurrent connections`;
-        ctx.logger.error(`License: License needs to be renewed.\nYour users have only ${errStr} ` +
-          `available for document editing for the next ${graceDays} days.\nPlease renew the ` +
-          'license to restore the full access');
+        let errStr = res.usersCount
+          ? `${res.usersCount} unique users`
+          : `${res.connections} concurrent connections`;
+        ctx.logger.error(
+          `License: License needs to be renewed.\nYour users have only ${errStr} ` +
+            `available for document editing for the next ${graceDays} days.\nPlease renew the ` +
+            "license to restore the full access"
+        );
       } else {
         res.type = c_LR.ExpiredLimited;
       }
@@ -416,21 +447,27 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     res.usersViewCount = 0;
     res.type = c_LR.Error;
   }
-  if (res.type === c_LR.Expired || res.type === c_LR.ExpiredLimited || res.type === c_LR.ExpiredTrial) {
+  if (
+    res.type === c_LR.Expired ||
+    res.type === c_LR.ExpiredLimited ||
+    res.type === c_LR.ExpiredTrial
+  ) {
     res.count = 1;
 
     let errorMessage;
     if (res.type === c_LR.Expired) {
-      errorMessage = 'Your access to updates and support has expired.\n' +
-        'Your license key can not be applied to new versions.\n' +
-        'Please extend the license to get updates and support.';
+      errorMessage =
+        "Your access to updates and support has expired.\n" +
+        "Your license key can not be applied to new versions.\n" +
+        "Please extend the license to get updates and support.";
     } else if (res.type === c_LR.ExpiredLimited) {
-      errorMessage = 'License expired.\nYour users can not edit or view document anymore.\n' +
-        'Please renew the license.';
+      errorMessage =
+        "License expired.\nYour users can not edit or view document anymore.\n" +
+        "Please renew the license.";
     } else {
-      errorMessage ='License Expired!!!';
+      errorMessage = "License Expired!!!";
     }
-    ctx.logger.warn('License: ' + errorMessage);
+    ctx.logger.warn("License: " + errorMessage);
   }
 
   return [res, oLicense];

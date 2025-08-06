@@ -30,20 +30,16 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const {
-  createHistogram,
-  performance,
-  PerformanceObserver,
-} = require('node:perf_hooks');
+const {createHistogram, performance, PerformanceObserver} = require("node:perf_hooks");
 
-const co = require('co');
-const taskResult = require('./../../DocService/sources/taskresult');
-const storage = require('./../../Common/sources/storage/storage-base');
-const storageFs = require('./../../Common/sources/storage/storage-fs');
-const operationContext = require('./../../Common/sources/operationContext');
-const utils = require('./../../Common/sources/utils');
+const co = require("co");
+const taskResult = require("./../../DocService/sources/taskresult");
+const storage = require("./../../Common/sources/storage/storage-base");
+const storageFs = require("./../../Common/sources/storage/storage-fs");
+const operationContext = require("./../../Common/sources/operationContext");
+const utils = require("./../../Common/sources/utils");
 const docsCoServer = require("./../../DocService/sources/DocsCoServer");
 const gc = require("./../../DocService/sources/gc");
 
@@ -55,13 +51,13 @@ let histograms = {};
 async function beforeStart() {
   let timerify = function (func, name) {
     //todo remove anonymous functions. use func.name
-    Object.defineProperty(func, 'name', {
-      value: name
+    Object.defineProperty(func, "name", {
+      value: name,
     });
     let histogram = createHistogram();
     histograms[func.name] = histogram;
     return performance.timerify(func, {histogram: histogram});
-  }
+  };
 
   addRandomKeyTask = timerify(co.wrap(taskResult.addRandomKeyTask), "addRandomKeyTask");
   taskResult.getExpired = timerify(taskResult.getExpired, "getExpired");
@@ -70,7 +66,10 @@ async function beforeStart() {
   storage.listObjects = timerify(storage.listObjects, "listObjects");
   storageFs.deletePath = timerify(storageFs.deletePath, "deletePath");
   storageFs.deleteObject = timerify(storageFs.deleteObject, "deleteObject");
-  docsCoServer.getEditorsCountPromise = timerify(docsCoServer.getEditorsCountPromise, "getEditorsCountPromise");
+  docsCoServer.getEditorsCountPromise = timerify(
+    docsCoServer.getEditorsCountPromise,
+    "getEditorsCountPromise"
+  );
 
   const obs = new PerformanceObserver((list) => {
     const entries = list.getEntries();
@@ -79,7 +78,7 @@ async function beforeStart() {
       console.log(`${entry.name}:${duration}ms`);
     });
   });
-  obs.observe({ entryTypes: ['function']});
+  obs.observe({entryTypes: ["function"]});
 
   await docsCoServer.editorData.connect();
 }
@@ -90,8 +89,10 @@ async function beforeEnd() {
     let min = Math.round(histogram.min / 1000) / 1000;
     let max = Math.round(histogram.max / 1000) / 1000;
     let count = histogram.count;
-    ctx.logger.info(`histogram ${name}: count=${count}, mean=${mean}ms, min=${min}ms, max=${max}ms`);
-  }
+    ctx.logger.info(
+      `histogram ${name}: count=${count}, mean=${mean}ms, min=${min}ms, max=${max}ms`
+    );
+  };
   await utils.sleep(1000);
   for (let name in histograms) {
     logHistogram(histograms[name], name);
@@ -113,7 +114,9 @@ async function addFileExpire(count, size, prefix, filesInFolder) {
 async function startTest() {
   let args = process.argv.slice(2);
   if (args.length < 4) {
-    ctx.logger.error('missing arguments.USAGE: checkFileExpire.js [add-files-count] [file-size-bytes] [key-prefix] [seconds-to-expire]');
+    ctx.logger.error(
+      "missing arguments.USAGE: checkFileExpire.js [add-files-count] [file-size-bytes] [key-prefix] [seconds-to-expire]"
+    );
     return;
   }
   ctx.logger.info("test started");
@@ -128,11 +131,14 @@ async function startTest() {
   ctx.logger.info("test finished");
 }
 
-startTest().then(()=>{
-  //delay to log observer events
-  return utils.sleep(1000);
-}).catch((err) => {
-  ctx.logger.error(err.stack);
-}).finally(() => {
-  process.exit(0);
-});
+startTest()
+  .then(() => {
+    //delay to log observer events
+    return utils.sleep(1000);
+  })
+  .catch((err) => {
+    ctx.logger.error(err.stack);
+  })
+  .finally(() => {
+    process.exit(0);
+  });

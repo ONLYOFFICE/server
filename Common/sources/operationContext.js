@@ -30,20 +30,20 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const config = require('config');
-const utils = require('./utils');
-const logger = require('./logger');
-const constants = require('./constants');
-const tenantManager = require('./tenantManager');
-const runtimeConfigManager = require('./runtimeConfigManager');
+const config = require("config");
+const utils = require("./utils");
+const logger = require("./logger");
+const constants = require("./constants");
+const tenantManager = require("./tenantManager");
+const runtimeConfigManager = require("./runtimeConfigManager");
 
-function Context(){
-  this.logger = logger.getLogger('nodeJS');
+function Context() {
+  this.logger = logger.getLogger("nodeJS");
   this.initDefault();
 }
-Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiSrc) {
+Context.prototype.init = function (tenant, docId, userId, opt_shardKey, opt_WopiSrc) {
   this.setTenant(tenant);
   this.setDocId(docId);
   this.setUserId(userId);
@@ -56,10 +56,15 @@ Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiS
   //cache
   this.taskResultCache = null;
 };
-Context.prototype.initDefault = function() {
-  this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID, undefined);
+Context.prototype.initDefault = function () {
+  this.init(
+    tenantManager.getDefautTenant(),
+    constants.DEFAULT_DOC_ID,
+    constants.DEFAULT_USER_ID,
+    undefined
+  );
 };
-Context.prototype.initFromConnection = function(conn) {
+Context.prototype.initFromConnection = function (conn) {
   let tenant = tenantManager.getTenantByConnection(this, conn);
   let docId = conn.docid;
   if (!docId) {
@@ -74,21 +79,21 @@ Context.prototype.initFromConnection = function(conn) {
   let wopiSrc = utils.getWopiSrcByConnection(this, conn);
   this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc);
 };
-Context.prototype.initFromRequest = function(req) {
+Context.prototype.initFromRequest = function (req) {
   let tenant = tenantManager.getTenantByRequest(this, req);
   let shardKey = utils.getShardKeyByRequest(this, req);
   let wopiSrc = utils.getWopiSrcByRequest(this, req);
   this.init(tenant, this.docId, this.userId, shardKey, wopiSrc);
 };
-Context.prototype.initFromTaskQueueData = function(task) {
+Context.prototype.initFromTaskQueueData = function (task) {
   let ctx = task.getCtx();
   this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
 };
-Context.prototype.initFromPubSub = function(data) {
+Context.prototype.initFromPubSub = function (data) {
   let ctx = data.ctx;
   this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
 };
-Context.prototype.initTenantCache = async function() {
+Context.prototype.initTenantCache = async function () {
   const runtimeConfig = await runtimeConfigManager.getConfig(this);
   const tenantConfig = await tenantManager.getTenantConfig(this);
   this.config = utils.deepMergeObjects({}, runtimeConfig, tenantConfig);
@@ -96,35 +101,35 @@ Context.prototype.initTenantCache = async function() {
   //todo license and secret
 };
 
-Context.prototype.setTenant = function(tenant) {
+Context.prototype.setTenant = function (tenant) {
   this.tenant = tenant;
-  this.logger.addContext('TENANT', tenant);
+  this.logger.addContext("TENANT", tenant);
 };
-Context.prototype.setDocId = function(docId) {
+Context.prototype.setDocId = function (docId) {
   this.docId = docId;
-  this.logger.addContext('DOCID', docId);
+  this.logger.addContext("DOCID", docId);
 };
-Context.prototype.setUserId = function(userId) {
+Context.prototype.setUserId = function (userId) {
   this.userId = userId;
-  this.logger.addContext('USERID', userId);
+  this.logger.addContext("USERID", userId);
 };
-Context.prototype.setShardKey = function(shardKey) {
+Context.prototype.setShardKey = function (shardKey) {
   this.shardKey = shardKey;
 };
-Context.prototype.setWopiSrc = function(wopiSrc) {
+Context.prototype.setWopiSrc = function (wopiSrc) {
   this.wopiSrc = wopiSrc;
 };
-Context.prototype.toJSON = function() {
+Context.prototype.toJSON = function () {
   return {
     tenant: this.tenant,
     docId: this.docId,
     userId: this.userId,
     shardKey: this.shardKey,
-    wopiSrc: this.wopiSrc
-  }
+    wopiSrc: this.wopiSrc,
+  };
 };
-Context.prototype.getCfg = function(property, defaultValue) {
-  if (this.config){
+Context.prototype.getCfg = function (property, defaultValue) {
+  if (this.config) {
     return getImpl(this.config, property) ?? defaultValue;
   }
   return defaultValue;
@@ -133,7 +138,7 @@ Context.prototype.getCfg = function(property, defaultValue) {
  * Get the full configuration by combining system config with context config
  * @returns {object} The merged configuration object
  */
-Context.prototype.getFullCfg = function() {
+Context.prototype.getFullCfg = function () {
   return utils.deepMergeObjects(config.util.toObject(), this.config);
 };
 
@@ -149,18 +154,18 @@ Context.prototype.getFullCfg = function() {
 function getImpl(object, property) {
   //from https://github.com/node-config/node-config/blob/a8b91ac86b499d11b90974a2c9915ce31266044a/lib/config.js#L137
   var t = this,
-    elems = Array.isArray(property) ? property : property.split('.'),
+    elems = Array.isArray(property) ? property : property.split("."),
     name = elems[0],
     value = object[name];
   if (elems.length <= 1) {
     return value;
   }
   // Note that typeof null === 'object'
-  if (value === null || typeof value !== 'object') {
+  if (value === null || typeof value !== "object") {
     return undefined;
   }
   return getImpl(value, elems.slice(1));
-};
+}
 
 exports.Context = Context;
 exports.global = new Context();

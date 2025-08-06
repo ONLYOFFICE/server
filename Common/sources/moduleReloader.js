@@ -30,9 +30,9 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const fs = require('fs');
+const fs = require("fs");
 
 /**
  * Reloads an NPM module by clearing it from require.cache and re-requiring it
@@ -56,37 +56,37 @@ function reloadNpmModule(moduleName) {
  * @returns {Object} config module
  */
 function requireConfigWithRuntime(opt_additionalConfig) {
-  let config = require('config');
+  let config = require("config");
   try {
-    const configFilePath = config.get('runtimeConfig.filePath');
+    const configFilePath = config.get("runtimeConfig.filePath");
     if (configFilePath) {
       // Update NODE_CONFIG with runtime configuration
       if (configFilePath) {
-        const configData = fs.readFileSync(configFilePath, 'utf8');
-        
+        const configData = fs.readFileSync(configFilePath, "utf8");
+
         let curNodeConfig;
-        if (process.env['NODE_CONFIG']) {
-          curNodeConfig = JSON.parse(process.env['NODE_CONFIG']);
+        if (process.env["NODE_CONFIG"]) {
+          curNodeConfig = JSON.parse(process.env["NODE_CONFIG"]);
         } else {
           curNodeConfig = {};
         }
-        
+
         const fileConfig = JSON.parse(configData);
-        
+
         // Merge configurations: NODE_CONFIG -> runtime -> additional
         curNodeConfig = config.util.extendDeep(curNodeConfig, fileConfig);
         if (opt_additionalConfig) {
           curNodeConfig = config.util.extendDeep(curNodeConfig, opt_additionalConfig);
         }
-        
-        process.env['NODE_CONFIG'] = JSON.stringify(curNodeConfig);
+
+        process.env["NODE_CONFIG"] = JSON.stringify(curNodeConfig);
       }
-      
-      config = reloadNpmModule('config');
+
+      config = reloadNpmModule("config");
     }
   } catch (err) {
-    if (err.code !== 'ENOENT') {
-      console.error('Failed to load runtime config: %s', err.stack);
+    if (err.code !== "ENOENT") {
+      console.error("Failed to load runtime config: %s", err.stack);
     }
   }
   return config;
@@ -94,5 +94,5 @@ function requireConfigWithRuntime(opt_additionalConfig) {
 
 module.exports = {
   reloadNpmModule,
-  requireConfigWithRuntime
+  requireConfigWithRuntime,
 };

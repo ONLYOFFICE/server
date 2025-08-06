@@ -30,20 +30,18 @@
  *
  */
 
-(function(window, undefined) {
-	
-	window.Asc.plugin.init = function() {
-		window.Asc.plugin.sendToPlugin("onGetLink");
-	};
+(function (window, undefined) {
+  window.Asc.plugin.init = function () {
+    window.Asc.plugin.sendToPlugin("onGetLink");
+  };
 
-	window.Asc.plugin.onTranslate = function() {};
+  window.Asc.plugin.onTranslate = function () {};
 
-	window.Asc.plugin.onThemeChanged = function(theme) {
-		window.Asc.plugin.onThemeChangedBase(theme);
-	};
-	
-	window.Asc.plugin.attachEvent("onSetLink", function(data){
-		document.getElementById('iframe').src = data;
-	});
+  window.Asc.plugin.onThemeChanged = function (theme) {
+    window.Asc.plugin.onThemeChangedBase(theme);
+  };
 
+  window.Asc.plugin.attachEvent("onSetLink", function (data) {
+    document.getElementById("iframe").src = data;
+  });
 })(window, undefined);

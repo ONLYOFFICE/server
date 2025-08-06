@@ -30,31 +30,31 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const oracledb = require('oracledb');
-const config = require('config');
-const connectorUtilities = require('./connectorUtilities');
-const utils = require('../../../Common/sources/utils');
+const oracledb = require("oracledb");
+const config = require("config");
+const connectorUtilities = require("./connectorUtilities");
+const utils = require("../../../Common/sources/utils");
 
-const configSql = config.get('services.CoAuthoring.sql');
-const cfgTableResult = configSql.get('tableResult');
-const cfgTableChanges = configSql.get('tableChanges');
-const cfgMaxPacketSize = configSql.get('max_allowed_packet');
+const configSql = config.get("services.CoAuthoring.sql");
+const cfgTableResult = configSql.get("tableResult");
+const cfgTableChanges = configSql.get("tableChanges");
+const cfgMaxPacketSize = configSql.get("max_allowed_packet");
 
 const connectionConfiguration = {
-  user: configSql.get('dbUser'),
-  password: configSql.get('dbPass'),
-  connectString: `${configSql.get('dbHost')}:${configSql.get('dbPort')}/${configSql.get('dbName')}`,
+  user: configSql.get("dbUser"),
+  password: configSql.get("dbPass"),
+  connectString: `${configSql.get("dbHost")}:${configSql.get("dbPort")}/${configSql.get("dbName")}`,
   poolMin: 0,
-  poolMax: configSql.get('connectionlimit')
+  poolMax: configSql.get("connectionlimit"),
 };
-const additionalOptions = config.util.cloneDeep(configSql.get('oracleExtraOptions'));
+const additionalOptions = config.util.cloneDeep(configSql.get("oracleExtraOptions"));
 const configuration = Object.assign({}, connectionConfiguration, additionalOptions);
 const forceClosingCountdownMs = 2000;
 let pool = null;
 
-oracledb.fetchAsString = [ oracledb.NCLOB, oracledb.CLOB ];
+oracledb.fetchAsString = [oracledb.NCLOB, oracledb.CLOB];
 oracledb.autoCommit = true;
 
 function columnsToLowercase(rows) {
@@ -73,16 +73,23 @@ function columnsToLowercase(rows) {
   return formattedRows;
 }
 
-function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes = false, opt_noLog = false, opt_values = []) {
+function sqlQuery(
+  ctx,
+  sqlCommand,
+  callbackFunction,
+  opt_noModifyRes = false,
+  opt_noLog = false,
+  opt_values = []
+) {
   return executeQuery(ctx, sqlCommand, opt_values, opt_noModifyRes, opt_noLog).then(
-    result => callbackFunction?.(null, result),
-    error => callbackFunction?.(error)
+    (result) => callbackFunction?.(null, result),
+    (error) => callbackFunction?.(error)
   );
 }
 
 async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, noLog = false) {
   // Query must not have any ';' in oracle connector.
-  const correctedSql = sqlCommand.replace(/;/g, '');
+  const correctedSql = sqlCommand.replace(/;/g, "");
 
   let connection = null;
   try {
@@ -93,13 +100,15 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
     connection = await pool.getConnection();
 
     const bondedValues = values ?? [];
-    const outputFormat = { outFormat: !noModifyRes ? oracledb.OUT_FORMAT_OBJECT : oracledb.OUT_FORMAT_ARRAY };
+    const outputFormat = {
+      outFormat: !noModifyRes ? oracledb.OUT_FORMAT_OBJECT : oracledb.OUT_FORMAT_ARRAY,
+    };
     const result = await connection.execute(correctedSql, bondedValues, outputFormat);
 
-    let output = { rows: [], affectedRows: 0 };
+    let output = {rows: [], affectedRows: 0};
     if (!noModifyRes) {
       if (result?.rowsAffected) {
-        output = { affectedRows: result.rowsAffected };
+        output = {affectedRows: result.rowsAffected};
       }
 
       if (result?.rows) {
@@ -123,7 +132,9 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
         await connection.close();
       } catch (error) {
         if (!noLog) {
-          ctx.logger.error(`connection.close() error while executing query: ${sqlCommand}\n${error.stack}`);
+          ctx.logger.error(
+            `connection.close() error while executing query: ${sqlCommand}\n${error.stack}`
+          );
         }
       }
     }
@@ -138,10 +149,10 @@ async function executeBunch(ctx, sqlCommand, values = [], noLog = false) {
     }
 
     connection = await pool.getConnection();
-    
+
     const result = await connection.executeMany(sqlCommand, values);
 
-    return { affectedRows: result?.rowsAffected ?? 0 };
+    return {affectedRows: result?.rowsAffected ?? 0};
   } catch (error) {
     if (!noLog) {
       ctx.logger.error(`sqlQuery() error while executing query: ${sqlCommand}\n${error.stack}`);
@@ -158,7 +169,7 @@ function closePool() {
 }
 
 function healthCheck(ctx) {
-  return executeQuery(ctx, 'SELECT 1 FROM DUAL');
+  return executeQuery(ctx, "SELECT 1 FROM DUAL");
 }
 
 function addSqlParameter(parameter, accumulatedArray) {
@@ -173,11 +184,15 @@ function concatParams(firstParameter, secondParameter) {
 function getTableColumns(ctx, tableName) {
   let values = [];
   let sqlParam = addSqlParameter(tableName.toUpperCase(), values);
-  return executeQuery(ctx, `SELECT LOWER(column_name) AS column_name FROM user_tab_columns WHERE table_name = ${sqlParam}`, values);
+  return executeQuery(
+    ctx,
+    `SELECT LOWER(column_name) AS column_name FROM user_tab_columns WHERE table_name = ${sqlParam}`,
+    values
+  );
 }
 
 function getEmptyCallbacks(ctx) {
-  const joinCondition = 'ON t2.tenant = t1.tenant AND t2.id = t1.id AND t2.callback IS NULL';
+  const joinCondition = "ON t2.tenant = t1.tenant AND t2.id = t1.id AND t2.callback IS NULL";
   const sqlCommand = `SELECT DISTINCT t1.tenant, t1.id FROM ${cfgTableChanges} t1 INNER JOIN ${cfgTableResult} t2 ${joinCondition}`;
   return executeQuery(ctx, sqlCommand);
 }
@@ -196,7 +211,7 @@ function getExpired(ctx, maxCount, expireSeconds) {
   const values = [];
   const date = addSqlParameter(expireDate, values);
   const count = addSqlParameter(maxCount, values);
-  const notExistingTenantAndId = `SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id AND ROWNUM <= 1`
+  const notExistingTenantAndId = `SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id AND ROWNUM <= 1`;
   const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date} AND NOT EXISTS(${notExistingTenantAndId}) AND ROWNUM <= ${count}`;
 
   return executeQuery(ctx, sqlCommand, values);
@@ -205,26 +220,26 @@ function getExpired(ctx, maxCount, expireSeconds) {
 function makeUpdateSql(dateNow, task, values) {
   const lastOpenDate = addSqlParameter(dateNow, values);
 
-  let callback = '';
+  let callback = "";
   if (task.callback) {
     const parameter = addSqlParameter(JSON.stringify(task.callback), values);
     callback = `, callback = callback || '${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":' || (user_index + 1) || ',"callback":' || ${parameter} || '}'`;
   }
 
-  let baseUrl = '';
+  let baseUrl = "";
   if (task.baseurl) {
     const parameter = addSqlParameter(task.baseurl, values);
     baseUrl = `, baseurl = ${parameter}`;
   }
 
-  const userIndex = ', user_index = user_index + 1';
+  const userIndex = ", user_index = user_index + 1";
 
   const updateQuery = `last_open_date = ${lastOpenDate}${callback}${baseUrl}${userIndex}`;
   const tenant = addSqlParameter(task.tenant, values);
   const id = addSqlParameter(task.key, values);
   const condition = `tenant = ${tenant} AND id = ${id}`;
 
-  const returning = addSqlParameter({ type: oracledb.NUMBER, dir: oracledb.BIND_OUT }, values);
+  const returning = addSqlParameter({type: oracledb.NUMBER, dir: oracledb.BIND_OUT}, values);
 
   return `UPDATE ${cfgTableResult} SET ${updateQuery} WHERE ${condition} RETURNING user_index INTO ${returning}`;
 }
@@ -255,47 +270,56 @@ async function upsert(ctx, task) {
     addSqlParameter(task.userIndex, insertValues),
     addSqlParameter(task.changeId, insertValues),
     addSqlParameter(cbInsert, insertValues),
-    addSqlParameter(task.baseurl, insertValues)
+    addSqlParameter(task.baseurl, insertValues),
   ];
 
-  const returned = addSqlParameter({ type: oracledb.NUMBER, dir: oracledb.BIND_OUT }, insertValues);
-  let sqlInsertTry = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) `
-    + `VALUES(${insertValuesPlaceholder.join(', ')}) RETURNING user_index INTO ${returned}`;
+  const returned = addSqlParameter({type: oracledb.NUMBER, dir: oracledb.BIND_OUT}, insertValues);
+  let sqlInsertTry =
+    `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) ` +
+    `VALUES(${insertValuesPlaceholder.join(", ")}) RETURNING user_index INTO ${returned}`;
 
   try {
     const insertResult = await executeQuery(ctx, sqlInsertTry, insertValues, true, true);
     const insertId = getReturnedValue(insertResult);
 
-    return { isInsert: true, insertId };
+    return {isInsert: true, insertId};
   } catch (insertError) {
-    if (insertError.code !== 'ORA-00001') {
+    if (insertError.code !== "ORA-00001") {
       throw insertError;
     }
 
     const values = [];
-    const updateResult = await executeQuery(ctx, makeUpdateSql(dateNow, task, values), values, true);
+    const updateResult = await executeQuery(
+      ctx,
+      makeUpdateSql(dateNow, task, values),
+      values,
+      true
+    );
     const insertId = getReturnedValue(updateResult);
 
-    return { isInsert: false, insertId };
+    return {isInsert: false, insertId};
   }
 }
 
 function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, user, callback) {
   insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user).then(
-    result => callback(null, result, true),
-    error => callback(error, null, true)
+    (result) => callback(null, result, true),
+    (error) => callback(error, null, true)
   );
 }
 
 async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user) {
   if (startIndex === objChanges.length) {
-    return { affectedRows: 0 };
+    return {affectedRows: 0};
   }
 
   const parametersCount = 8;
-  const maxPlaceholderLength = ':99'.length;
+  const maxPlaceholderLength = ":99".length;
   // (parametersCount - 1) - separator symbols length.
-  const maxInsertStatementLength = `INSERT /*+ APPEND_VALUES*/INTO ${tableChanges} VALUES()`.length + maxPlaceholderLength * parametersCount + (parametersCount - 1);
+  const maxInsertStatementLength =
+    `INSERT /*+ APPEND_VALUES*/INTO ${tableChanges} VALUES()`.length +
+    maxPlaceholderLength * parametersCount +
+    (parametersCount - 1);
   let packetCapacityReached = false;
 
   const values = [];
@@ -305,8 +329,17 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
   let currentIndex = startIndex;
   for (; currentIndex < objChanges.length; ++currentIndex, ++index) {
     // 4 bytes is maximum for utf8 symbol.
-    const lengthUtf8Row = maxInsertStatementLength + indexBytes + timeBytes
-      + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
+    const lengthUtf8Row =
+      maxInsertStatementLength +
+      indexBytes +
+      timeBytes +
+      4 *
+        (ctx.tenant.length +
+          docId.length +
+          user.id.length +
+          user.idOriginal.length +
+          user.username.length +
+          objChanges[currentIndex].change.length);
 
     if (lengthUtf8Row + lengthUtf8Current >= cfgMaxPacketSize && currentIndex > startIndex) {
       packetCapacityReached = true;
@@ -321,10 +354,10 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
       user.idOriginal,
       user.username,
       objChanges[currentIndex].change,
-      objChanges[currentIndex].time
+      objChanges[currentIndex].time,
     ];
 
-    const rowValues = { ...parameters };
+    const rowValues = {...parameters};
 
     values.push(rowValues);
     lengthUtf8Current += lengthUtf8Row;
@@ -335,11 +368,19 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
     placeholder.push(`:${i}`);
   }
 
-  const sqlInsert = `INSERT /*+ APPEND_VALUES*/INTO ${tableChanges} VALUES(${placeholder.join(',')})`;
+  const sqlInsert = `INSERT /*+ APPEND_VALUES*/INTO ${tableChanges} VALUES(${placeholder.join(",")})`;
   const result = await executeBunch(ctx, sqlInsert, values);
 
   if (packetCapacityReached) {
-    const recursiveValue = await insertChangesAsync(ctx, tableChanges, currentIndex, objChanges, docId, index, user);
+    const recursiveValue = await insertChangesAsync(
+      ctx,
+      tableChanges,
+      currentIndex,
+      objChanges,
+      docId,
+      index,
+      user
+    );
     result.affectedRows += recursiveValue.affectedRows;
   }
 
@@ -357,5 +398,5 @@ module.exports = {
   getDocumentsWithChanges,
   getExpired,
   upsert,
-  insertChanges
-}
+  insertChanges,
+};

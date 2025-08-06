@@ -30,53 +30,51 @@
  *
  */
 
-function RegisteredFunction()
-{
-	this.name = "";
-	this.description = "";
-	this.params = [];
-	this.examples = [];
+function RegisteredFunction() {
+  this.name = "";
+  this.description = "";
+  this.params = [];
+  this.examples = [];
 
-	this.call = null;
+  this.call = null;
 }
 
 function EditorHelperImpl() {
+  this.funcs = [];
+  this.names2funcs = {};
+  this.isSupportStreaming = false;
 
-	this.funcs = [];
-	this.names2funcs = {};
-	this.isSupportStreaming = false;
+  let editorType = Asc.Editor.getType();
 
-	let editorType = Asc.Editor.getType();
+  switch (editorType) {
+    case "word": {
+      this.funcs = getWordFunctions();
+      this.isSupportStreaming = true;
+      break;
+    }
+    case "cell": {
+      this.funcs = getCellFunctions();
+      break;
+    }
+    case "slide": {
+      this.funcs = getSlideFunctions();
+      break;
+    }
+    default:
+      break;
+  }
 
-	switch (editorType) {
-		case "word": {
-			this.funcs = getWordFunctions();
-			this.isSupportStreaming = true;
-			break;
-		}
-		case "cell": {
-			this.funcs = getCellFunctions();			
-			break;
-		}
-		case "slide": {
-			this.funcs = getSlideFunctions();
-			break;
-		}
-		default:
-			break;
-	}	
-
-	for (let i = 0; i < this.funcs.length; i++) {
-		let func = this.funcs[i];
-		this.names2funcs[func.name] = func;
-	}
+  for (let i = 0; i < this.funcs.length; i++) {
+    let func = this.funcs[i];
+    this.names2funcs[func.name] = func;
+  }
 }
 
-EditorHelperImpl.prototype.getSystemPrompt = function() {
-	if (this.funcs.length === 0)
-		return "";
+EditorHelperImpl.prototype.getSystemPrompt = function () {
+  if (this.funcs.length === 0) return "";
 
-	let systemPrompt = "\
+  let systemPrompt =
+    "\
 You are an assistant that calls functions in a strict format **only when needed**.\n\
 CRITICAL: Never add explanations, confirmations, or any text before or after function calls. Respond ONLY with the exact function call format when a function is required.\n\
 \n\
@@ -104,97 +102,92 @@ If the user's request doesn't require any function, respond with normal helpful 
 \n\
 Available functions:\n";
 
-	for (let i = 0; i < this.funcs.length; i++) {
-		let func = this.funcs[i];
-		systemPrompt += "\n- " + func.name + "\n  Parameters:\n";
-		for (let j = 0; j < func.params.length; j++) {
-			systemPrompt += "  - " + func.params[j] + "\n";
-		}
-	}
+  for (let i = 0; i < this.funcs.length; i++) {
+    let func = this.funcs[i];
+    systemPrompt += "\n- " + func.name + "\n  Parameters:\n";
+    for (let j = 0; j < func.params.length; j++) {
+      systemPrompt += "  - " + func.params[j] + "\n";
+    }
+  }
 
-	systemPrompt += "\nExamples:\n";
-	for (let i = 0; i < this.funcs.length; i++) {
-		let func = this.funcs[i];
-		for (let j = 0; j < func.examples.length; j++) {
-			systemPrompt += func.examples[j] + "\n";
-		}
-	}
+  systemPrompt += "\nExamples:\n";
+  for (let i = 0; i < this.funcs.length; i++) {
+    let func = this.funcs[i];
+    for (let j = 0; j < func.examples.length; j++) {
+      systemPrompt += func.examples[j] + "\n";
+    }
+  }
 
-	systemPrompt += "\nIf no function call is needed, respond with normal text.\n";
+  systemPrompt += "\nIf no function call is needed, respond with normal text.\n";
 
-	return systemPrompt;
+  return systemPrompt;
 };
 
-EditorHelperImpl.prototype.callFunc = async function(data) {
+EditorHelperImpl.prototype.callFunc = async function (data) {
+  let index1 = data.indexOf("(");
+  let index2 = data.indexOf(")");
+  let index3 = data.indexOf("{");
 
-	let index1 = data.indexOf("(");
-	let index2 = data.indexOf(")");
-	let index3 = data.indexOf("{");
+  let funcName = data.substring(index1 + 1, index2).trim();
+  let paramsStr = getJsonResult(data, index3);
 
-	let funcName = data.substring(index1 + 1, index2).trim();
-	let paramsStr = getJsonResult(data, index3);
+  try {
+    let func = this.names2funcs[funcName];
+    if (!func) {
+      let errorMsg = "Function not found: " + funcName;
+      console.error(errorMsg);
+      return {
+        error: errorMsg,
+      };
+    }
 
-	try {
-		let func = this.names2funcs[funcName];
-		if (!func) {
-			let errorMsg = "Function not found: " + funcName;
-			console.error(errorMsg);
-			return {
-				error: errorMsg
-			};
-		}
+    let result = await func.call(eval("(" + paramsStr.replaceAll("\n", "\\n") + ")"));
+    if (!result) result = {};
 
-		let result = await func.call(eval("(" + paramsStr.replaceAll("\n", "\\n") + ")"));
-		if (!result)
-			result = {};
-
-		result.message = "System function '" + funcName + "' executed successfully";
-		return result;
-	} catch (e) {
-		let errorMsg = "Error calling function: " + funcName;
-		console.error(errorMsg);
-		return {
-			error: errorMsg
-		};
-	}
-	
+    result.message = "System function '" + funcName + "' executed successfully";
+    return result;
+  } catch (e) {
+    let errorMsg = "Error calling function: " + funcName;
+    console.error(errorMsg);
+    return {
+      error: errorMsg,
+    };
+  }
 };
 
 function getJsonResult(responseText, startPos) {
-		
-	let result = "";
+  let result = "";
 
-	let isEscaped = false;
-	let inString = false;
-	let braceCount = 0;
-	let inputLen = responseText.length;
-	
-	for (let i = startPos; i < inputLen; i++) {
-		let char = responseText[i];
-		
-		if (char === '\n') {
-			this.lineNumber++;
-		}
-		
-		if (char === '"' && !isEscaped) {
-			inString = !inString;
-		}
-		
-		isEscaped = (char === '\\' && !isEscaped);
-		
-		if (!inString) {
-			if (char === '{') {
-				braceCount++;
-			}
-			else if (char === '}') {
-				braceCount--;
+  let isEscaped = false;
+  let inString = false;
+  let braceCount = 0;
+  let inputLen = responseText.length;
 
-				if (braceCount === 0) {
-					return responseText.substring(startPos, i + 1);
-				}
-			}				
-		}
-	}
+  for (let i = startPos; i < inputLen; i++) {
+    let char = responseText[i];
 
-	return responseText.substring(startPos);
+    if (char === "\n") {
+      this.lineNumber++;
+    }
+
+    if (char === '"' && !isEscaped) {
+      inString = !inString;
+    }
+
+    isEscaped = char === "\\" && !isEscaped;
+
+    if (!inString) {
+      if (char === "{") {
+        braceCount++;
+      } else if (char === "}") {
+        braceCount--;
+
+        if (braceCount === 0) {
+          return responseText.substring(startPos, i + 1);
+        }
+      }
+    }
+  }
+
+  return responseText.substring(startPos);
 }

@@ -30,28 +30,32 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const cluster = require('cluster');
-const logger = require('./../../Common/sources/logger');
-const operationContext = require('./../../Common/sources/operationContext');
-const moduleReloader = require('./../../Common/sources/moduleReloader');
+const cluster = require("cluster");
+const logger = require("./../../Common/sources/logger");
+const operationContext = require("./../../Common/sources/operationContext");
+const moduleReloader = require("./../../Common/sources/moduleReloader");
 const config = moduleReloader.requireConfigWithRuntime();
 
 if (cluster.isMaster) {
-  const fs = require('fs');
-  const co = require('co');
-  const os = require('os');
-  const license = require('./../../Common/sources/license');
+  const fs = require("fs");
+  const co = require("co");
+  const os = require("os");
+  const license = require("./../../Common/sources/license");
 
-  const cfgLicenseFile = config.get('license.license_file');
-  const cfgMaxProcessCount = config.get('FileConverter.converter.maxprocesscount');
+  const cfgLicenseFile = config.get("license.license_file");
+  const cfgMaxProcessCount = config.get("FileConverter.converter.maxprocesscount");
 
   var workersCount = 0;
   const readLicense = async function () {
     const numCPUs = os.cpus().length;
     const availableParallelism = os.availableParallelism?.();
-    operationContext.global.logger.warn('num of CPUs: %d; availableParallelism: %s', numCPUs, availableParallelism);
+    operationContext.global.logger.warn(
+      "num of CPUs: %d; availableParallelism: %s",
+      numCPUs,
+      availableParallelism
+    );
     workersCount = Math.ceil((availableParallelism || numCPUs) * cfgMaxProcessCount);
     let [licenseInfo] = await license.readLicense(cfgLicenseFile);
     workersCount = Math.min(licenseInfo.count, workersCount);
@@ -63,7 +67,7 @@ if (cluster.isMaster) {
     if (arrKeyWorkers.length < workersCount) {
       for (i = arrKeyWorkers.length; i < workersCount; ++i) {
         const newWorker = cluster.fork();
-        operationContext.global.logger.warn('worker %s started.', newWorker.process.pid);
+        operationContext.global.logger.warn("worker %s started.", newWorker.process.pid);
       }
     } else {
       for (i = workersCount; i < arrKeyWorkers.length; ++i) {
@@ -77,15 +81,20 @@ if (cluster.isMaster) {
   const updateLicense = async () => {
     try {
       await readLicense();
-      operationContext.global.logger.warn('update cluster with %s workers', workersCount);
+      operationContext.global.logger.warn("update cluster with %s workers", workersCount);
       updateWorkers();
     } catch (err) {
-      operationContext.global.logger.error('updateLicense error: %s', err.stack);
+      operationContext.global.logger.error("updateLicense error: %s", err.stack);
     }
   };
 
-  cluster.on('exit', (worker, code, signal) => {
-    operationContext.global.logger.warn('worker %s died (code = %s; signal = %s).', worker.process.pid, code, signal);
+  cluster.on("exit", (worker, code, signal) => {
+    operationContext.global.logger.warn(
+      "worker %s died (code = %s; signal = %s).",
+      worker.process.pid,
+      code,
+      signal
+    );
     updateWorkers();
   });
 
@@ -94,12 +103,15 @@ if (cluster.isMaster) {
   fs.watchFile(cfgLicenseFile, updateLicense);
   setInterval(updateLicense, 86400000);
 } else {
-  const converter = require('./converter');
+  const converter = require("./converter");
   converter.run();
 }
 
-process.on('uncaughtException', (err) => {
-  operationContext.global.logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
+process.on("uncaughtException", (err) => {
+  operationContext.global.logger.error(
+    new Date().toUTCString() + " uncaughtException:",
+    err.message
+  );
   operationContext.global.logger.error(err.stack);
   logger.shutdown(() => {
     process.exit(1);

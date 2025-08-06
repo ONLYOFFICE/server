@@ -30,20 +30,19 @@
  *
  */
 
-'use strict';
+"use strict";
 
-const { cp, rm, mkdir } = require('fs/promises');
-const { stat, readFile, writeFile } = require('fs/promises');
-var path = require('path');
+const {cp, rm, mkdir} = require("fs/promises");
+const {stat, readFile, writeFile} = require("fs/promises");
+var path = require("path");
 var utils = require("../utils");
-
 
 function getFilePath(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
   return path.join(storageFolderPath, strPath);
 }
 function getOutputPath(strPath) {
-  return strPath.replace(/\\/g, '/');
+  return strPath.replace(/\\/g, "/");
 }
 
 async function headObject(storageCfg, strPath) {
@@ -64,7 +63,7 @@ async function createReadStream(storageCfg, strPath) {
   let readStream = await utils.promiseCreateReadStream(fsPath);
   return {
     contentLength: contentLength,
-    readStream: readStream
+    readStream: readStream,
   };
 }
 
@@ -95,7 +94,7 @@ async function listObjects(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
   let fsPath = getFilePath(storageCfg, strPath);
   let values = await utils.listObjects(fsPath);
-  return values.map(function(curvalue) {
+  return values.map(function (curvalue) {
     return getOutputPath(curvalue.substring(storageFolderPath.length + 1));
   });
 }
@@ -124,5 +123,5 @@ module.exports = {
   listObjects,
   deleteObject,
   deletePath,
-  needServeStatic
+  needServeStatic,
 };
