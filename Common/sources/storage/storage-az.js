@@ -8,6 +8,7 @@ const utils = require('../utils');
 const ms = require('ms');
 const commonDefines = require('../commondefines');
 
+
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const cfgCacheStorage = config.get('storage');
 const MAX_DELETE_OBJECTS = 1000;
