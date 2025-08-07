@@ -7,6 +7,7 @@ on:
       - 'tests/integration/withServerInstance/storage.tests.js'
       - 'Common/sources/storage/**'
       - 'DocService/sources/routes/static.js'
+      - '.github/workflows/azureStorageTests.yml'
 
 jobs:
   azure-storage-tests:
@@ -62,6 +63,18 @@ jobs:
             },
             "persistentStorage": {
               "storageFolderName": "files/persistent"
+            },
+            "commandOptions": {
+              "az": {
+                "uploadData": {},
+                "uploadStream": {},
+                "download": {},
+                "syncCopyFromURL": {},
+                "listBlobsFlat": {
+                  "maxPageSize": 1000
+                },
+                "deleteBlob": {}
+              }
             }
           }
           EOF
