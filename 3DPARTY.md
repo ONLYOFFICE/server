@@ -48,7 +48,7 @@
 - multi-integer-range 5.2.0 ([MIT](https://raw.githubusercontent.com/smikitky/node-multi-integer-range/master/LICENSE))
 - multiparty 4.2.3 ([MIT](https://raw.githubusercontent.com/pillarjs/multiparty/master/LICENSE))
 - mysql2 3.13.0 ([MIT](https://raw.githubusercontent.com/sidorares/node-mysql2/master/License))
-- oracledb 6.8.0 ([(Apache-2.0 OR UPL-1.0)](https://raw.githubusercontent.com/oracle/node-oracledb/main/LICENSE.txt))
+- oracledb 6.9.0 ([(Apache-2.0 OR UPL-1.0)](https://raw.githubusercontent.com/oracle/node-oracledb/main/LICENSE.txt))
 - pg 8.14.0 ([MIT](https://raw.githubusercontent.com/brianc/node-postgres/master/LICENSE))
 - redis 4.7.0 ([MIT](https://raw.githubusercontent.com/redis/node-redis/master/LICENSE))
 - retry 0.13.1 ([MIT](https://raw.githubusercontent.com/tim-kos/node-retry/master/License))
