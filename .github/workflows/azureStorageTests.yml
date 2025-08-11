@@ -13,14 +13,22 @@ jobs:
   azure-storage-tests:
     name: Azure Storage Tests
     runs-on: ubuntu-latest
+    env:
+      AZURITE_CONTAINER: azurite-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
 
+      - name: Pre-run cleanup
+        run: |
+          docker rm -f "$AZURITE_CONTAINER" 2>/dev/null || true
+          # Remove legacy container name if it exists (for self-hosted runners or retries)
+          docker rm -f azurite 2>/dev/null || true
+
       - name: Run Azurite docker container
         run: |
-          docker run --name azurite \
+          docker run --name "$AZURITE_CONTAINER" \
             -p 10000:10000 \
             -p 10001:10001 \
             -p 10002:10002 \
@@ -121,3 +129,7 @@ jobs:
 
       - name: Run storage tests
         run: npm run storage-tests
+
+      - name: Final cleanup
+        if: always()
+        run: docker rm -f "$AZURITE_CONTAINER" || true

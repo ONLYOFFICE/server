@@ -7,16 +7,25 @@ on:
       - 'tests/integration/withServerInstance/storage.tests.js'
       - 'Common/sources/storage/**'
       - 'DocService/sources/routes/static.js'
+      - '.github/workflows/s3storageTests.yml'
 
 jobs:
   storage-tests:
     name: Storage Tests
     runs-on: ubuntu-latest
+    env:
+      MINIO_CONTAINER: minio-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
+      - name: Pre-run cleanup
+        run: |
+          docker rm -f "$MINIO_CONTAINER" 2>/dev/null || true
+          # Remove legacy container name if it exists (for self-hosted runners or retries)
+          docker rm -f minio 2>/dev/null || true
+
       - name: Run MinIO docker container
         run: |
-          docker run --name minio \
+          docker run --name "$MINIO_CONTAINER" \
             -p 9000:9000 \
             -p 9001:9001 \
             -e "MINIO_ROOT_USER=minioadmin" \
@@ -70,8 +79,12 @@ jobs:
 
       - name: Create MinIO buckets
         run: |
-          docker exec minio mc alias set myminio http://localhost:9000 minioadmin minioadmin
-          docker exec minio mc mb myminio/cache
+          docker exec "$MINIO_CONTAINER" mc alias set myminio http://localhost:9000 minioadmin minioadmin
+          docker exec "$MINIO_CONTAINER" mc mb myminio/cache
 
       - name: Run storage tests
         run: npm run storage-tests
+
+      - name: Final cleanup
+        if: always()
+        run: docker rm -f "$MINIO_CONTAINER" || true
