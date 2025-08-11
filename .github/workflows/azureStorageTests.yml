@@ -23,17 +23,53 @@ jobs:
       - name: Pre-run cleanup
         run: |
           docker rm -f "$AZURITE_CONTAINER" 2>/dev/null || true
-          # Remove legacy container name if it exists (for self-hosted runners or retries)
-          docker rm -f azurite 2>/dev/null || true
 
-      - name: Run Azurite docker container
+      - name: Setup and start Azurite
         run: |
+          # Detect network and set network arguments
+          JOB_NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{printf "%s\n" $k}}{{end}}' "$(hostname)" 2>/dev/null | head -n1 || true)
+          
+          if [ -n "$JOB_NET" ]; then
+            NETWORK_ARGS="--network $JOB_NET"
+          else
+            NETWORK_ARGS=""
+          fi
+          
+          # Start Azurite container
           docker run --name "$AZURITE_CONTAINER" \
+            $NETWORK_ARGS \
             -p 10000:10000 \
             -p 10001:10001 \
             -p 10002:10002 \
             -d mcr.microsoft.com/azure-storage/azurite \
             azurite-blob --blobHost 0.0.0.0 --loose
+
+          # Set host based on network configuration
+          if [ -n "$JOB_NET" ]; then
+            HOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$AZURITE_CONTAINER")
+          else
+            HOST=127.0.0.1
+          fi
+          
+          # Wait for Azurite to be ready
+          echo "Waiting for Azurite at $HOST:10000..."
+          for i in $(seq 1 15); do
+            if curl -sS "http://$HOST:10000/" >/dev/null 2>&1; then
+              echo "Azurite ready"
+              break
+            fi
+            sleep 1
+          done
+          
+          # Verify Azurite is running
+          if ! curl -sS "http://$HOST:10000/" >/dev/null 2>&1; then
+            echo "Azurite failed to start"
+            docker logs "$AZURITE_CONTAINER" || true
+            exit 1
+          fi
+          
+          # Export host for subsequent steps
+          echo "AZURITE_HOST=$HOST" >> "$GITHUB_ENV"
 
       - name: Caching dependencies
         uses: actions/setup-node@v3
@@ -51,18 +87,15 @@ jobs:
           npm --prefix Common ci
           npm --prefix DocService ci
 
-      - name: Setup Azure storage test environment
+      - name: Setup Azure storage environment
         run: |
-          # Wait for Azurite to be ready
-          sleep 15
-          
-          # Create Azure storage configuration
-          cat > Common/config/local.json << 'EOF'
+          # Create minimal Azure storage configuration
+          cat > Common/config/local.json << EOF
           {
             "storage": {
               "name": "storage-az",
               "region": "",
-              "endpoint": "http://127.0.0.1:10000/devstoreaccount1",
+              "endpoint": "http://${AZURITE_HOST:-127.0.0.1}:10000/devstoreaccount1",
               "bucketName": "test-container",
               "storageFolderName": "files",
               "cacheFolderName": "data",
@@ -97,34 +130,13 @@ jobs:
           # Run Node.js script from Common directory where Azure dependencies are installed
           cd Common
           node -e "
-          const { BlobServiceClient, StorageSharedKeyCredential } = require('@azure/storage-blob');
-          
-          async function setupContainer() {
-            try {
-              const accountName = 'devstoreaccount1';
-              const accountKey = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==';
-              const endpoint = 'http://127.0.0.1:10000/devstoreaccount1';
-              
-              const credential = new StorageSharedKeyCredential(accountName, accountKey);
-              const blobServiceClient = new BlobServiceClient(endpoint, credential);
-              const containerClient = blobServiceClient.getContainerClient('test-container');
-              
-              console.log('Creating container...');
-              await containerClient.createIfNotExists();
-              console.log('Container created successfully');
-              
-              // Upload a test file if needed
-              const blockBlobClient = containerClient.getBlockBlobClient('testfile.txt');
-              await blockBlobClient.upload('Test content', Buffer.byteLength('Test content'));
-              console.log('Test file uploaded');
-              
-            } catch (error) {
-              console.error('Error setting up Azure storage:', error);
-              process.exit(1);
-            }
-          }
-          
-          setupContainer();
+          (async () => {
+            const { BlobServiceClient, StorageSharedKeyCredential } = require('@azure/storage-blob');
+            const endpoint = 'http://' + (process.env.AZURITE_HOST || '127.0.0.1') + ':10000/devstoreaccount1';
+            const client = new BlobServiceClient(endpoint, new StorageSharedKeyCredential('devstoreaccount1', 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='));
+            await client.getContainerClient('test-container').createIfNotExists();
+            console.log('Azure environment ready');
+          })().catch(console.error);
           "
 
       - name: Run storage tests
