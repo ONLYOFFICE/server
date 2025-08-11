@@ -136,6 +136,16 @@
 					"MaxKeys": 1000
 				},
 				"deleteObject": {}
+			},
+			"az": {
+				"uploadData": {},
+				"uploadStream": {},
+				"download": {},
+				"syncCopyFromURL": {},
+				"listBlobsFlat": {
+					"maxPageSize": 1000
+				},
+				"deleteBlob": {}
 			}
 		},
 		"urlExpires": 604800,
