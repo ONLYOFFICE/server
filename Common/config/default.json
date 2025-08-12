@@ -91,7 +91,7 @@
 					"email"
 				],
 				"template": {
-					"title": "%s Docs license connection limit warning",
+					"title": "%s Docs license %s limit warning",
 					"body": "Attention! You have reached %s%% of the %s limit set by your license."
 				},
 				"policies": {
@@ -104,7 +104,7 @@
 					"email"
 				],
 				"template": {
-					"title": "%s Docs license connection limit warning",
+					"title": "%s Docs license %s limit warning",
 					"body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
 				},
 				"policies": {

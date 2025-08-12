@@ -3588,7 +3588,7 @@ exports.install = function(server, callbackFunction) {
       }
       if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || 100 !== notificationPercent) {
         const applicationName = (process.env.APPLICATION_NAME || "").toUpperCase();
-        const title = util.format(notificationTemplate.title, applicationName);
+        const title = util.format(notificationTemplate.title, applicationName, notificationLimit);
         const message = util.format(notificationTemplate.body, notificationPercent, notificationLimit);
         if (100 !== notificationPercent) {
           ctx.logger.warn(message);
