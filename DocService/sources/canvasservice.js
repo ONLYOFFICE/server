@@ -1774,6 +1774,10 @@ exports.downloadFile = function(req, res) {
         const downloadResult = yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, true);
         const response = downloadResult.response;
         stream = downloadResult.stream;
+        // Sanitize Content-Disposition by removing control chars (prevents CRLF/header injection)
+        if (response.headers['content-disposition']) {
+          response.headers['content-disposition'] = response.headers['content-disposition'].replace(/[\x00-\x1F\x7F]/g, '');
+        }
         //Set-Cookie resets browser session
         delete response.headers['set-cookie'];
         // Set the response headers to match the target response
