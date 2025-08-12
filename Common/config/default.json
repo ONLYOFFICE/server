@@ -409,6 +409,7 @@
 					"queueTimeout": 60000
 				},
 				"oracleExtraOptions": {
+					"thin": true,
 					"connectTimeout": 60
 				},
 				"msSqlExtraOptions": {
