@@ -3540,12 +3540,13 @@ exports.install = function(server, callbackFunction) {
     const c_LR = constants.LICENSE_RESULT;
     let licenseType = licenseInfo.type;
     if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
-      let notificationLimit;
+      let notificationLimit, notificationLimitTitle;
       let notificationTemplate = tenNotificationRuleLicenseLimitEdit;
       let notificationType = notificationTypes.LICENSE_LIMIT_EDIT;
       let notificationPercent = 100;
       if (licenseInfo.usersCount) {
         const nowUTC = getLicenseNowUtc();
+        notificationLimitTitle = 'user';
         notificationLimit = 'users';
         if(isLiveViewer) {
           notificationTemplate = tenNotificationRuleLicenseLimitLiveViewer;
@@ -3565,6 +3566,7 @@ exports.install = function(server, callbackFunction) {
           }
         }
       } else {
+        notificationLimitTitle = 'connection';
         notificationLimit = 'connections';
         if (isLiveViewer) {
           notificationTemplate = tenNotificationRuleLicenseLimitLiveViewer;
@@ -3588,7 +3590,7 @@ exports.install = function(server, callbackFunction) {
       }
       if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || 100 !== notificationPercent) {
         const applicationName = (process.env.APPLICATION_NAME || "").toUpperCase();
-        const title = util.format(notificationTemplate.title, applicationName, notificationLimit);
+        const title = util.format(notificationTemplate.title, applicationName, notificationLimitTitle);
         const message = util.format(notificationTemplate.body, notificationPercent, notificationLimit);
         if (100 !== notificationPercent) {
           ctx.logger.warn(message);
