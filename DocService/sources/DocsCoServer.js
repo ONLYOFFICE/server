@@ -536,6 +536,7 @@ function fillJwtByConnection(ctx, conn) {
     user.id = conn.user.idOriginal;
     user.name = conn.user.username;
     user.index = conn.user.indexUser;
+    user.customerId = conn.user.customerId;
     if (conn.coEditingMode) {
       edit.coEditing = {mode: conn.coEditingMode};
     }
@@ -2504,6 +2505,9 @@ exports.install = function(server, callbackFunction) {
           //like in Common.Utils.fillUserInfo(web-apps/apps/common/main/lib/util/utils.js)
           dataUser.username = user.group.toString() + String.fromCharCode(160) + dataUser.username;
         }
+        if (user.customerId) {
+          dataUser.customerId = user.customerId;
+        }
       }
       if (edit.user && edit.user.name) {
         data.denyChangeName = true;
@@ -2691,6 +2695,7 @@ exports.install = function(server, callbackFunction) {
         id: curUserId,
         idOriginal: curUserIdOriginal,
         username: fillUsername(ctx, data),
+        customerId: user.customerId,
         indexUser: curIndexUser,
         view: !isEditMode(data.permissions, data.mode)
       };

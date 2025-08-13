@@ -174,6 +174,8 @@ async function proxyRequest(req, res) {
 
     let docId = '';
     let userId = '';
+    let userName = '';
+    let userCustomerId = '';
     if (tenTokenEnableBrowser) {
       let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
       if (!checkJwtRes || checkJwtRes.err) {
@@ -186,8 +188,11 @@ async function proxyRequest(req, res) {
         });
         return;
       } else {
-        userId = checkJwtRes?.decoded?.editorConfig?.user?.id;
         docId = checkJwtRes?.decoded?.document?.key;
+        userId = checkJwtRes?.decoded?.editorConfig?.user?.id;
+        userName = checkJwtRes?.decoded?.editorConfig?.user?.name;
+        userCustomerId = checkJwtRes?.decoded?.editorConfig?.user?.customerId;
+        
         ctx.setDocId(docId);
         ctx.setUserId(userId);
       }
@@ -249,10 +254,13 @@ async function proxyRequest(req, res) {
         const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
         let [licenseInfo] = await tenantManager.getTenantLicense(ctx);
 
-        let dataObject = {
+        const dataObject = {
           key: docId,
-          user: userId,
-          customer_id: licenseInfo.customerId
+          user: {
+            id: userId,
+            name: userName,
+            customerId: (userCustomerId || licenseInfo.customerId),
+          }
         }
         
         let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
