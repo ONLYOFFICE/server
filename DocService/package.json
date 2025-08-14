@@ -51,6 +51,9 @@
       "../Common/sources/storage/storage-s3.js",
       "../Common/sources/storage/storage-az.js",
       "../Common/node_modules/axios/dist/node/axios.cjs"
+    ],
+    "assets": [
+      "node_modules/oracledb/build/Release/oracledb-*.node"
     ]
   }
 }
