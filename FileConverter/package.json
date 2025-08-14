@@ -19,6 +19,9 @@
       "../Common/sources/storage/storage-az.js",
       "../DocService/sources/editorDataMemory.js",
       "../DocService/sources/editorDataRedis.js"
+    ],
+    "assets": [
+      "../DocService/node_modules/oracledb/build/Release/oracledb-*.node"
     ]
   }
 }
