@@ -182,6 +182,9 @@ const MIN_SAVE_EXPIRATION = 60000;
 const HEALTH_CHECK_KEY_MAX = 10000;
 const SHARD_ID = crypto.randomBytes(16).toString('base64');//16 as guid
 
+// Maximum safe timeout value for Node.js setTimeout (~24.8 days)
+const MAX_TIMEOUT = 2147483647;
+
 const PRECISION = [{name: 'hour', val: ms('1h')}, {name: 'day', val: ms('1d')}, {name: 'week', val: ms('7d')},
   {name: 'month', val: ms('31d')},
 ];
@@ -4536,23 +4539,51 @@ exports.getEditorConnectionsCount = function (req, res) {
 };
 
 // Individual session timeout management functions
+// Note: These functions handle Node.js setTimeout overflow (>24.8 days) by using recursive timeouts
 function createSessionTimeouts(ctx, conn) {
   const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
   const tenExpSessionAbsolute = ms(ctx.getCfg('services.CoAuthoring.expire.sessionabsolute', cfgExpSessionAbsolute));
+  
+  // Validate timeout values
+  if (tenExpSessionIdle < 0 || tenExpSessionAbsolute < 0) {
+    ctx.logger.warn('Invalid session timeout values: idle=%d, absolute=%d', tenExpSessionIdle, tenExpSessionAbsolute);
+    return;
+  }
   
   // Clear any existing timeouts for this connection
   clearSessionTimeouts(conn.id);
   
   // Create absolute timeout (cannot be cancelled except when session ends)
   if (tenExpSessionAbsolute > 0) {
-    const absoluteTimeoutId = setTimeout(() => {
-      handleAbsoluteSessionTimeout(ctx, conn);
-    }, tenExpSessionAbsolute);
+    // Handle long timeouts that exceed Node.js setTimeout limit (~24.8 days)
+    let absoluteTimeoutId;
     
-    sessionTimeouts.set(conn.id, {
-      absolute: absoluteTimeoutId,
-      idle: null
-    });
+    if (tenExpSessionAbsolute > MAX_TIMEOUT) {
+      // For very long timeouts, use a recursive approach with maximum safe intervals
+      ctx.logger.debug('Creating recursive absolute timeout: %d ms (exceeds Node.js limit)', tenExpSessionAbsolute);
+      absoluteTimeoutId = setTimeout(() => {
+        handleAbsoluteSessionTimeout(ctx, conn);
+      }, MAX_TIMEOUT);
+      
+      // Store the remaining time for recursive scheduling
+      sessionTimeouts.set(conn.id, {
+        absolute: absoluteTimeoutId,
+        absoluteRemaining: tenExpSessionAbsolute - MAX_TIMEOUT,
+        idle: null
+      });
+    } else {
+      // Normal timeout within safe limits
+      ctx.logger.debug('Creating normal absolute timeout: %d ms', tenExpSessionAbsolute);
+      absoluteTimeoutId = setTimeout(() => {
+        handleAbsoluteSessionTimeout(ctx, conn);
+      }, tenExpSessionAbsolute);
+      
+      sessionTimeouts.set(conn.id, {
+        absolute: absoluteTimeoutId,
+        absoluteRemaining: 0,
+        idle: null
+      });
+    }
   }
   
   // Create idle timeout (can be rescheduled)
@@ -4564,7 +4595,12 @@ function createSessionTimeouts(ctx, conn) {
 function scheduleIdleTimeout(ctx, conn, tenExpSessionIdle) {
   const nowMs = new Date().getTime();
   const timeSinceLastAction = nowMs - conn.sessionTimeLastAction;
-  const timeUntilIdle = Math.max(0, tenExpSessionIdle - timeSinceLastAction);
+  let timeUntilIdle = Math.max(0, tenExpSessionIdle - timeSinceLastAction);
+  
+  // Ensure timeout doesn't exceed Node.js limit
+  if (timeUntilIdle > MAX_TIMEOUT) {
+    timeUntilIdle = MAX_TIMEOUT;
+  }
   
   const idleTimeoutId = setTimeout(() => {
     handleIdleSessionTimeout(ctx, conn, tenExpSessionIdle);
@@ -4583,6 +4619,31 @@ function scheduleIdleTimeout(ctx, conn, tenExpSessionIdle) {
 }
 
 function handleAbsoluteSessionTimeout(ctx, conn) {
+  const timeouts = sessionTimeouts.get(conn.id);
+  if (!timeouts) {
+    return; // Connection already closed
+  }
+  
+  // Check if we need to schedule another timeout for very long sessions
+  if (timeouts.absoluteRemaining > 0) {
+    const nextTimeout = Math.min(timeouts.absoluteRemaining, MAX_TIMEOUT);
+    
+    ctx.logger.debug('Scheduling next absolute timeout: %d ms remaining, next timeout: %d ms', 
+                    timeouts.absoluteRemaining, nextTimeout);
+    
+    // Schedule next timeout
+    const nextTimeoutId = setTimeout(() => {
+      handleAbsoluteSessionTimeout(ctx, conn);
+    }, nextTimeout);
+    
+    // Update remaining time and timeout ID
+    timeouts.absolute = nextTimeoutId;
+    timeouts.absoluteRemaining -= nextTimeout;
+    
+    return; // Don't close session yet
+  }
+  
+  // Final timeout reached
   if (!conn.sessionIsSendWarning) {
     conn.sessionIsSendWarning = true;
     sendDataSession(ctx, conn, {
