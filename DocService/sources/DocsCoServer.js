@@ -175,6 +175,9 @@ let queue;
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
+// Individual session timeout management
+let sessionTimeouts = new Map(); // Map to store timeout IDs for each connection
+
 const MIN_SAVE_EXPIRATION = 60000;
 const HEALTH_CHECK_KEY_MAX = 10000;
 const SHARD_ID = crypto.randomBytes(16).toString('base64');//16 as guid
@@ -614,6 +617,9 @@ function modifyConnectionEditorToView(ctx, conn) {
     conn.user.view = true;
   }
   delete conn.coEditingMode;
+  
+  // Update idle timeout since user role changed
+  updateIdleTimeout(ctx, conn);
 }
 function getParticipants(docId, excludeClosed, excludeUserId, excludeViewer) {
   return _.filter(connections, function(el) {
@@ -1725,6 +1731,9 @@ exports.install = function(server, callbackFunction) {
       conn.baseUrl = utils.getBaseUrlByConnection(ctx, conn);
       conn.sessionIsSendWarning = false;
       conn.sessionTimeConnect = conn.sessionTimeLastAction = new Date().getTime();
+      
+      // Create individual session timeouts for this connection
+      createSessionTimeouts(ctx, conn);
 
       conn.on('message', function(data) {
         return co(function* () {
@@ -1768,27 +1777,43 @@ exports.install = function(server, callbackFunction) {
                 break;
               case 'message'        :
                 yield* onMessage(ctx, conn, data);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;
               case 'cursor'        :
                 yield* onCursor(ctx, conn, data);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;
               case 'getLock'        :
                 yield getLock(ctx, conn, data, false);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;
               case 'saveChanges'      :
                 yield* saveChanges(ctx, conn, data);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;
               case 'isSaveLock'      :
                 yield* isSaveLock(ctx, conn, data);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;
               case 'unSaveLock'      :
                 yield* unSaveLock(ctx, conn, -1, -1, -1);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;	// The index is sent -1, because this is an emergency withdrawal without saving
               case 'getMessages'      :
                 yield* getMessages(ctx, conn, data);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;
               case 'unLockDocument'    :
                 yield* checkEndAuthLock(ctx, data.unlock, data.isSave, docId, conn.user.id, data.releaseLocks, data.deleteIndex, conn);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;
               case 'close':
                 yield* closeDocument(ctx, conn);
@@ -1797,6 +1822,8 @@ exports.install = function(server, callbackFunction) {
                 var cmd = new commonDefines.InputCommand(data.message);
                 cmd.fillFromConnection(conn);
                 yield canvasService.openDocument(ctx, conn, cmd);
+                // Update idle timeout on user activity
+                updateIdleTimeout(ctx, conn);
                 break;
               }
               case 'clientLog':
@@ -1814,6 +1841,9 @@ exports.install = function(server, callbackFunction) {
                 ctx.logger.debug("extendSession idletime: %d", data.idletime);
                 conn.sessionIsSendWarning = false;
                 conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
+                
+                // Update idle timeout after extending session
+                updateIdleTimeout(ctx, conn);
                 break;
               case 'forceSaveStart' :
                 var forceSaveRes;
@@ -1854,6 +1884,10 @@ exports.install = function(server, callbackFunction) {
           try {
             ctx.initFromConnection(conn);
             yield ctx.initTenantCache();
+            
+            // Clear session timeouts when connection is closed
+            clearSessionTimeouts(conn.id);
+            
             yield* closeDocument(ctx, conn, reason);
           } catch (err) {
             ctx.logger.error('Error conn close: %s', err.stack);
@@ -1880,6 +1914,9 @@ exports.install = function(server, callbackFunction) {
   function* closeDocument(ctx, conn, reason) {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+
+    // Clear session timeouts when document is closed
+    clearSessionTimeouts(conn.id);
 
     ctx.logger.info("Connection closed or timed out: reason = %s", reason);
     var userLocks, reconnected = false, bHasEditors, bHasChanges;
@@ -2733,14 +2770,17 @@ exports.install = function(server, callbackFunction) {
             ctx.logger.error('auth: access to editor or live viewer is denied for anonymous users');
           }
           modifyConnectionEditorToView(ctx, conn);
-        } else {
-          //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
-          yield* updateEditUsers(ctx, licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
-          if (aggregationCtx && licenseInfoAggregation) {
-            //update server aggregation license
-            yield* updateEditUsers(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, !!data.IsAnonymousUser, isLiveViewer);
+                  } else {
+            //don't check IsAnonymousUser via jwt because substituting it doesn't lead to any trouble
+            yield* updateEditUsers(ctx, licenseInfo, conn.user.idOriginal, !!data.IsAnonymousUser, isLiveViewer);
+            if (aggregationCtx && licenseInfoAggregation) {
+              //update server aggregation license
+              yield* updateEditUsers(aggregationCtx, licenseInfoAggregation, `${ctx.tenant}:${ conn.user.idOriginal}`, !!data.IsAnonymousUser, isLiveViewer);
+            }
+            
+            // Update idle timeout since user role changed (got edit permissions)
+            updateIdleTimeout(ctx, conn);
           }
-        }
       }
 
       // Situation when the user is already disabled from co-authoring
@@ -3749,6 +3789,12 @@ exports.install = function(server, callbackFunction) {
             ctx.logger.warn('start shutdown:%s', shutdownFlag);
             if (shutdownFlag) {
               ctx.logger.warn('active connections: %d', connections.length);
+              
+              // Clear all session timeouts on shutdown
+              for (let [connectionId, timeouts] of sessionTimeouts) {
+                clearSessionTimeouts(connectionId);
+              }
+              
               //do not stop the server, because sockets and all requests will be unavailable
               //bad because you may need to convert the output file and the fact that requests for the CommandService will not be processed
               //server.close();
@@ -3823,6 +3869,11 @@ exports.install = function(server, callbackFunction) {
     let now = Date.now();
     yield editorStat.setEditorConnections(ctx, countEdit, countLiveView, countView, now, PRECISION);
   }
+  /**
+   * expireDoc function - now only handles statistics and presence updates
+   * Session timeout logic has been moved to individual connection timeouts
+   * for better accuracy and performance
+   */
   function expireDoc() {
     return co(function* () {
       let ctx = new operationContext.Context();
@@ -3833,51 +3884,18 @@ exports.install = function(server, callbackFunction) {
         let countViewByShard = 0;
         ctx.logger.debug('expireDoc connections.length = %d', connections.length);
         var nowMs = new Date().getTime();
-        for (var i = 0; i < connections.length; ++i) {
-          var conn = connections[i];
-          ctx.initFromConnection(conn);
-          //todo group by tenant
-          yield ctx.initTenantCache();
-          const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
-          const tenExpSessionAbsolute = ms(ctx.getCfg('services.CoAuthoring.expire.sessionabsolute', cfgExpSessionAbsolute));
-          const tenExpSessionCloseCommand = ms(ctx.getCfg('services.CoAuthoring.expire.sessionclosecommand', cfgExpSessionCloseCommand));
-
-          let maxMs = nowMs + Math.max(tenExpSessionCloseCommand, expDocumentsStep);
-          let tenant = tenants[ctx.tenant];
-          if (!tenant) {
-            tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
-          }
-          //wopi access_token_ttl;
-          if (tenExpSessionAbsolute > 0 || conn.access_token_ttl) {
-            if ((tenExpSessionAbsolute > 0 && maxMs - conn.sessionTimeConnect > tenExpSessionAbsolute ||
-              (conn.access_token_ttl && maxMs > conn.access_token_ttl)) && !conn.sessionIsSendWarning) {
-              conn.sessionIsSendWarning = true;
-              sendDataSession(ctx, conn, {
-                code: constants.SESSION_ABSOLUTE_CODE,
-                reason: constants.SESSION_ABSOLUTE_REASON
-              });
-            } else if (nowMs - conn.sessionTimeConnect > tenExpSessionAbsolute) {
-              ctx.logger.debug('expireDoc close absolute session');
-              sendDataDisconnectReason(ctx, conn, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
-              conn.disconnect(true);
-              continue;
+                  for (var i = 0; i < connections.length; ++i) {
+            var conn = connections[i];
+            ctx.initFromConnection(conn);
+            //todo group by tenant
+            yield ctx.initTenantCache();
+            
+            // Session timeout logic is now handled by individual timeouts
+            // This function only handles statistics and presence updates
+            let tenant = tenants[ctx.tenant];
+            if (!tenant) {
+              tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
             }
-          }
-          if (tenExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
-            if (maxMs - conn.sessionTimeLastAction > tenExpSessionIdle && !conn.sessionIsSendWarning) {
-              conn.sessionIsSendWarning = true;
-              sendDataSession(ctx, conn, {
-                code: constants.SESSION_IDLE_CODE,
-                reason: constants.SESSION_IDLE_REASON,
-                interval: tenExpSessionIdle
-              });
-            } else if (nowMs - conn.sessionTimeLastAction > tenExpSessionIdle) {
-              ctx.logger.debug('expireDoc close idle session');
-              sendDataDisconnectReason(ctx, conn, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
-              conn.disconnect(true);
-              continue;
-            }
-          }
           if (constants.CONN_CLOSED === conn.conn.readyState) {
             ctx.logger.error('expireDoc connection closed');
           }
@@ -4516,3 +4534,107 @@ exports.getEditorConnectionsCount = function (req, res) {
     res.send(count.toString());
   }
 };
+
+// Individual session timeout management functions
+function createSessionTimeouts(ctx, conn) {
+  const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
+  const tenExpSessionAbsolute = ms(ctx.getCfg('services.CoAuthoring.expire.sessionabsolute', cfgExpSessionAbsolute));
+  
+  // Clear any existing timeouts for this connection
+  clearSessionTimeouts(conn.id);
+  
+  // Create absolute timeout (cannot be cancelled except when session ends)
+  if (tenExpSessionAbsolute > 0) {
+    const absoluteTimeoutId = setTimeout(() => {
+      handleAbsoluteSessionTimeout(ctx, conn);
+    }, tenExpSessionAbsolute);
+    
+    sessionTimeouts.set(conn.id, {
+      absolute: absoluteTimeoutId,
+      idle: null
+    });
+  }
+  
+  // Create idle timeout (can be rescheduled)
+  if (tenExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
+    scheduleIdleTimeout(ctx, conn, tenExpSessionIdle);
+  }
+}
+
+function scheduleIdleTimeout(ctx, conn, tenExpSessionIdle) {
+  const nowMs = new Date().getTime();
+  const timeSinceLastAction = nowMs - conn.sessionTimeLastAction;
+  const timeUntilIdle = Math.max(0, tenExpSessionIdle - timeSinceLastAction);
+  
+  const idleTimeoutId = setTimeout(() => {
+    handleIdleSessionTimeout(ctx, conn, tenExpSessionIdle);
+  }, timeUntilIdle);
+  
+  // Update the timeout map
+  const existingTimeouts = sessionTimeouts.get(conn.id);
+  if (existingTimeouts) {
+    existingTimeouts.idle = idleTimeoutId;
+  } else {
+    sessionTimeouts.set(conn.id, {
+      absolute: null,
+      idle: idleTimeoutId
+    });
+  }
+}
+
+function handleAbsoluteSessionTimeout(ctx, conn) {
+  if (!conn.sessionIsSendWarning) {
+    conn.sessionIsSendWarning = true;
+    sendDataSession(ctx, conn, {
+      code: constants.SESSION_ABSOLUTE_CODE,
+      reason: constants.SESSION_ABSOLUTE_REASON
+    });
+  } else {
+    ctx.logger.debug('Session absolute timeout reached, closing connection');
+    sendDataDisconnectReason(ctx, conn, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
+    conn.disconnect(true);
+  }
+}
+
+function handleIdleSessionTimeout(ctx, conn, tenExpSessionIdle) {
+  if (!conn.sessionIsSendWarning) {
+    conn.sessionIsSendWarning = true;
+    sendDataSession(ctx, conn, {
+      code: constants.SESSION_IDLE_CODE,
+      reason: constants.SESSION_IDLE_REASON,
+      interval: tenExpSessionIdle
+    });
+    
+    // Schedule next idle check
+    scheduleIdleTimeout(ctx, conn, tenExpSessionIdle);
+  } else {
+    ctx.logger.debug('Session idle timeout reached, closing connection');
+    sendDataDisconnectReason(ctx, conn, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
+    conn.disconnect(true);
+  }
+}
+
+function clearSessionTimeouts(connectionId) {
+  const timeouts = sessionTimeouts.get(connectionId);
+  if (timeouts) {
+    if (timeouts.absolute) {
+      clearTimeout(timeouts.absolute);
+    }
+    if (timeouts.idle) {
+      clearTimeout(timeouts.idle);
+    }
+    sessionTimeouts.delete(connectionId);
+  }
+}
+
+function updateIdleTimeout(ctx, conn) {
+  const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
+  if (tenExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
+    // Cancel existing idle timeout and create new one
+    const existingTimeouts = sessionTimeouts.get(conn.id);
+    if (existingTimeouts && existingTimeouts.idle) {
+      clearTimeout(existingTimeouts.idle);
+    }
+    scheduleIdleTimeout(ctx, conn, tenExpSessionIdle);
+  }
+}
