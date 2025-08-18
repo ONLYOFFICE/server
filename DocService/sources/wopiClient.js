@@ -549,6 +549,43 @@ async function preOpen(ctx, lockId, docId, fileInfo, userAuth, baseUrl, fileType
   }
   return true;
 }
+
+/**
+ * Prepares document for editing by creating document ID and validating cache
+ * @param {operationContext.Context} ctx - The operation context
+ * @param {string} wopiSrc - The WOPI source URL
+ * @param {Object} fileInfo - File information from WOPI
+ * @param {Object} userAuth - User authentication object
+ * @param {string} fileType - File type
+ * @param {string} baseUrl - Base URL for internal file endpoints
+ * @param {Object} params - Parameters object to update
+ * @returns {Promise<boolean>} Promise resolving to success result
+ */
+async function prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, baseUrl, params) {
+  // Create document ID
+  const docId = createDocId(ctx, wopiSrc, userAuth.mode, fileInfo);
+  params.key = docId;
+
+  // Check and invalidate cache
+  const checkRes = await checkAndInvalidateCache(ctx, docId, fileInfo);
+  if (!checkRes.success) {
+    params.fileInfo = {};
+    return false;
+  }
+  
+  if (!shutdownFlag) {
+    const preOpenRes = await preOpen(ctx, checkRes.lockId, docId, fileInfo, userAuth, baseUrl, fileType);
+    if (!preOpenRes && userAuth.mode !== 'view') {
+      ctx.logger.error('prepareDocumentForEditing error: lock failed, fallback to view mode');
+      userAuth.mode = 'view';
+      params.forcedViewMode = true;
+      return await prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, baseUrl, params);
+    }
+  }
+
+  return true;
+}
+
 function getEditorHtml(req, res) {
   return co(function*() {
     let params = {key: undefined, apiQuery: '', fileInfo: {}, userAuth: {}, queryParams: req.query, token: undefined, documentType: undefined, docs_api_config: {}};
@@ -596,32 +633,32 @@ function getEditorHtml(req, res) {
 
       const canEdit = (fileInfo.UserCanOnlyComment || fileInfo.UserCanWrite || fileInfo.UserCanReview);
       if (!canEdit) {
+        ctx.logger.error('wopiEditor error: edit mode is not allowed');
         mode = 'view';
       }
-      //docId
-      let docId = createDocId(ctx, wopiSrc, mode, fileInfo);
-      ctx.setDocId(fileId);
-      ctx.logger.debug(`wopiEditor`);
-      params.key = docId;
-      let userAuth = params.userAuth = {
-        wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl,
-        hostSessionId: hostSessionId, userSessionId: docId, mode: mode
+      // Create user authentication object
+      const userAuth = params.userAuth = {
+        wopiSrc: wopiSrc,
+        access_token: access_token,
+        access_token_ttl: access_token_ttl,
+        hostSessionId: hostSessionId,
+        userSessionId: undefined, // Will be set after prepareDocumentForEditing
+        mode: mode,
+        forcedViewMode: false
       };
 
-      //check and invalidate cache
-      let checkRes = yield checkAndInvalidateCache(ctx, docId, fileInfo);
-      if (!checkRes.success) {
+      // Prepare document for editing (docId, cache validation)
+      const prepareResult = yield prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, utils.getBaseUrlByRequest(ctx, req), params);
+      if (!prepareResult) {
         params.fileInfo = {};
         return;
       }
-      if (!shutdownFlag) {
-        let preOpenRes = yield preOpen(ctx, checkRes.lockId, docId, fileInfo, userAuth, utils.getBaseUrlByRequest(ctx, req), fileType);
-        if (!preOpenRes) {
-          params.fileInfo = {};
-          return;
-        }
-      }
-
+      
+      // Update userSessionId with the document ID
+      userAuth.userSessionId = params.key;
+      mode = userAuth.mode;
+      ctx.setDocId(params.key);
+      
       tenWopiFileInfoBlockList.forEach((item) => {
         delete params.fileInfo[item];
       });
@@ -632,7 +669,7 @@ function getEditorHtml(req, res) {
         params.token = jwt.sign(params, secret, options);
       }
     } catch (err) {
-      ctx.logger.error('wopiEditor error:%s', err.stack);
+      ctx.logger.error('wopiEditor error: %s', err.stack);
       params.fileInfo = {};
     } finally {
       ctx.logger.debug('wopiEditor render params=%j', params);
@@ -851,7 +888,7 @@ async function renameFile(ctx, wopiParams, name) {
 }
 
 async function refreshFile(ctx, wopiParams, baseUrl) {
-  let res = {};
+  let res;
   try {
     ctx.logger.info('wopi RefreshFile start');
     let userAuth = wopiParams.userAuth;
@@ -864,26 +901,19 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
 
     const fileInfo = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
     const fileType = getFileTypeByInfo(fileInfo);
-    const docId = createDocId(ctx, userAuth.wopiSrc, userAuth.mode, res.fileInfo);
-    res.key = docId;
-    res.userAuth = userAuth;
-    res.fileInfo = fileInfo;
-    res.queryParams = undefined;
+
+    res = {userAuth, fileInfo, queryParams: undefined};
+    const prepareResult = await prepareDocumentForEditing(ctx, userAuth.wopiSrc, fileInfo, userAuth, fileType, baseUrl, res);
+    if (!prepareResult) {
+      return;
+    }
     if (tenTokenEnableBrowser) {
       let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
       let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
       res.token = jwt.sign(res, secret, options);
     }
-    let checkRes = await checkAndInvalidateCache(ctx, docId, fileInfo);
-    if (!checkRes.success) {
-      res = {};
-      return;
-    }
-    let preOpenRes = await preOpen(ctx, checkRes.lockId, docId, fileInfo, userAuth, baseUrl, fileType);
-    if (!preOpenRes) {
-      res = {};
-    }
   } catch (err) {
+    res = undefined;
     ctx.logger.error('wopi error RefreshFile:%s', err.stack);
   } finally {
     ctx.logger.info('wopi RefreshFile end');
