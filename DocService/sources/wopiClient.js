@@ -578,7 +578,7 @@ async function prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileT
     if (!preOpenRes && userAuth.mode !== 'view') {
       ctx.logger.error('prepareDocumentForEditing error: lock failed, fallback to view mode');
       userAuth.mode = 'view';
-      params.forcedViewMode = true;
+      userAuth.forcedViewMode = true;
       return await prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, baseUrl, params);
     }
   }

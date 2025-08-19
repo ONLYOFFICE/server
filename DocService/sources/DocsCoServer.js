@@ -556,8 +556,8 @@ function sendData(ctx, conn, data) {
   const type = data ? data.type : null;
   ctx.logger.debug('sendData: type = %s', type);
 }
-function sendDataWarning(ctx, conn, msg) {
-  sendData(ctx, conn, {type: "warning", message: msg});
+function sendDataWarning(ctx, conn, code, description) {
+  sendData(ctx, conn, {type: "warning", code: code, message: description});
 }
 function sendDataMessage(ctx, conn, msg) {
   if (!conn.permissions || false !== conn.permissions.chat) {
@@ -2351,6 +2351,7 @@ exports.install = function(server, callbackFunction) {
     if (decoded.userAuth) {
       data.documentCallbackUrl = JSON.stringify(decoded.userAuth);
       data.mode = decoded.userAuth.mode;
+      data.forcedViewMode = decoded.userAuth.forcedViewMode;
     }
     if (decoded.queryParams) {
       let queryParams = decoded.queryParams;
@@ -2822,6 +2823,8 @@ exports.install = function(server, callbackFunction) {
           }
           return;
         }
+      } else if (data.forcedViewMode) {
+        sendDataWarning(ctx, conn, constants.FORCED_VIEW_MODE, "Forced view mode");
       }
       //Set the unique ID
       if (bIsRestore) {

@@ -248,6 +248,7 @@ exports.VKEY_TIME_EXPIRE = -124;
 exports.VKEY_TIME_INCORRECT = -125;
 exports.EDITOR_CHANGES = -160;
 exports.PASSWORD = -180;
+exports.FORCED_VIEW_MODE = -200;
 
 //Quorum queues internally only support two priorities: high and normal.
 //Messages without a priority set will be mapped to normal as will priorities 0 - 4.
