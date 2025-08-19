@@ -175,8 +175,323 @@ let queue;
 let shutdownFlag = false;
 let expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
-// Individual session timeout management
-let sessionTimeouts = new Map(); // Map to store timeout IDs for each connection
+// Min-heap based session timeout management
+class SessionTimeoutManager {
+  constructor() {
+    this.heap = []; // Min-heap of timeout entries
+    this.connectionMap = new Map(); // Map connection ID to heap index
+    this.nextTimeoutId = null; // Single timer for next expiring session
+  }
+
+  // Add or update a session timeout
+  addSessionTimeout(connectionId, idleTimeout, absoluteTimeout) {
+    const now = Date.now();
+    
+    // Remove existing timeouts for this connection
+    this.removeSessionTimeout(connectionId);
+    
+    const timeouts = {
+      connectionId,
+      idleExpiry: idleTimeout > 0 ? now + idleTimeout : Infinity,
+      absoluteExpiry: absoluteTimeout > 0 ? now + absoluteTimeout : Infinity,
+      isIdle: true, // Track if this is an idle or absolute timeout
+      heapIndex: -1
+    };
+    
+    // Insert into heap
+    this.insert(timeouts);
+    
+    // Schedule next timer if needed
+    this.scheduleNextTimer();
+  }
+
+  // Remove session timeouts for a connection
+  removeSessionTimeout(connectionId) {
+    const existing = this.connectionMap.get(connectionId);
+    if (existing !== undefined) {
+      this.removeFromHeap(existing.heapIndex);
+      this.connectionMap.delete(connectionId);
+    }
+  }
+
+  // Update idle timeout for a connection (e.g., after user activity)
+  updateIdleTimeout(connectionId, newIdleTimeout) {
+    const existing = this.connectionMap.get(connectionId);
+    if (existing && newIdleTimeout > 0) {
+      const now = Date.now();
+      existing.idleExpiry = now + newIdleTimeout;
+      
+      // Re-heapify if this affects the next timeout
+      if (existing.heapIndex === 0) {
+        this.heapifyDown(0);
+      } else {
+        this.heapifyUp(existing.heapIndex);
+      }
+      
+      // Reschedule timer if needed
+      this.scheduleNextTimer();
+    }
+  }
+
+  // Insert new timeout entry into heap
+  insert(timeout) {
+    timeout.heapIndex = this.heap.length;
+    this.heap.push(timeout);
+    this.heapifyUp(timeout.heapIndex);
+    this.connectionMap.set(timeout.connectionId, timeout);
+  }
+
+  // Remove timeout entry from heap by index
+  removeFromHeap(index) {
+    if (index < 0 || index >= this.heap.length) return;
+    
+    const lastIndex = this.heap.length - 1;
+    if (index === lastIndex) {
+      this.heap.pop();
+    } else {
+      // Move last element to this position
+      this.heap[index] = this.heap[lastIndex];
+      this.heap[index].heapIndex = index;
+      this.heap.pop();
+      
+      // Re-heapify
+      if (index > 0 && this.heap[this.parent(index)].expiry > this.heap[index].expiry) {
+        this.heapifyUp(index);
+      } else {
+        this.heapifyDown(index);
+      }
+    }
+  }
+
+  // Get the next expiring timeout
+  peekNext() {
+    return this.heap.length > 0 ? this.heap[0] : null;
+  }
+
+  // Remove and return the next expiring timeout
+  extractNext() {
+    if (this.heap.length === 0) return null;
+    
+    const next = this.heap[0];
+    this.removeFromHeap(0);
+    this.connectionMap.delete(next.connectionId);
+    
+    return next;
+  }
+
+  // Heap utility methods
+  parent(index) { return Math.floor((index - 1) / 2); }
+  leftChild(index) { return 2 * index + 1; }
+  rightChild(index) { return 2 * index + 2; }
+
+  heapifyUp(index) {
+    while (index > 0) {
+      const parentIndex = this.parent(index);
+      if (this.heap[parentIndex].expiry <= this.heap[index].expiry) break;
+      
+      this.swap(index, parentIndex);
+      index = parentIndex;
+    }
+  }
+
+  heapifyDown(index) {
+    while (true) {
+      let smallest = index;
+      const left = this.leftChild(index);
+      const right = this.rightChild(index);
+      
+      if (left < this.heap.length && this.heap[left].expiry < this.heap[smallest].expiry) {
+        smallest = left;
+      }
+      
+      if (right < this.heap.length && this.heap[right].expiry < this.heap[smallest].expiry) {
+        smallest = right;
+      }
+      
+      if (smallest === index) break;
+      
+      this.swap(index, smallest);
+      index = smallest;
+    }
+  }
+
+  swap(i, j) {
+    [this.heap[i], this.heap[j]] = [this.heap[j], this.heap[i]];
+    this.heap[i].heapIndex = i;
+    this.heap[j].heapIndex = j;
+  }
+
+  // Get expiry time for comparison (earlier of idle or absolute)
+  getExpiry(timeout) {
+    return Math.min(timeout.idleExpiry, timeout.absoluteExpiry);
+  }
+
+  // Schedule the next timer
+  scheduleNextTimer() {
+    // Clear existing timer
+    if (this.nextTimeoutId) {
+      clearTimeout(this.nextTimeoutId);
+      this.nextTimeoutId = null;
+    }
+    
+    const next = this.peekNext();
+    if (!next) return;
+    
+    const now = Date.now();
+    const nextExpiry = this.getExpiry(next);
+    const delay = Math.max(0, nextExpiry - now);
+    
+    // Ensure delay doesn't exceed Node.js limit
+    const MAX_TIMEOUT = 2147483647;
+    const actualDelay = Math.min(delay, MAX_TIMEOUT);
+    
+    this.nextTimeoutId = setTimeout(() => {
+      this.processNextTimeout();
+    }, actualDelay);
+  }
+
+  // Process the next expiring timeout
+  processNextTimeout() {
+    this.nextTimeoutId = null;
+    
+    const next = this.peekNext();
+    if (!next) return;
+    
+    const now = Date.now();
+    
+    // Check if timeout has actually expired
+    if (this.getExpiry(next) > now) {
+      // Reschedule for the actual expiry time
+      this.scheduleNextTimer();
+      return;
+    }
+    
+    // Process expired timeout
+    const expired = this.extractNext();
+    
+    // Determine which timeout expired
+    if (expired.idleExpiry <= now && expired.absoluteExpiry <= now) {
+      // Both expired - absolute takes precedence
+      this.handleTimeoutExpired(expired.connectionId, 'absolute');
+    } else if (expired.idleExpiry <= now) {
+      // Only idle expired
+      this.handleTimeoutExpired(expired.connectionId, 'idle');
+    } else if (expired.absoluteExpiry <= now) {
+      // Only absolute expired
+      this.handleTimeoutExpired(expired.connectionId, 'absolute');
+    }
+    
+    // Schedule next timer
+    this.scheduleNextTimer();
+  }
+
+  // Handle timeout expiration
+  handleTimeoutExpired(connectionId, type) {
+    // Find the connection
+    const conn = connections.find(c => c.id === connectionId);
+    if (!conn) return;
+    
+    // Create context for the connection
+    const ctx = new operationContext.Context();
+    ctx.initFromConnection(conn);
+    
+    if (type === 'absolute') {
+      this.handleAbsoluteSessionTimeout(ctx, conn);
+    } else if (type === 'idle') {
+      this.handleIdleSessionTimeout(ctx, conn);
+    }
+  }
+
+  // Handle absolute session timeout
+  handleAbsoluteSessionTimeout(ctx, conn) {
+    if (!conn.sessionIsSendWarning) {
+      conn.sessionIsSendWarning = true;
+      sendDataSession(ctx, conn, {
+        code: constants.SESSION_ABSOLUTE_CODE,
+        reason: constants.SESSION_ABSOLUTE_REASON
+      });
+      
+      // Re-add to heap for final timeout
+      const tenExpSessionAbsolute = ms(ctx.getCfg('services.CoAuthoring.expire.sessionabsolute', cfgExpSessionAbsolute));
+      if (tenExpSessionAbsolute > 0) {
+        this.addSessionTimeout(conn.id, 0, tenExpSessionAbsolute);
+      }
+    } else {
+      ctx.logger.debug('Session absolute timeout reached, closing connection');
+      sendDataDisconnectReason(ctx, conn, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
+      conn.disconnect(true);
+    }
+  }
+
+  // Handle idle session timeout
+  handleIdleSessionTimeout(ctx, conn) {
+    if (!conn.sessionIsSendWarning) {
+      conn.sessionIsSendWarning = true;
+      sendDataSession(ctx, conn, {
+        code: constants.SESSION_IDLE_CODE,
+        reason: constants.SESSION_IDLE_REASON,
+        interval: ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle))
+      });
+      
+      // Re-add to heap for final timeout
+      const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
+      if (tenExpSessionIdle > 0) {
+        this.addSessionTimeout(conn.id, tenExpSessionIdle, 0);
+      }
+    } else {
+      ctx.logger.debug('Session idle timeout reached, closing connection');
+      sendDataDisconnectReason(ctx, conn, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
+      conn.disconnect(true);
+    }
+  }
+
+  // Clear all timeouts (e.g., on shutdown)
+  clearAll() {
+    if (this.nextTimeoutId) {
+      clearTimeout(this.nextTimeoutId);
+      this.nextTimeoutId = null;
+    }
+    this.heap = [];
+    this.connectionMap.clear();
+  }
+
+  // Get heap size for debugging
+  size() {
+    return this.heap.length;
+  }
+
+  // Get statistics for monitoring
+  getStats() {
+    const now = Date.now();
+    const nextTimeout = this.peekNext();
+    const nextExpiry = nextTimeout ? this.getExpiry(nextTimeout) : null;
+    
+    return {
+      totalTimeouts: this.heap.length,
+      nextTimeoutIn: nextExpiry ? Math.max(0, nextExpiry - now) : null,
+      nextTimeoutType: nextTimeout ? (nextTimeout.idleExpiry <= nextTimeout.absoluteExpiry ? 'idle' : 'absolute') : null,
+      hasActiveTimer: !!this.nextTimeoutId
+    };
+  }
+
+  // Log current state for debugging
+  logState() {
+    const stats = this.getStats();
+    console.log('SessionTimeoutManager State:', stats);
+    
+    if (this.heap.length > 0) {
+      console.log('Next 5 timeouts:');
+      for (let i = 0; i < Math.min(5, this.heap.length); i++) {
+        const timeout = this.heap[i];
+        const now = Date.now();
+        console.log(`  ${i}: conn=${timeout.connectionId}, idle=${timeout.idleExpiry - now}ms, absolute=${timeout.absoluteExpiry - now}ms`);
+      }
+    }
+  }
+}
+
+// Global timeout manager instance
+const sessionTimeoutManager = new SessionTimeoutManager();
 
 const MIN_SAVE_EXPIRATION = 60000;
 const HEALTH_CHECK_KEY_MAX = 10000;
@@ -3794,9 +4109,7 @@ exports.install = function(server, callbackFunction) {
               ctx.logger.warn('active connections: %d', connections.length);
               
               // Clear all session timeouts on shutdown
-              for (let [connectionId, timeouts] of sessionTimeouts) {
-                clearSessionTimeouts(connectionId);
-              }
+              sessionTimeoutManager.clearAll();
               
               //do not stop the server, because sockets and all requests will be unavailable
               //bad because you may need to convert the output file and the fact that requests for the CommandService will not be processed
@@ -3872,33 +4185,40 @@ exports.install = function(server, callbackFunction) {
     let now = Date.now();
     yield editorStat.setEditorConnections(ctx, countEdit, countLiveView, countView, now, PRECISION);
   }
-  /**
+    /**
    * expireDoc function - now only handles statistics and presence updates
-   * Session timeout logic has been moved to individual connection timeouts
+   * Session timeout logic has been moved to min-heap based timeout manager
    * for better accuracy and performance
    */
   function expireDoc() {
     return co(function* () {
       let ctx = new operationContext.Context();
       try {
+        // Log timeout manager statistics periodically
+        const timeoutStats = sessionTimeoutManager.getStats();
+        ctx.logger.debug('SessionTimeoutManager: %d timeouts, next in %d ms (%s)', 
+                        timeoutStats.totalTimeouts, 
+                        timeoutStats.nextTimeoutIn || 0, 
+                        timeoutStats.nextTimeoutType || 'none');
+        
         let tenants = {};
         let countEditByShard = 0;
         let countLiveViewByShard = 0;
         let countViewByShard = 0;
         ctx.logger.debug('expireDoc connections.length = %d', connections.length);
         var nowMs = new Date().getTime();
-                  for (var i = 0; i < connections.length; ++i) {
-            var conn = connections[i];
-            ctx.initFromConnection(conn);
-            //todo group by tenant
-            yield ctx.initTenantCache();
-            
-            // Session timeout logic is now handled by individual timeouts
-            // This function only handles statistics and presence updates
-            let tenant = tenants[ctx.tenant];
-            if (!tenant) {
-              tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
-            }
+        for (var i = 0; i < connections.length; ++i) {
+          var conn = connections[i];
+          ctx.initFromConnection(conn);
+          //todo group by tenant
+          yield ctx.initTenantCache();
+          
+          // Session timeout logic is now handled by min-heap based timeout manager
+          // This function only handles statistics and presence updates
+          let tenant = tenants[ctx.tenant];
+          if (!tenant) {
+            tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
+          }
           if (constants.CONN_CLOSED === conn.conn.readyState) {
             ctx.logger.error('expireDoc connection closed');
           }
@@ -4538,8 +4858,7 @@ exports.getEditorConnectionsCount = function (req, res) {
   }
 };
 
-// Individual session timeout management functions
-// Note: These functions handle Node.js setTimeout overflow (>24.8 days) by using recursive timeouts
+// Simplified session timeout management using the min-heap system
 function createSessionTimeouts(ctx, conn) {
   const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
   const tenExpSessionAbsolute = ms(ctx.getCfg('services.CoAuthoring.expire.sessionabsolute', cfgExpSessionAbsolute));
@@ -4550,152 +4869,18 @@ function createSessionTimeouts(ctx, conn) {
     return;
   }
   
-  // Clear any existing timeouts for this connection
-  clearSessionTimeouts(conn.id);
-  
-  // Create absolute timeout (cannot be cancelled except when session ends)
-  if (tenExpSessionAbsolute > 0) {
-    // Handle long timeouts that exceed Node.js setTimeout limit (~24.8 days)
-    let absoluteTimeoutId;
-    
-    if (tenExpSessionAbsolute > MAX_TIMEOUT) {
-      // For very long timeouts, use a recursive approach with maximum safe intervals
-      ctx.logger.debug('Creating recursive absolute timeout: %d ms (exceeds Node.js limit)', tenExpSessionAbsolute);
-      absoluteTimeoutId = setTimeout(() => {
-        handleAbsoluteSessionTimeout(ctx, conn);
-      }, MAX_TIMEOUT);
-      
-      // Store the remaining time for recursive scheduling
-      sessionTimeouts.set(conn.id, {
-        absolute: absoluteTimeoutId,
-        absoluteRemaining: tenExpSessionAbsolute - MAX_TIMEOUT,
-        idle: null
-      });
-    } else {
-      // Normal timeout within safe limits
-      ctx.logger.debug('Creating normal absolute timeout: %d ms', tenExpSessionAbsolute);
-      absoluteTimeoutId = setTimeout(() => {
-        handleAbsoluteSessionTimeout(ctx, conn);
-      }, tenExpSessionAbsolute);
-      
-      sessionTimeouts.set(conn.id, {
-        absolute: absoluteTimeoutId,
-        absoluteRemaining: 0,
-        idle: null
-      });
-    }
-  }
-  
-  // Create idle timeout (can be rescheduled)
-  if (tenExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
-    scheduleIdleTimeout(ctx, conn, tenExpSessionIdle);
-  }
-}
-
-function scheduleIdleTimeout(ctx, conn, tenExpSessionIdle) {
-  const nowMs = new Date().getTime();
-  const timeSinceLastAction = nowMs - conn.sessionTimeLastAction;
-  let timeUntilIdle = Math.max(0, tenExpSessionIdle - timeSinceLastAction);
-  
-  // Ensure timeout doesn't exceed Node.js limit
-  if (timeUntilIdle > MAX_TIMEOUT) {
-    timeUntilIdle = MAX_TIMEOUT;
-  }
-  
-  const idleTimeoutId = setTimeout(() => {
-    handleIdleSessionTimeout(ctx, conn, tenExpSessionIdle);
-  }, timeUntilIdle);
-  
-  // Update the timeout map
-  const existingTimeouts = sessionTimeouts.get(conn.id);
-  if (existingTimeouts) {
-    existingTimeouts.idle = idleTimeoutId;
-  } else {
-    sessionTimeouts.set(conn.id, {
-      absolute: null,
-      idle: idleTimeoutId
-    });
-  }
-}
-
-function handleAbsoluteSessionTimeout(ctx, conn) {
-  const timeouts = sessionTimeouts.get(conn.id);
-  if (!timeouts) {
-    return; // Connection already closed
-  }
-  
-  // Check if we need to schedule another timeout for very long sessions
-  if (timeouts.absoluteRemaining > 0) {
-    const nextTimeout = Math.min(timeouts.absoluteRemaining, MAX_TIMEOUT);
-    
-    ctx.logger.debug('Scheduling next absolute timeout: %d ms remaining, next timeout: %d ms', 
-                    timeouts.absoluteRemaining, nextTimeout);
-    
-    // Schedule next timeout
-    const nextTimeoutId = setTimeout(() => {
-      handleAbsoluteSessionTimeout(ctx, conn);
-    }, nextTimeout);
-    
-    // Update remaining time and timeout ID
-    timeouts.absolute = nextTimeoutId;
-    timeouts.absoluteRemaining -= nextTimeout;
-    
-    return; // Don't close session yet
-  }
-  
-  // Final timeout reached
-  if (!conn.sessionIsSendWarning) {
-    conn.sessionIsSendWarning = true;
-    sendDataSession(ctx, conn, {
-      code: constants.SESSION_ABSOLUTE_CODE,
-      reason: constants.SESSION_ABSOLUTE_REASON
-    });
-  } else {
-    ctx.logger.debug('Session absolute timeout reached, closing connection');
-    sendDataDisconnectReason(ctx, conn, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
-    conn.disconnect(true);
-  }
-}
-
-function handleIdleSessionTimeout(ctx, conn, tenExpSessionIdle) {
-  if (!conn.sessionIsSendWarning) {
-    conn.sessionIsSendWarning = true;
-    sendDataSession(ctx, conn, {
-      code: constants.SESSION_IDLE_CODE,
-      reason: constants.SESSION_IDLE_REASON,
-      interval: tenExpSessionIdle
-    });
-    
-    // Schedule next idle check
-    scheduleIdleTimeout(ctx, conn, tenExpSessionIdle);
-  } else {
-    ctx.logger.debug('Session idle timeout reached, closing connection');
-    sendDataDisconnectReason(ctx, conn, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
-    conn.disconnect(true);
-  }
-}
-
-function clearSessionTimeouts(connectionId) {
-  const timeouts = sessionTimeouts.get(connectionId);
-  if (timeouts) {
-    if (timeouts.absolute) {
-      clearTimeout(timeouts.absolute);
-    }
-    if (timeouts.idle) {
-      clearTimeout(timeouts.idle);
-    }
-    sessionTimeouts.delete(connectionId);
-  }
+  // Add to timeout manager (handles both idle and absolute timeouts)
+  sessionTimeoutManager.addSessionTimeout(conn.id, tenExpSessionIdle, tenExpSessionAbsolute);
 }
 
 function updateIdleTimeout(ctx, conn) {
   const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
   if (tenExpSessionIdle > 0 && !(conn.user?.view || conn.isCloseCoAuthoring)) {
-    // Cancel existing idle timeout and create new one
-    const existingTimeouts = sessionTimeouts.get(conn.id);
-    if (existingTimeouts && existingTimeouts.idle) {
-      clearTimeout(existingTimeouts.idle);
-    }
-    scheduleIdleTimeout(ctx, conn, tenExpSessionIdle);
+    // Update idle timeout in the manager
+    sessionTimeoutManager.updateIdleTimeout(conn.id, tenExpSessionIdle);
   }
+}
+
+function clearSessionTimeouts(connectionId) {
+  sessionTimeoutManager.removeSessionTimeout(connectionId);
 }
