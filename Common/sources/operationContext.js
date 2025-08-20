@@ -43,12 +43,13 @@ function Context(){
   this.logger = logger.getLogger('nodeJS');
   this.initDefault();
 }
-Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiSrc) {
+Context.prototype.init = function(tenant, docId, userId, opt_shardKey, opt_WopiSrc, opt_userSessionId) {
   this.setTenant(tenant);
   this.setDocId(docId);
   this.setUserId(userId);
   this.setShardKey(opt_shardKey);
   this.setWopiSrc(opt_WopiSrc);
+  this.setUserSessionId(opt_userSessionId);
 
   this.config = null;
   this.secret = null;
@@ -72,21 +73,23 @@ Context.prototype.initFromConnection = function(conn) {
   let userId = conn.user?.id;
   let shardKey = utils.getShardKeyByConnection(this, conn);
   let wopiSrc = utils.getWopiSrcByConnection(this, conn);
-  this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc);
+  let userSessionId = utils.getSessionIdByConnection(this, conn);
+  this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc, userSessionId);
 };
 Context.prototype.initFromRequest = function(req) {
   let tenant = tenantManager.getTenantByRequest(this, req);
   let shardKey = utils.getShardKeyByRequest(this, req);
   let wopiSrc = utils.getWopiSrcByRequest(this, req);
-  this.init(tenant, this.docId, this.userId, shardKey, wopiSrc);
+  let userSessionId = utils.getSessionIdByRequest(this, req);
+  this.init(tenant, this.docId, this.userId, shardKey, wopiSrc, userSessionId);
 };
 Context.prototype.initFromTaskQueueData = function(task) {
   let ctx = task.getCtx();
-  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
+  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc, ctx.userSessionId);
 };
 Context.prototype.initFromPubSub = function(data) {
   let ctx = data.ctx;
-  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
+  this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc, ctx.userSessionId);
 };
 Context.prototype.initTenantCache = async function() {
   const runtimeConfig = await runtimeConfigManager.getConfig(this);
@@ -114,11 +117,18 @@ Context.prototype.setShardKey = function(shardKey) {
 Context.prototype.setWopiSrc = function(wopiSrc) {
   this.wopiSrc = wopiSrc;
 };
+Context.prototype.setUserSessionId = function(userSessionId) {
+  if (userSessionId) {
+    this.userSessionId = userSessionId;
+    this.logger.addContext('USERSESSIONID', userSessionId);
+  }
+};
 Context.prototype.toJSON = function() {
   return {
     tenant: this.tenant,
     docId: this.docId,
     userId: this.userId,
+    userSessionId: this.userSessionId,
     shardKey: this.shardKey,
     wopiSrc: this.wopiSrc
   }

@@ -1602,6 +1602,9 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     if (ctx.wopiSrc) {
       res += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
     }
+    if (ctx.userSessionId) {
+      res += `&${constants.USER_SESSION_ID_NAME}=${encodeURIComponent(ctx.userSessionId)}`;
+    }
     res += `&filename=${userFriendlyName}`;
     return res;
   });

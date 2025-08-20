@@ -36,6 +36,7 @@ var config = require('config');
 var util = require('util');
 
 var log4js = require('log4js');
+const layouts = require('log4js/lib/layouts');
 
 // https://stackoverflow.com/a/36643588
 var dateToJSONWithTZ = function (d) {
@@ -60,6 +61,23 @@ log4js.addLayout('json', function(config) {
   	delete logEvent['data'];
   	return JSON.stringify(logEvent);
   }
+});
+
+/**
+ * Custom pattern layout that supports %x{usid} using USERSESSIONID from context.
+ * @param {object} cfg
+ * @returns {function}
+ */
+log4js.addLayout('patternWithTokens', function(cfg) {
+  const pattern = (cfg && cfg.pattern) ? cfg.pattern : '%m';
+  const baseTokens = (cfg && cfg.tokens) ? cfg.tokens : {};
+  const tokens = Object.assign({}, baseTokens, {
+    usid: function(ev) {
+      const id = ev && ev.context && ev.context.USERSESSIONID;
+      return id ? ` [${id}]` : '';
+    }
+  });
+  return layouts.patternLayout(pattern, tokens);
 });
 
 log4js.configure(config.get('log.filePath'));

@@ -52,6 +52,7 @@ exports.DEFAULT_USER_ID = 'userId';
 exports.ALLOWED_PROTO = /^https?$/i;
 exports.SHARD_KEY_WOPI_NAME = 'WOPISrc';
 exports.SHARD_KEY_API_NAME = 'shardkey';
+exports.USER_SESSION_ID_NAME = 'usid';
 
 exports.RIGHTS = {
   None    : 0,

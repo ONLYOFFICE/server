@@ -32,6 +32,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const path = require('path');
 const { pipeline } = require('node:stream/promises');
 const {URL} = require('url');
@@ -576,7 +577,7 @@ async function prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileT
   if (!shutdownFlag) {
     const preOpenRes = await preOpen(ctx, checkRes.lockId, docId, fileInfo, userAuth, baseUrl, fileType);
     if (!preOpenRes && userAuth.mode !== 'view') {
-      ctx.logger.error('prepareDocumentForEditing error: lock failed, fallback to view mode');
+      ctx.logger.warn('prepareDocumentForEditing error: lock failed, fallback to view mode');
       userAuth.mode = 'view';
       userAuth.forcedViewMode = true;
       return await prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, baseUrl, params);
@@ -601,6 +602,8 @@ function getEditorHtml(req, res) {
       let wopiSrc = req.query['wopisrc'];
       let fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       ctx.setDocId(fileId);
+      let usid = req.query['usid'] || crypto.randomUUID();
+      ctx.setUserSessionId(usid);
 
       ctx.logger.info('wopiEditor start');
       ctx.logger.debug(`wopiEditor req.url:%s`, req.url);
@@ -610,7 +613,6 @@ function getEditorHtml(req, res) {
       params.documentType = req.params.documentType;
       let mode = req.params.mode;
       let sc = req.query['sc'];
-      let hostSessionId = req.query['hid'];
       let lang = req.query['lang'];
       let ui = req.query['ui'];
       let access_token = req.body['access_token'] || "";
@@ -619,7 +621,15 @@ function getEditorHtml(req, res) {
       if (docs_api_config) {
         params.docs_api_config = JSON.parse(docs_api_config);
       }
-
+      // Create user authentication object
+      const userAuth = params.userAuth = {
+        wopiSrc: wopiSrc,
+        access_token: access_token,
+        access_token_ttl: access_token_ttl,
+        userSessionId: usid,
+        mode: mode,
+        forcedViewMode: false
+      };
 
       let fileInfo = params.fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token, sc);
       if (!fileInfo) {
@@ -633,19 +643,10 @@ function getEditorHtml(req, res) {
 
       const canEdit = (fileInfo.UserCanOnlyComment || fileInfo.UserCanWrite || fileInfo.UserCanReview);
       if (!canEdit) {
-        ctx.logger.error('wopiEditor error: edit mode is not allowed');
-        mode = 'view';
+        ctx.logger.warn('wopiEditor: edit mode is not allowed, fallback to view mode');
+        userAuth.mode = 'view';
+        userAuth.forcedViewMode = true;
       }
-      // Create user authentication object
-      const userAuth = params.userAuth = {
-        wopiSrc: wopiSrc,
-        access_token: access_token,
-        access_token_ttl: access_token_ttl,
-        hostSessionId: hostSessionId,
-        userSessionId: undefined, // Will be set after prepareDocumentForEditing
-        mode: mode,
-        forcedViewMode: false
-      };
 
       // Prepare document for editing (docId, cache validation)
       const prepareResult = yield prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, utils.getBaseUrlByRequest(ctx, req), params);
@@ -654,8 +655,6 @@ function getEditorHtml(req, res) {
         return;
       }
       
-      // Update userSessionId with the document ID
-      userAuth.userSessionId = params.key;
       mode = userAuth.mode;
       ctx.setDocId(params.key);
       
@@ -1054,7 +1053,7 @@ function getWopiParams(lockId, fileInfo, wopiSrc, access_token, access_token_ttl
   let commonInfo = {lockId: lockId, fileInfo: fileInfo};
   let userAuth = {
     wopiSrc: wopiSrc, access_token: access_token, access_token_ttl: access_token_ttl,
-    hostSessionId: null, userSessionId: null, mode: null
+    userSessionId: null, mode: null
   };
   return {commonInfo: commonInfo, userAuth: userAuth, LastModifiedTime: null};
 }
