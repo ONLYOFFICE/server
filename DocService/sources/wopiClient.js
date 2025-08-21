@@ -594,7 +594,6 @@ function getEditorHtml(req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
       const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
       const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
       const tenWopiFileInfoBlockList = ctx.getCfg('wopi.fileInfoBlockList', cfgWopiFileInfoBlockList);
@@ -662,11 +661,9 @@ function getEditorHtml(req, res) {
         delete params.fileInfo[item];
       });
 
-      if (tenTokenEnableBrowser) {
-        let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-        params.token = jwt.sign(params, secret, options);
-      }
+      let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+      let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
+      params.token = jwt.sign(params, secret, options);
     } catch (err) {
       ctx.logger.error('wopiEditor error: %s', err.stack);
       params.fileInfo = {};
@@ -689,7 +686,6 @@ function getConverterHtml(req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
       const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
       const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
       const tenWopiHost = ctx.getCfg('wopi.host', cfgWopiHost);
@@ -723,14 +719,12 @@ function getConverterHtml(req, res) {
         params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
         params.statusHandler += `?${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrc)}&access_token=${encodeURIComponent(access_token)}`;
         params.statusHandler += `&targetext=${encodeURIComponent(targetext)}&docId=${encodeURIComponent(docId)}`;
-        if (tenTokenEnableBrowser) {
-          let tokenData = {docId: docId};
-          let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-          let token = jwt.sign(tokenData, secret, options);
+        let tokenData = {docId: docId};
+        let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+        let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
+        let token = jwt.sign(tokenData, secret, options);
 
-          params.statusHandler += `&token=${encodeURIComponent(token)}`;
-        }
+        params.statusHandler += `&token=${encodeURIComponent(token)}`;
       }
     } catch (err) {
       ctx.logger.error('convert-and-edit error:%s', err.stack);
@@ -894,7 +888,6 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
     if (!userAuth) {
       return;
     }
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
     const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
 
@@ -906,11 +899,9 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
     if (!prepareResult) {
       return;
     }
-    if (tenTokenEnableBrowser) {
-      let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-      let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-      res.token = jwt.sign(res, secret, options);
-    }
+    let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+    let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
+    res.token = jwt.sign(res, secret, options);
   } catch (err) {
     res = undefined;
     ctx.logger.error('wopi error RefreshFile:%s', err.stack);

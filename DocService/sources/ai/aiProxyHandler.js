@@ -162,7 +162,6 @@ async function proxyRequest(req, res) {
   try {
     ctx.logger.info('Start proxyRequest');
     await ctx.initTenantCache();
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenAiApiTimeout = ctx.getCfg('aiSettings.timeout', cfgAiApiTimeout);
     const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
     const tenAiApiProxy = ctx.getCfg('aiSettings.proxy', cfgAiApiProxy);
@@ -176,26 +175,24 @@ async function proxyRequest(req, res) {
     let userId = '';
     let userName = '';
     let userCustomerId = '';
-    if (tenTokenEnableBrowser) {
-      let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
-      if (!checkJwtRes || checkJwtRes.err) {
-        ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.err);
-        res.status(403).json({
-          "error": {
-            "message": "proxyRequest: checkJwtHeader error",
-            "code": "403"
-          }
-        });
-        return;
-      } else {
-        docId = checkJwtRes?.decoded?.document?.key;
-        userId = checkJwtRes?.decoded?.editorConfig?.user?.id;
-        userName = checkJwtRes?.decoded?.editorConfig?.user?.name;
-        userCustomerId = checkJwtRes?.decoded?.editorConfig?.user?.customerId;
-        
-        ctx.setDocId(docId);
-        ctx.setUserId(userId);
-      }
+    let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+    if (!checkJwtRes || checkJwtRes.err) {
+      ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.err);
+      res.status(403).json({
+        "error": {
+          "message": "proxyRequest: checkJwtHeader error",
+          "code": "403"
+        }
+      });
+      return;
+    } else {
+      docId = checkJwtRes?.decoded?.document?.key;
+      userId = checkJwtRes?.decoded?.editorConfig?.user?.id;
+      userName = checkJwtRes?.decoded?.editorConfig?.user?.name;
+      userCustomerId = checkJwtRes?.decoded?.editorConfig?.user?.customerId;
+      
+      ctx.setDocId(docId);
+      ctx.setUserId(userId);
     }
 
     if (!tenAiApi?.providers) {

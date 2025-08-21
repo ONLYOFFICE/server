@@ -685,7 +685,7 @@ function getConverterHtmlHandler(req, res) {
         return;
       }
       let token = req.query['token'];
-      if (tenTokenEnableBrowser) {
+      if (tenTokenEnableBrowser || token) {
         let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
         if (checkJwtRes.decoded) {
           docId = checkJwtRes.decoded.docId;
