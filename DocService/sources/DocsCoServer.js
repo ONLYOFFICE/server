@@ -3732,7 +3732,7 @@ exports.install = function(server, callbackFunction) {
           case commonDefines.c_oPublishType.warning:
             participants = getParticipants(data.docId);
             _.each(participants, function(participant) {
-              sendDataWarning(ctx, participant, data.description);
+              sendDataWarning(ctx, participant, undefined, data.description);
             });
             break;
           case commonDefines.c_oPublishType.cursor:
