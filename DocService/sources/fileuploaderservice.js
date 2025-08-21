@@ -50,10 +50,6 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 
 const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 
-function* checkJwtUpload(ctx, errorName, token){
-  let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
-  return checkJwtUploadTransformRes(ctx, errorName, checkJwtRes);
-}
 function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
   var res = {err: true, docId: null, userid: null, encrypted: null};
   if (checkJwtRes.decoded) {
@@ -90,23 +86,20 @@ exports.uploadImageFile = function(req, res) {
       ctx.logger.debug('Start uploadImageFile');
       const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
       const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
-      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (tenTokenEnableBrowser) {
-        let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
-        if (!checkJwtRes) {
-          //todo remove compatibility with previous versions
-          checkJwtRes = yield docsCoServer.checkJwt(ctx, req.query['token'], commonDefines.c_oAscSecretType.Session);
-        }
-        let transformedRes = checkJwtUploadTransformRes(ctx, 'uploadImageFile', checkJwtRes);
-        if (!transformedRes.err) {
-          docId = transformedRes.docId || docId;
-          encrypted = transformedRes.encrypted;
-          ctx.setDocId(docId);
-          ctx.setUserId(transformedRes.userid);
-        } else {
-          httpStatus = 403;
-        }
+      let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+      if (!checkJwtRes) {
+        //todo remove compatibility with previous versions
+        checkJwtRes = yield docsCoServer.checkJwt(ctx, req.query['token'], commonDefines.c_oAscSecretType.Session);
+      }
+      let transformedRes = checkJwtUploadTransformRes(ctx, 'uploadImageFile', checkJwtRes);
+      if (!transformedRes.err) {
+        docId = transformedRes.docId || docId;
+        encrypted = transformedRes.encrypted;
+        ctx.setDocId(docId);
+        ctx.setUserId(transformedRes.userid);
+      } else {
+        httpStatus = 403;
       }
 
       if (200 === httpStatus && docId && req.body && Buffer.isBuffer(req.body)) {

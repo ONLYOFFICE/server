@@ -3,8 +3,8 @@
 		"default": {
 			"type": "console",
 			"layout": {
-				"type": "pattern",
-				"pattern": "%[[%d] [%p] [%X{TENANT}] [%X{DOCID}] [%X{USERID}] %c -%] %.10000m"
+				"type": "patternWithTokens",
+				"pattern": "%[[%d] [%p] [%X{TENANT}] [%X{DOCID}] [%X{USERID}]%x{usid} %c -%] %.10000m"
 			}
 		}
 	},
