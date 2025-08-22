@@ -180,14 +180,15 @@ async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_cre
     } else if (ctx.wopiSrc) {
       wopiSrcCached = ctx.wopiSrc;
       url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
-    } else if (process.env.DEFAULT_SHARD_KEY) {
-      //Set DEFAULT_SHARD_KEY from environment as shardkey in case of integrator did not pass this param
-      url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(process.env.DEFAULT_SHARD_KEY)}`;
     } else if (shardKeyCached) {
       //Add stubs for shardkey params until integrators pass these parameters to all requests
       url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(shardKeyCached)}`;
     } else if (wopiSrcCached) {
       url += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrcCached)}`;
+    } else if (process.env.DEFAULT_SHARD_KEY) {
+      //todo in fact DEFAULT_SHARD_KEY it's not present in shard map
+      //Set DEFAULT_SHARD_KEY from environment as shardkey in case of integrator did not pass this param
+      url += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(process.env.DEFAULT_SHARD_KEY)}`;
     }
     url += '&filename=' + userFriendlyName;
     return url;

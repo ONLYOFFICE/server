@@ -290,7 +290,12 @@ exports.UPDATE_VERSION = 'update version';
 exports.NO_CACHE_CODE = 4009;
 exports.NO_CACHE = 'no cache';
 exports.RESTORE_CODE = 4010;
-exports.RESTORE = 'no cache';
+exports.RESTORE = 'restore';
+exports.QUIET_CODE = 4011;//browser only
+exports.QUIET = 'quiet';
+exports.RECONNECT_FAILED_CODE = 4012;//browser only
+exports.RECONNECT_FAILED = 'reconnect failed';
+//update connection error codes
 
 exports.CONTENT_DISPOSITION_INLINE = 'inline';
 exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';
