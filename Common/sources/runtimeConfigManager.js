@@ -46,7 +46,6 @@ const configFileName = path.basename(configFilePath);
 
 // Initialize cache with TTL and check for expired keys every minute
 const nodeCache = new NodeCache(cfgRuntimeConfig.cache);
-let isInitConfigWatcher = false;
 
 /**
  * Get runtime configuration for the current context
@@ -54,9 +53,8 @@ let isInitConfigWatcher = false;
  * @returns {Object} Runtime configuration object
  */
 async function getConfigFromFile(ctx) {
-  if (!isInitConfigWatcher) {
-    isInitConfigWatcher = true;
-    initConfigWatcher(ctx);
+  if (!configFilePath) {
+    return null;
   }
   try {
     const configData = await fsPromises.readFile(configFilePath, 'utf8');
@@ -89,7 +87,12 @@ async function getConfig(ctx) {
  * @returns {Object} Saved configuration object
  */
 async function saveConfig(ctx, config) {
+
+  if (!configFilePath) {
+    throw new Error('runtimeConfig.filePath is not specified');
+  }
   await fsPromises.mkdir(path.dirname(configFilePath), { recursive: true });
+
   let newConfig = await getConfig(ctx);
   newConfig = utils.deepMergeObjects(newConfig || {}, config);
   await fsPromises.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), 'utf8');
@@ -98,15 +101,21 @@ async function saveConfig(ctx, config) {
 }
 
 /**
- * Handle configuration file change events
- * @param {string} eventType - Type of file system event (change, rename)
- * @param {string} filename - Name of the file that triggered the event
+ * Supports both fs.watch (eventType, filename) and fs.watchFile (current, previous) callbacks
  */
-function handleConfigFileChange(eventType, filename) {
+function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
   try {
-    if (configFileName === filename) {
+    let shouldReload = false;
+    
+    if (typeof eventTypeOrCurrent === 'object' && eventTypeOrCurrent.isFile) {
+      shouldReload = eventTypeOrCurrent.mtime !== filenameOrPrevious.mtime;
+      operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watchFile: ${configFileName}`);
+    } else {
+      shouldReload = configFileName === filenameOrPrevious;
+      operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watch ${eventTypeOrCurrent}: ${filenameOrPrevious}`);
+    }
+    if (shouldReload) {
       nodeCache.del(configFileName);
-      operationContext.global.logger.info(`handleConfigFileChange configuration ${eventType}: ${configFileName}`);
     }
   } catch (err) {
     operationContext.global.logger.error(`handleConfigFileChange error: ${err.message}`);
@@ -116,20 +125,17 @@ function handleConfigFileChange(eventType, filename) {
 /**
  * Initialize the configuration directory watcher
  */
-function initConfigWatcher(ctx) {
-  try {
-    const configDir = path.dirname(configFilePath);
-    const watcher = fs.watch(configDir, handleConfigFileChange);
-    watcher.on('error', (err) => {
-      ctx.logger.error(`initConfigWatcher error: ${err.message}`);
-    });
-    ctx.logger.info(`initConfigWatcherWatching for changes in: ${configDir}`);
-  } catch (watchErr) {
-    ctx.logger.error(`initConfigWatcher error: ${watchErr.message}`);
-  }
-}
 
+async function initRuntimeConfigWatcher(ctx) {
+  if (!configFilePath) {
+    ctx.logger.info(`runtimeConfig.filePath is not specified`);
+    return;
+  }
+  const configDir = path.dirname(configFilePath);
+  await utils.watchWithFallback(ctx, configDir, configFilePath, handleConfigFileChange);
+}
 module.exports = {
+  initRuntimeConfigWatcher,
   getConfig,
   saveConfig
 };

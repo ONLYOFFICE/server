@@ -40,7 +40,13 @@
             "path": "../branding/welcome"
           },
           "/info": {
-            "path": "../branding/info"
+            "path": "../branding/info",
+            "options": {
+              "maxAge": 0,
+              "cacheControl": "public, no-cache, must-revalidate",
+              "etag": true,
+              "lastModified": true
+            }
           }
         }
       },

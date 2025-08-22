@@ -34,6 +34,7 @@
 
 const mysql = require('mysql2/promise');
 const connectorUtilities = require('./connectorUtilities');
+const operationContext = require('../../../Common/sources/operationContext');
 const config = require('config');
 
 const configSql = config.get('services.CoAuthoring.sql');
@@ -58,8 +59,23 @@ if (configuration.queryTimeout) {
   queryTimeout = configuration.queryTimeout;
   delete configuration.queryTimeout;
 }
+let autoCommit = false;
+if (configuration.autoCommit !== undefined) {
+  //delete to fix issue with invalid configuration option
+  autoCommit = configuration.autoCommit;
+  delete configuration.autoCommit
+}
 
 const pool = mysql.createPool(configuration);
+
+// Set autocommit once per connection
+if (autoCommit === true) {
+  pool.on('connection', async (conn) => {
+    conn.promise().query('SET autocommit=1').catch(err =>
+      operationContext.global.logger.error('Failed to set autocommit=1:', err.message)
+    );
+  });
+}
 
 function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes = false, opt_noLog = false, opt_values = []) {
   return executeQuery(ctx, sqlCommand, opt_values, opt_noModifyRes, opt_noLog).then(

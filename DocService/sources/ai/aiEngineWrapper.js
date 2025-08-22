@@ -106,7 +106,7 @@ const sandbox = {
       options.body || null,
       timeoutOptions,
       null,
-      false
+      true //true because request limited by local network
     )
     .then(async (result) => {
       const responseBuffer = await buffer(result.stream);

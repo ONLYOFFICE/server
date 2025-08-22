@@ -54,6 +54,19 @@ const cfgCacheStorage = config.get('storage');
 const MAX_DELETE_OBJECTS = 1000;
 let clients = {};
 
+/**
+ * @param {Object} input - S3 command
+ * @param {Object} storageCfg - Storage configuration
+ * @param {string} commandType - putObject, copyObject, etc.
+ */
+function applyCommandOptions(input, storageCfg, commandType) {
+  if (!storageCfg.commandOptions) return;
+
+  if (storageCfg.commandOptions.s3 && storageCfg.commandOptions.s3[commandType]) {
+    Object.assign(input, storageCfg.commandOptions.s3[commandType]);
+  }
+}
+
 function getS3Client(storageCfg) {
   /**
    * Don't hard-code your credentials!
@@ -108,6 +121,8 @@ function joinListObjects(storageCfg, inputArray, outputArray) {
   }
 }
 async function listObjectsExec(storageCfg, output, params) {
+  applyCommandOptions(params, storageCfg, 'listObjects');
+
   const data = await getS3Client(storageCfg).send(new ListObjectsCommand(params));
   joinListObjects(storageCfg, data.Contents, output);
   if (data.IsTruncated && (data.NextMarker || (data.Contents && data.Contents.length > 0))) {
@@ -127,6 +142,8 @@ async function deleteObjectsHelp(storageCfg, aKeys) {
       Quiet: true
       }
   };
+  applyCommandOptions(input, storageCfg, 'deleteObject');
+
   const command = new DeleteObjectsCommand(input);
   await getS3Client(storageCfg).send(command);
 }
@@ -145,6 +162,8 @@ async function getObject(storageCfg, strPath) {
     Bucket: storageCfg.bucketName,
     Key: getFilePath(storageCfg, strPath)
   };
+  applyCommandOptions(input, storageCfg, 'getObject');
+
   const command = new GetObjectCommand(input);
   const output = await getS3Client(storageCfg).send(command);
 
@@ -154,7 +173,9 @@ async function createReadStream(storageCfg, strPath) {
   const input = {
     Bucket: storageCfg.bucketName,
     Key: getFilePath(storageCfg, strPath)
-          };
+  };
+  applyCommandOptions(input, storageCfg, 'getObject');
+
   const command = new GetObjectCommand(input);
   const output = await getS3Client(storageCfg).send(command);
   return {
@@ -171,6 +192,8 @@ async function putObject(storageCfg, strPath, buffer, contentLength) {
     ContentLength: contentLength,
     ContentType: mime.getType(strPath)
   };
+  applyCommandOptions(input, storageCfg, 'putObject');
+
   const command = new PutObjectCommand(input);
   await getS3Client(storageCfg).send(command);
 }
@@ -183,6 +206,8 @@ async function uploadObject(storageCfg, strPath, filePath) {
     Body: file,
     ContentType: mime.getType(strPath)
   };
+  applyCommandOptions(input, storageCfg, 'putObject');
+
   const command = new PutObjectCommand(input);
   await getS3Client(storageCfg).send(command);
 }
@@ -193,6 +218,8 @@ async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKe
     Key: getFilePath(storageCfgDst, destinationKey),
     CopySource: `/${storageCfgSrc.bucketName}/${getFilePath(storageCfgSrc, sourceKey)}`
   };
+  applyCommandOptions(input, storageCfgDst, 'copyObject');
+
   const command = new CopyObjectCommand(input);
   await getS3Client(storageCfgDst).send(command);
 }
@@ -210,6 +237,8 @@ async function deleteObject(storageCfg, strPath) {
     Bucket: storageCfg.bucketName,
     Key: getFilePath(storageCfg, strPath)
   };
+  applyCommandOptions(input, storageCfg, 'deleteObject');
+
   const command = new DeleteObjectCommand(input);
   await getS3Client(storageCfg).send(command);
 };
@@ -240,6 +269,8 @@ async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, op
     Key: getFilePath(storageCfg, strPath),
     ResponseContentDisposition: contentDisposition
   };
+  applyCommandOptions(input, storageCfg, 'getObject');
+
   const command = new GetObjectCommand(input);
     //default Expires 900 seconds
   let options = {
