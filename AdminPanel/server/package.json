@@ -1,0 +1,22 @@
+{
+  "name": "onlyoffice-adminpanel-server",
+  "version": "1.0.0",
+  "private": true,
+  "main": "sources/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "set \"NODE_CONFIG_DIR=%cd%\\..\\..\\Common\\config\" && set \"NODE_ENV=development-windows\" && node sources/server.js"
+  },
+  "dependencies": {
+    "apicache": "^1.6.3",
+    "config": "^3.3.11",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "ms": "^2.1.3"
+  }
+}
+
+
