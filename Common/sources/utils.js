@@ -926,24 +926,22 @@ function changeOnlyOfficeUrl(inputUrl, strPath, optFilename) {
   return inputUrl + constants.ONLY_OFFICE_URL_PARAM + '=' + constants.OUTPUT_NAME + path.extname(optFilename || strPath);
 }
 exports.changeOnlyOfficeUrl = changeOnlyOfficeUrl;
-function pipeStreams(from, to, isEnd) {
-  return new Promise(function(resolve, reject) {
-    from.pipe(to, {end: isEnd});
-    from.on('end', function() {
-      resolve();
-    });
-    from.on('error', function(e) {
-      reject(e);
-    });
+/**
+ * Pipe streams for HTTP responses, swallowing client abort errors.
+ * @param {NodeJS.ReadableStream} from - source stream
+ * @param {NodeJS.WritableStream} to - HTTP response stream
+ * @returns {Promise<void>}
+ */
+function pipeHttpStreams(from, to) {
+  return pipeline(from, to).catch((err) => {
+    // Treat client abort/connection reset as non-fatal to keep "End" logs parity.
+    if (err && (err.code === 'ERR_STREAM_PREMATURE_CLOSE' || err.code === 'ECONNRESET' || err.code === 'EPIPE')) {
+      return;
+    }
+    throw err;
   });
 }
-exports.pipeStreams = pipeStreams;
-function* pipeFiles(from, to) {
-  var fromStream = yield promiseCreateReadStream(from);
-  var toStream = yield promiseCreateWriteStream(to);
-  yield pipeStreams(fromStream, toStream, true);
-}
-exports.pipeFiles = co.wrap(pipeFiles);
+exports.pipeHttpStreams = pipeHttpStreams;
 function checkIpFilter(ctx, ipString, opt_hostname) {
   const tenIpFilterRules = ctx.getCfg('services.CoAuthoring.ipfilter.rules', cfgIpFilterRules);
 

@@ -607,7 +607,7 @@ function convertTo(req, res) {
         res.setHeader('Content-Disposition', utils.getContentDisposition(filename, null, constants.CONTENT_DISPOSITION_INLINE));
         res.setHeader('Content-Length', streamObj.contentLength);
         res.setHeader('Content-Type', mime.getType(filename));
-        yield utils.pipeStreams(streamObj.readStream, res, true);
+        yield utils.pipeHttpStreams(streamObj.readStream, res);
       } else {
         ctx.logger.error('convert-to error status:%j', status);
         res.sendStatus(400);

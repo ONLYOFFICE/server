@@ -36,6 +36,7 @@ const { cp, rm, mkdir } = require('fs/promises');
 const { stat, readFile, writeFile } = require('fs/promises');
 var path = require('path');
 var utils = require("../utils");
+const { pipeline } = require('node:stream/promises');
 
 
 function getFilePath(storageCfg, strPath) {
@@ -76,7 +77,7 @@ async function putObject(storageCfg, strPath, buffer, contentLength) {
     await writeFile(fsPath, buffer);
   } else {
     let writable = await utils.promiseCreateWriteStream(fsPath);
-    await utils.pipeStreams(buffer, writable, true);
+    await pipeline(buffer, writable);
   }
 }
 

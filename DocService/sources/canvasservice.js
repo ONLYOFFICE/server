@@ -1638,7 +1638,7 @@ exports.printFile = function(req, res) {
       res.setHeader('Content-Disposition', utils.getContentDisposition(filename, null, constants.CONTENT_DISPOSITION_INLINE));
       res.setHeader('Content-Length', streamObj.contentLength);
       res.setHeader('Content-Type', 'application/pdf');
-      yield utils.pipeStreams(streamObj.readStream, res, true);
+      yield utils.pipeHttpStreams(streamObj.readStream, res);
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.printFile', new Date() - startDate);
