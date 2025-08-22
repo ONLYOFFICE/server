@@ -12,11 +12,12 @@
 		"sr-Latn-RS": "AI",
 		"ja-JA": "AI",
 		"sq-AL": "AI",
-		"it": "IA"
+		"it": "IA",
+		"ar-SA": "AI"
 	},
 
 	"guid" : "asc.{9DC93CDB-B576-4F0C-B55E-FCC9C48DD007}",
-	"version": "2.2.8",
+	"version": "2.4.2",
 	"minVersion" : "8.2.0",
 
 	"variations" : [
@@ -34,7 +35,8 @@
 				"sr-Latn-RS": "Koristite AI čet robota za obavljanje zadataka koji uključuju razumevanje ili generisanje prirodnog jezika ili koda.",
 				"ja-JA": "自然言語やコードの理解または生成が必要なタスクを行うには、AIチャットボットを使用できます。",
 				"sq-AL": "Shtoni dhe selektoni modele AI për detyra të ndryshme.",
-				"it": "Utilizza il chatbot dell'IA per eseguire attività che implicano la comprensione o la generazione di codice o linguaggio naturale."
+				"it": "Utilizza il chatbot dell'IA per eseguire attività che implicano la comprensione o la generazione di codice o linguaggio naturale.",
+				"ar-SA": "استخدموا روبوت المحادثة الذكي لتنفيذ المهام التي تتطلب فهمًا أو إنتاجًا للغة الطبيعية أو البرمجة."
 			},
 
 			"url"         : "index.html",
@@ -46,7 +48,7 @@
 			"type"                : "background",
 			"initDataType"        : "none",
 			"buttons"             : [],
-			"events"			  : ["onContextMenuShow", "onContextMenuClick", "onToolbarMenuClick"],
+			"events"			  : ["onAIPluginSettings", "onContextMenuShow", "onContextMenuClick", "onToolbarMenuClick"],
 
 			"store": {
 				"background": {
@@ -69,5 +71,7 @@
 				"categories": ["specAbilities", "work", "recommended"]
 			}
 		}
-	]
+	],
+
+	"onlyofficeScheme": true
 }

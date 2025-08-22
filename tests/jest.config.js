@@ -48,6 +48,11 @@ module.exports = {
   // Automatically clear mock calls, instances, contexts and results before every test
   clearMocks: true,
 
+  // AWS SDK v3 uses AWS Common Runtime which creates persistent native handles
+  // that Jest cannot clean up (aws_logger, FSEVENTWRAP, etc.)
+  // This is a known limitation: https://github.com/awslabs/aws-crt-nodejs/issues/291
+  forceExit: true,
+
   // Indicates whether the coverage information should be collected while executing the test
   // collectCoverage: false,
 

@@ -594,7 +594,8 @@ function getEditorHtml(req, res) {
         yield checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, access_token_ttl, lang, ui, fileType);
       }
 
-      if (!fileInfo.UserCanWrite) {
+      const canEdit = (fileInfo.UserCanOnlyComment || fileInfo.UserCanWrite || fileInfo.UserCanReview);
+      if (!canEdit) {
         mode = 'view';
       }
       //docId
@@ -728,7 +729,8 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
       }
 
       //collabora nexcloud connector sets only UserCanWrite=true
-      if (fileInfo && (fileInfo.SupportsUpdate || fileInfo.UserCanWrite)) {
+      const canEdit = (fileInfo.UserCanOnlyComment || fileInfo.UserCanWrite || fileInfo.UserCanReview);
+      if (fileInfo && (fileInfo.SupportsUpdate || canEdit)) {
         let commonInfo = wopiParams.commonInfo;
         //todo add all the users who contributed changes to the document in this PutFile request to X-WOPI-Editors
         let headers = {'X-WOPI-Override': 'PUT', 'X-WOPI-Lock': commonInfo.lockId, 'X-WOPI-Editors': userLastChangeId};
@@ -749,7 +751,7 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         ctx.logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
         ctx.logger.debug('wopi PutFile response body:%s', postRes.body);
       } else {
-        ctx.logger.warn('wopi SupportsUpdate = false or UserCanWrite = false');
+        ctx.logger.warn('wopi SupportsUpdate = %s or canEdit = %s', fileInfo?.SupportsUpdate, canEdit);
       }
     } catch (err) {
       ctx.logger.error('wopi error PutFile:%s', err.stack);

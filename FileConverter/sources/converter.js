@@ -133,6 +133,7 @@ function TaskQueueDataConvert(ctx, task) {
   this.savePassword = cmd.getSavePassword();
   this.noBase64 = cmd.getNoBase64();
   this.convertToOrigin = cmd.getConvertToOrigin();
+  this.oformAsPdf = cmd.getOformAsPdf();
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
@@ -169,7 +170,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
     xml += this.serializeLimit(ctx);
-    xml += this.serializeOptions(ctx, false);
+    xml += this.serializeOptions(ctx, false, this.oformAsPdf);
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
   },
@@ -192,7 +193,7 @@ TaskQueueDataConvert.prototype = {
       return xml;
     });
   },
-  serializeOptions: function (ctx, isInJwtToken) {
+  serializeOptions: function (ctx, isInJwtToken, oformAsPdf) {
     const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
     const tenExternalRequestDirectIfIn = ctx.getCfg('externalRequest.directIfIn', cfgExternalRequestDirectIfIn);
     const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
@@ -230,6 +231,9 @@ TaskQueueDataConvert.prototype = {
     }
     if (proxyHeadersStr.length > 0) {
       xml += this.serializeXmlProp('proxyHeader', proxyHeadersStr.join(';'));
+    }
+    if (undefined !== oformAsPdf) {
+      xml += this.serializeXmlProp('oformAsPdf', oformAsPdf);
     }
     xml += '</options>';
     return xml;

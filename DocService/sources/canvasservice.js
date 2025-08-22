@@ -538,15 +538,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
         dataQueue.setCtx(ctx);
         dataQueue.setCmd(cmd);
         dataQueue.setToFile('Editor.bin');
-        var priority = constants.QUEUE_PRIORITY_HIGH;
-        var formatIn = formatChecker.getFormatFromString(cmd.getFormat());
-        //decrease pdf, djvu, xps convert priority becase long open time
-        if (constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === formatIn ||
-          constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU === formatIn ||
-          constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === formatIn) {
-          priority = constants.QUEUE_PRIORITY_LOW;
-        }
-        yield* docsCoServer.addTask(dataQueue, priority);
+        yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
       } else {
         yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
       }
@@ -735,7 +727,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       var urlSource = urls[i];
       var urlParsed;
       var data = undefined;
-      if (urlSource.startsWith('data:')) {
+      if (urlSource?.startsWith('data:')) {
         let delimiterIndex = urlSource.indexOf(',');
         if (-1 != delimiterIndex) {
           let dataLen = urlSource.length - (delimiterIndex + 1);
@@ -777,10 +769,10 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
         }
       }
 
-      data = yield utilsDocService.fixImageExifRotation(ctx, data);
-
       var outputUrl = {url: 'error', path: 'error'};
       if (data) {
+        data = yield utilsDocService.fixImageExifRotation(ctx, data);
+
         let format = formatChecker.getImageFormat(ctx, data);
         let formatStr;
         let isAllow = false;
@@ -980,6 +972,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
   const userLastChangeId = cmd.getUserId() || cmd.getUserActionId();
   const userLastChangeIndex = cmd.getUserIndex() || cmd.getUserActionIndex();
   let replyStr;
+  let isSfcmSuccess = false;
+  let isSfcSuccess = false;
+  let needRetry = false;
+  let needUpdateVersionEvent = !isSfcm && !isEncrypted;
   if (constants.EDITOR_CHANGES !== statusInfo || isSfcm) {
     var saveKey = docId + cmd.getSaveKey();
     var isError = constants.NO_ERROR != statusInfo;
@@ -1005,9 +1001,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
       }
       lastOpenDate = row.last_open_date;
     }
-    var isSfcmSuccess = false;
     let storeForgotten = false;
-    let needRetry = false;
     var statusOk;
     var statusErr;
     if (isSfcm) {
@@ -1206,6 +1200,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
               ctx.logger.warn('sendServerRequest returned an error: data = %s', replyStr);
             }
             if (requestRes) {
+              isSfcSuccess = true;
               updateIfTask = undefined;
               yield docsCoServer.cleanDocumentOnExitPromise(ctx, docId, true, callbackUserIndex);
               if (isOpenFromForgotten) {
@@ -1225,7 +1220,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
             }
           } else {
             updateIfTask = undefined;
+            needUpdateVersionEvent = false;
           }
+        } else {
+          needUpdateVersionEvent = false;
         }
       }
     } else {
@@ -1261,7 +1259,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
         //cleanupRes can be false in case of simultaneous opening. it is OK
         let cleanupRes = yield cleanupCacheIf(ctx, updateMask);
         ctx.logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
-    }
+      }
     }
     if (forceSave) {
       yield* docsCoServer.setForceSave(ctx, docId, forceSave, cmd, isSfcmSuccess && !isError, outputSfc?.getUrl());
@@ -1279,6 +1277,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
   } else {
     ctx.logger.debug('commandSfcCallback cleanDocumentOnExitNoChangesPromise');
     yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId, undefined, userLastChangeIndex, true);
+  }
+
+  if (needUpdateVersionEvent && !needRetry) {
+    yield docsCoServer.publish(ctx, {type: commonDefines.c_oPublishType.updateVersion, ctx: ctx, docId: docId, success: isSfcSuccess});
   }
 
   if ((docsCoServer.getIsShutdown() && !isSfcm) || cmd.getRedisKey()) {
@@ -1658,17 +1660,32 @@ exports.printFile = function(req, res) {
     }
   });
 };
+/**
+ * Proxy download file request to the file storage
+ * @param {object} req - The HTTP request object
+ * @param {object} res - The HTTP response object
+ * @returns {Promise}
+ */
 exports.downloadFile = function(req, res) {
   return co(function*() {
     let ctx = new operationContext.Context();
+    let stream = null;
     try {
       let startDate = null;
       if (clientStatsD) {
         startDate = new Date();
       }
+
+      const docId = req.params.docid;
+      if (!docId) {
+        res.status(400).send('docid is required');
+        return;
+      }
+
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      ctx.setDocId(req.params.docid);
+      ctx.setDocId(docId);
+
       //todo remove in 8.1. For compatibility
       let url = req.get('x-url');
       if (url) {
@@ -1687,7 +1704,7 @@ exports.downloadFile = function(req, res) {
       let headers, fromTemplate;
       let authRes = yield docsCoServer.getRequestParams(ctx, req);
       if (authRes.code === constants.NO_ERROR) {
-        let decoded = authRes.params;
+        const decoded = authRes.params;
         if (decoded.changesUrl) {
           url = decoded.changesUrl;
           isInJwtToken = true;
@@ -1731,12 +1748,12 @@ exports.downloadFile = function(req, res) {
       }
       if (fromTemplate) {
         ctx.logger.debug('downloadFile from file template: %s', fromTemplate);
-        let locale = constants.TEMPLATES_DEFAULT_LOCALE;
-        let fileTemplatePath = pathModule.join(tenNewFileTemplate, locale, 'new.' + fromTemplate);
+        const locale = constants.TEMPLATES_DEFAULT_LOCALE;
+        const fileTemplatePath = pathModule.join(tenNewFileTemplate, locale, 'new.' + fromTemplate);
         res.sendFile(pathModule.resolve(fileTemplatePath));
       } else {
         if (utils.canIncludeOutboxAuthorization(ctx, url)) {
-          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+          const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url: url}, secret, false);
         }
         let urlParsed = urlModule.parse(url);
@@ -1754,7 +1771,9 @@ exports.downloadFile = function(req, res) {
           headers['Range'] = req.get('Range');
         }
 
-        const { response, stream } = yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, true);
+        const downloadResult = yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, true);
+        const response = downloadResult.response;
+        stream = downloadResult.stream;
         //Set-Cookie resets browser session
         delete response.headers['set-cookie'];
         // Set the response headers to match the target response
@@ -1771,6 +1790,9 @@ exports.downloadFile = function(req, res) {
     catch (err) {
       if (err.code === "ERR_STREAM_PREMATURE_CLOSE") {
         ctx.logger.debug('Error downloadFile: %s', err.stack);
+        if (!res.headersSent) {
+          res.sendStatus(499);
+        }
       } else {
         ctx.logger.error('Error downloadFile: %s', err.stack);
         //catch errors because status may be sent while piping to response
@@ -1780,8 +1802,8 @@ exports.downloadFile = function(req, res) {
               res.sendStatus(408);
             } else if (err.code === 'EMSGSIZE') {
               res.sendStatus(413);
-            } else if (err.response) {
-              res.sendStatus(err.response.statusCode);
+            } else if (err.statusCode) {
+              res.sendStatus(err.statusCode);
             } else {
               res.sendStatus(400);
             }
@@ -1792,6 +1814,14 @@ exports.downloadFile = function(req, res) {
       }
     }
     finally {
+      // Ensure stream is properly destroyed
+      if (stream && typeof stream.destroy === 'function') {
+        try {
+          stream.destroy();
+        } catch (destroyErr) {
+          ctx.logger.warn('Error destroying stream: %s', destroyErr.stack);
+        }
+      }
       ctx.logger.info('End downloadFile');
     }
   });

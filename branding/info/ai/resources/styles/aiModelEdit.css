@@ -144,50 +144,50 @@ body {
     height: 20px;
 }
 
-body.theme-light .toggle-button,
-body.theme-gray .toggle-button {
-    border-color: #c0c0c0;
-}
-body.theme-light .toggle-button:hover:not([disabled]),
-body.theme-gray .toggle-button:hover:not([disabled]) {
-    background-color: #e0e0e0;
-}
-body.theme-light .toggle-button.active,
-body.theme-gray .toggle-button.active {
-    background-color: #cbcbcb;
-}
 
+/* Themes style for Toggle button */
 body.theme-classic-light .toggle-button {
-    border-color: #cfcfcf;
-}
-body.theme-classic-light .toggle-button:hover:not([disabled]) {
-    background-color: #d8dadc;
-}
-body.theme-classic-light .toggle-button.active {
-    background-color: #7d858c !important;
+    --border-color: #cfcfcf;
+    --background-hover-color: #d8dadc;
+    --background-active-color: #7d858c;
 }
 body.theme-classic-light .toggle-button.active img{
     filter: invert(1);
 }
 
+body.theme-light .toggle-button,
+body.theme-gray .toggle-button {
+    --border-color: #c0c0c0;
+    --background-hover-color: #e0e0e0;
+    --background-active-color: #cbcbcb;
+}
+
 body.theme-dark .toggle-button {
-    border-color: #666;
-}
-body.theme-dark .toggle-button:hover:not([disabled]) {
-    background-color: #555;
-}
-body.theme-dark .toggle-button.active {
-    background-color: #707070 !important;
+    --border-color: #666;
+    --background-hover-color: #555;
+    --background-active-color: #707070;
 }
 
 body.theme-contrast-dark .toggle-button {
-    border-color: #696969;
+    --border-color: #696969;
+    --background-hover-color: #424242;
+    --background-active-color: #666666;
 }
-body.theme-contrast-dark .toggle-button:hover:not([disabled]) {
-    background-color: #424242;
+
+.toggle-button {
+    border-color: #e1e1e1;
+    border-color: var(--border-color);
+    border-color: var(--border-regular-control);
 }
-body.theme-contrast-dark .toggle-button.active {
-    background-color: #666666 !important;
+.toggle-button:hover:not([disabled]) {
+    background-color: #eaeaea;
+    background-color: var(--background-hover-color);
+    background-color: var(--highlight-button-hover);
+}
+.toggle-button.active {
+    background-color: #e1e1e1 !important;
+    background-color: var(--background-active-color) !important;
+    background-color: var(--highlight-button-pressed) !important;
 }
 
 .select2-container {

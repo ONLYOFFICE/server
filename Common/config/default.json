@@ -17,6 +17,7 @@
 		"allowedCorsOrigins": [
 			"https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"
 		],
+		"proxy": "",
 		"pluginDir" : "../branding/info/ai"
 	},
 	"log": {
@@ -124,6 +125,19 @@
 		"bucketName": "cache",
 		"storageFolderName": "files",
 		"cacheFolderName": "data",
+		"commandOptions": {
+			"s3": {
+				"putObject": {},
+				"getObject": {},
+				"copyObject": {
+					"MetadataDirective": "COPY"
+				},
+				"listObjects": {
+					"MaxKeys": 1000
+				},
+				"deleteObject": {}
+			}
+		},
 		"urlExpires": 604800,
 		"accessKeyId": "",
 		"secretAccessKey": "",
@@ -398,7 +412,8 @@
 				},
 				"mysqlExtraOptions": {
 					"connectTimeout": 60000,
-					"queryTimeout": 60000
+					"queryTimeout": 60000,
+					"autoCommit": false
 				}
 			},
 			"redis": {
@@ -436,7 +451,7 @@
 				"filesCron": "00 00 */1 * * *",
 				"filesremovedatonce": 100,
 				"sessionidle": "1h",
-				"sessionabsolute": "30d",
+				"sessionabsolute": "1m",
 				"sessionclosecommand": "2m",
 				"pemStdTTL": "1h",
 				"pemCheckPeriod": "10m",

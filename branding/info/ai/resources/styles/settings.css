@@ -13,6 +13,7 @@ body {
 #edit-ai-models {
     display: inline-flex;
     justify-content: flex-end;
+    margin-top: 10px;
 }
 #edit-ai-models label {
     cursor: pointer;
@@ -48,12 +49,19 @@ body {
 #actions-list .item .label {
     display: flex;
     align-items: center;
+    flex: 1;
+    margin-right: 10px;
+    word-break: break-word;
 }
 
 #actions-list .item .label img{
     width: 20px;
     height: 20px;
     margin-right: 10px;
+}
+
+#actions-list .item .label div{
+    flex: 1;
 }
 
 #actions-list .ps__rail-y {
@@ -86,6 +94,13 @@ body {
     -webkit-line-clamp: 3;
     word-wrap: break-word;
     max-width: 150px;
+}
+
+.select2-results__option .separator {
+    width: 100%;
+    padding: 0;
+    height: 1px;
+    background-color: var(--border-divider);
 }
 
 /* #actions-list .select2-selection{

@@ -279,6 +279,7 @@ function convertRequest(req, res, isJson) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
+      let oformAsPdf;
       if (params.pdf) {
         if (true === params.pdf.pdfa && constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === outputFormat) {
           outputFormat = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA;
@@ -288,6 +289,8 @@ function convertRequest(req, res, isJson) {
         if (params.pdf.form && (constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === outputFormat ||
           constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === outputFormat)) {
           outputFormat = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF;
+        } else if (false === params.pdf.form) {
+          oformAsPdf = true;
         }
       }
       //todo use hash of params as id
@@ -299,6 +302,7 @@ function convertRequest(req, res, isJson) {
       cmd.setFormat(filetype);
       cmd.setDocId(docId);
       cmd.setOutputFormat(outputFormat);
+      cmd.setOformAsPdf(oformAsPdf);
       let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
 
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage] || commonDefines.c_oAscCodePageUtf8);
