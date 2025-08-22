@@ -60,6 +60,13 @@ class MinHeap {
 		return top;
 	}
 
+	_rebuildFiltered(predicate) {
+		this._data = this._data.filter(predicate);
+		for (let i = Math.floor(this._data.length / 2) - 1; i >= 0; --i) {
+			this._siftDown(i);
+		}
+	}
+
 	_siftUp(index) {
 		while (index > 0) {
 			const parent = Math.floor((index - 1) / 2);
@@ -186,7 +193,7 @@ class SessionScheduler {
 		if (!state) return;
 		state.removed = true;
 		this._stateByConnId.delete(connId);
-		// Stale heap entries will be ignored via version/removed checks.
+		this._heap._rebuildFiltered((it) => it.connId !== state.connId);
 	}
 
 	_scheduleIdle(state, time) {
