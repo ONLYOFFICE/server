@@ -1445,3 +1445,29 @@ exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, fileP
     return fs.watchFile(filePath, opts, listener);
   }
 }
+/**
+ * Underlying get mechanism
+ *
+ * @private
+ * @method getImpl
+ * @param object {object} - Object to get the property for
+ * @param property {string | array[string]} - The property name to get (as an array or '.' delimited string)
+ * @return value {*} - Property value, including undefined if not defined.
+ */
+function getImpl(object, property) {
+  //from https://github.com/node-config/node-config/blob/a8b91ac86b499d11b90974a2c9915ce31266044a/lib/config.js#L137
+  var t = this,
+    elems = Array.isArray(property) ? property : property.split('.'),
+    name = elems[0],
+    value = object[name];
+  if (elems.length <= 1) {
+    return value;
+  }
+  // Note that typeof null === 'object'
+  if (value === null || typeof value !== 'object') {
+    return undefined;
+  }
+  return getImpl(value, elems.slice(1));
+};
+
+exports.getImpl = getImpl;
