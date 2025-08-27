@@ -154,7 +154,7 @@
 		"sslEnabled": false,
 		"s3ForcePathStyle": true,
 		"externalHost": "",
-		"useDirectStorageUrls": true
+		"useDirectStorageUrls": false
 	},
 	"persistentStorage": {
 	},
