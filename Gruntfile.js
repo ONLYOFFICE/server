@@ -37,13 +37,13 @@ module.exports = function (grunt) {
   
   let addons = grunt.option('addon') || [];
   if (!Array.isArray(addons))
-      addons = [addons];
+      {addons = [addons];}
 
   addons.forEach((element,index,self) => self[index] = path.join('..', element));
   addons = addons.filter(element => grunt.file.isDir(element));
 
   function _merge(target, ...sources) {
-    if (!sources.length) return target;
+    if (!sources.length) {return target;}
       const source = sources.shift();
 
     for (const key in source) {
@@ -67,7 +67,7 @@ module.exports = function (grunt) {
     }
   }
   addons.forEach(element => {
-    let _path = path.join(element, 'package.json');
+    const _path = path.join(element, 'package.json');
     if (grunt.file.exists(_path)) {
         _merge(packageFile, require(_path));
         grunt.log.ok('addon '.green + element + ' is merged successfully'.green);
@@ -119,10 +119,10 @@ module.exports = function (grunt) {
         }
       }
     },
-    checkDependencies: checkDependencies
+    checkDependencies
   });
   
-  grunt.registerTask('build-develop', 'Build develop scripts', function () {
+  grunt.registerTask('build-develop', 'Build develop scripts', () => {
     grunt.initConfig({
       copy: packageFile.grunt["develop-copy"]
     });

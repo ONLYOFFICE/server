@@ -175,341 +175,341 @@ function InputCommand(data, copyExplicit) {
   }
 }
 InputCommand.prototype = {
-  fillFromConnection: function(conn) {
+  fillFromConnection(conn) {
     this['id'] = conn.docId;
   },
-  getCommand: function() {
+  getCommand() {
     return this['c'];
   },
-  setCommand: function(data) {
+  setCommand(data) {
     this['c'] = data;
   },
-  getDocId: function() {
+  getDocId() {
     return this['id'];
   },
-  setDocId: function(data) {
+  setDocId(data) {
     this['id'] = data;
   },
-  getUserId: function() {
+  getUserId() {
     return this['userid'];
   },
-  setUserId: function(data) {
+  setUserId(data) {
     this['userid'] = data;
   },
-  getUserIndex: function() {
+  getUserIndex() {
     return this['userindex'];
   },
-  setUserIndex: function(data) {
+  setUserIndex(data) {
     this['userindex'] = data;
   },
-  getUserName: function() {
+  getUserName() {
     return this['username'];
   },
-  setUserName: function(data) {
+  setUserName(data) {
     this['username'] = data;
   },
-  getTokenSession: function() {
+  getTokenSession() {
     return this['tokenSession'];
   },
-  getTokenDownload: function() {
+  getTokenDownload() {
     return this['tokenDownload'];
   },
-  getData: function() {
+  getData() {
     return this['data'];
   },
-  setData: function(data) {
+  setData(data) {
     this['data'] = data;
   },
-  getFormat: function() {
+  getFormat() {
     return this['format'];
   },
-  setFormat: function(data) {
+  setFormat(data) {
     this['format'] = data;
   },
-  getOriginFormat: function() {
+  getOriginFormat() {
     return this['originformat'];
   },
-  setOriginFormat: function(data) {
+  setOriginFormat(data) {
     this['originformat'] = data;
   },
-  getUrl: function() {
+  getUrl() {
     return this['url'];
   },
-  setUrl: function(data) {
+  setUrl(data) {
     this['url'] = data;
   },
-  getTitle: function() {
+  getTitle() {
     return this['title'];
   },
-  setTitle: function(data) {
+  setTitle(data) {
     this['title'] = data;
   },
-  getOutputFormat: function() {
+  getOutputFormat() {
     return this['outputformat'];
   },
-  setOutputFormat: function(data) {
+  setOutputFormat(data) {
     this['outputformat'] = data;
   },
-  getOutputPath: function() {
+  getOutputPath() {
     return this['outputpath'];
   },
-  setOutputPath: function(data) {
+  setOutputPath(data) {
     this['outputpath'] = data;
   },
-  getSaveType: function() {
+  getSaveType() {
     return this['savetype'];
   },
-  setSaveType: function(data) {
+  setSaveType(data) {
     this['savetype'] = data;
   },
-  getSaveIndex: function() {
+  getSaveIndex() {
     return this['saveindex'];
   },
-  setSaveIndex: function(data) {
+  setSaveIndex(data) {
     this['saveindex'] = data;
   },
-  getCodepage: function() {
+  getCodepage() {
     return this['codepage'];
   },
-  setCodepage: function(data) {
+  setCodepage(data) {
     this['codepage'] = data;
   },
-  getDelimiter: function() {
+  getDelimiter() {
     return this['delimiter'];
   },
-  setDelimiter: function(data) {
+  setDelimiter(data) {
     this['delimiter'] = data;
   },
-  getDelimiterChar: function() {
+  getDelimiterChar() {
     return this['delimiterChar'];
   },
-  setDelimiterChar: function(data) {
+  setDelimiterChar(data) {
     this['delimiterChar'] = data;
   },
-  getEmbeddedFonts: function() {
+  getEmbeddedFonts() {
     return this['embeddedfonts'];
   },
-  setEmbeddedFonts: function(data) {
+  setEmbeddedFonts(data) {
     this['embeddedfonts'] = data;
   },
-  getMailMergeSend: function() {
+  getMailMergeSend() {
     return this['mailmergesend'];
   },
-  setMailMergeSend: function(data) {
+  setMailMergeSend(data) {
     this['mailmergesend'] = data;
   },
-  getThumbnail: function() {
+  getThumbnail() {
     return this['thumbnail'];
   },
-  setThumbnail: function(data) {
+  setThumbnail(data) {
     this['thumbnail'] = data;
   },
-  getTextParams: function() {
+  getTextParams() {
     return this['textParams'];
   },
-  setTextParams: function(data) {
+  setTextParams(data) {
     this['textParams'] = data;
   },
-  getStatus: function() {
+  getStatus() {
     return this['status'];
   },
-  setStatus: function(data) {
+  setStatus(data) {
     this['status'] = data;
   },
-  getStatusInfo: function() {
+  getStatusInfo() {
     return this['status_info'];
   },
-  setStatusInfo: function(data) {
+  setStatusInfo(data) {
     this['status_info'] = data;
   },
-  getSaveKey: function() {
+  getSaveKey() {
     return this['savekey'];
   },
-  setSaveKey: function(data) {
+  setSaveKey(data) {
     this['savekey'] = data;
   },
-  getForgotten: function() {
+  getForgotten() {
     return this['forgotten'];
   },
-  setForgotten: function(data) {
+  setForgotten(data) {
     this['forgotten'] = data;
   },
-  getUserConnectionId: function() {
+  getUserConnectionId() {
     return this['userconnectionid'];
   },
-  setUserConnectionId: function(data) {
+  setUserConnectionId(data) {
     this['userconnectionid'] = data;
   },
-  getUserConnectionDocId: function() {
+  getUserConnectionDocId() {
     return this['userconnectiondocid'];
   },
-  setUserConnectionDocId: function(data) {
+  setUserConnectionDocId(data) {
     this['userconnectiondocid'] = data;
   },
-  getResponseKey: function() {
+  getResponseKey() {
     return this['responsekey'];
   },
-  setResponseKey: function(data) {
+  setResponseKey(data) {
     this['responsekey'] = data;
   },
-  getJsonParams: function() {
+  getJsonParams() {
     return this['jsonparams'];
   },
-  appendJsonParams: function (data) {
+  appendJsonParams (data) {
     if (this['jsonparams']) {
       config.util.extendDeep(this['jsonparams'], data);
     } else {
       this['jsonparams'] = data;
     }
   },
-  getLCID: function() {
+  getLCID() {
     return this['lcid'];
   },
-  setLCID: function(data) {
+  setLCID(data) {
     this['lcid'] = data;
   },
-  getUserActionId: function() {
+  getUserActionId() {
     return this['useractionid'];
   },
-  setUserActionId: function(data) {
+  setUserActionId(data) {
     this['useractionid'] = data;
   },
-  getUserActionIndex: function() {
+  getUserActionIndex() {
     return this['useractionindex'];
   },
-  setUserActionIndex: function(data) {
+  setUserActionIndex(data) {
     this['useractionindex'] = data;
   },
   /**
    * @return {CForceSaveData | null}
    */
-  getForceSave: function() {
+  getForceSave() {
     return this['forcesave'];
   },
   /**
    * @param {CForceSaveData} data
    */
-  setForceSave: function(data) {
+  setForceSave(data) {
     this['forcesave'] = data;
   },
-  getUserData: function() {
+  getUserData() {
     return this['userdata'];
   },
-  setUserData: function(data) {
+  setUserData(data) {
     this['userdata'] = data;
   },
-  getFormData: function() {
+  getFormData() {
     return this['formdata'];
   },
-  setFormData: function(data) {
+  setFormData(data) {
     this['formdata'] = data;
   },
-  getInline: function() {
+  getInline() {
     return this['inline'];
   },
-  setInline: function(data) {
+  setInline(data) {
     this['inline'] = data;
   },
-  getPassword: function() {
+  getPassword() {
     return this['password'];
   },
-  setPassword: function(data) {
+  setPassword(data) {
     this['password'] = data;
   },
-  getSavePassword: function() {
+  getSavePassword() {
     return this['savepassword'];
   },
-  setSavePassword: function(data) {
+  setSavePassword(data) {
     this['savepassword'] = data;
   },
-  getWithoutPassword: function() {
+  getWithoutPassword() {
     return this['withoutPassword'];
   },
-  setWithoutPassword: function(data) {
+  setWithoutPassword(data) {
     this['withoutPassword'] = data;
   },
-  setOutputUrls: function(data) {
+  setOutputUrls(data) {
     this['outputurls'] = data;
   },
-  getOutputUrls: function() {
+  getOutputUrls() {
     return this['outputurls'];
   },
-  getServerVersion: function() {
+  getServerVersion() {
     return this['serverVersion'];
   },
-  setServerVersion: function(data) {
+  setServerVersion(data) {
     this['serverVersion'] = data;
   },
-  getRedisKey: function() {
+  getRedisKey() {
     return this['rediskey'];
   },
-  setRedisKey: function(data) {
+  setRedisKey(data) {
     this['rediskey'] = data;
   },
-  getNoBase64: function() {
+  getNoBase64() {
     return this['nobase64'];
   },
-  setNoBase64: function(data) {
+  setNoBase64(data) {
     this['nobase64'] = data;
   },
-  getStatusInfoIn: function() {
+  getStatusInfoIn() {
     return this['status_info_in'];
   },
-  setStatusInfoIn: function(data) {
+  setStatusInfoIn(data) {
     this['status_info_in'] = data;
   },
-  getAttempt: function() {
+  getAttempt() {
     return this['attempt'];
   },
-  setAttempt: function(data) {
+  setAttempt(data) {
     this['attempt'] = data;
   },
-  getWithAuthorization: function() {
+  getWithAuthorization() {
     return this['withAuthorization'];
   },
-  setWithAuthorization: function(data) {
+  setWithAuthorization(data) {
     this['withAuthorization'] = data;
   },
-  getExternalChangeInfo: function() {
+  getExternalChangeInfo() {
     return this['externalChangeInfo'];
   },
-  setExternalChangeInfo: function(data) {
+  setExternalChangeInfo(data) {
     this['externalChangeInfo'] = data;
   },
-  getBuilderParams: function() {
+  getBuilderParams() {
     return this['builderParams'];
   },
-  setBuilderParams: function(data) {
+  setBuilderParams(data) {
     this['builderParams'] = data;
   },
-  getWopiParams: function() {
+  getWopiParams() {
     return this['wopiParams'];
   },
-  setWopiParams: function(data) {
+  setWopiParams(data) {
     this['wopiParams'] = data;
   },
-  getConvertToOrigin: function() {
+  getConvertToOrigin() {
     return this['convertToOrigin'];
   },
-  setConvertToOrigin: function(data) {
+  setConvertToOrigin(data) {
     this['convertToOrigin'] = data;
   },
-  getIsSaveAs: function() {
+  getIsSaveAs() {
     return this['isSaveAs'];
   },
-  setIsSaveAs: function(data) {
+  setIsSaveAs(data) {
     this['isSaveAs'] = data;
   },
-  getSaveAsPath: function() {
+  getSaveAsPath() {
     return this['saveAsPath'];
   },
-  setSaveAsPath: function(data) {
+  setSaveAsPath(data) {
     this['saveAsPath'] = data;
   },
-  getOformAsPdf: function() {
+  getOformAsPdf() {
     return this['oformAsPdf'];
   },
-  setOformAsPdf: function(data) {
+  setOformAsPdf(data) {
     this['oformAsPdf'] = data;
   }
 };
@@ -770,58 +770,58 @@ function TaskQueueData(data) {
   }
 }
 TaskQueueData.prototype = {
-  getCtx : function() {
+  getCtx() {
     return this['ctx'];
   },
-  setCtx : function(data) {
+  setCtx(data) {
     return this['ctx'] = data;
   },
-  getCmd : function() {
+  getCmd() {
     return this['cmd'];
   },
-  setCmd : function(data) {
+  setCmd(data) {
     return this['cmd'] = data;
   },
-  getToFile : function() {
+  getToFile() {
     return this['toFile'];
   },
-  setToFile : function(data) {
+  setToFile(data) {
     return this['toFile'] = data;
   },
-  getFromOrigin : function() {
+  getFromOrigin() {
     return this['fromOrigin'];
   },
-  setFromOrigin : function(data) {
+  setFromOrigin(data) {
     return this['fromOrigin'] = data;
   },
-  getFromSettings : function() {
+  getFromSettings() {
     return this['fromSettings'];
   },
-  setFromSettings : function(data) {
+  setFromSettings(data) {
     return this['fromSettings'] = data;
   },
-  getFromChanges : function() {
+  getFromChanges() {
     return this['fromChanges'];
   },
-  setFromChanges : function(data) {
+  setFromChanges(data) {
     return this['fromChanges'] = data;
   },
-  getPaid : function() {
+  getPaid() {
     return this['paid'];
   },
-  setPaid : function(data) {
+  setPaid(data) {
     return this['paid'] = data;
   },
-  getDataKey : function() {
+  getDataKey() {
     return this['dataKey'];
   },
-  setDataKey : function(data) {
+  setDataKey(data) {
     return this['dataKey'] = data;
   },
-  getVisibilityTimeout : function() {
+  getVisibilityTimeout() {
     return this['visibilityTimeout'];
   },
-  setVisibilityTimeout : function(data) {
+  setVisibilityTimeout(data) {
     return this['visibilityTimeout'] = data;
   }
 };

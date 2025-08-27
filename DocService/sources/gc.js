@@ -52,16 +52,16 @@ var cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremo
 var cfgForceSaveStep = config.get('services.CoAuthoring.autoAssembly.step');
 
 function getCronStep(cronTime){
-  let cronJob = new cron.CronJob(cronTime, function(){});
-  let dates = cronJob.nextDates(2);
+  const cronJob = new cron.CronJob(cronTime, (() =>{}));
+  const dates = cronJob.nextDates(2);
   return dates[1] - dates[0];
 }
-let expFilesStep = getCronStep(cfgExpFilesCron);
-let expDocumentsStep = getCronStep(cfgExpDocumentsCron);
+const expFilesStep = getCronStep(cfgExpFilesCron);
+const expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
 var checkFileExpire = function(expireSeconds) {
   return co(function* () {
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     let currentExpFilesStep = expFilesStep;
     try {
       ctx.logger.info('checkFileExpire start');
@@ -82,10 +82,10 @@ var checkFileExpire = function(expireSeconds) {
         let currentTenant = null;
         
         for (var i = 0; i < expired.length; ++i) {
-          let tenant = expired[i].tenant;
-          let docId = expired[i].id;
-          let shardKey = sqlBase.DocumentAdditional.prototype.getShardKey(expired[i].additional);
-          let wopiSrc = sqlBase.DocumentAdditional.prototype.getWopiSrc(expired[i].additional);
+          const tenant = expired[i].tenant;
+          const docId = expired[i].id;
+          const shardKey = sqlBase.DocumentAdditional.prototype.getShardKey(expired[i].additional);
+          const wopiSrc = sqlBase.DocumentAdditional.prototype.getWopiSrc(expired[i].additional);
           
           if (currentTenant !== tenant) {
             ctx.init(tenant, docId, ctx.userId, shardKey, wopiSrc);
@@ -99,7 +99,7 @@ var checkFileExpire = function(expireSeconds) {
           
           //todo tenant
           //check that no one is in the document
-          let editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
+          const editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
           if(0 === editorsCount){
             if (yield canvasService.cleanupCache(ctx, docId)) {
               currentRemovedCount++;
@@ -125,14 +125,14 @@ var checkDocumentExpire = function() {
     var removedCount = 0;
     var startSaveCount = 0;
     let currentExpDocumentsStep = expDocumentsStep;
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     try {
       ctx.logger.info('checkDocumentExpire start');
       yield ctx.initTenantCache();
       const currentDocumentsCron = ctx.getCfg('services.CoAuthoring.expire.documentsCron', cfgExpDocumentsCron);
       currentExpDocumentsStep = getCronStep(currentDocumentsCron);
       var now = (new Date()).getTime();
-      let expiredKeys = yield docsCoServer.editorData.getDocumentPresenceExpired(now);
+      const expiredKeys = yield docsCoServer.editorData.getDocumentPresenceExpired(now);
       if (expiredKeys.length > 0) {
         queue = new queueService();
         yield queue.initPromise(true, false, false, false, false, false);
@@ -141,8 +141,8 @@ var checkDocumentExpire = function() {
         let currentTenant = null;
         
         for (var i = 0; i < expiredKeys.length; ++i) {
-          let tenant = expiredKeys[i][0];
-          let docId = expiredKeys[i][1];
+          const tenant = expiredKeys[i][0];
+          const docId = expiredKeys[i][1];
           if (docId) {
             if (currentTenant !== tenant) {
               ctx.init(tenant, docId, ctx.userId);
@@ -181,18 +181,18 @@ var checkDocumentExpire = function() {
     }
   });
 };
-let forceSaveTimeout = function() {
+const forceSaveTimeout = function() {
   return co(function* () {
     let queue = null;
     let pubsub = null;
     let currentForceSaveStep = cfgForceSaveStep;
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     try {
       ctx.logger.info('forceSaveTimeout start');
       yield ctx.initTenantCache();
       currentForceSaveStep = ctx.getCfg('services.CoAuthoring.autoAssembly.step', cfgForceSaveStep);
-      let now = (new Date()).getTime();
-      let expiredKeys = yield docsCoServer.editorData.getForceSaveTimer(now);
+      const now = (new Date()).getTime();
+      const expiredKeys = yield docsCoServer.editorData.getForceSaveTimer(now);
       if (expiredKeys.length > 0) {
         queue = new queueService();
         yield queue.initPromise(true, false, false, false, false, false);
@@ -202,12 +202,12 @@ let forceSaveTimeout = function() {
 
         expiredKeys.sort((a, b) => a[0].localeCompare(b[0]));
 
-        let actions = [];
+        const actions = [];
         let currentTenant = null;
         
         for (let i = 0; i < expiredKeys.length; ++i) {
-          let tenant = expiredKeys[i][0];
-          let docId = expiredKeys[i][1];
+          const tenant = expiredKeys[i][0];
+          const docId = expiredKeys[i][1];
           if (docId) {
             if (currentTenant !== tenant) {
               ctx.init(tenant, docId, ctx.userId);

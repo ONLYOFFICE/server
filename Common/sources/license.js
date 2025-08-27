@@ -56,7 +56,7 @@ exports.readLicense = async function () {
 		usersExpire: constants.LICENSE_EXPIRE_USERS_ONE_DAY,
 		hasLicense: false,
 		buildDate: oBuildDate,
-		startDate: startDate,
+		startDate,
 		endDate: null,
 		customerId: "",
 		alias: "",

@@ -591,7 +591,7 @@ function getDocumentFormatBySignature(buffer) {
   if (!buffer) {
     return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
-  let text = buffer.toString("latin1");
+  const text = buffer.toString("latin1");
   // Check for binary DOCT format.
   if (4 <= text.length && text[0] === 'D' && text[1] === 'O' && text[2] === 'C' && text[3] === 'Y') {
     return constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
@@ -611,13 +611,13 @@ function getDocumentFormatBySignature(buffer) {
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 };
 async function getDocumentFormatByFile(file) {
-  let firstBytesLen = 100;
+  const firstBytesLen = 100;
   let buffer;
   let fd;
   try {
     fd = await open(file, 'r');
     const stream = fd.createReadStream({ start: 0, end: firstBytesLen });
-    let chunks = [];
+    const chunks = [];
     for await (const chunk of stream) {
       chunks.push(Buffer.from(chunk));
     }

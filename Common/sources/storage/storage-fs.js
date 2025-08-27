@@ -47,24 +47,24 @@ function getOutputPath(strPath) {
 }
 
 async function headObject(storageCfg, strPath) {
-  let fsPath = getFilePath(storageCfg, strPath);
-  let stats = await stat(fsPath);
+  const fsPath = getFilePath(storageCfg, strPath);
+  const stats = await stat(fsPath);
   return {ContentLength: stats.size};
 }
 
 async function getObject(storageCfg, strPath) {
-  let fsPath = getFilePath(storageCfg, strPath);
+  const fsPath = getFilePath(storageCfg, strPath);
   return await readFile(fsPath);
 }
 
 async function createReadStream(storageCfg, strPath) {
-  let fsPath = getFilePath(storageCfg, strPath);
-  let stats = await stat(fsPath);
-  let contentLength = stats.size;
-  let readStream = await utils.promiseCreateReadStream(fsPath);
+  const fsPath = getFilePath(storageCfg, strPath);
+  const stats = await stat(fsPath);
+  const contentLength = stats.size;
+  const readStream = await utils.promiseCreateReadStream(fsPath);
   return {
-    contentLength: contentLength,
-    readStream: readStream
+    contentLength,
+    readStream
   };
 }
 
@@ -75,27 +75,27 @@ async function putObject(storageCfg, strPath, buffer, contentLength) {
   if (Buffer.isBuffer(buffer)) {
     await writeFile(fsPath, buffer);
   } else {
-    let writable = await utils.promiseCreateWriteStream(fsPath);
+    const writable = await utils.promiseCreateWriteStream(fsPath);
     await utils.pipeStreams(buffer, writable, true);
   }
 }
 
 async function uploadObject(storageCfg, strPath, filePath) {
-  let fsPath = getFilePath(storageCfg, strPath);
+  const fsPath = getFilePath(storageCfg, strPath);
   await cp(filePath, fsPath, {force: true, recursive: true});
 }
 
 async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
-  let fsPathSource = getFilePath(storageCfgSrc, sourceKey);
-  let fsPathDestination = getFilePath(storageCfgDst, destinationKey);
+  const fsPathSource = getFilePath(storageCfgSrc, sourceKey);
+  const fsPathDestination = getFilePath(storageCfgDst, destinationKey);
   await cp(fsPathSource, fsPathDestination, {force: true, recursive: true});
 }
 
 async function listObjects(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
-  let fsPath = getFilePath(storageCfg, strPath);
-  let values = await utils.listObjects(fsPath);
-  return values.map(function(curvalue) {
+  const fsPath = getFilePath(storageCfg, strPath);
+  const values = await utils.listObjects(fsPath);
+  return values.map((curvalue) => {
     return getOutputPath(curvalue.substring(storageFolderPath.length + 1));
   });
 }

@@ -51,7 +51,7 @@ UserCallback.prototype.toSQLInsert = function(){
 UserCallback.prototype.getCallbackByUserIndex = function(ctx, callbacksStr, opt_userIndex) {
   ctx.logger.debug("getCallbackByUserIndex: userIndex = %s callbacks = %s", opt_userIndex, callbacksStr);
   if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
-    let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
+    const index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
     if (-1 === index) {
       //old format
       return callbacksStr;
@@ -60,10 +60,10 @@ UserCallback.prototype.getCallbackByUserIndex = function(ctx, callbacksStr, opt_
       callbacksStr = callbacksStr.substring(index);
     }
   }
-  let callbacks = callbacksStr.split(UserCallback.prototype.delimiter);
+  const callbacks = callbacksStr.split(UserCallback.prototype.delimiter);
   let callbackUrl = "";
   for (let i = 1; i < callbacks.length; ++i) {
-    let callback = JSON.parse(callbacks[i]);
+    const callback = JSON.parse(callbacks[i]);
     callbackUrl = callback.callback;
     if (callback.userIndex === opt_userIndex) {
       break;
@@ -74,7 +74,7 @@ UserCallback.prototype.getCallbackByUserIndex = function(ctx, callbacksStr, opt_
 UserCallback.prototype.getCallbacks = function(ctx, callbacksStr) {
   ctx.logger.debug("getCallbacks: callbacks = %s", callbacksStr);
   if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
-    let index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
+    const index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
     if (-1 === index) {
       //old format
       return [callbacksStr];
@@ -83,10 +83,10 @@ UserCallback.prototype.getCallbacks = function(ctx, callbacksStr) {
       callbacksStr = callbacksStr.substring(index);
     }
   }
-  let callbacks = callbacksStr.split(UserCallback.prototype.delimiter);
-  let res = [];
+  const callbacks = callbacksStr.split(UserCallback.prototype.delimiter);
+  const res = [];
   for (let i = 1; i < callbacks.length; ++i) {
-    let callback = JSON.parse(callbacks[i]);
+    const callback = JSON.parse(callbacks[i]);
     res.push(callback.callback);
   }
   return res;
@@ -116,13 +116,13 @@ DocumentPassword.prototype.isInitial = function(){
   return !this.change;
 };
 DocumentPassword.prototype.getDocPassword = function(ctx, docPasswordStr) {
-  let res = {initial: undefined, current: undefined, change: undefined};
+  const res = {initial: undefined, current: undefined, change: undefined};
   if (docPasswordStr) {
     ctx.logger.debug("getDocPassword: passwords = %s", docPasswordStr);
-    let passwords = docPasswordStr.split(UserCallback.prototype.delimiter);
+    const passwords = docPasswordStr.split(UserCallback.prototype.delimiter);
 
     for (let i = 1; i < passwords.length; ++i) {
-      let password = new DocumentPassword();
+      const password = new DocumentPassword();
       password.fromString(passwords[i]);
       if (password.isInitial()) {
         res.initial = password.password;
@@ -135,11 +135,11 @@ DocumentPassword.prototype.getDocPassword = function(ctx, docPasswordStr) {
   return res;
 };
 DocumentPassword.prototype.getCurPassword = function(ctx, docPasswordStr) {
-  let docPassword = this.getDocPassword(ctx, docPasswordStr);
+  const docPassword = this.getDocPassword(ctx, docPasswordStr);
   return docPassword.current;
 };
 DocumentPassword.prototype.hasPasswordChanges = function(ctx, docPasswordStr) {
-  let docPassword = this.getDocPassword(ctx, docPasswordStr);
+  const docPassword = this.getDocPassword(ctx, docPasswordStr);
   return docPassword.initial !== docPassword.current;
 };
 
@@ -149,7 +149,7 @@ function DocumentAdditional() {
 DocumentAdditional.prototype.delimiter = constants.CHAR_DELIMITER;
 DocumentAdditional.prototype.toSQLInsert = function() {
   if (this.data.length) {
-    let vals = this.data.map((currentValue) => {
+    const vals = this.data.map((currentValue) => {
       return JSON.stringify(currentValue);
     });
     return this.delimiter + vals.join(this.delimiter);
@@ -161,19 +161,19 @@ DocumentAdditional.prototype.fromString = function(str) {
   if (!str) {
     return;
   }
-  let vals = str.split(this.delimiter).slice(1);
+  const vals = str.split(this.delimiter).slice(1);
   this.data = vals.map((currentValue) => {
     return JSON.parse(currentValue);
   });
 };
 DocumentAdditional.prototype.setOpenedAt = function(time, timezoneOffset, headingsColor) {
-  let additional = new DocumentAdditional();
+  const additional = new DocumentAdditional();
   additional.data.push({time, timezoneOffset, headingsColor});
   return additional.toSQLInsert();
 };
 DocumentAdditional.prototype.getOpenedAt = function(str) {
   let res;
-  let val = new DocumentAdditional();
+  const val = new DocumentAdditional();
   val.fromString(str);
   val.data.forEach((elem) => {
     if (undefined !== elem.timezoneOffset) {
@@ -184,7 +184,7 @@ DocumentAdditional.prototype.getOpenedAt = function(str) {
 };
 DocumentAdditional.prototype.getDocumentLayout = function(str) {
   let res;
-  let val = new DocumentAdditional();
+  const val = new DocumentAdditional();
   val.fromString(str);
   val.data.forEach((elem) => {
     if (undefined !== elem.timezoneOffset) {
@@ -195,13 +195,13 @@ DocumentAdditional.prototype.getDocumentLayout = function(str) {
 }
 
 DocumentAdditional.prototype.setShardKey = function(shardKey) {
-  let additional = new DocumentAdditional();
+  const additional = new DocumentAdditional();
   additional.data.push({shardKey});
   return additional.toSQLInsert();
 };
 DocumentAdditional.prototype.getShardKey = function(str) {
   let res;
-  let val = new DocumentAdditional();
+  const val = new DocumentAdditional();
   val.fromString(str);
   val.data.forEach((elem) => {
     if (elem.shardKey) {
@@ -212,13 +212,13 @@ DocumentAdditional.prototype.getShardKey = function(str) {
 };
 
 DocumentAdditional.prototype.setWopiSrc = function(wopiSrc) {
-  let additional = new DocumentAdditional();
+  const additional = new DocumentAdditional();
   additional.data.push({wopiSrc});
   return additional.toSQLInsert();
 };
 DocumentAdditional.prototype.getWopiSrc = function(str) {
   let res;
-  let val = new DocumentAdditional();
+  const val = new DocumentAdditional();
   val.fromString(str);
   val.data.forEach((elem) => {
     if (elem.wopiSrc) {

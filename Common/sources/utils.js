@@ -103,7 +103,7 @@ var g_oIpFilterRules = new Map();
 function getIpFilterRule(address) {
   let exp = g_oIpFilterRules.get(address);
   if (!exp) {
-    let regExpStr = address.split('*').map(escapeStringRegexp).join('.*');
+    const regExpStr = address.split('*').map(escapeStringRegexp).join('.*');
     exp = new RegExp('^' + regExpStr + '$', 'i');
     g_oIpFilterRules.set(address, exp);
   }
@@ -128,7 +128,7 @@ exports.getMillisecondsOfHour = function(date) {
   return (date.getUTCMinutes() * 60 +  date.getUTCSeconds()) * 1000 + date.getUTCMilliseconds();
 };
 exports.encodeXml = function(value) {
-	return value.replace(/[<>&'"\r\n\t\xA0]/g, function (c) {
+	return value.replace(/[<>&'"\r\n\t\xA0]/g, (c) => {
 		switch (c) {
 			case '<': return '&lt;';
 			case '>': return '&gt;';
@@ -143,8 +143,8 @@ exports.encodeXml = function(value) {
 	});
 };
 function fsStat(fsPath) {
-  return new Promise(function(resolve, reject) {
-    fs.stat(fsPath, function(err, stats) {
+  return new Promise((resolve, reject) => {
+    fs.stat(fsPath, (err, stats) => {
       if (err) {
         reject(err);
       } else {
@@ -155,8 +155,8 @@ function fsStat(fsPath) {
 }
 exports.fsStat = fsStat;
 function fsReadDir(fsPath) {
-  return new Promise(function(resolve, reject) {
-    fs.readdir(fsPath, function(err, list) {
+  return new Promise((resolve, reject) => {
+    fs.readdir(fsPath, (err, list) => {
       if (err) {
         return reject(err);
       } else {
@@ -225,13 +225,13 @@ exports.listObjects = function(fsPath, optNoSubDir) {
   });
 };
 exports.sleep = function(ms) {
-  return new Promise(function(resolve) {
+  return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 };
 exports.readFile = function(file) {
-  return new Promise(function(resolve, reject) {
-    fs.readFile(file, function(err, data) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(file, (err, data) => {
       if (err) {
         reject(err);
       } else {
@@ -241,17 +241,17 @@ exports.readFile = function(file) {
   });
 };
 function getContentDisposition (opt_filename, opt_useragent, opt_type) {
-  let type = opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT;
-  return contentDisposition(opt_filename, {type: type});
+  const type = opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT;
+  return contentDisposition(opt_filename, {type});
 }
 exports.getContentDisposition = getContentDisposition;
 
 function isAllowDirectRequest(ctx, uri, isInJwtToken) {
   let res = false;
   const tenExternalRequestDirectIfIn = ctx.getCfg('externalRequest.directIfIn', cfgExternalRequestDirectIfIn);
-  let allowList = tenExternalRequestDirectIfIn.allowList;
+  const allowList = tenExternalRequestDirectIfIn.allowList;
   if (allowList.length > 0) {
-    let allowIndex = allowList.findIndex((allowPrefix) => {
+    const allowIndex = allowList.findIndex((allowPrefix) => {
       return uri.startsWith(allowPrefix);
     }, uri);
     res = -1 !== allowIndex;
@@ -337,7 +337,7 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-  let sizeLimit = optLimit || Number.MAX_VALUE;
+  const sizeLimit = optLimit || Number.MAX_VALUE;
   uri = URI.serialize(URI.parse(uri));
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
 
@@ -472,7 +472,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
       return {
         response: {
           statusCode: status,
-          headers: headers,
+          headers,
           body: data
         },
         body: JSON.stringify(data)
@@ -533,7 +533,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
   const axiosConfig = {
     ...options,
     url: uri,
-    method: method,
+    method,
     headers: requestHeaders,
     responseType: 'stream',
     signal: opt_timeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(opt_timeout.wholeCycle)) : undefined,
@@ -664,7 +664,7 @@ function fillXmlResponse(val) {
 }
 
 function fillResponseSimple(res, str, contentType) {
-  let body = Buffer.from(str, 'utf-8');
+  const body = Buffer.from(str, 'utf-8');
   res.setHeader('Content-Type', contentType + '; charset=UTF-8');
   res.setHeader('Content-Length', body.length);
   res.send(body);
@@ -709,7 +709,7 @@ function fillResponseBuilder(res, key, urls, end, error) {
   if (constants.NO_ERROR != error) {
     output = {error: exports.mapAscServerErrorToOldError(error)};
   } else {
-    output = {key: key, urls: urls, end: end};
+    output = {key, urls, end};
   }
   _fillResponse(res, output, true);
 }
@@ -717,13 +717,13 @@ function fillResponseBuilder(res, key, urls, end, error) {
 exports.fillResponseBuilder = fillResponseBuilder;
 
 function promiseCreateWriteStream(strPath, optOptions) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     var file = fs.createWriteStream(strPath, optOptions);
     var errorCallback = function(e) {
       reject(e);
     };
     file.on('error', errorCallback);
-    file.on('open', function() {
+    file.on('open', () => {
       file.removeListener('error', errorCallback);
       resolve(file);
     });
@@ -732,27 +732,27 @@ function promiseCreateWriteStream(strPath, optOptions) {
 exports.promiseCreateWriteStream = promiseCreateWriteStream;
 
 function promiseWaitDrain(stream) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     stream.once('drain', resolve);
   });
 }
 exports.promiseWaitDrain = promiseWaitDrain;
 
 function promiseWaitClose(stream) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     stream.once('close', resolve);
   });
 }
 exports.promiseWaitClose = promiseWaitClose;
 
 function promiseCreateReadStream(strPath) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     var file = fs.createReadStream(strPath);
     var errorCallback = function(e) {
       reject(e);
     };
     file.on('error', errorCallback);
-    file.on('open', function() {
+    file.on('open', () => {
       file.removeListener('error', errorCallback);
       resolve(file);
     });
@@ -777,8 +777,8 @@ exports.compareStringByLength = function(x, y) {
 };
 exports.promiseRedis = function(client, func) {
   var newArguments = Array.prototype.slice.call(arguments, 2);
-  return new Promise(function(resolve, reject) {
-    newArguments.push(function(err, data) {
+  return new Promise((resolve, reject) => {
+    newArguments.push((err, data) => {
       if (err) {
         reject(err);
       } else {
@@ -831,25 +831,25 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
 function getBaseUrlByConnection(ctx, conn) {
   conn = conn.request;
   //Header names are lower-cased. https://nodejs.org/api/http.html#messageheaders
-  let cloudfrontForwardedProto = conn.headers['cloudfront-forwarded-proto'];
-  let forwardedProto = conn.headers['x-forwarded-proto'];
-  let forwardedHost = conn.headers['x-forwarded-host'];
-  let forwardedPrefix = conn.headers['x-forwarded-prefix'];
-  let host = conn.headers['host'];
-  let proto = cloudfrontForwardedProto || forwardedProto;
+  const cloudfrontForwardedProto = conn.headers['cloudfront-forwarded-proto'];
+  const forwardedProto = conn.headers['x-forwarded-proto'];
+  const forwardedHost = conn.headers['x-forwarded-host'];
+  const forwardedPrefix = conn.headers['x-forwarded-prefix'];
+  const host = conn.headers['host'];
+  const proto = cloudfrontForwardedProto || forwardedProto;
   ctx.logger.debug(`getBaseUrlByConnection host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
       host, forwardedHost, forwardedProto, forwardedPrefix, cloudfrontForwardedProto);
   return getBaseUrl('', host, proto, forwardedHost, forwardedPrefix);
 }
 function getBaseUrlByRequest(ctx, req) {
   //case-insensitive match. https://expressjs.com/en/api.html#req.get
-  let cloudfrontForwardedProto = req.get('cloudfront-forwarded-proto');
-  let forwardedProto = req.get('x-forwarded-proto');
-  let forwardedHost = req.get('x-forwarded-host');
-  let forwardedPrefix = req.get('x-forwarded-prefix');
-  let host = req.get('host');
-  let protocol = req.protocol;
-  let proto = cloudfrontForwardedProto || forwardedProto;
+  const cloudfrontForwardedProto = req.get('cloudfront-forwarded-proto');
+  const forwardedProto = req.get('x-forwarded-proto');
+  const forwardedHost = req.get('x-forwarded-host');
+  const forwardedPrefix = req.get('x-forwarded-prefix');
+  const host = req.get('host');
+  const protocol = req.protocol;
+  const proto = cloudfrontForwardedProto || forwardedProto;
   ctx.logger.debug(`getBaseUrlByRequest protocol=%s host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
       protocol, host, forwardedHost, forwardedProto, forwardedPrefix, cloudfrontForwardedProto);
   return getBaseUrl(protocol, host, proto, forwardedHost, forwardedPrefix);
@@ -857,15 +857,15 @@ function getBaseUrlByRequest(ctx, req) {
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
 exports.getBaseUrlByRequest = getBaseUrlByRequest;
 function getDomainByConnection(ctx, conn) {
-  let incomingMessage = conn.request;
-  let host = incomingMessage.headers['host'];
-  let forwardedHost = incomingMessage.headers['x-forwarded-host'];
+  const incomingMessage = conn.request;
+  const host = incomingMessage.headers['host'];
+  const forwardedHost = incomingMessage.headers['x-forwarded-host'];
   ctx.logger.debug("getDomainByConnection headers['host']=%s headers['x-forwarded-host']=%s", host, forwardedHost);
   return getDomain(host, forwardedHost);
 }
 function getDomainByRequest(ctx, req) {
-  let host = req.get('host');
-  let forwardedHost = req.get('x-forwarded-host');
+  const host = req.get('host');
+  const forwardedHost = req.get('x-forwarded-host');
   ctx.logger.debug("getDomainByRequest headers['host']=%s headers['x-forwarded-host']=%s", host, forwardedHost);
   return getDomain(req.get('host'), req.get('x-forwarded-host'));
 }
@@ -888,12 +888,12 @@ exports.getWopiSrcByConnection = getWopiSrcByConnection;
 exports.getShardKeyByRequest = getShardKeyByRequest;
 exports.getWopiSrcByRequest = getWopiSrcByRequest;
 function stream2Buffer(stream) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     if (!stream.readable) {
       resolve(Buffer.alloc(0));
     }
     var bufs = [];
-    stream.on('data', function(data) {
+    stream.on('data', (data) => {
       bufs.push(data);
     });
     function onEnd(err) {
@@ -919,12 +919,12 @@ function changeOnlyOfficeUrl(inputUrl, strPath, optFilename) {
 }
 exports.changeOnlyOfficeUrl = changeOnlyOfficeUrl;
 function pipeStreams(from, to, isEnd) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     from.pipe(to, {end: isEnd});
-    from.on('end', function() {
+    from.on('end', () => {
       resolve();
     });
-    from.on('error', function(e) {
+    from.on('error', (e) => {
       reject(e);
     });
   });
@@ -956,8 +956,8 @@ function checkIpFilter(ctx, ipString, opt_hostname) {
   }
 
   for (let i = 0; i < tenIpFilterRules.length; ++i) {
-    let rule = tenIpFilterRules[i];
-    let exp = getIpFilterRule(rule.address);
+    const rule = tenIpFilterRules[i];
+    const exp = getIpFilterRule(rule.address);
     if ((opt_hostname && exp.test(opt_hostname)) || (ip4 && exp.test(ip4)) || (ip6 && exp.test(ip6))) {
       if (!rule.allowed) {
         const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
@@ -986,7 +986,7 @@ function* checkHostFilter(ctx, hostname) {
 }
 exports.checkHostFilter = checkHostFilter;
 function checkClientIp(req, res, next) {
-  let ctx = new operationContext.Context();
+  const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
   const tenIpFilterUseForRequest = ctx.getCfg('services.CoAuthoring.ipfilter.useforrequest', cfgIpFilterUseForRequest);
 	let status = 0;
@@ -1013,8 +1013,8 @@ function lowercaseQueryString(req, res, next) {
 }
 exports.lowercaseQueryString = lowercaseQueryString;
 function dnsLookup(hostname, options) {
-  return new Promise(function(resolve, reject) {
-    dnscache.lookup(hostname, options, function(err, addresses){
+  return new Promise((resolve, reject) => {
+    dnscache.lookup(hostname, options, (err, addresses) =>{
       if (err) {
         reject(err);
       } else {
@@ -1054,10 +1054,10 @@ function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
   if (opt_inBody) {
     data = payload;
   } else {
-    data = {payload: payload};
+    data = {payload};
   }
 
-  let options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+  const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
   return jwt.sign(data, secret, options);
 }
 exports.fillJwtForRequest = fillJwtForRequest;
@@ -1198,7 +1198,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   // 	ssbranding = false;
   // 	whiteLabel = false;
   // }
-  let license = {};
+  const license = {};
   license.start_date = licenseInfo.startDate && licenseInfo.startDate.toJSON();
   license.end_date = licenseInfo.endDate && licenseInfo.endDate.toJSON();
   license.timelimited = 0 !== (constants.LICENSE_MODE.Limited & licenseInfo.mode);
@@ -1219,7 +1219,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   return license;
 };
 exports.convertLicenseInfoToServerParams = function(licenseInfo) {
-  let license = {};
+  const license = {};
   license.workersCount = licenseInfo.count;
   license.resultType = licenseInfo.type;
   license.packageType = licenseInfo.packageType;
@@ -1229,7 +1229,7 @@ exports.convertLicenseInfoToServerParams = function(licenseInfo) {
   return license;
 };
 exports.checkBaseUrl = function(ctx, baseUrl, opt_storageCfg) {
-  let storageExternalHost = opt_storageCfg ? opt_storageCfg.externalHost : cfgStorageExternalHost
+  const storageExternalHost = opt_storageCfg ? opt_storageCfg.externalHost : cfgStorageExternalHost
   const tenStorageExternalHost = ctx.getCfg('storage.externalHost', storageExternalHost);
   return tenStorageExternalHost ? tenStorageExternalHost : baseUrl;
 };

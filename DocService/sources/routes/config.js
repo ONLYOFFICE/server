@@ -40,16 +40,16 @@ const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManag
 const router = express.Router();
 
 const rawFileParser = bodyParser.raw(
-    {inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function() {return true;}});
+    {inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type() {return true;}});
 
 router.get('/', async (req, res) => {
-  let ctx = new operationContext.Context();
+  const ctx = new operationContext.Context();
   let result = '{}';
   try {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
     ctx.logger.debug('config get start');
-    let cfg = ctx.getFullCfg();
+    const cfg = ctx.getFullCfg();
     result = JSON.stringify(cfg);
   } catch (error) {
     ctx.logger.error('config get error: %s', error.stack);
@@ -62,12 +62,12 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', rawFileParser, async (req, res) => {
-  let ctx = new operationContext.Context();
+  const ctx = new operationContext.Context();
   try {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
 
-    let newConfig = JSON.parse(req.body);
+    const newConfig = JSON.parse(req.body);
 
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
       await tenantManager.setTenantConfig(ctx, newConfig);

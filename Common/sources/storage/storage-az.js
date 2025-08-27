@@ -175,14 +175,14 @@ async function deleteObject(storageCfg, strPath) {
 }
 
 async function deleteObjects(storageCfg, strPaths) {
-  let aKeys = strPaths.map(path => ({Key: getFilePath(storageCfg, path)}));
+  const aKeys = strPaths.map(path => ({Key: getFilePath(storageCfg, path)}));
   for (let i = 0; i < aKeys.length; i += MAX_DELETE_OBJECTS) {
     await deleteObjectsHelp(storageCfg, aKeys.slice(i, i + MAX_DELETE_OBJECTS));
   }
 }
 
 async function deletePath(storageCfg, strPath) {
-  let list = await listObjects(storageCfg, strPath);
+  const list = await listObjects(storageCfg, strPath);
   await deleteObjects(storageCfg, list);
 }
 

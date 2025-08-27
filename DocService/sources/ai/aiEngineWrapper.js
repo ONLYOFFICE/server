@@ -60,21 +60,21 @@ const sandbox = {
       TmpProviderForModels: null,
       Providers: {},
       InternalProviders: [],
-      _getHeaders: function() {return {};},
-      _getEndpointUrl: function() {return "";},
-      serializeProviders: function() {return [];},
-      ActionsGetSorted: function() {return [];},
-      getModels: function() {return [];},
-      onLoadInternalProviders: function() {},
+      _getHeaders() {return {};},
+      _getEndpointUrl() {return "";},
+      serializeProviders() {return [];},
+      ActionsGetSorted() {return [];},
+      getModels() {return [];},
+      onLoadInternalProviders() {},
       Storage: {
-        serializeModels: function() {return [];}
+        serializeModels() {return [];}
       },
       CapabilitiesUI: {}
     }
   },
   Asc: {
     plugin: {
-      tr: function(text) {
+      tr(text) {
         // Just return the original text in the stub
         return text;
       }
@@ -88,7 +88,7 @@ const sandbox = {
    * @param {Object} options - Fetch options (method, headers, body)
    * @returns {Promise<Object>} - A promise that resolves to a response-like object
    */
-  fetch: function(url, options = {}) {
+  fetch(url, options = {}) {
     const ctx = sandbox.ctx;
     const method = options.method || 'GET';
     
@@ -155,9 +155,9 @@ function loadInternalProviders() {
         
         try {
           //sandbox.ctx.logger.debug(`Loading provider ${file}:`);
-          let content = "(function(){\n" + providerCode + "\nreturn new Provider();})();";
+          const content = "(function(){\n" + providerCode + "\nreturn new Provider();})();";
           // Execute provider code in sandbox
-          let provider = vm.runInNewContext(content, sandbox, {
+          const provider = vm.runInNewContext(content, sandbox, {
             filename: file,
             timeout: 5000
           });
@@ -243,12 +243,12 @@ if (engineCode) {
 
   AI.ActionsGetSorted = function()
   {
-    let keys = AI.ActionsGetKeys();
-    let count = keys.length;
-    let actions = new Array(count);
+    const keys = AI.ActionsGetKeys();
+    const count = keys.length;
+    const actions = new Array(count);
     for (let i = 0; i < count; i++)
     {
-      let src = AI.Actions[keys[i]];
+      const src = AI.Actions[keys[i]];
       actions[i] = {
         id : keys[i],
         name : Asc.plugin.tr(src.name),

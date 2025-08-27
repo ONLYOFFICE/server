@@ -56,7 +56,7 @@ function initCacheRouter(cfgStorage, routs) {
   const { storageFolderName, fs: { folderPath, secretString: secret } } = cfgStorage;
 
   routs.forEach((rout) => {
-    if (!rout) return;
+    if (!rout) {return;}
 
     const rootPath = path.join(folderPath, rout);
 
@@ -149,7 +149,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
   };
 }
 
-for (let i in cfgStaticContent) {
+for (const i in cfgStaticContent) {
   if (cfgStaticContent.hasOwnProperty(i)) {
     router.use(i, express.static(cfgStaticContent[i]['path'], cfgStaticContent[i]['options']));
   }

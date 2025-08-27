@@ -67,19 +67,19 @@ EditorCommon.prototype._getDocumentData = function(ctx, docId) {
   return options;
 };
 EditorCommon.prototype._checkAndLock = function(ctx, name, docId, fencingToken, ttl) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   const now = Date.now();
   let res = true;
   if (data[name] && now < data[name].expireAt && fencingToken !== data[name].fencingToken) {
     res = false;
   } else {
     const expireAt = now + ttl * 1000;
-    data[name] = {fencingToken: fencingToken, expireAt: expireAt};
+    data[name] = {fencingToken, expireAt};
   }
   return res;
 };
 EditorCommon.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   const now = Date.now();
   let res;
   if (data[name] && now < data[name].expireAt) {
@@ -107,10 +107,10 @@ EditorData.prototype.addPresence = async function(ctx, docId, userId, userInfo) 
 EditorData.prototype.updatePresence = async function(ctx, docId, userId) {};
 EditorData.prototype.removePresence = async function(ctx, docId, userId) {};
 EditorData.prototype.getPresence = async function(ctx, docId, connections) {
-  let hvals = [];
+  const hvals = [];
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
-      let conn = connections[i];
+      const conn = connections[i];
       if (conn.docId === docId && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
         hvals.push(utils.getConnectionInfoStr(conn));
       }
@@ -138,19 +138,19 @@ EditorData.prototype.getDocumentPresenceExpired = async function(now) {
 EditorData.prototype.removePresenceDocument = async function(ctx, docId) {};
 
 EditorData.prototype.addLocks = async function(ctx, docId, locks) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   if (!data.locks) {
     data.locks = {};
   }
   Object.assign(data.locks, locks);
 };
 EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   if (!data.locks) {
     data.locks = {};
   }
-  let lockConflict = {};
-  for (let lockId in locks) {
+  const lockConflict = {};
+  for (const lockId in locks) {
     if (undefined === data.locks[lockId]) {
       data.locks[lockId] = locks[lockId];
     } else {
@@ -160,58 +160,58 @@ EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
   return {lockConflict, allLocks: data.locks};
 };
 EditorData.prototype.removeLocks = async function(ctx, docId, locks) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   if (data.locks) {
-    for (let lockId in locks) {
+    for (const lockId in locks) {
       delete data.locks[lockId];
     }
   }
 };
 EditorData.prototype.removeAllLocks = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   data.locks = undefined;
 };
 EditorData.prototype.getLocks = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   return data.locks || {};
 };
 
 EditorData.prototype.addMessage = async function(ctx, docId, msg) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   if (!data.messages) {
     data.messages = [];
   }
   data.messages.push(msg);
 };
 EditorData.prototype.removeMessages = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   data.messages = undefined;
 };
 EditorData.prototype.getMessages = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   return data.messages || [];
 };
 
 EditorData.prototype.setSaved = async function(ctx, docId, status) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   data.saved = status;
 };
 EditorData.prototype.getdelSaved = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
-  let res = data.saved;
+  const data = this._getDocumentData(ctx, docId);
+  const res = data.saved;
   data.saved = null;
   return res;
 };
 EditorData.prototype.setForceSave = async function(ctx, docId, time, index, baseUrl, changeInfo, convertInfo) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   data.forceSave = {time, index, baseUrl, changeInfo, started: false, ended: false, convertInfo};
 };
 EditorData.prototype.getForceSave = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   return data.forceSave || null;
 };
 EditorData.prototype.checkAndStartForceSave = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && !data.forceSave.started) {
     data.forceSave.started = true;
@@ -221,7 +221,7 @@ EditorData.prototype.checkAndStartForceSave = async function(ctx, docId) {
   return res;
 };
 EditorData.prototype.checkAndSetForceSave = async function(ctx, docId, time, index, started, ended, convertInfo) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && time === data.forceSave.time && index === data.forceSave.index) {
     data.forceSave.started = started;
@@ -232,16 +232,16 @@ EditorData.prototype.checkAndSetForceSave = async function(ctx, docId, time, ind
   return res;
 };
 EditorData.prototype.removeForceSave = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+  const data = this._getDocumentData(ctx, docId);
   data.forceSave = undefined;
 };
 
 EditorData.prototype.cleanDocumentOnExit = async function(ctx, docId) {
-  let tenantData = this.data[ctx.tenant];
+  const tenantData = this.data[ctx.tenant];
   if (tenantData) {
     delete tenantData[docId];
   }
-  let tenantTimer = this.forceSaveTimer[ctx.tenant];
+  const tenantTimer = this.forceSaveTimer[ctx.tenant];
   if (tenantTimer) {
     delete tenantTimer[docId];
   }
@@ -257,11 +257,11 @@ EditorData.prototype.addForceSaveTimerNX = async function(ctx, docId, expireAt) 
   }
 };
 EditorData.prototype.getForceSaveTimer = async function(now) {
-  let res = [];
-  for (let tenant in this.forceSaveTimer) {
+  const res = [];
+  for (const tenant in this.forceSaveTimer) {
     if (this.forceSaveTimer.hasOwnProperty(tenant)) {
-      let tenantTimer = this.forceSaveTimer[tenant];
-      for (let docId in tenantTimer) {
+      const tenantTimer = this.forceSaveTimer[tenant];
+      for (const docId in tenantTimer) {
         if (tenantTimer.hasOwnProperty(docId)) {
           if (tenantTimer[docId] < now) {
             res.push([tenant, docId]);
@@ -291,19 +291,19 @@ EditorStat.prototype.addPresenceUniqueUser = async function(ctx, userId, expireA
   if (!tenantUser) {
     this.uniqueUser[ctx.tenant] = tenantUser = {};
   }
-  tenantUser[userId] = {expireAt: expireAt, userInfo: userInfo};
+  tenantUser[userId] = {expireAt, userInfo};
 };
 EditorStat.prototype.getPresenceUniqueUser = async function(ctx, nowUTC) {
-  let res = [];
+  const res = [];
   let tenantUser = this.uniqueUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUser[ctx.tenant] = tenantUser = {};
   }
-  for (let userId in tenantUser) {
+  for (const userId in tenantUser) {
     if (tenantUser.hasOwnProperty(userId)) {
       if (tenantUser[userId].expireAt > nowUTC) {
-        let elem = tenantUser[userId];
-        let newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
+        const elem = tenantUser[userId];
+        const newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
         Object.assign(newElem, elem.userInfo);
         res.push(newElem);
       } else {
@@ -319,24 +319,24 @@ EditorStat.prototype.addPresenceUniqueUsersOfMonth = async function(ctx, userId,
     this.uniqueUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
   if(!tenantUser[period]) {
-    let expireAt = Date.now() + cfgExpMonthUniqueUsers;
-    tenantUser[period] = {expireAt: expireAt, data: {}};
+    const expireAt = Date.now() + cfgExpMonthUniqueUsers;
+    tenantUser[period] = {expireAt, data: {}};
   }
   tenantUser[period].data[userId] = userInfo;
 };
 EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function(ctx) {
-  let res = {};
-  let nowUTC = Date.now();
+  const res = {};
+  const nowUTC = Date.now();
   let tenantUser = this.uniqueUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
-  for (let periodId in tenantUser) {
+  for (const periodId in tenantUser) {
     if (tenantUser.hasOwnProperty(periodId)) {
       if (tenantUser[periodId].expireAt <= nowUTC) {
         delete tenantUser[periodId];
       } else {
-        let date = new Date(parseInt(periodId)).toISOString();
+        const date = new Date(parseInt(periodId)).toISOString();
         res[date] = tenantUser[periodId].data;
       }
     }
@@ -349,19 +349,19 @@ EditorStat.prototype.addPresenceUniqueViewUser = async function(ctx, userId, exp
   if (!tenantUser) {
     this.uniqueViewUser[ctx.tenant] = tenantUser = {};
   }
-  tenantUser[userId] = {expireAt: expireAt, userInfo: userInfo};
+  tenantUser[userId] = {expireAt, userInfo};
 };
 EditorStat.prototype.getPresenceUniqueViewUser = async function(ctx, nowUTC) {
-  let res = [];
+  const res = [];
   let tenantUser = this.uniqueViewUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUser[ctx.tenant] = tenantUser = {};
   }
-  for (let userId in tenantUser) {
+  for (const userId in tenantUser) {
     if (tenantUser.hasOwnProperty(userId)) {
       if (tenantUser[userId].expireAt > nowUTC) {
-        let elem = tenantUser[userId];
-        let newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
+        const elem = tenantUser[userId];
+        const newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
         Object.assign(newElem, elem.userInfo);
         res.push(newElem);
       } else {
@@ -377,24 +377,24 @@ EditorStat.prototype.addPresenceUniqueViewUsersOfMonth = async function(ctx, use
     this.uniqueViewUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
   if(!tenantUser[period]) {
-    let expireAt = Date.now() + cfgExpMonthUniqueUsers;
-    tenantUser[period] = {expireAt: expireAt, data: {}};
+    const expireAt = Date.now() + cfgExpMonthUniqueUsers;
+    tenantUser[period] = {expireAt, data: {}};
   }
   tenantUser[period].data[userId] = userInfo;
 };
 EditorStat.prototype.getPresenceUniqueViewUsersOfMonth = async function(ctx) {
-  let res = {};
-  let nowUTC = Date.now();
+  const res = {};
+  const nowUTC = Date.now();
   let tenantUser = this.uniqueViewUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
-  for (let periodId in tenantUser) {
+  for (const periodId in tenantUser) {
     if (tenantUser.hasOwnProperty(periodId)) {
       if (tenantUser[periodId].expireAt <= nowUTC) {
         delete tenantUser[periodId];
       } else {
-        let date = new Date(parseInt(periodId)).toISOString();
+        const date = new Date(parseInt(periodId)).toISOString();
         res[date] = tenantUser[periodId].data;
       }
     }
@@ -426,7 +426,7 @@ EditorStat.prototype.getEditorConnectionsCount = async function(ctx, connections
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
-      let conn = connections[i];
+      const conn = connections[i];
       if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
         count++;
       }
@@ -440,7 +440,7 @@ EditorStat.prototype.getViewerConnectionsCount = async function(ctx, connections
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
-      let conn = connections[i];
+      const conn = connections[i];
       if (conn.isCloseCoAuthoring || (conn.user && conn.user.view) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
         count++;
       }
@@ -454,7 +454,7 @@ EditorStat.prototype.getLiveViewerConnectionsCount = async function(ctx, connect
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
-      let conn = connections[i];
+      const conn = connections[i];
       if (utils.isLiveViewer(conn) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
         count++;
       }
@@ -477,7 +477,7 @@ EditorStat.prototype.removeShutdown = async function(key, docId) {
 EditorStat.prototype.getShutdownCount = async function(key) {
   let count = 0;
   if (this.shutdown[key]) {
-    for (let docId in this.shutdown[key]) {
+    for (const docId in this.shutdown[key]) {
       if (this.shutdown[key].hasOwnProperty(docId)) {
         count++;
       }

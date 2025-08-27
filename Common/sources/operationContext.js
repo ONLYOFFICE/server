@@ -60,32 +60,32 @@ Context.prototype.initDefault = function() {
   this.init(tenantManager.getDefautTenant(), constants.DEFAULT_DOC_ID, constants.DEFAULT_USER_ID, undefined);
 };
 Context.prototype.initFromConnection = function(conn) {
-  let tenant = tenantManager.getTenantByConnection(this, conn);
+  const tenant = tenantManager.getTenantByConnection(this, conn);
   let docId = conn.docid;
   if (!docId) {
-    let handshake = conn.handshake;
+    const handshake = conn.handshake;
     const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(handshake.url);
     if (docIdParsed && 1 < docIdParsed.length) {
       docId = docIdParsed[1];
     }
   }
-  let userId = conn.user?.id;
-  let shardKey = utils.getShardKeyByConnection(this, conn);
-  let wopiSrc = utils.getWopiSrcByConnection(this, conn);
+  const userId = conn.user?.id;
+  const shardKey = utils.getShardKeyByConnection(this, conn);
+  const wopiSrc = utils.getWopiSrcByConnection(this, conn);
   this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc);
 };
 Context.prototype.initFromRequest = function(req) {
-  let tenant = tenantManager.getTenantByRequest(this, req);
-  let shardKey = utils.getShardKeyByRequest(this, req);
-  let wopiSrc = utils.getWopiSrcByRequest(this, req);
+  const tenant = tenantManager.getTenantByRequest(this, req);
+  const shardKey = utils.getShardKeyByRequest(this, req);
+  const wopiSrc = utils.getWopiSrcByRequest(this, req);
   this.init(tenant, this.docId, this.userId, shardKey, wopiSrc);
 };
 Context.prototype.initFromTaskQueueData = function(task) {
-  let ctx = task.getCtx();
+  const ctx = task.getCtx();
   this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
 };
 Context.prototype.initFromPubSub = function(data) {
-  let ctx = data.ctx;
+  const ctx = data.ctx;
   this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc);
 };
 Context.prototype.initTenantCache = async function() {

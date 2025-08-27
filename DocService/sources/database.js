@@ -48,10 +48,10 @@ exports.insert = function (_collectionName, _newElement) {
 		return;
 	}
 
-	_db.open (function (err, db) {
+	_db.open ((err, db) => {
 		if (!err) {
 			// open collection. If it doesn't exist, it will be created
-			db.collection(_collectionName, function(err, collection) {
+			db.collection(_collectionName, (err, collection) => {
 				if (!err) {
 					collection.insert (_newElement);
 				} else {
@@ -74,12 +74,12 @@ exports.remove = function (_collectionName, _removeElements) {
 	}
 	
 	// Opening the database
-	_db.open (function (err, db) {
+	_db.open ((err, db) => {
 		if (!err) {
 			// open collection. If it doesn't exist, it will be created
-			db.collection(_collectionName, function(err, collection) {
+			db.collection(_collectionName, (err, collection) => {
 				if (!err) {
-					collection.remove (_removeElements, function(err, collection) {
+					collection.remove (_removeElements, (err, collection) => {
 						logger.info ("All elements remove");
 					});
 				} else {
@@ -104,20 +104,20 @@ exports.load = function (_collectionName, callbackFunction) {
 	var result = [];
 	
 	// opening database
-	_db.open (function (err, db) {
+	_db.open ((err, db) => {
 		// open collection. If it doesn't exist, it will be created
-		db.collection(_collectionName, function(err, collection) {
+		db.collection(_collectionName, (err, collection) => {
 			// Get all elements of a collection with find()
-			collection.find(function(err, cursor) {
-				cursor.each(function(err, item) {
+			collection.find((err, cursor) => {
+				cursor.each((err, item) => {
 					// Null denotes the last element
 					if (item != null) {
 						if (!result.hasOwnProperty (item.docid))
-							result[item.docid] = [item];
+							{result[item.docid] = [item];}
 						else
-							result[item.docid].push(item);
+							{result[item.docid].push(item);}
 					} else
-						callbackFunction (result);
+						{callbackFunction (result);}
 				});
 				
 				db.close();

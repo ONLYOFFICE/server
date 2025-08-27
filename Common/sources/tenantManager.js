@@ -104,14 +104,14 @@ function getTenantPathPrefix(ctx) {
 async function getTenantConfig(ctx) {
   let res = null;
   if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
-    let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-    let configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
+    const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+    const configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
     res = nodeCache.get(configPath);
     if (res) {
       ctx.logger.debug('getTenantConfig from cache');
     } else {
       try {
-        let cfgString = await readFile(configPath, {encoding: 'utf8'});
+        const cfgString = await readFile(configPath, {encoding: 'utf8'});
         res = config.util.parseString(cfgString, path.extname(configPath).substring(1));
         ctx.logger.debug('getTenantConfig from %s', configPath);
       } catch (e) {
@@ -133,8 +133,8 @@ async function setTenantConfig(ctx, config) {
   let newConfig = await getTenantConfig(ctx);
   if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
     newConfig = utils.deepMergeObjects(newConfig || {}, config);
-    let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-    let configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
+    const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+    const configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
     await writeFile(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
     nodeCache.set(configPath, newConfig);
   }
@@ -163,14 +163,14 @@ function getTenantSecret(ctx, type) {
     let res = undefined;
     //read secret file
     if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
-      let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-      let secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
+      const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+      const secretPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameSecret);
       res = nodeCache.get(secretPath);
       if (res) {
         ctx.logger.debug('getTenantSecret from cache');
       } else {
         try {
-          let secret = yield readFile(secretPath, {encoding: 'utf8'});
+          const secret = yield readFile(secretPath, {encoding: 'utf8'});
           //trim whitespace plus line terminators from string (newline is common on Posix systems)
           res = secret.trim();
           if (res.length !== secret.length) {
@@ -209,7 +209,7 @@ function setDefLicense(data, original) {
 }
 //todo move to license file?
 function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
-  let errors = [];
+  const errors = [];
   //bitwise
   if (0 !== (licenseInfo.mode & c_LM.Limited) && 0 === (licenseInfoTenant.mode & c_LM.Limited)) {
     licenseInfoTenant.mode |= c_LM.Limited;
@@ -224,7 +224,7 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
     errors.push('developer');
   }
   //can not turn on
-  let flags = ['branding', 'customization'];
+  const flags = ['branding', 'customization'];
   flags.forEach((flag) => {
     if (!licenseInfo[flag] && licenseInfoTenant[flag]) {
       licenseInfoTenant[flag] = licenseInfo[flag];
@@ -266,8 +266,8 @@ async function getTenantLicense(ctx) {
   if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
     //todo alias is deprecated. remove one year after 8.3
     if (licenseInfo.multitenancy || licenseInfo.alias) {
-      let tenantPath = utils.removeIllegalCharacters(ctx.tenant);
-      let licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
+      const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+      const licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
       let licenseTupleTenant = nodeCache.get(licensePath);
       if (licenseTupleTenant) {
         ctx.logger.debug('getTenantLicense from cache');
@@ -305,7 +305,7 @@ function isDefaultTenant(ctx) {
 async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
   const c_LR = constants.LICENSE_RESULT;
   const c_LM = constants.LICENSE_MODE;
-  let res = {...baseVerifiedLicense};
+  const res = {...baseVerifiedLicense};
   let oLicense = null;
   try {
     const oFile = (await readFile(licenseFile)).toString();
@@ -395,7 +395,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
         res.connectionsView = Math.min(res.connectionsView, constants.LICENSE_CONNECTIONS);
         res.usersCount = Math.min(res.usersCount, constants.LICENSE_USERS);
         res.usersViewCount = Math.min(res.usersViewCount, constants.LICENSE_USERS);
-        let errStr = res.usersCount ? `${res.usersCount} unique users` : `${res.connections} concurrent connections`;
+        const errStr = res.usersCount ? `${res.usersCount} unique users` : `${res.connections} concurrent connections`;
         ctx.logger.error(`License: License needs to be renewed.\nYour users have only ${errStr} ` +
           `available for document editing for the next ${graceDays} days.\nPlease renew the ` +
           'license to restore the full access');

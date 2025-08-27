@@ -58,17 +58,17 @@ var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
-let addSqlParam = sqlBase.addSqlParameter;
+const addSqlParam = sqlBase.addSqlParameter;
 
 function updateDoc(ctx, docId, status, callback) {
-  return new Promise(function(resolve, reject) {
-    let values = [];
-    let p1 = addSqlParam(status, values);
-    let p2 = addSqlParam(callback, values);
-    let p3 = addSqlParam(ctx.tenant, values);
-    let p4 = addSqlParam(docId, values);
-    let sqlCommand = `UPDATE ${cfgTableResult} SET status=${p1},callback=${p2} WHERE tenant=${p3} AND id=${p4};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, function(error, result) {
+  return new Promise((resolve, reject) => {
+    const values = [];
+    const p1 = addSqlParam(status, values);
+    const p2 = addSqlParam(callback, values);
+    const p3 = addSqlParam(ctx.tenant, values);
+    const p4 = addSqlParam(docId, values);
+    const sqlCommand = `UPDATE ${cfgTableResult} SET status=${p1},callback=${p2} WHERE tenant=${p3} AND id=${p4};`;
+    sqlBase.sqlQuery(ctx, sqlCommand, (error, result) => {
       if (error) {
         reject(error);
       } else {
@@ -81,37 +81,37 @@ function updateDoc(ctx, docId, status, callback) {
 function shutdown() {
   return co(function*() {
     var res = true;
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     try {
-      let editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();
+      const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();
       ctx.logger.debug('shutdown start:' + EXEC_TIMEOUT);
 
       //redisKeyShutdown is not a simple counter, so it doesn't get decremented by a build that started before Shutdown started
       //reset redisKeyShutdown just in case the previous run didn't finish yield editorData.cleanupShutdown(redisKeyShutdown);
-      let queue = new queueService();
+      const queue = new queueService();
       yield queue.initPromise(true, false, false, false, false, false);
 
-      let pubsub = new pubsubService();
+      const pubsub = new pubsubService();
       yield pubsub.initPromise();
       //inner ping to update presence
       ctx.logger.debug('shutdown pubsub shutdown message');
-      yield pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx: ctx, status: true}));
+      yield pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx, status: true}));
       ctx.logger.debug('shutdown start wait pubsub deliver');
       yield utils.sleep(LOOP_TIMEOUT);
 
-      let documentsWithChanges = yield sqlBase.getDocumentsWithChanges(ctx);
+      const documentsWithChanges = yield sqlBase.getDocumentsWithChanges(ctx);
       ctx.logger.debug('shutdown docs with changes count = %s', documentsWithChanges.length);
-      let docsWithEmptyForgotten = [];
-      let docsWithOutOfDateForgotten = [];
+      const docsWithEmptyForgotten = [];
+      const docsWithOutOfDateForgotten = [];
       for (let i = 0; i < documentsWithChanges.length; ++i) {
-        let tenant = documentsWithChanges[i].tenant;
-        let docId = documentsWithChanges[i].id;
+        const tenant = documentsWithChanges[i].tenant;
+        const docId = documentsWithChanges[i].id;
         ctx.setTenant(tenant);
-        let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
+        const forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
         if (forgotten.length > 0) {
-          let selectRes = yield taskResult.select(ctx, docId);
+          const selectRes = yield taskResult.select(ctx, docId);
           if (selectRes.length > 0) {
-            let row = selectRes[0];
+            const row = selectRes[0];
             if (commonDefines.FileStatus.SaveVersion !== row.status && commonDefines.FileStatus.UpdateVersion !== row.status){
               docsWithOutOfDateForgotten.push([tenant, docId]);
             }
@@ -123,10 +123,10 @@ function shutdown() {
       ctx.initDefault();
       ctx.logger.debug('shutdown docs with changes and empty forgotten count = %s', docsWithEmptyForgotten.length);
       ctx.logger.debug('shutdown docs with changes and out of date forgotten count = %s', docsWithOutOfDateForgotten.length);
-      let docsToConvert = docsWithEmptyForgotten.concat(docsWithOutOfDateForgotten);
+      const docsToConvert = docsWithEmptyForgotten.concat(docsWithOutOfDateForgotten);
       for (let i = 0; i < docsToConvert.length; ++i) {
-        let tenant = docsToConvert[i][0];
-        let docId = docsToConvert[i][1];
+        const tenant = docsToConvert[i][0];
+        const docId = docsToConvert[i][1];
         //todo refactor. group tenants?
         ctx.setTenant(tenant);
         yield ctx.initTenantCache();
@@ -140,11 +140,11 @@ function shutdown() {
       //sleep because of bugs in createSaveTimerPromise
       yield utils.sleep(LOOP_TIMEOUT);
 
-      let startTime = new Date().getTime();
+      const startTime = new Date().getTime();
       while (true) {
-        let remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
+        const remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
         ctx.logger.debug('shutdown remaining files:%d', remainingFiles);
-        let curTime = new Date().getTime() - startTime;
+        const curTime = new Date().getTime() - startTime;
         if (curTime >= EXEC_TIMEOUT || remainingFiles <= 0) {
           if(curTime >= EXEC_TIMEOUT) {
             ctx.logger.debug('shutdown timeout');
@@ -155,10 +155,10 @@ function shutdown() {
       }
       let countInForgotten = 0;
       for (let i = 0; i < docsToConvert.length; ++i) {
-        let tenant = docsToConvert[i][0];
-        let docId = docsToConvert[i][1];
+        const tenant = docsToConvert[i][0];
+        const docId = docsToConvert[i][1];
         ctx.setTenant(tenant);
-        let forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
+        const forgotten = yield storage.listObjects(ctx, docId, cfgForgottenFiles);
         if (forgotten.length > 0) {
           countInForgotten++;
         } else {

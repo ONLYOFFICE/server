@@ -175,7 +175,7 @@ async function proxyRequest(req, res) {
     let docId = '';
     let userId = '';
     if (tenTokenEnableBrowser) {
-      let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+      const checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
       if (!checkJwtRes || checkJwtRes.err) {
         ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.err);
         res.status(403).json({
@@ -204,7 +204,7 @@ async function proxyRequest(req, res) {
       return;
     }
 
-    let body = JSON.parse(req.body);
+    const body = JSON.parse(req.body);
     let uri = body.target;
 
     let providerHeaders;
@@ -247,16 +247,16 @@ async function proxyRequest(req, res) {
       if (tenTokenEnableOutbox) {
         const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
         const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-        let [licenseInfo] = await tenantManager.getTenantLicense(ctx);
+        const [licenseInfo] = await tenantManager.getTenantLicense(ctx);
 
-        let dataObject = {
+        const dataObject = {
           key: docId,
           user: userId,
           customer_id: licenseInfo.customerId
         }
         
-        let secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-        let auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
+        const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+        const auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
         headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + auth;
       }
       // Replace protocol, host and port in URI with proxy URL
@@ -277,7 +277,7 @@ async function proxyRequest(req, res) {
     // Create request parameters object
     const requestParams = {
       method: body.method,
-      uri: uri,
+      uri,
       headers,
       body: body.data,
       timeout: timeoutOptions,
@@ -345,8 +345,8 @@ async function processProvider(ctx, provider) {
   if (!provider.url) {
     return null;
   }
-  let engineModels = [];
-  let engineModelsUI = [];
+  const engineModels = [];
+  const engineModelsUI = [];
   try {
     // Call getModels from engine.js
     if (provider.key && AI.Providers[provider.name]) {
@@ -452,7 +452,7 @@ async function getPluginSettingsForInterface(ctx) {
   //check empty settings
   if (pluginSettings && pluginSettings.actions) {
     let isEmptySettings = true;
-    for (let key in pluginSettings.actions) {
+    for (const key in pluginSettings.actions) {
       if (pluginSettings.actions[key].model) {
         isEmptySettings = false;
       }
@@ -463,7 +463,7 @@ async function getPluginSettingsForInterface(ctx) {
   }
   //remove keys from providers
   if (pluginSettings && pluginSettings.providers) {
-    for (let key in pluginSettings.providers) {
+    for (const key in pluginSettings.providers) {
       pluginSettings.providers[key].key = "";
     }
   }
@@ -488,12 +488,12 @@ async function requestModels(req, res) {
 	ctx.initFromRequest(req);
   try {
     await ctx.initTenantCache();
-    let body = JSON.parse(req.body);
+    const body = JSON.parse(req.body);
     if (AI.Providers[body.name]) {
       AI.Providers[body.name].key = body.key;
       AI.Providers[body.name].url = body.url;
     }
-    let getRes = await AI.getModels(body);
+    const getRes = await AI.getModels(body);
     getRes.modelsApi = AI.TmpProviderForModels?.models;
     res.json(getRes);
   } catch (error) {

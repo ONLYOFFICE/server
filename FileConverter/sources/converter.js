@@ -137,7 +137,7 @@ function TaskQueueDataConvert(ctx, task) {
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
-  serialize: function(ctx, fsPath) {
+  serialize(ctx, fsPath) {
     let xml = '\ufeff<?xml version="1.0" encoding="utf-8"?>';
     xml += '<TaskQueueDataConvert xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"';
     xml += ' xmlns:xsd="http://www.w3.org/2001/XMLSchema">';
@@ -174,18 +174,18 @@ TaskQueueDataConvert.prototype = {
     xml += '</TaskQueueDataConvert>';
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
   },
-  serializeHidden: function(ctx) {
+  serializeHidden(ctx) {
     var t = this;
     return co(function* () {
       let xml;
       if (t.password || t.savePassword) {
         xml = '<TaskQueueDataConvert>';
         if(t.password) {
-          let password = yield utils.decryptPassword(ctx, t.password);
+          const password = yield utils.decryptPassword(ctx, t.password);
           xml += t.serializeXmlProp('m_sPassword', password);
         }
         if(t.savePassword) {
-          let savePassword = yield utils.decryptPassword(ctx, t.savePassword);
+          const savePassword = yield utils.decryptPassword(ctx, t.savePassword);
           xml += t.serializeXmlProp('m_sSavePassword', savePassword);
         }
         xml += '</TaskQueueDataConvert>';
@@ -193,11 +193,11 @@ TaskQueueDataConvert.prototype = {
       return xml;
     });
   },
-  serializeOptions: function (ctx, isInJwtToken, oformAsPdf) {
+  serializeOptions (ctx, isInJwtToken, oformAsPdf) {
     const tenRequesFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
     const tenExternalRequestDirectIfIn = ctx.getCfg('externalRequest.directIfIn', cfgExternalRequestDirectIfIn);
     const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
-    let allowList = tenExternalRequestDirectIfIn.allowList;
+    const allowList = tenExternalRequestDirectIfIn.allowList;
     let allowNetworkRequest = tenExternalRequestAction.allow;
     let allowPrivateIP = !tenExternalRequestAction.blockPrivateIP && tenRequesFilteringAgent.allowPrivateIPAddress;
     let proxyUrl = tenExternalRequestAction.proxyUrl;
@@ -221,12 +221,12 @@ TaskQueueDataConvert.prototype = {
       xml += this.serializeXmlProp('proxy', proxyUrl);
     }
     if (proxyUser) {
-      let user = proxyUser.username;
-      let pass = proxyUser.password;
+      const user = proxyUser.username;
+      const pass = proxyUser.password;
       xml += this.serializeXmlProp('proxyUser', `${user}:${pass}`);
     }
-    let proxyHeadersStr= [];
-    for (let name in proxyHeaders) {
+    const proxyHeadersStr= [];
+    for (const name in proxyHeaders) {
       proxyHeadersStr.push(`${name}:${proxyHeaders[name]}`);
     }
     if (proxyHeadersStr.length > 0) {
@@ -238,7 +238,7 @@ TaskQueueDataConvert.prototype = {
     xml += '</options>';
     return xml;
   },
-  serializeMailMerge: function(data) {
+  serializeMailMerge(data) {
     var xml = '<m_oMailMergeSend>';
     xml += this.serializeXmlProp('from', data.getFrom());
     xml += this.serializeXmlProp('to', data.getTo());
@@ -254,7 +254,7 @@ TaskQueueDataConvert.prototype = {
     xml += '</m_oMailMergeSend>';
     return xml;
   },
-  serializeThumbnail: function(data) {
+  serializeThumbnail(data) {
     var xml = '<m_oThumbnail>';
     xml += this.serializeXmlProp('format', data.getFormat());
     xml += this.serializeXmlProp('aspect', data.getAspect());
@@ -264,18 +264,18 @@ TaskQueueDataConvert.prototype = {
     xml += '</m_oThumbnail>';
     return xml;
   },
-  serializeTextParams: function(data) {
+  serializeTextParams(data) {
     var xml = '<m_oTextParams>';
     xml += this.serializeXmlProp('m_nTextAssociationType', data.getAssociation());
     xml += '</m_oTextParams>';
     return xml;
   },
-  serializeLimit: function(ctx) {
+  serializeLimit(ctx) {
     if (!inputLimitsXmlCache) {
       var xml = '<m_oInputLimits>';
       const tenInputLimits = ctx.getCfg('FileConverter.converter.inputLimits', cfgInputLimits);
       for (let i = 0; i < tenInputLimits.length; ++i) {
-        let limit = tenInputLimits[i];
+        const limit = tenInputLimits[i];
         if (limit.type && limit.zip) {
           xml += '<m_oInputLimit';
           xml += this.serializeXmlAttr('type', limit.type);
@@ -297,7 +297,7 @@ TaskQueueDataConvert.prototype = {
     }
     return inputLimitsXmlCache;
   },
-  serializeXmlProp: function(name, value) {
+  serializeXmlProp(name, value) {
     var xml = '';
     //todo check empty and undefined (password?)
     if (null != value) {
@@ -309,7 +309,7 @@ TaskQueueDataConvert.prototype = {
     }
     return xml;
   },
-  serializeXmlAttr: function(name, value) {
+  serializeXmlAttr(name, value) {
     var xml = '';
     if (null != value) {
       xml += ' ' + name + '=\"';
@@ -339,8 +339,8 @@ function getTempDir() {
 }
 function* isUselessConvertion(ctx, task, cmd) {
   if (task.getFromChanges() && 'sfc' === cmd.getCommand()) {
-    let selectRes = yield taskResult.select(ctx, cmd.getDocId());
-    let row = selectRes.length > 0 ? selectRes[0] : null;
+    const selectRes = yield taskResult.select(ctx, cmd.getDocId());
+    const row = selectRes.length > 0 ? selectRes[0] : null;
     if (utils.isUselesSfc(row, cmd)) {
       ctx.logger.warn('isUselessConvertion return true. row=%j', row);
       return constants.CONVERT_PARAMS;
@@ -349,14 +349,14 @@ function* isUselessConvertion(ctx, task, cmd) {
   return constants.NO_ERROR;
 }
 async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
-  let originFormat = cmd.getOriginFormat();
-  let isOriginFormatWithForms = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === originFormat ||
+  const originFormat = cmd.getOriginFormat();
+  const isOriginFormatWithForms = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === originFormat ||
     constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === originFormat ||
     constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === originFormat;
-  let isFormatToPdf = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === dataConvert.formatTo ||
+  const isFormatToPdf = constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === dataConvert.formatTo ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === dataConvert.formatTo;
   if (isFormatToPdf && isOriginFormatWithForms) {
-    let format = await formatChecker.getDocumentFormatByFile(dataConvert.fileFrom);
+    const format = await formatChecker.getDocumentFormatByFile(dataConvert.fileFrom);
     if (constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD === format) {
       ctx.logger.debug('change format to extended pdf');
       dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF;
@@ -378,12 +378,12 @@ function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
         }
       }
     }
-    let fileTemplatePath = path.join(tenNewFileTemplate, locale, 'new.');
+    const fileTemplatePath = path.join(tenNewFileTemplate, locale, 'new.');
     if (fs.existsSync(fileTemplatePath + ext)) {
       ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
       fs.copyFileSync(fileTemplatePath + ext, fileFrom);
     } else {
-      let format = formatChecker.getFormatFromString(ext);
+      const format = formatChecker.getFormatFromString(ext);
       let editorFormat;
       if (formatChecker.isDocumentFormat(format)) {
         editorFormat = 'docx';
@@ -415,10 +415,10 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
       try {
         let authorization;
         if (utils.canIncludeOutboxAuthorization(ctx, uri) && withAuthorization) {
-          let secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+          const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
         }
-        let getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, tenMaxDownloadBytes, authorization, isInJwtToken, opt_headers);
+        const getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, tenMaxDownloadBytes, authorization, isInJwtToken, opt_headers);
         data = getRes.body;
         sha256 = getRes.sha256;
         res = constants.NO_ERROR;
@@ -452,7 +452,7 @@ function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
   //create dirs
   var dirsToCreate = [];
   var dirStruct = {};
-  list.forEach(function(file) {
+  list.forEach((file) => {
     var curDirPath = dir;
     var curDirStruct = dirStruct;
     var parts = storage.getRelativePath(strPath, file).split('/');
@@ -486,7 +486,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   let concatTemplate;
   if (task.getFromOrigin() || task.getFromSettings()) {
     if (task.getFromChanges()) {
-      let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
+      const changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
       fs.mkdirSync(changesDir);
       let filesCount = 0;
       if (cmd.getSaveKey()) {
@@ -506,7 +506,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     if (cmd.getSaveKey()) {
       yield* downloadFileFromStorage(ctx, cmd.getDocId() + cmd.getSaveKey(), tempDirs.source);
     }
-    let format = cmd.getFormat() || 'bin';
+    const format = cmd.getFormat() || 'bin';
     dataConvert.fileFrom = path.join(tempDirs.source, 'Editor.' + format);
     concatDir = tempDirs.source;
   }
@@ -514,7 +514,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
     return constants.CONVERT_PARAMS;
   }
   //mail merge
-  let mailMergeSend = cmd.getMailMergeSend();
+  const mailMergeSend = cmd.getMailMergeSend();
   if (mailMergeSend) {
     yield* downloadFileFromStorage(ctx, cmd.getDocId() + mailMergeSend.getJsonKey(), tempDirs.source);
     concatDir = tempDirs.source;
@@ -522,7 +522,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   if (concatDir) {
     yield* concatFiles(concatDir, concatTemplate);
     if (concatTemplate) {
-      let filenames = fs.readdirSync(concatDir);
+      const filenames = fs.readdirSync(concatDir);
       filenames.forEach(file => {
         if (file.match(new RegExp(`${concatTemplate}\\d+\\.`))) {
           fs.rmSync(path.join(concatDir, file));
@@ -542,7 +542,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
       dataConvert.fileFrom = path.join(tempDirs.source, 'origin.pdf');
     }
     if (fs.existsSync(dataConvert.fileFrom)) {
-      let fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
+      const fileFromNew = path.join(path.dirname(dataConvert.fileFrom), "Editor.bin");
       fs.renameSync(dataConvert.fileFrom, fileFromNew);
       dataConvert.fileFrom = fileFromNew;
     }
@@ -551,7 +551,7 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
 
   if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
-    let sha256 = yield utils.checksumFile('sha256', dataConvert.fileFrom)
+    const sha256 = yield utils.checksumFile('sha256', dataConvert.fileFrom)
     if(tenEditor['binaryChanges']) {
       res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256);
     } else {
@@ -564,23 +564,23 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
 function* concatFiles(source, template) {
   template = template || "Editor";
   //concatenate EditorN.ext parts in Editor.ext
-  let list = yield utils.listObjects(source, true);
+  const list = yield utils.listObjects(source, true);
   list.sort(utils.compareStringByLength);
-  let writeStreams = {};
+  const writeStreams = {};
   for (let i = 0; i < list.length; ++i) {
-    let file = list[i];
+    const file = list[i];
     if (file.match(new RegExp(`${template}\\d+\\.`))) {
-      let target = file.replace(new RegExp(`(${template})\\d+(\\..*)`), '$1$2');
+      const target = file.replace(new RegExp(`(${template})\\d+(\\..*)`), '$1$2');
       let writeStream = writeStreams[target];
       if (!writeStream) {
         writeStream = yield utils.promiseCreateWriteStream(target);
         writeStreams[target] = writeStream;
       }
-      let readStream = yield utils.promiseCreateReadStream(file);
+      const readStream = yield utils.promiseCreateReadStream(file);
       yield utils.pipeStreams(readStream, writeStream, false);
     }
   }
-  for (let i in writeStreams) {
+  for (const i in writeStreams) {
     if (writeStreams.hasOwnProperty(i)) {
       writeStreams[i].end();
     }
@@ -590,24 +590,24 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256) {
   const tenStreamWriterBufferSize = ctx.getCfg('FileConverter.converter.streamWriterBufferSize', cfgStreamWriterBufferSize);
   const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
   let res = constants.NO_ERROR;
-  let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
+  const changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
   let indexFile = 0;
   let changesAuthor = null;
   let changesAuthorUnique = null;
   let changesIndex = null;
-  let changesHistory = {
+  const changesHistory = {
     serverVersion: commonDefines.buildVersion,
     changes: []
   };
-  let forceSave = cmd.getForceSave();
+  const forceSave = cmd.getForceSave();
   let forceSaveTime;
   let forceSaveIndex = Number.MAX_VALUE;
   if (forceSave && undefined !== forceSave.getTime() && undefined !== forceSave.getIndex()) {
     forceSaveTime = forceSave.getTime();
     forceSaveIndex = forceSave.getIndex();
   }
-  let extChangeInfo = cmd.getExternalChangeInfo();
+  const extChangeInfo = cmd.getExternalChangeInfo();
   let extChanges;
   if (extChangeInfo) {
     extChanges = [{
@@ -640,14 +640,14 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256) {
     }
     extChanges = undefined;
     for (let i = 0; i < changes.length; ++i) {
-      let change = changes[i];
+      const change = changes[i];
       if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
           yield* streamEndBin(streamObj);
           streamObj = yield* streamCreateBin(ctx, changesDir, indexFile++);
           yield* streamWriteBin(streamObj, Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
         }
-        let strDate = baseConnector.getDateTime(change.change_date);
+        const strDate = baseConnector.getDateTime(change.change_date);
         changesHistory.changes.push({"documentSha256": sha256, 'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
       }
       changesAuthor = change.user_id_original;
@@ -686,14 +686,14 @@ function* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256) {
 }
 
 function* streamCreateBin(ctx, changesDir, indexFile, opt_options) {
-  let fileName = constants.CHANGES_NAME + indexFile + '.bin';
-  let filePath = path.join(changesDir, fileName);
-  let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
-  writeStream.on('error', function(err) {
+  const fileName = constants.CHANGES_NAME + indexFile + '.bin';
+  const filePath = path.join(changesDir, fileName);
+  const writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
+  writeStream.on('error', (err) => {
     //todo integrate error handle in main thread (probable: set flag here and check it in main thread)
     ctx.logger.error('WriteStreamError %s', err.stack);
   });
-  return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
+  return {writeStream, filePath, isNoChangesInFile: true};
 }
 
 function* streamWriteBin(streamObj, buf) {
@@ -710,24 +710,24 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256) {
   const tenStreamWriterBufferSize = ctx.getCfg('FileConverter.converter.streamWriterBufferSize', cfgStreamWriterBufferSize);
   const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
   let res = constants.NO_ERROR;
-  let changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
+  const changesDir = path.join(tempDirs.source, constants.CHANGES_NAME);
   fs.mkdirSync(changesDir);
   let indexFile = 0;
   let changesAuthor = null;
   let changesAuthorUnique = null;
   let changesIndex = null;
-  let changesHistory = {
+  const changesHistory = {
     serverVersion: commonDefines.buildVersion,
     changes: []
   };
-  let forceSave = cmd.getForceSave();
+  const forceSave = cmd.getForceSave();
   let forceSaveTime;
   let forceSaveIndex = Number.MAX_VALUE;
   if (forceSave && undefined !== forceSave.getTime() && undefined !== forceSave.getIndex()) {
     forceSaveTime = forceSave.getTime();
     forceSaveIndex = forceSave.getIndex();
   }
-  let extChangeInfo = cmd.getExternalChangeInfo();
+  const extChangeInfo = cmd.getExternalChangeInfo();
   let extChanges;
   if (extChangeInfo) {
     extChanges = [{
@@ -759,13 +759,13 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256) {
     }
     extChanges = undefined;
     for (let i = 0; i < changes.length; ++i) {
-      let change = changes[i];
+      const change = changes[i];
       if (null === changesAuthor || changesAuthor !== change.user_id_original) {
         if (null !== changesAuthor) {
           yield* streamEnd(streamObj, ']');
           streamObj = yield* streamCreate(ctx, changesDir, indexFile++);
         }
-        let strDate = baseConnector.getDateTime(change.change_date);
+        const strDate = baseConnector.getDateTime(change.change_date);
         changesHistory.changes.push({"documentSha256": sha256, 'created': strDate, 'user': {'id': change.user_id_original, 'name': change.user_name}});
         yield* streamWrite(streamObj, '[');
       } else {
@@ -807,14 +807,14 @@ function* processChangesBase64(ctx, tempDirs, task, cmd, authorProps, sha256) {
 }
 
 function* streamCreate(ctx, changesDir, indexFile, opt_options) {
-  let fileName = constants.CHANGES_NAME + indexFile + '.json';
-  let filePath = path.join(changesDir, fileName);
-  let writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
-  writeStream.on('error', function(err) {
+  const fileName = constants.CHANGES_NAME + indexFile + '.json';
+  const filePath = path.join(changesDir, fileName);
+  const writeStream = yield utils.promiseCreateWriteStream(filePath, opt_options);
+  writeStream.on('error', (err) => {
     //todo integrate error handle in main thread (probable: set flag here and check it in main thread)
     ctx.logger.error('WriteStreamError %s', err.stack);
   });
-  return {writeStream: writeStream, filePath: filePath, isNoChangesInFile: true};
+  return {writeStream, filePath, isNoChangesInFile: true};
 }
 
 function* streamWrite(streamObj, text) {
@@ -841,15 +841,15 @@ function* processUploadToStorage(ctx, dir, storagePath, calcChecksum, opt_specia
   }
 }
 function* processUploadToStorageChunk(ctx, list, dir, storagePath, calcChecksum, opt_specialDirDst) {
-  let promises = list.reduce(function(r, curValue) {
-    let localValue = storagePath + '/' + curValue.substring(dir.length + 1);
+  const promises = list.reduce((r, curValue) => {
+    const localValue = storagePath + '/' + curValue.substring(dir.length + 1);
     let checksum;
     if (calcChecksum) {
       checksum = utils.checksumFile('sha256', curValue).then(result => {
         ctx.logger.debug('processUploadToStorageChunk path=%s; sha256=%s', localValue, result);
       });
     }
-    let upload = storage.uploadObject(ctx, localValue, curValue, opt_specialDirDst);
+    const upload = storage.uploadObject(ctx, localValue, curValue, opt_specialDirDst);
     r.push(checksum, upload);
     return r;
   }, []);
@@ -868,12 +868,12 @@ function* processUploadToStorageErrorFile(ctx, dataConvert, tempDirs, childRes, 
     output += `stderr:${childRes.stderr}\n`;
   }
   output += `ExitCode (code=${exitCode};signal=${exitSignal};error:${error})`;
-  let outputPath = path.join(tempDirs.temp, 'console.txt');
+  const outputPath = path.join(tempDirs.temp, 'console.txt');
   fs.writeFileSync(outputPath, output, {encoding: 'utf8'});
 
   //ignore result dir with temp dir inside(see m_sTempDir param) to reduce the amount of data transferred
-  let ignorePrefix = path.normalize(tempDirs.result);
-  let format = path.extname(dataConvert.fileFrom).substring(1) || "unknown";
+  const ignorePrefix = path.normalize(tempDirs.result);
+  const format = path.extname(dataConvert.fileFrom).substring(1) || "unknown";
 
   yield* processUploadToStorage(ctx, tempDirs.temp, format + '/' + dataConvert.key , false, tenErrorFiles, ignorePrefix);
   ctx.logger.debug('processUploadToStorage error complete(id=%s)', dataConvert.key);
@@ -926,14 +926,14 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
   }
   if (-1 !== exitCodesUpload.indexOf(error)) {
     if (-1 !== exitCodesCopyOrigin.indexOf(error)) {
-      let originPath = path.join(path.dirname(dataConvert.fileTo), "origin" + path.extname(dataConvert.fileFrom));
+      const originPath = path.join(path.dirname(dataConvert.fileTo), "origin" + path.extname(dataConvert.fileFrom));
       if (!fs.existsSync(dataConvert.fileTo)) {
         fs.copyFileSync(dataConvert.fileFrom, originPath);
         ctx.logger.debug('copyOrigin complete');
       }
     }
     //todo clarify calcChecksum conditions
-    let calcChecksum = (0 === (constants.AVS_OFFICESTUDIO_FILE_CANVAS & cmd.getOutputFormat()));
+    const calcChecksum = (0 === (constants.AVS_OFFICESTUDIO_FILE_CANVAS & cmd.getOutputFormat()));
     yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key, calcChecksum);
     ctx.logger.debug('processUploadToStorage complete');
   }
@@ -983,10 +983,10 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
   let processPath;
   if (!builderParams) {
     processPath = tenX2tPath;
-    let paramsFile = path.join(tempDirs.temp, 'params.xml');
+    const paramsFile = path.join(tempDirs.temp, 'params.xml');
     dataConvert.serialize(ctx, paramsFile);
     childArgs.push(paramsFile);
-    let hiddenXml = yield dataConvert.serializeHidden(ctx);
+    const hiddenXml = yield dataConvert.serializeHidden(ctx);
     if (hiddenXml) {
       childArgs.push(hiddenXml);
     }
@@ -1005,16 +1005,16 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
   try {
     const tenSpawnOptions = ctx.getCfg('FileConverter.converter.spawnOptions', cfgSpawnOptions);
     //copy to avoid modification of global cfgSpawnOptions
-    let spawnOptions = Object.assign({}, tenSpawnOptions);;
+    const spawnOptions = Object.assign({}, tenSpawnOptions);;
     spawnOptions.env = Object.assign({}, process.env, spawnOptions.env);
     if (authorProps.lastModifiedBy && authorProps.modified) {
       spawnOptions.env['LAST_MODIFIED_BY'] = authorProps.lastModifiedBy;
       spawnOptions.env['MODIFIED'] = authorProps.modified;
     }
-    let spawnAsyncPromise = spawnAsync(processPath, childArgs, spawnOptions);
+    const spawnAsyncPromise = spawnAsync(processPath, childArgs, spawnOptions);
     childRes = spawnAsyncPromise.child;
-    let waitMS = Math.max(0, task.getVisibilityTimeout() * 1000 - (new Date().getTime() - getTaskTime.getTime()));
-    timeoutId = setTimeout(function() {
+    const waitMS = Math.max(0, task.getVisibilityTimeout() * 1000 - (new Date().getTime() - getTaskTime.getTime()));
+    timeoutId = setTimeout(() => {
       isTimeout = true;
       timeoutId = undefined;
       //close stdio streams to enable emit 'close' event even if HtmlFileInternal is hung-up
@@ -1035,7 +1035,7 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
   if (undefined !== timeoutId) {
     clearTimeout(timeoutId);
   }
-  return {childRes: childRes, isTimeout: isTimeout};
+  return {childRes, isTimeout};
 }
 
 function* ExecuteTask(ctx, task) {
@@ -1054,27 +1054,27 @@ function* ExecuteTask(ctx, task) {
   ctx.logger.info('Start Task');
   var error = constants.NO_ERROR;
   tempDirs = getTempDir();
-  let fileTo = task.getToFile();
+  const fileTo = task.getToFile();
   dataConvert.fileTo = fileTo ? path.join(tempDirs.result, fileTo) : '';
-  let builderParams = cmd.getBuilderParams();
-  let authorProps = {lastModifiedBy: null, modified: null};
+  const builderParams = cmd.getBuilderParams();
+  const authorProps = {lastModifiedBy: null, modified: null};
   let isInJwtToken = cmd.getWithAuthorization();
   error = yield* isUselessConvertion(ctx, task, cmd);
   if (constants.NO_ERROR !== error) {
     ;
   } else if (cmd.getUrl()) {
-    let format = cmd.getFormat();
+    const format = cmd.getFormat();
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + format);
     if (utils.checkPathTraversal(ctx, dataConvert.key, tempDirs.source, dataConvert.fileFrom)) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
       let headers;
       let fileSize;
-      let wopiParams = cmd.getWopiParams();
+      const wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
         isInJwtToken = true;
-        let fileInfo = wopiParams.commonInfo?.fileInfo;
+        const fileInfo = wopiParams.commonInfo?.fileInfo;
         fileSize = fileInfo?.Size;
         ({url, headers} = yield wopiUtils.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
       }
@@ -1102,7 +1102,7 @@ function* ExecuteTask(ctx, task) {
   } else if (cmd.getForgotten()) {
     yield* downloadFileFromStorage(ctx, cmd.getForgotten(), tempDirs.source, tenForgottenFiles);
     ctx.logger.debug('downloadFileFromStorage complete');
-    let list = yield utils.listObjects(tempDirs.source, false);
+    const list = yield utils.listObjects(tempDirs.source, false);
     if (list.length > 0) {
       dataConvert.fileFrom = list[0];
       //store indicator file to determine if opening was from the forgotten file
@@ -1115,7 +1115,7 @@ function* ExecuteTask(ctx, task) {
     //in cause script in POST body
     yield* downloadFileFromStorage(ctx, cmd.getDocId(), tempDirs.source);
     ctx.logger.debug('downloadFileFromStorage complete');
-    let list = yield utils.listObjects(tempDirs.source, false);
+    const list = yield utils.listObjects(tempDirs.source, false);
     if (list.length > 0) {
       dataConvert.fileFrom = list[0];
     }
@@ -1132,8 +1132,8 @@ function* ExecuteTask(ctx, task) {
       && !cmd.getWopiParams();
     if (canRollback) {
       ctx.logger.warn('rollback to save changes to ooxml. See assemblyFormatAsOrigin param. formatTo=%s', formatChecker.getStringFromFormat(dataConvert.formatTo));
-      let extOld = path.extname(dataConvert.fileTo);
-      let extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
+      const extOld = path.extname(dataConvert.fileTo);
+      const extNew = '.' + formatChecker.getStringFromFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
       dataConvert.formatTo = constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML;
       dataConvert.fileTo = dataConvert.fileTo.slice(0, -extOld.length) + extNew;
       ({childRes, isTimeout} = yield* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, getTaskTime, task, isInJwtToken));
@@ -1183,8 +1183,8 @@ function ackTask(ctx, res, task, ack) {
 }
 function receiveTaskSetTimeout(ctx, task, ack, outParams) {
   //add DownloadTimeout to upload results
-  let delay = task.getVisibilityTimeout() * 1000 + ms(cfgDownloadTimeout.wholeCycle);
-  return setTimeout(function() {
+  const delay = task.getVisibilityTimeout() * 1000 + ms(cfgDownloadTimeout.wholeCycle);
+  return setTimeout(() => {
     return co(function*() {
       outParams.isAck = true;
       ctx.logger.error('receiveTask timeout %d', delay);
@@ -1198,9 +1198,9 @@ function receiveTask(data, ack) {
   return co(function* () {
     var res = null;
     var task = null;
-    let outParams = {isAck: false};
+    const outParams = {isAck: false};
     let timeoutId = undefined;
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     try {
       task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
@@ -1225,16 +1225,16 @@ function createErrorResponse(ctx, task){
   }
   ctx.logger.debug('createErrorResponse');
   //simulate error response
-  let cmd = task.getCmd();
+  const cmd = task.getCmd();
   cmd.setStatusInfo(constants.CONVERT_TEMPORARY);
-  let res = new commonDefines.TaskQueueData();
+  const res = new commonDefines.TaskQueueData();
   res.setCtx(ctx);
   res.setCmd(cmd);
   return res;
 }
 function simulateErrorResponse(data){
-  let task = new commonDefines.TaskQueueData(JSON.parse(data));
-  let ctx = new operationContext.Context();
+  const task = new commonDefines.TaskQueueData(JSON.parse(data));
+  const ctx = new operationContext.Context();
   ctx.initFromTaskQueueData(task);
   //todo
   //yield ctx.initTenantCache();
@@ -1243,7 +1243,7 @@ function simulateErrorResponse(data){
 function run() {
   queue = new queueService(simulateErrorResponse);
   queue.on('task', receiveTask);
-  queue.init(true, true, true, false, false, false, function(err) {
+  queue.init(true, true, true, false, false, false, (err) => {
     if (null != err) {
       operationContext.global.logger.error('createTaskQueue error: %s', err.stack);
     }

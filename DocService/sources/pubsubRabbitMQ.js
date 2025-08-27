@@ -50,7 +50,7 @@ function initRabbit(pubsub, callback) {
   return co(function* () {
     var e = null;
     try {
-      var conn = yield rabbitMQCore.connetPromise(function() {
+      var conn = yield rabbitMQCore.connetPromise(() => {
         clear(pubsub);
         if (!pubsub.isClose) {
           setTimeout(() => {
@@ -66,7 +66,7 @@ function initRabbit(pubsub, callback) {
       pubsub.channelReceive = yield rabbitMQCore.createChannelPromise(conn);
       var queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, cfgRabbitQueuePubsub.name, cfgRabbitQueuePubsub.options);
       pubsub.channelReceive.bindQueue(queue, cfgRabbitExchangePubSub.name, '');
-      yield rabbitMQCore.consumePromise(pubsub.channelReceive, queue, function (message) {
+      yield rabbitMQCore.consumePromise(pubsub.channelReceive, queue, (message) => {
         if(null != pubsub.channelReceive){
           if (message) {
             pubsub.emit('message', message.content.toString());
@@ -88,7 +88,7 @@ function initActive(pubsub, callback) {
   return co(function*() {
     var e = null;
     try {
-      var conn = yield activeMQCore.connetPromise(function() {
+      var conn = yield activeMQCore.connetPromise(() => {
         clear(pubsub);
         if (!pubsub.isClose) {
           setTimeout(() => {
@@ -98,7 +98,7 @@ function initActive(pubsub, callback) {
       });
       pubsub.connection = conn;
       //https://github.com/amqp/rhea/issues/251#issuecomment-535076570
-      let optionsPubSubSender = {
+      const optionsPubSubSender = {
         target: {
           address: cfgActiveTopicPubSub,
           capabilities: ['topic']
@@ -106,7 +106,7 @@ function initActive(pubsub, callback) {
       };
       pubsub.channelPublish = yield activeMQCore.openSenderPromise(conn, optionsPubSubSender);
 
-      let optionsPubSubReceiver = {
+      const optionsPubSubReceiver = {
         source: {
           address: cfgActiveTopicPubSub,
           capabilities: ['topic']
@@ -114,10 +114,10 @@ function initActive(pubsub, callback) {
         credit_window: 0,
         autoaccept: false
       };
-      let receiver = yield activeMQCore.openReceiverPromise(conn, optionsPubSubReceiver);
+      const receiver = yield activeMQCore.openReceiverPromise(conn, optionsPubSubReceiver);
       //todo ?consumer.dispatchAsync=false&consumer.prefetchSize=1
       receiver.add_credit(1);
-      receiver.on("message", function(context) {
+      receiver.on("message", (context) => {
         if (context) {
           pubsub.emit('message', context.message.body);
         }
@@ -150,9 +150,9 @@ function repeat(pubsub) {
 
 }
 function publishRabbit(pubsub, data) {
-  return new Promise(function (resolve, reject) {
+  return new Promise((resolve, reject) => {
     //Channels act like stream.Writable when you call publish or sendToQueue: they return either true, meaning “keep sending”, or false, meaning “please wait for a ‘drain’ event”.
-    let keepSending = pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
+    const keepSending = pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
     if (!keepSending) {
       //todo (node:4308) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 drain listeners added to [Sender]. Use emitter.setMaxListeners() to increase limit
       pubsub.channelPublish.once('drain', resolve);
@@ -163,9 +163,9 @@ function publishRabbit(pubsub, data) {
 }
 
 function publishActive(pubsub, data) {
-  return new Promise(function (resolve, reject) {
+  return new Promise((resolve, reject) => {
     //Returns true if the sender has available credits for sending a message. Otherwise it returns false.
-    let sendable = pubsub.channelPublish.sendable();
+    const sendable = pubsub.channelPublish.sendable();
     if (!sendable) {
       //todo (node:4308) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 sendable listeners added to [Sender]. Use emitter.setMaxListeners() to increase limit
       pubsub.channelPublish.once('sendable', () => {
@@ -233,8 +233,8 @@ PubsubRabbitMQ.prototype.init = function (callback) {
 };
 PubsubRabbitMQ.prototype.initPromise = function() {
   var t = this;
-  return new Promise(function(resolve, reject) {
-    init(t, function(err) {
+  return new Promise((resolve, reject) => {
+    init(t, (err) => {
       if (err) {
         reject(err);
       } else {

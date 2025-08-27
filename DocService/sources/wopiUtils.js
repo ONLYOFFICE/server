@@ -58,7 +58,7 @@ function generateProofBuffer(url, accessToken, timeStamp) {
   const urlBytes = Buffer.from(url.toUpperCase(), 'utf8');
 
   let offset = 0;
-  let buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
+  const buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
   buffer.writeUInt32BE(accessTokenBytes.length, offset);
   offset += 4;
   accessTokenBytes.copy(buffer, offset, 0, accessTokenBytes.length);
@@ -83,8 +83,8 @@ function generateProofBuffer(url, accessToken, timeStamp) {
  * @returns {string} - The base64-encoded signature
  */
 async function generateProofSign(url, accessToken, timeStamp, privateKey) {
-  let data = generateProofBuffer(url, accessToken, timeStamp);
-  let sign = await cryptoSign('RSA-SHA256', data, privateKey);
+  const data = generateProofBuffer(url, accessToken, timeStamp);
+  const sign = await cryptoSign('RSA-SHA256', data, privateKey);
   return sign.toString('base64');
 }
 
@@ -97,7 +97,7 @@ async function generateProofSign(url, accessToken, timeStamp, privateKey) {
  * @param {string} access_token - The access token
  */
 async function fillStandardHeaders(ctx, headers, url, access_token) {
-  let timeStamp = utils.getDateTimeTicks(new Date());
+  const timeStamp = utils.getDateTimeTicks(new Date());
   const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
   const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
   if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
@@ -124,7 +124,7 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
 async function getWopiFileUrl(ctx, fileInfo, userAuth) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   let url;
-  let headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
+  const headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
   if (fileInfo?.FileUrl) {
     //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
     url = fileInfo.FileUrl;

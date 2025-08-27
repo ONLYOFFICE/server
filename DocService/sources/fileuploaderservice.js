@@ -51,7 +51,7 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 
 function* checkJwtUpload(ctx, errorName, token){
-  let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
+  const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
   return checkJwtUploadTransformRes(ctx, errorName, checkJwtRes);
 }
 function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
@@ -79,8 +79,8 @@ exports.uploadImageFile = function(req, res) {
   return co(function* () {
     let httpStatus = 200;
     var docId = 'null';
-    let output = {};
-    let ctx = new operationContext.Context();
+    const output = {};
+    const ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
@@ -98,7 +98,7 @@ exports.uploadImageFile = function(req, res) {
           //todo remove compatibility with previous versions
           checkJwtRes = yield docsCoServer.checkJwt(ctx, req.query['token'], commonDefines.c_oAscSecretType.Session);
         }
-        let transformedRes = checkJwtUploadTransformRes(ctx, 'uploadImageFile', checkJwtRes);
+        const transformedRes = checkJwtUploadTransformRes(ctx, 'uploadImageFile', checkJwtRes);
         if (!transformedRes.err) {
           docId = transformedRes.docId || docId;
           encrypted = transformedRes.encrypted;
@@ -118,7 +118,7 @@ exports.uploadImageFile = function(req, res) {
             formatStr = buffer.toString('utf8', PATTERN_ENCRYPTED.length, buffer.indexOf(';', PATTERN_ENCRYPTED.length));
           }
           var supportedFormats = tenTypesUpload || 'jpg';
-          let formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
+          const formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
           if (formatLimit) {
             if (format === constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF) {
               buffer = yield utilsDocService.convertImageToPng(ctx, buffer);

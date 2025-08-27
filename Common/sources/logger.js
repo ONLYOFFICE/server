@@ -53,7 +53,7 @@ var dateToJSONWithTZ = function (d) {
   return iso + sign + leadingZero + Math.abs(timezoneOffsetInHours).toString() + ':00';
 };
 
-log4js.addLayout('json', function(config) {
+log4js.addLayout('json', (config) => {
   return function(logEvent) {
   	logEvent['startTime'] = dateToJSONWithTZ(logEvent['startTime']);
   	logEvent['message'] = util.format(...logEvent['data']);

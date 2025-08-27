@@ -53,7 +53,7 @@ if (cluster.isMaster) {
     const availableParallelism = os.availableParallelism?.();
     operationContext.global.logger.warn('num of CPUs: %d; availableParallelism: %s', numCPUs, availableParallelism);
     workersCount = Math.ceil((availableParallelism || numCPUs) * cfgMaxProcessCount);
-    let [licenseInfo] = await license.readLicense(cfgLicenseFile);
+    const [licenseInfo] = await license.readLicense(cfgLicenseFile);
     workersCount = Math.min(licenseInfo.count, workersCount);
     //todo send license to workers for multi-tenancy
   };

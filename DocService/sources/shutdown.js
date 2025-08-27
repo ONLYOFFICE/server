@@ -62,7 +62,7 @@ exports.shutdown = function(ctx, editorStat, status) {
       yield pubsub.initPromise();
       //inner ping to update presence
       ctx.logger.debug('shutdown pubsub shutdown message');
-      yield pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx: ctx, status: status}));
+      yield pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx, status}));
       //wait while pubsub deliver and start conversion
       ctx.logger.debug('shutdown start wait pubsub deliver');
       var startTime = new Date().getTime();
@@ -78,7 +78,7 @@ exports.shutdown = function(ctx, editorStat, status) {
           break;
         }
         var remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
-        let inSavingStatus = yield sqlBase.getCountWithStatus(ctx, commonDefines.FileStatus.SaveVersion, EXEC_TIMEOUT);
+        const inSavingStatus = yield sqlBase.getCountWithStatus(ctx, commonDefines.FileStatus.SaveVersion, EXEC_TIMEOUT);
         ctx.logger.debug('shutdown remaining files editorStat:%d, db:%d', remainingFiles, inSavingStatus);
         if (!isStartWait && (remainingFiles + inSavingStatus) <= 0) {
           break;

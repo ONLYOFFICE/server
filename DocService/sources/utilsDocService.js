@@ -56,8 +56,8 @@ async function fixImageExifRotation(ctx, buffer) {
   }
   //todo move to DocService dir common
   try {
-    let parser = exifParser.create(buffer);
-    let exif = parser.parse();
+    const parser = exifParser.create(buffer);
+    const exif = parser.parse();
     if (exif.tags?.Orientation > 1) {
       ctx.logger.debug('fixImageExifRotation remove exif and rotate:%j', exif);
       buffer = convertImageTo(ctx, buffer, Jimp.AUTO);
@@ -73,7 +73,7 @@ async function convertImageToPng(ctx, buffer) {
 async function convertImageTo(ctx, buffer, mime) {
   try {
     ctx.logger.debug('convertImageTo %s', mime);
-    let image = await Jimp.read(buffer);
+    const image = await Jimp.read(buffer);
     //remove exif
     image.bitmap.exifBuffer = undefined;
     //set jpeg and png quality
@@ -92,7 +92,7 @@ async function convertImageTo(ctx, buffer, mime) {
  * @returns {number | undefined}
  */
 function localeToLCID(lang) {
-  let elem = locale[lang && lang.toLowerCase()];
+  const elem = locale[lang && lang.toLowerCase()];
   return elem && elem.id;
 }
 
