@@ -35,7 +35,6 @@
 const config = require('config');
 const co = require('co');
 const NodeCache = require( "node-cache" );
-const license = require('./../../Common/sources/license');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
@@ -287,11 +286,11 @@ async function getTenantLicense(ctx) {
   }
   return res;
 }
-function getServerLicense(ctx) {
+function getServerLicense(_ctx) {
   return licenseInfo;
 }
 let hasBaseDir = !!cfgTenantsBaseDir;
-function isMultitenantMode(ctx) {
+function isMultitenantMode(_ctx) {
   return hasBaseDir;
 }
 function setMultitenantMode(val) {
@@ -397,7 +396,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
         res.usersViewCount = Math.min(res.usersViewCount, constants.LICENSE_USERS);
         const errStr = res.usersCount ? `${res.usersCount} unique users` : `${res.connections} concurrent connections`;
         ctx.logger.error(`License: License needs to be renewed.\nYour users have only ${errStr} ` +
-          `available for document editing for the next ${graceDays} days.\nPlease renew the ` +
+          `available for document editing for the next ${res.graceDays} days.\nPlease renew the ` +
           'license to restore the full access');
       } else {
         res.type = c_LR.ExpiredLimited;

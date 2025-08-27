@@ -55,7 +55,8 @@ module.exports = [
       'no-console': 'off', // Allow console in server code
       'no-continue': 'off', // Allow continue statements
       'no-plusplus': 'off',
-
+      'require-yield': 'off',
+      'no-useless-escape': 'off',
       // Modern JavaScript practices
       'prefer-const': 'error', // Enforce const for immutable bindings
       'no-var': 'off', // Enforce let/const over var
@@ -66,7 +67,7 @@ module.exports = [
       'no-useless-return': 'error', // Remove unnecessary return statements
       'max-lines': ['warn', 5000],
       'no-prototype-builtins': 'off'
-    },
+    }
     // ignores: [
     //   'node_modules/',
     //   'dist/',

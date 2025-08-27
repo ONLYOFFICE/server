@@ -75,8 +75,6 @@
 const { Server } = require("socket.io");
 const _ = require('underscore');
 const url = require('url');
-const os = require('os');
-const cluster = require('cluster');
 const crypto = require('crypto');
 const pathModule = require('path');
 const { isDeepStrictEqual } = require('util');
@@ -176,7 +174,6 @@ let shutdownFlag = false;
 const expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
 const MIN_SAVE_EXPIRATION = 60000;
-const HEALTH_CHECK_KEY_MAX = 10000;
 const SHARD_ID = crypto.randomBytes(16).toString('base64');//16 as guid
 
 const PRECISION = [{name: 'hour', val: ms('1h')}, {name: 'day', val: ms('1d')}, {name: 'week', val: ms('7d')},
@@ -1174,11 +1171,12 @@ function* startRPC(ctx, conn, responseKey, data) {
       sendDataRpc(ctx, conn, responseKey, res);
       break;
     }
-    case 'pathurls':
+    case 'pathurls': {
       const outputData = new canvasService.OutputData(data.type);
       yield* canvasService.commandPathUrls(ctx, conn, data.data, outputData);
       sendDataRpc(ctx, conn, responseKey, outputData);
       break;
+    }
   }
   ctx.logger.debug('startRPC end');
 }
@@ -1355,7 +1353,6 @@ function dropUserFromDocument(ctx, docId, users, description) {
   }
 }
 function getLocalConnectionCount(ctx, docId) {
-  const tenant = ctx.tenant;
   return connections.reduce((count, conn) => {
     if (conn.docId === docId && conn.tenant === ctx.tenant) {
       count++;
@@ -1501,7 +1498,7 @@ function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
     return null;
   });
 }
-function getRequestParams(ctx, req, opt_isNotInBody) {
+function getRequestParams(ctx, req, _opt_isNotInBody) {
   return co(function*(){
     const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
@@ -1799,7 +1796,7 @@ exports.install = function(server, callbackFunction) {
                 yield canvasService.openDocument(ctx, conn, cmd);
                 break;
               }
-              case 'clientLog':
+              case 'clientLog': {
                 const level = data.level?.toLowerCase();
                 if("trace" === level || "debug" === level || "info" === level || "warn" === level || "error" === level ||  "fatal" === level) {
                   ctx.logger[level]("clientLog: %s", data.msg);
@@ -1810,6 +1807,7 @@ exports.install = function(server, callbackFunction) {
                   yield* saveErrorChanges(ctx, docId, destDir);
                 }
                 break;
+              }
               case 'extendSession' :
                 ctx.logger.debug("extendSession idletime: %d", data.idletime);
                 conn.sessionIsSendWarning = false;
@@ -3391,7 +3389,7 @@ exports.install = function(server, callbackFunction) {
     sendDataMessage(ctx, conn, allMessages);
   }
 
-  function _checkLockWord(ctx, docId, documentLocks, newLocks, arrayBlocks, userId) {
+  function _checkLockWord(_ctx, _docId, _documentLocks, _newLocks, _arrayBlocks, _userId) {
     return true;
   }
   function _checkLockExcel(ctx, docId, documentLocks, newLocks, arrayBlocks, userId) {
@@ -3774,7 +3772,7 @@ exports.install = function(server, callbackFunction) {
               sendData(ctx, participant, {type: "forceSave", messages: data.data});
             });
             break;
-          case commonDefines.c_oPublishType.changeConnecitonInfo:
+          case commonDefines.c_oPublishType.changeConnecitonInfo: {
             let hasChanges = false;
             cmd = new commonDefines.InputCommand(data.cmd, true);
             participants = getParticipants(data.docId);
@@ -3797,6 +3795,7 @@ exports.install = function(server, callbackFunction) {
               yield publish(ctx, {type: commonDefines.c_oPublishType.participantsState, ctx, docId: data.docId, userId: null, participantsTimestamp, participants});
             }
             break;
+          }
           case commonDefines.c_oPublishType.rpc:
             participants = getParticipantUser(data.docId, data.userId);
             _.each(participants, (participant) => {
@@ -4143,7 +4142,6 @@ exports.licenseInfo = function(req, res) {
       const now = Date.now();
       if (redisRes.length > 0) {
         const expDocumentsStep95 = expDocumentsStep * 0.95;
-        let prevTime = Number.MAX_VALUE;
         var precisionIndex = 0;
         for (let i = redisRes.length - 1; i >= 0; i--) {
           const elem = redisRes[i];
@@ -4176,7 +4174,6 @@ exports.licenseInfo = function(req, res) {
               precisionIndex = j + 1;
             }
           }
-          prevTime = elem.time;
         }
         for (const i in precisionSum) {
           const precision = precisionSum[i];

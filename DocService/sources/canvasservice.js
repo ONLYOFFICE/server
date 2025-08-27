@@ -35,7 +35,6 @@ const crypto = require('crypto');
 var pathModule = require('path');
 var urlModule = require('url');
 const { pipeline } = require('node:stream/promises');
-const { buffer } = require('node:stream/consumers');
 var co = require('co');
 const ms = require('ms');
 const retry = require('retry');
@@ -46,7 +45,6 @@ var docsCoServer = require('./DocsCoServer');
 var taskResult = require('./taskresult');
 var wopiUtils = require('./wopiUtils');
 var wopiClient = require('./wopiClient');
-var logger = require('./../../Common/sources/logger');
 var utils = require('./../../Common/sources/utils');
 var constants = require('./../../Common/sources/constants');
 var commonDefines = require('./../../Common/sources/commondefines');
@@ -56,7 +54,6 @@ var statsDClient = require('./../../Common/sources/statsdclient');
 var operationContext = require('./../../Common/sources/operationContext');
 var tenantManager = require('./../../Common/sources/tenantManager');
 var config = require('config');
-const path = require("path");
 
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
@@ -77,7 +74,6 @@ const cfgDownloadFileAllowExt = config.get('services.CoAuthoring.server.download
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 
 var SAVE_TYPE_PART_START = 0;
-var SAVE_TYPE_PART = 1;
 var SAVE_TYPE_COMPLETE = 2;
 var SAVE_TYPE_COMPLETE_ALL = 3;
 

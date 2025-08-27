@@ -33,7 +33,6 @@
 'use strict';
 
 const fs = require('fs/promises');
-const fsWatch = require('fs');
 const path = require('path');
 const config = require('config');
 const NodeCache = require("node-cache");

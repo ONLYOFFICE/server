@@ -167,7 +167,8 @@ function _insertChangesCallback(ctx, startIndex, objChanges, docId, index, user,
 }
 
 function deleteChangesCallback(ctx, docId, deleteIndex, callback) {
-  let sqlCommand, values = [];
+  let sqlCommand;
+  const values = [];
   const p1 = addSqlParameter(ctx.tenant, values);
   const p2 = addSqlParameter(docId, values);
   if (null !== deleteIndex) {
@@ -252,7 +253,7 @@ function getChangesPromise(ctx, docId, optStartIndex, optEndIndex, opt_time) {
         } else {
           if (reservoirMaximum > 0) {
             const size = Math.min(getChangesSize(result), reservoirMaximum);
-            const cur = limiter.incrementReservoir(-size).then((cur) => {
+            limiter.incrementReservoir(-size).then((cur) => {
               ctx.logger.debug("getChangesPromise bottleneck reservoir cur=%s", cur);
               resolve(result);
             });

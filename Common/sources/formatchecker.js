@@ -32,7 +32,6 @@
 
 'use strict';
 
-var path = require('path');
 var constants = require('./constants');
 const {open} = require("node:fs/promises");
 

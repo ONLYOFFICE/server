@@ -34,7 +34,6 @@
 var config = require('config');
 var configCoAuthoring = config.get('services.CoAuthoring');
 var co = require('co');
-var logger = require('./../../Common/sources/logger');
 var pubsubService = require('./pubsubRabbitMQ');
 const sqlBase = require('./databaseConnectors/baseConnector');
 var commonDefines = require('./../../Common/sources/commondefines');

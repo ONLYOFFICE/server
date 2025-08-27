@@ -42,11 +42,9 @@ const fs = require('fs');
 
 const express = require('express');
 const http = require('http');
-const urlModule = require('url');
 const path = require('path');
 const bodyParser = require("body-parser");
 const multer = require('multer');
-const mime = require('mime');
 const apicache = require('apicache');
 const docsCoServer = require('./DocsCoServer');
 const canvasService = require('./canvasservice');
@@ -72,24 +70,24 @@ const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enabl
 const cfgLicenseFile = config.get('license.license_file');
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 
-if (false) {
-	var cluster = require('cluster');
-	cluster.schedulingPolicy = cluster.SCHED_RR
-	if (cluster.isMaster) {
-		let workersCount = 2;
-		logger.warn('start cluster with %s workers %s', workersCount, cluster.schedulingPolicy);
-		for (let nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
-			var worker = cluster.fork().process;
-			logger.warn('worker %s started.', worker.pid);
-		}
+// if (false) {
+// 	var cluster = require('cluster');
+// 	cluster.schedulingPolicy = cluster.SCHED_RR
+// 	if (cluster.isMaster) {
+// 		let workersCount = 2;
+// 		logger.warn('start cluster with %s workers %s', workersCount, cluster.schedulingPolicy);
+// 		for (let nIndexWorker = 0; nIndexWorker < workersCount; ++nIndexWorker) {
+// 			var worker = cluster.fork().process;
+// 			logger.warn('worker %s started.', worker.pid);
+// 		}
 
-		cluster.on('exit', function (worker) {
-			logger.warn('worker %s died. restart...', worker.process.pid);
-			cluster.fork();
-		});
-		return;
-	}
-}
+// 		cluster.on('exit', function (worker) {
+// 			logger.warn('worker %s died. restart...', worker.process.pid);
+// 			cluster.fork();
+// 		});
+// 		return;
+// 	}
+// }
 
 const app = express();
 app.disable('x-powered-by');
@@ -131,8 +129,8 @@ fs.watchFile(cfgLicenseFile, updateLicense);
 setInterval(updateLicense, 86400000);
 
 try {
-	let staticContent = config.get('services.CoAuthoring.server.static_content');
-	let pluginsUri = config.get('services.CoAuthoring.plugins.uri');
+	const staticContent = config.get('services.CoAuthoring.server.static_content');
+	const pluginsUri = config.get('services.CoAuthoring.plugins.uri');
 	let pluginsPath = undefined;
 	if (staticContent[pluginsUri]) {
 		pluginsPath = staticContent[pluginsUri].path;
@@ -154,14 +152,15 @@ docsCoServer.install(server, () => {
 
 	app.get('/index.html', (req, res) => {
 		return co(function*() {
-			let ctx = new operationContext.Context();
+			const ctx = new operationContext.Context();
 			try {
 				ctx.initFromRequest(req);
 				yield ctx.initTenantCache();
-				let [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
-				let buildVersion = commonDefines.buildVersion;
-				let buildNumber = commonDefines.buildNumber;
-				let buildDate, packageType, customerId = "", alias = "", multitenancy="";
+				const [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
+				const buildVersion = commonDefines.buildVersion;
+				const buildNumber = commonDefines.buildNumber;
+				const alias = "";
+				let buildDate, packageType, customerId = "", multitenancy="";
 				if (licenseInfo) {
 					buildDate = licenseInfo.buildDate.toISOString();
 					packageType = licenseInfo.packageType;
@@ -182,9 +181,9 @@ docsCoServer.install(server, () => {
 	app.use('/', staticRouter);
 
 	const rawFileParser = bodyParser.raw(
-		{inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function() {return true;}});
+		{inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type() {return true;}});
 	const urleEcodedParser = bodyParser.urlencoded({ extended: false });
-	let forms = multer();
+	const forms = multer();
 
 	app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 	app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
@@ -218,7 +217,7 @@ docsCoServer.install(server, () => {
 	app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
 	app.get('/baseurl', (req, res) => {
-		let ctx = new operationContext.Context();
+		const ctx = new operationContext.Context();
 		try {
 			ctx.initFromRequest(req);
 			//todo
@@ -247,7 +246,7 @@ docsCoServer.install(server, () => {
 
 	function checkWopiEnable(req, res, next) {
 		//todo may be move code into wopiClient or wopiClient.discovery...
-		let ctx = new operationContext.Context();
+		const ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
 		ctx.initTenantCache()
 			.then(() => {
@@ -264,7 +263,7 @@ docsCoServer.install(server, () => {
 	}
 	function checkWopiDummyEnable(req, res, next) {
 		//todo may be move code into wopiClient or wopiClient.discovery...
-		let ctx = new operationContext.Context();
+		const ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
 		ctx.initTenantCache()
 			.then(() => {
@@ -281,7 +280,7 @@ docsCoServer.install(server, () => {
 			});
 	}
 	//todo dest
-	let fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
+	const fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 	app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
 	app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
 	app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
@@ -296,8 +295,8 @@ docsCoServer.install(server, () => {
 
 	app.use('/ai-proxy', rawFileParser, aiProxyHandler.proxyRequest);
 
-	app.post('/dummyCallback', utils.checkClientIp, apicache.middleware("5 minutes"), rawFileParser, function(req, res){
-		let ctx = new operationContext.Context();
+	app.post('/dummyCallback', utils.checkClientIp, apicache.middleware("5 minutes"), rawFileParser, (req, res) =>{
+		const ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
 		//yield ctx.initTenantCache();//no need
 		ctx.logger.debug(`dummyCallback req.body:%s`, req.body);
@@ -320,25 +319,25 @@ docsCoServer.install(server, () => {
 			return;
 		}
 
-		let staticContent = config.get('services.CoAuthoring.server.static_content');
-		let pluginsUri = config.get('services.CoAuthoring.plugins.uri');
+		const staticContent = config.get('services.CoAuthoring.server.static_content');
+		const pluginsUri = config.get('services.CoAuthoring.plugins.uri');
 		let pluginsPath = undefined;
-		let pluginsAutostart = config.get('services.CoAuthoring.plugins.autostart');
+		const pluginsAutostart = config.get('services.CoAuthoring.plugins.autostart');
 
 		if (staticContent[pluginsUri]) {
 			pluginsPath = staticContent[pluginsUri].path;
 		}
 
-		let baseUrl = '../../../..';
+		const baseUrl = '../../../..';
 		utils.listFolders(pluginsPath, true).then((values) => {
 			return co(function*() {
 				const configFile = 'config.json';
 				let stats = null;
-				let result = [];
+				const result = [];
 				for (let i = 0; i < values.length; ++i) {
 					try {
 						stats = yield utils.fsStat(path.join(values[i], configFile));
-					} catch (err) {
+					} catch (_err) {
 						stats = null;
 					}
 
@@ -355,8 +354,8 @@ docsCoServer.install(server, () => {
 	});
 	app.get('/themes.json', apicache.middleware("5 minutes"), (req, res) => {
 		return co(function*() {
-			let themes = [];
-			let ctx = new operationContext.Context();
+			const themes = [];
+			const ctx = new operationContext.Context();
 			try {
 				ctx.initFromRequest(req);
 				yield ctx.initTenantCache();
@@ -364,21 +363,21 @@ docsCoServer.install(server, () => {
 				if (!config.has('services.CoAuthoring.server.static_content') || !config.has('services.CoAuthoring.themes.uri')) {
 					return;
 				}
-				let staticContent = config.get('services.CoAuthoring.server.static_content');
-				let themesUri = config.get('services.CoAuthoring.themes.uri');
+				const staticContent = config.get('services.CoAuthoring.server.static_content');
+				const themesUri = config.get('services.CoAuthoring.themes.uri');
 				let themesList = [];
 
-				for (let i in staticContent) {
+				for (const i in staticContent) {
 					if (staticContent.hasOwnProperty(i) && themesUri.startsWith(i)) {
-						let dir = staticContent[i].path + themesUri.substring(i.length);
+						const dir = staticContent[i].path + themesUri.substring(i.length);
 						themesList = yield utils.listObjects(dir, true);
 						ctx.logger.debug('themes.json dir:%s', dir);
 						ctx.logger.debug('themes.json themesList:%j', themesList);
 						for (let j = 0; j < themesList.length; ++j) {
 							if (themesList[j].endsWith('.json')) {
 								try {
-									let data = yield utils.readFile(themesList[j], true);
-									let text = new TextDecoder('utf-8', {ignoreBOM: false}).decode(data);
+									const data = yield utils.readFile(themesList[j], true);
+									const text = new TextDecoder('utf-8', {ignoreBOM: false}).decode(data);
 									themes.push(JSON.parse(text));
 								} catch (err) {
 									ctx.logger.error('themes.json file:%s error:%s', themesList[j], err.stack);
@@ -393,7 +392,7 @@ docsCoServer.install(server, () => {
 			} finally {
 				if (themes.length > 0) {
 					res.setHeader('Content-Type', 'application/json');
-					res.send({"themes": themes});
+					res.send({themes});
 				} else {
 					res.sendStatus(404);
 				}
@@ -402,7 +401,7 @@ docsCoServer.install(server, () => {
 		});
 	});
 	app.get('/document_editor_service_worker.js', apicache.middleware("5 min"), async (req, res) => {
-		let staticContent = config.get('services.CoAuthoring.server.static_content');
+		const staticContent = config.get('services.CoAuthoring.server.static_content');
 		if (staticContent['/sdkjs']) {
 			//make handler only for development version
 			res.sendFile(path.resolve(staticContent['/sdkjs'].path + "/common/serviceworker/document_editor_service_worker.js"));
@@ -410,8 +409,8 @@ docsCoServer.install(server, () => {
 			res.sendStatus(404);
 		}
 	});
-	app.use((err, req, res, next) => {
-		let ctx = new operationContext.Context();
+	app.use((err, req, res, _next) => {
+		const ctx = new operationContext.Context();
 		ctx.initFromRequest(req);
 		ctx.logger.error('default error handler:%s', err.stack);
 		res.sendStatus(500);

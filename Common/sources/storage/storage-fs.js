@@ -68,7 +68,7 @@ async function createReadStream(storageCfg, strPath) {
   };
 }
 
-async function putObject(storageCfg, strPath, buffer, contentLength) {
+async function putObject(storageCfg, strPath, buffer, _contentLength) {
   var fsPath = getFilePath(storageCfg, strPath);
   await mkdir(path.dirname(fsPath), {recursive: true});
 

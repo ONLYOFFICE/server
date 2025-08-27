@@ -94,7 +94,6 @@ ca(cfgWinCa);
 const minimumIterationsByteLength = 4;
 const dnscache = getDnsCache(cfgDnsCache);
 
-var ANDROID_SAFE_FILENAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-+,@£$€!½§~\'=()[]{}0123456789';
 
 //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
 BigInt.prototype.toJSON = function() { return this.toString() };
@@ -172,7 +171,7 @@ function* walkDir(fsPath, results, optNoSubDir, optOnlyFolders) {
     let stats;
     try {
       stats = yield fsStat(file);
-    } catch (e) {
+    } catch (_e) {
       //exception if fsPath not exist
       stats = null;
     }
@@ -192,10 +191,11 @@ function* walkDir(fsPath, results, optNoSubDir, optOnlyFolders) {
 }
 exports.listFolders = function(fsPath, optNoSubDir) {
   return co(function* () {
-    let stats, list = [];
+    let stats;
+    const list = [];
     try {
       stats = yield fsStat(fsPath);
-    } catch (e) {
+    } catch (_e) {
       //exception if fsPath not exist
       stats = null;
     }
@@ -207,10 +207,11 @@ exports.listFolders = function(fsPath, optNoSubDir) {
 };
 exports.listObjects = function(fsPath, optNoSubDir) {
   return co(function* () {
-    let stats, list = [];
+    let stats;
+    const list = [];
     try {
       stats = yield fsStat(fsPath);
-    } catch (e) {
+    } catch (_e) {
       //exception if fsPath not exist
       stats = null;
     }
@@ -546,7 +547,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
 
   try {
     const response = await axios(axiosConfig);
-    const { status, headers, data } = response;
+    const { headers } = response;
 
     const contentLength = headers['content-length'];
     if (opt_limit && contentLength && parseInt(contentLength) > opt_limit) {
@@ -732,14 +733,14 @@ function promiseCreateWriteStream(strPath, optOptions) {
 exports.promiseCreateWriteStream = promiseCreateWriteStream;
 
 function promiseWaitDrain(stream) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     stream.once('drain', resolve);
   });
 }
 exports.promiseWaitDrain = promiseWaitDrain;
 
 function promiseWaitClose(stream) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     stream.once('close', resolve);
   });
 }

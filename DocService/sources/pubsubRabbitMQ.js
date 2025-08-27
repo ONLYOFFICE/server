@@ -37,7 +37,6 @@ var util = require('util');
 var co = require('co');
 var constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
-var utils = require('./../../Common/sources/utils');
 var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
 var activeMQCore = require('./../../Common/sources/activeMQCore');
 
@@ -150,7 +149,7 @@ function repeat(pubsub) {
 
 }
 function publishRabbit(pubsub, data) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     //Channels act like stream.Writable when you call publish or sendToQueue: they return either true, meaning “keep sending”, or false, meaning “please wait for a ‘drain’ event”.
     const keepSending = pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
     if (!keepSending) {
@@ -163,7 +162,7 @@ function publishRabbit(pubsub, data) {
 }
 
 function publishActive(pubsub, data) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     //Returns true if the sender has available credits for sending a message. Otherwise it returns false.
     const sendable = pubsub.channelPublish.sendable();
     if (!sendable) {
@@ -195,10 +194,11 @@ function healthCheckRabbit(pubsub) {
   });
 }
 function healthCheckActive(pubsub) {
-  return co(function* () {
+  return co(function* () {  
     if (!pubsub.connection) {
       return false;
     }
+    yield null;
     return pubsub.connection.is_open();
   });
 }

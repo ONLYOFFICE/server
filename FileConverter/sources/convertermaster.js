@@ -40,7 +40,6 @@ const config = moduleReloader.requireConfigWithRuntime();
 
 if (cluster.isMaster) {
   const fs = require('fs');
-  const co = require('co');
   const os = require('os');
   const license = require('./../../Common/sources/license');
 

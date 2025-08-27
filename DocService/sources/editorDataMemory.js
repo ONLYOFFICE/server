@@ -103,9 +103,9 @@ function EditorData() {
 EditorData.prototype = Object.create(EditorCommon.prototype);
 EditorData.prototype.constructor = EditorData;
 
-EditorData.prototype.addPresence = async function(ctx, docId, userId, userInfo) {};
-EditorData.prototype.updatePresence = async function(ctx, docId, userId) {};
-EditorData.prototype.removePresence = async function(ctx, docId, userId) {};
+EditorData.prototype.addPresence = async function(_ctx, _docId, _userId, _userInfo) {};
+EditorData.prototype.updatePresence = async function(_ctx, _docId, _userId) {};
+EditorData.prototype.removePresence = async function(_ctx, _docId, _userId) {};
 EditorData.prototype.getPresence = async function(ctx, docId, connections) {
   const hvals = [];
   if (connections) {
@@ -132,10 +132,10 @@ EditorData.prototype.unlockAuth = async function(ctx, docId, userId) {
   return this._checkAndUnlock(ctx, 'lockAuth', docId, userId);
 };
 
-EditorData.prototype.getDocumentPresenceExpired = async function(now) {
+EditorData.prototype.getDocumentPresenceExpired = async function(_now) {
   return [];
 };
-EditorData.prototype.removePresenceDocument = async function(ctx, docId) {};
+EditorData.prototype.removePresenceDocument = async function(_ctx, _docId) {};
 
 EditorData.prototype.addLocks = async function(ctx, docId, locks) {
   const data = this._getDocumentData(ctx, docId);
@@ -420,8 +420,8 @@ EditorStat.prototype.getEditorConnections = async function(ctx) {
   }
   return tenantStat;
 };
-EditorStat.prototype.setEditorConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrEditorConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.setEditorConnectionsCountByShard = async function(_ctx, _shardId, _count) {};
+EditorStat.prototype.incrEditorConnectionsCountByShard = async function(_ctx, _shardId, _count) {};
 EditorStat.prototype.getEditorConnectionsCount = async function(ctx, connections) {
   let count = 0;
   if (connections) {
@@ -434,8 +434,8 @@ EditorStat.prototype.getEditorConnectionsCount = async function(ctx, connections
   }
   return count;
 };
-EditorStat.prototype.setViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.setViewerConnectionsCountByShard = async function(_ctx, _shardId, _count) {};
+EditorStat.prototype.incrViewerConnectionsCountByShard = async function(_ctx, _shardId, _count) {};
 EditorStat.prototype.getViewerConnectionsCount = async function(ctx, connections) {
   let count = 0;
   if (connections) {
@@ -448,8 +448,8 @@ EditorStat.prototype.getViewerConnectionsCount = async function(ctx, connections
   }
   return count;
 };
-EditorStat.prototype.setLiveViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrLiveViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
+EditorStat.prototype.setLiveViewerConnectionsCountByShard = async function(_ctx, _shardId, _count) {};
+EditorStat.prototype.incrLiveViewerConnectionsCountByShard = async function(_ctx, _shardId, _count) {};
 EditorStat.prototype.getLiveViewerConnectionsCount = async function(ctx, connections) {
   let count = 0;
   if (connections) {

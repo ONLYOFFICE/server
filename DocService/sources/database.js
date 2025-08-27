@@ -79,7 +79,7 @@ exports.remove = function (_collectionName, _removeElements) {
 			// open collection. If it doesn't exist, it will be created
 			db.collection(_collectionName, (err, collection) => {
 				if (!err) {
-					collection.remove (_removeElements, (err, collection) => {
+					collection.remove (_removeElements, (_err, _collection) => {
 						logger.info ("All elements remove");
 					});
 				} else {

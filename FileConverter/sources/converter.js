@@ -466,12 +466,12 @@ function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
     }
   });
   //make dirs
-  for (var i = 0; i < dirsToCreate.length; ++i) {
+  for (let i = 0; i < dirsToCreate.length; ++i) {
     fs.mkdirSync(dirsToCreate[i]);
   }
   //download
   //todo Promise.all
-  for (var i = 0; i < list.length; ++i) {
+  for (let i = 0; i < list.length; ++i) {
     var file = list[i];
     var fileRel = storage.getRelativePath(strPath, file);
     var data = yield storage.getObject(ctx, file, opt_specialDir);
@@ -941,7 +941,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
   var existFile = false;
   try {
     existFile = fs.lstatSync(dataConvert.fileTo).isFile();
-  } catch (err) {
+  } catch (_err) {
     existFile = false;
   }
   if (!existFile) {
@@ -949,7 +949,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     var fileToBasename = path.basename(dataConvert.fileTo, path.extname(dataConvert.fileTo));
     var fileToDir = path.dirname(dataConvert.fileTo);
     var files = fs.readdirSync(fileToDir);
-    for (var i = 0; i < files.length; ++i) {
+    for (let i = 0; i < files.length; ++i) {
       var fileCur = files[i];
       if (0 == fileCur.indexOf(fileToBasename)) {
         dataConvert.fileTo = path.join(fileToDir, fileCur);

@@ -114,7 +114,7 @@ async function createReadStream(storageCfg, strPath) {
   };
 }
 
-async function putObject(storageCfg, strPath, buffer, contentLength) {
+async function putObject(storageCfg, strPath, buffer, _contentLength) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
 
   const uploadOptions = {
@@ -186,7 +186,7 @@ async function deletePath(storageCfg, strPath) {
   await deleteObjects(storageCfg, list);
 }
 
-async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, _opt_creationDate) {
   const storageUrlExpires = storageCfg.fs.urlExpires;
   let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
   expires = Math.min(expires, 604800);

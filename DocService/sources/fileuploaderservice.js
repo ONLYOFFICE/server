@@ -32,7 +32,6 @@
 
 'use strict';
 const crypto = require('crypto');
-var multiparty = require('multiparty');
 var co = require('co');
 const utilsDocService = require('./utilsDocService');
 var docsCoServer = require('./DocsCoServer');
@@ -50,10 +49,10 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 
 const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 
-function* checkJwtUpload(ctx, errorName, token){
-  const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
-  return checkJwtUploadTransformRes(ctx, errorName, checkJwtRes);
-}
+// function* checkJwtUpload(ctx, errorName, token){
+//   const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
+//   return checkJwtUploadTransformRes(ctx, errorName, checkJwtRes);
+// }
 function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
   var res = {err: true, docId: null, userid: null, encrypted: null};
   if (checkJwtRes.decoded) {

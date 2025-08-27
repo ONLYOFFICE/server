@@ -43,7 +43,6 @@ const Jimp = require('jimp');
 const locale = require('windows-locale');
 const ms = require('ms');
 
-const tenantManager = require('../../Common/sources/tenantManager');
 const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
 
 const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));

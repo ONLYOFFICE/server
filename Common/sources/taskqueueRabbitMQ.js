@@ -350,8 +350,8 @@ function repeat(taskqueue) {
     addTask(taskqueue, elem.task, elem.priority, () => {}, elem.expiration, elem.headers);
   }
   taskqueue.addTaskStore.length = 0;
-  for (var i = 0; i < taskqueue.addDelayedStore.length; ++i) {
-    var elem = taskqueue.addDelayedStore[i];
+  for (let i = 0; i < taskqueue.addDelayedStore.length; ++i) {
+    const elem = taskqueue.addDelayedStore[i];
     addDelayed(taskqueue, elem.task, elem.ttl, () => {});
   }
   taskqueue.addDelayedStore.length = 0;
@@ -366,7 +366,7 @@ function addTaskRabbit(taskqueue, content, priority, callback, opt_expiration, o
   }
   taskqueue.channelConvertTask.sendToQueue(cfgRabbitQueueConvertTask.name, content, options, callback);
 }
-function addTaskActive(taskqueue, content, priority, callback, opt_expiration, opt_headers) {
+function addTaskActive(taskqueue, content, priority, callback, opt_expiration, _opt_headers) {
   var msg = {durable: true, priority, body: content, ttl: cfgQueueRetentionPeriod * 1000};
   if (undefined !== opt_expiration) {
     msg.ttl = opt_expiration;
@@ -381,7 +381,7 @@ function addTaskString(taskqueue, task, priority, opt_expiration, opt_headers) {
   return new Promise((resolve, reject) => {
     var content = Buffer.from(task);
     if (null != taskqueue.channelConvertTask) {
-      addTask(taskqueue, content, priority, (err, ok) => {
+      addTask(taskqueue, content, priority, (err, _ok) => {
         if (null != err) {
           reject(err);
         } else {
@@ -528,7 +528,7 @@ TaskQueueRabbitMQ.prototype.initPromise = function(isAddTask, isAddResponse, isA
     });
   });
 };
-TaskQueueRabbitMQ.prototype.addTask = function (task, priority, opt_expiration, opt_headers) {
+TaskQueueRabbitMQ.prototype.addTask = function (task, priority, opt_expiration, _opt_headers) {
   task.setVisibilityTimeout(cfgVisibilityTimeout);
   return addTaskString(this, JSON.stringify(task), priority, opt_expiration);
 };
@@ -537,7 +537,7 @@ TaskQueueRabbitMQ.prototype.addResponse = function (task) {
   return new Promise((resolve, reject) => {
     var content = Buffer.from(JSON.stringify(task));
     if (null != t.channelConvertResponse) {
-      addResponse(t, content, (err, ok) => {
+      addResponse(t, content, (err, _ok) => {
         if (null != err) {
           reject(err);
         } else {
@@ -554,7 +554,7 @@ TaskQueueRabbitMQ.prototype.addDelayed = function (task, ttl) {
   return new Promise((resolve, reject) => {
     var content = new Buffer(JSON.stringify(task));
     if (null != t.channelDelayed) {
-      addDelayed(t, content, ttl, (err, ok) => {
+      addDelayed(t, content, ttl, (err, _ok) => {
         if (null != err) {
           reject(err);
         } else {

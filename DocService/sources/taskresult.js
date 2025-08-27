@@ -278,7 +278,7 @@ function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
   while (nTryCount-- > 0) {
     try {
       addRes = yield addRandomKey(ctx, task, key, opt_prefix, opt_size);
-    } catch (e) {
+    } catch (_e) {
       addRes = null;
       ctx.logger.debug("addRandomKeyTask %s exists, try again", task.key);
     }

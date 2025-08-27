@@ -31,7 +31,6 @@
  */
 
 'use strict';
-const util = require('util');
 const config = require('config');
 const ms = require('ms');
 
@@ -52,8 +51,8 @@ const notificationTypes = {
 };
 
 class TransportInterface {
-  async send(ctx, message) {}
-  contentGeneration(title, message) {}
+  async send(_ctx, _message) {}
+  contentGeneration(_title, _message) {}
 }
 
 class MailTransport extends TransportInterface {
@@ -82,7 +81,7 @@ class MailTransport extends TransportInterface {
 
 // TODO:
 class TelegramTransport extends TransportInterface {
-  constructor(ctx) {
+  constructor(_ctx) {
     super();
   }
 }
