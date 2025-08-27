@@ -33,12 +33,12 @@
 'use strict';
 
 const sqlDataBaseType = {
-	mySql		: 'mysql',
-	mariaDB		: 'mariadb',
-    msSql       : 'mssql',
-	postgreSql	: 'postgres',
-	dameng	    : 'dameng',
-    oracle      : 'oracle'
+  mySql: 'mysql',
+  mariaDB: 'mariadb',
+  msSql: 'mssql',
+  postgreSql: 'postgres',
+  dameng: 'dameng',
+  oracle: 'oracle'
 };
 
 const connectorUtilities = require('./connectorUtilities');
@@ -127,23 +127,39 @@ function _getDateTime2(oDate) {
 
 function _insertChangesCallback(ctx, startIndex, objChanges, docId, index, user, callback) {
   var sqlCommand = `INSERT INTO ${cfgTableChanges} VALUES`;
-  var i = startIndex, l = objChanges.length, lengthUtf8Current = sqlCommand.length, lengthUtf8Row = 0, values = [];
-  if (i === l)
-    {return;}
+  var i = startIndex,
+    l = objChanges.length,
+    lengthUtf8Current = sqlCommand.length,
+    lengthUtf8Row = 0,
+    values = [];
+  if (i === l) {
+    return;
+  }
 
   const indexBytes = 4;
   const timeBytes = 8;
   for (; i < l; ++i, ++index) {
     //49 - length of "($1001,... $1008),"
     //4 is max utf8 bytes per symbol
-    lengthUtf8Row = 49 + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + indexBytes + timeBytes;
+    lengthUtf8Row =
+      49 +
+      4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) +
+      indexBytes +
+      timeBytes;
     if (lengthUtf8Row + lengthUtf8Current >= maxPacketSize && i > startIndex) {
       sqlCommand += ';';
-      (function(tmpStart, tmpIndex) {
-        dbInstance.sqlQuery(ctx, sqlCommand, () => {
-          // do not remove lock, but we continue to add
-          _insertChangesCallback(ctx, tmpStart, objChanges, docId, tmpIndex, user, callback);
-        }, undefined, undefined, values);
+      (function (tmpStart, tmpIndex) {
+        dbInstance.sqlQuery(
+          ctx,
+          sqlCommand,
+          () => {
+            // do not remove lock, but we continue to add
+            _insertChangesCallback(ctx, tmpStart, objChanges, docId, tmpIndex, user, callback);
+          },
+          undefined,
+          undefined,
+          values
+        );
       })(i, index);
       return;
     }
@@ -193,11 +209,15 @@ function deleteChangesPromise(ctx, docId, deleteIndex) {
 }
 
 function deleteChanges(ctx, docId, deleteIndex) {
-	lockCriticalSection(docId, () => {_deleteChanges(ctx, docId, deleteIndex);});
+  lockCriticalSection(docId, () => {
+    _deleteChanges(ctx, docId, deleteIndex);
+  });
 }
 
-function _deleteChanges (ctx, docId, deleteIndex) {
-  deleteChangesCallback(ctx, docId, deleteIndex, () => {unLockCriticalSection(docId);});
+function _deleteChanges(ctx, docId, deleteIndex) {
+  deleteChangesCallback(ctx, docId, deleteIndex, () => {
+    unLockCriticalSection(docId);
+  });
 }
 
 function getChangesIndex(ctx, docId, callback) {
@@ -247,21 +267,28 @@ function getChangesPromise(ctx, docId, optStartIndex, optEndIndex, opt_time) {
       sqlWhere += ' ORDER BY change_id ASC';
       var sqlCommand = `SELECT * FROM ${cfgTableChanges} WHERE ${sqlWhere};`;
 
-      dbInstance.sqlQuery(ctx, sqlCommand, (error, result) => {
-        if (error) {
-          reject(error);
-        } else {
-          if (reservoirMaximum > 0) {
-            const size = Math.min(getChangesSize(result), reservoirMaximum);
-            limiter.incrementReservoir(-size).then((cur) => {
-              ctx.logger.debug("getChangesPromise bottleneck reservoir cur=%s", cur);
-              resolve(result);
-            });
+      dbInstance.sqlQuery(
+        ctx,
+        sqlCommand,
+        (error, result) => {
+          if (error) {
+            reject(error);
           } else {
-            resolve(result);
+            if (reservoirMaximum > 0) {
+              const size = Math.min(getChangesSize(result), reservoirMaximum);
+              limiter.incrementReservoir(-size).then(cur => {
+                ctx.logger.debug('getChangesPromise bottleneck reservoir cur=%s', cur);
+                resolve(result);
+              });
+            } else {
+              resolve(result);
+            }
           }
-        }
-      }, undefined, undefined, values);
+        },
+        undefined,
+        undefined,
+        values
+      );
     });
   });
 }
@@ -269,16 +296,21 @@ function getChangesPromise(ctx, docId, optStartIndex, optEndIndex, opt_time) {
 function getDocumentsWithChanges(ctx) {
   return new Promise((resolve, reject) => {
     const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE EXISTS(SELECT id FROM ${cfgTableChanges} WHERE tenant=${cfgTableResult}.tenant AND id = ${cfgTableResult}.id LIMIT 1);`;
-    dbInstance.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, false, false);
+    dbInstance.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      false,
+      false
+    );
   });
 }
-
 
 function getExpired(ctx, maxCount, expireSeconds) {
   return new Promise((resolve, reject) => {
@@ -287,15 +319,23 @@ function getExpired(ctx, maxCount, expireSeconds) {
     utils.addSeconds(expireDate, -expireSeconds);
     const date = addSqlParameter(expireDate, values);
     const count = addSqlParameter(maxCount, values);
-    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date}` +
+    const sqlCommand =
+      `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date}` +
       ` AND NOT EXISTS(SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id LIMIT 1) LIMIT ${count};`;
-    dbInstance.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, false, false, values);
+    dbInstance.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      false,
+      false,
+      values
+    );
   });
 }
 function getCountWithStatus(ctx, status, expireMs) {
@@ -305,41 +345,49 @@ function getCountWithStatus(ctx, status, expireMs) {
     const sqlStatus = addSqlParameter(status, values);
     const sqlDate = addSqlParameter(expireDate, values);
     const sqlCommand = `SELECT COUNT(id) AS count FROM ${cfgTableResult} WHERE status=${sqlStatus} AND last_open_date>${sqlDate};`;
-    dbInstance.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        const res = Number(result[0].count)
-        resolve(!isNaN(res) ? res : 0);
-      }
-    }, false, false, values);
+    dbInstance.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          const res = Number(result[0].count);
+          resolve(!isNaN(res) ? res : 0);
+        }
+      },
+      false,
+      false,
+      values
+    );
   });
 }
 
 function isLockCriticalSection(id) {
-	return !!(g_oCriticalSection[id]);
+  return !!g_oCriticalSection[id];
 }
 
 // critical section
 function lockCriticalSection(id, callback) {
-	if (g_oCriticalSection[id]) {
-		// wait
-		g_oCriticalSection[id].push(callback);
-		return;
-	}
-	// lock
-	g_oCriticalSection[id] = [];
-	g_oCriticalSection[id].push(callback);
-	callback();
+  if (g_oCriticalSection[id]) {
+    // wait
+    g_oCriticalSection[id].push(callback);
+    return;
+  }
+  // lock
+  g_oCriticalSection[id] = [];
+  g_oCriticalSection[id].push(callback);
+  callback();
 }
 
 function unLockCriticalSection(id) {
-	var arrCallbacks = g_oCriticalSection[id];
-	arrCallbacks.shift();
-	if (0 < arrCallbacks.length)
-		{arrCallbacks[0]();}
-	else
-		{delete g_oCriticalSection[id];}
+  var arrCallbacks = g_oCriticalSection[id];
+  arrCallbacks.shift();
+  if (0 < arrCallbacks.length) {
+    arrCallbacks[0]();
+  } else {
+    delete g_oCriticalSection[id];
+  }
 }
 
 function healthCheck(ctx) {
@@ -374,13 +422,20 @@ function getTableColumns(ctx, tableName) {
     const values = [];
     const sqlParam = addSqlParameter(tableName, values);
     const sqlCommand = `SELECT column_name as "column_name" FROM information_schema.COLUMNS WHERE TABLE_NAME = ${sqlParam};`;
-    dbInstance.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+    dbInstance.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
   });
 }
 

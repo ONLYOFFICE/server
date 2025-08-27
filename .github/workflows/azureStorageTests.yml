@@ -46,7 +46,7 @@ jobs:
         run: |
           # Wait for Azurite to be ready
           sleep 15
-          
+
           # Create Azure storage configuration
           cat > Common/config/local.json << 'EOF'
           {
@@ -65,19 +65,19 @@ jobs:
             }
           }
           EOF
-          
+
           echo "Azure storage configuration created"
 
       - name: Create Azure container using Node.js from Common directory
         run: |
           # Wait a bit more for Azurite to be fully ready
           sleep 10
-          
+
           # Run Node.js script from Common directory where Azure dependencies are installed
           cd Common
           node -e "
           const { BlobServiceClient, StorageSharedKeyCredential } = require('@azure/storage-blob');
-          
+
           async function setupContainer() {
             try {
               const accountName = 'devstoreaccount1';
@@ -102,7 +102,7 @@ jobs:
               process.exit(1);
             }
           }
-          
+
           setupContainer();
           "
 

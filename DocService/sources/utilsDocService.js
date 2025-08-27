@@ -32,7 +32,7 @@
 
 'use strict';
 
-const util = require("util");
+const util = require('util');
 const config = require('config');
 const exifParser = require('exif-parser');
 //set global window to fix issue https://github.com/photopea/UTIF.js/issues/130
@@ -43,7 +43,7 @@ const Jimp = require('jimp');
 const locale = require('windows-locale');
 const ms = require('ms');
 
-const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
+const {notificationTypes, ...notificationService} = require('../../Common/sources/notificationService');
 
 const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
 const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template');
@@ -96,22 +96,9 @@ function localeToLCID(lang) {
 }
 
 function humanFriendlyExpirationTime(endTime) {
-  const month = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December'
-  ];
+  const month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-  return `${month[endTime.getUTCMonth()]} ${endTime.getUTCDate()}, ${endTime.getUTCFullYear()}`
+  return `${month[endTime.getUTCMonth()]} ${endTime.getUTCDate()}, ${endTime.getUTCFullYear()}`;
 }
 
 /**
@@ -133,15 +120,21 @@ async function notifyLicenseExpiration(ctx, endDate) {
       endDate = currentDate;
     }
     const formattedExpirationTime = humanFriendlyExpirationTime(endDate);
-    const applicationName = (process.env.APPLICATION_NAME || "").toUpperCase();
+    const applicationName = (process.env.APPLICATION_NAME || '').toUpperCase();
     if (endDate <= currentDate) {
-      const tenNotificationRuleLicenseExpirationError = ctx.getCfg('notification.rules.licenseExpirationError.template', cfgNotificationRuleLicenseExpirationError);
+      const tenNotificationRuleLicenseExpirationError = ctx.getCfg(
+        'notification.rules.licenseExpirationError.template',
+        cfgNotificationRuleLicenseExpirationError
+      );
       const title = util.format(tenNotificationRuleLicenseExpirationError.title, applicationName);
       const message = util.format(tenNotificationRuleLicenseExpirationError.body, formattedExpirationTime);
       ctx.logger.error(message);
       await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_ERROR, title, message);
     } else {
-      const tenNotificationRuleLicenseExpirationWarning = ctx.getCfg('notification.rules.licenseExpirationWarning.template', cfgNotificationRuleLicenseExpirationWarning);
+      const tenNotificationRuleLicenseExpirationWarning = ctx.getCfg(
+        'notification.rules.licenseExpirationWarning.template',
+        cfgNotificationRuleLicenseExpirationWarning
+      );
       const title = util.format(tenNotificationRuleLicenseExpirationWarning.title, applicationName);
       const message = util.format(tenNotificationRuleLicenseExpirationWarning.body, formattedExpirationTime);
       ctx.logger.warn(message);

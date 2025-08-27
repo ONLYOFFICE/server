@@ -32,11 +32,10 @@
 
 'use strict';
 
-const { cp, rm, mkdir } = require('fs/promises');
-const { stat, readFile, writeFile } = require('fs/promises');
+const {cp, rm, mkdir} = require('fs/promises');
+const {stat, readFile, writeFile} = require('fs/promises');
 var path = require('path');
-var utils = require("../utils");
-
+var utils = require('../utils');
 
 function getFilePath(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
@@ -95,7 +94,7 @@ async function listObjects(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
   const fsPath = getFilePath(storageCfg, strPath);
   const values = await utils.listObjects(fsPath);
-  return values.map((curvalue) => {
+  return values.map(curvalue => {
     return getOutputPath(curvalue.substring(storageFolderPath.length + 1));
   });
 }

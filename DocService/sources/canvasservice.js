@@ -34,7 +34,7 @@
 const crypto = require('crypto');
 var pathModule = require('path');
 var urlModule = require('url');
-const { pipeline } = require('node:stream/promises');
+const {pipeline} = require('node:stream/promises');
 var co = require('co');
 const ms = require('ms');
 const retry = require('retry');
@@ -79,8 +79,8 @@ var SAVE_TYPE_COMPLETE_ALL = 3;
 
 var clientStatsD = statsDClient.getClient();
 var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
-let hasPasswordCol = false;//stub on upgradev630.sql update failure
-exports.hasAdditionalCol = false;//stub on upgradev710.sql update failure
+let hasPasswordCol = false; //stub on upgradev630.sql update failure
+exports.hasAdditionalCol = false; //stub on upgradev710.sql update failure
 
 function OutputDataWrap(type, data) {
   this['type'] = type;
@@ -156,7 +156,6 @@ function getOpenedAt(row) {
   if (row) {
     return sqlBase.DocumentAdditional.prototype.getOpenedAt(row.additional);
   }
-  
 }
 function getOpenedAtJSONParams(row) {
   const documentLayout = row && sqlBase.DocumentAdditional.prototype.getDocumentLayout(row.additional);
@@ -187,17 +186,18 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
     case commonDefines.FileStatus.SaveVersion:
     case commonDefines.FileStatus.UpdateVersion:
     case commonDefines.FileStatus.Ok:
-      if(commonDefines.FileStatus.Ok === status) {
+      if (commonDefines.FileStatus.Ok === status) {
         outputData.setStatus('ok');
       } else if (optConn && optConn.isCloseCoAuthoring) {
         outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
       } else if (optConn && optConn.user.view) {
         outputData.setStatus('ok');
-      } else if (commonDefines.FileStatus.SaveVersion === status ||
-        (!opt_bIsRestore && commonDefines.FileStatus.UpdateVersion === status &&
-        Date.now() - statusInfo * 60000 > tenExpUpdateVersionStatus)) {
+      } else if (
+        commonDefines.FileStatus.SaveVersion === status ||
+        (!opt_bIsRestore && commonDefines.FileStatus.UpdateVersion === status && Date.now() - statusInfo * 60000 > tenExpUpdateVersionStatus)
+      ) {
         if (commonDefines.FileStatus.UpdateVersion === status) {
-          ctx.logger.warn("UpdateVersion expired");
+          ctx.logger.warn('UpdateVersion expired');
         }
         var updateMask = new taskResult.TaskResultData();
         updateMask.tenant = ctx.tenant;
@@ -221,11 +221,10 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
         var strPath = key + '/' + cmd.getOutputPath();
         if (optConn) {
           let url;
-          if(cmd.getInline()) {
+          if (cmd.getInline()) {
             url = await getPrintFileUrl(ctx, key, optConn.baseUrl, cmd.getTitle());
           } else {
-            url = await storage.getSignedUrl(ctx, optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary,
-                                                 cmd.getTitle());
+            url = await storage.getSignedUrl(ctx, optConn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Temporary, cmd.getTitle());
           }
           outputData.setData(url);
           outputData.setExtName(pathModule.extname(strPath));
@@ -252,7 +251,7 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
           isNeedPassword = 0 !== formEditor.length;
         }
         if (isNeedPassword) {
-          ctx.logger.debug("getOutputData password mismatch");
+          ctx.logger.debug('getOutputData password mismatch');
           if (encryptedUserPassword) {
             outputData.setStatus('needpassword');
             outputData.setData(constants.CONVERT_PASSWORD);
@@ -357,7 +356,7 @@ function* saveParts(ctx, cmd, filename) {
   var saveType = cmd.getSaveType();
   if (SAVE_TYPE_COMPLETE_ALL !== saveType) {
     const ext = pathModule.extname(filename);
-    const saveIndex = parseInt(cmd.getSaveIndex()) || 1;//prevent path traversal
+    const saveIndex = parseInt(cmd.getSaveIndex()) || 1; //prevent path traversal
     filename = pathModule.basename(filename, ext) + saveIndex + ext;
   }
   if ((SAVE_TYPE_PART_START === saveType || SAVE_TYPE_COMPLETE_ALL === saveType) && !cmd.getSaveKey()) {
@@ -370,7 +369,7 @@ function* saveParts(ctx, cmd, filename) {
     yield storage.putObject(ctx, cmd.getDocId() + cmd.getSaveKey() + '/' + filename, buffer, buffer.length);
     //delete data to prevent serialize into json
     cmd.data = null;
-    result = (SAVE_TYPE_COMPLETE_ALL === saveType || SAVE_TYPE_COMPLETE === saveType);
+    result = SAVE_TYPE_COMPLETE_ALL === saveType || SAVE_TYPE_COMPLETE === saveType;
   } else {
     result = true;
   }
@@ -409,7 +408,7 @@ async function getUpdateResponse(ctx, cmd) {
         const selectRes = await taskResult.select(ctx, updateTask.key);
         hasPasswordCol = selectRes.length > 0 && undefined !== selectRes[0].password;
       }
-      if(hasPasswordCol) {
+      if (hasPasswordCol) {
         updateTask.password = password;
       }
     }
@@ -445,7 +444,7 @@ var cleanupCache = co.wrap(function* (ctx, docId) {
     yield storage.deletePath(ctx, docId);
     res = true;
   }
-  ctx.logger.debug("cleanupCache docId=%s db.affectedRows=%d", docId, removeRes.affectedRows);
+  ctx.logger.debug('cleanupCache docId=%s db.affectedRows=%d', docId, removeRes.affectedRows);
   return res;
 });
 var cleanupCacheIf = co.wrap(function* (ctx, mask) {
@@ -457,7 +456,7 @@ var cleanupCacheIf = co.wrap(function* (ctx, mask) {
     yield storage.deletePath(ctx, mask.key);
     res = true;
   }
-  ctx.logger.debug("cleanupCacheIf db.affectedRows=%d", removeRes.affectedRows);
+  ctx.logger.debug('cleanupCacheIf db.affectedRows=%d', removeRes.affectedRows);
   return res;
 });
 async function cleanupErrToReload(ctx, key) {
@@ -500,7 +499,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
     needAddTask = yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
   }
   if (conn.encrypted) {
-    ctx.logger.debug("commandOpen encrypted %j", outputData);
+    ctx.logger.debug('commandOpen encrypted %j', outputData);
     if (constants.FILE_STATUS_UPDATE_VERSION !== outputData.getStatus()) {
       //don't send output data
       outputData.setStatus(undefined);
@@ -516,30 +515,30 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
     task.statusInfo = constants.NO_ERROR;
 
     const updateIfRes = yield taskResult.updateIf(ctx, task, updateMask);
-      if (updateIfRes.affectedRows > 0) {
-        const forgotten = yield storage.listObjects(ctx, cmd.getDocId(), tenForgottenFiles);
-        //replace url with forgotten file because it absorbed all lost changes
-        if (forgotten.length > 0) {
-          ctx.logger.debug("commandOpen from forgotten");
-          cmd.setUrl(undefined);
-          cmd.setForgotten(cmd.getDocId());
-        }
-        //add task
-        if (!cmd.getOutputFormat()) {
-          //todo remove getOpenFormatByEditor after 8.2.1
-          cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
-        }
-        cmd.setEmbeddedFonts(false);
-        var dataQueue = new commonDefines.TaskQueueData();
-        dataQueue.setCtx(ctx);
-        dataQueue.setCmd(cmd);
-        dataQueue.setToFile('Editor.bin');
-        yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
-      } else {
-        yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
+    if (updateIfRes.affectedRows > 0) {
+      const forgotten = yield storage.listObjects(ctx, cmd.getDocId(), tenForgottenFiles);
+      //replace url with forgotten file because it absorbed all lost changes
+      if (forgotten.length > 0) {
+        ctx.logger.debug('commandOpen from forgotten');
+        cmd.setUrl(undefined);
+        cmd.setForgotten(cmd.getDocId());
       }
+      //add task
+      if (!cmd.getOutputFormat()) {
+        //todo remove getOpenFormatByEditor after 8.2.1
+        cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
+      }
+      cmd.setEmbeddedFonts(false);
+      var dataQueue = new commonDefines.TaskQueueData();
+      dataQueue.setCtx(ctx);
+      dataQueue.setCmd(cmd);
+      dataQueue.setToFile('Editor.bin');
+      yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
+    } else {
+      yield* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore);
     }
   }
+}
 function* commandOpenFillOutput(ctx, conn, cmd, outputData, opt_bIsRestore) {
   const status = yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), conn, undefined, opt_bIsRestore);
   return commonDefines.FileStatus.None === status;
@@ -574,7 +573,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
     var upsertRes = yield taskResult.updateIf(ctx, task, updateMask);
     if (upsertRes.affectedRows > 0) {
       //add task
-      cmd.setUrl(null);//url may expire
+      cmd.setUrl(null); //url may expire
       if (!cmd.getOutputFormat()) {
         //todo remove getOpenFormatByEditor after 8.2.1
         cmd.setOutputFormat(docsCoServer.getOpenFormatByEditor(conn.editorType));
@@ -600,7 +599,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
 }
 function* commandSave(ctx, cmd, outputData) {
   const format = cmd.getFormat() || 'bin';
-  var completeParts = yield* saveParts(ctx, cmd, "Editor." + format);
+  var completeParts = yield* saveParts(ctx, cmd, 'Editor.' + format);
   if (completeParts) {
     var queueData = getSaveTask(ctx, cmd);
     yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
@@ -611,7 +610,7 @@ function* commandSave(ctx, cmd, outputData) {
 function* commandSendMailMerge(ctx, cmd, outputData) {
   const mailMergeSend = cmd.getMailMergeSend();
   const isJson = mailMergeSend.getIsJsonKey();
-  var completeParts = yield* saveParts(ctx, cmd, isJson ? "Editor.json" : "Editor.bin");
+  var completeParts = yield* saveParts(ctx, cmd, isJson ? 'Editor.json' : 'Editor.bin');
   var isErr = false;
   if (completeParts && !isJson) {
     isErr = true;
@@ -638,7 +637,7 @@ function* commandSendMailMerge(ctx, cmd, outputData) {
     outputData.setData(cmd.getSaveKey());
   }
 }
-const commandSfctByCmd = co.wrap(function*(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey) {
+const commandSfctByCmd = co.wrap(function* (ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey) {
   var selectRes = yield taskResult.selectWithCache(ctx, cmd.getDocId());
   var row = selectRes.length > 0 ? selectRes[0] : null;
   if (!row) {
@@ -672,8 +671,9 @@ function isDisplayedImage(strName) {
         var displayN = parseInt(strName[index + findStr.length]);
         if (!isNaN(displayN)) {
           var imageIndex = index + findStr.length + 1;
-          if (imageIndex == strName.indexOf("image", imageIndex))
-            {res = displayN;}
+          if (imageIndex == strName.indexOf('image', imageIndex)) {
+            res = displayN;
+          }
         }
       }
     }
@@ -696,7 +696,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
     if (checkJwtRes.decoded) {
       //todo multiple url case
       if (checkJwtRes.decoded.images) {
-        urls = checkJwtRes.decoded.images.map((curValue) => {
+        urls = checkJwtRes.decoded.images.map(curValue => {
           return curValue.url;
         });
       } else {
@@ -718,7 +718,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
   var outputUrls = [];
   if (constants.NO_ERROR === errorCode && !conn.user.view && !conn.isCloseCoAuthoring) {
     //todo Promise.all()
-    const displayedImageMap = {};//to make one prefix for ole object urls
+    const displayedImageMap = {}; //to make one prefix for ole object urls
     for (var i = 0; i < urls.length; ++i) {
       var urlSource = urls[i];
       var urlParsed;
@@ -794,7 +794,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
             format = constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
             formatStr = formatChecker.getStringFromFormat(format);
           }
-          let strLocalPath = 'media/' + crypto.randomBytes(16).toString("hex") + '_';
+          let strLocalPath = 'media/' + crypto.randomBytes(16).toString('hex') + '_';
           if (urlParsed) {
             var urlBasename = pathModule.basename(urlParsed.pathname);
             var displayN = isDisplayedImage(urlBasename);
@@ -820,7 +820,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       }
       outputUrls.push(outputUrl);
     }
-  } else if(constants.NO_ERROR === errorCode) {
+  } else if (constants.NO_ERROR === errorCode) {
     ctx.logger.warn('error commandImgurls: access deny');
     errorCode = constants.UPLOAD;
   }
@@ -833,7 +833,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
   }
 }
 function* commandPathUrls(ctx, conn, data, outputData) {
-  const listImages = data.map((currentValue) => {
+  const listImages = data.map(currentValue => {
     return conn.docId + '/' + currentValue;
   });
   const urls = yield storage.getSignedUrlsArrayByArray(ctx, conn.baseUrl, listImages, commonDefines.c_oAscUrlTypes.Session);
@@ -854,7 +854,7 @@ function* commandPathUrl(ctx, conn, cmd, outputData) {
   }
 }
 function* commandSaveFromOrigin(ctx, cmd, outputData, password) {
-  var completeParts = yield* saveParts(ctx, cmd, "changes0.json");
+  var completeParts = yield* saveParts(ctx, cmd, 'changes0.json');
   if (completeParts) {
     const docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, password);
     //Use current password for pdf because password is entered in the browser when opening and is set via setPassword
@@ -896,7 +896,13 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
   //https://github.com/ONLYOFFICE/web-apps/blob/4a7879b4f88f315fe94d9f7d97c0ed8aa9f82221/apps/documenteditor/main/app/controller/Main.js#L1652
   //this.appOptions.isPasswordSupport = this.appOptions.isEdit && this.api.asc_isProtectionSupport() && (this.permissions.protect!==false);
   const isPasswordSupport = tenOpenProtectedFile && !conn.user?.view && false !== conn.permissions?.protect;
-  ctx.logger.debug('commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s, hasPasswordCol=%s, isPasswordSupport=%s', conn.isEnterCorrectPassword, hasDocumentPassword, hasPasswordCol, isPasswordSupport);
+  ctx.logger.debug(
+    'commandSetPassword isEnterCorrectPassword=%s, hasDocumentPassword=%s, hasPasswordCol=%s, isPasswordSupport=%s',
+    conn.isEnterCorrectPassword,
+    hasDocumentPassword,
+    hasPasswordCol,
+    isPasswordSupport
+  );
   if (isPasswordSupport && hasPasswordCol && hasDocumentPassword && !isDocumentPasswordModified) {
     outputData.setStatus('ok');
   } else if (isPasswordSupport && (conn.isEnterCorrectPassword || !hasDocumentPassword) && hasPasswordCol) {
@@ -906,10 +912,10 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
     updateMask.status = commonDefines.FileStatus.Ok;
 
     const newChangesLastDate = new Date();
-    newChangesLastDate.setMilliseconds(0);//remove milliseconds avoid issues with MySQL datetime rounding
+    newChangesLastDate.setMilliseconds(0); //remove milliseconds avoid issues with MySQL datetime rounding
 
     var task = new taskResult.TaskResultData();
-    task.password = cmd.getPassword() || "";
+    task.password = cmd.getPassword() || '';
     let changeInfo = null;
     if (conn.user && (hasDocumentPassword || !formatChecker.isBrowserEditorFormat(originFormat))) {
       changeInfo = task.innerPasswordChange = docsCoServer.getExternalChangeInfo(conn.user, newChangesLastDate.getTime(), conn.lang);
@@ -924,7 +930,14 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
       if (changeInfo) {
         const forceSave = yield docsCoServer.editorData.getForceSave(ctx, cmd.getDocId());
         const index = forceSave?.index || 0;
-        yield docsCoServer.resetForceSaveAfterChanges(ctx, cmd.getDocId(), newChangesLastDate.getTime(), index, utils.getBaseUrlByConnection(ctx, conn), changeInfo);
+        yield docsCoServer.resetForceSaveAfterChanges(
+          ctx,
+          cmd.getDocId(),
+          newChangesLastDate.getTime(),
+          index,
+          utils.getBaseUrlByConnection(ctx, conn),
+          changeInfo
+        );
       }
     } else {
       ctx.logger.debug('commandSetPassword sql update error');
@@ -938,14 +951,14 @@ function* commandSetPassword(ctx, conn, cmd, outputData) {
 }
 function* commandChangeDocInfo(ctx, conn, cmd, outputData) {
   const res = yield docsCoServer.changeConnectionInfo(ctx, conn, cmd);
-  if(res) {
+  if (res) {
     outputData.setStatus('ok');
   } else {
     outputData.setStatus('err');
     outputData.setData(constants.CHANGE_DOC_INFO);
   }
 }
-function checkAndFixAuthorizationLength(authorization, data){
+function checkAndFixAuthorizationLength(authorization, data) {
   //todo it is stub (remove in future versions)
   //8kb(https://stackoverflow.com/questions/686217/maximum-on-http-header-values) - 1kb(for other headers)
   const res = authorization.length < 7168;
@@ -955,7 +968,7 @@ function checkAndFixAuthorizationLength(authorization, data){
   }
   return res;
 }
-const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
+const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
   const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
   const tenCallbackBackoffOptions = ctx.getCfg('services.CoAuthoring.callbackBackoffOptions', cfgCallbackBackoffOptions);
@@ -983,7 +996,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
     var forceSaveType = forceSave ? forceSave.getType() : commonDefines.c_oAscForceSaveTypes.Command;
     const forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
     const forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
-    const callbackUserIndex = (forceSaveUserIndex || 0 === forceSaveUserIndex) ? forceSaveUserIndex : userLastChangeIndex;
+    const callbackUserIndex = forceSaveUserIndex || 0 === forceSaveUserIndex ? forceSaveUserIndex : userLastChangeIndex;
     let uri, baseUrl, wopiParams, lastOpenDate;
     const selectRes = yield taskResult.select(ctx, docId);
     const row = selectRes.length > 0 ? selectRes[0] : null;
@@ -1012,7 +1025,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
     recoverTask.statusInfo = constants.NO_ERROR;
     let updateIfTask = new taskResult.TaskResultData();
     updateIfTask.status = commonDefines.FileStatus.UpdateVersion;
-    updateIfTask.statusInfo = Math.floor(Date.now() / 60000);//minutes
+    updateIfTask.statusInfo = Math.floor(Date.now() / 60000); //minutes
     let updateIfRes;
 
     const updateMask = new taskResult.TaskResultData();
@@ -1022,8 +1035,10 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
       if (isEncrypted) {
         recoverTask.status = updateMask.status = row.status;
         recoverTask.statusInfo = updateMask.statusInfo = row.status_info;
-      } else if ((commonDefines.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info) ||
-        commonDefines.FileStatus.UpdateVersion === row.status) {
+      } else if (
+        (commonDefines.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info) ||
+        commonDefines.FileStatus.UpdateVersion === row.status
+      ) {
         if (commonDefines.FileStatus.UpdateVersion === row.status) {
           updateIfRes = {affectedRows: 1};
         }
@@ -1056,7 +1071,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
           actions.push(new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, userActionId));
         }
         outputSfc.setActions(actions);
-      } else if(forceSaveUserId) {
+      } else if (forceSaveUserId) {
         outputSfc.setActions([new commonDefines.OutputAction(commonDefines.c_oAscUserAction.ForceSaveButton, forceSaveUserId)]);
       }
       outputSfc.setUserData(cmd.getUserData());
@@ -1084,8 +1099,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
             //don't send history info because changes isn't from file in storage
             var data = yield storage.getObject(ctx, savePathHistory);
             outputSfc.setChangeHistory(JSON.parse(data.toString('utf-8')));
-            const changeUrl = yield storage.getSignedUrl(ctx, baseUrl, savePathChanges,
-                                                       commonDefines.c_oAscUrlTypes.Temporary);
+            const changeUrl = yield storage.getSignedUrl(ctx, baseUrl, savePathChanges, commonDefines.c_oAscUrlTypes.Temporary);
             outputSfc.setChangeUrl(changeUrl);
           } else {
             //for backward compatibility. remove this when Community is ready
@@ -1112,7 +1126,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
         //send only if FileStatus.Ok to prevent forcesave after final save
         if (row && row.status == commonDefines.FileStatus.Ok) {
           if (forceSave) {
-            const forceSaveDate = forceSave.getTime() ? new Date(forceSave.getTime()): new Date();
+            const forceSaveDate = forceSave.getTime() ? new Date(forceSave.getTime()) : new Date();
             outputSfc.setForceSaveType(forceSaveType);
             outputSfc.setLastSave(forceSaveDate.toISOString());
           }
@@ -1127,11 +1141,12 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
                     yield processWopiSaveAs(ctx, cmd);
                     replyStr = JSON.stringify({error: 0});
                   } else {
-                    const isAutoSave = forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button && forceSaveType !== commonDefines.c_oAscForceSaveTypes.Form;
+                    const isAutoSave =
+                      forceSaveType !== commonDefines.c_oAscForceSaveTypes.Button && forceSaveType !== commonDefines.c_oAscForceSaveTypes.Form;
                     replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, true, isAutoSave, false);
                   }
                 } else {
-                  replyStr = JSON.stringify({error: 1, descr: "wopi: no file"});
+                  replyStr = JSON.stringify({error: 1, descr: 'wopi: no file'});
                 }
               } else {
                 replyStr = yield docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
@@ -1156,7 +1171,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
           }
           if (updateIfRes.affectedRows > 0) {
             const actualForceSave = yield docsCoServer.editorData.getForceSave(ctx, docId);
-            const forceSaveDate = (actualForceSave && actualForceSave.time) ? new Date(actualForceSave.time) : new Date();
+            const forceSaveDate = actualForceSave && actualForceSave.time ? new Date(actualForceSave.time) : new Date();
             const notModified = actualForceSave && true === actualForceSave.ended;
             outputSfc.setLastSave(forceSaveDate.toISOString());
             outputSfc.setNotModified(notModified);
@@ -1168,7 +1183,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
                 if (outputSfc.getUrl()) {
                   replyStr = yield processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, !notModified, false, true);
                 } else {
-                  replyStr = JSON.stringify({error: 1, descr: "wopi: no file"});
+                  replyStr = JSON.stringify({error: 1, descr: 'wopi: no file'});
                 }
               } else {
                 replyStr = yield docsCoServer.sendServerRequest(ctx, uri, outputSfc, checkAndFixAuthorizationLength);
@@ -1190,7 +1205,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError == replyData.error) {
               //in the case of a community server, a request will come to the Command Service, check the result
               var savedVal = yield docsCoServer.editorData.getdelSaved(ctx, docId);
-              requestRes = (null == savedVal || '1' === savedVal);
+              requestRes = null == savedVal || '1' === savedVal;
             }
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
               ctx.logger.warn('sendServerRequest returned an error: data = %s', replyStr);
@@ -1240,7 +1255,7 @@ const commandSfcCallback = co.wrap(function*(ctx, cmd, isSfcm, isEncrypted) {
     }
     if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
       try {
-        ctx.logger.warn("storeForgotten");
+        ctx.logger.warn('storeForgotten');
         const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
         yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
       } catch (err) {
@@ -1290,7 +1305,17 @@ function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChange
   let res = '{"error": 1}';
   const metadata = yield storage.headObject(ctx, savePathDoc);
   const streamObj = yield storage.createReadStream(ctx, savePathDoc);
-  const postRes = yield wopiClient.putFile(ctx, wopiParams, null, streamObj.readStream, metadata.ContentLength, userLastChangeId, isModifiedByUser, isAutosave, isExitSave);
+  const postRes = yield wopiClient.putFile(
+    ctx,
+    wopiParams,
+    null,
+    streamObj.readStream,
+    metadata.ContentLength,
+    userLastChangeId,
+    isModifiedByUser,
+    isAutosave,
+    isExitSave
+  );
   if (postRes) {
     res = '{"error": 0}';
     const body = wopiClient.parsePutFileResponse(ctx, postRes);
@@ -1320,7 +1345,7 @@ function* commandSendMMCallback(ctx, cmd) {
   var data = yield storage.getObject(ctx, saveKey + '/' + cmd.getOutputPath());
   var xml = data.toString('utf8');
   var files = xml.match(/[< ]file.*?\/>/g);
-  var recordRemain = (mailMergeSendData.getRecordTo() - mailMergeSendData.getRecordFrom() + 1);
+  var recordRemain = mailMergeSendData.getRecordTo() - mailMergeSendData.getRecordFrom() + 1;
   var recordIndexStart = mailMergeSendData.getRecordCount() - recordRemain;
   for (var i = 0; i < files.length; ++i) {
     var file = files[i];
@@ -1328,8 +1353,12 @@ function* commandSendMMCallback(ctx, cmd) {
     outputMailMerge.setTo(fieldRes[1]);
     outputMailMerge.setRecordIndex(recordIndexStart + i);
     var pathRes = /path=["'](.*?)["']/.exec(file);
-    var signedUrl = yield storage.getSignedUrl(ctx, mailMergeSendData.getBaseUrl(), saveKey + '/' + pathRes[1],
-                                               commonDefines.c_oAscUrlTypes.Temporary);
+    var signedUrl = yield storage.getSignedUrl(
+      ctx,
+      mailMergeSendData.getBaseUrl(),
+      saveKey + '/' + pathRes[1],
+      commonDefines.c_oAscUrlTypes.Temporary
+    );
     outputSfc.setUrl(signedUrl);
     outputSfc.setExtName(pathModule.extname(pathRes[1]));
     var uri = mailMergeSendData.getUrl();
@@ -1363,12 +1392,12 @@ function* commandSendMMCallback(ctx, cmd) {
   ctx.logger.debug('End commandSendMMCallback');
 }
 
-exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
+exports.openDocument = function (ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
   return co(function* () {
     var outputData;
     try {
       var startDate = null;
-      if(clientStatsD) {
+      if (clientStatsD) {
         startDate = new Date();
       }
       ctx.logger.debug('Start command: %s', JSON.stringify(cmd));
@@ -1400,23 +1429,21 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
           res = false;
           break;
       }
-      if(!res){
-          outputData.setStatus('err');
-          outputData.setData(constants.UNKNOWN);
+      if (!res) {
+        outputData.setStatus('err');
+        outputData.setData(constants.UNKNOWN);
       }
-      if(clientStatsD) {
+      if (clientStatsD) {
         clientStatsD.timing('coauth.openDocument.' + cmd.getCommand(), new Date() - startDate);
       }
-    }
-    catch (e) {
+    } catch (e) {
       ctx.logger.error('Error openDocument: %s', e.stack);
       if (!outputData) {
         outputData = new OutputData();
       }
       outputData.setStatus('err');
       outputData.setData(constants.UNKNOWN);
-    }
-    finally {
+    } finally {
       if (outputData?.getStatus()) {
         ctx.logger.debug('Response command: %s', JSON.stringify(outputData));
         docsCoServer.sendData(ctx, conn, new OutputDataWrap('documentOpen', outputData));
@@ -1425,13 +1452,13 @@ exports.openDocument = function(ctx, conn, cmd, opt_upsertRes, opt_bIsRestore) {
     }
   });
 };
-exports.downloadAs = function(req, res) {
+exports.downloadAs = function (req, res) {
   return co(function* () {
     var docId = 'null';
     const ctx = new operationContext.Context();
     try {
       var startDate = null;
-      if(clientStatsD) {
+      if (clientStatsD) {
         startDate = new Date();
       }
       ctx.initFromRequest(req);
@@ -1460,7 +1487,7 @@ exports.downloadAs = function(req, res) {
           if (checkJwtRes.decoded) {
             const decoded = checkJwtRes.decoded;
             var doc = checkJwtRes.decoded.document;
-            if (!doc.permissions || (false !== doc.permissions.download || false !== doc.permissions.print)) {
+            if (!doc.permissions || false !== doc.permissions.download || false !== doc.permissions.print) {
               isValidJwt = true;
               docId = doc.key;
               cmd.setDocId(doc.key);
@@ -1505,18 +1532,17 @@ exports.downloadAs = function(req, res) {
       res.setHeader('Content-Type', 'application/json');
       res.send(strRes);
       ctx.logger.debug('End downloadAs: %s', strRes);
-      if(clientStatsD) {
+      if (clientStatsD) {
         clientStatsD.timing('coauth.downloadAs.' + cmd.getCommand(), new Date() - startDate);
       }
-    }
-    catch (e) {
+    } catch (e) {
       ctx.logger.error('Error downloadAs: %s', e.stack);
       res.sendStatus(400);
     }
   });
 };
-exports.saveFile = function(req, res) {
-  return co(function*() {
+exports.saveFile = function (req, res) {
+  return co(function* () {
     let docId = 'null';
     const ctx = new operationContext.Context();
     try {
@@ -1569,15 +1595,14 @@ exports.saveFile = function(req, res) {
       if (clientStatsD) {
         clientStatsD.timing('coauth.saveFile', new Date() - startDate);
       }
-    }
-    catch (e) {
+    } catch (e) {
       ctx.logger.error('Error saveFile: %s', e.stack);
       res.sendStatus(400);
     }
   });
 };
 function getPrintFileUrl(ctx, docId, baseUrl, filename) {
-  return co(function*() {
+  return co(function* () {
     const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenTokenSessionAlgorithm = ctx.getCfg('services.CoAuthoring.token.session.algorithm', cfgTokenSessionAlgorithm);
     const tenTokenSessionExpires = ms(ctx.getCfg('services.CoAuthoring.token.session.expires', cfgTokenSessionExpires));
@@ -1586,11 +1611,17 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     let token = '';
     if (tenTokenEnableBrowser) {
       const payload = {document: {key: docId}};
-      token = yield docsCoServer.signToken(ctx, payload, tenTokenSessionAlgorithm, tenTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
+      token = yield docsCoServer.signToken(
+        ctx,
+        payload,
+        tenTokenSessionAlgorithm,
+        tenTokenSessionExpires / 1000,
+        commonDefines.c_oAscSecretType.Session
+      );
     }
     //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
-    const userFriendlyName = encodeURIComponent(filename.replace(/\//g, "%2f"));
+    const userFriendlyName = encodeURIComponent(filename.replace(/\//g, '%2f'));
     let res = `${baseUrl}/printfile/${encodeURIComponent(docId)}/${userFriendlyName}?token=${encodeURIComponent(token)}`;
     if (ctx.shardKey) {
       res += `&${constants.SHARD_KEY_API_NAME}=${encodeURIComponent(ctx.shardKey)}`;
@@ -1603,8 +1634,8 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
   });
 }
 exports.getPrintFileUrl = getPrintFileUrl;
-exports.printFile = function(req, res) {
-  return co(function*() {
+exports.printFile = function (req, res) {
+  return co(function* () {
     let docId = 'null';
     const ctx = new operationContext.Context();
     try {
@@ -1646,12 +1677,10 @@ exports.printFile = function(req, res) {
       if (clientStatsD) {
         clientStatsD.timing('coauth.printFile', new Date() - startDate);
       }
-    }
-    catch (e) {
+    } catch (e) {
       ctx.logger.error('Error printFile: %s', e.stack);
       res.sendStatus(400);
-    }
-    finally {
+    } finally {
       ctx.logger.info('End printFile');
     }
   });
@@ -1662,8 +1691,8 @@ exports.printFile = function(req, res) {
  * @param {object} res - The HTTP response object
  * @returns {Promise}
  */
-exports.downloadFile = function(req, res) {
-  return co(function*() {
+exports.downloadFile = function (req, res) {
+  return co(function* () {
     const ctx = new operationContext.Context();
     let stream = null;
     try {
@@ -1767,7 +1796,16 @@ exports.downloadFile = function(req, res) {
           headers['Range'] = req.get('Range');
         }
 
-        const downloadResult = yield utils.downloadUrlPromise(ctx, url, tenDownloadTimeout, tenDownloadMaxBytes, authorization, isInJwtToken, headers, true);
+        const downloadResult = yield utils.downloadUrlPromise(
+          ctx,
+          url,
+          tenDownloadTimeout,
+          tenDownloadMaxBytes,
+          authorization,
+          isInJwtToken,
+          headers,
+          true
+        );
         const response = downloadResult.response;
         stream = downloadResult.stream;
         //Set-Cookie resets browser session
@@ -1782,9 +1820,8 @@ exports.downloadFile = function(req, res) {
       if (clientStatsD) {
         clientStatsD.timing('coauth.downloadFile', new Date() - startDate);
       }
-    }
-    catch (err) {
-      if (err.code === "ERR_STREAM_PREMATURE_CLOSE") {
+    } catch (err) {
+      if (err.code === 'ERR_STREAM_PREMATURE_CLOSE') {
         ctx.logger.debug('Error downloadFile: %s', err.stack);
         if (!res.headersSent) {
           res.sendStatus(499);
@@ -1808,8 +1845,7 @@ exports.downloadFile = function(req, res) {
           }
         }
       }
-    }
-    finally {
+    } finally {
       // Ensure stream is properly destroyed
       if (stream && typeof stream.destroy === 'function') {
         try {
@@ -1822,11 +1858,11 @@ exports.downloadFile = function(req, res) {
     }
   });
 };
-exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
+exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
   return co(function* () {
     try {
       var startDate = null;
-      if(clientStatsD) {
+      if (clientStatsD) {
         startDate = new Date();
       }
       ctx.logger.debug('Start saveFromChanges');
@@ -1863,7 +1899,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
           yield docsCoServer.editorStat.addShutdown(redisKeyShutdown, docId);
         }
         ctx.logger.debug('AddTask saveFromChanges');
-      } else if(row && !row.callback) {
+      } else if (row && !row.callback) {
         ctx.logger.debug('saveFromChanges empty callback: %s', docId);
         yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId, opt_userId, opt_userIndex, false, true);
         //todo restore status
@@ -1875,8 +1911,7 @@ exports.saveFromChanges = function(ctx, docId, statusInfo, optFormat, opt_userId
       if (clientStatsD) {
         clientStatsD.timing('coauth.saveFromChanges', new Date() - startDate);
       }
-    }
-    catch (e) {
+    } catch (e) {
       ctx.logger.error('Error saveFromChanges: %s', e.stack);
     }
   });
@@ -1891,12 +1926,22 @@ async function processWopiSaveAs(ctx, cmd) {
     const suggestedTarget = cmd.getSaveAsPath();
     const storageFilePath = `${cmd.getDocId()}${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
     const stream = await storage.createReadStream(ctx, storageFilePath);
-    const { wopiSrc, access_token } = info.wopiParams.userAuth;
-    res = await wopiClient.putRelativeFile(ctx, wopiSrc, access_token, null, stream.readStream, stream.contentLength, suggestedExt, suggestedTarget, false);
+    const {wopiSrc, access_token} = info.wopiParams.userAuth;
+    res = await wopiClient.putRelativeFile(
+      ctx,
+      wopiSrc,
+      access_token,
+      null,
+      stream.readStream,
+      stream.contentLength,
+      suggestedExt,
+      suggestedTarget,
+      false
+    );
   }
   return {res, wopiParams: info?.wopiParams};
 }
-exports.receiveTask = function(data, ack) {
+exports.receiveTask = function (data, ack) {
   return co(function* () {
     const ctx = new operationContext.Context();
     try {
@@ -1911,8 +1956,15 @@ exports.receiveTask = function(data, ack) {
         if (updateRes.affectedRows > 0) {
           var outputData = new OutputData(cmd.getCommand());
           var command = cmd.getCommand();
-          var additionalOutput = {needUrlKey: null, needUrlMethod: null, needUrlType: null,
-            needUrlIsCorrectPassword: undefined, creationDate: undefined, openedAt: undefined, row: undefined};
+          var additionalOutput = {
+            needUrlKey: null,
+            needUrlMethod: null,
+            needUrlType: null,
+            needUrlIsCorrectPassword: undefined,
+            creationDate: undefined,
+            openedAt: undefined,
+            row: undefined
+          };
           if ('open' === command || 'reopen' === command) {
             yield getOutputData(ctx, cmd, outputData, cmd.getDocId(), null, additionalOutput);
             //wopi from TemplateSource
@@ -1924,11 +1976,25 @@ exports.receiveTask = function(data, ack) {
                 ctx.logger.debug('receiveTask: save document opened from TemplateSource');
                 //todo
                 //no need to wait to open file faster
-                void docsCoServer.startForceSave(ctx, cmd.getDocId(), commonDefines.c_oAscForceSaveTypes.Timeout,
-                  undefined, undefined, undefined, undefined,
-                  undefined, undefined, undefined, row.baseurl,
-                  undefined,undefined,undefined,undefined,
-                  undefined,cmd.getExternalChangeInfo());
+                void docsCoServer.startForceSave(
+                  ctx,
+                  cmd.getDocId(),
+                  commonDefines.c_oAscForceSaveTypes.Timeout,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  row.baseurl,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  cmd.getExternalChangeInfo()
+                );
               }
             }
           } else if ('save' === command || 'savefromorigin' === command) {
@@ -1955,14 +2021,17 @@ exports.receiveTask = function(data, ack) {
             ctx.logger.debug('receiveTask publish: %s', JSON.stringify(outputData));
             var output = new OutputDataWrap('documentOpen', outputData);
             yield docsCoServer.publish(ctx, {
-                                          type: commonDefines.c_oPublishType.receiveTask, ctx, cmd, output,
-                                          needUrlKey: additionalOutput.needUrlKey,
-                                          needUrlMethod: additionalOutput.needUrlMethod,
-                                          needUrlType: additionalOutput.needUrlType,
-                                          needUrlIsCorrectPassword: additionalOutput.needUrlIsCorrectPassword,
-                                          creationDate: additionalOutput.creationDate,
-                                          openedAt: additionalOutput.openedAt
-                                        });
+              type: commonDefines.c_oPublishType.receiveTask,
+              ctx,
+              cmd,
+              output,
+              needUrlKey: additionalOutput.needUrlKey,
+              needUrlMethod: additionalOutput.needUrlMethod,
+              needUrlType: additionalOutput.needUrlType,
+              needUrlIsCorrectPassword: additionalOutput.needUrlIsCorrectPassword,
+              creationDate: additionalOutput.creationDate,
+              openedAt: additionalOutput.openedAt
+            });
           }
         }
       }

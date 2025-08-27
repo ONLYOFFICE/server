@@ -33,11 +33,11 @@
 'use strict';
 
 //Fix EPROTO error in node 8.x at some web sites(https://github.com/nodejs/node/issues/21513)
-require("tls").DEFAULT_ECDH_CURVE = "auto";
+require('tls').DEFAULT_ECDH_CURVE = 'auto';
 
-const { pipeline } = require('node:stream/promises');
-const { buffer } = require('node:stream/consumers');
-const { Transform } = require('stream');
+const {pipeline} = require('node:stream/promises');
+const {buffer} = require('node:stream/consumers');
+const {Transform} = require('stream');
 var config = require('config');
 var fs = require('fs');
 const fsPromises = require('node:fs/promises');
@@ -46,24 +46,24 @@ const crypto = require('crypto');
 var url = require('url');
 var axios = require('../node_modules/axios/dist/node/axios.cjs');
 var co = require('co');
-var URI = require("uri-js-replace");
+var URI = require('uri-js-replace');
 const escapeStringRegexp = require('escape-string-regexp');
 const ipaddr = require('ipaddr.js');
 const getDnsCache = require('dnscache');
 const jwt = require('jsonwebtoken');
-const NodeCache = require( "node-cache" );
+const NodeCache = require('node-cache');
 const ms = require('ms');
 const constants = require('./constants');
 const commonDefines = require('./commondefines');
 const forwarded = require('forwarded');
-const { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } = require("request-filtering-agent");
+const {RequestFilteringHttpAgent, RequestFilteringHttpsAgent} = require('request-filtering-agent');
 const https = require('https');
 const http = require('http');
 const ca = require('win-ca/api');
 const util = require('util');
 
 const contentDisposition = require('content-disposition');
-const operationContext = require("./operationContext");
+const operationContext = require('./operationContext');
 
 //Clone sealed config objects before passing to external libraries using config.util.cloneDeep
 const cfgDnsCache = config.util.cloneDeep(config.get('dnscache'));
@@ -94,9 +94,10 @@ ca(cfgWinCa);
 const minimumIterationsByteLength = 4;
 const dnscache = getDnsCache(cfgDnsCache);
 
-
 //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
-BigInt.prototype.toJSON = function() { return this.toString() };
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
 
 var g_oIpFilterRules = new Map();
 function getIpFilterRule(address) {
@@ -108,9 +109,14 @@ function getIpFilterRule(address) {
   }
   return exp;
 }
-const pemfileCache = new NodeCache({stdTTL: ms(cfgExpPemStdTtl) / 1000, checkperiod: ms(cfgExpPemCheckPeriod) / 1000, errorOnMissing: false, useClones: true});
+const pemfileCache = new NodeCache({
+  stdTTL: ms(cfgExpPemStdTtl) / 1000,
+  checkperiod: ms(cfgExpPemCheckPeriod) / 1000,
+  errorOnMissing: false,
+  useClones: true
+});
 
-exports.getConvertionTimeout = function(opt_ctx) {
+exports.getConvertionTimeout = function (opt_ctx) {
   if (opt_ctx) {
     const tenVisibilityTimeout = opt_ctx.getCfg('queue.visibilityTimeout', cfgVisibilityTimeout);
     const tenQueueRetentionPeriod = opt_ctx.getCfg('queue.retentionPeriod', cfgQueueRetentionPeriod);
@@ -118,28 +124,37 @@ exports.getConvertionTimeout = function(opt_ctx) {
   } else {
     return 1.5 * (cfgVisibilityTimeout + cfgQueueRetentionPeriod) * 1000;
   }
-}
+};
 
-exports.addSeconds = function(date, sec) {
+exports.addSeconds = function (date, sec) {
   date.setSeconds(date.getSeconds() + sec);
 };
-exports.getMillisecondsOfHour = function(date) {
-  return (date.getUTCMinutes() * 60 +  date.getUTCSeconds()) * 1000 + date.getUTCMilliseconds();
+exports.getMillisecondsOfHour = function (date) {
+  return (date.getUTCMinutes() * 60 + date.getUTCSeconds()) * 1000 + date.getUTCMilliseconds();
 };
-exports.encodeXml = function(value) {
-	return value.replace(/[<>&'"\r\n\t\xA0]/g, (c) => {
-		switch (c) {
-			case '<': return '&lt;';
-			case '>': return '&gt;';
-			case '&': return '&amp;';
-			case '\'': return '&apos;';
-			case '"': return '&quot;';
-			case '\r': return '&#xD;';
-			case '\n': return '&#xA;';
-			case '\t': return '&#x9;';
-			case '\xA0': return '&#xA0;';
-		}
-	});
+exports.encodeXml = function (value) {
+  return value.replace(/[<>&'"\r\n\t\xA0]/g, c => {
+    switch (c) {
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '&':
+        return '&amp;';
+      case "'":
+        return '&apos;';
+      case '"':
+        return '&quot;';
+      case '\r':
+        return '&#xD;';
+      case '\n':
+        return '&#xA;';
+      case '\t':
+        return '&#x9;';
+      case '\xA0':
+        return '&#xA0;';
+    }
+  });
 };
 function fsStat(fsPath) {
   return new Promise((resolve, reject) => {
@@ -189,7 +204,7 @@ function* walkDir(fsPath, results, optNoSubDir, optOnlyFolders) {
     }
   }
 }
-exports.listFolders = function(fsPath, optNoSubDir) {
+exports.listFolders = function (fsPath, optNoSubDir) {
   return co(function* () {
     let stats;
     const list = [];
@@ -200,12 +215,12 @@ exports.listFolders = function(fsPath, optNoSubDir) {
       stats = null;
     }
     if (stats && stats.isDirectory()) {
-        yield* walkDir(fsPath, list, optNoSubDir, true);
+      yield* walkDir(fsPath, list, optNoSubDir, true);
     }
     return list;
   });
 };
-exports.listObjects = function(fsPath, optNoSubDir) {
+exports.listObjects = function (fsPath, optNoSubDir) {
   return co(function* () {
     let stats;
     const list = [];
@@ -225,12 +240,12 @@ exports.listObjects = function(fsPath, optNoSubDir) {
     return list;
   });
 };
-exports.sleep = function(ms) {
-  return new Promise((resolve) => {
+exports.sleep = function (ms) {
+  return new Promise(resolve => {
     setTimeout(resolve, ms);
   });
 };
-exports.readFile = function(file) {
+exports.readFile = function (file) {
   return new Promise((resolve, reject) => {
     fs.readFile(file, (err, data) => {
       if (err) {
@@ -241,7 +256,7 @@ exports.readFile = function(file) {
     });
   });
 };
-function getContentDisposition (opt_filename, opt_useragent, opt_type) {
+function getContentDisposition(opt_filename, opt_useragent, opt_type) {
   const type = opt_type || constants.CONTENT_DISPOSITION_ATTACHMENT;
   return contentDisposition(opt_filename, {type});
 }
@@ -252,14 +267,14 @@ function isAllowDirectRequest(ctx, uri, isInJwtToken) {
   const tenExternalRequestDirectIfIn = ctx.getCfg('externalRequest.directIfIn', cfgExternalRequestDirectIfIn);
   const allowList = tenExternalRequestDirectIfIn.allowList;
   if (allowList.length > 0) {
-    const allowIndex = allowList.findIndex((allowPrefix) => {
+    const allowIndex = allowList.findIndex(allowPrefix => {
       return uri.startsWith(allowPrefix);
     }, uri);
     res = -1 !== allowIndex;
-    ctx.logger.debug("isAllowDirectRequest check allow list res=%s", res);
+    ctx.logger.debug('isAllowDirectRequest check allow list res=%s', res);
   } else if (tenExternalRequestDirectIfIn.jwtToken) {
     res = isInJwtToken;
-    ctx.logger.debug("isAllowDirectRequest url in jwt token res=%s", res);
+    ctx.logger.debug('isAllowDirectRequest url in jwt token res=%s', res);
   }
   return res;
 }
@@ -314,7 +329,7 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
     options.maxRedirects = 0;
   }
   if (false === options.gzip) {
-    options.headers = { ...options.headers, 'Accept-Encoding': 'identity' };
+    options.headers = {...options.headers, 'Accept-Encoding': 'identity'};
     delete options.gzip;
   }
   if (options.forever !== undefined) {
@@ -343,10 +358,10 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
 
   //baseRequest creates new agent(win-ca injects in globalAgent)
-  const httpsAgentOptions = { ...https.globalAgent.options, ...options};
-  const httpAgentOptions = { ...http.globalAgent.options, ...options};
+  const httpsAgentOptions = {...https.globalAgent.options, ...options};
+  const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
-  
+
   if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
     throw new Error('Block external request. See externalRequest config options');
   }
@@ -356,7 +371,7 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     options.httpAgent = new http.Agent(httpAgentOptions);
   }
 
-  const headers = { ...options.headers };
+  const headers = {...options.headers};
   if (opt_Authorization) {
     headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
   }
@@ -371,18 +386,18 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     responseType: 'stream',
     headers,
     signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
-    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
+    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined
   };
   try {
     const response = await axios(axiosConfig);
-    const { status, headers } = response;
+    const {status, headers} = response;
     if (![200, 206].includes(status)) {
       const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)};`);
       error.statusCode = status;
       error.response = response;
       throw error;
     }
-  
+
     const contentLength = headers['content-length'];
     if (contentLength && parseInt(contentLength) > sizeLimit) {
       // Close the stream to prevent downloading
@@ -395,19 +410,19 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     if (opt_returnStream) {
       // When returning a stream, we'll return the response for the caller to handle streaming
       // The content-length check is already done above
-      return { response, sha256: null, body: null, stream: response.data.pipe(limitedStream) };
+      return {response, sha256: null, body: null, stream: response.data.pipe(limitedStream)};
     }
-    
+
     const body = await pipeline(response.data, limitedStream, buffer);
     const sha256 = crypto.createHash('sha256').update(body).digest('hex');
-    return { response, sha256, body, stream: null };
+    return {response, sha256, body, stream: null};
   } catch (err) {
-    if('ERR_CANCELED' === err.code) {
+    if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
-    } else if(['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+    } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
       err.code = 'ESOCKETTIMEDOUT';
     }
-    if (err.status){
+    if (err.status) {
       err.statusCode = err.status;
     }
     throw err;
@@ -420,11 +435,11 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
   uri = URI.serialize(URI.parse(uri));
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
-  
-  const httpsAgentOptions = { ...https.globalAgent.options, ...options};
-  const httpAgentOptions = { ...http.globalAgent.options, ...options};
+
+  const httpsAgentOptions = {...https.globalAgent.options, ...options};
+  const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
-  
+
   if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
     throw new Error('Block external request. See externalRequest config options');
   }
@@ -434,7 +449,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     options.httpAgent = new http.Agent(httpAgentOptions);
   }
 
-  const headers = { ...options.headers };
+  const headers = {...options.headers};
   if (opt_Authorization) {
     headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
   }
@@ -456,7 +471,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     method: 'POST',
     headers,
     signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
-    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined,
+    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined
   };
 
   if (postData) {
@@ -467,8 +482,8 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
 
   try {
     const response = await axios(axiosConfig);
-    const { status, headers, data } = response;
-    
+    const {status, headers, data} = response;
+
     if (status === 200 || status === 204) {
       return {
         response: {
@@ -512,11 +527,11 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   uri = URI.serialize(URI.parse(uri));
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
-  
-  const httpsAgentOptions = { ...https.globalAgent.options, ...options};
-  const httpAgentOptions = { ...http.globalAgent.options, ...options};
+
+  const httpsAgentOptions = {...https.globalAgent.options, ...options};
+  const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
-  
+
   if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
     throw new Error('Block external request. See externalRequest config options');
   }
@@ -526,7 +541,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
     options.httpAgent = new http.Agent(httpAgentOptions);
   }
 
-  const requestHeaders = { ...options.headers };
+  const requestHeaders = {...options.headers};
   if (opt_headers) {
     Object.assign(requestHeaders, opt_headers);
   }
@@ -538,7 +553,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
     headers: requestHeaders,
     responseType: 'stream',
     signal: opt_timeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(opt_timeout.wholeCycle)) : undefined,
-    timeout: opt_timeout?.connectionAndInactivity ? ms(opt_timeout.connectionAndInactivity) : undefined,
+    timeout: opt_timeout?.connectionAndInactivity ? ms(opt_timeout.connectionAndInactivity) : undefined
   };
 
   if (opt_body) {
@@ -547,7 +562,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
 
   try {
     const response = await axios(axiosConfig);
-    const { headers } = response;
+    const {headers} = response;
 
     const contentLength = headers['content-length'];
     if (opt_limit && contentLength && parseInt(contentLength) > opt_limit) {
@@ -556,10 +571,10 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
       response.data.destroy(error);
       throw error;
     }
-    
+
     const limitedStream = new SizeLimitStream(opt_limit || Number.MAX_VALUE);
     response.data.pipe(limitedStream);
-    
+
     return {
       response,
       stream: limitedStream
@@ -580,63 +595,63 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
 exports.httpRequest = httpRequest;
 exports.postRequestPromise = postRequestPromise;
 exports.downloadUrlPromise = downloadUrlPromise;
-exports.mapAscServerErrorToOldError = function(error) {
+exports.mapAscServerErrorToOldError = function (error) {
   var res = -1;
   switch (error) {
-    case constants.NO_ERROR :
-    case constants.CONVERT_CELLLIMITS :
+    case constants.NO_ERROR:
+    case constants.CONVERT_CELLLIMITS:
       res = 0;
       break;
-    case constants.TASK_QUEUE :
-    case constants.TASK_RESULT :
+    case constants.TASK_QUEUE:
+    case constants.TASK_RESULT:
       res = -6;
       break;
-    case constants.CONVERT_PASSWORD :
-    case constants.CONVERT_DRM :
-    case constants.CONVERT_DRM_UNSUPPORTED :
+    case constants.CONVERT_PASSWORD:
+    case constants.CONVERT_DRM:
+    case constants.CONVERT_DRM_UNSUPPORTED:
       res = -5;
       break;
-    case constants.CONVERT_DOWNLOAD :
+    case constants.CONVERT_DOWNLOAD:
       res = -4;
       break;
-    case constants.CONVERT_TIMEOUT :
-    case constants.CONVERT_DEAD_LETTER :
+    case constants.CONVERT_TIMEOUT:
+    case constants.CONVERT_DEAD_LETTER:
       res = -2;
       break;
-    case constants.CONVERT_PARAMS :
+    case constants.CONVERT_PARAMS:
       res = -7;
       break;
-    case constants.CONVERT_LIMITS :
+    case constants.CONVERT_LIMITS:
       res = -10;
       break;
-    case constants.CONVERT_NEED_PARAMS :
-    case constants.CONVERT_LIBREOFFICE :
-    case constants.CONVERT_CORRUPTED :
-    case constants.CONVERT_UNKNOWN_FORMAT :
-    case constants.CONVERT_READ_FILE :
-    case constants.CONVERT_TEMPORARY :
-    case constants.CONVERT :
+    case constants.CONVERT_NEED_PARAMS:
+    case constants.CONVERT_LIBREOFFICE:
+    case constants.CONVERT_CORRUPTED:
+    case constants.CONVERT_UNKNOWN_FORMAT:
+    case constants.CONVERT_READ_FILE:
+    case constants.CONVERT_TEMPORARY:
+    case constants.CONVERT:
       res = -3;
       break;
-    case constants.CONVERT_DETECT :
+    case constants.CONVERT_DETECT:
       res = -9;
       break;
-    case constants.VKEY :
-    case constants.VKEY_ENCRYPT :
-    case constants.VKEY_KEY_EXPIRE :
-    case constants.VKEY_USER_COUNT_EXCEED :
+    case constants.VKEY:
+    case constants.VKEY_ENCRYPT:
+    case constants.VKEY_KEY_EXPIRE:
+    case constants.VKEY_USER_COUNT_EXCEED:
       res = -8;
       break;
-    case constants.STORAGE :
-    case constants.STORAGE_FILE_NO_FOUND :
-    case constants.STORAGE_READ :
-    case constants.STORAGE_WRITE :
-    case constants.STORAGE_REMOVE_DIR :
-    case constants.STORAGE_CREATE_DIR :
-    case constants.STORAGE_GET_INFO :
-    case constants.UPLOAD :
-    case constants.READ_REQUEST_STREAM :
-    case constants.UNKNOWN :
+    case constants.STORAGE:
+    case constants.STORAGE_FILE_NO_FOUND:
+    case constants.STORAGE_READ:
+    case constants.STORAGE_WRITE:
+    case constants.STORAGE_REMOVE_DIR:
+    case constants.STORAGE_CREATE_DIR:
+    case constants.STORAGE_GET_INFO:
+    case constants.UPLOAD:
+    case constants.READ_REQUEST_STREAM:
+    case constants.UNKNOWN:
       res = -1;
       break;
   }
@@ -688,7 +703,7 @@ function fillResponse(req, res, convertStatus, isJSON) {
   if (constants.NO_ERROR != convertStatus.err) {
     output = {error: exports.mapAscServerErrorToOldError(convertStatus.err)};
   } else {
-    output = {fileUrl: convertStatus.url, fileType: convertStatus.filetype, percent: (convertStatus.end ? 100 : 0), endConvert: convertStatus.end};
+    output = {fileUrl: convertStatus.url, fileType: convertStatus.filetype, percent: convertStatus.end ? 100 : 0, endConvert: convertStatus.end};
   }
   const accepts = isJSON ? ['json', 'xml'] : ['xml', 'json'];
   switch (req.accepts(accepts)) {
@@ -720,7 +735,7 @@ exports.fillResponseBuilder = fillResponseBuilder;
 function promiseCreateWriteStream(strPath, optOptions) {
   return new Promise((resolve, reject) => {
     var file = fs.createWriteStream(strPath, optOptions);
-    var errorCallback = function(e) {
+    var errorCallback = function (e) {
       reject(e);
     };
     file.on('error', errorCallback);
@@ -729,7 +744,7 @@ function promiseCreateWriteStream(strPath, optOptions) {
       resolve(file);
     });
   });
-};
+}
 exports.promiseCreateWriteStream = promiseCreateWriteStream;
 
 function promiseWaitDrain(stream) {
@@ -749,7 +764,7 @@ exports.promiseWaitClose = promiseWaitClose;
 function promiseCreateReadStream(strPath) {
   return new Promise((resolve, reject) => {
     var file = fs.createReadStream(strPath);
-    var errorCallback = function(e) {
+    var errorCallback = function (e) {
       reject(e);
     };
     file.on('error', errorCallback);
@@ -758,9 +773,9 @@ function promiseCreateReadStream(strPath) {
       resolve(file);
     });
   });
-};
+}
 exports.promiseCreateReadStream = promiseCreateReadStream;
-exports.compareStringByLength = function(x, y) {
+exports.compareStringByLength = function (x, y) {
   if (x && y) {
     if (x.length == y.length) {
       return x.localeCompare(y);
@@ -776,7 +791,7 @@ exports.compareStringByLength = function(x, y) {
   }
   return 0;
 };
-exports.promiseRedis = function(client, func) {
+exports.promiseRedis = function (client, func) {
   var newArguments = Array.prototype.slice.call(arguments, 2);
   return new Promise((resolve, reject) => {
     newArguments.push((err, data) => {
@@ -789,11 +804,11 @@ exports.promiseRedis = function(client, func) {
     func.apply(client, newArguments);
   });
 };
-exports.containsAllAscii = function(str) {
+exports.containsAllAscii = function (str) {
   return /^[\000-\177]*$/.test(str);
 };
 function containsAllAsciiNP(str) {
-  return /^[\040-\176]*$/.test(str);//non-printing characters
+  return /^[\040-\176]*$/.test(str); //non-printing characters
 }
 exports.containsAllAsciiNP = containsAllAsciiNP;
 /**
@@ -812,7 +827,7 @@ function getDomain(hostHeader, forwardedHostHeader) {
     return hostHeader.split(',')[0].trim();
   }
   return 'localhost';
-};
+}
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   var url = '';
   if (forwardedProtoHeader && constants.ALLOWED_PROTO.test(forwardedProtoHeader)) {
@@ -838,8 +853,14 @@ function getBaseUrlByConnection(ctx, conn) {
   const forwardedPrefix = conn.headers['x-forwarded-prefix'];
   const host = conn.headers['host'];
   const proto = cloudfrontForwardedProto || forwardedProto;
-  ctx.logger.debug(`getBaseUrlByConnection host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
-      host, forwardedHost, forwardedProto, forwardedPrefix, cloudfrontForwardedProto);
+  ctx.logger.debug(
+    `getBaseUrlByConnection host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
+    host,
+    forwardedHost,
+    forwardedProto,
+    forwardedPrefix,
+    cloudfrontForwardedProto
+  );
   return getBaseUrl('', host, proto, forwardedHost, forwardedPrefix);
 }
 function getBaseUrlByRequest(ctx, req) {
@@ -851,8 +872,15 @@ function getBaseUrlByRequest(ctx, req) {
   const host = req.get('host');
   const protocol = req.protocol;
   const proto = cloudfrontForwardedProto || forwardedProto;
-  ctx.logger.debug(`getBaseUrlByRequest protocol=%s host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
-      protocol, host, forwardedHost, forwardedProto, forwardedPrefix, cloudfrontForwardedProto);
+  ctx.logger.debug(
+    `getBaseUrlByRequest protocol=%s host=%s x-forwarded-host=%s x-forwarded-proto=%s x-forwarded-prefix=%s cloudfront-forwarded-proto=%s `,
+    protocol,
+    host,
+    forwardedHost,
+    forwardedProto,
+    forwardedPrefix,
+    cloudfrontForwardedProto
+  );
   return getBaseUrl(protocol, host, proto, forwardedHost, forwardedPrefix);
 }
 exports.getBaseUrlByConnection = getBaseUrlByConnection;
@@ -873,10 +901,10 @@ function getDomainByRequest(ctx, req) {
 exports.getDomainByConnection = getDomainByConnection;
 exports.getDomainByRequest = getDomainByRequest;
 function getShardKeyByConnection(ctx, conn) {
-  return  conn?.handshake?.query?.[constants.SHARD_KEY_API_NAME];
+  return conn?.handshake?.query?.[constants.SHARD_KEY_API_NAME];
 }
 function getWopiSrcByConnection(ctx, conn) {
-  return  conn?.handshake?.query?.[constants.SHARD_KEY_WOPI_NAME];
+  return conn?.handshake?.query?.[constants.SHARD_KEY_WOPI_NAME];
 }
 function getShardKeyByRequest(ctx, req) {
   return req.query?.[constants.SHARD_KEY_API_NAME];
@@ -894,7 +922,7 @@ function stream2Buffer(stream) {
       resolve(Buffer.alloc(0));
     }
     var bufs = [];
-    stream.on('data', (data) => {
+    stream.on('data', data => {
       bufs.push(data);
     });
     function onEnd(err) {
@@ -925,7 +953,7 @@ function pipeStreams(from, to, isEnd) {
     from.on('end', () => {
       resolve();
     });
-    from.on('error', (e) => {
+    from.on('error', e => {
       reject(e);
     });
   });
@@ -990,17 +1018,17 @@ function checkClientIp(req, res, next) {
   const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
   const tenIpFilterUseForRequest = ctx.getCfg('services.CoAuthoring.ipfilter.useforrequest', cfgIpFilterUseForRequest);
-	let status = 0;
-	if (tenIpFilterUseForRequest) {
-		const addresses = forwarded(req);
-		const ipString = addresses[addresses.length - 1];
-		status = checkIpFilter(ctx, ipString);
-	}
-	if (status > 0) {
-		res.sendStatus(status);
-	} else {
-		next();
-	}
+  let status = 0;
+  if (tenIpFilterUseForRequest) {
+    const addresses = forwarded(req);
+    const ipString = addresses[addresses.length - 1];
+    status = checkIpFilter(ctx, ipString);
+  }
+  if (status > 0) {
+    res.sendStatus(status);
+  } else {
+    next();
+  }
 }
 exports.checkClientIp = checkClientIp;
 function lowercaseQueryString(req, res, next) {
@@ -1015,7 +1043,7 @@ function lowercaseQueryString(req, res, next) {
 exports.lowercaseQueryString = lowercaseQueryString;
 function dnsLookup(hostname, options) {
   return new Promise((resolve, reject) => {
-    dnscache.lookup(hostname, options, (err, addresses) =>{
+    dnscache.lookup(hostname, options, (err, addresses) => {
       if (err) {
         reject(err);
       } else {
@@ -1063,10 +1091,10 @@ function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
 }
 exports.fillJwtForRequest = fillJwtForRequest;
 exports.forwarded = forwarded;
-exports.getIndexFromUserId = function(userId, userIdOriginal){
+exports.getIndexFromUserId = function (userId, userIdOriginal) {
   return parseInt(userId.substring(userIdOriginal.length));
 };
-exports.checkPathTraversal = function(ctx, docId, rootDirectory, filename) {
+exports.checkPathTraversal = function (ctx, docId, rootDirectory, filename) {
   if (filename.indexOf('\0') !== -1) {
     ctx.logger.warn('checkPathTraversal Poison Null Bytes filename=%s', filename);
     return false;
@@ -1077,28 +1105,28 @@ exports.checkPathTraversal = function(ctx, docId, rootDirectory, filename) {
   }
   return true;
 };
-exports.getConnectionInfo = function(conn){
-    var user = conn.user;
-    var data = {
-      id: user.id,
-      idOriginal: user.idOriginal,
-      username: user.username,
-      indexUser: user.indexUser,
-      view: user.view,
-      connectionId: conn.id,
-      isCloseCoAuthoring: conn.isCloseCoAuthoring,
-      isLiveViewer: exports.isLiveViewer(conn),
-      encrypted: conn.encrypted
-    };
-    return data;
+exports.getConnectionInfo = function (conn) {
+  var user = conn.user;
+  var data = {
+    id: user.id,
+    idOriginal: user.idOriginal,
+    username: user.username,
+    indexUser: user.indexUser,
+    view: user.view,
+    connectionId: conn.id,
+    isCloseCoAuthoring: conn.isCloseCoAuthoring,
+    isLiveViewer: exports.isLiveViewer(conn),
+    encrypted: conn.encrypted
+  };
+  return data;
 };
-exports.getConnectionInfoStr = function(conn){
+exports.getConnectionInfoStr = function (conn) {
   return JSON.stringify(exports.getConnectionInfo(conn));
 };
-exports.isLiveViewer = function(conn){
-  return conn.user?.view && "fast" === conn.coEditingMode;
+exports.isLiveViewer = function (conn) {
+  return conn.user?.view && 'fast' === conn.coEditingMode;
 };
-exports.isLiveViewerSupport = function(licenseInfo){
+exports.isLiveViewerSupport = function (licenseInfo) {
   return licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0;
 };
 exports.canIncludeOutboxAuthorization = function (ctx, url) {
@@ -1122,12 +1150,7 @@ exports.encryptPassword = async function (ctx, password) {
   const pbkdf2Promise = util.promisify(crypto.pbkdf2);
   const tenSecret = ctx.getCfg('aesEncrypt.secret', cfgSecret);
   const tenAESConfig = ctx.getCfg('aesEncrypt.config', cfgAESConfig) ?? {};
-  const {
-    keyByteLength = 32,
-    saltByteLength = 64,
-    initializationVectorByteLength = 16,
-    iterationsByteLength = 5
-  } = tenAESConfig;
+  const {keyByteLength = 32, saltByteLength = 64, initializationVectorByteLength = 16, iterationsByteLength = 5} = tenAESConfig;
 
   const salt = crypto.randomBytes(saltByteLength);
   const initializationVector = crypto.randomBytes(initializationVectorByteLength);
@@ -1140,7 +1163,7 @@ exports.encryptPassword = async function (ctx, password) {
 
   const encryptionKey = await pbkdf2Promise(tenSecret, salt, iterations, keyByteLength, 'sha512');
   //todo chacha20-poly1305 (clean db)
-  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, initializationVector, {authTagLength:16});
+  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, initializationVector, {authTagLength: 16});
   const encryptedData = Buffer.concat([cipher.update(password, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
   const predicate = iterations.toString(16);
@@ -1152,11 +1175,7 @@ exports.decryptPassword = async function (ctx, password) {
   const pbkdf2Promise = util.promisify(crypto.pbkdf2);
   const tenSecret = ctx.getCfg('aesEncrypt.secret', cfgSecret);
   const tenAESConfig = ctx.getCfg('aesEncrypt.config', cfgAESConfig) ?? {};
-  const {
-    keyByteLength = 32,
-    saltByteLength = 64,
-    initializationVectorByteLength = 16,
-  } = tenAESConfig;
+  const {keyByteLength = 32, saltByteLength = 64, initializationVectorByteLength = 16} = tenAESConfig;
 
   const [iterations, dataHex] = password.split(':');
   const data = Buffer.from(dataHex, 'hex');
@@ -1174,23 +1193,18 @@ exports.decryptPassword = async function (ctx, password) {
     }
   }
 
-  const [
-    salt,
-    initializationVector,
-    authTag,
-    encryptedData
-  ] = pointerArray;
+  const [salt, initializationVector, authTag, encryptedData] = pointerArray;
 
   const decryptionKey = await pbkdf2Promise(tenSecret, salt, parseInt(iterations, 16), keyByteLength, 'sha512');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', decryptionKey, initializationVector, {authTagLength:16});
+  const decipher = crypto.createDecipheriv('aes-256-gcm', decryptionKey, initializationVector, {authTagLength: 16});
   decipher.setAuthTag(authTag);
 
   return Buffer.concat([decipher.update(encryptedData, 'binary'), decipher.final()]).toString();
 };
-exports.getDateTimeTicks = function(date) {
+exports.getDateTimeTicks = function (date) {
   return BigInt(date.getTime() * 10000) + 621355968000000000n;
 };
-exports.convertLicenseInfoToFileParams = function(licenseInfo) {
+exports.convertLicenseInfoToFileParams = function (licenseInfo) {
   // todo
   // {
   // 	user_quota = 0;
@@ -1219,7 +1233,7 @@ exports.convertLicenseInfoToFileParams = function(licenseInfo) {
   license.grace_days = licenseInfo.graceDays;
   return license;
 };
-exports.convertLicenseInfoToServerParams = function(licenseInfo) {
+exports.convertLicenseInfoToServerParams = function (licenseInfo) {
   const license = {};
   license.workersCount = licenseInfo.count;
   license.resultType = licenseInfo.type;
@@ -1229,20 +1243,20 @@ exports.convertLicenseInfoToServerParams = function(licenseInfo) {
   license.buildNumber = commonDefines.buildNumber;
   return license;
 };
-exports.checkBaseUrl = function(ctx, baseUrl, opt_storageCfg) {
-  const storageExternalHost = opt_storageCfg ? opt_storageCfg.externalHost : cfgStorageExternalHost
+exports.checkBaseUrl = function (ctx, baseUrl, opt_storageCfg) {
+  const storageExternalHost = opt_storageCfg ? opt_storageCfg.externalHost : cfgStorageExternalHost;
   const tenStorageExternalHost = ctx.getCfg('storage.externalHost', storageExternalHost);
   return tenStorageExternalHost ? tenStorageExternalHost : baseUrl;
 };
-exports.resolvePath = function(object, path, defaultValue) {
-  return path.split('.').reduce((o, p) => o ? o[p] : defaultValue, object);
+exports.resolvePath = function (object, path, defaultValue) {
+  return path.split('.').reduce((o, p) => (o ? o[p] : defaultValue), object);
 };
 Date.isLeapYear = function (year) {
-  return (((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0));
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 };
 
 Date.getDaysInMonth = function (year, month) {
-  return [31, (Date.isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month];
+  return [31, Date.isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month];
 };
 
 Date.prototype.isLeapYear = function () {
@@ -1272,7 +1286,7 @@ exports.getMonthDiff = getMonthDiff;
 /**
  * A Transform stream that limits the size of data passing through it.
  * It will throw an EMSGSIZE error if the size exceeds the limit.
- * 
+ *
  * @class SizeLimitStream
  * @extends {Transform}
  */
@@ -1290,7 +1304,7 @@ class SizeLimitStream extends Transform {
 
   /**
    * Transform implementation that tracks the bytes received and enforces the size limit
-   * 
+   *
    * @param {Buffer|string} chunk - The chunk of data to process
    * @param {string} encoding - The encoding of the chunk if it's a string
    * @param {Function} callback - Called when processing is complete
@@ -1298,45 +1312,46 @@ class SizeLimitStream extends Transform {
    */
   _transform(chunk, encoding, callback) {
     this.bytesReceived += chunk.length;
-    
+
     if (this.sizeLimit && this.bytesReceived > this.sizeLimit) {
       const error = new Error(`EMSGSIZE: Response too large: ${this.bytesReceived} bytes (limit: ${this.sizeLimit} bytes)`);
       error.code = 'EMSGSIZE';
       callback(error);
       return;
     }
-    
+
     callback(null, chunk);
   }
 }
-exports.getLicensePeriod = function(startDate, now) {
-  startDate = new Date(startDate.getTime());//clone
+exports.getLicensePeriod = function (startDate, now) {
+  startDate = new Date(startDate.getTime()); //clone
   startDate.addMonths(getMonthDiff(startDate, now));
   if (startDate > now) {
     startDate.addMonths(-1);
   }
-  startDate.setUTCHours(0,0,0,0);
+  startDate.setUTCHours(0, 0, 0, 0);
   return startDate.getTime();
 };
 
-exports.removeIllegalCharacters = function(filename) {
+exports.removeIllegalCharacters = function (filename) {
   return filename?.replace(/[/\\?%*:|"<>]/g, '-') || filename;
-}
-exports.getFunctionArguments = function(func) {
-  return func.toString().
-    replace(/[\r\n\s]+/g, ' ').
-    match(/(?:function\s*\w*)?\s*(?:\((.*?)\)|([^\s]+))/).
-    slice(1, 3).
-    join('').
-    split(/\s*,\s*/);
 };
-exports.isUselesSfc = function(row, cmd) {
+exports.getFunctionArguments = function (func) {
+  return func
+    .toString()
+    .replace(/[\r\n\s]+/g, ' ')
+    .match(/(?:function\s*\w*)?\s*(?:\((.*?)\)|([^\s]+))/)
+    .slice(1, 3)
+    .join('')
+    .split(/\s*,\s*/);
+};
+exports.isUselesSfc = function (row, cmd) {
   return !(row && commonDefines.FileStatus.SaveVersion === row.status && cmd.getStatusInfoIn() === row.status_info);
 };
-exports.getChangesFileHeader = function() {
+exports.getChangesFileHeader = function () {
   return `CHANGES\t${commonDefines.buildVersion}\n`;
 };
-exports.checksumFile = function(hashName, path) {
+exports.checksumFile = function (hashName, path) {
   //https://stackoverflow.com/a/44643479
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash(hashName);
@@ -1348,7 +1363,7 @@ exports.checksumFile = function(hashName, path) {
 };
 
 function isObject(item) {
-  return (item && typeof item === 'object' && !Array.isArray(item));
+  return item && typeof item === 'object' && !Array.isArray(item);
 }
 
 function deepMergeObjects(target, ...sources) {
@@ -1361,12 +1376,12 @@ function deepMergeObjects(target, ...sources) {
     for (const key in source) {
       if (isObject(source[key])) {
         if (!target[key]) {
-          Object.assign(target, { [key]: {} });
+          Object.assign(target, {[key]: {}});
         }
 
         deepMergeObjects(target[key], source[key]);
       } else {
-        Object.assign(target, { [key]: source[key] });
+        Object.assign(target, {[key]: source[key]});
       }
     }
   }
@@ -1375,19 +1390,19 @@ function deepMergeObjects(target, ...sources) {
 }
 exports.isObject = isObject;
 exports.deepMergeObjects = deepMergeObjects;
-exports.NodeCache = NodeCache;//todo via require
+exports.NodeCache = NodeCache; //todo via require
 
 //like suggestion in https://github.com/paulmillr/chokidar/issues/242#issuecomment-76205459
 const UNSAFE_MAGIC = new Set([
-  0x6969,         // NFS
-  0xFF534D42,     // CIFS/SMB1
-  0xFE534D42,     // SMB2+
-  0x517B,         // legacy SMB
-  0x65735546,     // FUSE
-  0x794C7630,     // overlayfs
-  0x00C36400,     // CephFS
-  0x73757245,     // Coda
-  0x6B414653      // AFS
+  0x6969, // NFS
+  0xff534d42, // CIFS/SMB1
+  0xfe534d42, // SMB2+
+  0x517b, // legacy SMB
+  0x65735546, // FUSE
+  0x794c7630, // overlayfs
+  0x00c36400, // CephFS
+  0x73757245, // Coda
+  0x6b414653 // AFS
 ]);
 
 /**
@@ -1408,7 +1423,6 @@ async function getFsType(ctx, path) {
   }
 }
 
-
 /**
  * File watcher with native events fallback to polling
  * @param {operationContext} ctx - Operation context
@@ -1424,11 +1438,11 @@ exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, fileP
     ctx.logger.info(`watchWithFallback fs type=${fsType} unsupport watch. fallback to watchFile ${filePath}`);
     return fs.watchFile(filePath, opts, listener);
   }
-  
+
   //Try native watch
   try {
     const watcher = fs.watch(dirPath, opts, listener);
-    watcher.on('error', (err) => {
+    watcher.on('error', err => {
       watcher.close();
       ctx.logger.info(`watchWithFallback error ${dirPath} fallback to watchFile ${filePath}: ${err.message}`);
       fs.watchFile(filePath, opts, listener);
@@ -1439,4 +1453,4 @@ exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, fileP
     ctx.logger.info(`watchWithFallback error ${dirPath} fallback to watchFile ${filePath}: ${err.message}`);
     return fs.watchFile(filePath, opts, listener);
   }
-}
+};

@@ -68,18 +68,25 @@ function updateDoc(ctx, docId, status, callback) {
     const p3 = addSqlParam(ctx.tenant, values);
     const p4 = addSqlParam(docId, values);
     const sqlCommand = `UPDATE ${cfgTableResult} SET status=${p1},callback=${p2} WHERE tenant=${p3} AND id=${p4};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+    sqlBase.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
   });
 }
 
 function shutdown() {
-  return co(function*() {
+  return co(function* () {
     var res = true;
     const ctx = new operationContext.Context();
     try {
@@ -112,7 +119,7 @@ function shutdown() {
           const selectRes = yield taskResult.select(ctx, docId);
           if (selectRes.length > 0) {
             const row = selectRes[0];
-            if (commonDefines.FileStatus.SaveVersion !== row.status && commonDefines.FileStatus.UpdateVersion !== row.status){
+            if (commonDefines.FileStatus.SaveVersion !== row.status && commonDefines.FileStatus.UpdateVersion !== row.status) {
               docsWithOutOfDateForgotten.push([tenant, docId]);
             }
           }
@@ -131,7 +138,7 @@ function shutdown() {
         ctx.setTenant(tenant);
         yield ctx.initTenantCache();
 
-        yield updateDoc(ctx, docId, commonDefines.FileStatus.Ok, "");
+        yield updateDoc(ctx, docId, commonDefines.FileStatus.Ok, '');
         yield editorStat.addShutdown(redisKeyShutdown, docId);
         ctx.logger.debug('shutdown createSaveTimerPromise %s', docId);
         yield docsCoServer.createSaveTimer(ctx, docId, null, null, null, queue, true);
@@ -146,7 +153,7 @@ function shutdown() {
         ctx.logger.debug('shutdown remaining files:%d', remainingFiles);
         const curTime = new Date().getTime() - startTime;
         if (curTime >= EXEC_TIMEOUT || remainingFiles <= 0) {
-          if(curTime >= EXEC_TIMEOUT) {
+          if (curTime >= EXEC_TIMEOUT) {
             ctx.logger.debug('shutdown timeout');
           }
           break;
@@ -183,6 +190,6 @@ function shutdown() {
     process.exit(0);
     return res;
   });
-};
+}
 exports.shutdown = shutdown;
 shutdown();

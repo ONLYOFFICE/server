@@ -60,9 +60,9 @@ function TaskResultData() {
   this.password = null;
   this.additional = null;
 
-  this.innerPasswordChange = null;//not a DB field
+  this.innerPasswordChange = null; //not a DB field
 }
-TaskResultData.prototype.completeDefaults = function() {
+TaskResultData.prototype.completeDefaults = function () {
   if (!this.tenant) {
     this.tenant = tenantManager.getDefautTenant();
   }
@@ -118,13 +118,20 @@ function select(ctx, docId) {
     const p1 = addSqlParam(ctx.tenant, values);
     const p2 = addSqlParam(docId, values);
     const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE tenant=${p1} AND id=${p2};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+    sqlBase.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
   });
 }
 function toUpdateArray(task, updateTime, isMask, values, setPassword) {
@@ -135,23 +142,19 @@ function toUpdateArray(task, updateTime, isMask, values, setPassword) {
   }
   if (null != task.statusInfo) {
     const sqlParam = addSqlParam(task.statusInfo, values);
-    res.push(`status_info=${sqlParam}` );
-
+    res.push(`status_info=${sqlParam}`);
   }
   if (updateTime) {
     const sqlParam = addSqlParam(new Date(), values);
     res.push(`last_open_date=${sqlParam}`);
-
   }
   if (null != task.indexUser) {
     const sqlParam = addSqlParam(task.indexUser, values);
     res.push(`user_index=${sqlParam}`);
-
   }
   if (null != task.changeId) {
     const sqlParam = addSqlParam(task.changeId, values);
     res.push(`change_id=${sqlParam}`);
-
   }
   if (null != task.callback && !isMask) {
     var userCallback = new sqlBase.UserCallback();
@@ -187,13 +190,20 @@ function update(ctx, task, setPassword) {
     const p1 = addSqlParam(task.tenant, values);
     const p2 = addSqlParam(task.key, values);
     const sqlCommand = `UPDATE ${cfgTableResult} SET ${sqlSet} WHERE tenant=${p1} AND id=${p2};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+    sqlBase.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
   });
 }
 
@@ -207,17 +217,24 @@ function updateIf(ctx, task, mask) {
     const sqlSet = commandArg.join(', ');
     const sqlWhere = commandArgMask.join(' AND ');
     const sqlCommand = `UPDATE ${cfgTableResult} SET ${sqlSet} WHERE ${sqlWhere};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+    sqlBase.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
   });
 }
 function restoreInitialPassword(ctx, docId) {
-  return select(ctx, docId).then((selectRes) => {
+  return select(ctx, docId).then(selectRes => {
     if (selectRes.length > 0) {
       var row = selectRes[0];
       const docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, row.password);
@@ -241,7 +258,7 @@ function addRandomKey(ctx, task, key, opt_prefix, opt_size) {
   return new Promise((resolve, reject) => {
     task.tenant = ctx.tenant;
     if (undefined !== opt_prefix && undefined !== opt_size) {
-      task.key = opt_prefix + crypto.randomBytes(opt_size).toString("hex");
+      task.key = opt_prefix + crypto.randomBytes(opt_size).toString('hex');
     } else {
       task.key = key + '_' + Math.round(Math.random() * RANDOM_KEY_MAX);
     }
@@ -256,15 +273,23 @@ function addRandomKey(ctx, task, key, opt_prefix, opt_size) {
     const p6 = addSqlParam(task.changeId, values);
     const p7 = addSqlParam(task.callback, values);
     const p8 = addSqlParam(task.baseurl, values);
-    const sqlCommand = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)` +
+    const sqlCommand =
+      `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)` +
       ` VALUES (${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8});`;
-    sqlBase.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, true, values);
+    sqlBase.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      true,
+      values
+    );
   });
 }
 function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
@@ -280,7 +305,7 @@ function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
       addRes = yield addRandomKey(ctx, task, key, opt_prefix, opt_size);
     } catch (_e) {
       addRes = null;
-      ctx.logger.debug("addRandomKeyTask %s exists, try again", task.key);
+      ctx.logger.debug('addRandomKeyTask %s exists, try again', task.key);
     }
     if (addRes && addRes.affectedRows > 0) {
       break;
@@ -299,13 +324,20 @@ function remove(ctx, docId) {
     const p1 = addSqlParam(ctx.tenant, values);
     const p2 = addSqlParam(docId, values);
     const sqlCommand = `DELETE FROM ${cfgTableResult} WHERE tenant=${p1} AND id=${p2};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+    sqlBase.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
   });
 }
 function removeIf(ctx, mask) {
@@ -316,13 +348,20 @@ function removeIf(ctx, mask) {
     commandArgMask.push('id=' + addSqlParam(mask.key, values));
     const sqlWhere = commandArgMask.join(' AND ');
     const sqlCommand = `DELETE FROM ${cfgTableResult} WHERE ${sqlWhere};`;
-    sqlBase.sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(result);
-      }
-    }, undefined, undefined, values);
+    sqlBase.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
   });
 }
 

@@ -97,8 +97,8 @@ if (cluster.isMaster) {
   converter.run();
 }
 
-process.on('uncaughtException', (err) => {
-  operationContext.global.logger.error((new Date).toUTCString() + ' uncaughtException:', err.message);
+process.on('uncaughtException', err => {
+  operationContext.global.logger.error(new Date().toUTCString() + ' uncaughtException:', err.message);
   operationContext.global.logger.error(err.stack);
   logger.shutdown(() => {
     process.exit(1);

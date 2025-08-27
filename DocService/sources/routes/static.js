@@ -32,19 +32,21 @@
 
 'use strict';
 
-const { pipeline } = require('node:stream/promises');
+const {pipeline} = require('node:stream/promises');
 const express = require('express');
 const config = require('config');
 const operationContext = require('./../../../Common/sources/operationContext');
 const tenantManager = require('./../../../Common/sources/tenantManager');
 const utils = require('./../../../Common/sources/utils');
 const storage = require('./../../../Common/sources/storage/storage-base');
-const urlModule = require("url");
-const path = require("path");
-const mime = require("mime");
+const urlModule = require('url');
+const path = require('path');
+const mime = require('mime');
 const crypto = require('crypto');
 
-const cfgStaticContent = config.has('services.CoAuthoring.server.static_content') ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content')) : {};
+const cfgStaticContent = config.has('services.CoAuthoring.server.static_content')
+  ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content'))
+  : {};
 const cfgCacheStorage = config.get('storage');
 const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
@@ -53,10 +55,15 @@ const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const router = express.Router();
 
 function initCacheRouter(cfgStorage, routs) {
-  const { storageFolderName, fs: { folderPath, secretString: secret } } = cfgStorage;
+  const {
+    storageFolderName,
+    fs: {folderPath, secretString: secret}
+  } = cfgStorage;
 
-  routs.forEach((rout) => {
-    if (!rout) {return;}
+  routs.forEach(rout => {
+    if (!rout) {
+      return;
+    }
 
     const rootPath = path.join(folderPath, rout);
 
@@ -77,7 +84,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
 
     try {
       const urlParsed = urlModule.parse(req.url, true);
-      const { md5, expires } = urlParsed.query;
+      const {md5, expires} = urlParsed.query;
       const numericExpires = parseInt(expires);
 
       if (!md5 || !numericExpires) {
@@ -95,13 +102,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
       const fullPath = `/${prefix}/${cfgStorage.storageFolderName}/${rout}${uri}`;
       const signatureData = numericExpires + decodeURIComponent(fullPath) + secret;
 
-      const expectedMd5 = crypto
-        .createHash('md5')
-        .update(signatureData)
-        .digest('base64')
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
+      const expectedMd5 = crypto.createHash('md5').update(signatureData).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
       if (md5 !== expectedMd5) {
         res.sendStatus(403);
@@ -116,11 +117,11 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
           dotfiles: 'deny',
           headers: {
             'Content-Disposition': 'attachment',
-            ...(filename && { 'Content-Type': mime.getType(filename) })
+            ...(filename && {'Content-Type': mime.getType(filename)})
           }
         };
 
-        res.sendFile(filePath, sendFileOptions, (err) => {
+        res.sendFile(filePath, sendFileOptions, err => {
           if (err) {
             operationContext.global.logger.error(err);
             res.status(400).end();
@@ -134,7 +135,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
           filePath = filePath.substring(ctx.tenant.length + 1);
         }
         const result = await storage.createReadStream(ctx, filePath, rout);
-        
+
         res.setHeader('Content-Type', mime.getType(filename));
         res.setHeader('Content-Length', result.contentLength);
         res.setHeader('Content-Disposition', utils.getContentDisposition(filename));
@@ -159,7 +160,9 @@ if (storage.needServeStatic()) {
 }
 if (storage.needServeStatic(cfgForgottenFiles)) {
   let persistentRouts = [cfgForgottenFiles, cfgErrorFiles];
-  persistentRouts = persistentRouts.filter((rout) => {return rout && rout.length > 0;});
+  persistentRouts = persistentRouts.filter(rout => {
+    return rout && rout.length > 0;
+  });
   if (persistentRouts.length > 0) {
     initCacheRouter(cfgPersistentStorage, persistentRouts);
   }

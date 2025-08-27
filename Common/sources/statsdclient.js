@@ -41,10 +41,10 @@ var cfgStatsDPort = configStatsD.get('port');
 var cfgStatsDPrefix = configStatsD.get('prefix');
 
 var clientStatsD = null;
-if(cfgStatsDUseMetrics) {
-  clientStatsD = new statsD({host: cfgStatsDHost, port:cfgStatsDPort, prefix: cfgStatsDPrefix});
+if (cfgStatsDUseMetrics) {
+  clientStatsD = new statsD({host: cfgStatsDHost, port: cfgStatsDPort, prefix: cfgStatsDPrefix});
 }
 
-exports.getClient = function() {
+exports.getClient = function () {
   return clientStatsD;
 };

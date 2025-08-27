@@ -32,11 +32,7 @@
 
 'use strict';
 
-const {
-  createHistogram,
-  performance,
-  PerformanceObserver,
-} = require('node:perf_hooks');
+const {createHistogram, performance, PerformanceObserver} = require('node:perf_hooks');
 
 const co = require('co');
 const taskResult = require('./../../DocService/sources/taskresult');
@@ -44,8 +40,8 @@ const storage = require('./../../Common/sources/storage/storage-base');
 const storageFs = require('./../../Common/sources/storage/storage-fs');
 const operationContext = require('./../../Common/sources/operationContext');
 const utils = require('./../../Common/sources/utils');
-const docsCoServer = require("./../../DocService/sources/DocsCoServer");
-const gc = require("./../../DocService/sources/gc");
+const docsCoServer = require('./../../DocService/sources/DocsCoServer');
+const gc = require('./../../DocService/sources/gc');
 
 let ctx = operationContext.global;
 
@@ -61,25 +57,25 @@ async function beforeStart() {
     let histogram = createHistogram();
     histograms[func.name] = histogram;
     return performance.timerify(func, {histogram: histogram});
-  }
+  };
 
-  addRandomKeyTask = timerify(co.wrap(taskResult.addRandomKeyTask), "addRandomKeyTask");
-  taskResult.getExpired = timerify(taskResult.getExpired, "getExpired");
-  taskResult.remove = timerify(taskResult.remove, "remove");
-  storage.putObject = timerify(storage.putObject, "putObject");
-  storage.listObjects = timerify(storage.listObjects, "listObjects");
-  storageFs.deletePath = timerify(storageFs.deletePath, "deletePath");
-  storageFs.deleteObject = timerify(storageFs.deleteObject, "deleteObject");
-  docsCoServer.getEditorsCountPromise = timerify(docsCoServer.getEditorsCountPromise, "getEditorsCountPromise");
+  addRandomKeyTask = timerify(co.wrap(taskResult.addRandomKeyTask), 'addRandomKeyTask');
+  taskResult.getExpired = timerify(taskResult.getExpired, 'getExpired');
+  taskResult.remove = timerify(taskResult.remove, 'remove');
+  storage.putObject = timerify(storage.putObject, 'putObject');
+  storage.listObjects = timerify(storage.listObjects, 'listObjects');
+  storageFs.deletePath = timerify(storageFs.deletePath, 'deletePath');
+  storageFs.deleteObject = timerify(storageFs.deleteObject, 'deleteObject');
+  docsCoServer.getEditorsCountPromise = timerify(docsCoServer.getEditorsCountPromise, 'getEditorsCountPromise');
 
-  const obs = new PerformanceObserver((list) => {
+  const obs = new PerformanceObserver(list => {
     const entries = list.getEntries();
-    entries.forEach((entry) => {
+    entries.forEach(entry => {
       let duration = Math.round(entry.duration * 1000) / 1000;
       console.log(`${entry.name}:${duration}ms`);
     });
   });
-  obs.observe({ entryTypes: ['function']});
+  obs.observe({entryTypes: ['function']});
 
   await docsCoServer.editorData.connect();
 }
@@ -91,7 +87,7 @@ async function beforeEnd() {
     let max = Math.round(histogram.max / 1000) / 1000;
     let count = histogram.count;
     ctx.logger.info(`histogram ${name}: count=${count}, mean=${mean}ms, min=${min}ms, max=${max}ms`);
-  }
+  };
   await utils.sleep(1000);
   for (let name in histograms) {
     logHistogram(histograms[name], name);
@@ -116,7 +112,7 @@ async function startTest() {
     ctx.logger.error('missing arguments.USAGE: checkFileExpire.js [add-files-count] [file-size-bytes] [key-prefix] [seconds-to-expire]');
     return;
   }
-  ctx.logger.info("test started");
+  ctx.logger.info('test started');
   await beforeStart();
 
   await addFileExpire(parseInt(args[0]), parseInt(args[1]), args[2], parseInt(args[4] || 1));
@@ -125,14 +121,17 @@ async function startTest() {
   await gc.checkFileExpire(args[3]);
 
   await beforeEnd();
-  ctx.logger.info("test finished");
+  ctx.logger.info('test finished');
 }
 
-startTest().then(()=>{
-  //delay to log observer events
-  return utils.sleep(1000);
-}).catch((err) => {
-  ctx.logger.error(err.stack);
-}).finally(() => {
-  process.exit(0);
-});
+startTest()
+  .then(() => {
+    //delay to log observer events
+    return utils.sleep(1000);
+  })
+  .catch(err => {
+    ctx.logger.error(err.stack);
+  })
+  .finally(() => {
+    process.exit(0);
+  });

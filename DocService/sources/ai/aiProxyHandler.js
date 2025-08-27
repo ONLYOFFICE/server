@@ -32,8 +32,8 @@
 
 'use strict';
 
-const { pipeline } = require('stream/promises');
-const { URL } = require('url');
+const {pipeline} = require('stream/promises');
+const {URL} = require('url');
 const config = require('config');
 const utils = require('./../../../Common/sources/utils');
 const operationContext = require('./../../../Common/sources/operationContext');
@@ -58,51 +58,51 @@ const AI = aiEngine.AI;
 const clientStatsD = statsDClient.getClient();
 /**
  * Helper function to set CORS headers if the request origin is allowed
- * 
+ *
  * @param {object} req - Express request object
  * @param {object} res - Express response object
  * @param {operationContext.Context} ctx - Operation context for logging
- * @param {boolean} handleOptions - Whether to handle OPTIONS requests (default: true) 
+ * @param {boolean} handleOptions - Whether to handle OPTIONS requests (default: true)
  * @returns {boolean} - True if this was an OPTIONS request that was handled
  */
 function handleCorsHeaders(req, res, ctx, handleOptions = true) {
   const requestOrigin = req.headers.origin;
 
   const tenAiApiAllowedOrigins = ctx.getCfg('aiSettings.allowedCorsOrigins', cfgAiApiAllowedOrigins);
-  
+
   // If no origin in request or allowed origins list is empty, do nothing
   if (!requestOrigin || tenAiApiAllowedOrigins.length === 0) {
     return false;
   }
-  
+
   // If the origin is in our allowed list
   if (tenAiApiAllowedOrigins.includes(requestOrigin)) {
     res.setHeader('Access-Control-Allow-Origin', requestOrigin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin'); // Important when using dynamic origin
-    
+
     // If debug logging is available
     if (ctx && ctx.logger) {
       ctx.logger.debug('CORS headers set for origin: %s (matched allowed list)', requestOrigin);
     }
-    
+
     // Handle preflight OPTIONS requests if requested
     if (handleOptions && req.method === 'OPTIONS') {
       res.setHeader('Access-Control-Allow-Methods', 'DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT');
       // Allow all headers with wildcard
       res.setHeader('Access-Control-Allow-Headers', '*');
-      
+
       // For preflight request, we should also set non-CORS headers to match the API
       res.setHeader('Allow', 'OPTIONS, HEAD, GET, POST, PUT, DELETE, PATCH');
       res.setHeader('Content-Length', '0');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      
+
       // Return 204 which is standard for OPTIONS preflight
       res.sendStatus(204); // No Content response for OPTIONS
       return true; // Signal that we handled an OPTIONS request
     }
   }
-  
+
   return false; // Not an OPTIONS request or origin not allowed
 }
 
@@ -115,34 +115,34 @@ function handleCorsHeaders(req, res, ctx, handleOptions = true) {
  * @returns {string} The updated URI with API key as a query parameter, if applicable.
  */
 function appendApiKeyToQuery(ctx, provider, uri) {
-    const urlWithKey = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
+  const urlWithKey = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
 
-    // To check if the key is part of the query, we get the URL without the key.
-    const originalKey = provider.key;
-    provider.key = undefined;
-    const urlWithoutKey = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
-    provider.key = originalKey; // Restore the key on the provider object.
+  // To check if the key is part of the query, we get the URL without the key.
+  const originalKey = provider.key;
+  provider.key = undefined;
+  const urlWithoutKey = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
+  provider.key = originalKey; // Restore the key on the provider object.
 
-    if (urlWithKey !== urlWithoutKey) {
-        try {
-            const parsedUrlWithKey = new URL(urlWithKey);
-            if (parsedUrlWithKey.search) {
-                const parsedUri = new URL(uri);
-                for (const [key, value] of parsedUrlWithKey.searchParams) {
-                  if (originalKey === value) {
-                    parsedUri.searchParams.set(key, value);
-                    break;
-                  }
-                }
-                ctx.logger.debug(`appendApiKeyToQuery: Appended API key to URI for provider ${provider.name}`);
-                return parsedUri.toString();
-            }
-        } catch (error) {
-            ctx.logger.error(`appendApiKeyToQuery: Failed to parse provider URL for ${provider.name}: ${urlWithKey}`, error);
+  if (urlWithKey !== urlWithoutKey) {
+    try {
+      const parsedUrlWithKey = new URL(urlWithKey);
+      if (parsedUrlWithKey.search) {
+        const parsedUri = new URL(uri);
+        for (const [key, value] of parsedUrlWithKey.searchParams) {
+          if (originalKey === value) {
+            parsedUri.searchParams.set(key, value);
+            break;
+          }
         }
+        ctx.logger.debug(`appendApiKeyToQuery: Appended API key to URI for provider ${provider.name}`);
+        return parsedUri.toString();
+      }
+    } catch (error) {
+      ctx.logger.error(`appendApiKeyToQuery: Failed to parse provider URL for ${provider.name}: ${urlWithKey}`, error);
     }
+  }
 
-    return uri;
+  return uri;
 }
 
 /**
@@ -179,9 +179,9 @@ async function proxyRequest(req, res) {
       if (!checkJwtRes || checkJwtRes.err) {
         ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.err);
         res.status(403).json({
-          "error": {
-            "message": "proxyRequest: checkJwtHeader error",
-            "code": "403"
+          error: {
+            message: 'proxyRequest: checkJwtHeader error',
+            code: '403'
           }
         });
         return;
@@ -196,9 +196,9 @@ async function proxyRequest(req, res) {
     if (!tenAiApi?.providers) {
       ctx.logger.error('proxyRequest: No providers configured');
       res.status(403).json({
-        "error": {
-          "message": "proxyRequest: No providers configured",
-          "code": "403"
+        error: {
+          message: 'proxyRequest: No providers configured',
+          code: '403'
         }
       });
       return;
@@ -222,24 +222,23 @@ async function proxyRequest(req, res) {
 
           uri = appendApiKeyToQuery(ctx, provider, uri);
           break;
-        } 
+        }
       }
     }
     // If body.target was provided but no provider was matched, return 403
     if (!providerHeaders) {
       ctx.logger.warn(`proxyRequest: target '${uri}' does not match any configured AI provider. Denying access.`);
       res.status(403).json({
-        "error": {
-          "message": "proxyRequest: target does not match any configured AI provider",
-          "code": "403"
+        error: {
+          message: 'proxyRequest: target does not match any configured AI provider',
+          code: '403'
         }
       });
       return;
     }
 
-
     // Merge key in headers
-    const headers = { ...body.headers, ...providerHeaders };
+    const headers = {...body.headers, ...providerHeaders};
 
     // use proxy instead of direct request
     if (tenAiApiProxy) {
@@ -253,8 +252,8 @@ async function proxyRequest(req, res) {
           key: docId,
           user: userId,
           customer_id: licenseInfo.customerId
-        }
-        
+        };
+
         const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
         const auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
         headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + auth;
@@ -284,32 +283,31 @@ async function proxyRequest(req, res) {
       limit: null,
       isInJwtToken: providerMatched //true because it passed provider's filter
     };
-    
+
     // Log the sanitized request parameters
     ctx.logger.debug(`proxyRequest request: %j`, requestParams);
-    
+
     // Use utils.httpRequest to make the request
     const result = await utils.httpRequest(
-      ctx,                   // Operation context
-      requestParams.method,  // HTTP method
-      requestParams.uri,     // Target URL
+      ctx, // Operation context
+      requestParams.method, // HTTP method
+      requestParams.uri, // Target URL
       requestParams.headers, // Request headers
-      requestParams.body,    // Request body
+      requestParams.body, // Request body
       requestParams.timeout, // Timeout configuration
-      requestParams.limit,   // Size limit
+      requestParams.limit, // Size limit
       requestParams.isInJwtToken // Filter private requests
     );
-    
+
     // Set the response headers to match the target response
     res.set(result.response.headers);
 
     // Use pipeline to pipe the response data to the client
     await pipeline(result.stream, res);
     success = true;
-
   } catch (error) {
     ctx.logger.error(`proxyRequest: AI API request error: %s`, error);
-    if (error.response){
+    if (error.response) {
       // Set the response headers to match the target response
       res.set(error.response.headers);
 
@@ -317,31 +315,31 @@ async function proxyRequest(req, res) {
       await pipeline(error.response.data, res);
     } else {
       res.status(500).json({
-        "error": {
-          "message": "proxyRequest: AI API request error",
-          "code": "500"
+        error: {
+          message: 'proxyRequest: AI API request error',
+          code: '500'
         }
       });
     }
-    } finally {
-      // Record the time taken for the proxyRequest in StatsD (skip cors requests and errors)
-      if (clientStatsD && success) {
-        clientStatsD.timing('coauth.aiProxy', new Date() - startDate);
-      }
-      ctx.logger.info('End proxyRequest');
+  } finally {
+    // Record the time taken for the proxyRequest in StatsD (skip cors requests and errors)
+    if (clientStatsD && success) {
+      clientStatsD.timing('coauth.aiProxy', new Date() - startDate);
     }
+    ctx.logger.info('End proxyRequest');
+  }
 }
 
 /**
  * Process a single AI provider and its models
- * 
+ *
  * @param {operationContext.Context} ctx - Operation context
  * @param {Object} provider - Provider configuration
  * @returns {Promise<Object|null>} Processed provider with models or null if provider is invalid
  */
 async function processProvider(ctx, provider) {
   const logger = ctx.logger;
-  
+
   if (!provider.url) {
     return null;
   }
@@ -366,7 +364,7 @@ async function processProvider(ctx, provider) {
   return {
     name: provider.name,
     url: provider.url,
-    key: "",
+    key: '',
     models: engineModels,
     modelsUI: engineModelsUI
   };
@@ -374,7 +372,7 @@ async function processProvider(ctx, provider) {
 
 /**
  * Retrieves all AI models from the configuration and dynamically from providers
- * 
+ *
  * @param {operationContext.Context} ctx - Operation context
  * @returns {Promise<Object>} Object containing providers and their models along with action configurations
  */
@@ -393,7 +391,7 @@ async function getPluginSettings(ctx) {
     const tenProviders = ctx.getCfg('aiSettings.providers', cfgAiSettings.providers);
     // Process providers and their models if configuration exists
     if (tenProviders && Object.keys(tenProviders).length > 0) {
-      result.providers = tenProviders
+      result.providers = tenProviders;
     } else {
       const providers = AI.serializeProviders();
       for (let i = 0; i < providers.length; i++) {
@@ -440,8 +438,7 @@ async function getPluginSettings(ctx) {
     result.version = tenVersion;
   } catch (error) {
     logger.error('Error retrieving AI models from config:', error);
-  }
-  finally {
+  } finally {
     logger.info('Completed getPluginSettings');
   }
   return result;
@@ -464,7 +461,7 @@ async function getPluginSettingsForInterface(ctx) {
   //remove keys from providers
   if (pluginSettings && pluginSettings.providers) {
     for (const key in pluginSettings.providers) {
-      pluginSettings.providers[key].key = "";
+      pluginSettings.providers[key].key = '';
     }
   }
   return pluginSettings;
@@ -472,11 +469,11 @@ async function getPluginSettingsForInterface(ctx) {
 
 async function requestSettings(req, res) {
   const ctx = new operationContext.Context();
-	ctx.initFromRequest(req);
+  ctx.initFromRequest(req);
   try {
     await ctx.initTenantCache();
-	  const result = await getPluginSettings(ctx);
-	  res.json(result);
+    const result = await getPluginSettings(ctx);
+    res.json(result);
   } catch (error) {
     ctx.logger.error('getSettings error: %s', error.stack);
     res.sendStatus(400);
@@ -485,7 +482,7 @@ async function requestSettings(req, res) {
 
 async function requestModels(req, res) {
   const ctx = new operationContext.Context();
-	ctx.initFromRequest(req);
+  ctx.initFromRequest(req);
   try {
     await ctx.initTenantCache();
     const body = JSON.parse(req.body);

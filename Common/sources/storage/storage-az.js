@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require('@azure/storage-blob');
+const {BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions} = require('@azure/storage-blob');
 const mime = require('mime');
 const config = require('config');
 const utils = require('../utils');
@@ -22,17 +22,12 @@ const blobServiceClients = {};
 function getBlobServiceClient(storageCfg) {
   const configKey = `${storageCfg.accessKeyId}_${storageCfg.bucketName}`;
   if (!blobServiceClients[configKey]) {
-    const credential = new StorageSharedKeyCredential(
-      storageCfg.accessKeyId,
-      storageCfg.secretAccessKey
-    );
+    const credential = new StorageSharedKeyCredential(storageCfg.accessKeyId, storageCfg.secretAccessKey);
     if (storageCfg.endpoint.includes(storageCfg.accessKeyId)) {
       blobServiceClients[configKey] = new BlobServiceClient(storageCfg.endpoint, credential);
     } else {
       const endpointUrl = new URL(storageCfg.endpoint.replace(/\/+$/, ''));
-      blobServiceClients[configKey] = new BlobServiceClient(
-        `${endpointUrl.protocol}//${storageCfg.accessKeyId}.${endpointUrl.host}`,
-        credential);
+      blobServiceClients[configKey] = new BlobServiceClient(`${endpointUrl.protocol}//${storageCfg.accessKeyId}.${endpointUrl.host}`, credential);
     }
   }
   return blobServiceClients[configKey];
@@ -79,8 +74,7 @@ async function listObjectsExec(storageCfg, prefix, output = []) {
   const prefixWithFolder = storageFolderName ? `${storageFolderName}/${prefix}` : prefix;
 
   for await (const blob of containerClient.listBlobsFlat({prefix: prefixWithFolder})) {
-    const relativePath = storageFolderName ?
-      blob.name.substring(storageFolderName.length + 1) : blob.name;
+    const relativePath = storageFolderName ? blob.name.substring(storageFolderName.length + 1) : blob.name;
     output.push(relativePath);
   }
   return output;
@@ -88,9 +82,7 @@ async function listObjectsExec(storageCfg, prefix, output = []) {
 
 async function deleteObjectsHelp(storageCfg, aKeys) {
   const containerClient = getContainerClient(storageCfg);
-  await Promise.all(
-    aKeys.map(key => containerClient.deleteBlob(key.Key))
-  );
+  await Promise.all(aKeys.map(key => containerClient.deleteBlob(key.Key)));
 }
 
 async function headObject(storageCfg, strPath) {
@@ -138,29 +130,27 @@ async function uploadObject(storageCfg, strPath, filePath) {
   const blockBlobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const uploadStream = fs.createReadStream(filePath);
 
-  await blockBlobClient.uploadStream(
-    uploadStream,
-    undefined,
-    undefined,
-    {
-      blobHTTPHeaders: {
-        contentType: mime.getType(strPath),
-        contentDisposition: utils.getContentDisposition(path.basename(strPath))
-      }
+  await blockBlobClient.uploadStream(uploadStream, undefined, undefined, {
+    blobHTTPHeaders: {
+      contentType: mime.getType(strPath),
+      contentDisposition: utils.getContentDisposition(path.basename(strPath))
     }
-  );
+  });
 }
 
 async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
   const sourceBlobClient = getBlobClient(storageCfgSrc, getFilePath(storageCfgSrc, sourceKey));
   const destBlobClient = getBlobClient(storageCfgDst, getFilePath(storageCfgDst, destinationKey));
-  const sasToken = generateBlobSASQueryParameters({
-    containerName: storageCfgSrc.bucketName,
-    blobName: getFilePath(storageCfgSrc, sourceKey),
-    permissions: BlobSASPermissions.parse("r"),
-    startsOn: new Date(),
-    expiresOn: new Date(Date.now() + 3600 * 1000)
-  }, new StorageSharedKeyCredential(storageCfgSrc.accessKeyId, storageCfgSrc.secretAccessKey)).toString();
+  const sasToken = generateBlobSASQueryParameters(
+    {
+      containerName: storageCfgSrc.bucketName,
+      blobName: getFilePath(storageCfgSrc, sourceKey),
+      permissions: BlobSASPermissions.parse('r'),
+      startsOn: new Date(),
+      expiresOn: new Date(Date.now() + 3600 * 1000)
+    },
+    new StorageSharedKeyCredential(storageCfgSrc.accessKeyId, storageCfgSrc.secretAccessKey)
+  ).toString();
 
   await destBlobClient.syncCopyFromURL(`${sourceBlobClient.url}?${sasToken}`);
 }
@@ -191,13 +181,13 @@ async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, op
   let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
   expires = Math.min(expires, 604800);
 
-  const userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
+  const userFriendlyName = optFilename ? optFilename.replace(/\//g, '%2f') : path.basename(strPath);
   const contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
 
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
 
   const sasOptions = {
-    permissions: BlobSASPermissions.parse("r"),
+    permissions: BlobSASPermissions.parse('r'),
     expiresOn: new Date(Date.now() + expires * 1000),
     contentDisposition,
     contentType: mime.getType(strPath)

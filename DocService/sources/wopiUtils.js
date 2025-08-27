@@ -47,7 +47,7 @@ const cryptoSign = util.promisify(crypto.sign);
 
 /**
  * Generates a proof buffer for WOPI requests
- * 
+ *
  * @param {string} url - The URL to generate proof for
  * @param {string} accessToken - The access token
  * @param {bigint} timeStamp - The timestamp in ticks
@@ -75,7 +75,7 @@ function generateProofBuffer(url, accessToken, timeStamp) {
 
 /**
  * Generates a proof signature for WOPI requests
- * 
+ *
  * @param {string} url - The URL to generate proof for
  * @param {string} accessToken - The access token
  * @param {bigint} timeStamp - The timestamp in ticks
@@ -90,7 +90,7 @@ async function generateProofSign(url, accessToken, timeStamp, privateKey) {
 
 /**
  * Fills standard WOPI headers for requests
- * 
+ *
  * @param {Object} ctx - The operation context
  * @param {Object} headers - The headers object to fill
  * @param {string} url - The URL for the request
@@ -115,7 +115,7 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
 
 /**
  * Gets a WOPI file URL with appropriate headers
- * 
+ *
  * @param {Object} ctx - The operation context
  * @param {Object} fileInfo - Information about the file
  * @param {Object} userAuth - User authentication details

@@ -32,18 +32,14 @@
 
 'use strict';
 
-const {
-  createHistogram,
-  performance,
-  PerformanceObserver,
-} = require('node:perf_hooks');
+const {createHistogram, performance, PerformanceObserver} = require('node:perf_hooks');
 
-const { readdir, mkdir, readFile, writeFile } = require("node:fs/promises");
-const path = require("path");
+const {readdir, mkdir, readFile, writeFile} = require('node:fs/promises');
+const path = require('path');
 // const Jimp = require('Jimp');
 const utils = require('./../../Common/sources/utils');
 const operationContext = require('./../../Common/sources/operationContext');
-const utilsDocService = require("./../../DocService/sources/utilsDocService");
+const utilsDocService = require('./../../DocService/sources/utilsDocService');
 
 let ctx = operationContext.global;
 
@@ -54,18 +50,18 @@ async function beforeStart() {
     let histogram = createHistogram();
     histograms[func.name] = histogram;
     return performance.timerify(func, {histogram: histogram});
-  }
+  };
   utilsDocService.fixImageExifRotation = timerify(utilsDocService.fixImageExifRotation);
   // Jimp.read = timerify(Jimp.read);
 
-  const obs = new PerformanceObserver((list) => {
+  const obs = new PerformanceObserver(list => {
     const entries = list.getEntries();
-    entries.forEach((entry) => {
+    entries.forEach(entry => {
       let duration = Math.round(entry.duration * 1000) / 1000;
       console.log(`${entry.name}:${duration}ms`);
     });
   });
-  obs.observe({ entryTypes: ['function']});
+  obs.observe({entryTypes: ['function']});
 }
 
 async function beforeEnd() {
@@ -75,7 +71,7 @@ async function beforeEnd() {
     let max = Math.round(histogram.max / 1000) / 1000;
     let count = histogram.count;
     ctx.logger.info(`histogram ${name}: count=${count}, mean=${mean}ms, min=${min}ms, max=${max}ms`);
-  }
+  };
   await utils.sleep(1000);
   for (let name in histograms) {
     logHistogram(histograms[name], name);
@@ -83,13 +79,13 @@ async function beforeEnd() {
 }
 
 async function fixInDir(dirIn, dirOut) {
-  ctx.logger.info("dirIn:%s", dirIn);
-  ctx.logger.info("dirOut:%s", dirOut);
-  let dirents = await readdir(dirIn, {withFileTypes : true, recursive: true});
+  ctx.logger.info('dirIn:%s', dirIn);
+  ctx.logger.info('dirOut:%s', dirOut);
+  let dirents = await readdir(dirIn, {withFileTypes: true, recursive: true});
   for (let dirent of dirents) {
     if (dirent.isFile()) {
       let file = dirent.name;
-      ctx.logger.info("fixInDir:%s", file);
+      ctx.logger.info('fixInDir:%s', file);
       let buffer = await readFile(path.join(dirent.path, file));
       let bufferNew = await utilsDocService.fixImageExifRotation(ctx, buffer);
       if (buffer !== bufferNew) {
@@ -107,21 +103,23 @@ async function startTest() {
     ctx.logger.error('missing arguments.USAGE: fixImageExifRotation.js "dirIn" "dirOut"');
     return;
   }
-  ctx.logger.info("test started");
+  ctx.logger.info('test started');
   await beforeStart();
-
 
   await fixInDir(args[0], args[1]);
 
   await beforeEnd();
-  ctx.logger.info("test finished");
+  ctx.logger.info('test finished');
 }
 
-startTest().then(()=>{
-  //delay to log observer events
-  return utils.sleep(1000);
-}).catch((err) => {
-  ctx.logger.error(err.stack);
-}).finally(() => {
-  process.exit(0);
-});
+startTest()
+  .then(() => {
+    //delay to log observer events
+    return utils.sleep(1000);
+  })
+  .catch(err => {
+    ctx.logger.error(err.stack);
+  })
+  .finally(() => {
+    process.exit(0);
+  });

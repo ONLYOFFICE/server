@@ -33,7 +33,7 @@
 'use strict';
 
 var constants = require('./constants');
-const {open} = require("node:fs/promises");
+const {open} = require('node:fs/promises');
 
 function getImageFormatBySignature(buffer) {
   var length = buffer.length;
@@ -42,7 +42,7 @@ function getImageFormatBySignature(buffer) {
 
   //jpeg
   // Hex: FF D8 FF
-  if ((3 <= length) && (0xFF == buffer[0]) && (0xD8 == buffer[1]) && (0xFF == buffer[2])) {
+  if (3 <= length && 0xff == buffer[0] && 0xd8 == buffer[1] && 0xff == buffer[2]) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_JPG;
   }
 
@@ -55,12 +55,27 @@ function getImageFormatBySignature(buffer) {
   //Hex (position 29): 00
   //Hex (position 30): 00 || 01 || 02 || 03 || 04 || 05
   //Hex (position 31): 00 00 00
-  if ((34 <= length) && (0x42 == buffer[0]) && (0x4D == buffer[1]) && (0x00 == buffer[6]) && (0x00 == buffer[7]) &&
-    (0x01 == buffer[26]) && (0x00 == buffer[27]) && ((0x00 == buffer[28]) || (0x01 == buffer[28]) ||
-    (0x04 == buffer[28]) || (0x08 == buffer[28]) || (0x10 == buffer[28]) || (0x18 == buffer[28]) ||
-    (0x20 == buffer[28])) && (0x00 == buffer[29]) && ((0x00 == buffer[30]) || (0x01 == buffer[30]) ||
-    (0x02 == buffer[30]) || (0x03 == buffer[30]) || (0x04 == buffer[30]) || (0x05 == buffer[30])) &&
-    (0x00 == buffer[31]) && (0x00 == buffer[32]) && (0x00 == buffer[33])) {
+  if (
+    34 <= length &&
+    0x42 == buffer[0] &&
+    0x4d == buffer[1] &&
+    0x00 == buffer[6] &&
+    0x00 == buffer[7] &&
+    0x01 == buffer[26] &&
+    0x00 == buffer[27] &&
+    (0x00 == buffer[28] ||
+      0x01 == buffer[28] ||
+      0x04 == buffer[28] ||
+      0x08 == buffer[28] ||
+      0x10 == buffer[28] ||
+      0x18 == buffer[28] ||
+      0x20 == buffer[28]) &&
+    0x00 == buffer[29] &&
+    (0x00 == buffer[30] || 0x01 == buffer[30] || 0x02 == buffer[30] || 0x03 == buffer[30] || 0x04 == buffer[30] || 0x05 == buffer[30]) &&
+    0x00 == buffer[31] &&
+    0x00 == buffer[32] &&
+    0x00 == buffer[33]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_BMP;
   }
 
@@ -83,19 +98,44 @@ function getImageFormatBySignature(buffer) {
   //png
   //Hex: 89 50 4E 47 0D 0A 1A 0A 00 00 00 0D 49 48 44 52
   //ASCII: .PNG........IHDR
-  if ((16 <= length) && (0x89 == buffer[0]) && (0x50 == buffer[1]) && (0x4E == buffer[2]) && (0x47 == buffer[3]) &&
-    (0x0D == buffer[4]) && (0x0A == buffer[5]) && (0x1A == buffer[6]) && (0x0A == buffer[7]) &&
-    (0x00 == buffer[8]) && (0x00 == buffer[9]) && (0x00 == buffer[10]) && (0x0D == buffer[11]) &&
-    (0x49 == buffer[12]) && (0x48 == buffer[13]) && (0x44 == buffer[14]) && (0x52 == buffer[15])) {
+  if (
+    16 <= length &&
+    0x89 == buffer[0] &&
+    0x50 == buffer[1] &&
+    0x4e == buffer[2] &&
+    0x47 == buffer[3] &&
+    0x0d == buffer[4] &&
+    0x0a == buffer[5] &&
+    0x1a == buffer[6] &&
+    0x0a == buffer[7] &&
+    0x00 == buffer[8] &&
+    0x00 == buffer[9] &&
+    0x00 == buffer[10] &&
+    0x0d == buffer[11] &&
+    0x49 == buffer[12] &&
+    0x48 == buffer[13] &&
+    0x44 == buffer[14] &&
+    0x52 == buffer[15]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
   }
 
   //CR2
   //Hex: 49 49 2A 00 10 00 00 00 43 52
   //ASCII: II*.....CR
-  if ((10 <= length) && (0x49 == buffer[0]) && (0x49 == buffer[1]) && (0x2A == buffer[2]) &&
-    (0x00 == buffer[3]) && (0x10 == buffer[4]) && (0x00 == buffer[5]) && (0x00 == buffer[6]) &&
-    (0x00 == buffer[7]) && (0x43 == buffer[8]) && (0x52 == buffer[9])) {
+  if (
+    10 <= length &&
+    0x49 == buffer[0] &&
+    0x49 == buffer[1] &&
+    0x2a == buffer[2] &&
+    0x00 == buffer[3] &&
+    0x10 == buffer[4] &&
+    0x00 == buffer[5] &&
+    0x00 == buffer[6] &&
+    0x00 == buffer[7] &&
+    0x43 == buffer[8] &&
+    0x52 == buffer[9]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_CR2;
   }
 
@@ -109,9 +149,11 @@ function getImageFormatBySignature(buffer) {
   //Hex: 49 49 2A 00
   //ASCII: II*
   if (4 <= length) {
-    if (((0x49 == buffer[0]) && (0x49 == buffer[1]) && (0x2A == buffer[2]) && (0x00 == buffer[3])) ||
-      ((0x4D == buffer[0]) && (0x4D == buffer[1]) && (0x00 == buffer[2]) && (0x2A == buffer[3])) ||
-      ((0x49 == buffer[0]) && (0x49 == buffer[1]) && (0x2A == buffer[2]) && (0x00 == buffer[3]))) {
+    if (
+      (0x49 == buffer[0] && 0x49 == buffer[1] && 0x2a == buffer[2] && 0x00 == buffer[3]) ||
+      (0x4d == buffer[0] && 0x4d == buffer[1] && 0x00 == buffer[2] && 0x2a == buffer[3]) ||
+      (0x49 == buffer[0] && 0x49 == buffer[1] && 0x2a == buffer[2] && 0x00 == buffer[3])
+    ) {
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF;
     }
   }
@@ -121,9 +163,10 @@ function getImageFormatBySignature(buffer) {
   //or for Windows 3.x
   //Hex: 01 00 09 00 00 03
   if (6 <= length) {
-    if (((0xD7 == buffer[0]) && (0xCD == buffer[1]) && (0xC6 == buffer[2]) && (0x9A == buffer[3]) &&
-      (0x00 == buffer[4]) && (0x00 == buffer[5])) || ((0x01 == buffer[0]) && (0x00 == buffer[1]) &&
-      (0x09 == buffer[2]) && (0x00 == buffer[3]) && (0x00 == buffer[4]) && (0x03 == buffer[5]))) {
+    if (
+      (0xd7 == buffer[0] && 0xcd == buffer[1] && 0xc6 == buffer[2] && 0x9a == buffer[3] && 0x00 == buffer[4] && 0x00 == buffer[5]) ||
+      (0x01 == buffer[0] && 0x00 == buffer[1] && 0x09 == buffer[2] && 0x00 == buffer[3] && 0x00 == buffer[4] && 0x03 == buffer[5])
+    ) {
       return constants.AVS_OFFICESTUDIO_FILE_IMAGE_WMF;
     }
   }
@@ -131,8 +174,17 @@ function getImageFormatBySignature(buffer) {
   //emf ( http://wvware.sourceforge.net/caolan/ora-wmf.html )
   //Hex: 01 00 00 00
   //Hex (position 40): 20 45 4D 46
-  if ((44 <= length) && (0x01 == buffer[0]) && (0x00 == buffer[1]) && (0x00 == buffer[2]) && (0x00 == buffer[3]) &&
-    (0x20 == buffer[40]) && (0x45 == buffer[41]) && (0x4D == buffer[42]) && (0x46 == buffer[43])) {
+  if (
+    44 <= length &&
+    0x01 == buffer[0] &&
+    0x00 == buffer[1] &&
+    0x00 == buffer[2] &&
+    0x00 == buffer[3] &&
+    0x20 == buffer[40] &&
+    0x45 == buffer[41] &&
+    0x4d == buffer[42] &&
+    0x46 == buffer[43]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_EMF;
   }
 
@@ -140,9 +192,12 @@ function getImageFormatBySignature(buffer) {
   //Hex (position 0): 0A
   //Hex (position 1): 00 || 01 || 02 || 03 || 04 || 05
   //Hex (position 3): 01 || 02 || 04 || 08 ( Bytes per pixel )
-  if ((4 <= length) && (0x0A == buffer[0]) && (0x00 == buffer[1] || 0x01 == buffer[1] ||
-    0x02 == buffer[1] || 0x03 == buffer[1] || 0x04 == buffer[1] || 0x05 == buffer[1]) &&
-    (0x01 == buffer[3] || 0x02 == buffer[3] || 0x04 == buffer[3] || 0x08 == buffer[3])) {
+  if (
+    4 <= length &&
+    0x0a == buffer[0] &&
+    (0x00 == buffer[1] || 0x01 == buffer[1] || 0x02 == buffer[1] || 0x03 == buffer[1] || 0x04 == buffer[1] || 0x05 == buffer[1]) &&
+    (0x01 == buffer[3] || 0x02 == buffer[3] || 0x04 == buffer[3] || 0x08 == buffer[3])
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PCX;
   }
 
@@ -154,17 +209,23 @@ function getImageFormatBySignature(buffer) {
   //DATA TYPE 10-RUN-LENGTH ENCODED(RLE),TRUE-COLOR IMAGES		: Hex (position 1) : 00 0A
   //DATA TYPE 11-RUN-LENGTH ENCODED(RLE),BLACK AND WHITE IMAGES	: Hex (position 1) : 00 0B
   // + Bytes per pixel											: Hex (position 16): 0x08 || 0x10 || 0x18 || 0x20
-  if ((17 <= length) && ((0x01 == buffer[1] && 0x01 == buffer[2]) || (0x00 == buffer[1] && 0x02 == buffer[2]) ||
-    (0x00 == buffer[1] && 0x03 == buffer[2]) || (0x01 == buffer[1] && 0x09 == buffer[2]) ||
-    (0x00 == buffer[1] && 0x0A == buffer[2]) || (0x00 == buffer[1] && 0x0B == buffer[2])) &&
-    (0x08 == buffer[16] || 0x10 == buffer[16] || 0x18 == buffer[16] || 0x20 == buffer[16])) {
+  if (
+    17 <= length &&
+    ((0x01 == buffer[1] && 0x01 == buffer[2]) ||
+      (0x00 == buffer[1] && 0x02 == buffer[2]) ||
+      (0x00 == buffer[1] && 0x03 == buffer[2]) ||
+      (0x01 == buffer[1] && 0x09 == buffer[2]) ||
+      (0x00 == buffer[1] && 0x0a == buffer[2]) ||
+      (0x00 == buffer[1] && 0x0b == buffer[2])) &&
+    (0x08 == buffer[16] || 0x10 == buffer[16] || 0x18 == buffer[16] || 0x20 == buffer[16])
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_TGA;
   }
 
   //ras
   //Hex: 59 A6 6A 95
   //ASCII: Y
-  if ((4 <= length) && (0x59 == buffer[0]) && (0xA6 == buffer[1]) && (0x6A == buffer[2]) && (0x95 == buffer[3])) {
+  if (4 <= length && 0x59 == buffer[0] && 0xa6 == buffer[1] && 0x6a == buffer[2] && 0x95 == buffer[3]) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_RAS;
   }
 
@@ -174,10 +235,22 @@ function getImageFormatBySignature(buffer) {
   //psd
   //Hex: 38 42 50 53 00 01 00 00 00 00 00 00 00
   //ASCII: 8BPS
-  if ((13 <= length) && (0x38 == buffer[0]) && (0x42 == buffer[1]) && (0x50 == buffer[2]) &&
-    (0x53 == buffer[3]) && (0x00 == buffer[4]) && (0x01 == buffer[5]) && (0x00 == buffer[6]) &&
-    (0x00 == buffer[7]) && (0x00 == buffer[8]) && (0x00 == buffer[9]) && (0x00 == buffer[10]) &&
-    (0x00 == buffer[11]) && (0x00 == buffer[12])) {
+  if (
+    13 <= length &&
+    0x38 == buffer[0] &&
+    0x42 == buffer[1] &&
+    0x50 == buffer[2] &&
+    0x53 == buffer[3] &&
+    0x00 == buffer[4] &&
+    0x01 == buffer[5] &&
+    0x00 == buffer[6] &&
+    0x00 == buffer[7] &&
+    0x00 == buffer[8] &&
+    0x00 == buffer[9] &&
+    0x00 == buffer[10] &&
+    0x00 == buffer[11] &&
+    0x00 == buffer[12]
+  ) {
     return constants.AVS_OFFICESTUDIO_FILE_IMAGE_PSD;
   }
 
@@ -195,7 +268,7 @@ function getImageFormatBySignature(buffer) {
 
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
-exports.getFormatFromString = function(ext) {
+exports.getFormatFromString = function (ext) {
   if (!ext) {
     return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
@@ -356,7 +429,7 @@ exports.getFormatFromString = function(ext) {
       return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
 };
-exports.getStringFromFormat = function(format) {
+exports.getStringFromFormat = function (format) {
   switch (format) {
     case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX:
       return 'docx';
@@ -535,62 +608,71 @@ exports.getStringFromFormat = function(format) {
       return '';
   }
 };
-exports.getImageFormat = function(ctx, buffer) {
+exports.getImageFormat = function (ctx, buffer) {
   var format = constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   try {
     //signature
     format = getImageFormatBySignature(buffer);
-  }
-  catch (e) {
+  } catch (e) {
     ctx.logger.error('error getImageFormat: %s', e.stack);
   }
   return format;
 };
-exports.isDocumentFormat = function(format) {
-  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_DOCUMENT) ||
+exports.isDocumentFormat = function (format) {
+  return (
+    0 !== (format & constants.AVS_OFFICESTUDIO_FILE_DOCUMENT) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD ||
-    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY;
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_DOCY
+  );
 };
-exports.isSpreadsheetFormat = function(format) {
-  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET) ||
+exports.isSpreadsheetFormat = function (format) {
+  return (
+    0 !== (format & constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET ||
-    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY;
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_XLSY
+  );
 };
-exports.isPresentationFormat = function(format) {
-  return 0 !== (format & constants.AVS_OFFICESTUDIO_FILE_PRESENTATION) ||
+exports.isPresentationFormat = function (format) {
+  return (
+    0 !== (format & constants.AVS_OFFICESTUDIO_FILE_PRESENTATION) ||
     format === constants.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION ||
-    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY;
+    format === constants.AVS_OFFICESTUDIO_FILE_TEAMLAB_PPTY
+  );
 };
-exports.isOOXFormat = function(format) {
-  return constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === format
-  || constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSX === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTM === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSM === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTX === format
-  || constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTM === format
-  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX === format
-  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM === format
-  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format
-  || constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format;
+exports.isOOXFormat = function (format) {
+  return (
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOTM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCXF === format ||
+    constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPSM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM === format ||
+    constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX === format ||
+    constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTM === format
+  );
 };
-exports.isBrowserEditorFormat = function(format) {
-  return constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === format ||
+exports.isBrowserEditorFormat = function (format) {
+  return (
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === format ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDFA === format ||
     constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_DJVU === format ||
-    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === format;
+    constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_XPS === format
+  );
 };
 function getDocumentFormatBySignature(buffer) {
   if (!buffer) {
     return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   }
-  const text = buffer.toString("latin1");
+  const text = buffer.toString('latin1');
   // Check for binary DOCT format.
   if (4 <= text.length && text[0] === 'D' && text[1] === 'O' && text[2] === 'C' && text[3] === 'Y') {
     return constants.AVS_OFFICESTUDIO_FILE_CANVAS_WORD;
@@ -608,14 +690,14 @@ function getDocumentFormatBySignature(buffer) {
 
   // Unknown format
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
-};
+}
 async function getDocumentFormatByFile(file) {
   const firstBytesLen = 100;
   let buffer;
   let fd;
   try {
     fd = await open(file, 'r');
-    const stream = fd.createReadStream({ start: 0, end: firstBytesLen });
+    const stream = fd.createReadStream({start: 0, end: firstBytesLen});
     const chunks = [];
     for await (const chunk of stream) {
       chunks.push(Buffer.from(chunk));
@@ -625,6 +707,6 @@ async function getDocumentFormatByFile(file) {
     await fd?.close();
   }
   return getDocumentFormatBySignature(buffer);
-};
+}
 exports.getDocumentFormatBySignature = getDocumentFormatBySignature;
-exports.getDocumentFormatByFile = getDocumentFormatByFile
+exports.getDocumentFormatByFile = getDocumentFormatByFile;

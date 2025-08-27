@@ -32,7 +32,7 @@
 
 'use strict';
 
-const { buffer } = require('node:stream/consumers');
+const {buffer} = require('node:stream/consumers');
 const config = require('config');
 const utils = require('../../../Common/sources/utils');
 const operationContext = require('../../../Common/sources/operationContext');
@@ -48,7 +48,7 @@ const engineScriptsDir = path.join(cfgAiPluginDir, 'scripts/engine');
 
 function setCtx(ctx) {
   sandbox.ctx = ctx;
-  console.log = ctx.logger.debug.bind(ctx.logger);//todo make default in logger
+  console.log = ctx.logger.debug.bind(ctx.logger); //todo make default in logger
   console.error = ctx.logger.error.bind(ctx.logger);
 }
 
@@ -60,14 +60,26 @@ const sandbox = {
       TmpProviderForModels: null,
       Providers: {},
       InternalProviders: [],
-      _getHeaders() {return {};},
-      _getEndpointUrl() {return "";},
-      serializeProviders() {return [];},
-      ActionsGetSorted() {return [];},
-      getModels() {return [];},
+      _getHeaders() {
+        return {};
+      },
+      _getEndpointUrl() {
+        return '';
+      },
+      serializeProviders() {
+        return [];
+      },
+      ActionsGetSorted() {
+        return [];
+      },
+      getModels() {
+        return [];
+      },
       onLoadInternalProviders() {},
       Storage: {
-        serializeModels() {return [];}
+        serializeModels() {
+          return [];
+        }
       },
       CapabilitiesUI: {}
     }
@@ -80,10 +92,10 @@ const sandbox = {
       }
     }
   },
-  
+
   /**
    * Implementation of fetch that delegates to utils.httpRequest
-   * 
+   *
    * @param {string} url - The URL to fetch
    * @param {Object} options - Fetch options (method, headers, body)
    * @returns {Promise<Object>} - A promise that resolves to a response-like object
@@ -91,37 +103,38 @@ const sandbox = {
   fetch(url, options = {}) {
     const ctx = sandbox.ctx;
     const method = options.method || 'GET';
-    
+
     // Configure timeout options for the request
     const timeoutOptions = {
       connectionAndInactivity: cfgAiApiTimeout,
       wholeCycle: cfgAiApiTimeout
     };
-    ctx.logger.debug("engineWrapper fetch", url, options);
-    return utils.httpRequest(
-      sandbox.ctx,
-      method,
-      url,
-      options.headers || {},
-      options.body || null,
-      timeoutOptions,
-      null,
-      true //true because request limited by local network
-    )
-    .then(async (result) => {
-      const responseBuffer = await buffer(result.stream);
-      const text = responseBuffer.toString('utf8');
-      
-      return {
-        status: result.response.status,
-        statusText: result.response.statusText,
-        ok: result.response.status >= 200 && result.response.status < 300,
-        headers: result.response.headers,
-        text: () => Promise.resolve(text),
-        json: () => Promise.resolve(JSON.parse(text)),
-        arrayBuffer: () => Promise.resolve(responseBuffer.buffer)
-      };
-    });
+    ctx.logger.debug('engineWrapper fetch', url, options);
+    return utils
+      .httpRequest(
+        sandbox.ctx,
+        method,
+        url,
+        options.headers || {},
+        options.body || null,
+        timeoutOptions,
+        null,
+        true //true because request limited by local network
+      )
+      .then(async result => {
+        const responseBuffer = await buffer(result.stream);
+        const text = responseBuffer.toString('utf8');
+
+        return {
+          status: result.response.status,
+          statusText: result.response.statusText,
+          ok: result.response.status >= 200 && result.response.status < 300,
+          headers: result.response.headers,
+          text: () => Promise.resolve(text),
+          json: () => Promise.resolve(JSON.parse(text)),
+          arrayBuffer: () => Promise.resolve(responseBuffer.buffer)
+        };
+      });
   }
 };
 
@@ -135,7 +148,7 @@ setCtx(operationContext.global);
 function loadInternalProviders() {
   // Add simple provider loading logic
   const enginePath = path.join(engineScriptsDir, 'providers/internal');
-  
+
   // Check if the providers directory exists before trying to read it
   if (!fs.existsSync(enginePath)) {
     sandbox.ctx.logger.warn('Internal providers directory not found:', enginePath);
@@ -146,16 +159,16 @@ function loadInternalProviders() {
   try {
     // Read providers directory
     const files = fs.readdirSync(enginePath);
-    
+
     // Load each provider
     for (const file of files) {
       if (file.endsWith('.js')) {
         const providerPath = path.join(enginePath, file);
         const providerCode = fs.readFileSync(providerPath, 'utf8');
-        
+
         try {
           //sandbox.ctx.logger.debug(`Loading provider ${file}:`);
-          const content = "(function(){\n" + providerCode + "\nreturn new Provider();})();";
+          const content = '(function(){\n' + providerCode + '\nreturn new Provider();})();';
           // Execute provider code in sandbox
           const provider = vm.runInNewContext(content, sandbox, {
             filename: file,
@@ -197,39 +210,38 @@ if (engineCode) {
 }
 
 //start from engine/register.js
-(function() {
+(function () {
   const AI = sandbox.AI;
   const Asc = sandbox.Asc;
 
   AI.ActionType = {
-    Chat             : "Chat",
-    Summarization    : "Summarization",
-    Translation      : "Translation",
-    TextAnalyze      : "TextAnalyze",
-    ImageGeneration  : "ImageGeneration",
-    OCR              : "OCR",
-    Vision           : "Vision"
+    Chat: 'Chat',
+    Summarization: 'Summarization',
+    Translation: 'Translation',
+    TextAnalyze: 'TextAnalyze',
+    ImageGeneration: 'ImageGeneration',
+    OCR: 'OCR',
+    Vision: 'Vision'
   };
 
   AI.Actions = {};
 
   function ActionUI(name, icon, modelId, capabilities) {
-    this.name = name || "";
-    this.icon = icon || "";
-    this.model = modelId || "";
-    this.capabilities = (capabilities === undefined) ? AI.CapabilitiesUI.Chat : capabilities;
+    this.name = name || '';
+    this.icon = icon || '';
+    this.model = modelId || '';
+    this.capabilities = capabilities === undefined ? AI.CapabilitiesUI.Chat : capabilities;
   }
 
-  AI.Actions[AI.ActionType.Chat]            = new ActionUI("Chatbot", "ask-ai");
-  AI.Actions[AI.ActionType.Summarization]   = new ActionUI("Summarization", "summarization");
-  AI.Actions[AI.ActionType.Translation]     = new ActionUI("Translation", "translation");
-  AI.Actions[AI.ActionType.TextAnalyze]     = new ActionUI("Text analysis", "text-analysis-ai");
-  AI.Actions[AI.ActionType.ImageGeneration] = new ActionUI("Image generation", "image-ai", "", AI.CapabilitiesUI.Image);
-  AI.Actions[AI.ActionType.OCR]             = new ActionUI("OCR", "text-analysis-ai", "", AI.CapabilitiesUI.Vision);
-  AI.Actions[AI.ActionType.Vision]          = new ActionUI("Vision", "vision-ai", "", AI.CapabilitiesUI.Vision);
+  AI.Actions[AI.ActionType.Chat] = new ActionUI('Chatbot', 'ask-ai');
+  AI.Actions[AI.ActionType.Summarization] = new ActionUI('Summarization', 'summarization');
+  AI.Actions[AI.ActionType.Translation] = new ActionUI('Translation', 'translation');
+  AI.Actions[AI.ActionType.TextAnalyze] = new ActionUI('Text analysis', 'text-analysis-ai');
+  AI.Actions[AI.ActionType.ImageGeneration] = new ActionUI('Image generation', 'image-ai', '', AI.CapabilitiesUI.Image);
+  AI.Actions[AI.ActionType.OCR] = new ActionUI('OCR', 'text-analysis-ai', '', AI.CapabilitiesUI.Vision);
+  AI.Actions[AI.ActionType.Vision] = new ActionUI('Vision', 'vision-ai', '', AI.CapabilitiesUI.Vision);
 
-  AI.ActionsGetKeys = function()
-  {
+  AI.ActionsGetKeys = function () {
     return [
       AI.ActionType.Chat,
       AI.ActionType.Summarization,
@@ -241,21 +253,19 @@ if (engineCode) {
     ];
   };
 
-  AI.ActionsGetSorted = function()
-  {
+  AI.ActionsGetSorted = function () {
     const keys = AI.ActionsGetKeys();
     const count = keys.length;
     const actions = new Array(count);
-    for (let i = 0; i < count; i++)
-    {
+    for (let i = 0; i < count; i++) {
       const src = AI.Actions[keys[i]];
       actions[i] = {
-        id : keys[i],
-        name : Asc.plugin.tr(src.name),
-        icon : src.icon,
-        model : src.model,
-        capabilities : src.capabilities
-      }
+        id: keys[i],
+        name: Asc.plugin.tr(src.name),
+        icon: src.icon,
+        model: src.model,
+        capabilities: src.capabilities
+      };
     }
     return actions;
   };

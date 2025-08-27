@@ -53,7 +53,7 @@ const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 //   const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
 //   return checkJwtUploadTransformRes(ctx, errorName, checkJwtRes);
 // }
-function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
+function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes) {
   var res = {err: true, docId: null, userid: null, encrypted: null};
   if (checkJwtRes.decoded) {
     var doc = checkJwtRes.decoded.document;
@@ -74,7 +74,7 @@ function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes){
   }
   return res;
 }
-exports.uploadImageFile = function(req, res) {
+exports.uploadImageFile = function (req, res) {
   return co(function* () {
     let httpStatus = 200;
     var docId = 'null';
@@ -125,15 +125,19 @@ exports.uploadImageFile = function(req, res) {
               formatStr = formatChecker.getStringFromFormat(format);
             }
             //a hash is written at the beginning to avoid errors during parallel upload in co-editing
-            var strImageName = crypto.randomBytes(16).toString("hex");
+            var strImageName = crypto.randomBytes(16).toString('hex');
             var strPathRel = 'media/' + strImageName + '.' + formatStr;
             var strPath = docId + '/' + strPathRel;
 
             buffer = yield utilsDocService.fixImageExifRotation(ctx, buffer);
 
             yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
-            output[strPathRel] = yield storageBase.getSignedUrl(ctx, utils.getBaseUrlByRequest(ctx, req), strPath,
-                                                                commonDefines.c_oAscUrlTypes.Session);
+            output[strPathRel] = yield storageBase.getSignedUrl(
+              ctx,
+              utils.getBaseUrlByRequest(ctx, req),
+              strPath,
+              commonDefines.c_oAscUrlTypes.Session
+            );
           } else {
             httpStatus = 415;
             ctx.logger.debug('uploadImageFile format is not supported');

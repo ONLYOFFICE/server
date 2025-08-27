@@ -59,20 +59,29 @@ function initRabbit(pubsub, callback) {
       });
       pubsub.connection = conn;
       pubsub.channelPublish = yield rabbitMQCore.createChannelPromise(conn);
-      pubsub.exchangePublish = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub.name,
-        'fanout', cfgRabbitExchangePubSub.options);
+      pubsub.exchangePublish = yield rabbitMQCore.assertExchangePromise(
+        pubsub.channelPublish,
+        cfgRabbitExchangePubSub.name,
+        'fanout',
+        cfgRabbitExchangePubSub.options
+      );
 
       pubsub.channelReceive = yield rabbitMQCore.createChannelPromise(conn);
       var queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, cfgRabbitQueuePubsub.name, cfgRabbitQueuePubsub.options);
       pubsub.channelReceive.bindQueue(queue, cfgRabbitExchangePubSub.name, '');
-      yield rabbitMQCore.consumePromise(pubsub.channelReceive, queue, (message) => {
-        if(null != pubsub.channelReceive){
-          if (message) {
-            pubsub.emit('message', message.content.toString());
+      yield rabbitMQCore.consumePromise(
+        pubsub.channelReceive,
+        queue,
+        message => {
+          if (null != pubsub.channelReceive) {
+            if (message) {
+              pubsub.emit('message', message.content.toString());
+            }
+            pubsub.channelReceive.ack(message);
           }
-          pubsub.channelReceive.ack(message);
-        }
-      }, {noAck: false});
+        },
+        {noAck: false}
+      );
       //process messages received while reconnection time
       yield repeat(pubsub);
     } catch (err) {
@@ -84,7 +93,7 @@ function initRabbit(pubsub, callback) {
   });
 }
 function initActive(pubsub, callback) {
-  return co(function*() {
+  return co(function* () {
     var e = null;
     try {
       var conn = yield activeMQCore.connetPromise(() => {
@@ -116,7 +125,7 @@ function initActive(pubsub, callback) {
       const receiver = yield activeMQCore.openReceiverPromise(conn, optionsPubSubReceiver);
       //todo ?consumer.dispatchAsync=false&consumer.prefetchSize=1
       receiver.add_credit(1);
-      receiver.on("message", (context) => {
+      receiver.on('message', context => {
         if (context) {
           pubsub.emit('message', context.message.body);
         }
@@ -140,13 +149,12 @@ function clear(pubsub) {
   pubsub.channelReceive = null;
 }
 function repeat(pubsub) {
-  return co(function*() {
+  return co(function* () {
     for (var i = 0; i < pubsub.publishStore.length; ++i) {
       yield publish(pubsub, pubsub.publishStore[i]);
     }
     pubsub.publishStore.length = 0;
   });
-
 }
 function publishRabbit(pubsub, data) {
   return new Promise((resolve, _reject) => {
@@ -188,13 +196,17 @@ function healthCheckRabbit(pubsub) {
     if (!pubsub.channelPublish) {
       return false;
     }
-    const exchange = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub.name,
-      'fanout', cfgRabbitExchangePubSub.options);
+    const exchange = yield rabbitMQCore.assertExchangePromise(
+      pubsub.channelPublish,
+      cfgRabbitExchangePubSub.name,
+      'fanout',
+      cfgRabbitExchangePubSub.options
+    );
     return !!exchange;
   });
 }
 function healthCheckActive(pubsub) {
-  return co(function* () {  
+  return co(function* () {
     if (!pubsub.connection) {
       return false;
     }
@@ -231,10 +243,10 @@ util.inherits(PubsubRabbitMQ, events.EventEmitter);
 PubsubRabbitMQ.prototype.init = function (callback) {
   init(this, callback);
 };
-PubsubRabbitMQ.prototype.initPromise = function() {
+PubsubRabbitMQ.prototype.initPromise = function () {
   var t = this;
   return new Promise((resolve, reject) => {
-    init(t, (err) => {
+    init(t, err => {
       if (err) {
         reject(err);
       } else {
@@ -252,11 +264,11 @@ PubsubRabbitMQ.prototype.publish = function (message) {
     return Promise.resolve();
   }
 };
-PubsubRabbitMQ.prototype.close = function() {
+PubsubRabbitMQ.prototype.close = function () {
   this.isClose = true;
   return close(this.connection);
 };
-PubsubRabbitMQ.prototype.healthCheck = function() {
+PubsubRabbitMQ.prototype.healthCheck = function () {
   return healthCheck(this);
 };
 

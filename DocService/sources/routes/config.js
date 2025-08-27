@@ -39,8 +39,13 @@ const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManag
 
 const router = express.Router();
 
-const rawFileParser = bodyParser.raw(
-    {inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type() {return true;}});
+const rawFileParser = bodyParser.raw({
+  inflate: true,
+  limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'),
+  type() {
+    return true;
+  }
+});
 
 router.get('/', async (req, res) => {
   const ctx = new operationContext.Context();
@@ -53,8 +58,7 @@ router.get('/', async (req, res) => {
     result = JSON.stringify(cfg);
   } catch (error) {
     ctx.logger.error('config get error: %s', error.stack);
-  }
-  finally {
+  } finally {
     res.setHeader('Content-Type', 'application/json');
     res.send(result);
     ctx.logger.debug('config end');
@@ -84,6 +88,5 @@ router.post('/', rawFileParser, async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;

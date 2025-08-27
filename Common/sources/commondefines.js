@@ -37,8 +37,8 @@ const constants = require('./constants');
 
 function InputCommand(data, copyExplicit) {
   //must be set explicitly to prevent vulnerability(downloadAs(with url) creates request to integrator with authorization)
-  this['withAuthorization'] = undefined;//bool
-  this['externalChangeInfo'] = undefined;//zero DB changes case: set password, undo all changes
+  this['withAuthorization'] = undefined; //bool
+  this['externalChangeInfo'] = undefined; //zero DB changes case: set password, undo all changes
   this['wopiParams'] = undefined;
   this['builderParams'] = undefined;
   this['userconnectiondocid'] = undefined;
@@ -118,45 +118,45 @@ function InputCommand(data, copyExplicit) {
       this['originformat'] = data['originformat'];
     }
   } else {
-    this['c'] = undefined;//string command
-    this['id'] = undefined;//string document id
-    this['userid'] = undefined;//string
+    this['c'] = undefined; //string command
+    this['id'] = undefined; //string document id
+    this['userid'] = undefined; //string
     this['userindex'] = undefined;
     this['username'] = undefined;
-    this['tokenSession'] = undefined;//string validate
-    this['tokenDownload'] = undefined;//string validate
-    this['data'] = undefined;//string
+    this['tokenSession'] = undefined; //string validate
+    this['tokenDownload'] = undefined; //string validate
+    this['data'] = undefined; //string
     //to open
-    this['editorid'] = undefined;//int
-    this['format'] = undefined;//string extention
-    this['url'] = undefined;//string
-    this['title'] = undefined;//string filename
+    this['editorid'] = undefined; //int
+    this['format'] = undefined; //string extention
+    this['url'] = undefined; //string
+    this['title'] = undefined; //string filename
     // to save
-    this['outputformat'] = undefined;//int
-    this['outputpath'] = undefined;//int internal
-    this['savetype'] = undefined;//int part type
-    this['saveindex'] = undefined;//int part index
+    this['outputformat'] = undefined; //int
+    this['outputpath'] = undefined; //int internal
+    this['savetype'] = undefined; //int part type
+    this['saveindex'] = undefined; //int part index
     //nullable
     this['codepage'] = undefined;
     this['delimiter'] = undefined;
     this['delimiterChar'] = undefined;
-    this['embeddedfonts'] = undefined;//bool
+    this['embeddedfonts'] = undefined; //bool
     this['mailmergesend'] = undefined;
     this['thumbnail'] = undefined;
     //private
-    this['status'] = undefined;//int
-    this['status_info'] = undefined;//int
-    this['savekey'] = undefined;//int document id to save
-    this['userconnectionid'] = undefined;//string internal
+    this['status'] = undefined; //int
+    this['status_info'] = undefined; //int
+    this['savekey'] = undefined; //int document id to save
+    this['userconnectionid'] = undefined; //string internal
     this['responsekey'] = undefined;
-    this['jsonparams'] = undefined;//string
+    this['jsonparams'] = undefined; //string
     this['lcid'] = undefined;
     this['useractionid'] = undefined;
     this['useractionindex'] = undefined;
     this['forcesave'] = undefined;
     this['userdata'] = undefined;
     this['formdata'] = undefined;
-    this['inline'] = undefined;//content disposition
+    this['inline'] = undefined; //content disposition
     this['password'] = undefined;
     this['savepassword'] = undefined;
     this['withoutPassword'] = undefined;
@@ -355,7 +355,7 @@ InputCommand.prototype = {
   getJsonParams() {
     return this['jsonparams'];
   },
-  appendJsonParams (data) {
+  appendJsonParams(data) {
     if (this['jsonparams']) {
       config.util.extendDeep(this['jsonparams'], data);
     } else {
@@ -529,34 +529,34 @@ function CForceSaveData(obj) {
     this['authoruserindex'] = null;
   }
 }
-CForceSaveData.prototype.getType = function() {
-  return this['type']
+CForceSaveData.prototype.getType = function () {
+  return this['type'];
 };
-CForceSaveData.prototype.setType = function(v) {
+CForceSaveData.prototype.setType = function (v) {
   this['type'] = v;
 };
-CForceSaveData.prototype.getTime = function() {
-  return this['time']
+CForceSaveData.prototype.getTime = function () {
+  return this['time'];
 };
-CForceSaveData.prototype.setTime = function(v) {
+CForceSaveData.prototype.setTime = function (v) {
   this['time'] = v;
 };
-CForceSaveData.prototype.getIndex = function() {
-  return this['index']
+CForceSaveData.prototype.getIndex = function () {
+  return this['index'];
 };
-CForceSaveData.prototype.setIndex = function(v) {
+CForceSaveData.prototype.setIndex = function (v) {
   this['index'] = v;
 };
-CForceSaveData.prototype.getAuthorUserId = function() {
+CForceSaveData.prototype.getAuthorUserId = function () {
   return this['authoruserid'];
 };
-CForceSaveData.prototype.setAuthorUserId = function(v) {
+CForceSaveData.prototype.setAuthorUserId = function (v) {
   this['authoruserid'] = v;
 };
-CForceSaveData.prototype.getAuthorUserIndex = function() {
+CForceSaveData.prototype.getAuthorUserIndex = function () {
   return this['authoruserindex'];
 };
-CForceSaveData.prototype.setAuthorUserIndex = function(v) {
+CForceSaveData.prototype.setAuthorUserIndex = function (v) {
   this['authoruserindex'] = v;
 };
 
@@ -575,34 +575,34 @@ function CThumbnailData(obj) {
     this['height'] = null;
   }
 }
-CThumbnailData.prototype.getFormat = function() {
-  return this['format']
+CThumbnailData.prototype.getFormat = function () {
+  return this['format'];
 };
-CThumbnailData.prototype.setFormat = function(v) {
+CThumbnailData.prototype.setFormat = function (v) {
   this['format'] = v;
 };
-CThumbnailData.prototype.getAspect = function() {
-  return this['aspect']
+CThumbnailData.prototype.getAspect = function () {
+  return this['aspect'];
 };
-CThumbnailData.prototype.setAspect = function(v) {
+CThumbnailData.prototype.setAspect = function (v) {
   this['aspect'] = v;
 };
-CThumbnailData.prototype.getFirst = function() {
-  return this['first']
+CThumbnailData.prototype.getFirst = function () {
+  return this['first'];
 };
-CThumbnailData.prototype.setFirst = function(v) {
+CThumbnailData.prototype.setFirst = function (v) {
   this['first'] = v;
 };
-CThumbnailData.prototype.getWidth = function() {
-  return this['width']
+CThumbnailData.prototype.getWidth = function () {
+  return this['width'];
 };
-CThumbnailData.prototype.setWidth = function(v) {
+CThumbnailData.prototype.setWidth = function (v) {
   this['width'] = v;
 };
-CThumbnailData.prototype.getHeight = function() {
-  return this['height']
+CThumbnailData.prototype.getHeight = function () {
+  return this['height'];
 };
-CThumbnailData.prototype.setHeight = function(v) {
+CThumbnailData.prototype.setHeight = function (v) {
   this['height'] = v;
 };
 function CTextParams(obj) {
@@ -612,10 +612,10 @@ function CTextParams(obj) {
     this['association'] = null;
   }
 }
-CTextParams.prototype.getAssociation = function() {
-  return this['association']
+CTextParams.prototype.getAssociation = function () {
+  return this['association'];
 };
-CTextParams.prototype.setAssociation = function(v) {
+CTextParams.prototype.setAssociation = function (v) {
   this['association'] = v;
 };
 
@@ -635,7 +635,7 @@ function CMailMergeSendData(obj) {
     this['url'] = obj['url'];
     this['baseUrl'] = obj['baseUrl'];
     this['jsonkey'] = obj['jsonkey'];
-	this['isJson'] = obj['isJson'];
+    this['isJson'] = obj['isJson'];
   } else {
     this['from'] = null;
     this['to'] = null;
@@ -651,97 +651,97 @@ function CMailMergeSendData(obj) {
     this['url'] = null;
     this['baseUrl'] = null;
     this['jsonkey'] = null;
-	this['isJson'] = null;
+    this['isJson'] = null;
   }
 }
-CMailMergeSendData.prototype.getFrom = function() {
-  return this['from']
+CMailMergeSendData.prototype.getFrom = function () {
+  return this['from'];
 };
-CMailMergeSendData.prototype.setFrom = function(v) {
+CMailMergeSendData.prototype.setFrom = function (v) {
   this['from'] = v;
 };
-CMailMergeSendData.prototype.getTo = function() {
-  return this['to']
+CMailMergeSendData.prototype.getTo = function () {
+  return this['to'];
 };
-CMailMergeSendData.prototype.setTo = function(v) {
+CMailMergeSendData.prototype.setTo = function (v) {
   this['to'] = v;
 };
-CMailMergeSendData.prototype.getSubject = function() {
-  return this['subject']
+CMailMergeSendData.prototype.getSubject = function () {
+  return this['subject'];
 };
-CMailMergeSendData.prototype.setSubject = function(v) {
+CMailMergeSendData.prototype.setSubject = function (v) {
   this['subject'] = v;
 };
-CMailMergeSendData.prototype.getMailFormat = function() {
-  return this['mailFormat']
+CMailMergeSendData.prototype.getMailFormat = function () {
+  return this['mailFormat'];
 };
-CMailMergeSendData.prototype.setMailFormat = function(v) {
+CMailMergeSendData.prototype.setMailFormat = function (v) {
   this['mailFormat'] = v;
 };
-CMailMergeSendData.prototype.getFileName = function() {
-  return this['fileName']
+CMailMergeSendData.prototype.getFileName = function () {
+  return this['fileName'];
 };
-CMailMergeSendData.prototype.setFileName = function(v) {
+CMailMergeSendData.prototype.setFileName = function (v) {
   this['fileName'] = v;
 };
-CMailMergeSendData.prototype.getMessage = function() {
-  return this['message']
+CMailMergeSendData.prototype.getMessage = function () {
+  return this['message'];
 };
-CMailMergeSendData.prototype.setMessage = function(v) {
+CMailMergeSendData.prototype.setMessage = function (v) {
   this['message'] = v;
 };
-CMailMergeSendData.prototype.getRecordFrom = function() {
-  return this['recordFrom']
+CMailMergeSendData.prototype.getRecordFrom = function () {
+  return this['recordFrom'];
 };
-CMailMergeSendData.prototype.setRecordFrom = function(v) {
+CMailMergeSendData.prototype.setRecordFrom = function (v) {
   this['recordFrom'] = v;
 };
-CMailMergeSendData.prototype.getRecordTo = function() {
-  return this['recordTo']
+CMailMergeSendData.prototype.getRecordTo = function () {
+  return this['recordTo'];
 };
-CMailMergeSendData.prototype.setRecordTo = function(v) {
+CMailMergeSendData.prototype.setRecordTo = function (v) {
   this['recordTo'] = v;
 };
-CMailMergeSendData.prototype.getRecordCount = function() {
-  return this['recordCount']
+CMailMergeSendData.prototype.getRecordCount = function () {
+  return this['recordCount'];
 };
-CMailMergeSendData.prototype.setRecordCount = function(v) {
+CMailMergeSendData.prototype.setRecordCount = function (v) {
   this['recordCount'] = v;
 };
-CMailMergeSendData.prototype.getRecordErrorCount = function() {
-  return this['recordErrorCount']
+CMailMergeSendData.prototype.getRecordErrorCount = function () {
+  return this['recordErrorCount'];
 };
-CMailMergeSendData.prototype.setRecordErrorCount = function(v) {
+CMailMergeSendData.prototype.setRecordErrorCount = function (v) {
   this['recordErrorCount'] = v;
 };
-CMailMergeSendData.prototype.getUserId = function() {
-  return this['userId']
+CMailMergeSendData.prototype.getUserId = function () {
+  return this['userId'];
 };
-CMailMergeSendData.prototype.setUserId = function(v) {
+CMailMergeSendData.prototype.setUserId = function (v) {
   this['userId'] = v;
 };
-CMailMergeSendData.prototype.getUrl = function() {
-  return this['url']
+CMailMergeSendData.prototype.getUrl = function () {
+  return this['url'];
 };
-CMailMergeSendData.prototype.setUrl = function(v) {
+CMailMergeSendData.prototype.setUrl = function (v) {
   this['url'] = v;
 };
-CMailMergeSendData.prototype.getBaseUrl = function() {
-  return this['baseUrl']
+CMailMergeSendData.prototype.getBaseUrl = function () {
+  return this['baseUrl'];
 };
-CMailMergeSendData.prototype.setBaseUrl = function(v) {
+CMailMergeSendData.prototype.setBaseUrl = function (v) {
   this['baseUrl'] = v;
 };
-CMailMergeSendData.prototype.getJsonKey = function() {
-  return this['jsonkey']
+CMailMergeSendData.prototype.getJsonKey = function () {
+  return this['jsonkey'];
 };
-CMailMergeSendData.prototype.setJsonKey = function(v) {
+CMailMergeSendData.prototype.setJsonKey = function (v) {
   this['jsonkey'] = v;
 };
-CMailMergeSendData.prototype.getIsJsonKey = function() {
-  return this['isJson']
+CMailMergeSendData.prototype.getIsJsonKey = function () {
+  return this['isJson'];
 };
-CMailMergeSendData.prototype.setIsJsonKey = function(v) {
+CMailMergeSendData.prototype.setIsJsonKey = function (v) {
   this['isJson'] = v;
 };
 function TaskQueueData(data) {
@@ -774,55 +774,55 @@ TaskQueueData.prototype = {
     return this['ctx'];
   },
   setCtx(data) {
-    return this['ctx'] = data;
+    return (this['ctx'] = data);
   },
   getCmd() {
     return this['cmd'];
   },
   setCmd(data) {
-    return this['cmd'] = data;
+    return (this['cmd'] = data);
   },
   getToFile() {
     return this['toFile'];
   },
   setToFile(data) {
-    return this['toFile'] = data;
+    return (this['toFile'] = data);
   },
   getFromOrigin() {
     return this['fromOrigin'];
   },
   setFromOrigin(data) {
-    return this['fromOrigin'] = data;
+    return (this['fromOrigin'] = data);
   },
   getFromSettings() {
     return this['fromSettings'];
   },
   setFromSettings(data) {
-    return this['fromSettings'] = data;
+    return (this['fromSettings'] = data);
   },
   getFromChanges() {
     return this['fromChanges'];
   },
   setFromChanges(data) {
-    return this['fromChanges'] = data;
+    return (this['fromChanges'] = data);
   },
   getPaid() {
     return this['paid'];
   },
   setPaid(data) {
-    return this['paid'] = data;
+    return (this['paid'] = data);
   },
   getDataKey() {
     return this['dataKey'];
   },
   setDataKey(data) {
-    return this['dataKey'] = data;
+    return (this['dataKey'] = data);
   },
   getVisibilityTimeout() {
     return this['visibilityTimeout'];
   },
   setVisibilityTimeout(data) {
-    return this['visibilityTimeout'] = data;
+    return (this['visibilityTimeout'] = data);
   }
 };
 
@@ -844,100 +844,100 @@ function OutputSfcData(key) {
 
   this['token'] = undefined;
 }
-OutputSfcData.prototype.getKey = function() {
+OutputSfcData.prototype.getKey = function () {
   return this['key'];
 };
-OutputSfcData.prototype.setKey = function(data) {
-  return this['key'] = data;
+OutputSfcData.prototype.setKey = function (data) {
+  return (this['key'] = data);
 };
-OutputSfcData.prototype.getStatus = function() {
+OutputSfcData.prototype.getStatus = function () {
   return this['status'];
 };
-OutputSfcData.prototype.setStatus = function(data) {
-  return this['status'] = data;
+OutputSfcData.prototype.setStatus = function (data) {
+  return (this['status'] = data);
 };
-OutputSfcData.prototype.getUrl = function() {
+OutputSfcData.prototype.getUrl = function () {
   return this['url'];
 };
-OutputSfcData.prototype.setUrl = function(data) {
-  return this['url'] = data;
+OutputSfcData.prototype.setUrl = function (data) {
+  return (this['url'] = data);
 };
-OutputSfcData.prototype.getExtName = function() {
+OutputSfcData.prototype.getExtName = function () {
   return this['filetype'];
 };
-OutputSfcData.prototype.setExtName = function(data) {
-  return this['filetype'] = data.substring(1);
+OutputSfcData.prototype.setExtName = function (data) {
+  return (this['filetype'] = data.substring(1));
 };
-OutputSfcData.prototype.getChangeUrl = function() {
+OutputSfcData.prototype.getChangeUrl = function () {
   return this['changesurl'];
 };
-OutputSfcData.prototype.setChangeUrl = function(data) {
-  return this['changesurl'] = data;
+OutputSfcData.prototype.setChangeUrl = function (data) {
+  return (this['changesurl'] = data);
 };
-OutputSfcData.prototype.getChangeHistory = function() {
+OutputSfcData.prototype.getChangeHistory = function () {
   return this['history'];
 };
-OutputSfcData.prototype.setChangeHistory = function(data) {
-  return this['history'] = data;
+OutputSfcData.prototype.setChangeHistory = function (data) {
+  return (this['history'] = data);
 };
-OutputSfcData.prototype.getUsers = function() {
+OutputSfcData.prototype.getUsers = function () {
   return this['users'];
 };
-OutputSfcData.prototype.setUsers = function(data) {
-  return this['users'] = data;
+OutputSfcData.prototype.setUsers = function (data) {
+  return (this['users'] = data);
 };
-OutputSfcData.prototype.getMailMerge = function() {
+OutputSfcData.prototype.getMailMerge = function () {
   return this['mailMerge'];
 };
-OutputSfcData.prototype.setMailMerge = function(data) {
-  return this['mailMerge'] = data;
+OutputSfcData.prototype.setMailMerge = function (data) {
+  return (this['mailMerge'] = data);
 };
-OutputSfcData.prototype.getActions = function() {
+OutputSfcData.prototype.getActions = function () {
   return this['actions'];
 };
-OutputSfcData.prototype.setActions = function(data) {
-  return this['actions'] = data;
+OutputSfcData.prototype.setActions = function (data) {
+  return (this['actions'] = data);
 };
-OutputSfcData.prototype.getUserData= function() {
+OutputSfcData.prototype.getUserData = function () {
   return this['userdata'];
 };
-OutputSfcData.prototype.setUserData = function(data) {
-  return this['userdata'] = data;
+OutputSfcData.prototype.setUserData = function (data) {
+  return (this['userdata'] = data);
 };
-OutputSfcData.prototype.getFormsDataUrl= function() {
+OutputSfcData.prototype.getFormsDataUrl = function () {
   return this['formsdataurl'];
 };
-OutputSfcData.prototype.setFormsDataUrl = function(data) {
-  return this['formsdataurl'] = data;
+OutputSfcData.prototype.setFormsDataUrl = function (data) {
+  return (this['formsdataurl'] = data);
 };
-OutputSfcData.prototype.getLastSave = function() {
-  return this['lastsave']
+OutputSfcData.prototype.getLastSave = function () {
+  return this['lastsave'];
 };
-OutputSfcData.prototype.setLastSave = function(v) {
+OutputSfcData.prototype.setLastSave = function (v) {
   this['lastsave'] = v;
 };
-OutputSfcData.prototype.getNotModified = function() {
-  return this['notmodified']
+OutputSfcData.prototype.getNotModified = function () {
+  return this['notmodified'];
 };
-OutputSfcData.prototype.setNotModified = function(v) {
+OutputSfcData.prototype.setNotModified = function (v) {
   this['notmodified'] = v;
 };
-OutputSfcData.prototype.getForceSaveType = function() {
-  return this['forcesavetype']
+OutputSfcData.prototype.getForceSaveType = function () {
+  return this['forcesavetype'];
 };
-OutputSfcData.prototype.setForceSaveType = function(v) {
+OutputSfcData.prototype.setForceSaveType = function (v) {
   this['forcesavetype'] = v;
 };
-OutputSfcData.prototype.getEncrypted = function() {
-  return this['encrypted']
+OutputSfcData.prototype.getEncrypted = function () {
+  return this['encrypted'];
 };
-OutputSfcData.prototype.setEncrypted = function(v) {
+OutputSfcData.prototype.setEncrypted = function (v) {
   this['encrypted'] = v;
 };
-OutputSfcData.prototype.getToken = function() {
-  return this['token']
+OutputSfcData.prototype.getToken = function () {
+  return this['token'];
 };
-OutputSfcData.prototype.setToken = function(v) {
+OutputSfcData.prototype.setToken = function (v) {
   this['token'] = v;
 };
 
@@ -949,16 +949,16 @@ function OutputMailMerge(mailMergeSendData) {
     this['title'] = mailMergeSendData.getFileName();
     const mailFormat = mailMergeSendData.getMailFormat();
     switch (mailFormat) {
-      case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML :
+      case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_HTML:
         this['type'] = 0;
         break;
-      case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX :
+      case constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX:
         this['type'] = 1;
         break;
-      case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF :
+      case constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF:
         this['type'] = 2;
         break;
-      default :
+      default:
         this['type'] = 0;
         break;
     }
@@ -978,23 +978,23 @@ function OutputMailMerge(mailMergeSendData) {
     this['recordErrorCount'] = null;
   }
 }
-OutputMailMerge.prototype.getRecordIndex = function() {
+OutputMailMerge.prototype.getRecordIndex = function () {
   return this['recordIndex'];
 };
-OutputMailMerge.prototype.setRecordIndex = function(data) {
-  return this['recordIndex'] = data;
+OutputMailMerge.prototype.setRecordIndex = function (data) {
+  return (this['recordIndex'] = data);
 };
-OutputMailMerge.prototype.getRecordErrorCount = function() {
+OutputMailMerge.prototype.getRecordErrorCount = function () {
   return this['recordErrorCount'];
 };
-OutputMailMerge.prototype.setRecordErrorCount = function(data) {
-  return this['recordErrorCount'] = data;
+OutputMailMerge.prototype.setRecordErrorCount = function (data) {
+  return (this['recordErrorCount'] = data);
 };
-OutputMailMerge.prototype.getTo = function() {
+OutputMailMerge.prototype.getTo = function () {
   return this['to'];
 };
-OutputMailMerge.prototype.setTo = function(data) {
-  return this['to'] = data;
+OutputMailMerge.prototype.setTo = function (data) {
+  return (this['to'] = data);
 };
 function OutputAction(type, userid) {
   this['type'] = type;
@@ -1007,22 +1007,22 @@ function ConvertStatus(err, url, filetype) {
   this.filetype = filetype;
   this.end = !!url;
 }
-ConvertStatus.prototype.setExtName = function(extname) {
+ConvertStatus.prototype.setExtName = function (extname) {
   this.filetype = extname.substring(1);
 };
-ConvertStatus.prototype.setUrl = function(url) {
+ConvertStatus.prototype.setUrl = function (url) {
   this.url = url;
   this.end = true;
 };
 const c_oPublishType = {
-  drop : 0,
-  releaseLock : 1,
-  participantsState : 2,
-  message : 3,
-  getLock : 4,
-  changes : 5,
-  auth : 6,
-  receiveTask : 7,
+  drop: 0,
+  releaseLock: 1,
+  participantsState: 2,
+  message: 3,
+  getLock: 4,
+  changes: 5,
+  auth: 6,
+  receiveTask: 7,
   warning: 8,
   cursor: 9,
   shutdown: 10,
@@ -1043,79 +1043,132 @@ const c_oAscCsvDelimiter = {
   Space: 5
 };
 const c_oAscEncodings = [
-  [ 0,    28596, "ISO-8859-6",       "Arabic (ISO 8859-6)" ],
-  [ 1,    720,   "DOS-720",          "Arabic (OEM 720)" ],
-  [ 2,    1256,  "windows-1256",     "Arabic (Windows)" ],
+  [0, 28596, 'ISO-8859-6', 'Arabic (ISO 8859-6)'],
+  [1, 720, 'DOS-720', 'Arabic (OEM 720)'],
+  [2, 1256, 'windows-1256', 'Arabic (Windows)'],
 
-  [ 3,    28594, "ISO-8859-4",       "Baltic (ISO 8859-4)" ],
-  [ 4,    28603, "ISO-8859-13",      "Baltic (ISO 8859-13)" ],
-  [ 5,    775,   "IBM775",           "Baltic (OEM 775)" ],
-  [ 6,    1257,  "windows-1257",     "Baltic (Windows)" ],
+  [3, 28594, 'ISO-8859-4', 'Baltic (ISO 8859-4)'],
+  [4, 28603, 'ISO-8859-13', 'Baltic (ISO 8859-13)'],
+  [5, 775, 'IBM775', 'Baltic (OEM 775)'],
+  [6, 1257, 'windows-1257', 'Baltic (Windows)'],
 
-  [ 7,    28604, "ISO-8859-14",      "Celtic (ISO 8859-14)" ],
+  [7, 28604, 'ISO-8859-14', 'Celtic (ISO 8859-14)'],
 
-  [ 8,    28595, "ISO-8859-5",       "Cyrillic (ISO 8859-5)" ],
-  [ 9,    20866, "KOI8-R",           "Cyrillic (KOI8-R)" ],
-  [ 10,   21866, "KOI8-U",           "Cyrillic (KOI8-U)" ],
-  [ 11,   10007, "x-mac-cyrillic",   "Cyrillic (Mac)" ],
-  [ 12,   855,   "IBM855",           "Cyrillic (OEM 855)" ],
-  [ 13,   866,   "cp866",            "Cyrillic (OEM 866)" ],
-  [ 14,   1251,  "windows-1251",     "Cyrillic (Windows)" ],
+  [8, 28595, 'ISO-8859-5', 'Cyrillic (ISO 8859-5)'],
+  [9, 20866, 'KOI8-R', 'Cyrillic (KOI8-R)'],
+  [10, 21866, 'KOI8-U', 'Cyrillic (KOI8-U)'],
+  [11, 10007, 'x-mac-cyrillic', 'Cyrillic (Mac)'],
+  [12, 855, 'IBM855', 'Cyrillic (OEM 855)'],
+  [13, 866, 'cp866', 'Cyrillic (OEM 866)'],
+  [14, 1251, 'windows-1251', 'Cyrillic (Windows)'],
 
-  [ 15,   852,   "IBM852",           "Central European (OEM 852)" ],
-  [ 16,   1250,  "windows-1250",     "Central European (Windows)" ],
+  [15, 852, 'IBM852', 'Central European (OEM 852)'],
+  [16, 1250, 'windows-1250', 'Central European (Windows)'],
 
-  [ 17,   950,   "Big5",             "Chinese (Big5 Traditional)" ],
-  [ 18,   936,   "GB2312",           "Central (GB2312 Simplified)" ],
+  [17, 950, 'Big5', 'Chinese (Big5 Traditional)'],
+  [18, 936, 'GB2312', 'Central (GB2312 Simplified)'],
 
-  [ 19,   28592, "ISO-8859-2",       "Eastern European (ISO 8859-2)" ],
+  [19, 28592, 'ISO-8859-2', 'Eastern European (ISO 8859-2)'],
 
-  [ 20,   28597, "ISO-8859-7",       "Greek (ISO 8859-7)" ],
-  [ 21,   737,   "IBM737",           "Greek (OEM 737)" ],
-  [ 22,   869,   "IBM869",           "Greek (OEM 869)" ],
-  [ 23,   1253,  "windows-1253",     "Greek (Windows)" ],
+  [20, 28597, 'ISO-8859-7', 'Greek (ISO 8859-7)'],
+  [21, 737, 'IBM737', 'Greek (OEM 737)'],
+  [22, 869, 'IBM869', 'Greek (OEM 869)'],
+  [23, 1253, 'windows-1253', 'Greek (Windows)'],
 
-  [ 24,   28598, "ISO-8859-8",       "Hebrew (ISO 8859-8)" ],
-  [ 25,   862,   "DOS-862",          "Hebrew (OEM 862)" ],
-  [ 26,   1255,  "windows-1255",     "Hebrew (Windows)" ],
+  [24, 28598, 'ISO-8859-8', 'Hebrew (ISO 8859-8)'],
+  [25, 862, 'DOS-862', 'Hebrew (OEM 862)'],
+  [26, 1255, 'windows-1255', 'Hebrew (Windows)'],
 
-  [ 27,   932,   "Shift_JIS",        "Japanese (Shift-JIS)" ],
+  [27, 932, 'Shift_JIS', 'Japanese (Shift-JIS)'],
 
-  [ 28,   949,   "KS_C_5601-1987",   "Korean (Windows)" ],
-  [ 29,   51949, "EUC-KR",           "Korean (EUC)" ],
+  [28, 949, 'KS_C_5601-1987', 'Korean (Windows)'],
+  [29, 51949, 'EUC-KR', 'Korean (EUC)'],
 
-  [ 30,   861,   "IBM861",           "North European (Icelandic OEM 861)" ],
-  [ 31,   865,   "IBM865",           "North European (Nordic OEM 865)" ],
+  [30, 861, 'IBM861', 'North European (Icelandic OEM 861)'],
+  [31, 865, 'IBM865', 'North European (Nordic OEM 865)'],
 
-  [ 32,   874,   "windows-874",      "Thai (TIS-620)" ],
+  [32, 874, 'windows-874', 'Thai (TIS-620)'],
 
-  [ 33,   28593, "ISO-8859-3",       "Turkish (ISO 8859-3)" ],
-  [ 34,   28599, "ISO-8859-9",       "Turkish (ISO 8859-9)" ],
-  [ 35,   857,   "IBM857",           "Turkish (OEM 857)" ],
-  [ 36,   1254,  "windows-1254",     "Turkish (Windows)" ],
+  [33, 28593, 'ISO-8859-3', 'Turkish (ISO 8859-3)'],
+  [34, 28599, 'ISO-8859-9', 'Turkish (ISO 8859-9)'],
+  [35, 857, 'IBM857', 'Turkish (OEM 857)'],
+  [36, 1254, 'windows-1254', 'Turkish (Windows)'],
 
-  [ 37,   28591, "ISO-8859-1",       "Western European (ISO-8859-1)" ],
-  [ 38,   28605, "ISO-8859-15",      "Western European (ISO-8859-15)" ],
-  [ 39,   850,   "IBM850",           "Western European (OEM 850)" ],
-  [ 40,   858,   "IBM858",           "Western European (OEM 858)" ],
-  [ 41,   860,   "IBM860",           "Western European (OEM 860 : Portuguese)" ],
-  [ 42,   863,   "IBM863",           "Western European (OEM 863 : French)" ],
-  [ 43,   437,   "IBM437",           "Western European (OEM-US)" ],
-  [ 44,   1252,  "windows-1252",     "Western European (Windows)" ],
+  [37, 28591, 'ISO-8859-1', 'Western European (ISO-8859-1)'],
+  [38, 28605, 'ISO-8859-15', 'Western European (ISO-8859-15)'],
+  [39, 850, 'IBM850', 'Western European (OEM 850)'],
+  [40, 858, 'IBM858', 'Western European (OEM 858)'],
+  [41, 860, 'IBM860', 'Western European (OEM 860 : Portuguese)'],
+  [42, 863, 'IBM863', 'Western European (OEM 863 : French)'],
+  [43, 437, 'IBM437', 'Western European (OEM-US)'],
+  [44, 1252, 'windows-1252', 'Western European (Windows)'],
 
-  [ 45,   1258,  "windows-1258",     "Vietnamese (Windows)" ],
+  [45, 1258, 'windows-1258', 'Vietnamese (Windows)'],
 
-  [ 46,   65001, "UTF-8",            "Unicode (UTF-8)" ],
-  [ 47,   65000, "UTF-7",            "Unicode (UTF-7)" ],
+  [46, 65001, 'UTF-8', 'Unicode (UTF-8)'],
+  [47, 65000, 'UTF-7', 'Unicode (UTF-7)'],
 
-  [ 48,   1200, "UTF-16",            "Unicode (UTF-16)" ],
-  [ 49,   1201, "UTF-16BE",          "Unicode (UTF-16 Big Endian)" ],
+  [48, 1200, 'UTF-16', 'Unicode (UTF-16)'],
+  [49, 1201, 'UTF-16BE', 'Unicode (UTF-16 Big Endian)'],
 
-  [ 50,   12000, "UTF-32",           "Unicode (UTF-32)" ],
-  [ 51,   12001, "UTF-32BE",         "Unicode (UTF-32 Big Endian)" ]
+  [50, 12000, 'UTF-32', 'Unicode (UTF-32)'],
+  [51, 12001, 'UTF-32BE', 'Unicode (UTF-32 Big Endian)']
 ];
-const c_oAscEncodingsMap = {"437": 43, "720": 1, "737": 21, "775": 5, "850": 39, "852": 15, "855": 12, "857": 35, "858": 40, "860": 41, "861": 30, "862": 25, "863": 42, "865": 31, "866": 13, "869": 22, "874": 32, "932": 27, "936": 18, "949": 28, "950": 17, "1200": 48, "1201": 49, "1250": 16, "1251": 14, "1252": 44, "1253": 23, "1254": 36, "1255": 26, "1256": 2, "1257": 6, "1258": 45, "10007": 11, "12000": 50, "12001": 51, "20866": 9, "21866": 10, "28591": 37, "28592": 19, "28593": 33, "28594": 3, "28595": 8, "28596": 0, "28597": 20, "28598": 24, "28599": 34, "28603": 4, "28604": 7, "28605": 38, "51949": 29, "65000": 47, "65001": 46}
-const c_oAscCodePageUtf8 = 46;//65001
+const c_oAscEncodingsMap = {
+  437: 43,
+  720: 1,
+  737: 21,
+  775: 5,
+  850: 39,
+  852: 15,
+  855: 12,
+  857: 35,
+  858: 40,
+  860: 41,
+  861: 30,
+  862: 25,
+  863: 42,
+  865: 31,
+  866: 13,
+  869: 22,
+  874: 32,
+  932: 27,
+  936: 18,
+  949: 28,
+  950: 17,
+  1200: 48,
+  1201: 49,
+  1250: 16,
+  1251: 14,
+  1252: 44,
+  1253: 23,
+  1254: 36,
+  1255: 26,
+  1256: 2,
+  1257: 6,
+  1258: 45,
+  10007: 11,
+  12000: 50,
+  12001: 51,
+  20866: 9,
+  21866: 10,
+  28591: 37,
+  28592: 19,
+  28593: 33,
+  28594: 3,
+  28595: 8,
+  28596: 0,
+  28597: 20,
+  28598: 24,
+  28599: 34,
+  28603: 4,
+  28604: 7,
+  28605: 38,
+  51949: 29,
+  65000: 47,
+  65001: 46
+};
+const c_oAscCodePageUtf8 = 46; //65001
 const c_oAscUserAction = {
   Out: 0,
   In: 1,

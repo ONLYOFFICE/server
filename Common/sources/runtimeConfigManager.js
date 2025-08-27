@@ -35,7 +35,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const config = require('config');
-const NodeCache = require("node-cache");
+const NodeCache = require('node-cache');
 const operationContext = require('./operationContext');
 const utils = require('./utils');
 
@@ -89,7 +89,7 @@ async function saveConfig(ctx, config) {
   if (!configFilePath) {
     throw new Error('runtimeConfig.filePath is not specified');
   }
-  await fs.mkdir(path.dirname(configFilePath), { recursive: true });
+  await fs.mkdir(path.dirname(configFilePath), {recursive: true});
   let newConfig = await getConfig(ctx);
   newConfig = utils.deepMergeObjects(newConfig || {}, config);
   await fs.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), 'utf8');
@@ -103,7 +103,7 @@ async function saveConfig(ctx, config) {
 function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
   try {
     let shouldReload = false;
-    
+
     if (typeof eventTypeOrCurrent === 'object' && eventTypeOrCurrent.isFile) {
       shouldReload = eventTypeOrCurrent.mtime !== filenameOrPrevious.mtime;
       operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watchFile: ${configFileName}`);

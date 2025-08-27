@@ -31,7 +31,7 @@
  */
 
 'use strict';
-const { readFile, writeFile } = require("node:fs/promises");
+const {readFile, writeFile} = require('node:fs/promises');
 
 async function startTest() {
   const args = process.argv.slice(2);
@@ -39,7 +39,7 @@ async function startTest() {
     console.error('missing arguments.USAGE: json2md.js [output.md] [input.json]');
     return;
   }
-  console.info("3d license report start");
+  console.info('3d license report start');
   let outputMd = '';
   let outputFlag = 'a';
   const outputPath = args[0];
@@ -48,14 +48,14 @@ async function startTest() {
   if (inputPath) {
     const licensesText = await readFile(inputPath, 'utf-8');
     const licensesJson = JSON.parse(licensesText);
-    console.info("3d license report license count: %d", licensesJson.length);
+    console.info('3d license report license count: %d', licensesJson.length);
 
     for (const element of licensesJson) {
       const name = element['name'];
       const installedVersion = element['installedVersion'];
       const licenseType = element['licenseType'];
       const licenseFileLink = element['licenseFileLink'];
-      outputMd += `- ${name} ${installedVersion} ([${licenseType}](${licenseFileLink}))\n`
+      outputMd += `- ${name} ${installedVersion} ([${licenseType}](${licenseFileLink}))\n`;
     }
   } else {
     outputMd = '\n## Third-party\n\n';
@@ -63,11 +63,13 @@ async function startTest() {
   }
 
   await writeFile(outputPath, outputMd, {flag: outputFlag}, 'utf-8');
-  console.info("3d license report end");
+  console.info('3d license report end');
 }
 
-startTest().catch((err) => {
-  console.error(err.stack);
-}).finally(() => {
-  process.exit(0);
-});
+startTest()
+  .catch(err => {
+    console.error(err.stack);
+  })
+  .finally(() => {
+    process.exit(0);
+  });

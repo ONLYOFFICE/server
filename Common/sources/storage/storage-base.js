@@ -59,10 +59,10 @@ function getStoragePath(ctx, strPath, opt_specialDir) {
   return opt_specialDir + '/' + tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/');
 }
 function getStorage(opt_specialDir) {
-  return (opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName) ? persistentStorage : cacheStorage;
+  return opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? persistentStorage : cacheStorage;
 }
 function getStorageCfg(ctx, opt_specialDir) {
-  return (opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName) ? cfgPersistentStorage : cfgCacheStorage;
+  return opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? cfgPersistentStorage : cfgCacheStorage;
 }
 function canCopyBetweenStorage(storageCfgSrc, storageCfgDst) {
   return storageCfgSrc.name === storageCfgDst.name && storageCfgSrc.endpoint === storageCfgDst.endpoint;
@@ -102,7 +102,7 @@ async function copyObject(ctx, sourceKey, destinationKey, opt_specialDirSrc, opt
   const storagePathDst = getStoragePath(ctx, destinationKey, opt_specialDirDst);
   const storageCfgSrc = getStorageCfg(ctx, opt_specialDirSrc);
   const storageCfgDst = getStorageCfg(ctx, opt_specialDirDst);
-  if (canCopyBetweenStorage(storageCfgSrc, storageCfgDst)){
+  if (canCopyBetweenStorage(storageCfgSrc, storageCfgDst)) {
     return await storageSrc.copyObject(storageCfgSrc, storageCfgDst, storagePathSrc, storagePathDst);
   } else {
     const storageDst = getStorage(opt_specialDirDst);
@@ -113,17 +113,19 @@ async function copyObject(ctx, sourceKey, destinationKey, opt_specialDirSrc, opt
 }
 async function copyPath(ctx, sourcePath, destinationPath, opt_specialDirSrc, opt_specialDirDst) {
   const list = await listObjects(ctx, sourcePath, opt_specialDirSrc);
-  await Promise.all(list.map((curValue) => {
-    return copyObject(ctx, curValue, destinationPath + '/' + getRelativePath(sourcePath, curValue), opt_specialDirSrc, opt_specialDirDst);
-  }));
+  await Promise.all(
+    list.map(curValue => {
+      return copyObject(ctx, curValue, destinationPath + '/' + getRelativePath(sourcePath, curValue), opt_specialDirSrc, opt_specialDirDst);
+    })
+  );
 }
 async function listObjects(ctx, strPath, opt_specialDir) {
   const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
-  const prefix = getStoragePath(ctx, "", opt_specialDir);
+  const prefix = getStoragePath(ctx, '', opt_specialDir);
   try {
     const list = await storage.listObjects(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
-    return list.map((currentValue) => {
+    return list.map(currentValue => {
       return currentValue.substring(prefix.length);
     });
   } catch (e) {
@@ -156,21 +158,24 @@ async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_cre
     const bucketName = storageCfg.name === 'storage-fs' ? 'cache' : 'storage-cache';
     const storageFolderName = storageCfg.storageFolderName;
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
-    const userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, "%2f")) : path.basename(strPath);
+    const userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, '%2f')) : path.basename(strPath);
     var uri = '/' + bucketName + '/' + storageFolderName + '/' + storagePath + '/' + userFriendlyName;
     //RFC 1123 does not allow underscores https://stackoverflow.com/questions/2180465/can-domain-name-subdomains-have-an-underscore-in-it
-    var url = utils.checkBaseUrl(ctx, baseUrl, storageCfg).replace(/_/g, "%5f");
+    var url = utils.checkBaseUrl(ctx, baseUrl, storageCfg).replace(/_/g, '%5f');
     url += uri;
 
     var date = Date.now();
     const creationDate = opt_creationDate || date;
-    const expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? (cfgExpSessionAbsolute / 1000) : storageUrlExpires) || 31536000;
+    const expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
     //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
     var expires = creationDate + Math.ceil(Math.abs(date - creationDate) / expiredAfter) * expiredAfter;
     expires = Math.ceil(expires / 1000);
     expires += expiredAfter;
-    var md5 = crypto.createHash('md5').update(expires + decodeURIComponent(uri) + storageSecretString).digest("base64");
-    md5 = md5.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    var md5 = crypto
+      .createHash('md5')
+      .update(expires + decodeURIComponent(uri) + storageSecretString)
+      .digest('base64');
+    md5 = md5.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
     url += '?md5=' + encodeURIComponent(md5);
     url += '&expires=' + encodeURIComponent(expires);
@@ -203,9 +208,11 @@ async function getSignedUrls(ctx, baseUrl, strPath, urlType, opt_creationDate, o
   return outputMap;
 }
 async function getSignedUrlsArrayByArray(ctx, baseUrl, list, urlType, opt_specialDir) {
-  return await Promise.all(list.map((curValue) => {
-    return getSignedUrl(ctx, baseUrl, curValue, urlType, undefined, undefined, opt_specialDir);
-  }));
+  return await Promise.all(
+    list.map(curValue => {
+      return getSignedUrl(ctx, baseUrl, curValue, urlType, undefined, undefined, opt_specialDir);
+    })
+  );
 }
 async function getSignedUrlsByArray(ctx, baseUrl, list, optPath, urlType, opt_specialDir) {
   const urls = await getSignedUrlsArrayByArray(ctx, baseUrl, list, urlType, opt_specialDir);

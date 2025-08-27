@@ -34,11 +34,11 @@
 
 const config = require('config');
 const co = require('co');
-const NodeCache = require( "node-cache" );
+const NodeCache = require('node-cache');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
-const { readFile, readdir, writeFile } = require('fs/promises');
+const {readFile, readdir, writeFile} = require('fs/promises');
 const path = require('path');
 
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
@@ -54,7 +54,7 @@ const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
 
 let licenseInfo;
 let licenseOriginal;
-let licenseTuple;//to avoid array creating in getTenantLicense
+let licenseTuple; //to avoid array creating in getTenantLicense
 
 const c_LM = constants.LICENSE_MODE;
 
@@ -71,7 +71,7 @@ function getTenant(ctx, domain) {
 
     if (cfgTenantsBaseDomain && domain.endsWith('.' + cfgTenantsBaseDomain)) {
       tenant = domain.substring(0, domain.length - cfgTenantsBaseDomain.length - 1);
-    } else if(cfgTenantsBaseDomain === domain) {
+    } else if (cfgTenantsBaseDomain === domain) {
       tenant = getDefautTenant();
     } else {
       tenant = domain;
@@ -83,7 +83,7 @@ async function getAllTenants(ctx) {
   let dirList = [];
   try {
     if (isMultitenantMode(ctx)) {
-      const entitiesList = await readdir(cfgTenantsBaseDir, { withFileTypes: true });
+      const entitiesList = await readdir(cfgTenantsBaseDir, {withFileTypes: true});
       dirList = entitiesList.filter(direntObj => direntObj.isDirectory()).map(directory => directory.name);
     }
   } catch (error) {
@@ -141,7 +141,7 @@ async function setTenantConfig(ctx, config) {
 }
 
 function getTenantSecret(ctx, type) {
-  return co(function*() {
+  return co(function* () {
     let cfgTenant;
     //check config
     switch (type) {
@@ -224,7 +224,7 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
   }
   //can not turn on
   const flags = ['branding', 'customization'];
-  flags.forEach((flag) => {
+  flags.forEach(flag => {
     if (!licenseInfo[flag] && licenseInfoTenant[flag]) {
       licenseInfoTenant[flag] = licenseInfo[flag];
       errors.push(flag);
@@ -295,7 +295,7 @@ function isMultitenantMode(_ctx) {
 }
 function setMultitenantMode(val) {
   //for tests only!!
-  return hasBaseDir = val;
+  return (hasBaseDir = val);
 }
 function isDefaultTenant(ctx) {
   return ctx.tenant === cfgTenantsDefaultTenant;
@@ -310,7 +310,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     const oFile = (await readFile(licenseFile)).toString();
     res.hasLicense = true;
     oLicense = JSON.parse(oFile);
-    //do not verify tenant signature. verify main lic signature. 
+    //do not verify tenant signature. verify main lic signature.
     //delete from object to keep signature secret
     delete oLicense['signature'];
     if (oLicense['start_date']) {
@@ -325,7 +325,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     }
 
     if (oLicense['customer_id']) {
-      res.customerId = oLicense['customer_id']
+      res.customerId = oLicense['customer_id'];
     }
 
     if (oLicense['alias']) {
@@ -340,13 +340,13 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
       res.mode |= c_LM.Limited;
     }
     if (oLicense.hasOwnProperty('trial')) {
-      res.mode |= ((true === oLicense['trial'] || 'true' === oLicense['trial'] || 'True' === oLicense['trial']) ? c_LM.Trial : c_LM.None); // Someone who likes to put json string instead of bool
+      res.mode |= true === oLicense['trial'] || 'true' === oLicense['trial'] || 'True' === oLicense['trial'] ? c_LM.Trial : c_LM.None; // Someone who likes to put json string instead of bool
     }
     if (true === oLicense['developer']) {
       res.mode |= c_LM.Developer;
     }
     if (oLicense.hasOwnProperty('branding')) {
-      res.branding = (true === oLicense['branding'] || 'true' === oLicense['branding'] || 'True' === oLicense['branding']); // Someone who likes to put json string instead of bool
+      res.branding = true === oLicense['branding'] || 'true' === oLicense['branding'] || 'True' === oLicense['branding']; // Someone who likes to put json string instead of bool
     }
     if (oLicense.hasOwnProperty('customization')) {
       res.customization = !!oLicense['customization'];
@@ -367,10 +367,9 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
       res.usersViewCount = oLicense['users_view_count'] >> 0;
     }
     if (oLicense.hasOwnProperty('users_expire')) {
-      res.usersExpire = Math.max(constants.LICENSE_EXPIRE_USERS_ONE_DAY, (oLicense['users_expire'] >> 0) *
-        constants.LICENSE_EXPIRE_USERS_ONE_DAY);
+      res.usersExpire = Math.max(constants.LICENSE_EXPIRE_USERS_ONE_DAY, (oLicense['users_expire'] >> 0) * constants.LICENSE_EXPIRE_USERS_ONE_DAY);
     }
-    
+
     // Read grace_days setting from license file if available
     if (oLicense.hasOwnProperty('grace_days')) {
       res.graceDays = Math.max(0, oLicense['grace_days'] >> 0);
@@ -378,7 +377,7 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
 
     const timeLimited = 0 !== (res.mode & c_LM.Limited);
 
-    const checkDate = ((res.mode & c_LM.Trial) || timeLimited) ? new Date() : licenseInfo.buildDate;
+    const checkDate = res.mode & c_LM.Trial || timeLimited ? new Date() : licenseInfo.buildDate;
     //Calendar check of start_date allows to issue a license for old versions
     const checkStartDate = new Date();
     if (startDate <= checkStartDate && checkDate <= res.endDate) {
@@ -395,9 +394,11 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
         res.usersCount = Math.min(res.usersCount, constants.LICENSE_USERS);
         res.usersViewCount = Math.min(res.usersViewCount, constants.LICENSE_USERS);
         const errStr = res.usersCount ? `${res.usersCount} unique users` : `${res.connections} concurrent connections`;
-        ctx.logger.error(`License: License needs to be renewed.\nYour users have only ${errStr} ` +
-          `available for document editing for the next ${res.graceDays} days.\nPlease renew the ` +
-          'license to restore the full access');
+        ctx.logger.error(
+          `License: License needs to be renewed.\nYour users have only ${errStr} ` +
+            `available for document editing for the next ${res.graceDays} days.\nPlease renew the ` +
+            'license to restore the full access'
+        );
       } else {
         res.type = c_LR.ExpiredLimited;
       }
@@ -420,14 +421,14 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
 
     let errorMessage;
     if (res.type === c_LR.Expired) {
-      errorMessage = 'Your access to updates and support has expired.\n' +
+      errorMessage =
+        'Your access to updates and support has expired.\n' +
         'Your license key can not be applied to new versions.\n' +
         'Please extend the license to get updates and support.';
     } else if (res.type === c_LR.ExpiredLimited) {
-      errorMessage = 'License expired.\nYour users can not edit or view document anymore.\n' +
-        'Please renew the license.';
+      errorMessage = 'License expired.\nYour users can not edit or view document anymore.\n' + 'Please renew the license.';
     } else {
-      errorMessage ='License Expired!!!';
+      errorMessage = 'License Expired!!!';
     }
     ctx.logger.warn('License: ' + errorMessage);
   }

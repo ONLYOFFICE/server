@@ -63,25 +63,25 @@ function requireConfigWithRuntime(opt_additionalConfig) {
       // Update NODE_CONFIG with runtime configuration
       if (configFilePath) {
         const configData = fs.readFileSync(configFilePath, 'utf8');
-        
+
         let curNodeConfig;
         if (process.env['NODE_CONFIG']) {
           curNodeConfig = JSON.parse(process.env['NODE_CONFIG']);
         } else {
           curNodeConfig = {};
         }
-        
+
         const fileConfig = JSON.parse(configData);
-        
+
         // Merge configurations: NODE_CONFIG -> runtime -> additional
         curNodeConfig = config.util.extendDeep(curNodeConfig, fileConfig);
         if (opt_additionalConfig) {
           curNodeConfig = config.util.extendDeep(curNodeConfig, opt_additionalConfig);
         }
-        
+
         process.env['NODE_CONFIG'] = JSON.stringify(curNodeConfig);
       }
-      
+
       config = reloadNpmModule('config');
     }
   } catch (err) {

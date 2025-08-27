@@ -47,8 +47,8 @@ var WAIT_TIMEOUT = 30000;
 var LOOP_TIMEOUT = 1000;
 var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
-exports.shutdown = function(ctx, editorStat, status) {
-  return co(function*() {
+exports.shutdown = function (ctx, editorStat, status) {
+  return co(function* () {
     var res = true;
     try {
       ctx.logger.debug('shutdown start:' + EXEC_TIMEOUT);
@@ -79,7 +79,7 @@ exports.shutdown = function(ctx, editorStat, status) {
         var remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
         const inSavingStatus = yield sqlBase.getCountWithStatus(ctx, commonDefines.FileStatus.SaveVersion, EXEC_TIMEOUT);
         ctx.logger.debug('shutdown remaining files editorStat:%d, db:%d', remainingFiles, inSavingStatus);
-        if (!isStartWait && (remainingFiles + inSavingStatus) <= 0) {
+        if (!isStartWait && remainingFiles + inSavingStatus <= 0) {
           break;
         }
         yield utils.sleep(LOOP_TIMEOUT);
