@@ -1096,6 +1096,7 @@ function* ExecuteTask(ctx, task) {
   let isInJwtToken = cmd.getWithAuthorization();
   error = yield* isUselessConvertion(ctx, task, cmd);
   if (constants.NO_ERROR !== error) {
+    ctx.logger.error('constants.NO_ERROR !== error', error);
   } else if (cmd.getUrl()) {
     const format = cmd.getFormat();
     dataConvert.fileFrom = path.join(tempDirs.source, dataConvert.key + '.' + format);
