@@ -18,5 +18,14 @@ npm-shrinkwrap.json
 Metrics/config/config.js
 SpellChecker/sources/server.js
 
-# Config JSON files (tab-indented)
-Common/config/**/*.json
+# Patterns merged from .gitignore
+.idea/
+Common/config/local.json
+license.lic
+App_Data/
+FileConverter/bin
+DocService/npm-debug.log
+/Gruntfile.js.out
+local-development-*.json
+*.pyc
+run-develop-local.py
