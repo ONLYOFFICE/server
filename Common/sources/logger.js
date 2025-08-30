@@ -66,11 +66,11 @@ log4js.addLayout('json', () => {
  * @param {object} cfg
  * @returns {function}
  */
-log4js.addLayout('patternWithTokens', (cfg) => {
+log4js.addLayout('patternWithTokens', cfg => {
   const pattern = cfg && cfg.pattern ? cfg.pattern : '%m';
   const baseTokens = cfg && cfg.tokens ? cfg.tokens : {};
   const tokens = Object.assign({}, baseTokens, {
-    usid (ev) {
+    usid(ev) {
       const id = ev && ev.context && ev.context.USERSESSIONID;
       return id ? ` [${id}]` : '';
     }
