@@ -48,7 +48,6 @@ const aiEngine = require('./aiEngineWrapper');
 const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
 const cfgAiApiProxy = config.get('aiSettings.proxy');
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
-const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenEnableOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
 const cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');

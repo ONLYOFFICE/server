@@ -32,7 +32,6 @@
 
 'use strict';
 const crypto = require('crypto');
-const multiparty = require('multiparty');
 const co = require('co');
 const utilsDocService = require('./utilsDocService');
 const docsCoServer = require('./DocsCoServer');
@@ -46,7 +45,6 @@ const config = require('config');
 
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
-const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
 const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 

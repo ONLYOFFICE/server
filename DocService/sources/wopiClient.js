@@ -44,7 +44,6 @@ const {stat, lstat, readdir} = require('fs/promises');
 const utf7 = require('utf7');
 const mimeDB = require('mime-db');
 const xmlbuilder2 = require('xmlbuilder2');
-const logger = require('./../../Common/sources/logger');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
@@ -60,11 +59,9 @@ const license = require('./../../Common/sources/license');
 
 const cfgTokenOutboxAlgorithm = config.get('services.CoAuthoring.token.outbox.algorithm');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
-const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
 const cfgNewFileTemplate = config.get('services.CoAuthoring.server.newFileTemplate');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
-const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgWopiFileInfoBlockList = config.get('wopi.fileInfoBlockList');
 const cfgWopiWopiZone = config.get('wopi.wopiZone');
 const cfgWopiPdfView = config.get('wopi.pdfView');
@@ -86,11 +83,9 @@ const cfgWopiFavIconUrlDiagram = config.get('wopi.favIconUrlDiagram');
 const cfgWopiPublicKey = config.get('wopi.publicKey');
 const cfgWopiModulus = config.get('wopi.modulus');
 const cfgWopiExponent = config.get('wopi.exponent');
-const cfgWopiPrivateKey = config.get('wopi.privateKey');
 const cfgWopiPublicKeyOld = config.get('wopi.publicKeyOld');
 const cfgWopiModulusOld = config.get('wopi.modulusOld');
 const cfgWopiExponentOld = config.get('wopi.exponentOld');
-const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
 const cfgWopiHost = config.get('wopi.host');
 const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
 
@@ -107,7 +102,7 @@ if (!mimeDB['application/vnd.visio2013']) {
 const mimeTypesByExt = (function () {
   const mimeTypesByExt = {};
   for (const mimeType in mimeDB) {
-    if (mimeDB.hasOwnProperty(mimeType)) {
+    if (Object.hasOwn(mimeDB, mimeType)) {
       const val = mimeDB[mimeType];
       if (val.extensions) {
         val.extensions.forEach(value => {
@@ -129,7 +124,7 @@ async function getTemplatesFolderExts(ctx) {
     const dirContent = await readdir(`${tenNewFileTemplate}/${constants.TEMPLATES_DEFAULT_LOCALE}/`, {withFileTypes: true});
     templatesFolderExtsCache = dirContent
       .filter(dirObject => dirObject.isFile())
-      .reduce((result, item, index, array) => {
+      .reduce((result, item) => {
         const ext = path.extname(item.name).substring(1);
         result[ext] = ext;
         return result;
@@ -193,7 +188,7 @@ function discovery(req, res) {
       }
 
       const templatesFolderExtsCache = yield getTemplatesFolderExts(ctx);
-      const formsExts = tenWopiForms.reduce((result, item, index, array) => {
+      const formsExts = tenWopiForms.reduce((result, item) => {
         result[item] = item;
         return result;
       }, {});
@@ -1109,44 +1104,19 @@ function getWopiParams(lockId, fileInfo, wopiSrc, access_token, access_token_ttl
 }
 
 async function dummyCheckFileInfo(req, res) {
-  if (true) {
-    //static output for performance reason
-    res.json({
-      BaseFileName: 'sample.docx',
-      OwnerId: 'userId',
-      Size: 100, //no need to set actual size for test
-      UserId: 'userId', //test ignores
-      UserFriendlyName: 'user',
-      Version: 0,
-      UserCanWrite: true,
-      SupportsGetLock: true,
-      SupportsLocks: true,
-      SupportsUpdate: true
-    });
-  } else {
-    let fileInfo;
-    const ctx = new operationContext.Context();
-    ctx.initFromRequest(req);
-    try {
-      await ctx.initTenantCache();
-      const tenWopiDummySampleFilePath = ctx.getCfg('wopi.dummy.sampleFilePath', cfgWopiDummySampleFilePath);
-      const access_token = req.query['access_token'];
-      ctx.logger.debug('dummyCheckFileInfo access_token:%s', access_token);
-      const sampleFileStat = await stat(tenWopiDummySampleFilePath);
-
-      fileInfo = JSON.parse(Buffer.from(access_token, 'base64').toString('ascii'));
-      fileInfo.BaseFileName = path.basename(tenWopiDummySampleFilePath);
-      fileInfo.Size = sampleFileStat.size;
-    } catch (err) {
-      ctx.logger.error('dummyCheckFileInfo error:%s', err.stack);
-    } finally {
-      if (fileInfo) {
-        res.json(fileInfo);
-      } else {
-        res.sendStatus(400);
-      }
-    }
-  }
+  //static output for performance reason
+  res.json({
+    BaseFileName: 'sample.docx',
+    OwnerId: 'userId',
+    Size: 100, //no need to set actual size for test
+    UserId: 'userId', //test ignores
+    UserFriendlyName: 'user',
+    Version: 0,
+    UserCanWrite: true,
+    SupportsGetLock: true,
+    SupportsLocks: true,
+    SupportsUpdate: true
+  });
 }
 
 async function dummyGetFile(req, res) {

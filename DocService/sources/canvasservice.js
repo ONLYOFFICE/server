@@ -1806,7 +1806,7 @@ exports.downloadFile = function (req, res) {
         stream = downloadResult.stream;
         // Sanitize Content-Disposition by removing control chars (prevents CRLF/header injection)
         if (response.headers['content-disposition']) {
-          response.headers['content-disposition'] = response.headers['content-disposition'].replace(/[\x00-\x1F\x7F]/g, '');
+          response.headers['content-disposition'] = response.headers['content-disposition'].replace(/\p{Cc}/gu, '');
         }
         //Set-Cookie resets browser session
         delete response.headers['set-cookie'];
