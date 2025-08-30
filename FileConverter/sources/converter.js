@@ -324,9 +324,9 @@ TaskQueueDataConvert.prototype = {
   serializeXmlAttr(name, value) {
     let xml = '';
     if (null != value) {
-      xml += ' ' + name + '=\"';
+      xml += ' ' + name + '="';
       xml += utils.encodeXml(value.toString());
-      xml += '\"';
+      xml += '"';
     }
     return xml;
   }
@@ -375,7 +375,14 @@ async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
     }
   }
 }
-function* replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
+/**
+ * Replace an empty file with a localized template of the requested format, if available.
+ * @param {operationContext} ctx - Operation context for config and logging
+ * @param {string} fileFrom - Path to the file to check/replace
+ * @param {string} ext - Target extension (e.g., 'docx', 'xlsx', 'pptx')
+ * @param {number} _lcid - Optional locale identifier to select template locale
+ */
+function replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
   if (!fs.existsSync(fileFrom) || 0 === fs.lstatSync(fileFrom).size) {
     let locale = constants.TEMPLATES_DEFAULT_LOCALE;
@@ -1115,7 +1122,7 @@ function* ExecuteTask(ctx, task) {
         error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers);
       }
       if (constants.NO_ERROR === error) {
-        yield* replaceEmptyFile(ctx, dataConvert.fileFrom, format, cmd.getLCID());
+        replaceEmptyFile(ctx, dataConvert.fileFrom, format, cmd.getLCID());
       }
       if (clientStatsD) {
         clientStatsD.timing('conv.downloadFile', new Date() - curDate);

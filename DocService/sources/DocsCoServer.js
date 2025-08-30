@@ -2272,7 +2272,13 @@ exports.install = function (server, callbackFunction) {
     return result;
   }
 
-  function* setLockDocumentTimer(ctx, docId, userId) {
+  /**
+   * Schedule lock cleanup for a document after the configured timeout.
+   * @param {operationContext} ctx - Operation context
+   * @param {string} docId - Document identifier
+   * @param {string} userId - User identifier associated with the lock
+   */
+  function setLockDocumentTimer(ctx, docId, userId) {
     const tenExpLockDoc = ctx.getCfg('services.CoAuthoring.expire.lockDoc', cfgExpLockDoc);
     const timerId = setTimeout(() => {
       return co(function* () {
@@ -3180,7 +3186,7 @@ exports.install = function (server, callbackFunction) {
         if (lockDocumentTimer) {
           cleanLockDocumentTimer(docId, lockDocumentTimer);
         }
-        yield* setLockDocumentTimer(ctx, docId, lockDocument.id);
+        setLockDocumentTimer(ctx, docId, lockDocument.id);
       }
     }
     if (constants.CONN_CLOSED === conn.conn.readyState) {
@@ -3955,7 +3961,7 @@ exports.install = function (server, callbackFunction) {
             if (lockDocumentTimer) {
               ctx.logger.debug('lockDocumentsTimerId update c_oPublishType.changes');
               cleanLockDocumentTimer(data.docId, lockDocumentTimer);
-              yield* setLockDocumentTimer(ctx, data.docId, lockDocumentTimer.userId);
+              setLockDocumentTimer(ctx, data.docId, lockDocumentTimer.userId);
             }
             participants = getParticipants(data.docId, true, data.userId);
             if (participants.length > 0) {
@@ -3985,7 +3991,7 @@ exports.install = function (server, callbackFunction) {
             if (lockDocumentTimer) {
               ctx.logger.debug('lockDocumentsTimerId update c_oPublishType.changesNotify');
               cleanLockDocumentTimer(data.docId, lockDocumentTimer);
-              yield* setLockDocumentTimer(ctx, data.docId, lockDocumentTimer.userId);
+              setLockDocumentTimer(ctx, data.docId, lockDocumentTimer.userId);
             }
             break;
           case commonDefines.c_oPublishType.auth:

@@ -67,7 +67,7 @@ function getTenant(ctx, domain) {
   let tenant = getDefautTenant();
   if (domain) {
     //remove port
-    domain = domain.replace(/\:.*$/, '');
+    domain = domain.replace(/:.*$/, '');
 
     if (cfgTenantsBaseDomain && domain.endsWith('.' + cfgTenantsBaseDomain)) {
       tenant = domain.substring(0, domain.length - cfgTenantsBaseDomain.length - 1);

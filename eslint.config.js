@@ -53,8 +53,7 @@ module.exports = [
       'no-console': 'off', // Allow console in server code
       'no-continue': 'off', // Allow continue statements
       'no-plusplus': 'off',
-      'require-yield': 'off',
-      'no-useless-escape': 'off',
+
       // Modern JavaScript practices
       'prefer-const': 'error', // Enforce const for immutable bindings
       'no-var': 'error', // Enforce let/const over var

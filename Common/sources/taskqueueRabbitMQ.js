@@ -469,14 +469,17 @@ function healthCheckRabbit(taskqueue) {
     return !!exchange;
   });
 }
+/**
+ * Check ActiveMQ connection health without using a generator.
+ * @param {TaskQueueRabbitMQ} taskqueue - Queue instance holding the connection
+ * @returns {Promise<boolean>} true if connection is open
+ */
 function healthCheckActive(taskqueue) {
-  return co(function* () {
-    //todo better check
-    if (!taskqueue.connection) {
-      return false;
-    }
-    return taskqueue.connection.is_open();
-  });
+  // todo better check
+  if (!taskqueue.connection) {
+    return Promise.resolve(false);
+  }
+  return Promise.resolve(taskqueue.connection.is_open());
 }
 
 function initSenderActive(sender, senderData) {
