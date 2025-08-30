@@ -1956,8 +1956,8 @@ exports.install = function (server, callbackFunction) {
                 conn.sessionIsSendWarning = false;
                 conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
                 break;
-              case 'forceSaveStart':
-                var forceSaveRes;
+              case 'forceSaveStart': {
+                let forceSaveRes;
                 if (conn.user) {
                   forceSaveRes = yield startForceSave(
                     ctx,
@@ -1980,6 +1980,7 @@ exports.install = function (server, callbackFunction) {
                 }
                 sendData(ctx, conn, {type: 'forceSaveStart', messages: forceSaveRes});
                 break;
+              }
               case 'rpc':
                 yield* startRPC(ctx, conn, data.responseKey, data.data);
                 break;
@@ -4002,13 +4003,13 @@ exports.install = function (server, callbackFunction) {
               }
             }
             break;
-          case commonDefines.c_oPublishType.receiveTask:
+          case commonDefines.c_oPublishType.receiveTask: {
             cmd = new commonDefines.InputCommand(data.cmd, true);
-            var output = new canvasService.OutputDataWrap();
+            const output = new canvasService.OutputDataWrap();
             output.fromObject(data.output);
-            var outputData = output.getData();
+            const outputData = output.getData();
 
-            var docId = cmd.getDocId();
+            const docId = cmd.getDocId();
             if (cmd.getUserConnectionId()) {
               participants = getParticipantUser(docId, cmd.getUserConnectionId());
             } else {
@@ -4042,6 +4043,7 @@ exports.install = function (server, callbackFunction) {
               sendData(ctx, participant, output);
             }
             break;
+          }
           case commonDefines.c_oPublishType.warning:
             participants = getParticipants(data.docId);
             _.each(participants, participant => {

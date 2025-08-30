@@ -1081,14 +1081,12 @@ function* ExecuteTask(ctx, task) {
   if (clientStatsD) {
     startDate = curDate = new Date();
   }
-  let resData;
-  let tempDirs;
   const getTaskTime = new Date();
   const cmd = task.getCmd();
   const dataConvert = new TaskQueueDataConvert(ctx, task);
   ctx.logger.info('Start Task');
   let error = constants.NO_ERROR;
-  tempDirs = getTempDir();
+  const tempDirs = getTempDir();
   const fileTo = task.getToFile();
   dataConvert.fileTo = fileTo ? path.join(tempDirs.result, fileTo) : '';
   const builderParams = cmd.getBuilderParams();
@@ -1186,7 +1184,7 @@ function* ExecuteTask(ctx, task) {
       curDate = new Date();
     }
   }
-  resData = yield* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeout);
+  const resData = yield* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeout);
   ctx.logger.debug('postProcess');
   if (clientStatsD) {
     clientStatsD.timing('conv.postProcess', new Date() - curDate);

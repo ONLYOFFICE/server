@@ -185,7 +185,7 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
   switch (status) {
     case commonDefines.FileStatus.SaveVersion:
     case commonDefines.FileStatus.UpdateVersion:
-    case commonDefines.FileStatus.Ok:
+    case commonDefines.FileStatus.Ok: {
       if (commonDefines.FileStatus.Ok === status) {
         outputData.setStatus('ok');
       } else if (optConn && optConn.isCloseCoAuthoring) {
@@ -216,7 +216,7 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
       } else {
         outputData.setStatus(constants.FILE_STATUS_UPDATE_VERSION);
       }
-      var command = cmd.getCommand();
+      const command = cmd.getCommand();
       if ('open' != command && 'reopen' != command && !cmd.getOutputUrls()) {
         const strPath = key + '/' + cmd.getOutputPath();
         if (optConn) {
@@ -272,9 +272,10 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
         }
       }
       break;
-    case commonDefines.FileStatus.NeedParams:
+    }
+    case commonDefines.FileStatus.NeedParams: {
       outputData.setStatus('needparams');
-      var settingsPath = key + '/' + 'origin.' + cmd.getFormat();
+      const settingsPath = key + '/' + 'origin.' + cmd.getFormat();
       if (optConn) {
         const url = await storage.getSignedUrl(ctx, optConn.baseUrl, settingsPath, commonDefines.c_oAscUrlTypes.Temporary);
         outputData.setData(url);
@@ -284,6 +285,7 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
         optAdditionalOutput.needUrlType = commonDefines.c_oAscUrlTypes.Temporary;
       }
       break;
+    }
     case commonDefines.FileStatus.NeedPassword:
       outputData.setStatus('needpassword');
       outputData.setData(statusInfo);
@@ -721,7 +723,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
     const displayedImageMap = {}; //to make one prefix for ole object urls
     for (let i = 0; i < urls.length; ++i) {
       const urlSource = urls[i];
-      var urlParsed;
+      let urlParsed;
       let data = undefined;
       if (urlSource?.startsWith('data:')) {
         const delimiterIndex = urlSource.indexOf(',');

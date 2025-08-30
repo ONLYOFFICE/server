@@ -128,10 +128,10 @@ function _getDateTime2(oDate) {
 function _insertChangesCallback(ctx, startIndex, objChanges, docId, index, user, callback) {
   let sqlCommand = `INSERT INTO ${cfgTableChanges} VALUES`;
   let i = startIndex,
-    l = objChanges.length,
     lengthUtf8Current = sqlCommand.length,
-    lengthUtf8Row = 0,
-    values = [];
+    lengthUtf8Row = 0;
+  const l = objChanges.length;
+  const values = [];
   if (i === l) {
     return;
   }
