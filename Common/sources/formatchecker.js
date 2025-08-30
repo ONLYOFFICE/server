@@ -32,13 +32,13 @@
 
 'use strict';
 
-var constants = require('./constants');
+const constants = require('./constants');
 const {open} = require('node:fs/promises');
 
 function getImageFormatBySignature(buffer) {
-  var length = buffer.length;
+  const length = buffer.length;
   //1000 for svg(xml header and creator comment)
-  var startText = buffer.toString('ascii', 0, 1000);
+  const startText = buffer.toString('ascii', 0, 1000);
 
   //jpeg
   // Hex: FF D8 FF
@@ -609,7 +609,7 @@ exports.getStringFromFormat = function (format) {
   }
 };
 exports.getImageFormat = function (ctx, buffer) {
-  var format = constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
+  let format = constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
   try {
     //signature
     format = getImageFormatBySignature(buffer);

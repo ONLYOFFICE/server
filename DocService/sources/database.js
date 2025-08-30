@@ -32,11 +32,11 @@
 
 'use strict';
 
-var mongoDB = require('mongodb');
-var config = require('./config.json');
-var _errorConnection = true;
+const mongoDB = require('mongodb');
+const config = require('./config.json');
+const _errorConnection = true;
 
-var logger = require('./../../Common/sources/logger');
+const logger = require('./../../Common/sources/logger');
 
 function CreateDbClient() {
   return new mongoDB.Db(
@@ -46,7 +46,7 @@ function CreateDbClient() {
   );
 }
 exports.insert = function (_collectionName, _newElement) {
-  var _db = CreateDbClient();
+  const _db = CreateDbClient();
   if (!_db) {
     logger.error('Error _db');
     return;
@@ -71,7 +71,7 @@ exports.insert = function (_collectionName, _newElement) {
   });
 };
 exports.remove = function (_collectionName, _removeElements) {
-  var _db = CreateDbClient();
+  const _db = CreateDbClient();
   if (!_db) {
     logger.error('Error _db');
     return;
@@ -99,13 +99,13 @@ exports.remove = function (_collectionName, _removeElements) {
   });
 };
 exports.load = function (_collectionName, callbackFunction) {
-  var _db = CreateDbClient();
+  const _db = CreateDbClient();
   if (!_db) {
     logger.error('Error _db');
     return callbackFunction(null);
   }
 
-  var result = [];
+  const result = [];
 
   // opening database
   _db.open((err, db) => {

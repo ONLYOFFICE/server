@@ -31,26 +31,26 @@
  */
 
 'use strict';
-var os = require('os');
-var path = require('path');
-var fs = require('fs');
-var url = require('url');
-var co = require('co');
-var config = require('config');
-var spawnAsync = require('@expo/spawn-async');
+const os = require('os');
+const path = require('path');
+const fs = require('fs');
+const url = require('url');
+const co = require('co');
+const config = require('config');
+const spawnAsync = require('@expo/spawn-async');
 const bytes = require('bytes');
 const lcid = require('lcid');
 const ms = require('ms');
 
-var commonDefines = require('./../../Common/sources/commondefines');
-var storage = require('./../../Common/sources/storage/storage-base');
-var utils = require('./../../Common/sources/utils');
-var constants = require('./../../Common/sources/constants');
-var baseConnector = require('../../DocService/sources/databaseConnectors/baseConnector');
+const commonDefines = require('./../../Common/sources/commondefines');
+const storage = require('./../../Common/sources/storage/storage-base');
+const utils = require('./../../Common/sources/utils');
+const constants = require('./../../Common/sources/constants');
+const baseConnector = require('../../DocService/sources/databaseConnectors/baseConnector');
 const wopiUtils = require('./../../DocService/sources/wopiUtils');
 const taskResult = require('./../../DocService/sources/taskresult');
-var statsDClient = require('./../../Common/sources/statsdclient');
-var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
+const statsDClient = require('./../../Common/sources/statsdclient');
+const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const formatChecker = require('./../../Common/sources/formatchecker');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
@@ -81,11 +81,11 @@ const cfgExternalRequestAction = config.get('externalRequest.action');
 //windows limit 512(2048) https://msdn.microsoft.com/en-us/library/6e3b887c.aspx
 //Ubuntu 14.04 limit 4096 http://underyx.me/2015/05/18/raising-the-maximum-number-of-file-descriptors.html
 //MacOs limit 2048 http://apple.stackexchange.com/questions/33715/too-many-open-files
-var MAX_OPEN_FILES = 200;
-var TEMP_PREFIX = 'ASC_CONVERT';
-var queue = null;
-var clientStatsD = statsDClient.getClient();
-var exitCodesReturn = [
+const MAX_OPEN_FILES = 200;
+const TEMP_PREFIX = 'ASC_CONVERT';
+let queue = null;
+const clientStatsD = statsDClient.getClient();
+const exitCodesReturn = [
   constants.CONVERT_PARAMS,
   constants.CONVERT_NEED_PARAMS,
   constants.CONVERT_CORRUPTED,
@@ -95,19 +95,19 @@ var exitCodesReturn = [
   constants.CONVERT_LIMITS,
   constants.CONVERT_DETECT
 ];
-var exitCodesMinorError = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM, constants.CONVERT_DRM_UNSUPPORTED, constants.CONVERT_PASSWORD];
-var exitCodesUpload = [
+const exitCodesMinorError = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM, constants.CONVERT_DRM_UNSUPPORTED, constants.CONVERT_PASSWORD];
+const exitCodesUpload = [
   constants.NO_ERROR,
   constants.CONVERT_CORRUPTED,
   constants.CONVERT_NEED_PARAMS,
   constants.CONVERT_DRM,
   constants.CONVERT_DRM_UNSUPPORTED
 ];
-var exitCodesCopyOrigin = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM];
+const exitCodesCopyOrigin = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM];
 let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(ctx, task) {
-  var cmd = task.getCmd();
+  const cmd = task.getCmd();
   this.key = cmd.getDocId();
   if (cmd.getSaveKey()) {
     this.key += cmd.getSaveKey();
@@ -187,7 +187,7 @@ TaskQueueDataConvert.prototype = {
     fs.writeFileSync(fsPath, xml, {encoding: 'utf8'});
   },
   serializeHidden(ctx) {
-    var t = this;
+    const t = this;
     return co(function* () {
       let xml;
       if (t.password || t.savePassword) {
@@ -251,7 +251,7 @@ TaskQueueDataConvert.prototype = {
     return xml;
   },
   serializeMailMerge(data) {
-    var xml = '<m_oMailMergeSend>';
+    let xml = '<m_oMailMergeSend>';
     xml += this.serializeXmlProp('from', data.getFrom());
     xml += this.serializeXmlProp('to', data.getTo());
     xml += this.serializeXmlProp('subject', data.getSubject());
@@ -267,7 +267,7 @@ TaskQueueDataConvert.prototype = {
     return xml;
   },
   serializeThumbnail(data) {
-    var xml = '<m_oThumbnail>';
+    let xml = '<m_oThumbnail>';
     xml += this.serializeXmlProp('format', data.getFormat());
     xml += this.serializeXmlProp('aspect', data.getAspect());
     xml += this.serializeXmlProp('first', data.getFirst());
@@ -277,14 +277,14 @@ TaskQueueDataConvert.prototype = {
     return xml;
   },
   serializeTextParams(data) {
-    var xml = '<m_oTextParams>';
+    let xml = '<m_oTextParams>';
     xml += this.serializeXmlProp('m_nTextAssociationType', data.getAssociation());
     xml += '</m_oTextParams>';
     return xml;
   },
   serializeLimit(ctx) {
     if (!inputLimitsXmlCache) {
-      var xml = '<m_oInputLimits>';
+      let xml = '<m_oInputLimits>';
       const tenInputLimits = ctx.getCfg('FileConverter.converter.inputLimits', cfgInputLimits);
       for (let i = 0; i < tenInputLimits.length; ++i) {
         const limit = tenInputLimits[i];
@@ -310,7 +310,7 @@ TaskQueueDataConvert.prototype = {
     return inputLimitsXmlCache;
   },
   serializeXmlProp(name, value) {
-    var xml = '';
+    let xml = '';
     //todo check empty and undefined (password?)
     if (null != value) {
       xml += '<' + name + '>';
@@ -322,7 +322,7 @@ TaskQueueDataConvert.prototype = {
     return xml;
   },
   serializeXmlAttr(name, value) {
-    var xml = '';
+    let xml = '';
     if (null != value) {
       xml += ' ' + name + '=\"';
       xml += utils.encodeXml(value.toString());
@@ -333,17 +333,17 @@ TaskQueueDataConvert.prototype = {
 };
 
 function getTempDir() {
-  var tempDir = os.tmpdir();
-  var now = new Date();
-  var newTemp;
+  const tempDir = os.tmpdir();
+  const now = new Date();
+  let newTemp;
   while (!newTemp || fs.existsSync(newTemp)) {
-    var newName = [TEMP_PREFIX, now.getFullYear(), now.getMonth(), now.getDate(), '-', (Math.random() * 0x100000000 + 1).toString(36)].join('');
+    const newName = [TEMP_PREFIX, now.getFullYear(), now.getMonth(), now.getDate(), '-', (Math.random() * 0x100000000 + 1).toString(36)].join('');
     newTemp = path.join(tempDir, newName);
   }
   fs.mkdirSync(newTemp);
-  var sourceDir = path.join(newTemp, 'source');
+  const sourceDir = path.join(newTemp, 'source');
   fs.mkdirSync(sourceDir);
-  var resultDir = path.join(newTemp, 'result');
+  const resultDir = path.join(newTemp, 'result');
   fs.mkdirSync(resultDir);
   return {temp: newTemp, source: sourceDir, result: resultDir};
 }
@@ -416,12 +416,12 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
   const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
   const tenDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
   const tenDownloadAttemptDelay = ctx.getCfg('FileConverter.converter.downloadAttemptDelay', cfgDownloadAttemptDelay);
-  var res = constants.CONVERT_DOWNLOAD;
-  var data = null;
-  var sha256 = null;
-  var downloadAttemptCount = 0;
-  var urlParsed = url.parse(uri);
-  var filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+  let res = constants.CONVERT_DOWNLOAD;
+  let data = null;
+  let sha256 = null;
+  let downloadAttemptCount = 0;
+  const urlParsed = url.parse(uri);
+  const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
   if (0 == filterStatus) {
     while (constants.NO_ERROR !== res && downloadAttemptCount++ < tenDownloadAttemptMaxCount) {
       try {
@@ -459,17 +459,17 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
   return res;
 }
 function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
-  var list = yield storage.listObjects(ctx, strPath, opt_specialDir);
+  const list = yield storage.listObjects(ctx, strPath, opt_specialDir);
   ctx.logger.debug('downloadFileFromStorage list %s', list.toString());
   //create dirs
-  var dirsToCreate = [];
-  var dirStruct = {};
+  const dirsToCreate = [];
+  const dirStruct = {};
   list.forEach(file => {
-    var curDirPath = dir;
-    var curDirStruct = dirStruct;
-    var parts = storage.getRelativePath(strPath, file).split('/');
-    for (var i = 0; i < parts.length - 1; ++i) {
-      var part = parts[i];
+    let curDirPath = dir;
+    const curDirStruct = dirStruct;
+    const parts = storage.getRelativePath(strPath, file).split('/');
+    for (let i = 0; i < parts.length - 1; ++i) {
+      const part = parts[i];
       curDirPath = path.join(curDirPath, part);
       if (!curDirStruct[part]) {
         curDirStruct[part] = {};
@@ -484,9 +484,9 @@ function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
   //download
   //todo Promise.all
   for (let i = 0; i < list.length; ++i) {
-    var file = list[i];
-    var fileRel = storage.getRelativePath(strPath, file);
-    var data = yield storage.getObject(ctx, file, opt_specialDir);
+    const file = list[i];
+    const fileRel = storage.getRelativePath(strPath, file);
+    const data = yield storage.getObject(ctx, file, opt_specialDir);
     fs.writeFileSync(path.join(dir, fileRel), data);
   }
   return list.length;
@@ -862,14 +862,14 @@ function* streamEnd(streamObj, text) {
   yield utils.promiseWaitClose(streamObj.writeStream);
 }
 function* processUploadToStorage(ctx, dir, storagePath, calcChecksum, opt_specialDirDst, opt_ignorPrefix) {
-  var list = yield utils.listObjects(dir);
+  let list = yield utils.listObjects(dir);
   if (opt_ignorPrefix) {
     list = list.filter(dir => !dir.startsWith(opt_ignorPrefix));
   }
   if (list.length < MAX_OPEN_FILES) {
     yield* processUploadToStorageChunk(ctx, list, dir, storagePath, calcChecksum, opt_specialDirDst);
   } else {
-    for (var i = 0, j = list.length; i < j; i += MAX_OPEN_FILES) {
+    for (let i = 0, j = list.length; i < j; i += MAX_OPEN_FILES) {
       yield* processUploadToStorageChunk(ctx, list.slice(i, i + MAX_OPEN_FILES), dir, storagePath, calcChecksum, opt_specialDirDst);
     }
   }
@@ -931,8 +931,8 @@ function writeProcessOutputToLog(ctx, childRes, isDebug) {
   }
 }
 function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeout) {
-  var exitCode = 0;
-  var exitSignal = null;
+  let exitCode = 0;
+  let exitSignal = null;
   if (childRes) {
     exitCode = childRes.status;
     exitSignal = childRes.signal;
@@ -972,7 +972,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     ctx.logger.debug('processUploadToStorage complete');
   }
   cmd.setStatusInfo(error);
-  var existFile = false;
+  let existFile = false;
   try {
     existFile = fs.lstatSync(dataConvert.fileTo).isFile();
   } catch (_err) {
@@ -980,11 +980,11 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
   }
   if (!existFile) {
     //todo review. the stub in the case of AVS_OFFICESTUDIO_FILE_OTHER_OOXML x2t changes the file extension.
-    var fileToBasename = path.basename(dataConvert.fileTo, path.extname(dataConvert.fileTo));
-    var fileToDir = path.dirname(dataConvert.fileTo);
-    var files = fs.readdirSync(fileToDir);
+    const fileToBasename = path.basename(dataConvert.fileTo, path.extname(dataConvert.fileTo));
+    const fileToDir = path.dirname(dataConvert.fileTo);
+    const files = fs.readdirSync(fileToDir);
     for (let i = 0; i < files.length; ++i) {
-      var fileCur = files[i];
+      const fileCur = files[i];
       if (0 == fileCur.indexOf(fileToBasename)) {
         dataConvert.fileTo = path.join(fileToDir, fileCur);
         break;
@@ -996,7 +996,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     cmd.setTitle(cmd.getOutputPath());
   }
 
-  var queueData = new commonDefines.TaskQueueData();
+  const queueData = new commonDefines.TaskQueueData();
   queueData.setCtx(ctx);
   queueData.setCmd(cmd);
   ctx.logger.debug('output (data=%j)', queueData);
@@ -1076,18 +1076,18 @@ function* spawnProcess(ctx, builderParams, tempDirs, dataConvert, authorProps, g
 function* ExecuteTask(ctx, task) {
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
   const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
-  var startDate = null;
-  var curDate = null;
+  let startDate = null;
+  let curDate = null;
   if (clientStatsD) {
     startDate = curDate = new Date();
   }
-  var resData;
-  var tempDirs;
-  var getTaskTime = new Date();
-  var cmd = task.getCmd();
-  var dataConvert = new TaskQueueDataConvert(ctx, task);
+  let resData;
+  let tempDirs;
+  const getTaskTime = new Date();
+  const cmd = task.getCmd();
+  const dataConvert = new TaskQueueDataConvert(ctx, task);
   ctx.logger.info('Start Task');
-  var error = constants.NO_ERROR;
+  let error = constants.NO_ERROR;
   tempDirs = getTempDir();
   const fileTo = task.getToFile();
   dataConvert.fileTo = fileTo ? path.join(tempDirs.result, fileTo) : '';
@@ -1141,7 +1141,7 @@ function* ExecuteTask(ctx, task) {
     if (list.length > 0) {
       dataConvert.fileFrom = list[0];
       //store indicator file to determine if opening was from the forgotten file
-      var forgottenMarkPath = tempDirs.result + '/' + tenForgottenFilesName + '.txt';
+      const forgottenMarkPath = tempDirs.result + '/' + tenForgottenFilesName + '.txt';
       fs.writeFileSync(forgottenMarkPath, tenForgottenFilesName, {encoding: 'utf8'});
     } else {
       error = constants.UNKNOWN;
@@ -1239,8 +1239,8 @@ function receiveTaskSetTimeout(ctx, task, ack, outParams) {
 }
 function receiveTask(data, ack) {
   return co(function* () {
-    var res = null;
-    var task = null;
+    let res = null;
+    let task = null;
     const outParams = {isAck: false};
     let timeoutId = undefined;
     const ctx = new operationContext.Context();

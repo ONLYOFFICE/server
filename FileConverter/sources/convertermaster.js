@@ -46,7 +46,7 @@ if (cluster.isMaster) {
   const cfgLicenseFile = config.get('license.license_file');
   const cfgMaxProcessCount = config.get('FileConverter.converter.maxprocesscount');
 
-  var workersCount = 0;
+  let workersCount = 0;
   const readLicense = async function () {
     const numCPUs = os.cpus().length;
     const availableParallelism = os.availableParallelism?.();
@@ -57,7 +57,7 @@ if (cluster.isMaster) {
     //todo send license to workers for multi-tenancy
   };
   const updateWorkers = () => {
-    var i;
+    let i;
     const arrKeyWorkers = Object.keys(cluster.workers);
     if (arrKeyWorkers.length < workersCount) {
       for (i = arrKeyWorkers.length; i < workersCount; ++i) {

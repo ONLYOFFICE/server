@@ -450,7 +450,7 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
             ctx.logger.debug('wopiEditor version fileInfo=%s; cache=%s', fileInfoVersion, cacheVersion);
             ctx.logger.debug('wopiEditor LastModifiedTime fileInfo=%s; cache=%s', fileInfoModified, cacheModified);
             if (fileInfoVersion !== cacheVersion || fileInfoModified !== cacheModified) {
-              var mask = new taskResult.TaskResultData();
+              const mask = new taskResult.TaskResultData();
               mask.tenant = ctx.tenant;
               mask.key = docId;
               mask.last_open_date = row.last_open_date;

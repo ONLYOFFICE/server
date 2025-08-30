@@ -148,7 +148,7 @@ Context.prototype.getFullCfg = function () {
  */
 function getImpl(object, property) {
   //from https://github.com/node-config/node-config/blob/a8b91ac86b499d11b90974a2c9915ce31266044a/lib/config.js#L137
-  var elems = Array.isArray(property) ? property : property.split('.'),
+  const elems = Array.isArray(property) ? property : property.split('.'),
     name = elems[0],
     value = object[name];
   if (elems.length <= 1) {

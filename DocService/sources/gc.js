@@ -33,23 +33,23 @@
 'use strict';
 
 const config = require('config');
-var co = require('co');
-var cron = require('cron');
-var ms = require('ms');
-var taskResult = require('./taskresult');
-var docsCoServer = require('./DocsCoServer');
-var canvasService = require('./canvasservice');
-var commondefines = require('./../../Common/sources/commondefines');
-var queueService = require('./../../Common/sources/taskqueueRabbitMQ');
-var operationContext = require('./../../Common/sources/operationContext');
-var pubsubService = require('./pubsubRabbitMQ');
+const co = require('co');
+const cron = require('cron');
+const ms = require('ms');
+const taskResult = require('./taskresult');
+const docsCoServer = require('./DocsCoServer');
+const canvasService = require('./canvasservice');
+const commondefines = require('./../../Common/sources/commondefines');
+const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
+const operationContext = require('./../../Common/sources/operationContext');
+const pubsubService = require('./pubsubRabbitMQ');
 const sqlBase = require('./databaseConnectors/baseConnector');
 
-var cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
-var cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
-var cfgExpFiles = config.get('services.CoAuthoring.expire.files');
-var cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
-var cfgForceSaveStep = config.get('services.CoAuthoring.autoAssembly.step');
+const cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
+const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
+const cfgExpFiles = config.get('services.CoAuthoring.expire.files');
+const cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
+const cfgForceSaveStep = config.get('services.CoAuthoring.autoAssembly.step');
 
 function getCronStep(cronTime) {
   const cronJob = new cron.CronJob(cronTime, () => {});
@@ -59,7 +59,7 @@ function getCronStep(cronTime) {
 const expFilesStep = getCronStep(cfgExpFilesCron);
 const expDocumentsStep = getCronStep(cfgExpDocumentsCron);
 
-var checkFileExpire = function (expireSeconds) {
+const checkFileExpire = function (expireSeconds) {
   return co(function* () {
     const ctx = new operationContext.Context();
     let currentExpFilesStep = expFilesStep;
@@ -72,8 +72,8 @@ var checkFileExpire = function (expireSeconds) {
       currentExpFilesStep = getCronStep(currentFilesCron);
 
       let removedCount = 0;
-      var expired;
-      var currentRemovedCount;
+      let expired;
+      let currentRemovedCount;
       do {
         currentRemovedCount = 0;
         expired = yield taskResult.getExpired(ctx, expFilesRemovedAtOnce, expireSeconds ?? expFiles);
@@ -81,7 +81,7 @@ var checkFileExpire = function (expireSeconds) {
         expired.sort((a, b) => a.tenant.localeCompare(b.tenant));
         let currentTenant = null;
 
-        for (var i = 0; i < expired.length; ++i) {
+        for (let i = 0; i < expired.length; ++i) {
           const tenant = expired[i].tenant;
           const docId = expired[i].id;
           const shardKey = sqlBase.DocumentAdditional.prototype.getShardKey(expired[i].additional);
@@ -119,11 +119,11 @@ var checkFileExpire = function (expireSeconds) {
     }
   });
 };
-var checkDocumentExpire = function () {
+const checkDocumentExpire = function () {
   return co(function* () {
-    var queue = null;
-    var removedCount = 0;
-    var startSaveCount = 0;
+    let queue = null;
+    let removedCount = 0;
+    let startSaveCount = 0;
     let currentExpDocumentsStep = expDocumentsStep;
     const ctx = new operationContext.Context();
     try {
@@ -131,7 +131,7 @@ var checkDocumentExpire = function () {
       yield ctx.initTenantCache();
       const currentDocumentsCron = ctx.getCfg('services.CoAuthoring.expire.documentsCron', cfgExpDocumentsCron);
       currentExpDocumentsStep = getCronStep(currentDocumentsCron);
-      var now = new Date().getTime();
+      const now = new Date().getTime();
       const expiredKeys = yield docsCoServer.editorData.getDocumentPresenceExpired(now);
       if (expiredKeys.length > 0) {
         queue = new queueService();
@@ -140,7 +140,7 @@ var checkDocumentExpire = function () {
         expiredKeys.sort((a, b) => a[0].localeCompare(b[0]));
         let currentTenant = null;
 
-        for (var i = 0; i < expiredKeys.length; ++i) {
+        for (let i = 0; i < expiredKeys.length; ++i) {
           const tenant = expiredKeys[i][0];
           const docId = expiredKeys[i][1];
           if (docId) {
@@ -152,7 +152,7 @@ var checkDocumentExpire = function () {
               ctx.setDocId(docId);
             }
 
-            var hasChanges = yield docsCoServer.hasChanges(ctx, docId);
+            const hasChanges = yield docsCoServer.hasChanges(ctx, docId);
             if (hasChanges) {
               //todo opt_initShardKey from getDocumentPresenceExpired data or from db
               yield docsCoServer.createSaveTimer(ctx, docId, null, null, null, queue, true, true);

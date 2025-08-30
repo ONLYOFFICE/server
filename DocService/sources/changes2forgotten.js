@@ -31,13 +31,13 @@
  */
 
 'use strict';
-var config = require('config');
-var configCoAuthoring = config.get('services.CoAuthoring');
-var co = require('co');
-var pubsubService = require('./pubsubRabbitMQ');
-var commonDefines = require('./../../Common/sources/commondefines');
-var constants = require('./../../Common/sources/constants');
-var utils = require('./../../Common/sources/utils');
+const config = require('config');
+const configCoAuthoring = config.get('services.CoAuthoring');
+const co = require('co');
+const pubsubService = require('./pubsubRabbitMQ');
+const commonDefines = require('./../../Common/sources/commondefines');
+const constants = require('./../../Common/sources/constants');
+const utils = require('./../../Common/sources/utils');
 const storage = require('./../../Common/sources/storage/storage-base');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
@@ -51,12 +51,12 @@ const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataS
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
 
-var cfgRedisPrefix = configCoAuthoring.get('redis.prefix');
-var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
+const cfgRedisPrefix = configCoAuthoring.get('redis.prefix');
+const redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 
-var WAIT_TIMEOUT = 30000;
-var LOOP_TIMEOUT = 1000;
-var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
+const WAIT_TIMEOUT = 30000;
+const LOOP_TIMEOUT = 1000;
+const EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
 const addSqlParam = sqlBase.addSqlParameter;
 
@@ -87,7 +87,7 @@ function updateDoc(ctx, docId, status, callback) {
 
 function shutdown() {
   return co(function* () {
-    var res = true;
+    let res = true;
     const ctx = new operationContext.Context();
     try {
       const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();

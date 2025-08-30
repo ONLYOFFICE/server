@@ -31,7 +31,7 @@
  */
 const path = require('path');
 const _ = require('lodash');
-var packageFile = require('./package.json');
+const packageFile = require('./package.json');
 
 module.exports = function (grunt) {
   let addons = grunt.option('addon') || [];
@@ -76,9 +76,9 @@ module.exports = function (grunt) {
 
   //grunt.file.write("package-test.json", JSON.stringify(packageFile, null, 4));
 
-  var checkDependencies = {};
+  const checkDependencies = {};
 
-  for (var i of packageFile.npm) {
+  for (const i of packageFile.npm) {
     checkDependencies[i] = {
       options: {
         install: true,

@@ -126,8 +126,8 @@ function _getDateTime2(oDate) {
 }
 
 function _insertChangesCallback(ctx, startIndex, objChanges, docId, index, user, callback) {
-  var sqlCommand = `INSERT INTO ${cfgTableChanges} VALUES`;
-  var i = startIndex,
+  let sqlCommand = `INSERT INTO ${cfgTableChanges} VALUES`;
+  let i = startIndex,
     l = objChanges.length,
     lengthUtf8Current = sqlCommand.length,
     lengthUtf8Row = 0,
@@ -224,7 +224,7 @@ function getChangesIndex(ctx, docId, callback) {
   const values = [];
   const p1 = addSqlParameter(ctx.tenant, values);
   const p2 = addSqlParameter(docId, values);
-  var sqlCommand = `SELECT MAX(change_id) as change_id FROM ${cfgTableChanges} WHERE tenant=${p1} AND id=${p2};`;
+  const sqlCommand = `SELECT MAX(change_id) as change_id FROM ${cfgTableChanges} WHERE tenant=${p1} AND id=${p2};`;
   dbInstance.sqlQuery(ctx, sqlCommand, callback, undefined, undefined, values);
 }
 
@@ -265,7 +265,7 @@ function getChangesPromise(ctx, docId, optStartIndex, optEndIndex, opt_time) {
         sqlWhere += ` AND change_date<=${sqlParam}`;
       }
       sqlWhere += ' ORDER BY change_id ASC';
-      var sqlCommand = `SELECT * FROM ${cfgTableChanges} WHERE ${sqlWhere};`;
+      const sqlCommand = `SELECT * FROM ${cfgTableChanges} WHERE ${sqlWhere};`;
 
       dbInstance.sqlQuery(
         ctx,
@@ -381,7 +381,7 @@ function lockCriticalSection(id, callback) {
 }
 
 function unLockCriticalSection(id) {
-  var arrCallbacks = g_oCriticalSection[id];
+  const arrCallbacks = g_oCriticalSection[id];
   arrCallbacks.shift();
   if (0 < arrCallbacks.length) {
     arrCallbacks[0]();

@@ -298,7 +298,7 @@ CRecalcIndexElement.prototype = {
 
   // recalculate for others
   getLockOther(position, type) {
-    var inc = c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType ? +1 : -1;
+    const inc = c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType ? +1 : -1;
     if (position === this._position && c_oAscRecalcIndexTypes.RecalcIndexRemove === this._recalcType && true === this.m_bIsSaveIndex) {
       // We haven't applied someone else's changes yet (so insert doesn't need to be rendered)
       // RecalcIndexRemove (because we flip it for proper processing, from another user
@@ -325,7 +325,7 @@ CRecalcIndexElement.prototype = {
       return position;
     }
 
-    var inc = c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType ? +1 : -1;
+    const inc = c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType ? +1 : -1;
     if (position === this._position && c_oAscRecalcIndexTypes.RecalcIndexRemove === this._recalcType && true === this.m_bIsSaveIndex) {
       // We haven't applied someone else's changes yet (so insert doesn't need to be rendered)
       // RecalcIndexRemove (because we flip it for proper processing, from another user
@@ -348,7 +348,7 @@ CRecalcIndexElement.prototype = {
   },
   // recalculate for ourselves
   getLockMe(position) {
-    var inc = c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType ? -1 : +1;
+    const inc = c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType ? -1 : +1;
     if (position < this._position) {
       return position;
     } else {
@@ -357,7 +357,7 @@ CRecalcIndexElement.prototype = {
   },
   // Only when other users change (for recalculation)
   getLockMe2(position) {
-    var inc = c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType ? -1 : +1;
+    const inc = c_oAscRecalcIndexTypes.RecalcIndexAdd === this._recalcType ? -1 : +1;
     if (true !== this.m_bIsSaveIndex || position < this._position) {
       return position;
     } else {
@@ -379,7 +379,7 @@ function CRecalcIndex() {
 CRecalcIndex.prototype = {
   constructor: CRecalcIndex,
   add(recalcType, position, count, bIsSaveIndex) {
-    for (var i = 0; i < count; ++i) {
+    for (let i = 0; i < count; ++i) {
       this._arrElements.push(new CRecalcIndexElement(recalcType, position, bIsSaveIndex));
     }
   },
@@ -388,9 +388,9 @@ CRecalcIndex.prototype = {
   },
 
   getLockOther(position, type) {
-    var newPosition = position;
-    var count = this._arrElements.length;
-    for (var i = 0; i < count; ++i) {
+    let newPosition = position;
+    const count = this._arrElements.length;
+    for (let i = 0; i < count; ++i) {
       newPosition = this._arrElements[i].getLockOther(newPosition, type);
       if (null === newPosition) {
         break;
@@ -401,9 +401,9 @@ CRecalcIndex.prototype = {
   },
   // Recalculation for others (save only)
   getLockSaveOther(position, type) {
-    var newPosition = position;
-    var count = this._arrElements.length;
-    for (var i = 0; i < count; ++i) {
+    let newPosition = position;
+    const count = this._arrElements.length;
+    for (let i = 0; i < count; ++i) {
       newPosition = this._arrElements[i].getLockSaveOther(newPosition, type);
       if (null === newPosition) {
         break;
@@ -414,9 +414,9 @@ CRecalcIndex.prototype = {
   },
   // recalculate for ourselves
   getLockMe(position) {
-    var newPosition = position;
-    var count = this._arrElements.length;
-    for (var i = count - 1; i >= 0; --i) {
+    let newPosition = position;
+    const count = this._arrElements.length;
+    for (let i = count - 1; i >= 0; --i) {
       newPosition = this._arrElements[i].getLockMe(newPosition);
       if (null === newPosition) {
         break;
@@ -427,9 +427,9 @@ CRecalcIndex.prototype = {
   },
   // Only when other users change (for recalculation)
   getLockMe2(position) {
-    var newPosition = position;
-    var count = this._arrElements.length;
-    for (var i = count - 1; i >= 0; --i) {
+    let newPosition = position;
+    const count = this._arrElements.length;
+    for (let i = count - 1; i >= 0; --i) {
       newPosition = this._arrElements[i].getLockMe2(newPosition);
       if (null === newPosition) {
         break;
@@ -511,7 +511,7 @@ const changeConnectionInfo = co.wrap(function* (ctx, conn, cmd) {
 });
 function signToken(ctx, payload, algorithm, expiresIn, secretElem) {
   return co(function* () {
-    var options = {algorithm, expiresIn};
+    const options = {algorithm, expiresIn};
     const secret = yield tenantManager.getTenantSecret(ctx, secretElem);
     return jwt.sign(payload, secret, options);
   });
@@ -524,17 +524,17 @@ function fillJwtByConnection(ctx, conn) {
     const tenTokenSessionAlgorithm = ctx.getCfg('services.CoAuthoring.token.session.algorithm', cfgTokenSessionAlgorithm);
     const tenTokenSessionExpires = ms(ctx.getCfg('services.CoAuthoring.token.session.expires', cfgTokenSessionExpires));
 
-    var payload = {document: {}, editorConfig: {user: {}}};
-    var doc = payload.document;
+    const payload = {document: {}, editorConfig: {user: {}}};
+    const doc = payload.document;
     doc.key = conn.docId;
     doc.permissions = conn.permissions;
     doc.ds_encrypted = conn.encrypted;
-    var edit = payload.editorConfig;
+    const edit = payload.editorConfig;
     //todo
     //edit.callbackUrl = callbackUrl;
     //edit.lang = conn.lang;
     //edit.mode = conn.mode;
-    var user = edit.user;
+    const user = edit.user;
     user.id = conn.user.idOriginal;
     user.name = conn.user.username;
     user.index = conn.user.indexUser;
@@ -647,15 +647,15 @@ function* updateEditUsers(ctx, licenseInfo, userId, anonym, isLiveViewer) {
   }
 }
 function* getEditorsCount(ctx, docId, opt_hvals) {
-  var elem,
+  let elem,
     editorsCount = 0;
-  var hvals;
+  let hvals;
   if (opt_hvals) {
     hvals = opt_hvals;
   } else {
     hvals = yield editorData.getPresence(ctx, docId, connections);
   }
-  for (var i = 0; i < hvals.length; ++i) {
+  for (let i = 0; i < hvals.length; ++i) {
     elem = JSON.parse(hvals[i]);
     if (!elem.view && !elem.isCloseCoAuthoring) {
       editorsCount++;
@@ -669,9 +669,9 @@ function* hasEditors(ctx, docId, opt_hvals) {
   return editorsCount > 0;
 }
 function* isUserReconnect(ctx, docId, userId, connectionId) {
-  var elem;
-  var hvals = yield editorData.getPresence(ctx, docId, connections);
-  for (var i = 0; i < hvals.length; ++i) {
+  let elem;
+  const hvals = yield editorData.getPresence(ctx, docId, connections);
+  for (let i = 0; i < hvals.length; ++i) {
     elem = JSON.parse(hvals[i]);
     if (userId === elem.id && connectionId !== elem.connectionId) {
       return true;
@@ -682,13 +682,13 @@ function* isUserReconnect(ctx, docId, userId, connectionId) {
 
 let pubsubOnMessage = null; //todo move function
 async function publish(ctx, data, optDocId, optUserId, opt_pubsub) {
-  var needPublish = true;
+  let needPublish = true;
   let hvals;
   if (optDocId && optUserId) {
     needPublish = false;
     hvals = await editorData.getPresence(ctx, optDocId, connections);
-    for (var i = 0; i < hvals.length; ++i) {
-      var elem = JSON.parse(hvals[i]);
+    for (let i = 0; i < hvals.length; ++i) {
+      const elem = JSON.parse(hvals[i]);
       if (optUserId != elem.id) {
         needPublish = true;
         break;
@@ -696,8 +696,8 @@ async function publish(ctx, data, optDocId, optUserId, opt_pubsub) {
     }
   }
   if (needPublish) {
-    var msg = JSON.stringify(data);
-    var realPubsub = opt_pubsub ? opt_pubsub : pubsub;
+    const msg = JSON.stringify(data);
+    const realPubsub = opt_pubsub ? opt_pubsub : pubsub;
     //don't use pubsub if all connections are local
     if (pubsubOnMessage && hvals && hvals.length === getLocalConnectionCount(ctx, optDocId)) {
       ctx.logger.debug('pubsub locally');
@@ -710,15 +710,15 @@ async function publish(ctx, data, optDocId, optUserId, opt_pubsub) {
   return needPublish;
 }
 function* addTask(data, priority, opt_queue, opt_expiration) {
-  var realQueue = opt_queue ? opt_queue : queue;
+  const realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addTask(data, priority, opt_expiration);
 }
 function* addResponse(data, opt_queue) {
-  var realQueue = opt_queue ? opt_queue : queue;
+  const realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addResponse(data);
 }
 function* addDelayed(data, ttl, opt_queue) {
-  var realQueue = opt_queue ? opt_queue : queue;
+  const realQueue = opt_queue ? opt_queue : queue;
   yield realQueue.addDelayed(data, ttl);
 }
 function* removeResponse(data) {
@@ -726,16 +726,16 @@ function* removeResponse(data) {
 }
 
 async function getOriginalParticipantsId(ctx, docId) {
-  var result = [],
+  const result = [],
     tmpObject = {};
-  var hvals = await editorData.getPresence(ctx, docId, connections);
-  for (var i = 0; i < hvals.length; ++i) {
-    var elem = JSON.parse(hvals[i]);
+  const hvals = await editorData.getPresence(ctx, docId, connections);
+  for (let i = 0; i < hvals.length; ++i) {
+    const elem = JSON.parse(hvals[i]);
     if (!elem.view && !elem.isCloseCoAuthoring) {
       tmpObject[elem.idOriginal] = 1;
     }
   }
-  for (var name in tmpObject) {
+  for (const name in tmpObject) {
     if (tmpObject.hasOwn(name)) {
       result.push(name);
     }
@@ -778,14 +778,14 @@ async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizat
 }
 
 function parseUrl(ctx, callbackUrl) {
-  var result = null;
+  let result = null;
   try {
     //no need to do decodeURIComponent http://expressjs.com/en/4x/api.html#app.settings.table
     //by default express uses 'query parser' = 'extended', but even in 'simple' version decode is done
     //percent-encoded characters within the query string will be assumed to use UTF-8 encoding
-    var parseObject = url.parse(callbackUrl);
-    var isHttps = 'https:' === parseObject.protocol;
-    var port = parseObject.port;
+    const parseObject = url.parse(callbackUrl);
+    const isHttps = 'https:' === parseObject.protocol;
+    let port = parseObject.port;
     if (!port) {
       port = isHttps ? defaultHttpsPort : defaultHttpPort;
     }
@@ -805,12 +805,12 @@ function parseUrl(ctx, callbackUrl) {
 }
 
 async function getCallback(ctx, id, opt_userIndex) {
-  var callbackUrl = null;
-  var baseUrl = null;
+  let callbackUrl = null;
+  let baseUrl = null;
   let wopiParams = null;
-  var selectRes = await taskResult.select(ctx, id);
+  const selectRes = await taskResult.select(ctx, id);
   if (selectRes.length > 0) {
-    var row = selectRes[0];
+    const row = selectRes[0];
     if (row.callback) {
       callbackUrl = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, opt_userIndex);
       wopiParams = wopiClient.parseWopiCallback(ctx, callbackUrl, row.callback);
@@ -826,8 +826,8 @@ async function getCallback(ctx, id, opt_userIndex) {
   }
 }
 function* getChangesIndex(ctx, docId) {
-  var res = 0;
-  var getRes = yield sqlBase.getChangesIndexPromise(ctx, docId);
+  let res = 0;
+  const getRes = yield sqlBase.getChangesIndexPromise(ctx, docId);
   if (getRes && getRes.length > 0 && null != getRes[0]['change_id']) {
     res = getRes[0]['change_id'] + 1;
   }
@@ -1304,7 +1304,7 @@ function handleDeadLetter(data, ack) {
   return co(function* () {
     const ctx = new operationContext.Context();
     try {
-      var isRequeued = false;
+      let isRequeued = false;
       const task = new commonDefines.TaskQueueData(JSON.parse(data));
       if (task) {
         ctx.initFromTaskQueueData(task);
@@ -1349,7 +1349,7 @@ function handleDeadLetter(data, ack) {
  */
 async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_userIndex, opt_callback, opt_baseUrl, opt_userData, opt_forceClose) {
   if (!opt_callback) {
-    var getRes = await getCallback(ctx, docId, opt_userIndex);
+    const getRes = await getCallback(ctx, docId, opt_userIndex);
     if (getRes) {
       opt_callback = getRes.server;
       if (!opt_baseUrl) {
@@ -1365,8 +1365,8 @@ async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_u
     return;
   }
 
-  var status = c_oAscServerStatus.Editing;
-  var participants = await getOriginalParticipantsId(ctx, docId);
+  let status = c_oAscServerStatus.Editing;
+  const participants = await getOriginalParticipantsId(ctx, docId);
   if (0 === participants.length) {
     const bHasChanges = await hasChanges(ctx, docId);
     if (!bHasChanges || opt_forceClose) {
@@ -1379,12 +1379,12 @@ async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_u
     //open->make changes->disconnect->subscription from community->reconnect
     if (c_oAscChangeBase.All === bChangeBase) {
       //always override callback to avoid expired callbacks
-      var updateTask = new taskResult.TaskResultData();
+      const updateTask = new taskResult.TaskResultData();
       updateTask.tenant = ctx.tenant;
       updateTask.key = docId;
       updateTask.callback = opt_callback.href;
       updateTask.baseurl = opt_baseUrl;
-      var updateIfRes = await taskResult.update(ctx, updateTask);
+      const updateIfRes = await taskResult.update(ctx, updateTask);
       if (updateIfRes.affectedRows > 0) {
         ctx.logger.debug('sendStatusDocument updateIf');
       } else {
@@ -1393,7 +1393,7 @@ async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_u
     }
   }
 
-  var sendData = new commonDefines.OutputSfcData(docId);
+  const sendData = new commonDefines.OutputSfcData(docId);
   sendData.setStatus(status);
   if (c_oAscServerStatus.Closed !== status) {
     sendData.setUsers(participants);
@@ -1404,8 +1404,8 @@ async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_u
   if (opt_userData) {
     sendData.setUserData(opt_userData);
   }
-  var uri = opt_callback.href;
-  var replyData = null;
+  const uri = opt_callback.href;
+  let replyData = null;
   try {
     replyData = await sendServerRequest(ctx, uri, sendData);
   } catch (err) {
@@ -1416,7 +1416,7 @@ async function sendStatusDocument(ctx, docId, bChangeBase, opt_userAction, opt_u
   return sendData;
 }
 function parseReplyData(ctx, replyData) {
-  var res = null;
+  let res = null;
   if (replyData) {
     try {
       res = JSON.parse(replyData);
@@ -1428,7 +1428,7 @@ function parseReplyData(ctx, replyData) {
   return res;
 }
 const onReplySendStatusDocument = co.wrap(function* (ctx, docId, replyData) {
-  var oData = parseReplyData(ctx, replyData);
+  const oData = parseReplyData(ctx, replyData);
   if (!(oData && commonDefines.c_oAscServerCommandErrors.NoError == oData.error)) {
     // Error subscribing to callback, send warning
     yield publish(ctx, {type: commonDefines.c_oPublishType.warning, ctx, docId, description: 'Error on save server subscription!'});
@@ -1469,8 +1469,8 @@ async function dropUsersFromDocument(ctx, docId, opt_users) {
 }
 
 function dropUserFromDocument(ctx, docId, users, description) {
-  var elConnection;
-  for (var i = 0, length = connections.length; i < length; ++i) {
+  let elConnection;
+  for (let i = 0, length = connections.length; i < length; ++i) {
     elConnection = connections[i];
     if (elConnection.docId === docId && !elConnection.isCloseCoAuthoring && (!users || users.includes(elConnection.user.idOriginal))) {
       sendDataDrop(ctx, elConnection, description);
@@ -1492,10 +1492,10 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
   // - if there are no users and no changes, then send the status "closed" and do not add to the database
   // - if there are no users, but there are changes, then send the "editing" status without users, but add it to the database
   // - if there are users, then just add to the database
-  var bChangeBase;
-  var oCallbackUrl;
+  let bChangeBase;
+  let oCallbackUrl;
   if (!callback) {
-    var getRes = yield getCallback(ctx, docId);
+    const getRes = yield getCallback(ctx, docId);
     if (getRes && !getRes.wopiParams) {
       oCallbackUrl = getRes.server;
       bChangeBase = c_oAscChangeBase.Delete;
@@ -1519,7 +1519,7 @@ function* bindEvents(ctx, docId, callback, baseUrl, opt_userAction, opt_userData
 }
 const unlockWopiDoc = co.wrap(function* (ctx, docId, opt_userIndex) {
   //wopi unlock
-  var getRes = yield getCallback(ctx, docId, opt_userIndex);
+  const getRes = yield getCallback(ctx, docId, opt_userIndex);
   if (getRes && getRes.wopiParams && getRes.wopiParams.userAuth && 'view' !== getRes.wopiParams.userAuth.mode) {
     const unlockRes = yield wopiClient.unlock(ctx, getRes.wopiParams);
     const unlockInfo = wopiClient.getWopiUnlockMarker(getRes.wopiParams);
@@ -1543,7 +1543,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
   yield unlockWopiDoc(ctx, docId, opt_userIndex);
 }
 function* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, opt_forceClose, opt_deleteChanges) {
-  var userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
+  const userAction = opt_userId ? new commonDefines.OutputAction(commonDefines.c_oAscUserAction.Out, opt_userId) : null;
   // We send that everyone is gone and there are no changes (to set the status on the server about the end of editing)
   yield sendStatusDocument(ctx, docId, c_oAscChangeBase.No, userAction, opt_userIndex, undefined, undefined, undefined, opt_forceClose);
   //if the user entered the document, the connection was broken, all information was deleted on the server,
@@ -1555,14 +1555,14 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
   return co(function* () {
     const tenAscSaveTimeOutDelay = ctx.getCfg('services.CoAuthoring.server.savetimeoutdelay', cfgAscSaveTimeOutDelay);
 
-    var updateMask = new taskResult.TaskResultData();
+    const updateMask = new taskResult.TaskResultData();
     updateMask.tenant = ctx.tenant;
     updateMask.key = docId;
     updateMask.status = commonDefines.FileStatus.Ok;
-    var updateTask = new taskResult.TaskResultData();
+    const updateTask = new taskResult.TaskResultData();
     updateTask.status = commonDefines.FileStatus.SaveVersion;
     updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
-    var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
+    const updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
     if (updateIfRes.affectedRows > 0) {
       if (!opt_noDelay) {
         yield utils.sleep(tenAscSaveTimeOutDelay);
@@ -1596,7 +1596,7 @@ function checkJwt(ctx, token, type) {
   return co(function* () {
     const tenTokenVerifyOptions = ctx.getCfg('services.CoAuthoring.token.verifyOptions', cfgTokenVerifyOptions);
 
-    var res = {decoded: null, description: null, code: null, token};
+    const res = {decoded: null, description: null, code: null, token};
     const secret = yield tenantManager.getTenantSecret(ctx, type);
     if (undefined == secret) {
       ctx.logger.warn('empty secret: token = %s', token);
@@ -1627,7 +1627,7 @@ function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
     const secretType = opt_secretType || commonDefines.c_oAscSecretType.Inbox;
     const authorization = req.get(header);
     if (authorization && authorization.startsWith(prefix)) {
-      var token = authorization.substring(prefix.length);
+      const token = authorization.substring(prefix.length);
       return yield checkJwt(ctx, token, secretType);
     }
     return null;
@@ -1867,14 +1867,14 @@ exports.install = function (server, callbackFunction) {
 
       conn.on('message', data => {
         return co(function* () {
-          var docId = 'null';
+          let docId = 'null';
           const ctx = new operationContext.Context();
           try {
             ctx.initFromConnection(conn);
             yield ctx.initTenantCache();
             const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
 
-            var startDate = null;
+            let startDate = null;
             if (clientStatsD) {
               startDate = new Date();
             }
@@ -1934,7 +1934,7 @@ exports.install = function (server, callbackFunction) {
                 yield* closeDocument(ctx, conn);
                 break;
               case 'openDocument': {
-                var cmd = new commonDefines.InputCommand(data.message);
+                const cmd = new commonDefines.InputCommand(data.message);
                 cmd.fillFromConnection(conn);
                 yield canvasService.openDocument(ctx, conn, cmd);
                 break;
@@ -2036,20 +2036,20 @@ exports.install = function (server, callbackFunction) {
     const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
 
     ctx.logger.info('Connection closed or timed out: reason = %s', reason);
-    var userLocks,
+    let userLocks,
       reconnected = false,
       bHasEditors,
       bHasChanges;
-    var docId = conn.docId;
+    const docId = conn.docId;
     if (null == docId) {
       return;
     }
-    var hvals;
+    let hvals;
     let participantsTimestamp;
-    var tmpUser = conn.user;
-    var isView = tmpUser.view;
+    const tmpUser = conn.user;
+    const isView = tmpUser.view;
 
-    var isCloseCoAuthoringTmp = conn.isCloseCoAuthoring;
+    const isCloseCoAuthoringTmp = conn.isCloseCoAuthoring;
     if (reason) {
       //Notify that participant has gone
       connections = _.reject(connections, el => {
@@ -2086,7 +2086,7 @@ exports.install = function (server, callbackFunction) {
 
     if (!reconnected) {
       //revert old view to send event
-      var tmpView = tmpUser.view;
+      const tmpView = tmpUser.view;
       tmpUser.view = isView;
       const participants = yield getParticipantMap(ctx, docId, hvals);
       if (!participantsTimestamp) {
@@ -2112,7 +2112,7 @@ exports.install = function (server, callbackFunction) {
         if (conn.encrypted) {
           const selectRes = yield taskResult.select(ctx, docId);
           if (selectRes.length > 0) {
-            var row = selectRes[0];
+            const row = selectRes[0];
             if (commonDefines.FileStatus.UpdateVersion === row.status) {
               needSendStatus = false;
             }
@@ -2181,9 +2181,9 @@ exports.install = function (server, callbackFunction) {
   // Getting changes for the document (either from the cache or accessing the database, but only if there were saves)
   function* getDocumentChanges(ctx, docId, optStartIndex, optEndIndex) {
     // If during that moment, while we were waiting for a response from the database, everyone left, then nothing needs to be sent
-    var arrayElements = yield sqlBase.getChangesPromise(ctx, docId, optStartIndex, optEndIndex);
-    var j, element;
-    var objChangesDocument = new DocumentChanges(docId);
+    const arrayElements = yield sqlBase.getChangesPromise(ctx, docId, optStartIndex, optEndIndex);
+    let j, element;
+    const objChangesDocument = new DocumentChanges(docId);
     for (j = 0; j < arrayElements.length; ++j) {
       element = arrayElements[j];
 
@@ -2229,7 +2229,7 @@ exports.install = function (server, callbackFunction) {
     }
 
     if (unlock) {
-      var unlockRes = yield editorData.unlockAuth(ctx, docId, userId);
+      const unlockRes = yield editorData.unlockAuth(ctx, docId, userId);
       if (commonDefines.c_oAscUnlockRes.Unlocked === unlockRes) {
         const participantsMap = yield getParticipantMap(ctx, docId);
         yield publish(ctx, {
@@ -2344,9 +2344,9 @@ exports.install = function (server, callbackFunction) {
     if (null == _locks) {
       return res;
     }
-    var element = null,
+    let element = null,
       oRangeOrObjectId = null;
-    var sheetId = -1;
+    let sheetId = -1;
     for (const lockId in _locks) {
       let isModify = false;
       const lock = _locks[lockId];
@@ -2389,12 +2389,12 @@ exports.install = function (server, callbackFunction) {
     if (null == oRecalcIndex) {
       return null;
     }
-    var nIndex = 0;
-    var nRecalcType = c_oAscRecalcIndexTypes.RecalcIndexAdd;
-    var oRecalcIndexElement = null;
-    var oRecalcIndexResult = {};
+    let nIndex = 0;
+    let nRecalcType = c_oAscRecalcIndexTypes.RecalcIndexAdd;
+    let oRecalcIndexElement = null;
+    const oRecalcIndexResult = {};
 
-    for (var sheetId in oRecalcIndex) {
+    for (const sheetId in oRecalcIndex) {
       if (oRecalcIndex.hasOwn(sheetId)) {
         if (!oRecalcIndexResult.hasOwn(sheetId)) {
           oRecalcIndexResult[sheetId] = new CRecalcIndex();
@@ -2431,7 +2431,7 @@ exports.install = function (server, callbackFunction) {
       return false;
     }
 
-    var resultLock = false;
+    let resultLock = false;
     if (newBlock.type === c_oAscLockTypeElem.Range) {
       if (oldBlock.type === c_oAscLockTypeElem.Range) {
         // We do not take into account lock from Insert
@@ -2463,7 +2463,7 @@ exports.install = function (server, callbackFunction) {
   }
 
   function comparePresentationBlock(newBlock, oldBlock) {
-    var resultLock = false;
+    let resultLock = false;
 
     switch (newBlock.type) {
       case c_oAscLockTypeElemPresentation.Presentation:
@@ -2527,7 +2527,7 @@ exports.install = function (server, callbackFunction) {
   }
   function fillDataFromWopiJwt(decoded, data) {
     const res = true;
-    var openCmd = data.openCmd;
+    const openCmd = data.openCmd;
 
     if (decoded.key) {
       data.docid = decoded.key;
@@ -2587,7 +2587,7 @@ exports.install = function (server, callbackFunction) {
     return res;
   }
   function validateAuthToken(data, decoded) {
-    var res = '';
+    let res = '';
     if (!decoded?.document?.key) {
       res = 'document.key';
     } else if (data.permissions && !decoded?.document?.permissions) {
@@ -2605,9 +2605,9 @@ exports.install = function (server, callbackFunction) {
   }
   function fillDataFromJwt(ctx, decoded, data) {
     let res = true;
-    var openCmd = data.openCmd;
+    const openCmd = data.openCmd;
     if (decoded.document) {
-      var doc = decoded.document;
+      const doc = decoded.document;
       if (null != doc.key) {
         data.docid = doc.key;
         if (openCmd) {
@@ -2641,7 +2641,7 @@ exports.install = function (server, callbackFunction) {
       }
     }
     if (decoded.editorConfig) {
-      var edit = decoded.editorConfig;
+      const edit = decoded.editorConfig;
       if (null != edit.callbackUrl) {
         data.documentCallbackUrl = edit.callbackUrl;
       }
@@ -2671,8 +2671,8 @@ exports.install = function (server, callbackFunction) {
       // data.sessionId = edit.ds_sessionId;
       data.sessionTimeConnect = edit.ds_sessionTimeConnect;
       if (edit.user) {
-        var dataUser = data.user;
-        var user = edit.user;
+        const dataUser = data.user;
+        const user = edit.user;
         if (user.id) {
           dataUser.id = user.id;
           if (openCmd) {
@@ -2987,7 +2987,7 @@ exports.install = function (server, callbackFunction) {
         return;
       }
       if (!conn.user.view) {
-        var status = result && result.length > 0 ? result[0]['status'] : null;
+        const status = result && result.length > 0 ? result[0]['status'] : null;
         if (commonDefines.FileStatus.Ok === status) {
           // Everything is fine, the status does not need to be updated
         } else if (
@@ -3003,15 +3003,15 @@ exports.install = function (server, callbackFunction) {
             newStatus = commonDefines.FileStatus.None;
           }
           // Update the status of the file (the build is in progress, you need to stop it)
-          var updateMask = new taskResult.TaskResultData();
+          const updateMask = new taskResult.TaskResultData();
           updateMask.tenant = ctx.tenant;
           updateMask.key = docId;
           updateMask.status = status;
           updateMask.statusInfo = result[0]['status_info'];
-          var updateTask = new taskResult.TaskResultData();
+          const updateTask = new taskResult.TaskResultData();
           updateTask.status = newStatus;
           updateTask.statusInfo = constants.NO_ERROR;
-          var updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
+          const updateIfRes = yield taskResult.updateIf(ctx, updateTask, updateMask);
           if (!(updateIfRes.affectedRows > 0)) {
             // error version
             //log level is debug because error handled via refreshFile
@@ -3046,11 +3046,11 @@ exports.install = function (server, callbackFunction) {
           // Stop the assembly (suddenly it started)
           // When reconnecting, we need to check for file assembly
           try {
-            var puckerIndex = yield* getChangesIndex(ctx, docId);
-            var bIsSuccessRestore = true;
+            const puckerIndex = yield* getChangesIndex(ctx, docId);
+            let bIsSuccessRestore = true;
             if (puckerIndex > 0) {
               const objChangesDocument = yield* getDocumentChanges(ctx, docId, puckerIndex - 1, puckerIndex);
-              var change = objChangesDocument.arrChanges[objChangesDocument.getLength() - 1];
+              const change = objChangesDocument.arrChanges[objChangesDocument.getLength() - 1];
               if (change) {
                 if (change['change']) {
                   if (change['user'] !== curUserId) {
@@ -3064,8 +3064,8 @@ exports.install = function (server, callbackFunction) {
 
             if (bIsSuccessRestore) {
               // check locks
-              var arrayBlocks = data['block'];
-              var getLockRes = yield getLock(ctx, conn, data, true);
+              const arrayBlocks = data['block'];
+              const getLockRes = yield getLock(ctx, conn, data, true);
               if (arrayBlocks && (0 === arrayBlocks.length || getLockRes)) {
                 let wopiLockRes = true;
                 if (wopiParamsFull) {
@@ -3366,9 +3366,9 @@ exports.install = function (server, callbackFunction) {
       ctx.logger.warn('insert message permissions.chat==false');
       return;
     }
-    var docId = conn.docId;
-    var userId = conn.user.id;
-    var msg = {
+    const docId = conn.docId;
+    const userId = conn.user.id;
+    const msg = {
       docid: docId,
       message: data.message,
       time: Date.now(),
@@ -3380,19 +3380,19 @@ exports.install = function (server, callbackFunction) {
     // insert
     ctx.logger.info('insert message: %j', msg);
 
-    var messages = [msg];
+    const messages = [msg];
     sendDataMessage(ctx, conn, messages);
     yield publish(ctx, {type: commonDefines.c_oPublishType.message, ctx, docId, userId, messages}, docId, userId);
   }
 
   function* onCursor(ctx, conn, data) {
-    var docId = conn.docId;
-    var userId = conn.user.id;
-    var msg = {cursor: data.cursor, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal};
+    const docId = conn.docId;
+    const userId = conn.user.id;
+    const msg = {cursor: data.cursor, time: Date.now(), user: userId, useridoriginal: conn.user.idOriginal};
 
     ctx.logger.info('send cursor: %s', msg);
 
-    var messages = [msg];
+    const messages = [msg];
     yield publish(ctx, {type: commonDefines.c_oPublishType.cursor, ctx, docId, userId, messages}, docId, userId);
   }
   // For Word block is now string "guid"
@@ -3400,7 +3400,7 @@ exports.install = function (server, callbackFunction) {
   // For presentations, this is an object { type, val } or { type, slideId, objId }
   async function getLock(ctx, conn, data, bIsRestore) {
     ctx.logger.debug('getLock');
-    var fCheckLock = null;
+    let fCheckLock = null;
     switch (conn.editorType) {
       case EditorTypes.document:
         // Word
@@ -3665,7 +3665,7 @@ exports.install = function (server, callbackFunction) {
 
   // Removing lock from save
   function* unSaveLock(ctx, conn, index, time, syncChangesIndex) {
-    var unlockRes = yield editorData.unlockSave(ctx, conn.docId, conn.user.id);
+    const unlockRes = yield editorData.unlockSave(ctx, conn.docId, conn.user.id);
     if (commonDefines.c_oAscUnlockRes.Locked !== unlockRes) {
       sendData(ctx, conn, {type: 'unSaveLock', index, time, syncChangesIndex});
     } else {
@@ -3685,11 +3685,11 @@ exports.install = function (server, callbackFunction) {
   }
   function _checkLockExcel(ctx, docId, documentLocks, newLocks, arrayBlocks, userId) {
     // Data is array now
-    var documentLock;
-    var isLock = false;
-    var isExistInArray = false;
-    var i, blockRange;
-    var lengthArray = arrayBlocks ? arrayBlocks.length : 0;
+    let documentLock;
+    let isLock = false;
+    let isExistInArray = false;
+    let i, blockRange;
+    const lengthArray = arrayBlocks ? arrayBlocks.length : 0;
     for (i = 0; i < lengthArray && false === isLock; ++i) {
       blockRange = arrayBlocks[i];
       for (const keyLockInArray in documentLocks) {
@@ -3744,9 +3744,9 @@ exports.install = function (server, callbackFunction) {
 
   function _checkLockPresentation(ctx, docId, documentLocks, newLocks, arrayBlocks, userId) {
     // Data is array now
-    var isLock = false;
-    var i, blockRange;
-    var lengthArray = arrayBlocks ? arrayBlocks.length : 0;
+    let isLock = false;
+    let i, blockRange;
+    const lengthArray = arrayBlocks ? arrayBlocks.length : 0;
     for (i = 0; i < lengthArray && false === isLock; ++i) {
       blockRange = arrayBlocks[i];
       for (const keyLockInArray in documentLocks) {
@@ -3911,16 +3911,16 @@ exports.install = function (server, callbackFunction) {
     return co(function* () {
       const ctx = new operationContext.Context();
       try {
-        var data = JSON.parse(msg);
+        const data = JSON.parse(msg);
         ctx.initFromPubSub(data);
         yield ctx.initTenantCache();
         ctx.logger.debug('pubsub message start:%s', msg);
         const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-        var participants;
-        var participant;
-        var objChangesDocument;
-        var i;
+        let participants;
+        let participant;
+        let objChangesDocument;
+        let i;
         let lockDocumentTimer, cmd;
         switch (data.type) {
           case commonDefines.c_oPublishType.drop:
@@ -3958,7 +3958,7 @@ exports.install = function (server, callbackFunction) {
             }
             participants = getParticipants(data.docId, true, data.userId);
             if (participants.length > 0) {
-              var changes = data.changes;
+              let changes = data.changes;
               if (null == changes) {
                 objChangesDocument = yield* getDocumentChanges(ctx, data.docId, data.startIndex, data.changesIndex);
                 changes = objChangesDocument.arrChanges;
@@ -4065,7 +4065,7 @@ exports.install = function (server, callbackFunction) {
               //bad because you may need to convert the output file and the fact that requests for the CommandService will not be processed
               //server.close();
               //in the cycle we will remove elements so copy array
-              var connectionsTmp = connections.slice();
+              const connectionsTmp = connections.slice();
               //destroy all open connections
               for (i = 0; i < connectionsTmp.length; ++i) {
                 sendDataDisconnectReason(ctx, connectionsTmp[i], constants.SHUTDOWN_CODE, constants.SHUTDOWN_REASON);
@@ -4152,9 +4152,9 @@ exports.install = function (server, callbackFunction) {
         let countLiveViewByShard = 0;
         let countViewByShard = 0;
         ctx.logger.debug('expireDoc connections.length = %d', connections.length);
-        var nowMs = new Date().getTime();
-        for (var i = 0; i < connections.length; ++i) {
-          var conn = connections[i];
+        const nowMs = new Date().getTime();
+        for (let i = 0; i < connections.length; ++i) {
+          const conn = connections[i];
           ctx.initFromConnection(conn);
           //todo group by tenant
           yield ctx.initTenantCache();
@@ -4453,7 +4453,7 @@ exports.licenseInfo = function (req, res) {
       const [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
       Object.assign(output.licenseInfo, licenseInfo);
 
-      var precisionSum = {};
+      const precisionSum = {};
       for (let i = 0; i < PRECISION.length; ++i) {
         precisionSum[PRECISION[i].name] = {
           edit: {min: Number.MAX_VALUE, sum: 0, count: 0, intervalsInPresision: PRECISION[i].val / expDocumentsStep, max: 0},
@@ -4466,11 +4466,11 @@ exports.licenseInfo = function (req, res) {
           view: {min: 0, avr: 0, max: 0}
         };
       }
-      var redisRes = yield editorStat.getEditorConnections(ctx);
+      const redisRes = yield editorStat.getEditorConnections(ctx);
       const now = Date.now();
       if (redisRes.length > 0) {
         const expDocumentsStep95 = expDocumentsStep * 0.95;
-        var precisionIndex = 0;
+        let precisionIndex = 0;
         for (let i = redisRes.length - 1; i >= 0; i--) {
           const elem = redisRes[i];
           let edit = elem.edit || 0;

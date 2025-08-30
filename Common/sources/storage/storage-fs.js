@@ -34,8 +34,8 @@
 
 const {cp, rm, mkdir} = require('fs/promises');
 const {stat, readFile, writeFile} = require('fs/promises');
-var path = require('path');
-var utils = require('../utils');
+const path = require('path');
+const utils = require('../utils');
 
 function getFilePath(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
@@ -68,7 +68,7 @@ async function createReadStream(storageCfg, strPath) {
 }
 
 async function putObject(storageCfg, strPath, buffer, _contentLength) {
-  var fsPath = getFilePath(storageCfg, strPath);
+  const fsPath = getFilePath(storageCfg, strPath);
   await mkdir(path.dirname(fsPath), {recursive: true});
 
   if (Buffer.isBuffer(buffer)) {

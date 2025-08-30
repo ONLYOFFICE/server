@@ -97,7 +97,7 @@ function DocumentPassword() {
   this.change = undefined;
 }
 DocumentPassword.prototype.fromString = function (passwordStr) {
-  var parsed = JSON.parse(passwordStr);
+  const parsed = JSON.parse(passwordStr);
   this.fromValues(parsed.password, parsed.change);
 };
 DocumentPassword.prototype.fromValues = function (password, change) {

@@ -57,7 +57,7 @@ module.exports = [
       'no-useless-escape': 'off',
       // Modern JavaScript practices
       'prefer-const': 'error', // Enforce const for immutable bindings
-      'no-var': 'off', // Enforce let/const over var
+      'no-var': 'error', // Enforce let/const over var
       'object-shorthand': 'error', // Modern object property syntax
       'prefer-arrow-callback': 'error', // Modern callback style
       'no-duplicate-imports': 'error', // Avoid duplicate imports

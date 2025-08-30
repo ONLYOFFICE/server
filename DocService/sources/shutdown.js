@@ -31,25 +31,25 @@
  */
 
 'use strict';
-var config = require('config');
-var configCoAuthoring = config.get('services.CoAuthoring');
-var co = require('co');
-var pubsubService = require('./pubsubRabbitMQ');
+const config = require('config');
+const configCoAuthoring = config.get('services.CoAuthoring');
+const co = require('co');
+const pubsubService = require('./pubsubRabbitMQ');
 const sqlBase = require('./databaseConnectors/baseConnector');
-var commonDefines = require('./../../Common/sources/commondefines');
-var constants = require('./../../Common/sources/constants');
-var utils = require('./../../Common/sources/utils');
+const commonDefines = require('./../../Common/sources/commondefines');
+const constants = require('./../../Common/sources/constants');
+const utils = require('./../../Common/sources/utils');
 
-var cfgRedisPrefix = configCoAuthoring.get('redis.prefix');
-var redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
+const cfgRedisPrefix = configCoAuthoring.get('redis.prefix');
+const redisKeyShutdown = cfgRedisPrefix + constants.REDIS_KEY_SHUTDOWN;
 
-var WAIT_TIMEOUT = 30000;
-var LOOP_TIMEOUT = 1000;
-var EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
+const WAIT_TIMEOUT = 30000;
+const LOOP_TIMEOUT = 1000;
+const EXEC_TIMEOUT = WAIT_TIMEOUT + utils.getConvertionTimeout(undefined);
 
 exports.shutdown = function (ctx, editorStat, status) {
   return co(function* () {
-    var res = true;
+    let res = true;
     try {
       ctx.logger.debug('shutdown start:' + EXEC_TIMEOUT);
 
@@ -57,17 +57,17 @@ exports.shutdown = function (ctx, editorStat, status) {
       //reset redisKeyShutdown just in case the previous run didn't finish
       yield editorStat.cleanupShutdown(redisKeyShutdown);
 
-      var pubsub = new pubsubService();
+      const pubsub = new pubsubService();
       yield pubsub.initPromise();
       //inner ping to update presence
       ctx.logger.debug('shutdown pubsub shutdown message');
       yield pubsub.publish(JSON.stringify({type: commonDefines.c_oPublishType.shutdown, ctx, status}));
       //wait while pubsub deliver and start conversion
       ctx.logger.debug('shutdown start wait pubsub deliver');
-      var startTime = new Date().getTime();
-      var isStartWait = true;
+      const startTime = new Date().getTime();
+      let isStartWait = true;
       while (true) {
-        var curTime = new Date().getTime() - startTime;
+        const curTime = new Date().getTime() - startTime;
         if (isStartWait && curTime >= WAIT_TIMEOUT) {
           isStartWait = false;
           ctx.logger.debug('shutdown stop wait pubsub deliver');
@@ -76,7 +76,7 @@ exports.shutdown = function (ctx, editorStat, status) {
           ctx.logger.debug('shutdown timeout');
           break;
         }
-        var remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
+        const remainingFiles = yield editorStat.getShutdownCount(redisKeyShutdown);
         const inSavingStatus = yield sqlBase.getCountWithStatus(ctx, commonDefines.FileStatus.SaveVersion, EXEC_TIMEOUT);
         ctx.logger.debug('shutdown remaining files editorStat:%d, db:%d', remainingFiles, inSavingStatus);
         if (!isStartWait && remainingFiles + inSavingStatus <= 0) {

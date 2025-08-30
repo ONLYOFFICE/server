@@ -33,34 +33,34 @@
 'use strict';
 
 const path = require('path');
-var config = require('config');
-var co = require('co');
+const config = require('config');
+const co = require('co');
 const mime = require('mime');
-var taskResult = require('./taskresult');
-var utils = require('./../../Common/sources/utils');
-var constants = require('./../../Common/sources/constants');
-var commonDefines = require('./../../Common/sources/commondefines');
-var docsCoServer = require('./DocsCoServer');
-var canvasService = require('./canvasservice');
-var wopiClient = require('./wopiClient');
-var storage = require('./../../Common/sources/storage/storage-base');
-var formatChecker = require('./../../Common/sources/formatchecker');
-var statsDClient = require('./../../Common/sources/statsdclient');
-var storageBase = require('./../../Common/sources/storage/storage-base');
-var operationContext = require('./../../Common/sources/operationContext');
+const taskResult = require('./taskresult');
+const utils = require('./../../Common/sources/utils');
+const constants = require('./../../Common/sources/constants');
+const commonDefines = require('./../../Common/sources/commondefines');
+const docsCoServer = require('./DocsCoServer');
+const canvasService = require('./canvasservice');
+const wopiClient = require('./wopiClient');
+const storage = require('./../../Common/sources/storage/storage-base');
+const formatChecker = require('./../../Common/sources/formatchecker');
+const statsDClient = require('./../../Common/sources/statsdclient');
+const storageBase = require('./../../Common/sources/storage/storage-base');
+const operationContext = require('./../../Common/sources/operationContext');
 const sqlBase = require('./databaseConnectors/baseConnector');
 const utilsDocService = require('./utilsDocService');
 
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
-var CONVERT_ASYNC_DELAY = 1000;
+const CONVERT_ASYNC_DELAY = 1000;
 
-var clientStatsD = statsDClient.getClient();
+const clientStatsD = statsDClient.getClient();
 
 function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_checkPassword) {
-  var status = new commonDefines.ConvertStatus(constants.NO_ERROR);
+  const status = new commonDefines.ConvertStatus(constants.NO_ERROR);
   if (selectRes.length > 0) {
-    var row = selectRes[0];
+    const row = selectRes[0];
     const password = opt_checkPassword && sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
     switch (row.status) {
       case commonDefines.FileStatus.Ok:
@@ -96,7 +96,7 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
         status.err = constants.UNKNOWN;
         break;
     }
-    var lastOpenDate = row.last_open_date;
+    const lastOpenDate = row.last_open_date;
     if (new Date().getTime() - lastOpenDate.getTime() > utils.getConvertionTimeout(ctx)) {
       status.err = constants.CONVERT_TIMEOUT;
     }
@@ -124,8 +124,8 @@ function* getConvertUrl(ctx, baseUrl, fileToPath, title) {
   return yield storage.getSignedUrl(ctx, baseUrl, fileToPath, commonDefines.c_oAscUrlTypes.Temporary, title);
 }
 function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue, opt_checkPassword) {
-  var docId = cmd.getDocId();
-  var startDate = null;
+  const docId = cmd.getDocId();
+  let startDate = null;
   if (clientStatsD) {
     startDate = new Date();
   }
@@ -142,27 +142,27 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
     const upsertRes = yield taskResult.upsert(ctx, task);
     bCreate = upsertRes.isInsert;
   }
-  var selectRes;
-  var status;
+  let selectRes;
+  let status;
   if (!bCreate) {
     selectRes = yield taskResult.select(ctx, docId);
     status = yield* getConvertStatus(ctx, cmd.getDocId(), cmd.getPassword(), selectRes, opt_checkPassword);
   }
   if (bCreate || commonDefines.FileStatus.None === selectRes?.[0]?.status) {
-    var queueData = new commonDefines.TaskQueueData();
+    const queueData = new commonDefines.TaskQueueData();
     queueData.setCtx(ctx);
     queueData.setCmd(cmd);
     if (opt_fileTo) {
       queueData.setToFile(opt_fileTo);
     }
     queueData.setFromOrigin(true);
-    var priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
+    const priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
     yield* docsCoServer.addTask(queueData, priority, opt_queue, opt_expiration);
     status = new commonDefines.ConvertStatus(constants.NO_ERROR);
   }
   //wait
   if (!async) {
-    var waitTime = 0;
+    let waitTime = 0;
     while (true) {
       if (status.end || constants.NO_ERROR != status.err) {
         break;
@@ -201,7 +201,7 @@ async function convertFromChanges(
   opt_initShardKey,
   opt_jsonParams
 ) {
-  var cmd = new commonDefines.InputCommand();
+  const cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
   cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
@@ -241,7 +241,7 @@ async function convertFromChanges(
   if (!commandSfctByCmdRes) {
     return new commonDefines.ConvertStatus(constants.UNKNOWN);
   }
-  var fileTo = constants.OUTPUT_NAME;
+  let fileTo = constants.OUTPUT_NAME;
   const outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
   if (outputExt) {
     fileTo += '.' + outputExt;
@@ -312,7 +312,7 @@ function convertRequest(req, res, isJson) {
       }
       //todo use hash of params as id
       const docId = 'conv_' + params.key + '_' + outputFormat;
-      var cmd = new commonDefines.InputCommand();
+      const cmd = new commonDefines.InputCommand();
       cmd.setCommand('conv');
       cmd.setUrl(params.url);
       cmd.setEmbeddedFonts(false); //params.embeddedfonts'];
@@ -355,12 +355,12 @@ function convertRequest(req, res, isJson) {
       if (authRes.isDecoded) {
         cmd.setWithAuthorization(true);
       }
-      var thumbnail = params.thumbnail;
+      let thumbnail = params.thumbnail;
       if (thumbnail) {
         if (typeof thumbnail === 'string') {
           thumbnail = JSON.parse(thumbnail);
         }
-        var thumbnailData = new commonDefines.CThumbnailData(thumbnail);
+        const thumbnailData = new commonDefines.CThumbnailData(thumbnail);
         //constants from CXIMAGE_FORMAT_
         switch (cmd.getOutputFormat()) {
           case constants.AVS_OFFICESTUDIO_FILE_IMAGE_JPG:
@@ -381,12 +381,12 @@ function convertRequest(req, res, isJson) {
           outputExt = 'zip';
         }
       }
-      var documentRenderer = params.documentRenderer;
+      let documentRenderer = params.documentRenderer;
       if (documentRenderer) {
         if (typeof documentRenderer === 'string') {
           documentRenderer = JSON.parse(documentRenderer);
         }
-        var textParamsData = new commonDefines.CTextParams();
+        const textParamsData = new commonDefines.CTextParams();
         switch (documentRenderer.textAssociation) {
           case 'plainParagraph':
             textParamsData.setAssociation(3);
@@ -407,7 +407,7 @@ function convertRequest(req, res, isJson) {
       if (params.title) {
         cmd.setTitle(path.basename(params.title, path.extname(params.title)) + '.' + outputExt);
       }
-      var async = typeof params.async === 'string' ? 'true' == params.async : params.async;
+      let async = typeof params.async === 'string' ? 'true' == params.async : params.async;
       if (async && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
         ctx.logger.warn(
           'convertRequest set async=false. Pass query string parameter "%s" to correctly process request in sharded cluster',
@@ -417,7 +417,7 @@ function convertRequest(req, res, isJson) {
       }
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== cmd.getOutputFormat()) {
         const fileTo = constants.OUTPUT_NAME + '.' + outputExt;
-        var status = yield* convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true);
+        const status = yield* convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true);
         if (status.end) {
           const fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
@@ -426,7 +426,7 @@ function convertRequest(req, res, isJson) {
         }
         utils.fillResponse(req, res, status, isJson);
       } else {
-        var addresses = utils.forwarded(req);
+        const addresses = utils.forwarded(req);
         ctx.logger.warn('Error convert unknown outputtype: query = %j from = %s', params, addresses);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
       }

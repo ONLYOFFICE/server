@@ -31,25 +31,25 @@
  */
 
 'use strict';
-var config = require('config');
-var events = require('events');
-var util = require('util');
-var co = require('co');
-var constants = require('./../../Common/sources/constants');
+const config = require('config');
+const events = require('events');
+const util = require('util');
+const co = require('co');
+const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
-var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
-var activeMQCore = require('./../../Common/sources/activeMQCore');
+const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
+const activeMQCore = require('./../../Common/sources/activeMQCore');
 
 const cfgQueueType = config.get('queue.type');
 const cfgRabbitExchangePubSub = config.util.cloneDeep(config.get('rabbitmq.exchangepubsub'));
 const cfgRabbitQueuePubsub = config.util.cloneDeep(config.get('rabbitmq.queuepubsub'));
-var cfgActiveTopicPubSub = constants.ACTIVEMQ_TOPIC_PREFIX + config.get('activemq.topicpubsub');
+const cfgActiveTopicPubSub = constants.ACTIVEMQ_TOPIC_PREFIX + config.get('activemq.topicpubsub');
 
 function initRabbit(pubsub, callback) {
   return co(function* () {
-    var e = null;
+    let e = null;
     try {
-      var conn = yield rabbitMQCore.connetPromise(() => {
+      const conn = yield rabbitMQCore.connetPromise(() => {
         clear(pubsub);
         if (!pubsub.isClose) {
           setTimeout(() => {
@@ -67,7 +67,7 @@ function initRabbit(pubsub, callback) {
       );
 
       pubsub.channelReceive = yield rabbitMQCore.createChannelPromise(conn);
-      var queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, cfgRabbitQueuePubsub.name, cfgRabbitQueuePubsub.options);
+      const queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, cfgRabbitQueuePubsub.name, cfgRabbitQueuePubsub.options);
       pubsub.channelReceive.bindQueue(queue, cfgRabbitExchangePubSub.name, '');
       yield rabbitMQCore.consumePromise(
         pubsub.channelReceive,
@@ -94,9 +94,9 @@ function initRabbit(pubsub, callback) {
 }
 function initActive(pubsub, callback) {
   return co(function* () {
-    var e = null;
+    let e = null;
     try {
-      var conn = yield activeMQCore.connetPromise(() => {
+      const conn = yield activeMQCore.connetPromise(() => {
         clear(pubsub);
         if (!pubsub.isClose) {
           setTimeout(() => {
@@ -150,7 +150,7 @@ function clear(pubsub) {
 }
 function repeat(pubsub) {
   return co(function* () {
-    for (var i = 0; i < pubsub.publishStore.length; ++i) {
+    for (let i = 0; i < pubsub.publishStore.length; ++i) {
       yield publish(pubsub, pubsub.publishStore[i]);
     }
     pubsub.publishStore.length = 0;
@@ -244,7 +244,7 @@ PubsubRabbitMQ.prototype.init = function (callback) {
   init(this, callback);
 };
 PubsubRabbitMQ.prototype.initPromise = function () {
-  var t = this;
+  const t = this;
   return new Promise((resolve, reject) => {
     init(t, err => {
       if (err) {

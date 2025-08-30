@@ -38,15 +38,15 @@ require('tls').DEFAULT_ECDH_CURVE = 'auto';
 const {pipeline} = require('node:stream/promises');
 const {buffer} = require('node:stream/consumers');
 const {Transform} = require('stream');
-var config = require('config');
-var fs = require('fs');
+const config = require('config');
+const fs = require('fs');
 const fsPromises = require('node:fs/promises');
-var path = require('path');
+const path = require('path');
 const crypto = require('crypto');
-var url = require('url');
-var axios = require('../node_modules/axios/dist/node/axios.cjs');
-var co = require('co');
-var URI = require('uri-js-replace');
+const url = require('url');
+const axios = require('../node_modules/axios/dist/node/axios.cjs');
+const co = require('co');
+const URI = require('uri-js-replace');
 const escapeStringRegexp = require('escape-string-regexp');
 const ipaddr = require('ipaddr.js');
 const getDnsCache = require('dnscache');
@@ -99,7 +99,7 @@ BigInt.prototype.toJSON = function () {
   return this.toString();
 };
 
-var g_oIpFilterRules = new Map();
+const g_oIpFilterRules = new Map();
 function getIpFilterRule(address) {
   let exp = g_oIpFilterRules.get(address);
   if (!exp) {
@@ -596,7 +596,7 @@ exports.httpRequest = httpRequest;
 exports.postRequestPromise = postRequestPromise;
 exports.downloadUrlPromise = downloadUrlPromise;
 exports.mapAscServerErrorToOldError = function (error) {
-  var res = -1;
+  let res = -1;
   switch (error) {
     case constants.NO_ERROR:
     case constants.CONVERT_CELLLIMITS:
@@ -658,7 +658,7 @@ exports.mapAscServerErrorToOldError = function (error) {
   return res;
 };
 function fillXmlResponse(val) {
-  var xml = '<?xml version="1.0" encoding="utf-8"?><FileResult>';
+  let xml = '<?xml version="1.0" encoding="utf-8"?><FileResult>';
   if (undefined != val.error) {
     xml += '<Error>' + exports.encodeXml(val.error.toString()) + '</Error>';
   } else {
@@ -734,8 +734,8 @@ exports.fillResponseBuilder = fillResponseBuilder;
 
 function promiseCreateWriteStream(strPath, optOptions) {
   return new Promise((resolve, reject) => {
-    var file = fs.createWriteStream(strPath, optOptions);
-    var errorCallback = function (e) {
+    const file = fs.createWriteStream(strPath, optOptions);
+    const errorCallback = function (e) {
       reject(e);
     };
     file.on('error', errorCallback);
@@ -763,8 +763,8 @@ exports.promiseWaitClose = promiseWaitClose;
 
 function promiseCreateReadStream(strPath) {
   return new Promise((resolve, reject) => {
-    var file = fs.createReadStream(strPath);
-    var errorCallback = function (e) {
+    const file = fs.createReadStream(strPath);
+    const errorCallback = function (e) {
       reject(e);
     };
     file.on('error', errorCallback);
@@ -792,7 +792,7 @@ exports.compareStringByLength = function (x, y) {
   return 0;
 };
 exports.promiseRedis = function (client, func) {
-  var newArguments = Array.prototype.slice.call(arguments, 2);
+  const newArguments = Array.prototype.slice.call(arguments, 2);
   return new Promise((resolve, reject) => {
     newArguments.push((err, data) => {
       if (err) {
@@ -829,7 +829,7 @@ function getDomain(hostHeader, forwardedHostHeader) {
   return 'localhost';
 }
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
-  var url = '';
+  let url = '';
   if (forwardedProtoHeader && constants.ALLOWED_PROTO.test(forwardedProtoHeader)) {
     url += forwardedProtoHeader;
   } else if (protocol && constants.ALLOWED_PROTO.test(protocol)) {
@@ -921,7 +921,7 @@ function stream2Buffer(stream) {
     if (!stream.readable) {
       resolve(Buffer.alloc(0));
     }
-    var bufs = [];
+    const bufs = [];
     stream.on('data', data => {
       bufs.push(data);
     });
@@ -960,19 +960,19 @@ function pipeStreams(from, to, isEnd) {
 }
 exports.pipeStreams = pipeStreams;
 function* pipeFiles(from, to) {
-  var fromStream = yield promiseCreateReadStream(from);
-  var toStream = yield promiseCreateWriteStream(to);
+  const fromStream = yield promiseCreateReadStream(from);
+  const toStream = yield promiseCreateWriteStream(to);
   yield pipeStreams(fromStream, toStream, true);
 }
 exports.pipeFiles = co.wrap(pipeFiles);
 function checkIpFilter(ctx, ipString, opt_hostname) {
   const tenIpFilterRules = ctx.getCfg('services.CoAuthoring.ipfilter.rules', cfgIpFilterRules);
 
-  var status = 0;
-  var ip4;
-  var ip6;
+  let status = 0;
+  let ip4;
+  let ip6;
   if (ipaddr.isValid(ipString)) {
-    var ip = ipaddr.parse(ipString);
+    const ip = ipaddr.parse(ipString);
     if ('ipv6' === ip.kind()) {
       if (ip.isIPv4MappedAddress()) {
         ip4 = ip.toIPv4Address().toString();
@@ -1032,7 +1032,7 @@ function checkClientIp(req, res, next) {
 }
 exports.checkClientIp = checkClientIp;
 function lowercaseQueryString(req, res, next) {
-  for (var key in req.query) {
+  for (const key in req.query) {
     if (req.query.hasOwn(key) && key.toLowerCase() !== key) {
       req.query[key.toLowerCase()] = req.query[key];
       delete req.query[key];
@@ -1106,8 +1106,8 @@ exports.checkPathTraversal = function (ctx, docId, rootDirectory, filename) {
   return true;
 };
 exports.getConnectionInfo = function (conn) {
-  var user = conn.user;
-  var data = {
+  const user = conn.user;
+  const data = {
     id: user.id,
     idOriginal: user.idOriginal,
     username: user.username,
@@ -1268,14 +1268,14 @@ Date.prototype.getDaysInMonth = function () {
 };
 
 Date.prototype.addMonths = function (value) {
-  var n = this.getUTCDate();
+  const n = this.getUTCDate();
   this.setUTCDate(1);
   this.setUTCMonth(this.getUTCMonth() + value);
   this.setUTCDate(Math.min(n, this.getDaysInMonth()));
   return this;
 };
 function getMonthDiff(d1, d2) {
-  var months;
+  let months;
   months = (d2.getUTCFullYear() - d1.getUTCFullYear()) * 12;
   months -= d1.getUTCMonth();
   months += d2.getUTCMonth();

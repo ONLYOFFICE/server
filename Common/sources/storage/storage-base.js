@@ -35,8 +35,8 @@ const os = require('os');
 const cluster = require('cluster');
 const path = require('path');
 const crypto = require('crypto');
-var config = require('config');
-var utils = require('../utils');
+const config = require('config');
+const utils = require('../utils');
 const commonDefines = require('../commondefines');
 const constants = require('../constants');
 const ms = require('ms');
@@ -159,19 +159,19 @@ async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_cre
     const storageFolderName = storageCfg.storageFolderName;
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
     const userFriendlyName = optFilename ? encodeURIComponent(optFilename.replace(/\//g, '%2f')) : path.basename(strPath);
-    var uri = '/' + bucketName + '/' + storageFolderName + '/' + storagePath + '/' + userFriendlyName;
+    const uri = '/' + bucketName + '/' + storageFolderName + '/' + storagePath + '/' + userFriendlyName;
     //RFC 1123 does not allow underscores https://stackoverflow.com/questions/2180465/can-domain-name-subdomains-have-an-underscore-in-it
-    var url = utils.checkBaseUrl(ctx, baseUrl, storageCfg).replace(/_/g, '%5f');
+    let url = utils.checkBaseUrl(ctx, baseUrl, storageCfg).replace(/_/g, '%5f');
     url += uri;
 
-    var date = Date.now();
+    const date = Date.now();
     const creationDate = opt_creationDate || date;
     const expiredAfter = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
     //todo creationDate can be greater because mysql CURRENT_TIMESTAMP uses local time, not UTC
-    var expires = creationDate + Math.ceil(Math.abs(date - creationDate) / expiredAfter) * expiredAfter;
+    let expires = creationDate + Math.ceil(Math.abs(date - creationDate) / expiredAfter) * expiredAfter;
     expires = Math.ceil(expires / 1000);
     expires += expiredAfter;
-    var md5 = crypto
+    let md5 = crypto
       .createHash('md5')
       .update(expires + decodeURIComponent(uri) + storageSecretString)
       .digest('base64');
@@ -216,8 +216,8 @@ async function getSignedUrlsArrayByArray(ctx, baseUrl, list, urlType, opt_specia
 }
 async function getSignedUrlsByArray(ctx, baseUrl, list, optPath, urlType, opt_specialDir) {
   const urls = await getSignedUrlsArrayByArray(ctx, baseUrl, list, urlType, opt_specialDir);
-  var outputMap = {};
-  for (var i = 0; i < list.length && i < urls.length; ++i) {
+  const outputMap = {};
+  for (let i = 0; i < list.length && i < urls.length; ++i) {
     if (optPath) {
       const storagePathSrc = getStoragePath(ctx, optPath, opt_specialDir);
       outputMap[getRelativePath(storagePathSrc, list[i])] = urls[i];

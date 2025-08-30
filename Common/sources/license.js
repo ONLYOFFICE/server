@@ -39,8 +39,8 @@ const oBuildDate = new Date(buildDate);
 
 exports.readLicense = async function () {
   const c_LR = constants.LICENSE_RESULT;
-  var now = new Date();
-  var startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)); //first day of current month
+  const now = new Date();
+  const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)); //first day of current month
   return [
     {
       count: 1,

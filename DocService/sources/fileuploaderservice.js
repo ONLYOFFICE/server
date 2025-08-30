@@ -32,16 +32,16 @@
 
 'use strict';
 const crypto = require('crypto');
-var co = require('co');
+const co = require('co');
 const utilsDocService = require('./utilsDocService');
-var docsCoServer = require('./DocsCoServer');
-var utils = require('./../../Common/sources/utils');
-var constants = require('./../../Common/sources/constants');
-var storageBase = require('./../../Common/sources/storage/storage-base');
-var formatChecker = require('./../../Common/sources/formatchecker');
+const docsCoServer = require('./DocsCoServer');
+const utils = require('./../../Common/sources/utils');
+const constants = require('./../../Common/sources/constants');
+const storageBase = require('./../../Common/sources/storage/storage-base');
+const formatChecker = require('./../../Common/sources/formatchecker');
 const commonDefines = require('./../../Common/sources/commondefines');
 const operationContext = require('./../../Common/sources/operationContext');
-var config = require('config');
+const config = require('config');
 
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
@@ -54,10 +54,10 @@ const PATTERN_ENCRYPTED = 'ENCRYPTED;';
 //   return checkJwtUploadTransformRes(ctx, errorName, checkJwtRes);
 // }
 function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes) {
-  var res = {err: true, docId: null, userid: null, encrypted: null};
+  const res = {err: true, docId: null, userid: null, encrypted: null};
   if (checkJwtRes.decoded) {
-    var doc = checkJwtRes.decoded.document;
-    var edit = checkJwtRes.decoded.editorConfig;
+    const doc = checkJwtRes.decoded.document;
+    const edit = checkJwtRes.decoded.editorConfig;
     //todo check view and pdf editor (temporary fix)
     if (!edit.ds_isCloseCoAuthoring) {
       res.err = false;
@@ -77,7 +77,7 @@ function checkJwtUploadTransformRes(ctx, errorName, checkJwtRes) {
 exports.uploadImageFile = function (req, res) {
   return co(function* () {
     let httpStatus = 200;
-    var docId = 'null';
+    let docId = 'null';
     const output = {};
     const ctx = new operationContext.Context();
     try {
@@ -111,12 +111,12 @@ exports.uploadImageFile = function (req, res) {
       if (200 === httpStatus && docId && req.body && Buffer.isBuffer(req.body)) {
         let buffer = req.body;
         if (buffer.length <= tenImageSize) {
-          var format = formatChecker.getImageFormat(ctx, buffer);
-          var formatStr = formatChecker.getStringFromFormat(format);
+          let format = formatChecker.getImageFormat(ctx, buffer);
+          let formatStr = formatChecker.getStringFromFormat(format);
           if (encrypted && PATTERN_ENCRYPTED === buffer.toString('utf8', 0, PATTERN_ENCRYPTED.length)) {
             formatStr = buffer.toString('utf8', PATTERN_ENCRYPTED.length, buffer.indexOf(';', PATTERN_ENCRYPTED.length));
           }
-          var supportedFormats = tenTypesUpload || 'jpg';
+          const supportedFormats = tenTypesUpload || 'jpg';
           const formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
           if (formatLimit) {
             if (format === constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF) {
@@ -125,9 +125,9 @@ exports.uploadImageFile = function (req, res) {
               formatStr = formatChecker.getStringFromFormat(format);
             }
             //a hash is written at the beginning to avoid errors during parallel upload in co-editing
-            var strImageName = crypto.randomBytes(16).toString('hex');
-            var strPathRel = 'media/' + strImageName + '.' + formatStr;
-            var strPath = docId + '/' + strPathRel;
+            const strImageName = crypto.randomBytes(16).toString('hex');
+            const strPathRel = 'media/' + strImageName + '.' + formatStr;
+            const strPath = docId + '/' + strPathRel;
 
             buffer = yield utilsDocService.fixImageExifRotation(ctx, buffer);
 

@@ -33,18 +33,18 @@
 'use strict';
 
 const crypto = require('crypto');
-var sqlBase = require('./databaseConnectors/baseConnector');
-var constants = require('./../../Common/sources/constants');
-var commonDefines = require('./../../Common/sources/commondefines');
-var tenantManager = require('./../../Common/sources/tenantManager');
-var config = require('config');
+const sqlBase = require('./databaseConnectors/baseConnector');
+const constants = require('./../../Common/sources/constants');
+const commonDefines = require('./../../Common/sources/commondefines');
+const tenantManager = require('./../../Common/sources/tenantManager');
+const config = require('config');
 
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
 
 const addSqlParam = sqlBase.addSqlParameter;
 const concatParams = sqlBase.concatParams;
 
-var RANDOM_KEY_MAX = 10000;
+const RANDOM_KEY_MAX = 10000;
 
 function TaskResultData() {
   this.tenant = null;
@@ -135,7 +135,7 @@ function select(ctx, docId) {
   });
 }
 function toUpdateArray(task, updateTime, isMask, values, setPassword) {
-  var res = [];
+  const res = [];
   if (null != task.status) {
     const sqlParam = addSqlParam(task.status, values);
     res.push(`status=${sqlParam}`);
@@ -157,7 +157,7 @@ function toUpdateArray(task, updateTime, isMask, values, setPassword) {
     res.push(`change_id=${sqlParam}`);
   }
   if (null != task.callback && !isMask) {
-    var userCallback = new sqlBase.UserCallback();
+    const userCallback = new sqlBase.UserCallback();
     userCallback.fromValues(task.indexUser, task.callback);
     const sqlParam = addSqlParam(userCallback.toSQLInsert(), values);
     res.push(`callback=${concatParams('callback', sqlParam)}`);
@@ -170,7 +170,7 @@ function toUpdateArray(task, updateTime, isMask, values, setPassword) {
     const sqlParam = addSqlParam(task.password, values);
     res.push(`password=${sqlParam}`);
   } else if (null != task.password || setPassword) {
-    var documentPassword = new sqlBase.DocumentPassword();
+    const documentPassword = new sqlBase.DocumentPassword();
     documentPassword.fromValues(task.password, task.innerPasswordChange);
     const sqlParam = addSqlParam(documentPassword.toSQLInsert(), values);
     res.push(`password=${concatParams('password', sqlParam)}`);
@@ -236,13 +236,13 @@ function updateIf(ctx, task, mask) {
 function restoreInitialPassword(ctx, docId) {
   return select(ctx, docId).then(selectRes => {
     if (selectRes.length > 0) {
-      var row = selectRes[0];
+      const row = selectRes[0];
       const docPassword = sqlBase.DocumentPassword.prototype.getDocPassword(ctx, row.password);
-      var updateTask = new TaskResultData();
+      const updateTask = new TaskResultData();
       updateTask.tenant = ctx.tenant;
       updateTask.key = docId;
       if (docPassword.initial) {
-        var documentPassword = new sqlBase.DocumentPassword();
+        const documentPassword = new sqlBase.DocumentPassword();
         documentPassword.fromValues(docPassword.initial);
         updateTask.password = documentPassword.toSQLInsert();
         return update(ctx, updateTask, true);
@@ -293,13 +293,13 @@ function addRandomKey(ctx, task, key, opt_prefix, opt_size) {
   });
 }
 function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
-  var task = new TaskResultData();
+  const task = new TaskResultData();
   task.tenant = ctx.tenant;
   task.key = key;
   task.status = commonDefines.FileStatus.WaitQueue;
   //nTryCount so as not to freeze if there are really problems with the DB
-  var nTryCount = RANDOM_KEY_MAX;
-  var addRes = null;
+  let nTryCount = RANDOM_KEY_MAX;
+  let addRes = null;
   while (nTryCount-- > 0) {
     try {
       addRes = yield addRandomKey(ctx, task, key, opt_prefix, opt_size);
