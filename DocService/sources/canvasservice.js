@@ -694,6 +694,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
   let isInJwtToken = false;
   const token = cmd.getTokenDownload();
   if (tenTokenEnableBrowser && token) {
+    // allow requests without token
     const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
       //todo multiple url case
@@ -1472,7 +1473,7 @@ exports.downloadAs = function (req, res) {
       ctx.logger.debug('Start downloadAs: %s', strCmd);
       const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (tenTokenEnableBrowser) {
+      if (tenTokenEnableBrowser || cmd.getTokenDownload() || cmd.getTokenSession()) {
         let isValidJwt = false;
         if (cmd.getTokenDownload()) {
           const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), commonDefines.c_oAscSecretType.Browser);
@@ -1559,28 +1560,25 @@ exports.saveFile = function (req, res) {
       docId = cmd.getDocId();
       ctx.setDocId(docId);
       ctx.logger.debug('Start saveFile');
-      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (tenTokenEnableBrowser) {
-        let isValidJwt = false;
-        const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
-        if (checkJwtRes.decoded) {
-          const doc = checkJwtRes.decoded.document;
-          const edit = checkJwtRes.decoded.editorConfig;
-          if (doc.ds_encrypted && !edit.ds_view && !edit.ds_isCloseCoAuthoring) {
-            isValidJwt = true;
-            docId = doc.key;
-            cmd.setDocId(doc.key);
-          } else {
-            ctx.logger.warn('Error saveFile jwt: %s', 'access deny');
-          }
+      let isValidJwt = false;
+      let checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+      if (checkJwtRes.decoded) {
+        let doc = checkJwtRes.decoded.document;
+        var edit = checkJwtRes.decoded.editorConfig;
+        if (doc.ds_encrypted && !edit.ds_view && !edit.ds_isCloseCoAuthoring) {
+          isValidJwt = true;
+          docId = doc.key;
+          cmd.setDocId(doc.key);
         } else {
-          ctx.logger.warn('Error saveFile jwt: %s', checkJwtRes.description);
+          ctx.logger.warn('Error saveFile jwt: %s', 'access deny');
         }
-        if (!isValidJwt) {
-          res.sendStatus(403);
-          return;
-        }
+      } else {
+        ctx.logger.warn('Error saveFile jwt: %s', checkJwtRes.description);
+      }
+      if (!isValidJwt) {
+        res.sendStatus(403);
+        return;
       }
       ctx.setDocId(docId);
       cmd.setStatusInfo(constants.NO_ERROR);
@@ -1605,22 +1603,18 @@ exports.saveFile = function (req, res) {
 };
 function getPrintFileUrl(ctx, docId, baseUrl, filename) {
   return co(function* () {
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenTokenSessionAlgorithm = ctx.getCfg('services.CoAuthoring.token.session.algorithm', cfgTokenSessionAlgorithm);
     const tenTokenSessionExpires = ms(ctx.getCfg('services.CoAuthoring.token.session.expires', cfgTokenSessionExpires));
 
     baseUrl = utils.checkBaseUrl(ctx, baseUrl);
-    let token = '';
-    if (tenTokenEnableBrowser) {
-      const payload = {document: {key: docId}};
-      token = yield docsCoServer.signToken(
-        ctx,
-        payload,
-        tenTokenSessionAlgorithm,
-        tenTokenSessionExpires / 1000,
-        commonDefines.c_oAscSecretType.Session
-      );
-    }
+    let payload = {document: {key: docId}};
+    let token = yield docsCoServer.signToken(
+      ctx,
+      payload,
+      tenTokenSessionAlgorithm,
+      tenTokenSessionExpires / 1000,
+      commonDefines.c_oAscSecretType.Session
+    );
     //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
     const userFriendlyName = encodeURIComponent(filename.replace(/\//g, '%2f'));
@@ -1630,6 +1624,9 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     }
     if (ctx.wopiSrc) {
       res += `&${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(ctx.wopiSrc)}`;
+    }
+    if (ctx.userSessionId) {
+      res += `&${constants.USER_SESSION_ID_NAME}=${encodeURIComponent(ctx.userSessionId)}`;
     }
     res += `&filename=${userFriendlyName}`;
     return res;
@@ -1652,29 +1649,26 @@ exports.printFile = function (req, res) {
       docId = req.params.docid;
       ctx.setDocId(docId);
       ctx.logger.info('Start printFile');
-      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      if (tenTokenEnableBrowser) {
-        const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
-        if (checkJwtRes.decoded) {
-          const docIdBase = checkJwtRes.decoded.document.key;
-          if (!docId.startsWith(docIdBase)) {
-            ctx.logger.warn('Error printFile jwt: description = %s', 'access deny');
-            res.sendStatus(403);
-            return;
-          }
-        } else {
-          ctx.logger.warn('Error printFile jwt: description = %s', checkJwtRes.description);
+      let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
+      if (checkJwtRes.decoded) {
+        let docIdBase = checkJwtRes.decoded.document.key;
+        if (!docId.startsWith(docIdBase)) {
+          ctx.logger.warn('Error printFile jwt: description = %s', 'access deny');
           res.sendStatus(403);
           return;
         }
+      } else {
+        ctx.logger.warn('Error printFile jwt: description = %s', checkJwtRes.description);
+        res.sendStatus(403);
+        return;
       }
       ctx.setDocId(docId);
       const streamObj = yield storage.createReadStream(ctx, `${docId}/${constants.OUTPUT_NAME}.pdf`);
       res.setHeader('Content-Disposition', utils.getContentDisposition(filename, null, constants.CONTENT_DISPOSITION_INLINE));
       res.setHeader('Content-Length', streamObj.contentLength);
       res.setHeader('Content-Type', 'application/pdf');
-      yield utils.pipeStreams(streamObj.readStream, res, true);
+      yield utils.pipeHttpStreams(streamObj.readStream, res);
 
       if (clientStatsD) {
         clientStatsD.timing('coauth.printFile', new Date() - startDate);
@@ -1810,6 +1804,10 @@ exports.downloadFile = function (req, res) {
         );
         const response = downloadResult.response;
         stream = downloadResult.stream;
+        // Sanitize Content-Disposition by removing control chars (prevents CRLF/header injection)
+        if (response.headers['content-disposition']) {
+          response.headers['content-disposition'] = response.headers['content-disposition'].replace(/[\x00-\x1F\x7F]/g, '');
+        }
         //Set-Cookie resets browser session
         delete response.headers['set-cookie'];
         // Set the response headers to match the target response

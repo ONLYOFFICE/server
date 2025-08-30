@@ -80,7 +80,7 @@
         "enable": false,
         "transportType": ["email"],
         "template": {
-          "title": "%s Docs license connection limit warning",
+          "title": "%s Docs license %s limit warning",
           "body": "Attention! You have reached %s%% of the %s limit set by your license."
         },
         "policies": {
@@ -91,7 +91,7 @@
         "enable": false,
         "transportType": ["email"],
         "template": {
-          "title": "%s Docs license connection limit warning",
+          "title": "%s Docs license %s limit warning",
           "body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
         },
         "policies": {
@@ -123,6 +123,16 @@
           "MaxKeys": 1000
         },
         "deleteObject": {}
+      },
+      "az": {
+        "uploadData": {},
+        "uploadStream": {},
+        "download": {},
+        "syncCopyFromURL": {},
+        "listBlobsFlat": {
+          "maxPageSize": 1000
+        },
+        "deleteBlob": {}
       }
     },
     "urlExpires": 604800,
@@ -131,7 +141,7 @@
     "sslEnabled": false,
     "s3ForcePathStyle": true,
     "externalHost": "",
-    "useDirectStorageUrls": true
+    "useDirectStorageUrls": false
   },
   "persistentStorage": {},
   "rabbitmq": {
@@ -406,6 +416,7 @@
           "queueTimeout": 60000
         },
         "oracleExtraOptions": {
+          "thin": true,
           "connectTimeout": 60
         },
         "msSqlExtraOptions": {

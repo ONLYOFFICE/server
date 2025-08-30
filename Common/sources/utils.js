@@ -906,16 +906,24 @@ function getShardKeyByConnection(ctx, conn) {
 function getWopiSrcByConnection(ctx, conn) {
   return conn?.handshake?.query?.[constants.SHARD_KEY_WOPI_NAME];
 }
+function getSessionIdByConnection(ctx, conn) {
+  return conn?.handshake?.query?.[constants.USER_SESSION_ID_NAME];
+}
 function getShardKeyByRequest(ctx, req) {
   return req.query?.[constants.SHARD_KEY_API_NAME];
 }
 function getWopiSrcByRequest(ctx, req) {
   return req.query?.[constants.SHARD_KEY_WOPI_NAME];
 }
+function getSessionIdByRequest(ctx, req) {
+  return req.query?.[constants.USER_SESSION_ID_NAME];
+}
 exports.getShardKeyByConnection = getShardKeyByConnection;
 exports.getWopiSrcByConnection = getWopiSrcByConnection;
+exports.getSessionIdByConnection = getSessionIdByConnection;
 exports.getShardKeyByRequest = getShardKeyByRequest;
 exports.getWopiSrcByRequest = getWopiSrcByRequest;
+exports.getSessionIdByRequest = getSessionIdByRequest;
 function stream2Buffer(stream) {
   return new Promise((resolve, reject) => {
     if (!stream.readable) {
@@ -947,24 +955,22 @@ function changeOnlyOfficeUrl(inputUrl, strPath, optFilename) {
   return inputUrl + constants.ONLY_OFFICE_URL_PARAM + '=' + constants.OUTPUT_NAME + path.extname(optFilename || strPath);
 }
 exports.changeOnlyOfficeUrl = changeOnlyOfficeUrl;
-function pipeStreams(from, to, isEnd) {
-  return new Promise((resolve, reject) => {
-    from.pipe(to, {end: isEnd});
-    from.on('end', () => {
-      resolve();
-    });
-    from.on('error', e => {
-      reject(e);
-    });
+/**
+ * Pipe streams for HTTP responses, swallowing client abort errors.
+ * @param {NodeJS.ReadableStream} from - source stream
+ * @param {NodeJS.WritableStream} to - HTTP response stream
+ * @returns {Promise<void>}
+ */
+function pipeHttpStreams(from, to) {
+  return pipeline(from, to).catch(err => {
+    // Treat client abort/connection reset as non-fatal to keep "End" logs parity.
+    if (err && (err.code === 'ERR_STREAM_PREMATURE_CLOSE' || err.code === 'ECONNRESET' || err.code === 'EPIPE')) {
+      return;
+    }
+    throw err;
   });
 }
-exports.pipeStreams = pipeStreams;
-function* pipeFiles(from, to) {
-  const fromStream = yield promiseCreateReadStream(from);
-  const toStream = yield promiseCreateWriteStream(to);
-  yield pipeStreams(fromStream, toStream, true);
-}
-exports.pipeFiles = co.wrap(pipeFiles);
+exports.pipeHttpStreams = pipeHttpStreams;
 function checkIpFilter(ctx, ipString, opt_hostname) {
   const tenIpFilterRules = ctx.getCfg('services.CoAuthoring.ipfilter.rules', cfgIpFilterRules);
 

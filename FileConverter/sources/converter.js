@@ -41,6 +41,7 @@ const spawnAsync = require('@expo/spawn-async');
 const bytes = require('bytes');
 const lcid = require('lcid');
 const ms = require('ms');
+const {pipeline} = require('node:stream/promises');
 
 const commonDefines = require('./../../Common/sources/commondefines');
 const storage = require('./../../Common/sources/storage/storage-base');
@@ -583,25 +584,22 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
 function* concatFiles(source, template) {
   template = template || 'Editor';
   //concatenate EditorN.ext parts in Editor.ext
-  const list = yield utils.listObjects(source, true);
+  let list = yield utils.listObjects(source, true);
   list.sort(utils.compareStringByLength);
-  const writeStreams = {};
+  const createdTargets = new Set();
   for (let i = 0; i < list.length; ++i) {
-    const file = list[i];
+    let file = list[i];
     if (file.match(new RegExp(`${template}\\d+\\.`))) {
-      const target = file.replace(new RegExp(`(${template})\\d+(\\..*)`), '$1$2');
-      let writeStream = writeStreams[target];
-      if (!writeStream) {
-        writeStream = yield utils.promiseCreateWriteStream(target);
-        writeStreams[target] = writeStream;
+      let target = file.replace(new RegExp(`(${template})\\d+(\\..*)`), '$1$2');
+      const isFirst = !createdTargets.has(target);
+      const writeOpts = isFirst ? undefined : {flags: 'a'};
+      let writeStream = yield utils.promiseCreateWriteStream(target, writeOpts);
+      let readStream = yield utils.promiseCreateReadStream(file);
+      // Use raw pipeline for file-to-file operations to surface real errors
+      yield pipeline(readStream, writeStream);
+      if (isFirst) {
+        createdTargets.add(target);
       }
-      const readStream = yield utils.promiseCreateReadStream(file);
-      yield utils.pipeStreams(readStream, writeStream, false);
-    }
-  }
-  for (const i in writeStreams) {
-    if (Object.hasOwn(writeStreams, i)) {
-      writeStreams[i].end();
     }
   }
 }

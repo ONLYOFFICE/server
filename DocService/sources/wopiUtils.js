@@ -106,9 +106,8 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
   }
   headers['X-WOPI-TimeStamp'] = timeStamp;
   headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
-  // todo
-  // headers['X-WOPI-CorrelationId '] = "";
-  // headers['X-WOPI-SessionId'] = "";
+  headers['X-WOPI-CorrelationId'] = crypto.randomUUID();
+  headers['X-WOPI-SessionId'] = ctx.userSessionId;
   //remove redundant header https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/common-headers#request-headers
   // headers['Authorization'] = `Bearer ${access_token}`;
 }

@@ -538,6 +538,7 @@ function fillJwtByConnection(ctx, conn) {
     user.id = conn.user.idOriginal;
     user.name = conn.user.username;
     user.index = conn.user.indexUser;
+    user.customerId = conn.user.customerId;
     if (conn.coEditingMode) {
       edit.coEditing = {mode: conn.coEditingMode};
     }
@@ -557,8 +558,8 @@ function sendData(ctx, conn, data) {
   const type = data ? data.type : null;
   ctx.logger.debug('sendData: type = %s', type);
 }
-function sendDataWarning(ctx, conn, msg) {
-  sendData(ctx, conn, {type: 'warning', message: msg});
+function sendDataWarning(ctx, conn, code, description) {
+  sendData(ctx, conn, {type: 'warning', code: code, message: description});
 }
 function sendDataMessage(ctx, conn, msg) {
   if (!conn.permissions || false !== conn.permissions.chat) {
@@ -604,13 +605,10 @@ function sendReleaseLock(ctx, conn, userLocks) {
 }
 function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
   return co(function* () {
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     if (isEnterCorrectPassword) {
       conn.isEnterCorrectPassword = true;
-      if (tenTokenEnableBrowser) {
-        const sessionToken = yield fillJwtByConnection(ctx, conn);
-        sendDataRefreshToken(ctx, conn, sessionToken);
-      }
+      let sessionToken = yield fillJwtByConnection(ctx, conn);
+      sendDataRefreshToken(ctx, conn, sessionToken);
     }
   });
 }
@@ -1183,7 +1181,7 @@ async function saveRelativeFromChanges(ctx, conn, responseKey, data) {
   let docId = data.docId;
   const token = data.token;
   let forceSaveRes;
-  if (tenTokenEnableBrowser) {
+  if (tenTokenEnableBrowser || token) {
     docId = null;
     const checkJwtRes = await checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
     if (checkJwtRes.decoded) {
@@ -1823,9 +1821,9 @@ exports.install = function (server, callbackFunction) {
         const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
         const handshake = socket.handshake;
-        if (tenTokenEnableBrowser) {
-          const secretType = handshake?.auth?.session ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
-          const token = handshake?.auth?.session || handshake?.auth?.token;
+        const token = handshake?.auth?.session || handshake?.auth?.token;
+        if (tenTokenEnableBrowser || token) {
+          let secretType = !!handshake?.auth?.session ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
           checkJwtRes = yield checkJwt(ctx, token, secretType);
           if (!checkJwtRes.decoded) {
             res = new Error('not authorized');
@@ -2033,7 +2031,6 @@ exports.install = function (server, callbackFunction) {
    * @param reason - the reason of the disconnection (either client or server-side)
    */
   function* closeDocument(ctx, conn, reason) {
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
 
     ctx.logger.info('Connection closed or timed out: reason = %s', reason);
@@ -2073,10 +2070,8 @@ exports.install = function (server, callbackFunction) {
         modifyConnectionEditorToView(ctx, conn);
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
-        if (tenTokenEnableBrowser) {
-          const sessionToken = yield fillJwtByConnection(ctx, conn);
-          sendDataRefreshToken(ctx, conn, sessionToken);
-        }
+        let sessionToken = yield fillJwtByConnection(ctx, conn);
+        sendDataRefreshToken(ctx, conn, sessionToken);
       }
     }
 
@@ -2322,8 +2317,6 @@ exports.install = function (server, callbackFunction) {
   }
 
   function* sendFileErrorAuth(ctx, conn, sessionId, errorId, code, opt_notWarn) {
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
-
     conn.sessionId = sessionId; //restore old
     //Kill previous connections
     connections = _.reject(connections, el => {
@@ -2337,10 +2330,8 @@ exports.install = function (server, callbackFunction) {
       // We put it in an array, because we need to send data to open/save the document
       connections.push(conn);
       yield addPresence(ctx, conn, true);
-      if (tenTokenEnableBrowser) {
-        const sessionToken = yield fillJwtByConnection(ctx, conn);
-        sendDataRefreshToken(ctx, conn, sessionToken);
-      }
+      let sessionToken = yield fillJwtByConnection(ctx, conn);
+      sendDataRefreshToken(ctx, conn, sessionToken);
       sendFileError(ctx, conn, errorId, code, opt_notWarn);
     }
   }
@@ -2542,6 +2533,7 @@ exports.install = function (server, callbackFunction) {
     if (decoded.userAuth) {
       data.documentCallbackUrl = JSON.stringify(decoded.userAuth);
       data.mode = decoded.userAuth.mode;
+      data.forcedViewMode = decoded.userAuth.forcedViewMode;
     }
     if (decoded.queryParams) {
       const queryParams = decoded.queryParams;
@@ -2702,6 +2694,9 @@ exports.install = function (server, callbackFunction) {
           //like in Common.Utils.fillUserInfo(web-apps/apps/common/main/lib/util/utils.js)
           dataUser.username = user.group.toString() + String.fromCharCode(160) + dataUser.username;
         }
+        if (user.customerId) {
+          dataUser.customerId = user.customerId;
+        }
       }
       if (edit.user && edit.user.name) {
         data.denyChangeName = true;
@@ -2751,9 +2746,10 @@ exports.install = function (server, callbackFunction) {
       const [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
       let isDecoded = false;
       //check jwt
-      if (tenTokenEnableBrowser) {
+      const token = data.jwtSession || data.jwtOpen;
+      if (tenTokenEnableBrowser || token) {
         const secretType = data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
-        const checkJwtRes = yield checkJwt(ctx, data.jwtSession || data.jwtOpen, secretType);
+        const checkJwtRes = yield checkJwt(ctx, token, secretType);
         if (checkJwtRes.decoded) {
           isDecoded = true;
           const decoded = checkJwtRes.decoded;
@@ -2905,6 +2901,7 @@ exports.install = function (server, callbackFunction) {
         id: curUserId,
         idOriginal: curUserIdOriginal,
         username: fillUsername(ctx, data),
+        customerId: user.customerId,
         indexUser: curIndexUser,
         view: !isEditMode(data.permissions, data.mode)
       };
@@ -3044,6 +3041,8 @@ exports.install = function (server, callbackFunction) {
           }
           return;
         }
+      } else if (data.forcedViewMode) {
+        sendDataWarning(ctx, conn, constants.FORCED_VIEW_MODE, 'Forced view mode');
       }
       //Set the unique ID
       if (bIsRestore) {
@@ -3325,7 +3324,6 @@ exports.install = function (server, callbackFunction) {
     } while (connections.length > 0 && changes && tenMaxRequestChanges === changes.length);
   }
   function* sendAuthInfo(ctx, conn, bIsRestore, participantsMap, opt_hasForgotten, opt_openedAt) {
-    const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
     const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
     const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
 
@@ -3341,7 +3339,7 @@ exports.install = function (server, callbackFunction) {
     let allMessages = yield editorData.getMessages(ctx, docId);
     allMessages = allMessages.length > 0 ? allMessages : undefined; //todo client side
     let sessionToken;
-    if (tenTokenEnableBrowser && !bIsRestore) {
+    if (!bIsRestore) {
       sessionToken = yield fillJwtByConnection(ctx, conn);
     }
     const tenEditor = getEditorConfig(ctx);
@@ -3839,12 +3837,13 @@ exports.install = function (server, callbackFunction) {
     const c_LR = constants.LICENSE_RESULT;
     let licenseType = licenseInfo.type;
     if (c_LR.Success === licenseType || c_LR.SuccessLimit === licenseType) {
-      let notificationLimit;
+      let notificationLimit, notificationLimitTitle;
       let notificationTemplate = tenNotificationRuleLicenseLimitEdit;
       let notificationType = notificationTypes.LICENSE_LIMIT_EDIT;
       let notificationPercent = 100;
       if (licenseInfo.usersCount) {
         const nowUTC = getLicenseNowUtc();
+        notificationLimitTitle = 'user';
         notificationLimit = 'users';
         if (isLiveViewer) {
           notificationTemplate = tenNotificationRuleLicenseLimitLiveViewer;
@@ -3876,6 +3875,7 @@ exports.install = function (server, callbackFunction) {
           }
         }
       } else {
+        notificationLimitTitle = 'connection';
         notificationLimit = 'connections';
         if (isLiveViewer) {
           notificationTemplate = tenNotificationRuleLicenseLimitLiveViewer;
@@ -3899,7 +3899,7 @@ exports.install = function (server, callbackFunction) {
       }
       if ((c_LR.Success !== licenseType && c_LR.SuccessLimit !== licenseType) || 100 !== notificationPercent) {
         const applicationName = (process.env.APPLICATION_NAME || '').toUpperCase();
-        const title = util.format(notificationTemplate.title, applicationName);
+        const title = util.format(notificationTemplate.title, applicationName, notificationLimitTitle);
         const message = util.format(notificationTemplate.body, notificationPercent, notificationLimit);
         if (100 !== notificationPercent) {
           ctx.logger.warn(message);
@@ -3922,7 +3922,6 @@ exports.install = function (server, callbackFunction) {
         ctx.initFromPubSub(data);
         yield ctx.initTenantCache();
         ctx.logger.debug('pubsub message start:%s', msg);
-        const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
         let participants;
         let participant;
@@ -4053,7 +4052,7 @@ exports.install = function (server, callbackFunction) {
           case commonDefines.c_oPublishType.warning:
             participants = getParticipants(data.docId);
             _.each(participants, participant => {
-              sendDataWarning(ctx, participant, data.description);
+              sendDataWarning(ctx, participant, undefined, data.description);
             });
             break;
           case commonDefines.c_oPublishType.cursor:
@@ -4105,10 +4104,8 @@ exports.install = function (server, callbackFunction) {
                 ctx.logger.debug('changeConnectionInfo: userId = %s', data.useridoriginal);
                 participant.user.username = cmd.getUserName();
                 yield addPresence(ctx, participant, false);
-                if (tenTokenEnableBrowser) {
-                  const sessionToken = yield fillJwtByConnection(ctx, participant);
-                  sendDataRefreshToken(ctx, participant, sessionToken);
-                }
+                let sessionToken = yield fillJwtByConnection(ctx, participant);
+                sendDataRefreshToken(ctx, participant, sessionToken);
               }
             }
             if (hasChanges) {
