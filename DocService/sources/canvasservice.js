@@ -1562,10 +1562,10 @@ exports.saveFile = function (req, res) {
       ctx.logger.debug('Start saveFile');
 
       let isValidJwt = false;
-      let checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+      const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
       if (checkJwtRes.decoded) {
-        let doc = checkJwtRes.decoded.document;
-        var edit = checkJwtRes.decoded.editorConfig;
+        const doc = checkJwtRes.decoded.document;
+        const edit = checkJwtRes.decoded.editorConfig;
         if (doc.ds_encrypted && !edit.ds_view && !edit.ds_isCloseCoAuthoring) {
           isValidJwt = true;
           docId = doc.key;
@@ -1607,8 +1607,8 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     const tenTokenSessionExpires = ms(ctx.getCfg('services.CoAuthoring.token.session.expires', cfgTokenSessionExpires));
 
     baseUrl = utils.checkBaseUrl(ctx, baseUrl);
-    let payload = {document: {key: docId}};
-    let token = yield docsCoServer.signToken(
+    const payload = {document: {key: docId}};
+    const token = yield docsCoServer.signToken(
       ctx,
       payload,
       tenTokenSessionAlgorithm,
@@ -1650,9 +1650,9 @@ exports.printFile = function (req, res) {
       ctx.setDocId(docId);
       ctx.logger.info('Start printFile');
 
-      let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
+      const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
       if (checkJwtRes.decoded) {
-        let docIdBase = checkJwtRes.decoded.document.key;
+        const docIdBase = checkJwtRes.decoded.document.key;
         if (!docId.startsWith(docIdBase)) {
           ctx.logger.warn('Error printFile jwt: description = %s', 'access deny');
           res.sendStatus(403);

@@ -32,27 +32,27 @@
 
 'use strict';
 
-var config = require('config');
-var util = require('util');
+const config = require('config');
+const util = require('util');
 
-var log4js = require('log4js');
+const log4js = require('log4js');
 const layouts = require('log4js/lib/layouts');
 
 // https://stackoverflow.com/a/36643588
-var dateToJSONWithTZ = function (d) {
-  var timezoneOffsetInHours = -(d.getTimezoneOffset() / 60); //UTC minus local time
-  var sign = timezoneOffsetInHours >= 0 ? '+' : '-';
-  var leadingZero = Math.abs(timezoneOffsetInHours) < 10 ? '0' : '';
+const dateToJSONWithTZ = function (d) {
+  const timezoneOffsetInHours = -(d.getTimezoneOffset() / 60); //UTC minus local time
+  const sign = timezoneOffsetInHours >= 0 ? '+' : '-';
+  const leadingZero = Math.abs(timezoneOffsetInHours) < 10 ? '0' : '';
 
   //It's a bit unfortunate that we need to construct a new Date instance
   //(we don't want _d_ Date instance to be modified)
-  var correctedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+  const correctedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
   correctedDate.setHours(d.getHours() + timezoneOffsetInHours);
-  var iso = correctedDate.toISOString().replace('Z', '');
+  const iso = correctedDate.toISOString().replace('Z', '');
   return iso + sign + leadingZero + Math.abs(timezoneOffsetInHours).toString() + ':00';
 };
 
-log4js.addLayout('json', function (config) {
+log4js.addLayout('json', (config) => {
   return function (logEvent) {
     logEvent['startTime'] = dateToJSONWithTZ(logEvent['startTime']);
     logEvent['message'] = util.format(...logEvent['data']);
@@ -66,11 +66,11 @@ log4js.addLayout('json', function (config) {
  * @param {object} cfg
  * @returns {function}
  */
-log4js.addLayout('patternWithTokens', function (cfg) {
+log4js.addLayout('patternWithTokens', (cfg) => {
   const pattern = cfg && cfg.pattern ? cfg.pattern : '%m';
   const baseTokens = cfg && cfg.tokens ? cfg.tokens : {};
   const tokens = Object.assign({}, baseTokens, {
-    usid: function (ev) {
+    usid (ev) {
       const id = ev && ev.context && ev.context.USERSESSIONID;
       return id ? ` [${id}]` : '';
     }
@@ -80,7 +80,7 @@ log4js.addLayout('patternWithTokens', function (cfg) {
 
 log4js.configure(config.get('log.filePath'));
 
-var logger = log4js.getLogger('nodeJS');
+const logger = log4js.getLogger('nodeJS');
 
 if (config.get('log.options.replaceConsole')) {
   console.log = logger.info.bind(logger);

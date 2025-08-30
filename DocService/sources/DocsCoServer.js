@@ -559,7 +559,7 @@ function sendData(ctx, conn, data) {
   ctx.logger.debug('sendData: type = %s', type);
 }
 function sendDataWarning(ctx, conn, code, description) {
-  sendData(ctx, conn, {type: 'warning', code: code, message: description});
+  sendData(ctx, conn, {type: 'warning', code, message: description});
 }
 function sendDataMessage(ctx, conn, msg) {
   if (!conn.permissions || false !== conn.permissions.chat) {
@@ -607,7 +607,7 @@ function modifyConnectionForPassword(ctx, conn, isEnterCorrectPassword) {
   return co(function* () {
     if (isEnterCorrectPassword) {
       conn.isEnterCorrectPassword = true;
-      let sessionToken = yield fillJwtByConnection(ctx, conn);
+      const sessionToken = yield fillJwtByConnection(ctx, conn);
       sendDataRefreshToken(ctx, conn, sessionToken);
     }
   });
@@ -1823,7 +1823,7 @@ exports.install = function (server, callbackFunction) {
         const handshake = socket.handshake;
         const token = handshake?.auth?.session || handshake?.auth?.token;
         if (tenTokenEnableBrowser || token) {
-          let secretType = !!handshake?.auth?.session ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
+          const secretType = handshake?.auth?.session ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
           checkJwtRes = yield checkJwt(ctx, token, secretType);
           if (!checkJwtRes.decoded) {
             res = new Error('not authorized');
@@ -2070,7 +2070,7 @@ exports.install = function (server, callbackFunction) {
         modifyConnectionEditorToView(ctx, conn);
         conn.isCloseCoAuthoring = true;
         yield addPresence(ctx, conn, true);
-        let sessionToken = yield fillJwtByConnection(ctx, conn);
+        const sessionToken = yield fillJwtByConnection(ctx, conn);
         sendDataRefreshToken(ctx, conn, sessionToken);
       }
     }
@@ -2330,7 +2330,7 @@ exports.install = function (server, callbackFunction) {
       // We put it in an array, because we need to send data to open/save the document
       connections.push(conn);
       yield addPresence(ctx, conn, true);
-      let sessionToken = yield fillJwtByConnection(ctx, conn);
+      const sessionToken = yield fillJwtByConnection(ctx, conn);
       sendDataRefreshToken(ctx, conn, sessionToken);
       sendFileError(ctx, conn, errorId, code, opt_notWarn);
     }
@@ -4104,7 +4104,7 @@ exports.install = function (server, callbackFunction) {
                 ctx.logger.debug('changeConnectionInfo: userId = %s', data.useridoriginal);
                 participant.user.username = cmd.getUserName();
                 yield addPresence(ctx, participant, false);
-                let sessionToken = yield fillJwtByConnection(ctx, participant);
+                const sessionToken = yield fillJwtByConnection(ctx, participant);
                 sendDataRefreshToken(ctx, participant, sessionToken);
               }
             }

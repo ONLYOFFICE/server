@@ -175,7 +175,7 @@ async function proxyRequest(req, res) {
     let userId = '';
     let userName = '';
     let userCustomerId = '';
-    let checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+    const checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
     if (!checkJwtRes || checkJwtRes.err) {
       ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.err);
       res.status(403).json({

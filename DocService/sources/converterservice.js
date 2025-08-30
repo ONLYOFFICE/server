@@ -33,42 +33,42 @@
 'use strict';
 
 const path = require('path');
-var config = require('config');
-var co = require('co');
+const config = require('config');
+const co = require('co');
 const mime = require('mime');
-var taskResult = require('./taskresult');
-var utils = require('./../../Common/sources/utils');
-var constants = require('./../../Common/sources/constants');
-var commonDefines = require('./../../Common/sources/commondefines');
-var docsCoServer = require('./DocsCoServer');
-var canvasService = require('./canvasservice');
-var wopiClient = require('./wopiClient');
-var storage = require('./../../Common/sources/storage/storage-base');
-var formatChecker = require('./../../Common/sources/formatchecker');
-var statsDClient = require('./../../Common/sources/statsdclient');
-var storageBase = require('./../../Common/sources/storage/storage-base');
-var operationContext = require('./../../Common/sources/operationContext');
+const taskResult = require('./taskresult');
+const utils = require('./../../Common/sources/utils');
+const constants = require('./../../Common/sources/constants');
+const commonDefines = require('./../../Common/sources/commondefines');
+const docsCoServer = require('./DocsCoServer');
+const canvasService = require('./canvasservice');
+const wopiClient = require('./wopiClient');
+const storage = require('./../../Common/sources/storage/storage-base');
+const formatChecker = require('./../../Common/sources/formatchecker');
+const statsDClient = require('./../../Common/sources/statsdclient');
+const storageBase = require('./../../Common/sources/storage/storage-base');
+const operationContext = require('./../../Common/sources/operationContext');
 const sqlBase = require('./databaseConnectors/baseConnector');
 const utilsDocService = require('./utilsDocService');
 
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
-var CONVERT_ASYNC_DELAY = 1000;
+const CONVERT_ASYNC_DELAY = 1000;
 
-var clientStatsD = statsDClient.getClient();
+const clientStatsD = statsDClient.getClient();
 
 function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_checkPassword) {
-  var status = new commonDefines.ConvertStatus(constants.NO_ERROR);
+  const status = new commonDefines.ConvertStatus(constants.NO_ERROR);
   if (selectRes.length > 0) {
-    var row = selectRes[0];
-    let password = opt_checkPassword && sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
+    const row = selectRes[0];
+    const password = opt_checkPassword && sqlBase.DocumentPassword.prototype.getCurPassword(ctx, row.password);
     switch (row.status) {
       case commonDefines.FileStatus.Ok:
         if (password) {
           let isCorrectPassword;
           if (encryptedUserPassword) {
-            let decryptedPassword = yield utils.decryptPassword(ctx, password);
-            let userPassword = yield utils.decryptPassword(ctx, encryptedUserPassword);
+            const decryptedPassword = yield utils.decryptPassword(ctx, password);
+            const userPassword = yield utils.decryptPassword(ctx, encryptedUserPassword);
             isCorrectPassword = decryptedPassword === userPassword;
           }
           if (isCorrectPassword) {
@@ -96,7 +96,7 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
         status.err = constants.UNKNOWN;
         break;
     }
-    var lastOpenDate = row.last_open_date;
+    const lastOpenDate = row.last_open_date;
     if (new Date().getTime() - lastOpenDate.getTime() > utils.getConvertionTimeout(ctx)) {
       status.err = constants.CONVERT_TIMEOUT;
     }
@@ -107,8 +107,8 @@ function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_che
 }
 function* getConvertPath(ctx, docId, fileTo, formatTo) {
   if (constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML === formatTo || constants.AVS_OFFICESTUDIO_FILE_OTHER_ODF === formatTo) {
-    let list = yield storage.listObjects(ctx, docId);
-    let baseName = path.basename(fileTo, path.extname(fileTo));
+    const list = yield storage.listObjects(ctx, docId);
+    const baseName = path.basename(fileTo, path.extname(fileTo));
     for (let i = 0; i < list.length; ++i) {
       if (path.basename(list[i], path.extname(list[i])) === baseName) {
         return list[i];
@@ -124,8 +124,8 @@ function* getConvertUrl(ctx, baseUrl, fileToPath, title) {
   return yield storage.getSignedUrl(ctx, baseUrl, fileToPath, commonDefines.c_oAscUrlTypes.Temporary, title);
 }
 function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue, opt_checkPassword) {
-  var docId = cmd.getDocId();
-  var startDate = null;
+  const docId = cmd.getDocId();
+  let startDate = null;
   if (clientStatsD) {
     startDate = new Date();
   }
@@ -133,7 +133,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
 
   let bCreate = false;
   if (!opt_taskExist) {
-    let task = new taskResult.TaskResultData();
+    const task = new taskResult.TaskResultData();
     task.tenant = ctx.tenant;
     task.key = docId;
     task.status = commonDefines.FileStatus.WaitQueue;
@@ -142,27 +142,27 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
     const upsertRes = yield taskResult.upsert(ctx, task);
     bCreate = upsertRes.isInsert;
   }
-  var selectRes;
-  var status;
+  let selectRes;
+  let status;
   if (!bCreate) {
     selectRes = yield taskResult.select(ctx, docId);
     status = yield* getConvertStatus(ctx, cmd.getDocId(), cmd.getPassword(), selectRes, opt_checkPassword);
   }
   if (bCreate || commonDefines.FileStatus.None === selectRes?.[0]?.status) {
-    var queueData = new commonDefines.TaskQueueData();
+    const queueData = new commonDefines.TaskQueueData();
     queueData.setCtx(ctx);
     queueData.setCmd(cmd);
     if (opt_fileTo) {
       queueData.setToFile(opt_fileTo);
     }
     queueData.setFromOrigin(true);
-    var priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
+    const priority = null != opt_priority ? opt_priority : constants.QUEUE_PRIORITY_LOW;
     yield* docsCoServer.addTask(queueData, priority, opt_queue, opt_expiration);
     status = new commonDefines.ConvertStatus(constants.NO_ERROR);
   }
   //wait
   if (!async) {
-    var waitTime = 0;
+    let waitTime = 0;
     while (true) {
       if (status.end || constants.NO_ERROR != status.err) {
         break;
@@ -201,7 +201,7 @@ async function convertFromChanges(
   opt_initShardKey,
   opt_jsonParams
 ) {
-  var cmd = new commonDefines.InputCommand();
+  const cmd = new commonDefines.InputCommand();
   cmd.setCommand('sfcm');
   cmd.setDocId(docId);
   cmd.setOutputFormat(constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
@@ -237,18 +237,18 @@ async function convertFromChanges(
     cmd.appendJsonParams(opt_jsonParams);
   }
 
-  let commandSfctByCmdRes = await canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey);
+  const commandSfctByCmdRes = await canvasService.commandSfctByCmd(ctx, cmd, opt_priority, opt_expiration, opt_queue, opt_initShardKey);
   if (!commandSfctByCmdRes) {
     return new commonDefines.ConvertStatus(constants.UNKNOWN);
   }
-  var fileTo = constants.OUTPUT_NAME;
-  let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
+  let fileTo = constants.OUTPUT_NAME;
+  const outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
   if (outputExt) {
     fileTo += '.' + outputExt;
   }
-  let status = await co(convertByCmd(ctx, cmd, true, fileTo, undefined, opt_priority, opt_expiration, opt_queue));
+  const status = await co(convertByCmd(ctx, cmd, true, fileTo, undefined, opt_priority, opt_expiration, opt_queue));
   if (status.end) {
-    let fileToPath = await co(getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat()));
+    const fileToPath = await co(getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat()));
     status.setExtName(path.extname(fileToPath));
     status.setUrl(await co(getConvertUrl(ctx, baseUrl, fileToPath, cmd.getTitle())));
   }
@@ -260,13 +260,13 @@ function parseIntParam(val) {
 
 function convertRequest(req, res, isJson) {
   return co(function* () {
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('convertRequest start');
       let params;
-      let authRes = yield docsCoServer.getRequestParams(ctx, req);
+      const authRes = yield docsCoServer.getRequestParams(ctx, req);
       if (authRes.code === constants.NO_ERROR) {
         params = authRes.params;
       } else {
@@ -274,8 +274,8 @@ function convertRequest(req, res, isJson) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(authRes.code), isJson);
         return;
       }
-      let filetype = params.filetype || params.fileType || '';
-      let outputtype = params.outputtype || params.outputType || '';
+      const filetype = params.filetype || params.fileType || '';
+      const outputtype = params.outputtype || params.outputType || '';
       ctx.setDocId(params.key);
 
       if (params.key && !constants.DOC_ID_REGEX.test(params.key)) {
@@ -311,8 +311,8 @@ function convertRequest(req, res, isJson) {
         }
       }
       //todo use hash of params as id
-      let docId = 'conv_' + params.key + '_' + outputFormat;
-      var cmd = new commonDefines.InputCommand();
+      const docId = 'conv_' + params.key + '_' + outputFormat;
+      const cmd = new commonDefines.InputCommand();
       cmd.setCommand('conv');
       cmd.setUrl(params.url);
       cmd.setEmbeddedFonts(false); //params.embeddedfonts'];
@@ -328,7 +328,7 @@ function convertRequest(req, res, isJson) {
       if (params.region) {
         cmd.setLCID(utilsDocService.localeToLCID(params.region));
       }
-      let jsonParams = {};
+      const jsonParams = {};
       if (params.documentLayout) {
         jsonParams['documentLayout'] = params.documentLayout;
       }
@@ -347,18 +347,18 @@ function convertRequest(req, res, isJson) {
           utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
           return;
         }
-        let encryptedPassword = yield utils.encryptPassword(ctx, params.password);
+        const encryptedPassword = yield utils.encryptPassword(ctx, params.password);
         cmd.setPassword(encryptedPassword);
       }
       if (authRes.isDecoded) {
         cmd.setWithAuthorization(true);
       }
-      var thumbnail = params.thumbnail;
+      let thumbnail = params.thumbnail;
       if (thumbnail) {
         if (typeof thumbnail === 'string') {
           thumbnail = JSON.parse(thumbnail);
         }
-        var thumbnailData = new commonDefines.CThumbnailData(thumbnail);
+        const thumbnailData = new commonDefines.CThumbnailData(thumbnail);
         //constants from CXIMAGE_FORMAT_
         switch (cmd.getOutputFormat()) {
           case constants.AVS_OFFICESTUDIO_FILE_IMAGE_JPG:
@@ -379,12 +379,12 @@ function convertRequest(req, res, isJson) {
           outputExt = 'zip';
         }
       }
-      var documentRenderer = params.documentRenderer;
+      let documentRenderer = params.documentRenderer;
       if (documentRenderer) {
         if (typeof documentRenderer === 'string') {
           documentRenderer = JSON.parse(documentRenderer);
         }
-        var textParamsData = new commonDefines.CTextParams();
+        const textParamsData = new commonDefines.CTextParams();
         switch (documentRenderer.textAssociation) {
           case 'plainParagraph':
             textParamsData.setAssociation(3);
@@ -405,7 +405,7 @@ function convertRequest(req, res, isJson) {
       if (params.title) {
         cmd.setTitle(path.basename(params.title, path.extname(params.title)) + '.' + outputExt);
       }
-      var async = typeof params.async === 'string' ? 'true' == params.async : params.async;
+      let async = typeof params.async === 'string' ? 'true' == params.async : params.async;
       if (async && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
         ctx.logger.warn(
           'convertRequest set async=false. Pass query string parameter "%s" to correctly process request in sharded cluster',
@@ -414,17 +414,17 @@ function convertRequest(req, res, isJson) {
         async = false;
       }
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== cmd.getOutputFormat()) {
-        let fileTo = constants.OUTPUT_NAME + '.' + outputExt;
-        var status = yield* convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true);
+        const fileTo = constants.OUTPUT_NAME + '.' + outputExt;
+        const status = yield* convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true);
         if (status.end) {
-          let fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
+          const fileToPath = yield* getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat());
           status.setExtName(path.extname(fileToPath));
           status.setUrl(yield* getConvertUrl(ctx, utils.getBaseUrlByRequest(ctx, req), fileToPath, cmd.getTitle()));
           ctx.logger.debug('convertRequest: url = %s', status.url);
         }
         utils.fillResponse(req, res, status, isJson);
       } else {
-        var addresses = utils.forwarded(req);
+        const addresses = utils.forwarded(req);
         ctx.logger.warn('Error convert unknown outputtype: query = %j from = %s', params, addresses);
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
       }
@@ -445,28 +445,28 @@ function convertRequestXml(req, res) {
 
 function builderRequest(req, res) {
   return co(function* () {
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('builderRequest start');
-      let authRes = yield docsCoServer.getRequestParams(ctx, req);
-      let params = authRes.params;
+      const authRes = yield docsCoServer.getRequestParams(ctx, req);
+      const params = authRes.params;
       let docId = params.key;
       ctx.setDocId(docId);
 
       let error = authRes.code;
       let urls;
       let end = false;
-      let needCreateId = !docId;
-      let isInBody = req.body && Buffer.isBuffer(req.body) && req.body.length > 0;
+      const needCreateId = !docId;
+      const isInBody = req.body && Buffer.isBuffer(req.body) && req.body.length > 0;
       if (error === constants.NO_ERROR && (params.key || params.url || isInBody)) {
         if (needCreateId) {
-          let task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'bld_', 8);
+          const task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'bld_', 8);
           docId = task.key;
           ctx.setDocId(docId);
         }
-        let cmd = new commonDefines.InputCommand();
+        const cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
         cmd.setBuilderParams({argument: params.argument});
         if (authRes.isDecoded) {
@@ -480,7 +480,7 @@ function builderRequest(req, res) {
           yield storageBase.putObject(ctx, docId + '/script.docbuilder', req.body, req.body.length);
         }
         if (needCreateId) {
-          let queueData = new commonDefines.TaskQueueData();
+          const queueData = new commonDefines.TaskQueueData();
           queueData.setCtx(ctx);
           queueData.setCmd(cmd);
           yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
@@ -493,7 +493,7 @@ function builderRequest(req, res) {
           );
           async = false;
         }
-        let status = yield* convertByCmd(ctx, cmd, async, undefined, undefined, constants.QUEUE_PRIORITY_LOW);
+        const status = yield* convertByCmd(ctx, cmd, async, undefined, undefined, constants.QUEUE_PRIORITY_LOW);
         end = status.end;
         error = status.err;
         if (end) {
@@ -514,7 +514,7 @@ function builderRequest(req, res) {
 }
 function convertTo(req, res) {
   return co(function* () {
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
@@ -524,7 +524,7 @@ function convertTo(req, res) {
         format = req.params.format;
       }
       //todo https://github.com/LibreOffice/core/blob/9d3366f5b392418dc83bc0adbe3d215cff4b3605/desktop/source/lib/init.cxx#L3478
-      let password = req.body['Password'];
+      const password = req.body['Password'];
       if (password) {
         if (password.length > constants.PASSWORD_MAX_LENGTH) {
           ctx.logger.warn('convert-to Password too long actual = %s; max = %s', password.length, constants.PASSWORD_MAX_LENGTH);
@@ -533,7 +533,7 @@ function convertTo(req, res) {
         }
       }
       //by analogy with Password
-      let passwordToOpen = req.body['PasswordToOpen'];
+      const passwordToOpen = req.body['PasswordToOpen'];
       if (passwordToOpen) {
         if (passwordToOpen.length > constants.PASSWORD_MAX_LENGTH) {
           ctx.logger.warn('convert-to PasswordToOpen too long actual = %s; max = %s', passwordToOpen.length, constants.PASSWORD_MAX_LENGTH);
@@ -541,13 +541,13 @@ function convertTo(req, res) {
           return;
         }
       }
-      let pdfVer = req.body['PDFVer'];
+      const pdfVer = req.body['PDFVer'];
       if (pdfVer && pdfVer.startsWith('PDF/A') && 'pdf' === format) {
         format = 'pdfa';
       }
-      let fullSheetPreview = req.body['FullSheetPreview'];
-      let lang = req.body['lang'];
-      let outputFormat = formatChecker.getFormatFromString(format);
+      const fullSheetPreview = req.body['FullSheetPreview'];
+      const lang = req.body['lang'];
+      const outputFormat = formatChecker.getFormatFromString(format);
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
         ctx.logger.warn('convert-to unexpected format = %s', format);
         res.sendStatus(400);
@@ -557,22 +557,22 @@ function convertTo(req, res) {
       if (req.files?.length > 0 && req.files[0].originalname && req.files[0].buffer) {
         const file = req.files[0];
         originalname = file.originalname;
-        let filetype = path.extname(file.originalname).substring(1);
+        const filetype = path.extname(file.originalname).substring(1);
         if (filetype && !constants.EXTENTION_REGEX.test(filetype)) {
           ctx.logger.warn('convertRequest unexpected filetype = %s', filetype);
           res.sendStatus(400);
           return;
         }
 
-        let task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'conv_', 8);
+        const task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'conv_', 8);
         docId = task.key;
         ctx.setDocId(docId);
 
         //todo stream
-        let buffer = file.buffer;
+        const buffer = file.buffer;
         yield storageBase.putObject(ctx, docId + '/origin.' + filetype, buffer, buffer.length);
 
-        let cmd = new commonDefines.InputCommand();
+        const cmd = new commonDefines.InputCommand();
         cmd.setCommand('conv');
         cmd.setDocId(docId);
         cmd.setFormat(filetype);
@@ -601,33 +601,33 @@ function convertTo(req, res) {
           });
         }
         if (password) {
-          let encryptedPassword = yield utils.encryptPassword(ctx, password);
+          const encryptedPassword = yield utils.encryptPassword(ctx, password);
           cmd.setSavePassword(encryptedPassword);
         }
         if (passwordToOpen) {
-          let encryptedPassword = yield utils.encryptPassword(ctx, passwordToOpen);
+          const encryptedPassword = yield utils.encryptPassword(ctx, passwordToOpen);
           cmd.setPassword(encryptedPassword);
         }
 
         fileTo = constants.OUTPUT_NAME;
-        let outputExt = formatChecker.getStringFromFormat(outputFormat);
+        const outputExt = formatChecker.getStringFromFormat(outputFormat);
         if (outputExt) {
           fileTo += '.' + outputExt;
         }
 
-        let queueData = new commonDefines.TaskQueueData();
+        const queueData = new commonDefines.TaskQueueData();
         queueData.setCtx(ctx);
         queueData.setCmd(cmd);
         queueData.setToFile(fileTo);
         queueData.setFromOrigin(true);
         yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
 
-        let async = false;
+        const async = false;
         status = yield* convertByCmd(ctx, cmd, async, fileTo);
       }
       if (status && status.end && constants.NO_ERROR === status.err) {
-        let filename = path.basename(originalname, path.extname(originalname)) + path.extname(fileTo);
-        let streamObj = yield storage.createReadStream(ctx, `${docId}/${fileTo}`);
+        const filename = path.basename(originalname, path.extname(originalname)) + path.extname(fileTo);
+        const streamObj = yield storage.createReadStream(ctx, `${docId}/${fileTo}`);
         res.setHeader('Content-Disposition', utils.getContentDisposition(filename, null, constants.CONTENT_DISPOSITION_INLINE));
         res.setHeader('Content-Length', streamObj.contentLength);
         res.setHeader('Content-Type', mime.getType(filename));
@@ -649,15 +649,15 @@ function convertAndEdit(ctx, wopiParams, filetypeFrom, filetypeTo) {
     try {
       ctx.logger.info('convert-and-edit start');
 
-      let task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'conv_', 8);
-      let docId = task.key;
-      let outputFormat = formatChecker.getFormatFromString(filetypeTo);
+      const task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'conv_', 8);
+      const docId = task.key;
+      const outputFormat = formatChecker.getFormatFromString(filetypeTo);
       if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === outputFormat) {
         ctx.logger.debug('convert-and-edit unknown outputFormat %s', filetypeTo);
         return;
       }
 
-      let cmd = new commonDefines.InputCommand();
+      const cmd = new commonDefines.InputCommand();
       cmd.setCommand('conv');
       cmd.setDocId(docId);
       cmd.setUrl('dummy-url');
@@ -666,18 +666,18 @@ function convertAndEdit(ctx, wopiParams, filetypeFrom, filetypeTo) {
       cmd.setOutputFormat(outputFormat);
 
       let fileTo = constants.OUTPUT_NAME;
-      let outputExt = formatChecker.getStringFromFormat(outputFormat);
+      const outputExt = formatChecker.getStringFromFormat(outputFormat);
       if (outputExt) {
         fileTo += '.' + outputExt;
       }
 
-      let queueData = new commonDefines.TaskQueueData();
+      const queueData = new commonDefines.TaskQueueData();
       queueData.setCtx(ctx);
       queueData.setCmd(cmd);
       queueData.setToFile(fileTo);
       yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
 
-      let async = true;
+      const async = true;
       yield* convertByCmd(ctx, cmd, async, fileTo);
       return docId;
     } catch (err) {
@@ -689,17 +689,17 @@ function convertAndEdit(ctx, wopiParams, filetypeFrom, filetypeTo) {
 }
 function getConverterHtmlHandler(req, res) {
   return co(function* () {
-    let isJson = true;
-    let ctx = new operationContext.Context();
+    const isJson = true;
+    const ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('convert-and-edit-handler start');
       const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      let wopiSrc = req.query['wopisrc'];
-      let access_token = req.query['access_token'];
-      let targetext = req.query['targetext'];
+      const wopiSrc = req.query['wopisrc'];
+      const access_token = req.query['access_token'];
+      const targetext = req.query['targetext'];
       let docId = req.query['docid'];
       ctx.setDocId(docId);
       if (
@@ -716,9 +716,9 @@ function getConverterHtmlHandler(req, res) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
-      let token = req.query['token'];
+      const token = req.query['token'];
       if (tenTokenEnableBrowser || token) {
-        let checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
+        const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
         if (checkJwtRes.decoded) {
           docId = checkJwtRes.decoded.docId;
         } else {
@@ -729,14 +729,14 @@ function getConverterHtmlHandler(req, res) {
       }
       ctx.setDocId(docId);
 
-      let selectRes = yield taskResult.select(ctx, docId);
-      let status = yield* getConvertStatus(ctx, docId, undefined, selectRes);
+      const selectRes = yield taskResult.select(ctx, docId);
+      const status = yield* getConvertStatus(ctx, docId, undefined, selectRes);
       if (status.end && constants.NO_ERROR === status.err) {
-        let fileTo = `${docId}/${constants.OUTPUT_NAME}.${targetext}`;
+        const fileTo = `${docId}/${constants.OUTPUT_NAME}.${targetext}`;
 
-        let metadata = yield storage.headObject(ctx, fileTo);
-        let streamObj = yield storage.createReadStream(ctx, fileTo);
-        let putRelativeRes = yield wopiClient.putRelativeFile(
+        const metadata = yield storage.headObject(ctx, fileTo);
+        const streamObj = yield storage.createReadStream(ctx, fileTo);
+        const putRelativeRes = yield wopiClient.putRelativeFile(
           ctx,
           wopiSrc,
           access_token,

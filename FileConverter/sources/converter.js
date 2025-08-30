@@ -584,17 +584,17 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
 function* concatFiles(source, template) {
   template = template || 'Editor';
   //concatenate EditorN.ext parts in Editor.ext
-  let list = yield utils.listObjects(source, true);
+  const list = yield utils.listObjects(source, true);
   list.sort(utils.compareStringByLength);
   const createdTargets = new Set();
   for (let i = 0; i < list.length; ++i) {
-    let file = list[i];
+    const file = list[i];
     if (file.match(new RegExp(`${template}\\d+\\.`))) {
-      let target = file.replace(new RegExp(`(${template})\\d+(\\..*)`), '$1$2');
+      const target = file.replace(new RegExp(`(${template})\\d+(\\..*)`), '$1$2');
       const isFirst = !createdTargets.has(target);
       const writeOpts = isFirst ? undefined : {flags: 'a'};
-      let writeStream = yield utils.promiseCreateWriteStream(target, writeOpts);
-      let readStream = yield utils.promiseCreateReadStream(file);
+      const writeStream = yield utils.promiseCreateWriteStream(target, writeOpts);
+      const readStream = yield utils.promiseCreateReadStream(file);
       // Use raw pipeline for file-to-file operations to surface real errors
       yield pipeline(readStream, writeStream);
       if (isFirst) {

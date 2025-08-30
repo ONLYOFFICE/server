@@ -73,14 +73,14 @@ Context.prototype.initFromConnection = function (conn) {
   const userId = conn.user?.id;
   const shardKey = utils.getShardKeyByConnection(this, conn);
   const wopiSrc = utils.getWopiSrcByConnection(this, conn);
-  let userSessionId = utils.getSessionIdByConnection(this, conn);
+  const userSessionId = utils.getSessionIdByConnection(this, conn);
   this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc, userSessionId);
 };
 Context.prototype.initFromRequest = function (req) {
   const tenant = tenantManager.getTenantByRequest(this, req);
   const shardKey = utils.getShardKeyByRequest(this, req);
   const wopiSrc = utils.getWopiSrcByRequest(this, req);
-  let userSessionId = utils.getSessionIdByRequest(this, req);
+  const userSessionId = utils.getSessionIdByRequest(this, req);
   this.init(tenant, this.docId, this.userId, shardKey, wopiSrc, userSessionId);
 };
 Context.prototype.initFromTaskQueueData = function (task) {
