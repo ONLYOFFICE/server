@@ -23,7 +23,7 @@ const getStatusCode = response => response.statusCode || response.status;
 
 function createMockContext(overrides = {}) {
   const defaultCtx = {
-    getCfg (key, _) {
+    getCfg(key, _) {
       switch (key) {
         case 'services.CoAuthoring.requestDefaults':
           return {
@@ -65,14 +65,14 @@ function createMockContext(overrides = {}) {
       }
     },
     logger: {
-      debug () {}
+      debug() {}
     }
   };
 
   // Return a mock context with overridden values if any
   return {
     ...defaultCtx,
-    getCfg (key, _) {
+    getCfg(key, _) {
       // Return the override if it exists
       if (overrides[key]) {
         return overrides[key];

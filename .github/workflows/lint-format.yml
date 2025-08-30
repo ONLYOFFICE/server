@@ -3,19 +3,7 @@ name: Lint & Format
 on:
   push:
     branches:
-      - 'main'
-      - 'master'
-      - 'develop'
-      - 'hotfix/**'
-      - 'release/**'
-  pull_request:
-    branches:
-      - 'main'
-      - 'master'
-      - 'develop'
-      - 'hotfix/**'
-      - 'release/**'
-    types: [opened, synchronize, reopened]
+      - '**'
 
 jobs:
   code-quality:
@@ -24,12 +12,11 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      pull-requests: write
 
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20.x]
 
     steps:
       - name: Checkout repository
@@ -49,15 +36,3 @@ jobs:
 
       - name: Check Prettier formatting
         run: npm run format:check
-
-      - name: Comment PR (on failure)
-        if: failure() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '❌ **Code Quality Check Failed**\n\nPlease run `npm run code:fix` to fix linting and formatting issues, then commit the changes.'
-            })
