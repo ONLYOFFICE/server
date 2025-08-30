@@ -736,7 +736,7 @@ async function getOriginalParticipantsId(ctx, docId) {
     }
   }
   for (var name in tmpObject) {
-    if (tmpObject.hasOwnProperty(name)) {
+    if (tmpObject.hasOwn(name)) {
       result.push(name);
     }
   }
@@ -2366,13 +2366,13 @@ exports.install = function (server, callbackFunction) {
 
       oRangeOrObjectId = element['rangeOrObjectId'];
 
-      if (oRecalcIndexColumns && oRecalcIndexColumns.hasOwnProperty(sheetId)) {
+      if (oRecalcIndexColumns && oRecalcIndexColumns.hasOwn(sheetId)) {
         // Column index recalculation
         oRangeOrObjectId['c1'] = oRecalcIndexColumns[sheetId].getLockMe2(oRangeOrObjectId['c1']);
         oRangeOrObjectId['c2'] = oRecalcIndexColumns[sheetId].getLockMe2(oRangeOrObjectId['c2']);
         isModify = true;
       }
-      if (oRecalcIndexRows && oRecalcIndexRows.hasOwnProperty(sheetId)) {
+      if (oRecalcIndexRows && oRecalcIndexRows.hasOwn(sheetId)) {
         // row index recalculation
         oRangeOrObjectId['r1'] = oRecalcIndexRows[sheetId].getLockMe2(oRangeOrObjectId['r1']);
         oRangeOrObjectId['r2'] = oRecalcIndexRows[sheetId].getLockMe2(oRangeOrObjectId['r2']);
@@ -2395,8 +2395,8 @@ exports.install = function (server, callbackFunction) {
     var oRecalcIndexResult = {};
 
     for (var sheetId in oRecalcIndex) {
-      if (oRecalcIndex.hasOwnProperty(sheetId)) {
-        if (!oRecalcIndexResult.hasOwnProperty(sheetId)) {
+      if (oRecalcIndex.hasOwn(sheetId)) {
+        if (!oRecalcIndexResult.hasOwn(sheetId)) {
           oRecalcIndexResult[sheetId] = new CRecalcIndex();
         }
         for (; nIndex < oRecalcIndex[sheetId]._arrElements.length; ++nIndex) {
@@ -4217,7 +4217,7 @@ exports.install = function (server, callbackFunction) {
           }
         }
         for (const tenantId in tenants) {
-          if (tenants.hasOwnProperty(tenantId)) {
+          if (tenants.hasOwn(tenantId)) {
             ctx.setTenant(tenantId);
             const tenant = tenants[tenantId];
             yield* collectStats(ctx, tenant.countEditByShard, tenant.countLiveViewByShard, tenant.countViewByShard);
@@ -4547,13 +4547,13 @@ exports.licenseInfo = function (req, res) {
       const byMonthView = yield editorStat.getPresenceUniqueViewUsersOfMonth(ctx);
       const byMonthMerged = [];
       for (const i in byMonth) {
-        if (byMonth.hasOwnProperty(i)) {
+        if (byMonth.hasOwn(i)) {
           byMonthMerged[i] = {date: i, users: byMonth[i], usersView: {}};
         }
       }
       for (const i in byMonthView) {
-        if (byMonthView.hasOwnProperty(i)) {
-          if (byMonthMerged.hasOwnProperty(i)) {
+        if (byMonthView.hasOwn(i)) {
+          if (byMonthMerged.hasOwn(i)) {
             byMonthMerged[i].usersView = byMonthView[i];
           } else {
             byMonthMerged[i] = {date: i, users: {}, usersView: byMonthView[i]};

@@ -783,7 +783,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           const ext = pathModule.extname(urlParsed.pathname).substring(1);
           const urlBasename = pathModule.basename(urlParsed.pathname);
           const displayedImageName = urlBasename.substring(0, urlBasename.length - ext.length - 1);
-          if (displayedImageMap.hasOwnProperty(displayedImageName)) {
+          if (displayedImageMap.hasOwn(displayedImageName)) {
             formatStr = ext;
             isAllow = true;
           }

@@ -151,7 +151,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
 }
 
 for (const i in cfgStaticContent) {
-  if (cfgStaticContent.hasOwnProperty(i)) {
+  if (cfgStaticContent.hasOwn(i)) {
     router.use(i, express.static(cfgStaticContent[i]['path'], cfgStaticContent[i]['options']));
   }
 }

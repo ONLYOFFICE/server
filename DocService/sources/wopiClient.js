@@ -102,7 +102,7 @@ if (!mimeDB['application/vnd.visio2013']) {
 const mimeTypesByExt = (function () {
   const mimeTypesByExt = {};
   for (const mimeType in mimeDB) {
-    if (mimeDB.hasOwnProperty(mimeType)) {
+    if (mimeDB.hasOwn(mimeType)) {
       const val = mimeDB[mimeType];
       if (val.extensions) {
         val.extensions.forEach(value => {

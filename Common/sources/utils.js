@@ -1033,7 +1033,7 @@ function checkClientIp(req, res, next) {
 exports.checkClientIp = checkClientIp;
 function lowercaseQueryString(req, res, next) {
   for (var key in req.query) {
-    if (req.query.hasOwnProperty(key) && key.toLowerCase() !== key) {
+    if (req.query.hasOwn(key) && key.toLowerCase() !== key) {
       req.query[key.toLowerCase()] = req.query[key];
       delete req.query[key];
     }

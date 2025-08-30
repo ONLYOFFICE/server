@@ -63,8 +63,7 @@ module.exports = [
       'no-duplicate-imports': 'error', // Avoid duplicate imports
       'no-useless-constructor': 'error', // Remove unnecessary constructors
       'no-useless-return': 'error', // Remove unnecessary return statements
-      'max-lines': ['warn', 5000],
-      'no-prototype-builtins': 'off'
+      'max-lines': ['warn', 5000]
     }
   },
   prettier

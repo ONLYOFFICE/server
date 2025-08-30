@@ -116,7 +116,7 @@ exports.load = function (_collectionName, callbackFunction) {
         cursor.each((err, item) => {
           // Null denotes the last element
           if (item != null) {
-            if (!result.hasOwnProperty(item.docid)) {
+            if (!result.hasOwn(item.docid)) {
               result[item.docid] = [item];
             } else {
               result[item.docid].push(item);

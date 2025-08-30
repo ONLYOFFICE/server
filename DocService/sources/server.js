@@ -405,7 +405,7 @@ docsCoServer.install(server, () => {
         let themesList = [];
 
         for (const i in staticContent) {
-          if (staticContent.hasOwnProperty(i) && themesUri.startsWith(i)) {
+          if (staticContent.hasOwn(i) && themesUri.startsWith(i)) {
             const dir = staticContent[i].path + themesUri.substring(i.length);
             themesList = yield utils.listObjects(dir, true);
             ctx.logger.debug('themes.json dir:%s', dir);

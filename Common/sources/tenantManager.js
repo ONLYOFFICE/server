@@ -339,39 +339,39 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     if (true === oLicense['timelimited']) {
       res.mode |= c_LM.Limited;
     }
-    if (oLicense.hasOwnProperty('trial')) {
+    if (oLicense.hasOwn('trial')) {
       res.mode |= true === oLicense['trial'] || 'true' === oLicense['trial'] || 'True' === oLicense['trial'] ? c_LM.Trial : c_LM.None; // Someone who likes to put json string instead of bool
     }
     if (true === oLicense['developer']) {
       res.mode |= c_LM.Developer;
     }
-    if (oLicense.hasOwnProperty('branding')) {
+    if (oLicense.hasOwn('branding')) {
       res.branding = true === oLicense['branding'] || 'true' === oLicense['branding'] || 'True' === oLicense['branding']; // Someone who likes to put json string instead of bool
     }
-    if (oLicense.hasOwnProperty('customization')) {
+    if (oLicense.hasOwn('customization')) {
       res.customization = !!oLicense['customization'];
     }
-    if (oLicense.hasOwnProperty('advanced_api')) {
+    if (oLicense.hasOwn('advanced_api')) {
       res.advancedApi = !!oLicense['advanced_api'];
     }
-    if (oLicense.hasOwnProperty('connections')) {
+    if (oLicense.hasOwn('connections')) {
       res.connections = oLicense['connections'] >> 0;
     }
-    if (oLicense.hasOwnProperty('connections_view')) {
+    if (oLicense.hasOwn('connections_view')) {
       res.connectionsView = oLicense['connections_view'] >> 0;
     }
-    if (oLicense.hasOwnProperty('users_count')) {
+    if (oLicense.hasOwn('users_count')) {
       res.usersCount = oLicense['users_count'] >> 0;
     }
-    if (oLicense.hasOwnProperty('users_view_count')) {
+    if (oLicense.hasOwn('users_view_count')) {
       res.usersViewCount = oLicense['users_view_count'] >> 0;
     }
-    if (oLicense.hasOwnProperty('users_expire')) {
+    if (oLicense.hasOwn('users_expire')) {
       res.usersExpire = Math.max(constants.LICENSE_EXPIRE_USERS_ONE_DAY, (oLicense['users_expire'] >> 0) * constants.LICENSE_EXPIRE_USERS_ONE_DAY);
     }
 
     // Read grace_days setting from license file if available
-    if (oLicense.hasOwnProperty('grace_days')) {
+    if (oLicense.hasOwn('grace_days')) {
       res.graceDays = Math.max(0, oLicense['grace_days'] >> 0);
     }
 
