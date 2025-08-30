@@ -31,7 +31,6 @@
  */
 
 const {describe, test, expect, afterAll, beforeAll} = require('@jest/globals');
-const http = require('http');
 
 const {signToken} = require('../../../DocService/sources/DocsCoServer');
 const storage = require('../../../Common/sources/storage/storage-base');
@@ -62,49 +61,45 @@ const testFilesNames = {
   getList: 'DocService-DocsCoServer-forgottenFilesCommands-getForgottenList-integration-test'
 };
 
-function makeRequest(requestBody, timeout = 5000) {
-  return new Promise(async (resolve, reject) => {
-    const timer = setTimeout(() => reject('Request timeout'), timeout);
+/**
+ * Makes HTTP request to the command service
+ * @param {Object} requestBody - Request payload
+ * @param {number} timeout - Request timeout in milliseconds
+ * @returns {Promise<string>} Response data
+ */
+async function makeRequest(requestBody, timeout = 5000) {
+  let body = '';
+  if (cfgTokenEnableRequestOutbox) {
+    const secret = utils.getSecretByElem(cfgSecretOutbox);
+    const token = await signToken(ctx, requestBody, cfgTokenAlgorithm, cfgTokenOutboxExpires, constants.c_oAscSecretType.Inbox, secret);
+    body = JSON.stringify({token});
+  } else {
+    body = JSON.stringify(requestBody);
+  }
 
-    let body = '';
-    if (cfgTokenEnableRequestOutbox) {
-      const secret = utils.getSecretByElem(cfgSecretOutbox);
-      const token = await signToken(ctx, requestBody, cfgTokenAlgorithm, cfgTokenOutboxExpires, constants.c_oAscSecretType.Inbox, secret);
-      body = JSON.stringify({token});
-    } else {
-      body = JSON.stringify(requestBody);
-    }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    const options = {
-      port: '8000',
-      path: '/coauthoring/CommandService.ashx',
+  try {
+    const response = await fetch('http://localhost:8000/coauthoring/CommandService.ashx', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body)
-      }
-    };
-    const request = http.request(options, response => {
-      response.setEncoding('utf8');
-
-      let data = '';
-      response.on('data', chunk => {
-        data += chunk;
-      });
-      response.on('end', () => {
-        resolve(data);
-        clearTimeout(timer);
-      });
+        'Content-Length': Buffer.byteLength(body).toString()
+      },
+      body,
+      signal: controller.signal
     });
 
-    request.on('error', error => {
-      reject(error);
-      clearTimeout(timer);
-    });
-
-    request.write(body);
-    request.end();
-  });
+    clearTimeout(timeoutId);
+    return await response.text();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout');
+    }
+    throw error;
+  }
 }
 
 function getKeysDirectories(keys) {

@@ -1,20 +1,16 @@
 const {describe, test, expect, beforeAll, afterAll} = require('@jest/globals');
-const {Writable, Readable} = require('stream');
+const {Readable} = require('stream');
 const {buffer} = require('node:stream/consumers');
 const http = require('http');
-const https = require('https');
 const express = require('express');
 const operationContext = require('../../Common/sources/operationContext');
 const utils = require('../../Common/sources/utils');
-const fs = require('fs').promises;
-const path = require('path');
 
 // Create operation context for tests
 const ctx = new operationContext.Context();
 
 // Test server setup
 let server;
-let testServer;
 let proxyServer;
 const PORT = 3456;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -98,9 +94,8 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     // Endpoint that simulates timeout
-    app.get('/api/timeout', (req, res) => {
+    app.get('/api/timeout', (_req, _res) => {
       // Never send response to trigger timeout
-      
     });
 
     app.use('/api/status/:code', (req, res) => {
@@ -116,8 +111,9 @@ describe('HTTP Request Unit Tests', () => {
     app.get('/api/error', (req, res) => {
       res.status(500).json({error: 'Internal Server Error'});
     });
+
     // Endpoint that simulates a slow response headers
-    app.get('/api/slow-headers', (req, res) => {
+    app.get('/api/slow-headers', (_req, res) => {
       // Delay sending headers
       setTimeout(() => {
         res.json({success: true});
@@ -136,7 +132,7 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     // Endpoint that simulates slow/chunked response with inactivity periods
-    app.get('/api/slow-body', (req, res) => {
+    app.get('/api/slow-body', (_req, res) => {
       // Send headers immediately
       res.setHeader('Content-Type', 'application/json');
       res.write('{"part1": "First part of the response",');
@@ -161,12 +157,11 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     // POST endpoint that times out
-    app.post('/api/timeout', express.json(), (req, res) => {
+    app.post('/api/timeout', express.json(), (_req, _res) => {
       // Never send response to trigger timeout
-      
     });
 
-    app.get('/api/binary', (req, res) => {
+    app.get('/api/binary', (_req, res) => {
       // PNG file signature as binary data
       const binaryData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
       res.setHeader('content-type', 'image/png');
@@ -175,13 +170,13 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     // Large file endpoint
-    app.get('/api/large', (req, res) => {
+    app.get('/api/large', (_req, res) => {
       res.setHeader('content-type', 'application/octet-stream');
       res.send(Buffer.alloc(2 * 1024 * 1024)); //2MB
     });
 
     // Large file endpoint with truly no content-length header
-    app.get('/api/large-chunked', (req, res) => {
+    app.get('/api/large-chunked', (_req, res) => {
       res.setHeader('content-type', 'application/octet-stream');
       res.setHeader('transfer-encoding', 'chunked');
       res.write(Buffer.alloc(2 * 1024 * 1024));
@@ -217,7 +212,7 @@ describe('HTTP Request Unit Tests', () => {
 
     // Setup proxy server
     const proxyApp = express();
-    proxyApp.use((req, res, next) => {
+    proxyApp.use((req, res) => {
       // Record request details
       const requestInfo = {
         method: req.method,
@@ -497,7 +492,7 @@ describe('HTTP Request Unit Tests', () => {
       });
 
       try {
-        const result = await utils.downloadUrlPromise(
+        await utils.downloadUrlPromise(
           mockCtx,
           `${BASE_URL}/api/redirect`,
           {wholeCycle: '5s', connectionAndInactivity: '3s'},
@@ -528,7 +523,7 @@ describe('HTTP Request Unit Tests', () => {
       });
 
       try {
-        const result = await utils.downloadUrlPromise(
+        await utils.downloadUrlPromise(
           mockCtx,
           `${BASE_URL}/api/redirect`,
           {wholeCycle: '5s', connectionAndInactivity: '3s'},
@@ -607,7 +602,7 @@ describe('HTTP Request Unit Tests', () => {
           null,
           true
         );
-        const receivedData = await buffer(stream);
+        await buffer(stream);
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.code).toBe('EMSGSIZE');
@@ -623,7 +618,7 @@ describe('HTTP Request Unit Tests', () => {
           null,
           true
         );
-        const receivedData = await buffer(stream);
+        await buffer(stream);
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.code).toBe('EMSGSIZE');
@@ -1269,7 +1264,7 @@ describe('HTTP Request Unit Tests', () => {
       try {
         const postData = JSON.stringify({test: 'data'});
 
-        const result = await utils.postRequestPromise(
+        await utils.postRequestPromise(
           ctx,
           `${BASE_URL}/api/status/205`,
           postData,

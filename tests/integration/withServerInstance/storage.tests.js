@@ -242,7 +242,7 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     expect(outputText.toString('utf8')).toEqual(testFileData3);
   });
   test('getSignedUrl', async () => {
-    let url, urls, data;
+    let url, data;
     url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDir);
     data = await request(url);
     expect(data).toEqual(testFileData1);
@@ -260,27 +260,24 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     expect(data).toEqual(testFileData4);
   });
   test('getSignedUrls', async () => {
-    let urls, data;
-    urls = await storage.getSignedUrls(ctx, baseUrl, testDir, urlType, undefined, specialDir);
-    data = [];
+    const urls = await storage.getSignedUrls(ctx, baseUrl, testDir, urlType, undefined, specialDir);
+    const data = [];
     for (const i in urls) {
       data.push(await request(urls[i]));
     }
     expect(data.sort()).toEqual([testFileData1, testFileData2, testFileData3, testFileData4].sort());
   });
   test('getSignedUrlsArrayByArray', async () => {
-    let urls, data;
-    urls = await storage.getSignedUrlsArrayByArray(ctx, baseUrl, [testFile1, testFile2], urlType, specialDir);
-    data = [];
+    const urls = await storage.getSignedUrlsArrayByArray(ctx, baseUrl, [testFile1, testFile2], urlType, specialDir);
+    const data = [];
     for (let i = 0; i < urls.length; ++i) {
       data.push(await request(urls[i]));
     }
     expect(data.sort()).toEqual([testFileData1, testFileData2].sort());
   });
   test('getSignedUrlsByArray', async () => {
-    let urls, data;
-    urls = await storage.getSignedUrlsByArray(ctx, baseUrl, [testFile3, testFile4], undefined, urlType, specialDir);
-    data = [];
+    const urls = await storage.getSignedUrlsByArray(ctx, baseUrl, [testFile3, testFile4], undefined, urlType, specialDir);
+    const data = [];
     for (const i in urls) {
       data.push(await request(urls[i]));
     }
@@ -361,32 +358,30 @@ describe('storage mix common and forgotten dir', () => {
     tenantManager.setMultitenantMode(false);
 
     let buffer = Buffer.from(testFileData1);
-    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
+    const res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
     expect(res).toEqual(undefined);
     let list = await storage.listObjects(ctx, testDir, specialDirCache);
     expect(list.sort()).toEqual([testFile1].sort());
 
     buffer = Buffer.from(testFileData2);
-    res = await storage.putObject(ctx, testFile2, buffer, buffer.length, specialDirForgotten);
-    expect(res).toEqual(undefined);
+    const res2 = await storage.putObject(ctx, testFile2, buffer, buffer.length, specialDirForgotten);
+    expect(res2).toEqual(undefined);
     list = await storage.listObjects(ctx, testDir, specialDirForgotten);
     expect(list.sort()).toEqual([testFile2].sort());
   });
 
   test('copyPath', async () => {
-    let list, res;
-    res = await storage.copyPath(ctx, testDir, testDir, specialDirCache, specialDirForgotten);
+    const res = await storage.copyPath(ctx, testDir, testDir, specialDirCache, specialDirForgotten);
     expect(res).toEqual(undefined);
 
-    list = await storage.listObjects(ctx, testDir, specialDirForgotten);
+    const list = await storage.listObjects(ctx, testDir, specialDirForgotten);
     expect(list.sort()).toEqual([testFile1, testFile2].sort());
   });
   test('copyObject', async () => {
-    let list, res;
-    res = await storage.copyObject(ctx, testFile2, testFile2, specialDirForgotten, specialDirCache);
+    const res = await storage.copyObject(ctx, testFile2, testFile2, specialDirForgotten, specialDirCache);
     expect(res).toEqual(undefined);
 
-    list = await storage.listObjects(ctx, testDir, specialDirCache);
+    const list = await storage.listObjects(ctx, testDir, specialDirCache);
     expect(list.sort()).toEqual([testFile1, testFile2].sort());
   });
 

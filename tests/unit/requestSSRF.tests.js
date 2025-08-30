@@ -18,7 +18,7 @@ process.env['NODE_CONFIG'] = JSON.stringify({
 });
 
 // Required modules
-const {describe, test, expect, beforeAll, afterAll, it, jest} = require('@jest/globals');
+const {describe, expect, beforeAll, afterAll, it} = require('@jest/globals');
 const http = require('http');
 
 const operationContext = require('../../Common/sources/operationContext');
