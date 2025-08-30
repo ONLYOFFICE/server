@@ -40,14 +40,14 @@ describe('Server-Side Request Forgery (SSRF)', () => {
 
   beforeAll(() => {
     goodServer = http
-      .createServer(function (req, res) {
+      .createServer((req, res) => {
         res.write('good');
         res.end();
       })
       .listen(GOOD_PORT);
 
     goodServerRedirect = http
-      .createServer(function (req, res) {
+      .createServer((req, res) => {
         console.log(`Received request for: ${req.url}`);
 
         // Set redirect status code (301 for permanent redirect, 302 for temporary)
@@ -65,7 +65,7 @@ describe('Server-Side Request Forgery (SSRF)', () => {
       .listen(GOOD_PORT_REDIRECT);
 
     badServer = http
-      .createServer(function (req, res) {
+      .createServer((req, res) => {
         res.write('bad');
         res.end();
       })

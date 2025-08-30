@@ -7,9 +7,9 @@ const path = require('node:path');
 const gitignorePath = path.resolve(__dirname, '.gitignore');
 
 module.exports = [
+  includeIgnoreFile(gitignorePath),
   {
     ignores: [
-      ...includeIgnoreFile(gitignorePath).ignores,
       'node_modules/',
       'dist/',
       'build/',
@@ -21,13 +21,11 @@ module.exports = [
       '*.min.js',
       'package-lock.json',
       'npm-shrinkwrap.json',
-      'tests/**',
       'SpellChecker/**',
       'Metrics/**'
     ]
   },
   js.configs.recommended,
-  prettier,
   {
     languageOptions: {
       ecmaVersion: 2022,
@@ -68,20 +66,6 @@ module.exports = [
       'max-lines': ['warn', 5000],
       'no-prototype-builtins': 'off'
     }
-    // ignores: [
-    //   'node_modules/',
-    //   'dist/',
-    //   'build/',
-    //   'coverage/',
-    //   '.next/',
-    //   'out/',
-    //   'branding/info/ai/**',
-    //   'branding/info/js/plugin-stub.js',
-    //   'branding/info/js/plugins.js',
-    //   'branding/info/js/plugins-ui.js',
-    //   '*.min.js',
-    //   'package-lock.json',
-    //   'npm-shrinkwrap.json'
-    // ]
-  }
+  },
+  prettier
 ];

@@ -49,10 +49,10 @@ const https = require('https');
 const fs = require('fs');
 const {Readable} = require('stream');
 
-let testFileData1 = 'test1';
-let testFileData2 = 'test22';
-let testFileData3 = 'test333';
-let testFileData4 = testFileData3;
+const testFileData1 = 'test1';
+const testFileData2 = 'test22';
+const testFileData3 = 'test333';
+const testFileData4 = testFileData3;
 
 const express = require('express');
 const operationContext = require('../../../Common/sources/operationContext');
@@ -72,12 +72,12 @@ const rand = Math.floor(Math.random() * 1000000);
 const testDir = 'DocService-DocsCoServer-storage-' + rand;
 const baseUrl = `http://localhost:${PORT}`;
 const urlType = commonDefines.c_oAscUrlTypes.Session;
-let testFile1 = testDir + '/test1.txt';
-let testFile2 = testDir + '/test2.txt';
-let testFile3 = testDir + '/test3.txt';
-let testFile4 = testDir + '/test4.txt';
-let specialDirCache = '';
-let specialDirForgotten = 'forgotten';
+const testFile1 = testDir + '/test1.txt';
+const testFile2 = testDir + '/test2.txt';
+const testFile3 = testDir + '/test3.txt';
+const testFile4 = testDir + '/test4.txt';
+const specialDirCache = '';
+const specialDirForgotten = 'forgotten';
 
 console.debug(`testDir: ${testDir}`);
 
@@ -104,7 +104,7 @@ function getStorageCfg(specialDir) {
 
 function request(url) {
   return new Promise((resolve, reject) => {
-    let module = url.startsWith('https') ? https : http;
+    const module = url.startsWith('https') ? https : http;
     const req = module.get(url, response => {
       let data = '';
       response.on('data', _data => (data += _data));
@@ -116,35 +116,35 @@ function request(url) {
   });
 }
 function runTestForDir(ctx, isMultitenantMode, specialDir) {
-  let oldMultitenantMode = tenantManager.isMultitenantMode();
+  const oldMultitenantMode = tenantManager.isMultitenantMode();
   test('start listObjects', async () => {
     //todo set in all tests do not rely on test order
     tenantManager.setMultitenantMode(isMultitenantMode);
 
-    let list = await storage.listObjects(ctx, testDir, specialDir);
+    const list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list).toEqual([]);
   });
   test('putObject', async () => {
-    let buffer = Buffer.from(testFileData1);
-    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDir);
+    const buffer = Buffer.from(testFileData1);
+    const res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDir);
     expect(res).toEqual(undefined);
-    let list = await storage.listObjects(ctx, testDir, specialDir);
+    const list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([testFile1].sort());
   });
   test('putObject-stream', async () => {
-    let buffer = Buffer.from(testFileData2);
+    const buffer = Buffer.from(testFileData2);
     const stream = Readable.from(buffer);
-    let res = await storage.putObject(ctx, testFile2, stream, buffer.length, specialDir);
+    const res = await storage.putObject(ctx, testFile2, stream, buffer.length, specialDir);
     expect(res).toEqual(undefined);
-    let list = await storage.listObjects(ctx, testDir, specialDir);
+    const list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([testFile1, testFile2].sort());
   });
   if ('storage-fs' === getStorageCfg(specialDir).name) {
     test('UploadObject', async () => {
-      let res = await storage.uploadObject(ctx, testFile3, 'createReadStream.txt', specialDir);
+      const res = await storage.uploadObject(ctx, testFile3, 'createReadStream.txt', specialDir);
       expect(res).toEqual(undefined);
       expect(cp).toHaveBeenCalled();
-      let list = await storage.listObjects(ctx, testDir, specialDir);
+      const list = await storage.listObjects(ctx, testDir, specialDir);
       expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
     });
   } else {
@@ -152,9 +152,9 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
       const readStream = Readable.from(testFileData3);
       readStream.size = testFileData3.length;
       const spy = jest.spyOn(fs, 'createReadStream').mockReturnValue(readStream);
-      let res = await storage.uploadObject(ctx, testFile3, 'createReadStream.txt', specialDir);
+      const res = await storage.uploadObject(ctx, testFile3, 'createReadStream.txt', specialDir);
       expect(res).toEqual(undefined);
-      let list = await storage.listObjects(ctx, testDir, specialDir);
+      const list = await storage.listObjects(ctx, testDir, specialDir);
       expect(spy).toHaveBeenCalled();
       expect(list.sort()).toEqual([testFile1, testFile2, testFile3].sort());
       spy.mockRestore();
@@ -188,11 +188,11 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     });
   }
   test('copyObject', async () => {
-    let res = await storage.copyObject(ctx, testFile3, testFile4, specialDir, specialDir);
+    const res = await storage.copyObject(ctx, testFile3, testFile4, specialDir, specialDir);
     expect(res).toEqual(undefined);
     // let buffer = Buffer.from(testFileData3);
     // await storage.putObject(ctx, testFile3, buffer, buffer.length, specialDir);
-    let list = await storage.listObjects(ctx, testDir, specialDir);
+    const list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([testFile1, testFile2, testFile3, testFile4].sort());
   });
   test('headObject', async () => {
@@ -263,7 +263,7 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     let urls, data;
     urls = await storage.getSignedUrls(ctx, baseUrl, testDir, urlType, undefined, specialDir);
     data = [];
-    for (let i in urls) {
+    for (const i in urls) {
       data.push(await request(urls[i]));
     }
     expect(data.sort()).toEqual([testFileData1, testFileData2, testFileData3, testFileData4].sort());
@@ -281,18 +281,18 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     let urls, data;
     urls = await storage.getSignedUrlsByArray(ctx, baseUrl, [testFile3, testFile4], undefined, urlType, specialDir);
     data = [];
-    for (let i in urls) {
+    for (const i in urls) {
       data.push(await request(urls[i]));
     }
     expect(data.sort()).toEqual([testFileData3, testFileData4].sort());
   });
   test('getSignedUrl with direct URLs enabled', async () => {
-    let buffer = Buffer.from(testFileData1);
-    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
+    const buffer = Buffer.from(testFileData1);
+    const res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
     expect(res).toEqual(undefined);
 
-    let url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache, true);
-    let data = await request(url);
+    const url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache, true);
+    const data = await request(url);
     expect(data).toEqual(testFileData1);
 
     if (cfgCacheStorage.name !== 'storage-fs') {
@@ -301,12 +301,12 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     }
   });
   test('getSignedUrl with direct URLs disabled', async () => {
-    let buffer = Buffer.from(testFileData1);
-    let res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
+    const buffer = Buffer.from(testFileData1);
+    const res = await storage.putObject(ctx, testFile1, buffer, buffer.length, specialDirCache);
     expect(res).toEqual(undefined);
 
-    let url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache, false);
-    let data = await request(url);
+    const url = await storage.getSignedUrl(ctx, baseUrl, testFile1, urlType, undefined, undefined, specialDirCache, false);
+    const data = await request(url);
     expect(data).toEqual(testFileData1);
 
     expect(url).toContain('md5');
@@ -318,7 +318,7 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([testFile1, testFile2, testFile3, testFile4].sort());
 
-    let res = await storage.deleteObject(ctx, testFile1, specialDir);
+    const res = await storage.deleteObject(ctx, testFile1, specialDir);
     expect(res).toEqual(undefined);
 
     list = await storage.listObjects(ctx, testDir, specialDir);
@@ -329,7 +329,7 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([testFile2, testFile3, testFile4].sort());
 
-    let res = await storage.deletePath(ctx, testDir, specialDir);
+    const res = await storage.deletePath(ctx, testDir, specialDir);
     expect(res).toEqual(undefined);
 
     list = await storage.listObjects(ctx, testDir, specialDir);
@@ -340,23 +340,23 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
 }
 
 // Assumed, that server is already up.
-describe('storage common dir', function () {
+describe('storage common dir', () => {
   runTestForDir(ctx, false, specialDirCache);
 });
 
-describe('storage forgotten dir', function () {
+describe('storage forgotten dir', () => {
   runTestForDir(ctx, false, specialDirForgotten);
 });
 
-describe('storage common dir with tenants', function () {
+describe('storage common dir with tenants', () => {
   runTestForDir(ctx, true, specialDirCache);
 });
 
-describe('storage forgotten dir with tenants', function () {
+describe('storage forgotten dir with tenants', () => {
   runTestForDir(ctx, true, specialDirForgotten);
 });
 
-describe('storage mix common and forgotten dir', function () {
+describe('storage mix common and forgotten dir', () => {
   test('putObject', async () => {
     tenantManager.setMultitenantMode(false);
 

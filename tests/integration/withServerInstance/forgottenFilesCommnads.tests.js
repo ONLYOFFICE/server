@@ -111,14 +111,14 @@ function getKeysDirectories(keys) {
   return keys.map(value => value.split('/')[0]);
 }
 
-beforeAll(async function () {
+beforeAll(async () => {
   const buffer = Buffer.from('Forgotten commands test file');
   for (const index in testFilesNames) {
     await storage.putObject(ctx, `${testFilesNames[index]}/${cfgForgottenFilesName}.docx`, buffer, buffer.length, cfgForgottenFiles);
   }
 });
 
-afterAll(async function () {
+afterAll(async () => {
   const keys = await storage.listObjects(ctx, '', cfgForgottenFiles);
   const keysDirectories = getKeysDirectories(keys);
   const deletePromises = keysDirectories
@@ -130,9 +130,9 @@ afterAll(async function () {
 });
 
 // Assumed, that server is already up.
-describe('Command service', function () {
-  describe('Forgotten files commands parameters validation', function () {
-    describe('Invalid key format', function () {
+describe('Command service', () => {
+  describe('Forgotten files commands parameters validation', () => {
+    describe('Invalid key format', () => {
       const tests = ['getForgotten', 'deleteForgotten'];
       const addSpecialCases = (invalidRequests, expected, testSubject) => {
         invalidRequests.push({
@@ -151,7 +151,7 @@ describe('Command service', function () {
       };
 
       for (const testSubject of tests) {
-        test(testSubject, async function () {
+        test(testSubject, async () => {
           const invalidKeys = [true, [], {}, 1, 1.1];
           const invalidRequests = invalidKeys.map(key => {
             return {
@@ -180,8 +180,8 @@ describe('Command service', function () {
     });
   });
 
-  describe('Forgotten files commands verification', function () {
-    describe('getForgotten', function () {
+  describe('Forgotten files commands verification', () => {
+    describe('getForgotten', () => {
       const createExpected = ({key, error}) => {
         const validKey = typeof key === 'string' && error === 0;
         let urlPattern;
@@ -245,7 +245,7 @@ describe('Command service', function () {
       }
     });
 
-    describe('deleteForgotten', function () {
+    describe('deleteForgotten', () => {
       const createExpected = ({key, error}) => {
         return {
           key,
@@ -282,7 +282,7 @@ describe('Command service', function () {
       }
     });
 
-    describe('getForgottenList', function () {
+    describe('getForgottenList', () => {
       test('Main case', async () => {
         const requestBody = {
           c: 'getForgottenList'

@@ -43,20 +43,20 @@ const utils = require('./../../Common/sources/utils');
 const docsCoServer = require('./../../DocService/sources/DocsCoServer');
 const gc = require('./../../DocService/sources/gc');
 
-let ctx = operationContext.global;
+const ctx = operationContext.global;
 
 let addRandomKeyTask;
-let histograms = {};
+const histograms = {};
 
 async function beforeStart() {
-  let timerify = function (func, name) {
+  const timerify = function (func, name) {
     //todo remove anonymous functions. use func.name
     Object.defineProperty(func, 'name', {
       value: name
     });
-    let histogram = createHistogram();
+    const histogram = createHistogram();
     histograms[func.name] = histogram;
-    return performance.timerify(func, {histogram: histogram});
+    return performance.timerify(func, {histogram});
   };
 
   addRandomKeyTask = timerify(co.wrap(taskResult.addRandomKeyTask), 'addRandomKeyTask');
@@ -71,7 +71,7 @@ async function beforeStart() {
   const obs = new PerformanceObserver(list => {
     const entries = list.getEntries();
     entries.forEach(entry => {
-      let duration = Math.round(entry.duration * 1000) / 1000;
+      const duration = Math.round(entry.duration * 1000) / 1000;
       console.log(`${entry.name}:${duration}ms`);
     });
   });
@@ -81,24 +81,24 @@ async function beforeStart() {
 }
 
 async function beforeEnd() {
-  let logHistogram = function (histogram, name) {
-    let mean = Math.round(histogram.mean / 1000) / 1000;
-    let min = Math.round(histogram.min / 1000) / 1000;
-    let max = Math.round(histogram.max / 1000) / 1000;
-    let count = histogram.count;
+  const logHistogram = function (histogram, name) {
+    const mean = Math.round(histogram.mean / 1000) / 1000;
+    const min = Math.round(histogram.min / 1000) / 1000;
+    const max = Math.round(histogram.max / 1000) / 1000;
+    const count = histogram.count;
     ctx.logger.info(`histogram ${name}: count=${count}, mean=${mean}ms, min=${min}ms, max=${max}ms`);
   };
   await utils.sleep(1000);
-  for (let name in histograms) {
+  for (const name in histograms) {
     logHistogram(histograms[name], name);
   }
 }
 
 async function addFileExpire(count, size, prefix, filesInFolder) {
   while (count > 0) {
-    let task = await addRandomKeyTask(ctx, undefined, prefix, 8);
-    let data = Buffer.alloc(size, 0);
-    let rand = Math.floor(Math.random() * filesInFolder) + 1;
+    const task = await addRandomKeyTask(ctx, undefined, prefix, 8);
+    const data = Buffer.alloc(size, 0);
+    const rand = Math.floor(Math.random() * filesInFolder) + 1;
     for (let i = 0; i < rand && count > 0; i++) {
       await storage.putObject(ctx, `${task.key}/data${i}`, data, data.length);
       count--;
@@ -107,7 +107,7 @@ async function addFileExpire(count, size, prefix, filesInFolder) {
 }
 
 async function startTest() {
-  let args = process.argv.slice(2);
+  const args = process.argv.slice(2);
   if (args.length < 4) {
     ctx.logger.error('missing arguments.USAGE: checkFileExpire.js [add-files-count] [file-size-bytes] [key-prefix] [seconds-to-expire]');
     return;

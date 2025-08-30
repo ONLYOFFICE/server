@@ -11,17 +11,17 @@ const defaultTestSMTPServer = {
 };
 const testTimeout = 1000 * 10;
 
-afterAll(function () {
+afterAll(() => {
   mailService.transportersRelease();
 });
 
-describe('Mail service', function () {
-  describe('SMTP', function () {
+describe('Mail service', () => {
+  describe('SMTP', () => {
     const {host, port} = defaultTestSMTPServer;
 
     test(
       'Transporters life cycle',
-      async function () {
+      async () => {
         // Accounts created at https://ethereal.email/, all messages in tests goes here: https://ethereal.email/messages
         // Ethereial is a special SMTP sever for mailing tests in collaboration with Nodemailer.
         const accounts = await Promise.all([nodemailer.createTestAccount(), nodemailer.createTestAccount(), nodemailer.createTestAccount()]);

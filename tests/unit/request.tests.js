@@ -27,7 +27,7 @@ const getStatusCode = response => response.statusCode || response.status;
 
 function createMockContext(overrides = {}) {
   const defaultCtx = {
-    getCfg: function (key, _) {
+    getCfg (key, _) {
       switch (key) {
         case 'services.CoAuthoring.requestDefaults':
           return {
@@ -69,14 +69,14 @@ function createMockContext(overrides = {}) {
       }
     },
     logger: {
-      debug: function () {}
+      debug () {}
     }
   };
 
   // Return a mock context with overridden values if any
   return {
     ...defaultCtx,
-    getCfg: function (key, _) {
+    getCfg (key, _) {
       // Return the override if it exists
       if (overrides[key]) {
         return overrides[key];
@@ -100,7 +100,7 @@ describe('HTTP Request Unit Tests', () => {
     // Endpoint that simulates timeout
     app.get('/api/timeout', (req, res) => {
       // Never send response to trigger timeout
-      return;
+      
     });
 
     app.use('/api/status/:code', (req, res) => {
@@ -163,7 +163,7 @@ describe('HTTP Request Unit Tests', () => {
     // POST endpoint that times out
     app.post('/api/timeout', express.json(), (req, res) => {
       // Never send response to trigger timeout
-      return;
+      
     });
 
     app.get('/api/binary', (req, res) => {
@@ -724,8 +724,8 @@ describe('HTTP Request Unit Tests', () => {
           headers: defaultHeaders
         }
       });
-      let customHeaders = {'custom-header': 'test-value', 'set-cookie': ['cookie']};
-      let customQueryParams = {'custom-query-param': 'value'};
+      const customHeaders = {'custom-header': 'test-value', 'set-cookie': ['cookie']};
+      const customQueryParams = {'custom-query-param': 'value'};
       const result = await utils.downloadUrlPromise(
         mockCtx,
         `${BASE_URL}/api/mirror?${new URLSearchParams(customQueryParams).toString()}`,

@@ -39,8 +39,8 @@ const utils = require('../../Common/sources/utils');
 const ctx = new operationContext.Context();
 const minimumIterationsByteLength = 4;
 
-describe('AES encryption & decryption', function () {
-  test('Iterations range', async function () {
+describe('AES encryption & decryption', () => {
+  test('Iterations range', async () => {
     const configuration = config.util.cloneDeep(config.get('aesEncrypt.config'));
     const encrypted = await utils.encryptPassword(ctx, 'secretstring');
     const {iterationsByteLength = 5} = configuration;
@@ -53,7 +53,7 @@ describe('AES encryption & decryption', function () {
     expect(iterations).toBeLessThanOrEqual(Math.pow(10, iterationsLength) - 1);
   });
 
-  test('Correct workflow', async function () {
+  test('Correct workflow', async () => {
     const encrypted = await utils.encryptPassword(ctx, 'secretstring');
     const decrypted = await utils.decryptPassword(ctx, encrypted);
     expect(decrypted).toEqual('secretstring');
