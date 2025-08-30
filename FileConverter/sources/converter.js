@@ -593,7 +593,7 @@ function* concatFiles(source, template) {
     }
   }
   for (const i in writeStreams) {
-    if (writeStreams.hasOwn(i)) {
+    if (Object.hasOwn(writeStreams, i)) {
       writeStreams[i].end();
     }
   }

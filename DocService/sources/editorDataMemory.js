@@ -261,10 +261,10 @@ EditorData.prototype.addForceSaveTimerNX = async function (ctx, docId, expireAt)
 EditorData.prototype.getForceSaveTimer = async function (now) {
   const res = [];
   for (const tenant in this.forceSaveTimer) {
-    if (this.forceSaveTimer.hasOwn(tenant)) {
+    if (Object.hasOwn(this.forceSaveTimer, tenant)) {
       const tenantTimer = this.forceSaveTimer[tenant];
       for (const docId in tenantTimer) {
-        if (tenantTimer.hasOwn(docId)) {
+        if (Object.hasOwn(tenantTimer, docId)) {
           if (tenantTimer[docId] < now) {
             res.push([tenant, docId]);
             delete tenantTimer[docId];
@@ -302,7 +302,7 @@ EditorStat.prototype.getPresenceUniqueUser = async function (ctx, nowUTC) {
     this.uniqueUser[ctx.tenant] = tenantUser = {};
   }
   for (const userId in tenantUser) {
-    if (tenantUser.hasOwn(userId)) {
+    if (Object.hasOwn(tenantUser, userId)) {
       if (tenantUser[userId].expireAt > nowUTC) {
         const elem = tenantUser[userId];
         const newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
@@ -334,7 +334,7 @@ EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function (ctx) {
     this.uniqueUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
   for (const periodId in tenantUser) {
-    if (tenantUser.hasOwn(periodId)) {
+    if (Object.hasOwn(tenantUser, periodId)) {
       if (tenantUser[periodId].expireAt <= nowUTC) {
         delete tenantUser[periodId];
       } else {
@@ -360,7 +360,7 @@ EditorStat.prototype.getPresenceUniqueViewUser = async function (ctx, nowUTC) {
     this.uniqueViewUser[ctx.tenant] = tenantUser = {};
   }
   for (const userId in tenantUser) {
-    if (tenantUser.hasOwn(userId)) {
+    if (Object.hasOwn(tenantUser, userId)) {
       if (tenantUser[userId].expireAt > nowUTC) {
         const elem = tenantUser[userId];
         const newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
@@ -392,7 +392,7 @@ EditorStat.prototype.getPresenceUniqueViewUsersOfMonth = async function (ctx) {
     this.uniqueViewUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
   for (const periodId in tenantUser) {
-    if (tenantUser.hasOwn(periodId)) {
+    if (Object.hasOwn(tenantUser, periodId)) {
       if (tenantUser[periodId].expireAt <= nowUTC) {
         delete tenantUser[periodId];
       } else {
@@ -480,7 +480,7 @@ EditorStat.prototype.getShutdownCount = async function (key) {
   let count = 0;
   if (this.shutdown[key]) {
     for (const docId in this.shutdown[key]) {
-      if (this.shutdown[key].hasOwn(docId)) {
+      if (Object.hasOwn(this.shutdown[key], docId)) {
         count++;
       }
     }

@@ -339,39 +339,39 @@ async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
     if (true === oLicense['timelimited']) {
       res.mode |= c_LM.Limited;
     }
-    if (oLicense.hasOwn('trial')) {
+    if (Object.hasOwn(oLicense, 'trial')) {
       res.mode |= true === oLicense['trial'] || 'true' === oLicense['trial'] || 'True' === oLicense['trial'] ? c_LM.Trial : c_LM.None; // Someone who likes to put json string instead of bool
     }
     if (true === oLicense['developer']) {
       res.mode |= c_LM.Developer;
     }
-    if (oLicense.hasOwn('branding')) {
+    if (Object.hasOwn(oLicense, 'branding')) {
       res.branding = true === oLicense['branding'] || 'true' === oLicense['branding'] || 'True' === oLicense['branding']; // Someone who likes to put json string instead of bool
     }
-    if (oLicense.hasOwn('customization')) {
+    if (Object.hasOwn(oLicense, 'customization')) {
       res.customization = !!oLicense['customization'];
     }
-    if (oLicense.hasOwn('advanced_api')) {
+    if (Object.hasOwn(oLicense, 'advanced_api')) {
       res.advancedApi = !!oLicense['advanced_api'];
     }
-    if (oLicense.hasOwn('connections')) {
+    if (Object.hasOwn(oLicense, 'connections')) {
       res.connections = oLicense['connections'] >> 0;
     }
-    if (oLicense.hasOwn('connections_view')) {
+    if (Object.hasOwn(oLicense, 'connections_view')) {
       res.connectionsView = oLicense['connections_view'] >> 0;
     }
-    if (oLicense.hasOwn('users_count')) {
+    if (Object.hasOwn(oLicense, 'users_count')) {
       res.usersCount = oLicense['users_count'] >> 0;
     }
-    if (oLicense.hasOwn('users_view_count')) {
+    if (Object.hasOwn(oLicense, 'users_view_count')) {
       res.usersViewCount = oLicense['users_view_count'] >> 0;
     }
-    if (oLicense.hasOwn('users_expire')) {
+    if (Object.hasOwn(oLicense, 'users_expire')) {
       res.usersExpire = Math.max(constants.LICENSE_EXPIRE_USERS_ONE_DAY, (oLicense['users_expire'] >> 0) * constants.LICENSE_EXPIRE_USERS_ONE_DAY);
     }
 
     // Read grace_days setting from license file if available
-    if (oLicense.hasOwn('grace_days')) {
+    if (Object.hasOwn(oLicense, 'grace_days')) {
       res.graceDays = Math.max(0, oLicense['grace_days'] >> 0);
     }
 
