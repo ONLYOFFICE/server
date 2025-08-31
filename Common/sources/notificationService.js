@@ -31,7 +31,6 @@
  */
 
 'use strict';
-const util = require('util');
 const config = require('config');
 const ms = require('ms');
 
@@ -52,8 +51,8 @@ const notificationTypes = {
 };
 
 class TransportInterface {
-  async send(ctx, message) {}
-  contentGeneration(title, message) {}
+  async send(_ctx, _message) {}
+  contentGeneration(_title, _message) {}
 }
 
 class MailTransport extends TransportInterface {
@@ -82,7 +81,7 @@ class MailTransport extends TransportInterface {
 
 // TODO:
 class TelegramTransport extends TransportInterface {
-  constructor(ctx) {
+  constructor(_ctx) {
     super();
   }
 }
@@ -99,7 +98,7 @@ class Transport {
         break;
       case 'telegram':
         this.transport = new TelegramTransport(ctx);
-        break
+        break;
       default:
         ctx.logger.warn(`Notification service: error: transport method "${transportName}" not implemented`);
     }
@@ -109,8 +108,8 @@ class Transport {
 async function notify(ctx, notificationType, title, message, opt_cacheKey = undefined) {
   const tenRule = ctx.getCfg(`notification.rules.${notificationType}`, config.get(`notification.rules.${notificationType}`));
   if (tenRule?.enable) {
-    ctx.logger.debug('Notification service: notify "%s"',  notificationType);
-    let checkRes = await checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey);
+    ctx.logger.debug('Notification service: notify "%s"', notificationType);
+    const checkRes = await checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey);
     if (checkRes) {
       await notifyRule(ctx, tenRule, title, message);
     }
@@ -118,9 +117,9 @@ async function notify(ctx, notificationType, title, message, opt_cacheKey = unde
 }
 
 async function checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey) {
-  const { repeatInterval } = tenRule.policies;
+  const {repeatInterval} = tenRule.policies;
   //decrease repeatInterval by 1% to avoid race condition if timeout=repeatInterval
-  let ttl = Math.floor(ms(repeatInterval) * 0.99 / 1000);
+  const ttl = Math.floor((ms(repeatInterval) * 0.99) / 1000);
   let isLock = false;
   //todo for compatibility remove if after 8.2
   if (editorStat?.lockNotification) {

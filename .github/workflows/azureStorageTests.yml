@@ -28,13 +28,13 @@ jobs:
         run: |
           # Detect network and set network arguments
           JOB_NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{printf "%s\n" $k}}{{end}}' "$(hostname)" 2>/dev/null | head -n1 || true)
-          
+
           if [ -n "$JOB_NET" ]; then
             NETWORK_ARGS="--network $JOB_NET"
           else
             NETWORK_ARGS=""
           fi
-          
+
           # Start Azurite container
           docker run --name "$AZURITE_CONTAINER" \
             $NETWORK_ARGS \
@@ -50,7 +50,7 @@ jobs:
           else
             HOST=127.0.0.1
           fi
-          
+
           # Wait for Azurite to be ready
           echo "Waiting for Azurite at $HOST:10000..."
           for i in $(seq 1 15); do
@@ -60,14 +60,14 @@ jobs:
             fi
             sleep 1
           done
-          
+
           # Verify Azurite is running
           if ! curl -sS "http://$HOST:10000/" >/dev/null 2>&1; then
             echo "Azurite failed to start"
             docker logs "$AZURITE_CONTAINER" || true
             exit 1
           fi
-          
+
           # Export host for subsequent steps
           echo "AZURITE_HOST=$HOST" >> "$GITHUB_ENV"
 
@@ -119,14 +119,14 @@ jobs:
             }
           }
           EOF
-          
+
           echo "Azure storage configuration created"
 
       - name: Create Azure container using Node.js from Common directory
         run: |
           # Wait a bit more for Azurite to be fully ready
           sleep 10
-          
+
           # Run Node.js script from Common directory where Azure dependencies are installed
           cd Common
           node -e "

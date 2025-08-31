@@ -6,7 +6,7 @@
     "filePath": "./../runtime.json"
   },
   "aiSettings": {
-    "pluginDir" : "../info/ai"
+    "pluginDir": "../info/ai"
   },
   "storage": {
     "fs": {

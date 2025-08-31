@@ -27,13 +27,13 @@ jobs:
         run: |
           # Detect network and set network arguments
           JOB_NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{printf "%s\n" $k}}{{end}}' "$(hostname)" 2>/dev/null | head -n1 || true)
-          
+
           if [ -n "$JOB_NET" ]; then
             NETWORK_ARGS="--network $JOB_NET"
           else
             NETWORK_ARGS=""
           fi
-          
+
           # Start MinIO container
           docker run --name "$MINIO_CONTAINER" \
             $NETWORK_ARGS \

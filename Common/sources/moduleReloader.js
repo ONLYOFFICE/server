@@ -58,30 +58,30 @@ function reloadNpmModule(moduleName) {
  */
 function requireConfigWithRuntime(opt_additionalConfig) {
   let config = require('config');
-  
+
   // Backup original NODE_CONFIG to avoid growing environment
   const prevNodeConfig = process.env.NODE_CONFIG;
   let nodeConfigOverridden = false;
-  
+
   try {
     const configFilePath = config.get('runtimeConfig.filePath');
     if (configFilePath) {
       const configData = fs.readFileSync(configFilePath, 'utf8');
-      
+
       // Parse existing NODE_CONFIG or start with empty object
       let curNodeConfig = JSON.parse(process.env.NODE_CONFIG ?? '{}');
       const fileConfig = JSON.parse(configData);
-      
+
       // Merge configurations: NODE_CONFIG -> runtime -> additional
       curNodeConfig = config.util.extendDeep(curNodeConfig, fileConfig);
       if (opt_additionalConfig) {
         curNodeConfig = config.util.extendDeep(curNodeConfig, opt_additionalConfig);
       }
-      
+
       // Temporarily set NODE_CONFIG only to reload the config module
       process.env.NODE_CONFIG = JSON.stringify(curNodeConfig);
       nodeConfigOverridden = true;
-      
+
       config = reloadNpmModule('config');
     }
   } catch (err) {
