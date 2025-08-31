@@ -1,4 +1,3 @@
-
 ## Third-party
 
 - @aws-sdk/client-s3 3.637.0 ([Apache-2.0](https://raw.githubusercontent.com/aws/aws-sdk-js-v3/main/LICENSE))
