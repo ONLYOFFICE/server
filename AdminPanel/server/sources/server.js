@@ -14,6 +14,7 @@ try {
 const config = moduleReloader.requireConfigWithRuntime();
 const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
+const license = require('../../../Common/sources/license');
 const utils = require('../../../Common/sources/utils');
 const commonDefines = require('../../../Common/sources/commondefines');
 
@@ -29,6 +30,22 @@ const app = express();
 app.disable('x-powered-by');
 
 const server = http.createServer(app);
+
+// Initialize license on startup
+(async () => {
+  try {
+    let licenseFile;
+    try {
+      licenseFile = config.get('license.license_file');
+    } catch (_) {
+      licenseFile = null;
+    }
+    const [info, original] = await license.readLicense(licenseFile);
+    tenantManager.setDefLicense(info, original);
+  } catch (e) {
+    operationContext.global.logger.warn('License init error: %s', e.message);
+  }
+})();
 
 const corsWithCredentials = cors({
   origin: true,
@@ -73,8 +90,7 @@ app.get('/info/info.json', cors(), utils.checkClientIp, async (req, res) => {
   } catch (e) {
     ctx.logger && ctx.logger.warn('info.json error: %s', e.stack);
   } finally {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(output));
+    res.json(output);
   }
 });
 
