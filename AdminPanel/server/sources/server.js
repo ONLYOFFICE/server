@@ -2,14 +2,14 @@
 
 const path = require('path');
 const moduleReloader = require('../../../Common/sources/moduleReloader');
-const logProfile = (process.env.NODE_ENV && process.env.NODE_ENV.startsWith('production')) ? 'production' : 'development';
+const logProfile = process.env.NODE_ENV && process.env.NODE_ENV.startsWith('production') ? 'production' : 'development';
 const absLogCfgPath = path.resolve(__dirname, '../../../Common/config/log4js', `${logProfile}.json`);
 try {
   const existingOverlay = process.env.NODE_CONFIG ? JSON.parse(process.env.NODE_CONFIG) : {};
-  existingOverlay.log = Object.assign({}, existingOverlay.log, { filePath: absLogCfgPath });
+  existingOverlay.log = Object.assign({}, existingOverlay.log, {filePath: absLogCfgPath});
   process.env.NODE_CONFIG = JSON.stringify(existingOverlay);
 } catch (_) {
-  process.env.NODE_CONFIG = JSON.stringify({ log: { filePath: absLogCfgPath } });
+  process.env.NODE_CONFIG = JSON.stringify({log: {filePath: absLogCfgPath}});
 }
 const config = moduleReloader.requireConfigWithRuntime();
 const operationContext = require('../../../Common/sources/operationContext');
@@ -39,9 +39,13 @@ const corsWithCredentials = cors({
 
 operationContext.global.logger.warn('AdminPanel server starting...');
 
-const _rawFileParser = bodyParser.raw(
-  { inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type () { return true; } }
-);
+const _rawFileParser = bodyParser.raw({
+  inflate: true,
+  limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'),
+  type() {
+    return true;
+  }
+});
 
 app.get('/info/info.json', cors(), utils.checkClientIp, async (req, res) => {
   const serverDate = new Date();
@@ -55,8 +59,8 @@ app.get('/info/info.json', cors(), utils.checkClientIp, async (req, res) => {
       date: serverDate.toISOString()
     },
     quota: {
-      edit: { connectionsCount: 0, usersCount: { unique: 0, anonymous: 0 } },
-      view: { connectionsCount: 0, usersCount: { unique: 0, anonymous: 0 } },
+      edit: {connectionsCount: 0, usersCount: {unique: 0, anonymous: 0}},
+      view: {connectionsCount: 0, usersCount: {unique: 0, anonymous: 0}},
       byMonth: []
     }
   };
@@ -88,5 +92,3 @@ const port = 9000;
 server.listen(port, () => {
   operationContext.global.logger.warn('AdminPanel server listening on port %d', port);
 });
-
-

@@ -4,7 +4,7 @@
 }
 
 body {
-  font-family: 'Open Sans',sans-serif,Arial;
+  font-family: 'Open Sans', sans-serif, Arial;
   font-size: 1rem;
   font-weight: 400;
   margin: 0px !important;
@@ -13,17 +13,34 @@ body {
   color: rgb(51, 51, 51);
 }
 
-.App, .content, h1, h2, h3, h4, h5, h6, p, div, span, td, th, label, a, li, ul, ol {
+.App,
+.content,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+div,
+span,
+td,
+th,
+label,
+a,
+li,
+ul,
+ol {
   color: rgb(51, 51, 51);
 }
 
 body::-webkit-scrollbar {
   width: 6px;
-  background: #FFFFFF;
+  background: #ffffff;
 }
 
 body::-webkit-scrollbar-thumb {
-  background: #EFEFEF;
+  background: #efefef;
 }
 
 .content {
@@ -33,7 +50,7 @@ body::-webkit-scrollbar-thumb {
 
 @media (max-width: 1200px) {
   .content {
-      padding-right: 5%;
-      padding-left: 5%;
+    padding-right: 5%;
+    padding-left: 5%;
   }
 }

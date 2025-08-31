@@ -24,7 +24,8 @@
   width: 25%;
   padding-left: 10px;
 }
-.editorsLabel, .viewerLabel {
+.editorsLabel,
+.viewerLabel {
   font-weight: 600;
   font-size: 12px;
   padding: 8px 0 0 10px;
@@ -41,4 +42,4 @@
 
 .remainingValue {
   color: rgb(1, 125, 28);
-} 
+}

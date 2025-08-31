@@ -19,13 +19,12 @@ router.get('/me', async (req, res) => {
   try {
     const token = req.cookies.accessToken;
     if (!token) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({error: 'Unauthorized'});
     }
 
     try {
       const decoded = jwt.verify(token, defaultTenantSecret);
       res.json(decoded);
-      
     } catch {
       if (tenantBaseDir && fs.existsSync(tenantBaseDir)) {
         const tenantList = fs.readdirSync(tenantBaseDir);
@@ -33,28 +32,28 @@ router.get('/me', async (req, res) => {
           try {
             const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
             const decoded = jwt.verify(token, tenantSecret);
-            res.json({ tenant: decoded.tenant, isAdmin: decoded.isAdmin });
+            res.json({tenant: decoded.tenant, isAdmin: decoded.isAdmin});
             return;
           } catch {
             continue;
           }
         }
       }
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({error: 'Invalid token'});
     }
   } catch {
-    res.status(401).json({ error: 'Unauthorized' });
+    res.status(401).json({error: 'Unauthorized'});
   }
 });
 
 router.post('/login', async (req, res) => {
   try {
-    const { secret } = req.body;
+    const {secret} = req.body;
     const tenant = findTenantBySecret(secret);
     if (!tenant) {
-      return res.status(401).json({ error: 'Invalid secret' });
+      return res.status(401).json({error: 'Invalid secret'});
     }
-    const token = jwt.sign({ ...tenant }, secret, { expiresIn: '1h' });
+    const token = jwt.sign({...tenant}, secret, {expiresIn: '1h'});
 
     res.cookie('accessToken', token, {
       httpOnly: true,
@@ -63,9 +62,9 @@ router.post('/login', async (req, res) => {
       path: '/'
     });
 
-    res.json({ tenant: tenant.tenant, isAdmin: tenant.isAdmin });
+    res.json({tenant: tenant.tenant, isAdmin: tenant.isAdmin});
   } catch {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({error: 'Internal server error'});
   }
 });
 
@@ -76,22 +75,22 @@ router.post('/logout', async (req, res) => {
       sameSite: 'strict',
       path: '/'
     });
-    res.json({ message: 'Logged out successfully' });
+    res.json({message: 'Logged out successfully'});
   } catch {
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({error: 'Internal server error'});
   }
 });
 
 function findTenantBySecret(secret) {
   if (secret === defaultTenantSecret) {
-    return { tenant: config.get('tenants.defaultTenant'), isAdmin: true };
+    return {tenant: config.get('tenants.defaultTenant'), isAdmin: true};
   }
   if (tenantBaseDir && fs.existsSync(tenantBaseDir)) {
     const tenantList = fs.readdirSync(tenantBaseDir);
     for (const tenant of tenantList) {
       const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
       if (tenantSecret === secret) {
-        return { tenant, isAdmin: true };
+        return {tenant, isAdmin: true};
       }
     }
   }
@@ -99,5 +98,3 @@ function findTenantBySecret(secret) {
 }
 
 module.exports = router;
-
-

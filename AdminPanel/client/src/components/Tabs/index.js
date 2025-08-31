@@ -1,7 +1,6 @@
- 
 import styles from './styles.module.css';
 
-export default function Tabs({ tabs, activeTab, onTabChange, children }) {
+export default function Tabs({tabs, activeTab, onTabChange, children}) {
   return (
     <div>
       <div className={styles.tabContainer}>
@@ -15,9 +14,7 @@ export default function Tabs({ tabs, activeTab, onTabChange, children }) {
           </div>
         ))}
       </div>
-      <div className={styles.tabContent}>
-        {children}
-      </div>
+      <div className={styles.tabContent}>{children}</div>
     </div>
   );
-} 
+}

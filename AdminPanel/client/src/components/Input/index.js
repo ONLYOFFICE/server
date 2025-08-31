@@ -1,9 +1,8 @@
- 
 import styles from './styles.module.css';
 
-export default function Input({ 
-  value, 
-  onChange, 
+export default function Input({
+  value,
+  onChange,
   placeholder = '',
   type = 'text',
   error = null,
@@ -16,7 +15,7 @@ export default function Input({
     <input
       type={type}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={e => onChange(e.target.value)}
       onKeyDown={onKeyDown}
       placeholder={placeholder}
       className={`${styles.input} ${error ? styles.inputError : ''} ${className}`}
@@ -24,4 +23,4 @@ export default function Input({
       max={max}
     />
   );
-} 
+}

@@ -1,17 +1,17 @@
-import { useState } from 'react';
+import {useState} from 'react';
 import Statistics from '../components/Statistics';
 import Configuration from '../components/Configuration';
 import Tabs from '../components/Tabs';
 import styles from './styles.module.css';
 
 const tabs = [
-  { key: 'statistics', label: 'STATISTICS' },
-  { key: 'configuration', label: 'CONFIGURATION' },
+  {key: 'statistics', label: 'STATISTICS'},
+  {key: 'configuration', label: 'CONFIGURATION'}
 ];
 
 const tabComponents = {
   statistics: <Statistics />,
-  configuration: <Configuration />,
+  configuration: <Configuration />
 };
 
 export default function Home() {

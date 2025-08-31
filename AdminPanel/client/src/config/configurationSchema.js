@@ -1,7 +1,7 @@
 // Role enum for access control
 export const ROLES = {
   ADMIN: 'admin',
-  USER: 'user',
+  USER: 'user'
 };
 
 export const configurationSections = [
@@ -48,11 +48,11 @@ export const configurationSections = [
         label: 'Auto Assembly Step',
         type: 'select',
         options: [
-          { value: '1m', label: '1 minute' },
-          { value: '5m', label: '5 minutes' },
-          { value: '10m', label: '10 minutes' },
-          { value: '15m', label: '15 minutes' },
-          { value: '30m', label: '30 minutes' }
+          {value: '1m', label: '1 minute'},
+          {value: '5m', label: '5 minutes'},
+          {value: '10m', label: '10 minutes'},
+          {value: '15m', label: '15 minutes'},
+          {value: '30m', label: '30 minutes'}
         ],
         roles: [ROLES.ADMIN, ROLES.USER],
         description: 'Step interval for auto assembly process'
@@ -73,4 +73,4 @@ export const configurationSections = [
       }
     ]
   }
-]; 
+];

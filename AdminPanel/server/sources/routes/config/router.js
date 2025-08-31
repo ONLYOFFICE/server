@@ -6,7 +6,7 @@ const tenantManager = require('../../../../../Common/sources/tenantManager');
 const operationContext = require('../../../../../Common/sources/operationContext');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
 const utils = require('../../../../../Common/sources/utils');
-const { getFilteredConfig, validate } = require('./config.service');
+const {getFilteredConfig, validate} = require('./config.service');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
@@ -15,7 +15,13 @@ const cookieParser = require('cookie-parser');
 const router = express.Router();
 router.use(cookieParser());
 
-const rawFileParser = bodyParser.raw({ inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type () { return true; } });
+const rawFileParser = bodyParser.raw({
+  inflate: true,
+  limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'),
+  type() {
+    return true;
+  }
+});
 
 const validateJWT = async (req, res, next) => {
   const ctx = new operationContext.Context();
@@ -24,7 +30,7 @@ const validateJWT = async (req, res, next) => {
     await ctx.initTenantCache();
     const token = req.cookies.accessToken;
     if (!token) {
-      return res.status(401).json({ error: 'Unauthorized - No token provided' });
+      return res.status(401).json({error: 'Unauthorized - No token provided'});
     }
     const defaultTenantSecret = config.get('services.CoAuthoring.secret.browser.string');
     const tenantBaseDir = config.get('tenants.baseDir');
@@ -32,7 +38,7 @@ const validateJWT = async (req, res, next) => {
     try {
       const decoded = jwt.verify(token, defaultTenantSecret);
       if (ctx.tenant !== decoded.tenant) {
-        return res.status(401).json({ error: 'Unauthorized - Invalid tenant' });
+        return res.status(401).json({error: 'Unauthorized - Invalid tenant'});
       }
       req.user = decoded;
       req.ctx = ctx;
@@ -45,7 +51,7 @@ const validateJWT = async (req, res, next) => {
             const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
             const decoded = jwt.verify(token, tenantSecret);
             if (ctx.tenant !== decoded.tenant) {
-              return res.status(401).json({ error: 'Unauthorized - Invalid tenant' });
+              return res.status(401).json({error: 'Unauthorized - Invalid tenant'});
             }
             req.user = decoded;
             req.ctx = ctx;
@@ -55,10 +61,10 @@ const validateJWT = async (req, res, next) => {
           }
         }
       }
-      return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+      return res.status(401).json({error: 'Unauthorized - Invalid token'});
     }
   } catch {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({error: 'Unauthorized'});
   }
 };
 
@@ -72,7 +78,7 @@ router.get('/', validateJWT, async (req, res) => {
     ctx.logger.debug('Config get success');
   } catch (error) {
     ctx.logger.error('Config get error: %s', error.stack);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({error: 'Internal server error'});
   }
 });
 
@@ -97,10 +103,8 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
     res.sendStatus(200);
   } catch (error) {
     ctx.logger.error('Configuration save error: %s', error.stack);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    res.status(500).json({error: 'Internal server error', details: error.message});
   }
 });
 
 module.exports = router;
-
-

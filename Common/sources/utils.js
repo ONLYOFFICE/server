@@ -1459,7 +1459,7 @@ exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, fileP
     ctx.logger.info(`watchWithFallback error ${dirPath} fallback to watchFile ${filePath}: ${err.message}`);
     return fs.watchFile(filePath, opts, listener);
   }
-}
+};
 /**
  * Underlying get mechanism
  *
@@ -1483,6 +1483,6 @@ function getImpl(object, property) {
     return undefined;
   }
   return getImpl(value, elems.slice(1));
-};
+}
 
 exports.getImpl = getImpl;

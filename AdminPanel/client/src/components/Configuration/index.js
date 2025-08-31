@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
-import { fetchConfiguration, updateConfiguration } from '../../api';
-import { getNestedValue } from '../../utils/getNestedValue';
-import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
-import { configurationSections, ROLES } from '../../config/configurationSchema';
-import { selectUser } from '../../store/slices/userSlice';
+import {useState, useEffect} from 'react';
+import {useSelector} from 'react-redux';
+import {fetchConfiguration, updateConfiguration} from '../../api';
+import {getNestedValue} from '../../utils/getNestedValue';
+import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
+import {configurationSections, ROLES} from '../../config/configurationSchema';
+import {selectUser} from '../../store/slices/userSlice';
 import ExpandableSection from '../ExpandableSection';
 import ConfigurationField from '../ConfigurationInput';
 import Button from '../Button';
@@ -18,19 +18,21 @@ export default function Configuration() {
   const [fieldValues, setFieldValues] = useState({});
   const [fieldErrors, setFieldErrors] = useState({});
 
-  const filteredSections = configurationSections.map(section => ({
-    ...section,
-    fields: section.fields.filter(field => {
-      if (user?.isAdmin && field.roles.includes(ROLES.ADMIN)) {
-        return true;
-      }
-      if (!user?.isAdmin && field.roles.includes(ROLES.USER)) {
-        return true;
-      }
-      
-      return false;
-    })
-  })).filter(section => section.fields.length > 0);
+  const filteredSections = configurationSections
+    .map(section => ({
+      ...section,
+      fields: section.fields.filter(field => {
+        if (user?.isAdmin && field.roles.includes(ROLES.ADMIN)) {
+          return true;
+        }
+        if (!user?.isAdmin && field.roles.includes(ROLES.USER)) {
+          return true;
+        }
+
+        return false;
+      })
+    }))
+    .filter(section => section.fields.length > 0);
 
   useEffect(() => {
     const loadConfiguration = async () => {
@@ -39,7 +41,7 @@ export default function Configuration() {
         setError(null);
         const data = await fetchConfiguration();
         setConfig(data);
-        
+
         const initialValues = {};
         filteredSections.forEach(section => {
           section.fields.forEach(field => {
@@ -65,19 +67,19 @@ export default function Configuration() {
     // Clear error for this field when user modifies it
     if (fieldErrors[path]) {
       setFieldErrors(prev => {
-        const newErrors = { ...prev };
+        const newErrors = {...prev};
         delete newErrors[path];
         return newErrors;
       });
     }
   };
 
-  const handleSaveSection = async (sectionTitle) => {
+  const handleSaveSection = async sectionTitle => {
     const section = filteredSections.find(s => s.title === sectionTitle);
     if (!section) return;
 
     // Clear previous errors for this section
-    const newFieldErrors = { ...fieldErrors };
+    const newFieldErrors = {...fieldErrors};
     section.fields.forEach(field => {
       delete newFieldErrors[field.path];
     });
@@ -90,7 +92,7 @@ export default function Configuration() {
     });
 
     const mergedConfig = mergeNestedObjects(changedObjects);
-    
+
     try {
       await updateConfiguration(mergedConfig);
     } catch (error) {
@@ -105,7 +107,7 @@ export default function Configuration() {
             errors[fieldPath] = detail.message;
           }
         });
-        setFieldErrors(prev => ({ ...prev, ...errors }));
+        setFieldErrors(prev => ({...prev, ...errors}));
       } else {
         // Handle other types of errors
         console.error('Save error:', error);
@@ -123,16 +125,16 @@ export default function Configuration() {
   }
 
   return (
-    <div className={styles.configuration}>      
+    <div className={styles.configuration}>
       {filteredSections.map((section, index) => {
         return (
           <ExpandableSection key={index} title={section.title}>
-            {section.fields.map((field) => (
+            {section.fields.map(field => (
               <ConfigurationField
                 key={field.path}
                 label={field.label}
                 value={fieldValues[field.path] || ''}
-                onChange={(value) => handleFieldChange(field.path, value)}
+                onChange={value => handleFieldChange(field.path, value)}
                 type={field.type}
                 error={fieldErrors[field.path]}
                 min={field.min}
@@ -141,11 +143,8 @@ export default function Configuration() {
                 description={field.description}
               />
             ))}
-            
-            <Button
-              onClick={() => handleSaveSection(section.title)}
-              errorText="FAILED"
-            >
+
+            <Button onClick={() => handleSaveSection(section.title)} errorText='FAILED'>
               SAVE
             </Button>
           </ExpandableSection>
@@ -153,4 +152,4 @@ export default function Configuration() {
       })}
     </div>
   );
-} 
+}

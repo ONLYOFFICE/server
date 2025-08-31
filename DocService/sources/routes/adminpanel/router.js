@@ -43,7 +43,6 @@ const fs = require('fs');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 
-
 const router = express.Router();
 
 // Middleware to parse JSON request bodies
@@ -53,104 +52,103 @@ router.use(express.json());
 router.use(cookieParser());
 
 router.get('/me', async (req, res) => {
-    try {
-        const token = req.cookies.accessToken;
-        if (!token) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
-        
-        // Try to verify with default tenant secret first
-        try {
-            const decoded = jwt.verify(token, defaultTenantSecret);
-            res.json(decoded);
-            
-        } catch {
-            // If default secret fails, try to find the tenant and verify with their secret
-            const tenantList = fs.readdirSync(tenantBaseDir);
-            for (const tenant of tenantList) {
-                try {
-                    const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
-                    const decoded = jwt.verify(token, tenantSecret);
-                    res.json({
-                        tenant: decoded.tenant,
-                        isAdmin: decoded.isAdmin
-                    });
-                    return;
-                } catch {
-                    // Continue to next tenant
-                    continue;
-                }
-            }
-            // If no tenant secret works, return unauthorized
-            return res.status(401).json({ error: 'Invalid token' });
-        }
-    } catch (error) {
-        console.log('error', error);
-        res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const token = req.cookies.accessToken;
+    if (!token) {
+      return res.status(401).json({error: 'Unauthorized'});
     }
+
+    // Try to verify with default tenant secret first
+    try {
+      const decoded = jwt.verify(token, defaultTenantSecret);
+      res.json(decoded);
+    } catch {
+      // If default secret fails, try to find the tenant and verify with their secret
+      const tenantList = fs.readdirSync(tenantBaseDir);
+      for (const tenant of tenantList) {
+        try {
+          const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
+          const decoded = jwt.verify(token, tenantSecret);
+          res.json({
+            tenant: decoded.tenant,
+            isAdmin: decoded.isAdmin
+          });
+          return;
+        } catch {
+          // Continue to next tenant
+          continue;
+        }
+      }
+      // If no tenant secret works, return unauthorized
+      return res.status(401).json({error: 'Invalid token'});
+    }
+  } catch (error) {
+    console.log('error', error);
+    res.status(401).json({error: 'Unauthorized'});
+  }
 });
 
 router.post('/login', async (req, res) => {
-    const ctx = new operationContext.Context();
-    ctx.initDefault()
-    try {
-        const { secret } = req.body;
-        const tenant = findTenantBySecret(secret);
-        if (!tenant) {
-            return res.status(401).json({ error: 'Invalid secret' });
-        }
-        const token = jwt.sign({ ...tenant }, secret, { expiresIn: '1h' });
-        
-        res.cookie('accessToken', token, {
-            httpOnly: true,
-            sameSite: 'strict',
-            maxAge: 60 * 60 * 1000,
-            path: '/'
-        });
-        
-        res.json({ tenant: tenant.tenant, isAdmin: tenant.isAdmin });
-    } catch (error) {
-        ctx.logger.error('Config get error: %s', error.stack);
-        res.status(500).json({ error: 'Internal server error' });
+  const ctx = new operationContext.Context();
+  ctx.initDefault();
+  try {
+    const {secret} = req.body;
+    const tenant = findTenantBySecret(secret);
+    if (!tenant) {
+      return res.status(401).json({error: 'Invalid secret'});
     }
+    const token = jwt.sign({...tenant}, secret, {expiresIn: '1h'});
+
+    res.cookie('accessToken', token, {
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 1000,
+      path: '/'
+    });
+
+    res.json({tenant: tenant.tenant, isAdmin: tenant.isAdmin});
+  } catch (error) {
+    ctx.logger.error('Config get error: %s', error.stack);
+    res.status(500).json({error: 'Internal server error'});
+  }
 });
 
 router.post('/logout', async (req, res) => {
-    try {
-        // Clear the httpOnly accessToken cookie
-        res.clearCookie('accessToken', {
-            httpOnly: true,
-            sameSite: 'strict',
-            path: '/'
-        });
-        
-        res.json({ message: 'Logged out successfully' });
-    } catch (error) {
-        console.log('logout error', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+  try {
+    // Clear the httpOnly accessToken cookie
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/'
+    });
+
+    res.json({message: 'Logged out successfully'});
+  } catch (error) {
+    console.log('logout error', error);
+    res.status(500).json({error: 'Internal server error'});
+  }
 });
 
 //TODO: make function async, use cache
 function findTenantBySecret(secret) {
-    if (secret === defaultTenantSecret) {
-        return {
-            tenant: config.get('tenants.defaultTenant'),
-            isAdmin: true
-        };
-    }
+  if (secret === defaultTenantSecret) {
+    return {
+      tenant: config.get('tenants.defaultTenant'),
+      isAdmin: true
+    };
+  }
 
-    const tenantList = fs.readdirSync(tenantBaseDir);
-    for (const tenant of tenantList) {
-        const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
-        if (tenantSecret === secret) {
-            return {
-                tenant,
-                isAdmin: true
-            };
-        }
+  const tenantList = fs.readdirSync(tenantBaseDir);
+  for (const tenant of tenantList) {
+    const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
+    if (tenantSecret === secret) {
+      return {
+        tenant,
+        isAdmin: true
+      };
     }
-    return null;
+  }
+  return null;
 }
 
 module.exports = router;

@@ -4,34 +4,28 @@ const validation = require('./validation');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const utils = require('../../../../../Common/sources/utils');
 
-const tenantReadableFields = [
-  'services.CoAuthoring.expire',
-  'FileConverter.converter.maxDownloadBytes',
-];
+const tenantReadableFields = ['services.CoAuthoring.expire', 'FileConverter.converter.maxDownloadBytes'];
 
-const adminReadableFields = [
-  'services.CoAuthoring.expire',
-  'FileConverter.converter.maxDownloadBytes',
-];
+const adminReadableFields = ['services.CoAuthoring.expire', 'FileConverter.converter.maxDownloadBytes'];
 
 function createSchema(isAdmin) {
   const baseSchema = {
     services: Joi.object({
       CoAuthoring: Joi.object({
         expire: Joi.object({
-          ...(isAdmin && { filesCron: validation.cronSchema }),
-          ...(isAdmin && { documentsCron: validation.cronSchema }),
-          ...(isAdmin && { files: Joi.number().min(0) }),
-          ...(isAdmin && { filesremovedatonce: Joi.number().min(0) }),
+          ...(isAdmin && {filesCron: validation.cronSchema}),
+          ...(isAdmin && {documentsCron: validation.cronSchema}),
+          ...(isAdmin && {files: Joi.number().min(0)}),
+          ...(isAdmin && {filesremovedatonce: Joi.number().min(0)})
         }).unknown(false),
         autoAssembly: Joi.object({
-          step: Joi.any().valid('1m', '5m', '10m', '15m', '30m'),
-        }).unknown(false),
+          step: Joi.any().valid('1m', '5m', '10m', '15m', '30m')
+        }).unknown(false)
       }).unknown(false)
     }).unknown(false),
     FileConverter: Joi.object({
       converter: Joi.object({
-        maxDownloadBytes: Joi.number().min(0).max(104857600),
+        maxDownloadBytes: Joi.number().min(0).max(104857600)
       }).unknown(false)
     }).unknown(false)
   };
@@ -39,9 +33,7 @@ function createSchema(isAdmin) {
 }
 
 function getReadableFields(ctx) {
-  return tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)
-    ? tenantReadableFields
-    : adminReadableFields;
+  return tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx) ? tenantReadableFields : adminReadableFields;
 }
 
 function getValidationSchema(ctx) {
@@ -51,7 +43,7 @@ function getValidationSchema(ctx) {
 
 function validate(updateData, ctx) {
   const schema = getValidationSchema(ctx);
-  return Joi.object(schema).validate(updateData, { abortEarly: false });
+  return Joi.object(schema).validate(updateData, {abortEarly: false});
 }
 
 function getFilteredConfig(ctx) {
@@ -81,6 +73,4 @@ function set(obj, path, value) {
   return obj;
 }
 
-module.exports = { validate, getFilteredConfig };
-
-
+module.exports = {validate, getFilteredConfig};

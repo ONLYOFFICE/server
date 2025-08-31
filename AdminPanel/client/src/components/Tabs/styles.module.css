@@ -10,7 +10,9 @@
   color: rgb(68, 68, 68);
   font-size: 13px;
   font-weight: 600;
-  transition: color 0.2s, border-bottom 0.2s;
+  transition:
+    color 0.2s,
+    border-bottom 0.2s;
 }
 .tabActive {
   border-bottom: 2px solid rgb(255, 111, 61);
@@ -19,4 +21,4 @@
 }
 .tabContent {
   /* Add any content-specific styles here */
-} 
+}

@@ -1,11 +1,10 @@
- 
 import Input from '../Input';
 import styles from './styles.module.css';
 
-export default function ConfigurationInput({ 
-  label, 
-  value, 
-  onChange, 
+export default function ConfigurationInput({
+  label,
+  value,
+  onChange,
   placeholder = '',
   type = 'text',
   error = null,
@@ -17,12 +16,8 @@ export default function ConfigurationInput({
   const renderInput = () => {
     if (type === 'select') {
       return (
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${styles.input} ${error ? styles.inputError : ''}`}
-        >
-          {options.map((option) => (
+        <select value={value} onChange={e => onChange(e.target.value)} className={`${styles.input} ${error ? styles.inputError : ''}`}>
+          {options.map(option => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -31,17 +26,7 @@ export default function ConfigurationInput({
       );
     }
 
-    return (
-      <Input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        error={error}
-        min={min}
-        max={max}
-      />
-    );
+    return <Input type={type} value={value} onChange={onChange} placeholder={placeholder} error={error} min={min} max={max} />;
   };
 
   return (
@@ -49,17 +34,9 @@ export default function ConfigurationInput({
       <label className={styles.label}>{label}</label>
       <div className={styles.inputContainer}>
         {renderInput()}
-        {description && (
-          <div className={styles.description}>
-            {description}
-          </div>
-        )}
-        {error && (
-          <div className={styles.errorMessage}>
-            {error}
-          </div>
-        )}
+        {description && <div className={styles.description}>{description}</div>}
+        {error && <div className={styles.errorMessage}>{error}</div>}
       </div>
     </div>
   );
-} 
+}

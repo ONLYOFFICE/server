@@ -1,8 +1,7 @@
- 
-import { Link } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { selectIsAuthenticated } from '../../store/slices/userSlice';
-import { logout } from '../../api';
+import {Link} from 'react-router-dom';
+import {useSelector} from 'react-redux';
+import {selectIsAuthenticated} from '../../store/slices/userSlice';
+import {logout} from '../../api';
 import Logo from '@assets/AppLogo.svg';
 import styles from './styles.module.css';
 
@@ -24,14 +23,11 @@ function Header() {
   return (
     <div className={styles.header}>
       <div className={styles.headerContent}>
-        <Link to="/">
-          <img src={Logo} alt="ONLYOFFICE" style={{ cursor: 'pointer' }} />
+        <Link to='/'>
+          <img src={Logo} alt='ONLYOFFICE' style={{cursor: 'pointer'}} />
         </Link>
         {isAuthenticated && (
-          <button 
-            onClick={handleLogout}
-            className={styles.logoutButton}
-          >
+          <button onClick={handleLogout} className={styles.logoutButton}>
             Logout
           </button>
         )}

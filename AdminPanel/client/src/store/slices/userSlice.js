@@ -1,35 +1,29 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { fetchCurrentUser, login } from '../../api';
+import {createSlice, createAsyncThunk} from '@reduxjs/toolkit';
+import {fetchCurrentUser, login} from '../../api';
 
-export const fetchUser = createAsyncThunk(
-  'user/fetchUser',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await fetchCurrentUser();
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
+export const fetchUser = createAsyncThunk('user/fetchUser', async (_, {rejectWithValue}) => {
+  try {
+    return await fetchCurrentUser();
+  } catch (error) {
+    return rejectWithValue(error.message);
   }
-);
+});
 
-export const loginUser = createAsyncThunk(
-  'user/loginUser',
-  async (secret, { rejectWithValue }) => {
-    try {
-      const response = await login(secret);
-      return response;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
+export const loginUser = createAsyncThunk('user/loginUser', async (secret, {rejectWithValue}) => {
+  try {
+    const response = await login(secret);
+    return response;
+  } catch (error) {
+    return rejectWithValue(error.message);
   }
-);
+});
 
 const initialState = {
   user: null,
   loading: false,
   loginLoading: false,
   error: null,
-  isAuthenticated: false,
+  isAuthenticated: false
 };
 
 const userSlice = createSlice({
@@ -37,7 +31,7 @@ const userSlice = createSlice({
   initialState,
   reducers: {
     // Clear user data (logout)
-    clearUser: (state) => {
+    clearUser: state => {
       state.user = null;
       state.isAuthenticated = false;
       state.error = null;
@@ -49,14 +43,14 @@ const userSlice = createSlice({
       state.error = null;
     },
     // Clear error
-    clearError: (state) => {
+    clearError: state => {
       state.error = null;
-    },
+    }
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
       // Fetch user cases
-      .addCase(fetchUser.pending, (state) => {
+      .addCase(fetchUser.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -75,7 +69,7 @@ const userSlice = createSlice({
         state.isAuthenticated = false;
       })
       // Login cases
-      .addCase(loginUser.pending, (state) => {
+      .addCase(loginUser.pending, state => {
         state.loginLoading = true;
         state.error = null;
       })
@@ -93,16 +87,16 @@ const userSlice = createSlice({
         state.error = action.payload;
         state.isAuthenticated = false;
       });
-  },
+  }
 });
 
-export const { clearUser, setUser, clearError } = userSlice.actions;
+export const {clearUser, setUser, clearError} = userSlice.actions;
 
 // Selectors
-export const selectUser = (state) => state.user.user;
-export const selectUserLoading = (state) => state.user.loading;
-export const selectLoginLoading = (state) => state.user.loginLoading;
-export const selectUserError = (state) => state.user.error;
-export const selectIsAuthenticated = (state) => state.user.isAuthenticated;
+export const selectUser = state => state.user.user;
+export const selectUserLoading = state => state.user.loading;
+export const selectLoginLoading = state => state.user.loginLoading;
+export const selectUserError = state => state.user.error;
+export const selectIsAuthenticated = state => state.user.isAuthenticated;
 
-export default userSlice.reducer; 
+export default userSlice.reducer;

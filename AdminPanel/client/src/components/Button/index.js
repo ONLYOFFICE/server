@@ -1,28 +1,22 @@
-import { useState, forwardRef } from 'react';
+import {useState, forwardRef} from 'react';
 import styles from './styles.module.css';
 import Spinner from '../../assets/Spinner.svg';
 import Success from '../../assets/Success.svg';
 
-const Button = forwardRef(({ 
-  onClick, 
-  disabled, 
-  children, 
-  className,
-  errorText = 'FAILED'
-}, ref) => {
+const Button = forwardRef(({onClick, disabled, children, className, errorText = 'FAILED'}, ref) => {
   const [state, setState] = useState('idle'); // 'idle', 'loading', 'success', 'error'
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleClick = async () => {
     if (isProcessing) return;
-    
+
     setIsProcessing(true);
     setState('loading');
-    
+
     try {
       await onClick();
       setState('success');
-      
+
       // Show success for 3 seconds
       setTimeout(() => {
         setState('idle');
@@ -30,7 +24,7 @@ const Button = forwardRef(({
       }, 1000);
     } catch (_error) {
       setState('error');
-      
+
       // Show error for 3 seconds
       setTimeout(() => {
         setState('idle');
@@ -44,13 +38,13 @@ const Button = forwardRef(({
       case 'loading':
         return (
           <>
-            <img src={Spinner} alt="Loading" className={styles.icon} />
+            <img src={Spinner} alt='Loading' className={styles.icon} />
           </>
         );
       case 'success':
         return (
           <>
-            <img src={Success} alt="Success" className={styles.icon} />
+            <img src={Success} alt='Success' className={styles.icon} />
           </>
         );
       case 'error':
@@ -67,12 +61,7 @@ const Button = forwardRef(({
   };
 
   return (
-    <button
-      ref={ref}
-      className={getButtonClassName()}
-      onClick={handleClick}
-      disabled={disabled || isProcessing}
-    >
+    <button ref={ref} className={getButtonClassName()} onClick={handleClick} disabled={disabled || isProcessing}>
       {getButtonContent()}
     </button>
   );
@@ -80,4 +69,4 @@ const Button = forwardRef(({
 
 Button.displayName = 'Button';
 
-export default Button; 
+export default Button;
