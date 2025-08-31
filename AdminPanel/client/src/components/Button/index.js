@@ -1,4 +1,4 @@
-import React, { useState, forwardRef } from 'react';
+import { useState, forwardRef } from 'react';
 import styles from './styles.module.css';
 import Spinner from '../../assets/Spinner.svg';
 import Success from '../../assets/Success.svg';
@@ -28,7 +28,7 @@ const Button = forwardRef(({
         setState('idle');
         setIsProcessing(false);
       }, 1000);
-    } catch (error) {
+    } catch (_error) {
       setState('error');
       
       // Show error for 3 seconds

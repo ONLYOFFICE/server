@@ -1,4 +1,4 @@
-import React from 'react';
+ 
 import { useQuery } from '@tanstack/react-query';
 import TopBlock from './TopBlock/index';
 import InfoTable from './InfoTable/index';

@@ -3,6 +3,8 @@ const globals = require('globals');
 const prettier = require('eslint-config-prettier');
 const {includeIgnoreFile} = require('@eslint/compat');
 const path = require('node:path');
+const react = require('eslint-plugin-react');
+const reactHooks = require('eslint-plugin-react-hooks');
 
 const gitignorePath = path.resolve(__dirname, '.gitignore');
 
@@ -63,6 +65,23 @@ module.exports = [
       'no-useless-constructor': 'error', // Remove unnecessary constructors
       'no-useless-return': 'error', // Remove unnecessary return statements
       'max-lines': ['warn', 5000]
+    }
+  },
+  {
+    files: ['AdminPanel/client/**/*.{js,jsx}'],
+    plugins: {react, 'react-hooks': reactHooks},
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      parserOptions: {ecmaFeatures: {jsx: true}},
+      globals: {...globals.browser, ...globals.es2022}
+    },
+    settings: {react: {version: 'detect'}},
+    rules: {
+      'react/react-in-jsx-scope': 'off',
+      'react/jsx-uses-vars': 'error',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn'
     }
   },
   prettier

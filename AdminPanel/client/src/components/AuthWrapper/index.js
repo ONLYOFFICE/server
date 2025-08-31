@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUser, selectUser, selectUserLoading, selectUserError, selectIsAuthenticated } from '../../store/slices/userSlice';
+import { fetchUser, selectUser, selectUserLoading, selectIsAuthenticated } from '../../store/slices/userSlice';
 import Spinner from '../../assets/Spinner.svg';
 import Login from '../../pages/Login';
 
@@ -8,7 +8,6 @@ export default function AuthWrapper({ children }) {
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
   const loading = useSelector(selectUserLoading);
-  const error = useSelector(selectUserError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const [hasInitialized, setHasInitialized] = useState(false);
 

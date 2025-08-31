@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { fetchConfiguration, updateConfiguration } from '../../api';
 import { getNestedValue } from '../../utils/getNestedValue';
@@ -12,7 +12,7 @@ import styles from './styles.module.css';
 
 export default function Configuration() {
   const user = useSelector(selectUser);
-  const [config, setConfig] = useState(null);
+  const [, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [fieldValues, setFieldValues] = useState({});

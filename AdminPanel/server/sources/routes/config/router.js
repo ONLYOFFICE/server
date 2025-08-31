@@ -15,10 +15,10 @@ const cookieParser = require('cookie-parser');
 const router = express.Router();
 router.use(cookieParser());
 
-const rawFileParser = bodyParser.raw({ inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function () { return true; } });
+const rawFileParser = bodyParser.raw({ inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type () { return true; } });
 
 const validateJWT = async (req, res, next) => {
-  let ctx = new operationContext.Context();
+  const ctx = new operationContext.Context();
   try {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
@@ -37,7 +37,7 @@ const validateJWT = async (req, res, next) => {
       req.user = decoded;
       req.ctx = ctx;
       return next();
-    } catch (defaultError) {
+    } catch {
       if (tenantBaseDir && fs.existsSync(tenantBaseDir)) {
         const tenantList = fs.readdirSync(tenantBaseDir);
         for (const tenant of tenantList) {
@@ -50,20 +50,20 @@ const validateJWT = async (req, res, next) => {
             req.user = decoded;
             req.ctx = ctx;
             return next();
-          } catch (tenantError) {
+          } catch {
             continue;
           }
         }
       }
       return res.status(401).json({ error: 'Unauthorized - Invalid token' });
     }
-  } catch (error) {
+  } catch {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 };
 
 router.get('/', validateJWT, async (req, res) => {
-  let ctx = req.ctx;
+  const ctx = req.ctx;
   try {
     ctx.logger.debug('config get start');
     const filteredConfig = getFilteredConfig(ctx);
@@ -77,7 +77,7 @@ router.get('/', validateJWT, async (req, res) => {
 });
 
 router.patch('/', validateJWT, rawFileParser, async (req, res) => {
-  let ctx = req.ctx;
+  const ctx = req.ctx;
   try {
     const currentConfig = ctx.getFullCfg();
     const updateData = JSON.parse(req.body);

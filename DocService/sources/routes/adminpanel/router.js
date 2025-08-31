@@ -38,12 +38,10 @@ const tenantBaseDir = config.get('tenants.baseDir');
 // const isMultitenantMode = config.get('tenants.isMultitenantMode');
 const defaultTenantSecret = config.get('services.CoAuthoring.secret.browser.string');
 const filenameSecret = config.get('tenants.filenameSecret');
-const tenantManager = require('../../../../Common/sources/tenantManager');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const cookieParser = require('cookie-parser');
-const commonDefines = require('../../../../Common/sources/commondefines');
 
 
 const router = express.Router();
@@ -65,8 +63,8 @@ router.get('/me', async (req, res) => {
         try {
             const decoded = jwt.verify(token, defaultTenantSecret);
             res.json(decoded);
-            return;
-        } catch (defaultError) {
+            
+        } catch {
             // If default secret fails, try to find the tenant and verify with their secret
             const tenantList = fs.readdirSync(tenantBaseDir);
             for (const tenant of tenantList) {
@@ -78,7 +76,7 @@ router.get('/me', async (req, res) => {
                         isAdmin: decoded.isAdmin
                     });
                     return;
-                } catch (tenantError) {
+                } catch {
                     // Continue to next tenant
                     continue;
                 }
@@ -93,7 +91,7 @@ router.get('/me', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-    let ctx = new operationContext.Context();
+    const ctx = new operationContext.Context();
     ctx.initDefault()
     try {
         const { secret } = req.body;

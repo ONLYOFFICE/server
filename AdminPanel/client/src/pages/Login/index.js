@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { loginUser } from '../../store/slices/userSlice';
 import Input from '../../components/Input';

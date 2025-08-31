@@ -25,8 +25,8 @@ router.get('/me', async (req, res) => {
     try {
       const decoded = jwt.verify(token, defaultTenantSecret);
       res.json(decoded);
-      return;
-    } catch (defaultError) {
+      
+    } catch {
       if (tenantBaseDir && fs.existsSync(tenantBaseDir)) {
         const tenantList = fs.readdirSync(tenantBaseDir);
         for (const tenant of tenantList) {
@@ -35,14 +35,14 @@ router.get('/me', async (req, res) => {
             const decoded = jwt.verify(token, tenantSecret);
             res.json({ tenant: decoded.tenant, isAdmin: decoded.isAdmin });
             return;
-          } catch (tenantError) {
+          } catch {
             continue;
           }
         }
       }
       return res.status(401).json({ error: 'Invalid token' });
     }
-  } catch (error) {
+  } catch {
     res.status(401).json({ error: 'Unauthorized' });
   }
 });
@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
     });
 
     res.json({ tenant: tenant.tenant, isAdmin: tenant.isAdmin });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -77,7 +77,7 @@ router.post('/logout', async (req, res) => {
       path: '/'
     });
     res.json({ message: 'Logged out successfully' });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Internal server error' });
   }
 });

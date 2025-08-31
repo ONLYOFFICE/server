@@ -3,7 +3,7 @@ export function mergeNestedObjects(objects) {
   
     for (const obj of objects) {
       for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
+        if (Object.hasOwn(obj, key)) {
           const keys = key.split('.');
           let current = result;
   

@@ -12,7 +12,6 @@ try {
   process.env.NODE_CONFIG = JSON.stringify({ log: { filePath: absLogCfgPath } });
 }
 const config = moduleReloader.requireConfigWithRuntime();
-const logger = require('../../../Common/sources/logger');
 const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
 const utils = require('../../../Common/sources/utils');
@@ -40,14 +39,14 @@ const corsWithCredentials = cors({
 
 operationContext.global.logger.warn('AdminPanel server starting...');
 
-const rawFileParser = bodyParser.raw(
-  { inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type: function () { return true; } }
+const _rawFileParser = bodyParser.raw(
+  { inflate: true, limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'), type () { return true; } }
 );
 
 app.get('/info/info.json', cors(), utils.checkClientIp, async (req, res) => {
   const serverDate = new Date();
   serverDate.setMilliseconds(0);
-  let output = {
+  const output = {
     connectionsStat: {},
     licenseInfo: {},
     serverInfo: {
@@ -78,8 +77,8 @@ app.get('/info/info.json', cors(), utils.checkClientIp, async (req, res) => {
 app.use('/info/config', corsWithCredentials, utils.checkClientIp, configRouter);
 app.use('/info/adminpanel', corsWithCredentials, utils.checkClientIp, adminpanelRouter);
 
-app.use((err, req, res, next) => {
-  let ctx = new operationContext.Context();
+app.use((err, req, res) => {
+  const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
   ctx.logger.error('default error handler:%s', err.stack);
   res.sendStatus(500);
