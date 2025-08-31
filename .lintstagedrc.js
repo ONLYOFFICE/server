@@ -1,4 +1,4 @@
 module.exports = {
-  '*.js': ['eslint'],
+  '*.js': ['eslint', 'prettier'],
   '*.{json,md,html,css,yml,yaml}': []
 };
