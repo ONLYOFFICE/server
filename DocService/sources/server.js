@@ -148,7 +148,7 @@ try {
 // If you want to use 'development' and 'production',
 // then with app.settings.env (https://github.com/strongloop/express/issues/936)
 // If error handling is needed, now it's like this https://github.com/expressjs/errorhandler
-docsCoServer.install(server, () => {
+docsCoServer.install(server, app, () => {
   operationContext.global.logger.info('Start callbackFunction');
 
   server.listen(config.get('services.CoAuthoring.server.port'), () => {

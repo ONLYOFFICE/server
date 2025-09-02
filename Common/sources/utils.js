@@ -924,6 +924,25 @@ exports.getSessionIdByConnection = getSessionIdByConnection;
 exports.getShardKeyByRequest = getShardKeyByRequest;
 exports.getWopiSrcByRequest = getWopiSrcByRequest;
 exports.getSessionIdByRequest = getSessionIdByRequest;
+
+/**
+ * Adapt a raw Node/engine.io IncomingMessage to behave like an Express Request.
+ * @param {http.IncomingMessage} rawReq
+ * @param {Express} app
+ */
+exports.expressifyIncomingMessage = function (rawReq, app) {
+  if (!rawReq || !app?.request || rawReq.app) {
+    return;
+  }
+
+  Object.setPrototypeOf(rawReq, app.request);
+  rawReq.app = app;
+
+  // Initialize Express-like properties
+  rawReq.originalUrl = rawReq.originalUrl || rawReq.url || '/';
+  rawReq.query = rawReq.query || (rawReq.url ? url.parse(rawReq.url, true).query : {});
+};
+
 function stream2Buffer(stream) {
   return new Promise((resolve, reject) => {
     if (!stream.readable) {
