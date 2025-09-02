@@ -87,25 +87,30 @@ const checkFileExpire = function (expireSeconds) {
           const shardKey = sqlBase.DocumentAdditional.prototype.getShardKey(expired[i].additional);
           const wopiSrc = sqlBase.DocumentAdditional.prototype.getWopiSrc(expired[i].additional);
 
-          if (currentTenant !== tenant) {
-            ctx.init(tenant, docId, ctx.userId, shardKey, wopiSrc);
-            yield ctx.initTenantCache();
-            currentTenant = tenant;
-          } else {
-            ctx.setDocId(docId);
-            ctx.setShardKey(shardKey);
-            ctx.setWopiSrc(wopiSrc);
-          }
-
-          //todo tenant
-          //check that no one is in the document
-          const editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
-          if (0 === editorsCount) {
-            if (yield canvasService.cleanupCache(ctx, docId)) {
-              currentRemovedCount++;
+          try {
+            if (currentTenant !== tenant) {
+              ctx.init(tenant, docId, ctx.userId, shardKey, wopiSrc);
+              yield ctx.initTenantCache();
+              currentTenant = tenant;
+            } else {
+              ctx.setDocId(docId);
+              ctx.setShardKey(shardKey);
+              ctx.setWopiSrc(wopiSrc);
             }
-          } else {
-            ctx.logger.debug('checkFileExpire expire but presence: editorsCount = %d', editorsCount);
+
+            //todo tenant
+            //check that no one is in the document
+            const editorsCount = yield docsCoServer.getEditorsCountPromise(ctx, docId);
+            if (0 === editorsCount) {
+              if (yield canvasService.cleanupCache(ctx, docId)) {
+                currentRemovedCount++;
+              }
+            } else {
+              ctx.logger.debug('checkFileExpire expire but presence: editorsCount = %d', editorsCount);
+            }
+          } catch (error) {
+            ctx.logger.error('checkFileExpire file error: %s', error.stack);
+            // Continue processing other files
           }
         }
         removedCount += currentRemovedCount;
