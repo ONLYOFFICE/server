@@ -29,7 +29,6 @@
     "format:check": "prettier . --check",
     "code:check": "run-s lint:check format:check",
     "code:fix": "run-s lint:fix format:fix",
-    "prepare": "husky",
     "perf-expired": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/checkFileExpire.js",
     "perf-exif": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/fixImageExifRotation.js",
     "perf-png": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/convertImageToPng.js",
