@@ -1,0 +1,232 @@
+/* File Size Limits Component Styles */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 748px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.title {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.33;
+  color: #333333;
+  margin: 0;
+  letter-spacing: -0.48px;
+}
+
+.subtitle {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #666666;
+  margin: 0;
+}
+
+.content {
+  width: 100%;
+}
+
+.section {
+  background: white;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.33;
+  color: #333333;
+  margin: 0;
+  letter-spacing: -0.36px;
+}
+
+.sectionDescription {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #666666;
+  margin: 0;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 294px;
+}
+
+.inputLabel {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333333;
+}
+
+.inputContainer {
+  position: relative;
+}
+
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 10px 12px;
+  background: #f1f1f1;
+  border: 1px solid #e2e2e2;
+  border-radius: 4px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.5;
+  color: grey;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #ff6f3d;
+}
+
+.input::placeholder {
+  color: grey;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.inputError {
+  border-color: #dc3545;
+  background: #fff5f5;
+}
+
+.errorMessage {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #dc3545;
+  margin-top: 4px;
+}
+
+.toggleGroup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.toggleLabel {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333333;
+  letter-spacing: -0.28px;
+}
+
+.toggleContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.switchContainer {
+  position: relative;
+  width: 32px;
+  height: 16px;
+}
+
+.switchImage {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.switchInput {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggleStatus {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #666666;
+}
+
+.saveButton {
+  background: #ff6f3d;
+  border: none;
+  border-radius: 6px;
+  padding: 13px 24px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.33;
+  color: white;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  align-self: flex-start;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: #e55a2b;
+}
+
+.saveButton:disabled,
+.saveButton.saving {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 16px;
+  color: #666666;
+}
+
+.error {
+  padding: 16px;
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 14px;
+}

@@ -59,18 +59,4 @@ export const configurationSections = [
       }
     ]
   },
-  {
-    title: 'File Size Limits',
-    fields: [
-      {
-        path: 'FileConverter.converter.maxDownloadBytes',
-        label: 'Max Download Bytes',
-        type: 'number',
-        min: 0,
-        max: 104857600,
-        roles: [ROLES.ADMIN, ROLES.USER],
-        description: 'Maximum number of bytes allowed for download (max: 100MB)'
-      }
-    ]
-  }
 ];

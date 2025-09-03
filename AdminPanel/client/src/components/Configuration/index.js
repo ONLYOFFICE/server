@@ -9,6 +9,7 @@ import {selectUser} from '../../store/slices/userSlice';
 import ExpandableSection from '../ExpandableSection';
 import ConfigurationField from '../ConfigurationInput';
 import Button from '../Button';
+import FileSizeLimits from '../FileSizeLimits';
 import styles from './styles.module.css';
 
 export default function Configuration() {
@@ -203,6 +204,8 @@ export default function Configuration() {
           </ExpandableSection>
         );
       })}
+      
+      <FileSizeLimits />
     </div>
   );
 }
