@@ -15,7 +15,7 @@ export default function Input({
     <input
       type={type}
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={e => onChange(type === 'number' ? e.target.valueAsNumber : e.target.value)}
       onKeyDown={onKeyDown}
       placeholder={placeholder}
       className={`${styles.input} ${error ? styles.inputError : ''} ${className}`}
