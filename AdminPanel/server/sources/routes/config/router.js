@@ -105,7 +105,7 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
     const updateData = JSON.parse(req.body);
     const validationResult = validateScoped(ctx, updateData);
     if (validationResult.errors) {
-      ctx.logger.error('Config save error: %s', validationResult.errors);
+      ctx.logger.error('Config save error: %j', validationResult.errors);
       return res.status(400).json({
         errors: validationResult.errors,
         errorsText: validationResult.errorsText
