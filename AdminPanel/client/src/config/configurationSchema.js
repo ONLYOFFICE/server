@@ -70,6 +70,13 @@ export const configurationSections = [
         max: 104857600,
         roles: [ROLES.ADMIN, ROLES.USER],
         description: 'Maximum number of bytes allowed for download (max: 100MB)'
+      },
+      {
+        path: 'FileConverter.converter.inputLimits',
+        label: 'Input Limits',
+        type: 'json',
+        roles: [ROLES.ADMIN],
+        description: 'File type limits for conversion (admin only). Format: [{"type": "docx;dotx", "zip": {"uncompressed": "50MB", "template": "*.xml"}}]'
       }
     ]
   }

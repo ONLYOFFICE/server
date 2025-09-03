@@ -64,14 +64,14 @@ export const fetchCurrentUser = async () => {
   return response.json();
 };
 
-export const login = async secret => {
+export const login = async ({tenantName, secret}) => {
   const response = await fetch(`${BACKEND_URL}/info/adminpanel/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     credentials: 'include',
-    body: JSON.stringify({secret})
+    body: JSON.stringify({tenantName, secret})
   });
 
   if (!response.ok) {

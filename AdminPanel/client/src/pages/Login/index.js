@@ -6,6 +6,7 @@ import Button from '../../components/Button';
 import styles from './styles.module.css';
 
 export default function Login() {
+  const [tenantName, setTenantName] = useState('');
   const [secret, setSecret] = useState('');
   const [error, setError] = useState('');
   const dispatch = useDispatch();
@@ -15,7 +16,7 @@ export default function Login() {
     setError('');
 
     try {
-      await dispatch(loginUser(secret)).unwrap();
+      await dispatch(loginUser({tenantName, secret})).unwrap();
     } catch (error) {
       setError(error || 'Invalid credentials. Please try again.');
       throw error; // Re-throw to trigger error state in Button component
@@ -40,11 +41,22 @@ export default function Login() {
         <div className={styles.form}>
           <div className={styles.inputGroup}>
             <Input
-              label='Secret Key'
+              type='text'
+              value={tenantName}
+              onChange={setTenantName}
+              placeholder='Enter your tenant name'
+              description='The name of your tenant organization'
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+
+          <div className={styles.inputGroup}>
+            <Input
               type='password'
               value={secret}
               onChange={setSecret}
               placeholder='Enter your secret key'
+              description='The secret key associated with your tenant'
               error={error}
               onKeyDown={handleKeyDown}
             />

@@ -6,7 +6,7 @@ const utils = require('../../../../../Common/sources/utils');
 
 const tenantReadableFields = ['services.CoAuthoring.expire', 'FileConverter.converter.maxDownloadBytes'];
 
-const adminReadableFields = ['services.CoAuthoring.expire', 'FileConverter.converter.maxDownloadBytes'];
+const adminReadableFields = ['services.CoAuthoring.expire', 'FileConverter.converter.maxDownloadBytes', 'FileConverter.converter.inputLimits'];
 
 function createSchema(isAdmin) {
   const baseSchema = {
@@ -25,7 +25,19 @@ function createSchema(isAdmin) {
     }).unknown(false),
     FileConverter: Joi.object({
       converter: Joi.object({
-        maxDownloadBytes: Joi.number().min(0).max(104857600)
+        maxDownloadBytes: Joi.number().min(0).max(104857600),
+        ...(isAdmin && {
+          inputLimits: Joi.array().items(
+            Joi.object({
+              type: Joi.string().required(),
+              zip: Joi.object({
+                uncompressed: Joi.string().pattern(/^\d+[KMGT]?B$/i).required(),
+                template: Joi.string().optional(),
+                compressed: Joi.string().pattern(/^\d+[KMGT]?B$/i).optional()
+              }).unknown(false)
+            }).unknown(false)
+          )
+        })
       }).unknown(false)
     }).unknown(false)
   };

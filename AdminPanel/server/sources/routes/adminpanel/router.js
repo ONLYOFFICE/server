@@ -48,11 +48,17 @@ router.get('/me', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const {secret} = req.body;
-    const tenant = findTenantBySecret(secret);
-    if (!tenant) {
-      return res.status(401).json({error: 'Invalid secret'});
+    const {tenantName, secret} = req.body;
+    
+    if (!tenantName || !secret) {
+      return res.status(400).json({error: 'Tenant name and secret are required'});
     }
+
+    const tenant = verifyTenantCredentials(tenantName, secret);
+    if (!tenant) {
+      return res.status(401).json({error: 'Invalid tenant name or secret'});
+    }
+    
     const token = jwt.sign({...tenant}, secret, {expiresIn: '1h'});
 
     res.cookie('accessToken', token, {
@@ -63,7 +69,8 @@ router.post('/login', async (req, res) => {
     });
 
     res.json({tenant: tenant.tenant, isAdmin: tenant.isAdmin});
-  } catch {
+  } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({error: 'Internal server error'});
   }
 });
@@ -81,19 +88,26 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-function findTenantBySecret(secret) {
-  if (secret === defaultTenantSecret) {
-    return {tenant: config.get('tenants.defaultTenant'), isAdmin: true};
+function verifyTenantCredentials(tenantName, secret) {
+  // Check if it's the default tenant
+  if (tenantName === config.get('tenants.defaultTenant') && secret === defaultTenantSecret) {
+    return {tenant: tenantName, isAdmin: true};
   }
+  
+  // Check tenant-specific secrets
   if (tenantBaseDir && fs.existsSync(tenantBaseDir)) {
-    const tenantList = fs.readdirSync(tenantBaseDir);
-    for (const tenant of tenantList) {
-      const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
-      if (tenantSecret === secret) {
-        return {tenant, isAdmin: true};
+    const tenantPath = path.join(tenantBaseDir, tenantName);
+    if (fs.existsSync(tenantPath)) {
+      const tenantSecretPath = path.join(tenantPath, filenameSecret);
+      if (fs.existsSync(tenantSecretPath)) {
+        const tenantSecret = fs.readFileSync(tenantSecretPath, 'utf8');
+        if (tenantSecret === secret) {
+          return {tenant: tenantName, isAdmin: true};
+        }
       }
     }
   }
+  
   return null;
 }
 
