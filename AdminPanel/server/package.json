@@ -13,6 +13,8 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^2.1.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "ms": "^2.1.3"

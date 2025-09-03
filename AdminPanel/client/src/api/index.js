@@ -18,6 +18,16 @@ export const fetchConfiguration = async () => {
   return response.json();
 };
 
+export const fetchConfigurationSchema = async () => {
+  const response = await fetch(`${BACKEND_URL}/info/config/schema`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch configuration schema');
+  }
+  return response.json();
+};
+
 export const updateConfiguration = async configData => {
   const response = await fetch(`${BACKEND_URL}/info/config`, {
     method: 'PATCH',

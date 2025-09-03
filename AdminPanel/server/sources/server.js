@@ -20,7 +20,6 @@ const commonDefines = require('../../../Common/sources/commondefines');
 
 const express = require('express');
 const http = require('http');
-const bodyParser = require('body-parser');
 const cors = require('cors');
 
 const configRouter = require('./routes/config/router');
@@ -55,14 +54,6 @@ const corsWithCredentials = cors({
 });
 
 operationContext.global.logger.warn('AdminPanel server starting...');
-
-const _rawFileParser = bodyParser.raw({
-  inflate: true,
-  limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'),
-  type() {
-    return true;
-  }
-});
 
 app.get('/info/info.json', cors(), utils.checkClientIp, async (req, res) => {
   const serverDate = new Date();

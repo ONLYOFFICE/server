@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:onlyoffice:config:superset:1",
+  "title": "Config Patch Schema (Superset for Admin and Tenant)",
+  "description": "Superset schema with x-scope markers. Use at runtime to derive per-scope schemas.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "services": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "CoAuthoring": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "expire": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "filesCron": {"type": "string", "format": "cron6", "x-scope": "admin"},
+                "documentsCron": {"type": "string", "format": "cron6", "x-scope": "admin"},
+                "files": {"type": "integer", "minimum": 0, "x-scope": "admin"},
+                "filesremovedatonce": {"type": "integer", "minimum": 0, "x-scope": "admin"}
+              }
+            },
+            "autoAssembly": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": "admin",
+              "properties": {
+                "step": {"type": "string", "enum": ["1m", "5m", "10m", "15m", "30m"]}
+              }
+            }
+          }
+        }
+      }
+    },
+    "FileConverter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "converter": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 104857600, "x-scope": ["admin", "tenant"]}
+          }
+        }
+      }
+    }
+  }
+}

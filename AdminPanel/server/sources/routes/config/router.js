@@ -6,7 +6,7 @@ const tenantManager = require('../../../../../Common/sources/tenantManager');
 const operationContext = require('../../../../../Common/sources/operationContext');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
 const utils = require('../../../../../Common/sources/utils');
-const {getFilteredConfig, validate} = require('./config.service');
+const {getScopedConfig, validateScoped, getScopedSchema} = require('./config.service');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
@@ -71,27 +71,44 @@ const validateJWT = async (req, res, next) => {
 router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    ctx.logger.debug('config get start');
-    const filteredConfig = getFilteredConfig(ctx);
+    ctx.logger.info('config get start');
+    const filteredConfig = getScopedConfig(ctx);
     res.setHeader('Content-Type', 'application/json');
     res.json(filteredConfig);
-    ctx.logger.debug('Config get success');
   } catch (error) {
     ctx.logger.error('Config get error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});
+  } finally {
+    ctx.logger.info('config get end');
+  }
+});
+
+router.get('/schema', validateJWT, async (req, res) => {
+  const ctx = req.ctx;
+  try {
+    ctx.logger.info('config schema start');
+    const schema = getScopedSchema(ctx);
+    res.json(schema);
+  } catch (error) {
+    ctx.logger.error('Config schema error: %s', error.stack);
+    res.status(500).json({error: 'Internal server error'});
+  } finally {
+    ctx.logger.info('config schema end');
   }
 });
 
 router.patch('/', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
+    ctx.logger.info('config patch start');
     const currentConfig = ctx.getFullCfg();
     const updateData = JSON.parse(req.body);
-    const validationResult = validate(updateData, ctx);
-    if (validationResult.error) {
-      ctx.logger.error('Config save error: %s', validationResult.error);
+    const validationResult = validateScoped(ctx, updateData);
+    if (validationResult.errors) {
+      ctx.logger.error('Config save error: %j', validationResult.errors);
       return res.status(400).json({
-        error: validationResult.error
+        errors: validationResult.errors,
+        errorsText: validationResult.errorsText
       });
     }
     const newConfig = utils.deepMergeObjects(currentConfig, validationResult.value);
@@ -104,6 +121,8 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
   } catch (error) {
     ctx.logger.error('Configuration save error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});
+  } finally {
+    ctx.logger.info('config patch end');
   }
 });
 
