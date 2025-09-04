@@ -8,9 +8,8 @@ const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfi
 const utils = require('../../../../../Common/sources/utils');
 const {getScopedConfig, validateScoped, getScopedSchema} = require('./config.service');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
-const path = require('path');
 const cookieParser = require('cookie-parser');
+const adminPanelJwtSecret = config.get('adminPanel.jwtSecret');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -30,8 +29,7 @@ const validateJWT = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({error: 'Unauthorized - No token provided'});
     }
-    const defaultTenantSecret = config.get('services.CoAuthoring.secret.browser.string');
-    const decoded = jwt.verify(token, defaultTenantSecret);
+    const decoded = jwt.verify(token, adminPanelJwtSecret);
     ctx.init(decoded.tenant);
     await ctx.initTenantCache();
     req.user = decoded;
