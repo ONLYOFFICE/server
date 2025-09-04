@@ -37,6 +37,20 @@ export const configurationSections = [
         min: 0,
         roles: [ROLES.ADMIN],
         description: 'Number of files to remove at once (admin only)'
+      },
+      {
+        path: 'services.CoAuthoring.expire.sessionidle',
+        label: 'Session Idle Timeout',
+        type: 'text',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'Session idle timeout (e.g., "1h", "30m")'
+      },
+      {
+        path: 'services.CoAuthoring.expire.sessionabsolute',
+        label: 'Session Absolute Timeout',
+        type: 'text',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'Session absolute timeout (e.g., "30d", "24h")'
       }
     ]
   },
@@ -70,6 +84,88 @@ export const configurationSections = [
         max: 104857600,
         roles: [ROLES.ADMIN, ROLES.USER],
         description: 'Maximum number of bytes allowed for download (max: 100MB)'
+      },
+      {
+        path: 'FileConverter.converter.inputLimits',
+        label: 'Input Limits',
+        type: 'json',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'File type limits for conversion. Format: [{"type": "docx;dotx", "zip": {"uncompressed": "50MB", "template": "*.xml"}}]'
+      }
+    ]
+  },
+  {
+    title: 'WOPI Configuration',
+    fields: [
+      {
+        path: 'wopi.enable',
+        label: 'Enable WOPI',
+        type: 'checkbox',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'Enable WOPI (Web Application Open Platform Interface) support'
+      }
+    ]
+  },
+  {
+    title: 'Email Configuration',
+    fields: [
+      {
+        path: 'email.smtpServerConfiguration.host',
+        label: 'SMTP Host',
+        type: 'text',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'SMTP server hostname'
+      },
+      {
+        path: 'email.smtpServerConfiguration.port',
+        label: 'SMTP Port',
+        type: 'number',
+        min: 1,
+        max: 65535,
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'SMTP server port number'
+      },
+      {
+        path: 'email.smtpServerConfiguration.auth.user',
+        label: 'SMTP Username',
+        type: 'text',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'SMTP authentication username'
+      },
+      {
+        path: 'email.smtpServerConfiguration.auth.pass',
+        label: 'SMTP Password',
+        type: 'password',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'SMTP authentication password'
+      },
+      {
+        path: 'email.connectionConfiguration.disableFileAccess',
+        label: 'Disable File Access',
+        type: 'checkbox',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'Disable file access for email connections'
+      },
+      {
+        path: 'email.connectionConfiguration.disableUrlAccess',
+        label: 'Disable URL Access',
+        type: 'checkbox',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'Disable URL access for email connections'
+      },
+      {
+        path: 'email.contactDefaults.from',
+        label: 'Default From Email',
+        type: 'email',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'Default sender email address'
+      },
+      {
+        path: 'email.contactDefaults.to',
+        label: 'Default To Email',
+        type: 'email',
+        roles: [ROLES.ADMIN, ROLES.USER],
+        description: 'Default recipient email address'
       }
     ]
   }

@@ -1,6 +1,8 @@
 import styles from './styles.module.css';
 
 export default function Input({
+  _label,
+  _description,
   value,
   onChange,
   placeholder = '',
@@ -11,6 +13,18 @@ export default function Input({
   min = null,
   max = null
 }) {
+
+  if (type === 'checkbox') {
+    return (
+      <input
+        type="checkbox"
+        checked={Boolean(value)}
+        onChange={e => onChange(e.target.checked)}
+        className={`${styles.input} ${error ? styles.inputError : ''} ${className}`}
+      />
+    );
+  }
+
   return (
     <input
       type={type}

@@ -1,4 +1,7 @@
 {
+  "adminPanel": {
+    "jwtSecret": "secret"
+  },
   "statsd": {
     "useMetrics": false,
     "host": "localhost",

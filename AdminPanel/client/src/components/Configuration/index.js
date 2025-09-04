@@ -7,7 +7,9 @@ import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {configurationSections, ROLES} from '../../config/configurationSchema';
 import {selectUser} from '../../store/slices/userSlice';
 import ExpandableSection from '../ExpandableSection';
-import ConfigurationField from '../ConfigurationInput';
+import ConfigurationInput from '../ConfigurationInput';
+import SelectField from '../SelectField';
+import JsonField from '../JsonField';
 import Button from '../Button';
 import styles from './styles.module.css';
 
@@ -22,17 +24,6 @@ export default function Configuration() {
 
   // Cron expression with 6 space-separated fields (server-compatible)
   const CRON6_REGEX = /^\s*\S+(?:\s+\S+){5}\s*$/;
-
-  /**
-   * Builds an Ajv validator instance for the provided JSON Schema.
-   * @param {object} schema - Derived per-scope JSON schema
-   * @returns {Ajv.ValidateFunction}
-   */
-  const buildValidator = schema => {
-    const ajv = new Ajv({allErrors: true, strict: false});
-    ajv.addFormat('cron6', CRON6_REGEX);
-    return ajv.compile(schema);
-  };
 
   /**
    * Converts Ajv errors to a field error map suitable for UI display.
@@ -72,6 +63,16 @@ export default function Configuration() {
   useEffect(() => {
     const loadConfiguration = async () => {
       try {
+         /**
+         * Builds an Ajv validator instance for the provided JSON Schema.
+         * @param {object} schema - Derived per-scope JSON schema
+         * @returns {Ajv.ValidateFunction}
+         */
+        const buildValidator = schema => {
+          const ajv = new Ajv({allErrors: true, strict: false});
+          ajv.addFormat('cron6', CRON6_REGEX);
+          return ajv.compile(schema);
+        };
         setLoading(true);
         setError(null);
         // Fetch config and schema in parallel
@@ -81,7 +82,18 @@ export default function Configuration() {
         const initialValues = {};
         filteredSections.forEach(section => {
           section.fields.forEach(field => {
-            initialValues[field.path] = getNestedValue(data, field.path, '');
+            let value = getNestedValue(data, field.path, '');
+            
+            // Stringify JSON values for json type fields
+            if (field.type === 'json' && value !== '') {
+              try {
+                value = JSON.stringify(value, null, 2);
+              } catch (error) {
+                console.warn(`Failed to stringify JSON for field ${field.path}:`, error);
+              }
+            }
+            
+            initialValues[field.path] = value;
           });
         });
         setFieldValues(initialValues);
@@ -97,7 +109,7 @@ export default function Configuration() {
     };
 
     loadConfiguration();
-  }, []);
+  }, [filteredSections, CRON6_REGEX]);
 
   const handleFieldChange = (path, value) => {
     setFieldValues(prev => ({
@@ -127,7 +139,23 @@ export default function Configuration() {
 
     const changedObjects = section.fields.map(field => {
       const obj = {};
-      obj[field.path] = fieldValues[field.path];
+      let value = fieldValues[field.path];
+      
+      // Parse JSON values for json type fields
+      if (field.type === 'json') {
+        try {
+          value = JSON.parse(value);
+        } catch (error) {
+          // If JSON parsing fails, keep the string value and let backend validation handle it
+          console.warn(`Failed to parse JSON for field ${field.path}:`, error);
+        }
+      }
+      
+      if (field.type === 'checkbox') {
+        value = Boolean(value);
+      }
+      
+      obj[field.path] = value;
       return obj;
     });
 
@@ -149,15 +177,41 @@ export default function Configuration() {
     try {
       await updateConfiguration(mergedConfig);
     } catch (error) {
-      console.log('error777', JSON.stringify(error));
       // Handle validation errors from backend
       if (error.error && error.error.details && Array.isArray(error.error.details)) {
         const errors = {};
         error.error.details.forEach(detail => {
           if (detail.path && detail.message) {
-            // Join the path array to create the field path
-            const fieldPath = detail.path.join('.');
-            errors[fieldPath] = detail.message;
+            // Find the field that contains this error path
+            let fieldPath = null;
+            
+            // Check each field in the current section to see if the error path starts with the field path
+            section.fields.forEach(field => {
+              const fieldPathParts = field.path.split('.');
+              const errorPathParts = detail.path;
+              
+              // Check if the error path starts with the field path
+              if (fieldPathParts.length <= errorPathParts.length) {
+                let matches = true;
+                for (let i = 0; i < fieldPathParts.length; i++) {
+                  if (fieldPathParts[i] !== errorPathParts[i]) {
+                    matches = false;
+                    break;
+                  }
+                }
+                if (matches) {
+                  fieldPath = field.path;
+                }
+              }
+            });
+            
+            // If we found a matching field, use it; otherwise use the full path
+            if (fieldPath) {
+              errors[fieldPath] = detail.message;
+            } else {
+              // Fallback: use the full path
+              errors[detail.path.join('.')] = detail.message;
+            }
           }
         });
         setFieldErrors(prev => ({...prev, ...errors}));
@@ -182,20 +236,36 @@ export default function Configuration() {
       {filteredSections.map((section, index) => {
         return (
           <ExpandableSection key={index} title={section.title}>
-            {section.fields.map(field => (
-              <ConfigurationField
-                key={field.path}
-                label={field.label}
-                value={fieldValues[field.path] || ''}
-                onChange={value => handleFieldChange(field.path, value)}
-                type={field.type}
-                error={fieldErrors[field.path]}
-                min={field.min}
-                max={field.max}
-                options={field.options}
-                description={field.description}
-              />
-            ))}
+            {section.fields.map(field => {
+              // Select component based on type
+              let FieldComponent;
+              switch (field.type) {
+                case 'select':
+                  FieldComponent = SelectField;
+                  break;
+                case 'json':
+                  FieldComponent = JsonField;
+                  break;
+                default:
+                  FieldComponent = ConfigurationInput;
+                  break;
+              }
+
+              return (
+                <FieldComponent
+                  key={field.path}
+                  label={field.label}
+                  value={fieldValues[field.path] || ''}
+                  onChange={value => handleFieldChange(field.path, value)}
+                  type={field.type}
+                  error={fieldErrors[field.path]}
+                  min={field.min}
+                  max={field.max}
+                  options={field.options}
+                  // description={field.description}
+                />
+              );
+            })}
 
             <Button onClick={() => handleSaveSection(section.title)} errorText='FAILED'>
               SAVE

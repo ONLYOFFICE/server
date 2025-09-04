@@ -8,9 +8,8 @@ const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfi
 const utils = require('../../../../../Common/sources/utils');
 const {getScopedConfig, validateScoped, getScopedSchema} = require('./config.service');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
-const path = require('path');
 const cookieParser = require('cookie-parser');
+const adminPanelJwtSecret = config.get('adminPanel.jwtSecret');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -26,43 +25,16 @@ const rawFileParser = bodyParser.raw({
 const validateJWT = async (req, res, next) => {
   const ctx = new operationContext.Context();
   try {
-    ctx.initFromRequest(req);
-    await ctx.initTenantCache();
     const token = req.cookies.accessToken;
     if (!token) {
       return res.status(401).json({error: 'Unauthorized - No token provided'});
     }
-    const defaultTenantSecret = config.get('services.CoAuthoring.secret.browser.string');
-    const tenantBaseDir = config.get('tenants.baseDir');
-    const filenameSecret = config.get('tenants.filenameSecret');
-    try {
-      const decoded = jwt.verify(token, defaultTenantSecret);
-      if (ctx.tenant !== decoded.tenant) {
-        return res.status(401).json({error: 'Unauthorized - Invalid tenant'});
-      }
-      req.user = decoded;
-      req.ctx = ctx;
-      return next();
-    } catch {
-      if (tenantBaseDir && fs.existsSync(tenantBaseDir)) {
-        const tenantList = fs.readdirSync(tenantBaseDir);
-        for (const tenant of tenantList) {
-          try {
-            const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
-            const decoded = jwt.verify(token, tenantSecret);
-            if (ctx.tenant !== decoded.tenant) {
-              return res.status(401).json({error: 'Unauthorized - Invalid tenant'});
-            }
-            req.user = decoded;
-            req.ctx = ctx;
-            return next();
-          } catch {
-            continue;
-          }
-        }
-      }
-      return res.status(401).json({error: 'Unauthorized - Invalid token'});
-    }
+    const decoded = jwt.verify(token, adminPanelJwtSecret);
+    ctx.init(decoded.tenant);
+    await ctx.initTenantCache();
+    req.user = decoded;
+    req.ctx = ctx;
+    return next();
   } catch {
     return res.status(401).json({error: 'Unauthorized'});
   }

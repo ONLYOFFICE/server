@@ -2,13 +2,14 @@
 const config = require('config');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const cookieParser = require('cookie-parser');
 
 const tenantBaseDir = config.get('tenants.baseDir');
 const defaultTenantSecret = config.get('services.CoAuthoring.secret.browser.string');
 const filenameSecret = config.get('tenants.filenameSecret');
+const adminPanelJwtSecret = config.get('adminPanel.jwtSecret');
 
 const router = express.Router();
 
@@ -22,25 +23,9 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({error: 'Unauthorized'});
     }
 
-    try {
-      const decoded = jwt.verify(token, defaultTenantSecret);
-      res.json(decoded);
-    } catch {
-      if (tenantBaseDir && fs.existsSync(tenantBaseDir)) {
-        const tenantList = fs.readdirSync(tenantBaseDir);
-        for (const tenant of tenantList) {
-          try {
-            const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
-            const decoded = jwt.verify(token, tenantSecret);
-            res.json({tenant: decoded.tenant, isAdmin: decoded.isAdmin});
-            return;
-          } catch {
-            continue;
-          }
-        }
-      }
-      return res.status(401).json({error: 'Invalid token'});
-    }
+    const decoded = jwt.verify(token, adminPanelJwtSecret);
+    res.json(decoded);
+
   } catch {
     res.status(401).json({error: 'Unauthorized'});
   }
@@ -48,12 +33,18 @@ router.get('/me', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const {secret} = req.body;
-    const tenant = findTenantBySecret(secret);
-    if (!tenant) {
-      return res.status(401).json({error: 'Invalid secret'});
+    const {tenantName, secret} = req.body;
+    
+    if (!tenantName || !secret) {
+      return res.status(400).json({error: 'Tenant name and secret are required'});
     }
-    const token = jwt.sign({...tenant}, secret, {expiresIn: '1h'});
+
+    const tenant = await verifyTenantCredentials(tenantName, secret);
+    if (!tenant) {
+      return res.status(401).json({error: 'Invalid tenant name or secret'});
+    }
+    
+    const token = jwt.sign({...tenant}, adminPanelJwtSecret, {expiresIn: '1h'});
 
     res.cookie('accessToken', token, {
       httpOnly: true,
@@ -63,7 +54,8 @@ router.post('/login', async (req, res) => {
     });
 
     res.json({tenant: tenant.tenant, isAdmin: tenant.isAdmin});
-  } catch {
+  } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({error: 'Internal server error'});
   }
 });
@@ -81,19 +73,24 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-function findTenantBySecret(secret) {
-  if (secret === defaultTenantSecret) {
-    return {tenant: config.get('tenants.defaultTenant'), isAdmin: true};
+async function verifyTenantCredentials(tenantName, secret) {
+  if (tenantName === config.get('tenants.defaultTenant') && secret === defaultTenantSecret) {
+    return {tenant: tenantName, isAdmin: true};
   }
-  if (tenantBaseDir && fs.existsSync(tenantBaseDir)) {
-    const tenantList = fs.readdirSync(tenantBaseDir);
-    for (const tenant of tenantList) {
-      const tenantSecret = fs.readFileSync(path.join(tenantBaseDir, tenant, filenameSecret), 'utf8');
-      if (tenantSecret === secret) {
-        return {tenant, isAdmin: true};
+
+  if (tenantBaseDir) {
+    try {
+      const tenantPath = path.join(tenantBaseDir, tenantName);
+      const tenantSecretPath = path.join(tenantPath, filenameSecret);
+      const tenantSecret = await fs.readFile(tenantSecretPath, 'utf8');
+      if (tenantSecret.trim() === secret) {
+        return {tenant: tenantName, isAdmin: true};
       }
+    } catch {
+      return null;
     }
   }
+  
   return null;
 }
 
