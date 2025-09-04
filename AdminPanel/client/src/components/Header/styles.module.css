@@ -1,0 +1,42 @@
+.header {
+  height: 48px;
+  position: fixed;
+  width: 100%;
+  top: 0px;
+  background: #333333;
+  z-index: 2;
+}
+.headerContent {
+  height: 23px;
+  margin-top: calc(48px / 2 - 23px / 2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 60%;
+  margin-left: 20%;
+}
+.headerContent img {
+  height: 23px;
+  width: auto;
+  margin-left: 0;
+  display: block;
+}
+.logoutButton {
+  background: #666666;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+.logoutButton:hover {
+  background: #888888;
+}
+@media (max-width: 1200px) {
+  .headerContent {
+    width: 90%;
+    margin-left: 5%;
+  }
+}

@@ -1,0 +1,116 @@
+.field {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.label {
+  display: block;
+  min-width: 120px;
+  flex-shrink: 0;
+  color: rgb(68, 68, 68);
+  font-weight: 400;
+  font-size: 13px;
+  margin-top: 11px;
+}
+
+.label::after {
+  content: ':';
+}
+
+.inputContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.jsonContainer {
+  display: flex;
+  position: relative;
+}
+
+.lineNumbers {
+  background: #f8f9fa;
+  border: 1px solid #ccc;
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  padding: 8px 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #6c757d;
+  user-select: none;
+  min-width: 40px;
+  text-align: right;
+}
+
+.lineNumber {
+  height: 1.4em;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.textarea {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Courier New', monospace;
+  resize: vertical;
+  min-height: 200px;
+  line-height: 1.4;
+  flex: 1;
+  outline: none;
+}
+
+.textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.jsonContainer:focus-within .lineNumbers {
+  border-color: #007bff;
+  outline: none;
+}
+
+.inputError {
+  border-color: #dc3545;
+}
+
+.formatButton {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.formatButton:hover {
+  opacity: 1;
+}
+
+.formatButton:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.errorMessage {
+  color: #dc3545;
+  font-size: 12px;
+}

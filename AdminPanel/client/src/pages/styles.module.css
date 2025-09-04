@@ -1,0 +1,9 @@
+.container {
+  padding-top: 90px;
+}
+.title {
+  color: rgb(51, 51, 51);
+  margin-bottom: 10px;
+  font-size: 2rem;
+  font-weight: 600;
+}

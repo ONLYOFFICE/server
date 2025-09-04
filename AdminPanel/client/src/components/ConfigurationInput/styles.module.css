@@ -1,0 +1,34 @@
+.field {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.label {
+  display: block;
+  min-width: 120px;
+  flex-shrink: 0;
+  color: rgb(68, 68, 68);
+  font-weight: 400;
+  font-size: 13px;
+  margin-top: 11px;
+}
+
+.label::after {
+  content: ':';
+}
+
+.inputContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.errorMessage {
+  color: #dc3545;
+  font-size: 12px;
+}
