@@ -26,17 +26,6 @@ export default function Configuration() {
   const CRON6_REGEX = /^\s*\S+(?:\s+\S+){5}\s*$/;
 
   /**
-   * Builds an Ajv validator instance for the provided JSON Schema.
-   * @param {object} schema - Derived per-scope JSON schema
-   * @returns {Ajv.ValidateFunction}
-   */
-  const buildValidator = schema => {
-    const ajv = new Ajv({allErrors: true, strict: false});
-    ajv.addFormat('cron6', CRON6_REGEX);
-    return ajv.compile(schema);
-  };
-
-  /**
    * Converts Ajv errors to a field error map suitable for UI display.
    * @param {Ajv.ErrorObject[]} errors
    * @param {Set<string>} allowedPaths - Field paths in the current section to filter on
@@ -74,6 +63,16 @@ export default function Configuration() {
   useEffect(() => {
     const loadConfiguration = async () => {
       try {
+         /**
+         * Builds an Ajv validator instance for the provided JSON Schema.
+         * @param {object} schema - Derived per-scope JSON schema
+         * @returns {Ajv.ValidateFunction}
+         */
+        const buildValidator = schema => {
+          const ajv = new Ajv({allErrors: true, strict: false});
+          ajv.addFormat('cron6', CRON6_REGEX);
+          return ajv.compile(schema);
+        };
         setLoading(true);
         setError(null);
         // Fetch config and schema in parallel
@@ -110,7 +109,7 @@ export default function Configuration() {
     };
 
     loadConfiguration();
-  }, []);
+  }, [filteredSections, CRON6_REGEX]);
 
   const handleFieldChange = (path, value) => {
     setFieldValues(prev => ({
@@ -150,6 +149,10 @@ export default function Configuration() {
           // If JSON parsing fails, keep the string value and let backend validation handle it
           console.warn(`Failed to parse JSON for field ${field.path}:`, error);
         }
+      }
+      
+      if (field.type === 'checkbox') {
+        value = Boolean(value);
       }
       
       obj[field.path] = value;

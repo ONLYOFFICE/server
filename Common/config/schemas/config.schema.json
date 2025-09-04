@@ -22,13 +22,15 @@
                 "filesCron": {"type": "string", "format": "cron6", "x-scope": "admin"},
                 "documentsCron": {"type": "string", "format": "cron6", "x-scope": "admin"},
                 "files": {"type": "integer", "minimum": 0, "x-scope": "admin"},
-                "filesremovedatonce": {"type": "integer", "minimum": 0, "x-scope": "admin"}
+                "filesremovedatonce": {"type": "integer", "minimum": 0, "x-scope": "admin"},
+                "sessionidle": {"type": "string", "x-scope": ["admin", "tenant"]},
+                "sessionabsolute": {"type": "string", "x-scope": ["admin", "tenant"]}
               }
             },
             "autoAssembly": {
               "type": "object",
               "additionalProperties": false,
-              "x-scope": "admin",
+              "x-scope": ["admin", "tenant"],
               "properties": {
                 "step": {"type": "string", "enum": ["1m", "5m", "10m", "15m", "30m"]}
               }
@@ -45,7 +47,83 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 104857600, "x-scope": ["admin", "tenant"]}
+            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 104857600, "x-scope": ["admin", "tenant"]},
+            "inputLimits": {
+              "type": "array",
+              "x-scope": ["admin", "tenant"],
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type"],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "description": "File types this limit applies to (e.g., 'docx;dotx;docm;dotm')"
+                  },
+                  "zip": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "uncompressed": {
+                        "type": "string",
+                        "description": "Maximum uncompressed size (e.g., '50MB', '300MB')"
+                      },
+                      "template": {
+                        "type": "string",
+                        "description": "Template pattern for file matching (e.g., '*.xml')"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "wopi": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "enable": {"type": "boolean"}
+      }
+    },
+    "email": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "smtpServerConfiguration": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "host": {"type": "string"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "auth": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "user": {"type": "string"},
+                "pass": {"type": "string"}
+              }
+            }
+          }
+        },
+        "connectionConfiguration": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "disableFileAccess": {"type": "boolean"},
+            "disableUrlAccess": {"type": "boolean"}
+          }
+        },
+        "contactDefaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "from": {"type": "string"},
+            "to": {"type": "string"}
           }
         }
       }
