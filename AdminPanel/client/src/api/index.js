@@ -1,4 +1,4 @@
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:9000';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL ?? '';
 
 export const fetchStatistics = async () => {
   const response = await fetch(`${BACKEND_URL}/info/info.json`);

@@ -1,11 +1,15 @@
 {
-  "name": "onlyoffice-adminpanel-server",
+  "name": "adminpanel",
   "version": "1.0.0",
+  "homepage": "https://www.onlyoffice.com",
   "private": true,
+  "bin": {
+    "adminpanel": "sources/server.js"
+  },
   "main": "sources/server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "set \"NODE_CONFIG_DIR=%cd%\\..\\..\\Common\\config\" && set \"NODE_ENV=development-windows\" && node sources/server.js"
+    "start": "cd .. && npm --prefix client run build && set \"NODE_CONFIG_DIR=../Common/config\" && set \"NODE_ENV=development-windows\" && node server/sources/server.js"
   },
   "dependencies": {
     "apicache": "^1.6.3",

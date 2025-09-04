@@ -1,4 +1,3 @@
-import {Routes, Route} from 'react-router-dom';
 import {Provider} from 'react-redux';
 import './App.css';
 import {store} from './store';
@@ -13,9 +12,7 @@ function App() {
         <Header />
         <AuthWrapper>
           <div className='content'>
-            <Routes>
-              <Route path='/' element={<Home />} />
-            </Routes>
+            <Home />
           </div>
         </AuthWrapper>
       </div>
