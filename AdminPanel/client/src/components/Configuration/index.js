@@ -60,19 +60,20 @@ export default function Configuration() {
     }))
     .filter(section => section.fields.length > 0);
 
+  /**
+  * Builds an Ajv validator instance for the provided JSON Schema.
+  * @param {object} schema - Derived per-scope JSON schema
+  * @returns {Ajv.ValidateFunction}
+  */
+  const buildValidator = schema => {
+    const ajv = new Ajv({allErrors: true, strict: false});
+    ajv.addFormat('cron6', CRON6_REGEX);
+    return ajv.compile(schema);
+  };
+
   useEffect(() => {
     const loadConfiguration = async () => {
       try {
-         /**
-         * Builds an Ajv validator instance for the provided JSON Schema.
-         * @param {object} schema - Derived per-scope JSON schema
-         * @returns {Ajv.ValidateFunction}
-         */
-        const buildValidator = schema => {
-          const ajv = new Ajv({allErrors: true, strict: false});
-          ajv.addFormat('cron6', CRON6_REGEX);
-          return ajv.compile(schema);
-        };
         setLoading(true);
         setError(null);
         // Fetch config and schema in parallel
@@ -109,7 +110,7 @@ export default function Configuration() {
     };
 
     loadConfiguration();
-  }, [filteredSections, CRON6_REGEX]);
+  }, []);
 
   const handleFieldChange = (path, value) => {
     setFieldValues(prev => ({
