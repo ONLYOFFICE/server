@@ -38,12 +38,12 @@ const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
 const license = require('../../../Common/sources/license');
 const utils = require('../../../Common/sources/utils');
-const commonDefines = require('../../../Common/sources/commondefines');
 
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const path = require('path');
+const infoRouter = require('../../../DocService/sources/routes/info');
 
 const configRouter = require('./routes/config/router');
 const adminpanelRouter = require('./routes/adminpanel/router');
@@ -78,38 +78,10 @@ const corsWithCredentials = cors({
 
 operationContext.global.logger.warn('AdminPanel server starting...');
 
-app.get('/info/info.json', cors(), utils.checkClientIp, async (req, res) => {
-  const serverDate = new Date();
-  serverDate.setMilliseconds(0);
-  const output = {
-    connectionsStat: {},
-    licenseInfo: {},
-    serverInfo: {
-      buildVersion: commonDefines.buildVersion,
-      buildNumber: commonDefines.buildNumber,
-      date: serverDate.toISOString()
-    },
-    quota: {
-      edit: {connectionsCount: 0, usersCount: {unique: 0, anonymous: 0}},
-      view: {connectionsCount: 0, usersCount: {unique: 0, anonymous: 0}},
-      byMonth: []
-    }
-  };
-  const ctx = new operationContext.Context();
-  try {
-    ctx.initFromRequest(req);
-    await ctx.initTenantCache();
-    const [licenseInfo] = await tenantManager.getTenantLicense(ctx);
-    output.licenseInfo = licenseInfo || {};
-  } catch (e) {
-    ctx.logger && ctx.logger.warn('info.json error: %s', e.stack);
-  } finally {
-    res.json(output);
-  }
-});
-
 app.use('/info/config', corsWithCredentials, utils.checkClientIp, configRouter);
 app.use('/info/adminpanel', corsWithCredentials, utils.checkClientIp, adminpanelRouter);
+// Shared Info router (provides /info.json)
+app.use('/info', infoRouter());
 
 // todo config or _dirname. Serve AdminPanel client build as static assets
 const clientBuildPath = path.resolve('client/build');

@@ -6,7 +6,7 @@ import Button from '../../components/Button';
 import styles from './styles.module.css';
 
 export default function Login() {
-  const [tenantName, setTenantName] = useState('');
+  const [tenantName, setTenantName] = useState('localhost');
   const [secret, setSecret] = useState('');
   const [error, setError] = useState('');
   const dispatch = useDispatch();
