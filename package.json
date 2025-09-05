@@ -45,7 +45,7 @@
     "install:FileConverter": "npm ci --prefix ./FileConverter",
     "install:Metrics": "npm ci --prefix ./Metrics",
     "install:AdminPanel/server": "npm ci --prefix ./AdminPanel/server",
-    "install:AdminPanel/client": "npm ci --prefix ./AdminPanel/client && npm --prefix ./AdminPanel/client run build",
+    "install:AdminPanel/client": "npm ci --include=dev --prefix ./AdminPanel/client && npm --prefix ./AdminPanel/client run build",
     "3d-party-lic-json:Common": "license-report --output=json --package=./Common/package.json --config ./3d-party-lic-report/license-report-config.json > ./3d-party-lic-report/license-report.json",
     "3d-party-lic-json:DocService": "license-report --output=json --package=./DocService/package.json --config ./3d-party-lic-report/license-report-config.json > ./3d-party-lic-report/license-report.json",
     "3d-party-lic-json:FileConverter": "license-report --output=json --package=./FileConverter/package.json --config ./3d-party-lic-report/license-report-config.json > ./3d-party-lic-report/license-report.json",

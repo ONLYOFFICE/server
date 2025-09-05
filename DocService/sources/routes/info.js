@@ -18,8 +18,7 @@ const cfgEditorStatStorage =
 // Initialize editor stat storage
 const editorStatStorage = require(`../${cfgEditorStatStorage}`);
 const editorStat = new editorStatStorage.EditorStat();
-console.error(`../${cfgEditorStatStorage}`);
-console.error(editorStat);
+
 // Constants
 const PRECISION = [
   {name: 'hour', val: ms('1h')},
