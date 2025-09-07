@@ -433,8 +433,7 @@
         },
         "mysqlExtraOptions": {
           "connectTimeout": 60000,
-          "queryTimeout": 60000,
-          "autoCommit": false
+          "queryTimeout": 60000
         }
       },
       "redis": {
