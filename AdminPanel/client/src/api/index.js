@@ -1,7 +1,7 @@
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL ?? '';
 
 export const fetchStatistics = async () => {
-  const response = await fetch(`${BACKEND_URL}/info/info.json`);
+  const response = await fetch(`${BACKEND_URL}/api/v1/admin/stat`);
   if (!response.ok) {
     throw new Error('Failed to fetch statistics');
   }
@@ -9,7 +9,7 @@ export const fetchStatistics = async () => {
 };
 
 export const fetchConfiguration = async () => {
-  const response = await fetch(`${BACKEND_URL}/info/config`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/admin/config`, {
     credentials: 'include'
   });
   if (!response.ok) {
@@ -19,7 +19,7 @@ export const fetchConfiguration = async () => {
 };
 
 export const fetchConfigurationSchema = async () => {
-  const response = await fetch(`${BACKEND_URL}/info/config/schema`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/admin/config/schema`, {
     credentials: 'include'
   });
   if (!response.ok) {
@@ -29,7 +29,7 @@ export const fetchConfigurationSchema = async () => {
 };
 
 export const updateConfiguration = async configData => {
-  const response = await fetch(`${BACKEND_URL}/info/config`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/admin/config`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json'
@@ -59,7 +59,7 @@ export const updateConfiguration = async configData => {
 };
 
 export const fetchCurrentUser = async () => {
-  const response = await fetch(`${BACKEND_URL}/info/adminpanel/me`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/admin/me`, {
     method: 'GET',
     credentials: 'include' // Include cookies in the request
   });
@@ -75,7 +75,7 @@ export const fetchCurrentUser = async () => {
 };
 
 export const login = async ({tenantName, secret}) => {
-  const response = await fetch(`${BACKEND_URL}/info/adminpanel/login`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/admin/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -95,7 +95,7 @@ export const login = async ({tenantName, secret}) => {
 };
 
 export const logout = async () => {
-  const response = await fetch(`${BACKEND_URL}/info/adminpanel/logout`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/admin/logout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

@@ -241,3 +241,5 @@ function createInfoRouter() {
 }
 
 module.exports = createInfoRouter;
+// Export handler for reuse
+module.exports.licenseInfo = licenseInfo;

@@ -78,10 +78,9 @@ const corsWithCredentials = cors({
 
 operationContext.global.logger.warn('AdminPanel server starting...');
 
-app.use('/info/config', corsWithCredentials, utils.checkClientIp, configRouter);
-app.use('/info/adminpanel', corsWithCredentials, utils.checkClientIp, adminpanelRouter);
-// Shared Info router (provides /info.json)
-app.use('/info', infoRouter());
+app.use('/api/v1/admin/config', corsWithCredentials, utils.checkClientIp, configRouter);
+app.use('/api/v1/admin', corsWithCredentials, utils.checkClientIp, adminpanelRouter);
+app.get('/api/v1/admin/stat', corsWithCredentials, utils.checkClientIp, infoRouter.licenseInfo);
 
 // todo config or _dirname. Serve AdminPanel client build as static assets
 const clientBuildPath = path.resolve('client/build');
@@ -95,7 +94,7 @@ function serveSpaIndex(req, res, next) {
 // client SPA routes
 app.get('*', serveSpaIndex);
 
-app.use((err, req, res) => {
+app.use((err, req, res, _next) => {
   const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
   ctx.logger.error('default error handler:%s', err.stack);
