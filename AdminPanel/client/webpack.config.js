@@ -8,7 +8,8 @@ module.exports = {
   output: {
     filename: 'main.[contenthash].js',
     path: path.resolve(__dirname, 'build'),
-    publicPath: '/'
+    // Use relative URLs so assets load under any prefix (e.g., /admin)
+    publicPath: ''
   },
 
   devServer: {
