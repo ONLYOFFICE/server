@@ -34,6 +34,36 @@
               "properties": {
                 "step": {"type": "string", "enum": ["1m", "5m", "10m", "15m", "30m"]}
               }
+            },
+            "sql": {
+              "type": "object",
+              "description": "Database connection settings for the CoAuthoring service",
+              "additionalProperties": false,
+              "x-scope": "admin",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "Database type (e.g., 'mysql', 'mariadb', 'mssql', 'postgres', 'dameng', 'oracle')",
+                  "examples": ["postgres"]
+                },
+                "dbHost": {
+                  "type": "string",
+                  "description": "Database host name or IP address",
+                  "examples": ["localhost"]
+                },
+                "dbPort": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535,
+                  "description": "Database TCP port",
+                  "examples": [5432]
+                },
+                "dbName": {
+                  "type": "string",
+                  "description": "Database name",
+                  "examples": ["onlyoffice"]
+                }
+              }
             }
           }
         }

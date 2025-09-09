@@ -5,7 +5,7 @@ import InfoTable from './InfoTable/index';
 import ModeSwitcher from './ModeSwitcher';
 import MonthlyStatistics from './MonthlyStatistics';
 import styles from './styles.module.css';
-import {fetchStatistics} from '../../api';
+import {fetchStatistics, fetchConfiguration} from '../../api';
 
 // Constants
 const CRITICAL_COLOR = '#ff0000';
@@ -32,6 +32,12 @@ export default function Statistics() {
   const {data, isLoading, error} = useQuery({
     queryKey: ['statistics'],
     queryFn: fetchStatistics
+  });
+
+  // Fetch configuration to display DB info
+  const {data: configData} = useQuery({
+    queryKey: ['configuration'],
+    queryFn: fetchConfiguration
   });
 
   const [mode, setMode] = useState(() => {
@@ -117,6 +123,23 @@ export default function Statistics() {
       <div>Live Viewer: {limitView}</div>
     </TopBlock>
   );
+
+  /**
+   * Render database info block
+   * @param {object|null} sql - services.CoAuthoring.sql config
+   * @returns {JSX.Element|null}
+   */
+  const renderDatabaseBlock = sql => {
+    if (!sql) return null;
+    return (
+      <TopBlock title='Database'>
+        <div>Type: {sql.type}</div>
+        <div>Host: {sql.dbHost}</div>
+        <div>Port: {sql.dbPort}</div>
+        <div>Name: {sql.dbName}</div>
+      </TopBlock>
+    );
+  };
 
   // Current activity/usage table
   const currentTable = useMemo(() => {
@@ -220,6 +243,8 @@ export default function Statistics() {
         {licenseBlock}
         {limitsBlock}
       </div>
+
+      {renderDatabaseBlock(configData?.services?.CoAuthoring?.sql)}
 
       <ModeSwitcher mode={mode} setMode={setMode} />
 
