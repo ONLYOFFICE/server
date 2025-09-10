@@ -79,9 +79,8 @@ if not os.path.isdir(testDevelopVersion):
     x2tDir = curDirectory + "/../FileConverter/bin"
     cur_dir = os.getcwd()
     os.chdir(x2tDir)
-    x2tBin = curDirectory + "/../FileConverter/bin/x2t"
     if ("windows" == platform.system().lower()):
         subprocess.call(["x2t.exe", "-create-js-cache"], stderr=subprocess.STDOUT, shell=True)
     else:
-        subprocess.call("x2t -create-js-cache", stderr=subprocess.STDOUT, shell=True)
+        subprocess.call("./x2t -create-js-cache", stderr=subprocess.STDOUT, shell=True)
     os.chdir(cur_dir)
