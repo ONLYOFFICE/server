@@ -75,7 +75,7 @@ for file in filesReplace:
 
 testDevelopVersion = sdkjsDirectory + "/.git"
 if not os.path.isdir(testDevelopVersion):
-    print("Not in develop version, skipping x2t cache update")
+    print("Update x2t cache...")
     x2tDir = curDirectory + "/../FileConverter/bin"
     cur_dir = os.getcwd()
     os.chdir(x2tDir)
