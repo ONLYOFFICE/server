@@ -1,4 +1,3 @@
-import React from 'react';
 import styles from './StatisticsTopBlock.module.scss';
 
 function StatisticsTopBlock({ title, children }) {

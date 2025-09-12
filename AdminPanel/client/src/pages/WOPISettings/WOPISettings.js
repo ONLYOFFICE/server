@@ -15,7 +15,7 @@ function WOPISettings() {
   const config = useSelector(selectConfig);
   const schema = useSelector(selectSchema);
   const loading = useSelector(selectConfigLoading);
-  const { validateField, getFieldError, hasValidationErrors } = useFieldValidation();
+  const { validateField, hasValidationErrors } = useFieldValidation();
 
   // Local state for WOPI enable setting
   const [localWopiEnabled, setLocalWopiEnabled] = useState(false);

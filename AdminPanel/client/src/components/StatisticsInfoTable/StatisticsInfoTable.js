@@ -1,4 +1,3 @@
-import React from 'react';
 import styles from './StatisticsInfoTable.module.scss';
 
 function StatisticsInfoTable({ caption, editor, viewer, desc }) {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchStatistics } from '../../api';
 import StatisticsTopBlock from '../../components/StatisticsTopBlock/StatisticsTopBlock';
