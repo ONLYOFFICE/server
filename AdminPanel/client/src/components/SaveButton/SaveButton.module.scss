@@ -1,5 +1,5 @@
 .saveButton {
-  background: #FF6F3D;
+  background: #ff6f3d;
   width: 154px;
   height: 48px;
   padding: 13px 24px;
@@ -16,37 +16,37 @@
   justify-content: center;
 
   &:hover:not(:disabled) {
-    background: #E55A2B;
+    background: #e55a2b;
   }
 
   &--disabled {
-    background: #FF865C;
+    background: #ff865c;
     cursor: not-allowed;
   }
 
   &--loading {
-    background: #FF6F3D;
+    background: #ff6f3d;
     cursor: wait;
   }
 
   &--success {
-    background: #8BB825;
+    background: #8bb825;
   }
 
   &--error {
-    background: #CB0000;
+    background: #cb0000;
   }
 }
 
 .icon {
   width: 20px;
   height: 20px;
-  
+
   // Spinning animation for the spinner
   .saveButton--loading & {
     animation: spin 1s linear infinite;
   }
-  
+
   // Smaller size for success and fail icons
   .saveButton--success &,
   .saveButton--error & {

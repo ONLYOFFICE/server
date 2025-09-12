@@ -25,7 +25,6 @@ router.get('/me', async (req, res) => {
 
     const decoded = jwt.verify(token, adminPanelJwtSecret);
     res.json(decoded);
-
   } catch {
     res.status(401).json({error: 'Unauthorized'});
   }
@@ -34,7 +33,7 @@ router.get('/me', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const {tenantName, secret} = req.body;
-    
+
     if (!tenantName || !secret) {
       return res.status(400).json({error: 'Tenant name and secret are required'});
     }
@@ -43,7 +42,7 @@ router.post('/login', async (req, res) => {
     if (!tenant) {
       return res.status(401).json({error: 'Invalid tenant name or secret'});
     }
-    
+
     const token = jwt.sign({...tenant}, adminPanelJwtSecret, {expiresIn: '1h'});
 
     res.cookie('accessToken', token, {
@@ -90,7 +89,7 @@ async function verifyTenantCredentials(tenantName, secret) {
       return null;
     }
   }
-  
+
   return null;
 }
 

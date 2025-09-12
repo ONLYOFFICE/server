@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { fetchConfig, saveConfig, selectConfig, selectConfigLoading, selectSchema } from '../../store/slices/configSlice';
-import { getNestedValue } from '../../utils/getNestedValue';
-import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
-import { useFieldValidation } from '../../hooks/useFieldValidation';
+import {useEffect, useState} from 'react';
+import {useSelector, useDispatch} from 'react-redux';
+import {fetchConfig, saveConfig, selectConfig, selectConfigLoading, selectSchema} from '../../store/slices/configSlice';
+import {getNestedValue} from '../../utils/getNestedValue';
+import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
+import {useFieldValidation} from '../../hooks/useFieldValidation';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import ToggleSwitch from '../../components/ToggleSwitch/ToggleSwitch';
@@ -15,7 +15,7 @@ function WOPISettings() {
   const config = useSelector(selectConfig);
   const schema = useSelector(selectSchema);
   const loading = useSelector(selectConfigLoading);
-  const { validateField, hasValidationErrors } = useFieldValidation();
+  const {validateField, hasValidationErrors} = useFieldValidation();
 
   // Local state for WOPI enable setting
   const [localWopiEnabled, setLocalWopiEnabled] = useState(false);
@@ -38,10 +38,10 @@ function WOPISettings() {
     }
   }, [dispatch, config, schema]);
 
-  const handleWopiEnabledChange = (enabled) => {
+  const handleWopiEnabledChange = enabled => {
     setLocalWopiEnabled(enabled);
     setHasChanges(enabled !== configWopiEnabled);
-    
+
     // Validate the boolean field
     validateField('wopi.enable', enabled);
   };
@@ -50,7 +50,7 @@ function WOPISettings() {
     if (!hasChanges) return;
 
     try {
-      const updatedConfig = mergeNestedObjects([{ 'wopi.enable': localWopiEnabled }]);
+      const updatedConfig = mergeNestedObjects([{'wopi.enable': localWopiEnabled}]);
       await dispatch(saveConfig(updatedConfig)).unwrap();
       setHasChanges(false);
     } catch (error) {
@@ -62,33 +62,20 @@ function WOPISettings() {
   };
 
   if (loading) {
-    return (
-      <div className={styles.loading}>
-        Loading WOPI settings...
-      </div>
-    );
+    return <div className={styles.loading}>Loading WOPI settings...</div>;
   }
 
   return (
     <div className={styles.wopiSettings}>
       <PageHeader>WOPI Settings</PageHeader>
-      <PageDescription>
-        Configure WOPI (Web Application Open Platform Interface) support for document editing
-      </PageDescription>
+      <PageDescription>Configure WOPI (Web Application Open Platform Interface) support for document editing</PageDescription>
 
       <div className={styles.settingsSection}>
-        <ToggleSwitch
-          label="WOPI"
-          checked={localWopiEnabled}
-          onChange={handleWopiEnabledChange}
-        />
+        <ToggleSwitch label='WOPI' checked={localWopiEnabled} onChange={handleWopiEnabledChange} />
       </div>
 
       <div className={styles.actions}>
-        <SaveButton 
-          onClick={handleSave}
-          disabled={!hasChanges || hasValidationErrors()}
-        >
+        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
           Save Changes
         </SaveButton>
       </div>

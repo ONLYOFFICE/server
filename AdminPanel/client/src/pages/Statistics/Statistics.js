@@ -1,11 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { fetchStatistics } from '../../api';
+import {useQuery} from '@tanstack/react-query';
+import {fetchStatistics} from '../../api';
 import StatisticsTopBlock from '../../components/StatisticsTopBlock/StatisticsTopBlock';
 import StatisticsInfoTable from '../../components/StatisticsInfoTable/StatisticsInfoTable';
 import styles from './Statistics.module.scss';
 
 function Statistics() {
-  const { data, isLoading, error } = useQuery({
+  const {data, isLoading, error} = useQuery({
     queryKey: ['statistics'],
     queryFn: fetchStatistics
   });
@@ -15,12 +15,12 @@ function Statistics() {
 
   if (!data) return null;
 
-  const { licenseInfo, quota, connectionsStat, serverInfo } = data;
+  const {licenseInfo, quota, connectionsStat, serverInfo} = data;
 
   const buildDate = licenseInfo.buildDate ? new Date(licenseInfo.buildDate).toLocaleDateString() : '';
-  
+
   const buildBlock = (
-    <StatisticsTopBlock title="Build">
+    <StatisticsTopBlock title='Build'>
       <div>Type: {licenseInfo.packageType === 0 ? 'Open source' : licenseInfo.packageType === 1 ? 'Enterprise Edition' : 'Developer Edition'}</div>
       <div>
         Version: {serverInfo.buildVersion}.{serverInfo.buildNumber}
@@ -30,7 +30,7 @@ function Statistics() {
   );
 
   const licenseBlock = (
-    <StatisticsTopBlock title="License">
+    <StatisticsTopBlock title='License'>
       {licenseInfo.startDate === null ? (
         'No license'
       ) : (
@@ -40,7 +40,7 @@ function Statistics() {
   );
 
   const connectionsBlock = (
-    <StatisticsTopBlock title="Connections limit">
+    <StatisticsTopBlock title='Connections limit'>
       <div>Editors: {licenseInfo.connections}</div>
       <div>Live Viewer: {licenseInfo.connectionsView}</div>
     </StatisticsTopBlock>
@@ -71,9 +71,9 @@ function Statistics() {
         {licenseBlock}
         {connectionsBlock}
       </div>
-      <StatisticsInfoTable caption="Current connections" editor={editor} viewer={viewer} desc={desc} />
-      <StatisticsInfoTable caption="Peaks" editor={peaksEditor} viewer={peaksViewer} desc={peaksDesc} />
-      <StatisticsInfoTable caption="Average" editor={avrEditor} viewer={avrViewer} desc={peaksDesc} />
+      <StatisticsInfoTable caption='Current connections' editor={editor} viewer={viewer} desc={desc} />
+      <StatisticsInfoTable caption='Peaks' editor={peaksEditor} viewer={peaksViewer} desc={peaksDesc} />
+      <StatisticsInfoTable caption='Average' editor={avrEditor} viewer={avrViewer} desc={peaksDesc} />
     </div>
   );
 }

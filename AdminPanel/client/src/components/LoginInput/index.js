@@ -13,11 +13,10 @@ export default function Input({
   min = null,
   max = null
 }) {
-
   if (type === 'checkbox') {
     return (
       <input
-        type="checkbox"
+        type='checkbox'
         checked={Boolean(value)}
         onChange={e => onChange(e.target.checked)}
         className={`${styles.input} ${error ? styles.inputError : ''} ${className}`}

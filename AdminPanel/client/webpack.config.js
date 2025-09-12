@@ -78,8 +78,8 @@ module.exports = {
         test: /\.(css|scss)$/i,
         exclude: /\.module\.(css|scss)$/i,
         use: [
-          'style-loader', 
-          'css-loader', 
+          'style-loader',
+          'css-loader',
           {
             loader: 'sass-loader',
             options: {

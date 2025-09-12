@@ -1,24 +1,24 @@
-import { useState } from 'react';
+import {useState} from 'react';
 import Select from '../Select/Select';
 import styles from './AccessRules.module.scss';
 
-function AccessRules({ rules = [], onChange }) {
-  const [newRule, setNewRule] = useState({ type: 'Allow', value: '' });
+function AccessRules({rules = [], onChange}) {
+  const [newRule, setNewRule] = useState({type: 'Allow', value: ''});
 
   const handleAddRule = () => {
     if (newRule.value.trim()) {
-      const updatedRules = [...rules, { ...newRule, value: newRule.value.trim() }];
+      const updatedRules = [...rules, {...newRule, value: newRule.value.trim()}];
       onChange(updatedRules);
-      setNewRule({ type: 'Allow', value: '' });
+      setNewRule({type: 'Allow', value: ''});
     }
   };
 
-  const handleRemoveRule = (index) => {
+  const handleRemoveRule = index => {
     const updatedRules = rules.filter((_, i) => i !== index);
     onChange(updatedRules);
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = e => {
     if (e.key === 'Enter') {
       handleAddRule();
     }
@@ -27,32 +27,26 @@ function AccessRules({ rules = [], onChange }) {
   return (
     <div className={styles.accessRules}>
       <h3 className={styles.title}>Access Rules</h3>
-      <p className={styles.description}>
-        Configure nginx-style allow/deny rules for granular access control
-      </p>
+      <p className={styles.description}>Configure nginx-style allow/deny rules for granular access control</p>
 
       <div className={styles.addRule}>
         <Select
           value={newRule.type}
-          onChange={(value) => setNewRule({ ...newRule, type: value })}
+          onChange={value => setNewRule({...newRule, type: value})}
           options={[
-            { value: 'Allow', label: 'Allow' },
-            { value: 'Deny', label: 'Deny' }
+            {value: 'Allow', label: 'Allow'},
+            {value: 'Deny', label: 'Deny'}
           ]}
         />
         <input
           className={styles.valueInput}
-          type="text"
-          placeholder="Enter value"
+          type='text'
+          placeholder='Enter value'
           value={newRule.value}
-          onChange={(e) => setNewRule({ ...newRule, value: e.target.value })}
+          onChange={e => setNewRule({...newRule, value: e.target.value})}
           onKeyPress={handleKeyPress}
         />
-        <button
-          className={styles.addButton}
-          onClick={handleAddRule}
-          disabled={!newRule.value.trim()}
-        >
+        <button className={styles.addButton} onClick={handleAddRule} disabled={!newRule.value.trim()}>
           Add Rule
         </button>
       </div>
@@ -60,25 +54,14 @@ function AccessRules({ rules = [], onChange }) {
       <div className={styles.rulesList}>
         {rules.map((rule, index) => (
           <div key={index} className={styles.rule}>
-            <span className={`${styles.ruleType} ${styles[`ruleType--${rule.type.toLowerCase()}`]}`}>
-              {rule.type}
-            </span>
-            <span className={styles.ruleValue}>
-              {rule.value}
-            </span>
-            <button
-              className={styles.removeButton}
-              onClick={() => handleRemoveRule(index)}
-            >
+            <span className={`${styles.ruleType} ${styles[`ruleType--${rule.type.toLowerCase()}`]}`}>{rule.type}</span>
+            <span className={styles.ruleValue}>{rule.value}</span>
+            <button className={styles.removeButton} onClick={() => handleRemoveRule(index)}>
               Remove
             </button>
           </div>
         ))}
-        {rules.length === 0 && (
-          <div className={styles.emptyState}>
-            No access rules configured
-          </div>
-        )}
+        {rules.length === 0 && <div className={styles.emptyState}>No access rules configured</div>}
       </div>
     </div>
   );

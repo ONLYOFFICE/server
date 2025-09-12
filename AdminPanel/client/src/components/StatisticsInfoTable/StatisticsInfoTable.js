@@ -1,6 +1,6 @@
 import styles from './StatisticsInfoTable.module.scss';
 
-function StatisticsInfoTable({ caption, editor, viewer, desc }) {
+function StatisticsInfoTable({caption, editor, viewer, desc}) {
   return (
     <div className={styles.container}>
       {caption && <div className={styles.sectionHeader}>{caption}</div>}

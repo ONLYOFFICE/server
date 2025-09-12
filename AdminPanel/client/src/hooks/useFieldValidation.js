@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import { fetchConfigurationSchema } from '../api';
+import {fetchConfigurationSchema} from '../api';
 
 // Cron expression with 6 space-separated fields (server-compatible)
 const CRON6_REGEX = /^\s*\S+(?:\s+\S+){5}\s*$/;
@@ -22,14 +22,14 @@ export const useFieldValidation = () => {
       try {
         setIsLoading(true);
         setError(null);
-        
+
         const schema = await fetchConfigurationSchema();
-        
+
         // Build AJV validator with custom and standard formats
-        const ajv = new Ajv({ allErrors: true, strict: false });
+        const ajv = new Ajv({allErrors: true, strict: false});
         addFormats(ajv); // Add standard formats including email
         ajv.addFormat('cron6', CRON6_REGEX); // Add custom cron6 format
-        
+
         const validateFn = ajv.compile(schema);
         setValidator(() => validateFn);
       } catch (err) {
@@ -49,57 +49,63 @@ export const useFieldValidation = () => {
    * @param {*} value - Value to validate
    * @returns {string|null} Error message or null if valid
    */
-  const validateField = useCallback((fieldPath, value) => {
-    if (!validator) {
-      return null; // No validator available yet
-    }
-
-    // Create a minimal object with just the field we want to validate
-    const testObject = createNestedObject(fieldPath, value);
-    
-    // Validate the test object
-    const isValid = validator(testObject);
-    
-    if (!isValid && validator.errors) {
-      // Find errors that match our field path
-      const relevantErrors = validator.errors.filter(err => {
-        const errorPath = (err.instancePath || '').replace(/^\/|\/$/g, '').replace(/\//g, '.');
-        return errorPath === fieldPath || errorPath === '';
-      });
-      
-      if (relevantErrors.length > 0) {
-        const errorMessage = relevantErrors[0].message || 'Invalid value';
-        setFieldErrors(prev => ({ ...prev, [fieldPath]: errorMessage }));
-        return errorMessage;
+  const validateField = useCallback(
+    (fieldPath, value) => {
+      if (!validator) {
+        return null; // No validator available yet
       }
-    }
-    
-    // Clear any existing error for this field
-    setFieldErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldPath];
-      return newErrors;
-    });
-    
-    return null;
-  }, [validator]);
+
+      // Create a minimal object with just the field we want to validate
+      const testObject = createNestedObject(fieldPath, value);
+
+      // Validate the test object
+      const isValid = validator(testObject);
+
+      if (!isValid && validator.errors) {
+        // Find errors that match our field path
+        const relevantErrors = validator.errors.filter(err => {
+          const errorPath = (err.instancePath || '').replace(/^\/|\/$/g, '').replace(/\//g, '.');
+          return errorPath === fieldPath || errorPath === '';
+        });
+
+        if (relevantErrors.length > 0) {
+          const errorMessage = relevantErrors[0].message || 'Invalid value';
+          setFieldErrors(prev => ({...prev, [fieldPath]: errorMessage}));
+          return errorMessage;
+        }
+      }
+
+      // Clear any existing error for this field
+      setFieldErrors(prev => {
+        const newErrors = {...prev};
+        delete newErrors[fieldPath];
+        return newErrors;
+      });
+
+      return null;
+    },
+    [validator]
+  );
 
   /**
    * Gets the current error message for a field
    * @param {string} fieldPath - Dot-notation path to the field
    * @returns {string|null} Error message or null
    */
-  const getFieldError = useCallback((fieldPath) => {
-    return fieldErrors[fieldPath] || null;
-  }, [fieldErrors]);
+  const getFieldError = useCallback(
+    fieldPath => {
+      return fieldErrors[fieldPath] || null;
+    },
+    [fieldErrors]
+  );
 
   /**
    * Clears error for a specific field
    * @param {string} fieldPath - Dot-notation path to the field
    */
-  const clearFieldError = useCallback((fieldPath) => {
+  const clearFieldError = useCallback(fieldPath => {
     setFieldErrors(prev => {
-      const newErrors = { ...prev };
+      const newErrors = {...prev};
       delete newErrors[fieldPath];
       return newErrors;
     });
@@ -133,12 +139,12 @@ export function createNestedObject(path, value) {
   const parts = path.split('.');
   const result = {};
   let current = result;
-  
+
   for (let i = 0; i < parts.length - 1; i++) {
     current[parts[i]] = {};
     current = current[parts[i]];
   }
-  
+
   current[parts[parts.length - 1]] = value;
   return result;
 }

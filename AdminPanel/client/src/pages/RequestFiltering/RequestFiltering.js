@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchConfig, saveConfig } from '../../store/slices/configSlice';
-import { getNestedValue } from '../../utils/getNestedValue';
-import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
-import { useFieldValidation } from '../../hooks/useFieldValidation';
+import {useState, useEffect} from 'react';
+import {useDispatch, useSelector} from 'react-redux';
+import {fetchConfig, saveConfig} from '../../store/slices/configSlice';
+import {getNestedValue} from '../../utils/getNestedValue';
+import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
+import {useFieldValidation} from '../../hooks/useFieldValidation';
 import Checkbox from '../../components/Checkbox/Checkbox';
 import SaveButton from '../../components/SaveButton/SaveButton';
 import PageHeader from '../../components/PageHeader/PageHeader';
@@ -12,8 +12,8 @@ import styles from './RequestFiltering.module.scss';
 
 function RequestFiltering() {
   const dispatch = useDispatch();
-  const { config, loading } = useSelector(state => state.config);
-  const { validateField, getFieldError, hasValidationErrors } = useFieldValidation();
+  const {config, loading} = useSelector(state => state.config);
+  const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
 
   const [localSettings, setLocalSettings] = useState({
     allowPrivateIPAddress: false,
@@ -83,11 +83,7 @@ function RequestFiltering() {
   };
 
   if (loading) {
-    return (
-      <div className={styles.loading}>
-        Loading request filtering settings...
-      </div>
-    );
+    return <div className={styles.loading}>Loading request filtering settings...</div>;
   }
 
   return (
@@ -99,36 +95,31 @@ function RequestFiltering() {
 
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>IP Address Filtering</h2>
-        <p className={styles.sectionDescription}>
-          Control access based on IP address types to enhance security.
-        </p>
+        <p className={styles.sectionDescription}>Control access based on IP address types to enhance security.</p>
 
         <div className={styles.formRow}>
           <Checkbox
-            label="Allow Private IP Addresses"
+            label='Allow Private IP Addresses'
             checked={localSettings.allowPrivateIPAddress}
-            onChange={(value) => handleFieldChange('allowPrivateIPAddress', value)}
-            description="Allow requests from private IP address ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). Disable this to block requests from internal networks."
+            onChange={value => handleFieldChange('allowPrivateIPAddress', value)}
+            description='Allow requests from private IP address ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). Disable this to block requests from internal networks.'
             error={getFieldError(CONFIG_PATHS.allowPrivateIPAddress)}
           />
         </div>
 
         <div className={styles.formRow}>
           <Checkbox
-            label="Allow Meta IP Addresses"
+            label='Allow Meta IP Addresses'
             checked={localSettings.allowMetaIPAddress}
-            onChange={(value) => handleFieldChange('allowMetaIPAddress', value)}
-            description="Allow requests from meta IP addresses (127.0.0.1, ::1, 0.0.0.0, etc.). Disable this to block localhost and other special-use addresses."
+            onChange={value => handleFieldChange('allowMetaIPAddress', value)}
+            description='Allow requests from meta IP addresses (127.0.0.1, ::1, 0.0.0.0, etc.). Disable this to block localhost and other special-use addresses.'
             error={getFieldError(CONFIG_PATHS.allowMetaIPAddress)}
           />
         </div>
       </div>
 
       <div className={styles.actions}>
-        <SaveButton 
-          onClick={handleSave}
-          disabled={!hasChanges || hasValidationErrors()}
-        >
+        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
           Save Changes
         </SaveButton>
       </div>

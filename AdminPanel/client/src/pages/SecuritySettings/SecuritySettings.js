@@ -1,26 +1,24 @@
-import { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { fetchConfig, saveConfig, selectConfig, selectConfigLoading } from '../../store/slices/configSlice';
-import { getNestedValue } from '../../utils/getNestedValue';
-import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
-import { useFieldValidation } from '../../hooks/useFieldValidation';
+import {useState, useEffect} from 'react';
+import {useSelector, useDispatch} from 'react-redux';
+import {fetchConfig, saveConfig, selectConfig, selectConfigLoading} from '../../store/slices/configSlice';
+import {getNestedValue} from '../../utils/getNestedValue';
+import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
+import {useFieldValidation} from '../../hooks/useFieldValidation';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
-import Tabs from '../../components/Tabs/Tabs' ;
+import Tabs from '../../components/Tabs/Tabs';
 import AccessRules from '../../components/AccessRules/AccessRules';
 import SaveButton from '../../components/SaveButton/SaveButton';
 import styles from './SecuritySettings.module.scss';
 
-const securityTabs = [
-  { key: 'ip-filtering', label: 'IP Filtering' }
-];
+const securityTabs = [{key: 'ip-filtering', label: 'IP Filtering'}];
 
 function SecuritySettings() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
   const loading = useSelector(selectConfigLoading);
-  const { validateField, getFieldError, hasValidationErrors } = useFieldValidation();
-  
+  const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
+
   const [activeTab, setActiveTab] = useState('ip-filtering');
   const [localRules, setLocalRules] = useState([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -31,23 +29,23 @@ function SecuritySettings() {
     } else {
       // Get IP filtering rules from actual config
       const ipFilterRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules', []);
-      
+
       // Convert from backend format to UI format
       const uiRules = ipFilterRules.map(rule => ({
         type: rule.allowed ? 'Allow' : 'Deny',
         value: rule.address
       }));
-      
+
       setLocalRules(uiRules);
       setHasChanges(false);
     }
   }, [dispatch, config]);
 
   // Handle rules changes
-  const handleRulesChange = (newRules) => {
+  const handleRulesChange = newRules => {
     setLocalRules(newRules);
     setHasChanges(true);
-    
+
     // Validate the rules array structure
     if (newRules.length > 0) {
       const backendRules = newRules.map(rule => ({
@@ -68,10 +66,12 @@ function SecuritySettings() {
     }));
 
     // Create config update object
-    const configUpdate = mergeNestedObjects([{
-      'services.CoAuthoring.ipfilter.rules': backendRules
-    }]);
-    
+    const configUpdate = mergeNestedObjects([
+      {
+        'services.CoAuthoring.ipfilter.rules': backendRules
+      }
+    ]);
+
     await dispatch(saveConfig(configUpdate)).unwrap();
     setHasChanges(false);
   };
@@ -81,14 +81,9 @@ function SecuritySettings() {
       case 'ip-filtering':
         return (
           <div>
-            <AccessRules
-              rules={localRules}
-              onChange={handleRulesChange}
-            />
+            <AccessRules rules={localRules} onChange={handleRulesChange} />
             {getFieldError('services.CoAuthoring.ipfilter.rules') && (
-              <div className={styles.error}>
-                {getFieldError('services.CoAuthoring.ipfilter.rules')}
-              </div>
+              <div className={styles.error}>{getFieldError('services.CoAuthoring.ipfilter.rules')}</div>
             )}
           </div>
         );
@@ -98,33 +93,20 @@ function SecuritySettings() {
   };
 
   if (loading) {
-    return (
-      <div className={styles.loading}>
-        Loading security settings...
-      </div>
-    );
+    return <div className={styles.loading}>Loading security settings...</div>;
   }
 
   return (
     <div className={styles.securitySettings}>
       <PageHeader>Security Settings</PageHeader>
-      <PageDescription>
-        Configure IP filtering, authentication, and security policies
-      </PageDescription>
+      <PageDescription>Configure IP filtering, authentication, and security policies</PageDescription>
 
-      <Tabs 
-        tabs={securityTabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      >
+      <Tabs tabs={securityTabs} activeTab={activeTab} onTabChange={setActiveTab}>
         {renderTabContent()}
       </Tabs>
 
       <div className={styles.actions}>
-        <SaveButton 
-          onClick={handleSave}
-          disabled={!hasChanges || hasValidationErrors()}
-        >
+        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
           Save Changes
         </SaveButton>
       </div>

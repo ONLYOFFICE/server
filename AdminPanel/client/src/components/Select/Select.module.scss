@@ -11,7 +11,7 @@
   height: 48px;
   padding: 12px 16px;
   padding-right: 52px; // 16px base + 24px gap + 12px arrow width
-  background: #F1F1F1;
+  background: #f1f1f1;
   border: none;
   border-radius: 4px;
   font-family: 'Open Sans', sans-serif;
@@ -65,7 +65,7 @@
   left: 0;
   right: 0;
   background: white;
-  border: 1px solid #E2E2E2;
+  border: 1px solid #e2e2e2;
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 1000;
@@ -84,7 +84,7 @@
   color: #333333;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  border-bottom: 1px solid #F1F1F1;
+  border-bottom: 1px solid #f1f1f1;
   box-sizing: border-box;
 
   &:last-child {
@@ -92,11 +92,11 @@
   }
 
   &:hover {
-    background: #F9F9F9;
+    background: #f9f9f9;
   }
 
   &--selected {
-    color: #FF6F3D;
+    color: #ff6f3d;
     font-weight: 600;
   }
 }

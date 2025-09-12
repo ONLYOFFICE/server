@@ -1,10 +1,10 @@
 import styles from './Tabs.module.scss';
 
-function Tabs({ tabs, activeTab, onTabChange, children }) {
+function Tabs({tabs, activeTab, onTabChange, children}) {
   return (
     <div className={styles.tabsContainer}>
       <div className={styles.tabsHeader}>
-        {tabs.map((tab) => (
+        {tabs.map(tab => (
           <button
             key={tab.key}
             className={`${styles.tab} ${activeTab === tab.key ? styles['tab--active'] : ''}`}
@@ -14,9 +14,7 @@ function Tabs({ tabs, activeTab, onTabChange, children }) {
           </button>
         ))}
       </div>
-      <div className={styles.tabContent}>
-        {children}
-      </div>
+      <div className={styles.tabContent}>{children}</div>
     </div>
   );
 }

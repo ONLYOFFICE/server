@@ -14,7 +14,7 @@
   cursor: pointer;
   height: 0;
   width: 0;
-  
+
   &:focus {
     outline: none;
   }
@@ -24,7 +24,7 @@
   position: relative;
   width: 18px;
   height: 18px;
-  border: 2px solid #E2E2E2;
+  border: 2px solid #e2e2e2;
   border-radius: 3px;
   margin-right: 12px;
   margin-top: 1px;
@@ -47,8 +47,8 @@
 }
 
 .checkbox:checked ~ .checkmark {
-  background: #FF6F3D;
-  border-color: #FF6F3D;
+  background: #ff6f3d;
+  border-color: #ff6f3d;
 
   &::after {
     display: block;
@@ -84,12 +84,12 @@
 }
 
 .checkmarkError {
-  border-color: #DC3545 !important;
+  border-color: #dc3545 !important;
 }
 
 .error {
   font-family: 'Open Sans', sans-serif;
   font-size: 12px;
-  color: #DC3545;
+  color: #dc3545;
   margin-top: 4px;
 }

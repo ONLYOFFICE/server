@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { fetchConfig, saveConfig, selectConfig, selectConfigLoading } from '../../store/slices/configSlice';
-import { getNestedValue } from '../../utils/getNestedValue';
-import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
-import { useFieldValidation } from '../../hooks/useFieldValidation';
+import {useState, useEffect} from 'react';
+import {useSelector, useDispatch} from 'react-redux';
+import {fetchConfig, saveConfig, selectConfig, selectConfigLoading} from '../../store/slices/configSlice';
+import {getNestedValue} from '../../utils/getNestedValue';
+import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
+import {useFieldValidation} from '../../hooks/useFieldValidation';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
@@ -12,18 +12,18 @@ import SaveButton from '../../components/SaveButton/SaveButton';
 import styles from './Expiration.module.scss';
 
 const expirationTabs = [
-  { key: 'garbage-collection', label: 'Garbage Collection' },
-  { key: 'session-management', label: 'Session Management' }
+  {key: 'garbage-collection', label: 'Garbage Collection'},
+  {key: 'session-management', label: 'Session Management'}
 ];
 
 function Expiration() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
   const loading = useSelector(selectConfigLoading);
-  const { validateField, getFieldError, hasValidationErrors } = useFieldValidation();
-  
+  const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
+
   const [activeTab, setActiveTab] = useState('garbage-collection');
-  
+
   // Local state for form fields
   const [localSettings, setLocalSettings] = useState({
     filesCron: '',
@@ -70,7 +70,7 @@ function Expiration() {
     // Validate fields with schema validation
     if (value !== '' && CONFIG_PATHS[field]) {
       let validationValue = value;
-      
+
       // Convert numeric fields to integers for validation
       if (field === 'files' || field === 'filesremovedatonce') {
         validationValue = parseInt(value);
@@ -88,7 +88,7 @@ function Expiration() {
       const originalFieldValue = getNestedValue(config, CONFIG_PATHS[key], '');
       return currentValue.toString() !== originalFieldValue.toString();
     });
-    
+
     setHasChanges(hasFieldChanges);
   };
 
@@ -101,12 +101,12 @@ function Expiration() {
     Object.keys(CONFIG_PATHS).forEach(key => {
       const path = CONFIG_PATHS[key];
       let value = localSettings[key];
-      
+
       // Convert numeric fields to integers
       if (key === 'files' || key === 'filesremovedatonce') {
         value = value ? parseInt(value) : 0;
       }
-      
+
       configUpdate[path] = value;
     });
 
@@ -123,48 +123,48 @@ function Expiration() {
           <div className={styles.tabPanel}>
             <div className={styles.formRow}>
               <Input
-                label="Files Cron Expression"
+                label='Files Cron Expression'
                 value={localSettings.filesCron}
-                onChange={(value) => handleFieldChange('filesCron', value)}
-                placeholder="0 0 */2 * * *"
-                description="Cron expression for file cleanup schedule (6 fields: second minute hour day month day_of_week)"
+                onChange={value => handleFieldChange('filesCron', value)}
+                placeholder='0 0 */2 * * *'
+                description='Cron expression for file cleanup schedule (6 fields: second minute hour day month day_of_week)'
                 error={getFieldError(CONFIG_PATHS.filesCron)}
               />
             </div>
 
             <div className={styles.formRow}>
               <Input
-                label="Documents Cron Expression"
+                label='Documents Cron Expression'
                 value={localSettings.documentsCron}
-                onChange={(value) => handleFieldChange('documentsCron', value)}
-                placeholder="0 0 */2 * * *"
-                description="Cron expression for document cleanup schedule (6 fields: second minute hour day month day_of_week)"
+                onChange={value => handleFieldChange('documentsCron', value)}
+                placeholder='0 0 */2 * * *'
+                description='Cron expression for document cleanup schedule (6 fields: second minute hour day month day_of_week)'
                 error={getFieldError(CONFIG_PATHS.documentsCron)}
               />
             </div>
 
             <div className={styles.formRow}>
               <Input
-                label="Files Expiration Time (seconds)"
-                type="number"
+                label='Files Expiration Time (seconds)'
+                type='number'
                 value={localSettings.files}
-                onChange={(value) => handleFieldChange('files', value)}
-                placeholder="3600"
-                description="Time in seconds after which files expire and can be cleaned up"
-                min="0"
+                onChange={value => handleFieldChange('files', value)}
+                placeholder='3600'
+                description='Time in seconds after which files expire and can be cleaned up'
+                min='0'
                 error={getFieldError(CONFIG_PATHS.files)}
               />
             </div>
 
             <div className={styles.formRow}>
               <Input
-                label="Files Removed At Once"
-                type="number"
+                label='Files Removed At Once'
+                type='number'
                 value={localSettings.filesremovedatonce}
-                onChange={(value) => handleFieldChange('filesremovedatonce', value)}
-                placeholder="1000"
-                description="Maximum number of files to remove in a single cleanup operation"
-                min="0"
+                onChange={value => handleFieldChange('filesremovedatonce', value)}
+                placeholder='1000'
+                description='Maximum number of files to remove in a single cleanup operation'
+                min='0'
                 error={getFieldError(CONFIG_PATHS.filesremovedatonce)}
               />
             </div>
@@ -175,10 +175,10 @@ function Expiration() {
           <div className={styles.tabPanel}>
             <div className={styles.formRow}>
               <Input
-                label="Session Idle Timeout"
+                label='Session Idle Timeout'
                 value={localSettings.sessionidle}
-                onChange={(value) => handleFieldChange('sessionidle', value)}
-                placeholder="1h"
+                onChange={value => handleFieldChange('sessionidle', value)}
+                placeholder='1h'
                 description="Time after which idle sessions expire (e.g., '30m', '1h', '2h')"
                 error={getFieldError(CONFIG_PATHS.sessionidle)}
               />
@@ -186,10 +186,10 @@ function Expiration() {
 
             <div className={styles.formRow}>
               <Input
-                label="Session Absolute Timeout"
+                label='Session Absolute Timeout'
                 value={localSettings.sessionabsolute}
-                onChange={(value) => handleFieldChange('sessionabsolute', value)}
-                placeholder="24h"
+                onChange={value => handleFieldChange('sessionabsolute', value)}
+                placeholder='24h'
                 description="Maximum session lifetime regardless of activity (e.g., '24h', '30d')"
                 error={getFieldError(CONFIG_PATHS.sessionabsolute)}
               />
@@ -202,33 +202,20 @@ function Expiration() {
   };
 
   if (loading) {
-    return (
-      <div className={styles.loading}>
-        Loading expiration settings...
-      </div>
-    );
+    return <div className={styles.loading}>Loading expiration settings...</div>;
   }
 
   return (
     <div className={styles.expiration}>
       <PageHeader>Expiration Settings</PageHeader>
-      <PageDescription>
-        Configure file cleanup schedules, session timeouts, and garbage collection settings
-      </PageDescription>
+      <PageDescription>Configure file cleanup schedules, session timeouts, and garbage collection settings</PageDescription>
 
-      <Tabs 
-        tabs={expirationTabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      >
+      <Tabs tabs={expirationTabs} activeTab={activeTab} onTabChange={setActiveTab}>
         {renderTabContent()}
       </Tabs>
 
       <div className={styles.actions}>
-        <SaveButton 
-          onClick={handleSave}
-          disabled={!hasChanges || hasValidationErrors()}
-        >
+        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
           Save Changes
         </SaveButton>
       </div>

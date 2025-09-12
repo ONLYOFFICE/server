@@ -4,7 +4,7 @@
 
 .tabsHeader {
   display: flex;
-  border-bottom: 1px solid #E2E2E2;
+  border-bottom: 1px solid #e2e2e2;
   margin-bottom: 24px;
 }
 
@@ -29,8 +29,8 @@
   }
 
   &--active {
-    color: #FF6F3D;
-    
+    color: #ff6f3d;
+
     &::after {
       content: '';
       position: absolute;
@@ -38,7 +38,7 @@
       left: 0;
       right: 0;
       height: 2px;
-      background: #FF6F3D;
+      background: #ff6f3d;
     }
   }
 }

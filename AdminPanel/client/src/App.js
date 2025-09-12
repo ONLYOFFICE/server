@@ -1,27 +1,23 @@
 import {Provider} from 'react-redux';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import {Routes, Route, Navigate} from 'react-router-dom';
 import './App.css';
 import {store} from './store';
 import AuthWrapper from './components/AuthWrapper/AuthWrapper';
 import Menu from './components/Menu/Menu';
-import { menuItems } from './config/menuItems';
+import {menuItems} from './config/menuItems';
 
 function App() {
   return (
     <Provider store={store}>
-      <div className="app">
+      <div className='app'>
         <AuthWrapper>
-          <div className="appLayout">
+          <div className='appLayout'>
             <Menu />
-            <div className="mainContent">
+            <div className='mainContent'>
               <Routes>
-                <Route path="/" element={<Navigate to="/statistics" replace />} />
-                {menuItems.map((item) => (
-                  <Route 
-                    key={item.key} 
-                    path={item.path} 
-                    element={<item.component />} 
-                  />
+                <Route path='/' element={<Navigate to='/statistics' replace />} />
+                {menuItems.map(item => (
+                  <Route key={item.key} path={item.path} element={<item.component />} />
                 ))}
               </Routes>
             </div>

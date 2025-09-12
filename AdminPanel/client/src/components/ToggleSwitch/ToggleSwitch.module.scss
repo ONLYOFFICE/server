@@ -16,9 +16,9 @@
   position: relative;
   width: 32px;
   height: 16px;
-  background: #F9FEEF;
+  background: #f9feef;
   border-radius: 16px;
-  border: 1px solid #8BB825;
+  border: 1px solid #8bb825;
   cursor: pointer;
   transition: all 0.2s ease;
   opacity: 1;
@@ -29,11 +29,11 @@
   width: 10px;
   height: 10px;
   background: white;
-  border: 1px solid #8BB825;
+  border: 1px solid #8bb825;
   border-radius: 50%;
   top: 2px;
   transition: transform 0.2s ease;
-  background: #8BB825;
+  background: #8bb825;
 }
 
 .switch--off .circle {

@@ -1,6 +1,6 @@
 import styles from './StatisticsTopBlock.module.scss';
 
-function StatisticsTopBlock({ title, children }) {
+function StatisticsTopBlock({title, children}) {
   return (
     <div className={styles.block}>
       <div className={styles.title}>{title}</div>
