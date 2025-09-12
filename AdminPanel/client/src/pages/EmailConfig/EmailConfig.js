@@ -4,12 +4,12 @@ import { fetchConfig, saveConfig, selectConfig, selectConfigLoading } from '../.
 import { getNestedValue } from '../../utils/getNestedValue';
 import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
 import { useFieldValidation } from '../../hooks/useFieldValidation';
-import PageHeader from '../../components2/PageHeader/PageHeader';
-import PageDescription from '../../components2/PageDescription/PageDescription';
-import Tabs from '../../components2/Tabs/Tabs';
-import Input from '../../components2/Input/Input';
-import Checkbox from '../../components2/Checkbox/Checkbox';
-import SaveButton from '../../components2/SaveButton/SaveButton';
+import PageHeader from '../../components/PageHeader/PageHeader';
+import PageDescription from '../../components/PageDescription/PageDescription';
+import Tabs from '../../components/Tabs/Tabs';
+import Input from '../../components/Input/Input';
+import Checkbox from '../../components/Checkbox/Checkbox';
+import SaveButton from '../../components/SaveButton/SaveButton';
 import styles from './EmailConfig.module.scss';
 
 const emailConfigTabs = [

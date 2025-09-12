@@ -4,11 +4,11 @@ import { fetchConfig, saveConfig, selectConfig, selectConfigLoading } from '../.
 import { getNestedValue } from '../../utils/getNestedValue';
 import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
 import { useFieldValidation } from '../../hooks/useFieldValidation';
-import PageHeader from '../../components2/PageHeader/PageHeader';
-import PageDescription from '../../components2/PageDescription/PageDescription';
-import Tabs from '../../components2/Tabs/Tabs';
-import AccessRules from '../../components2/AccessRules/AccessRules';
-import SaveButton from '../../components2/SaveButton/SaveButton';
+import PageHeader from '../../components/PageHeader/PageHeader';
+import PageDescription from '../../components/PageDescription/PageDescription';
+import Tabs from '../../components/Tabs/Tabs' ;
+import AccessRules from '../../components/AccessRules/AccessRules';
+import SaveButton from '../../components/SaveButton/SaveButton';
 import styles from './SecuritySettings.module.scss';
 
 const securityTabs = [

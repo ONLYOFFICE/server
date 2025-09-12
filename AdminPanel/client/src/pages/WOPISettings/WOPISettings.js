@@ -4,10 +4,10 @@ import { fetchConfig, saveConfig, selectConfig, selectConfigLoading, selectSchem
 import { getNestedValue } from '../../utils/getNestedValue';
 import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
 import { useFieldValidation } from '../../hooks/useFieldValidation';
-import PageHeader from '../../components2/PageHeader/PageHeader';
-import PageDescription from '../../components2/PageDescription/PageDescription';
-import ToggleSwitch from '../../components2/ToggleSwitch/ToggleSwitch';
-import SaveButton from '../../components2/SaveButton/SaveButton';
+import PageHeader from '../../components/PageHeader/PageHeader';
+import PageDescription from '../../components/PageDescription/PageDescription';
+import ToggleSwitch from '../../components/ToggleSwitch/ToggleSwitch';
+import SaveButton from '../../components/SaveButton/SaveButton';
 import styles from './WOPISettings.module.scss';
 
 function WOPISettings() {

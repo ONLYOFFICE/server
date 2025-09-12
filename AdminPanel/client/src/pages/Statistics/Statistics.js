@@ -1,8 +1,8 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchStatistics } from '../../api';
-import StatisticsTopBlock from '../../components2/StatisticsTopBlock/StatisticsTopBlock';
-import StatisticsInfoTable from '../../components2/StatisticsInfoTable/StatisticsInfoTable';
+import StatisticsTopBlock from '../../components/StatisticsTopBlock/StatisticsTopBlock';
+import StatisticsInfoTable from '../../components/StatisticsInfoTable/StatisticsInfoTable';
 import styles from './Statistics.module.scss';
 
 function Statistics() {

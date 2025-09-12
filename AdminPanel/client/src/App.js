@@ -2,8 +2,8 @@ import {Provider} from 'react-redux';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import {store} from './store';
-import AuthWrapper from './components2/AuthWrapper/AuthWrapper';
-import Menu from './components2/Menu/Menu';
+import AuthWrapper from './components/AuthWrapper/AuthWrapper';
+import Menu from './components/Menu/Menu';
 import { menuItems } from './config/menuItems';
 
 function App() {

@@ -4,10 +4,10 @@ import { fetchConfig, saveConfig } from '../../store/slices/configSlice';
 import { getNestedValue } from '../../utils/getNestedValue';
 import { mergeNestedObjects } from '../../utils/mergeNestedObjects';
 import { useFieldValidation } from '../../hooks/useFieldValidation';
-import Checkbox from '../../components2/Checkbox/Checkbox';
-import SaveButton from '../../components2/SaveButton/SaveButton';
-import PageHeader from '../../components2/PageHeader/PageHeader';
-import PageDescription from '../../components2/PageDescription/PageDescription';
+import Checkbox from '../../components/Checkbox/Checkbox';
+import SaveButton from '../../components/SaveButton/SaveButton';
+import PageHeader from '../../components/PageHeader/PageHeader';
+import PageDescription from '../../components/PageDescription/PageDescription';
 import styles from './RequestFiltering.module.scss';
 
 function RequestFiltering() {

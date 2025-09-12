@@ -1,8 +1,8 @@
 import {useState, useRef} from 'react';
 import {useDispatch} from 'react-redux';
 import {loginUser} from '../../store/slices/userSlice';
-import Input from '../../components2/LoginInput';
-import Button from '../../components2/LoginButton';
+import Input from '../../components/LoginInput';
+import Button from '../../components/LoginButton';
 import styles from './styles.module.css';
 
 export default function Login() {
