@@ -1,6 +1,7 @@
 {
   "adminPanel": {
-    "jwtSecret": "secret"
+    "jwtSecret": "secret",
+    "port": 9000
   },
   "statsd": {
     "useMetrics": false,
@@ -609,6 +610,13 @@
         },
         {
           "type": "pptx;ppsx;potx;pptm;ppsm;potm",
+          "zip": {
+            "uncompressed": "50MB",
+            "template": "*.xml"
+          }
+        },
+        {
+          "type": "vsdx;vstx;vssx;vsdm;vstm;vssm",
           "zip": {
             "uncompressed": "50MB",
             "template": "*.xml"

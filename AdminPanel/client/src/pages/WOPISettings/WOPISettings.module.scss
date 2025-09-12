@@ -1,0 +1,26 @@
+.wopiSettings {
+  padding: 0;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-family: 'Open Sans', sans-serif;
+  color: #666666;
+}
+
+.settingsSection {
+  background: white;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-start;
+  // padding-top: 16px;
+}

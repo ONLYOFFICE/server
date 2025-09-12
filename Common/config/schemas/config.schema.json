@@ -35,6 +35,42 @@
                 "step": {"type": "string", "enum": ["1m", "5m", "10m", "15m", "30m"]}
               }
             },
+            "ipfilter": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "rules": {
+                  "type": "array",
+                  "description": "Array of IP filtering rules",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["address", "allowed"],
+                    "properties": {
+                      "address": {
+                        "type": "string",
+                        "description": "IP address, CIDR notation, or '*' for all (e.g., '192.168.1.0/24', '10.0.0.1', '*')"
+                      },
+                      "allowed": {
+                        "type": "boolean",
+                        "description": "Whether this address/range is allowed (true) or denied (false)"
+                      }
+                    }
+                  }
+                },
+                "useforrequest": {
+                  "type": "boolean",
+                  "description": "Whether to use IP filtering for requests"
+                },
+                "errorcode": {
+                  "type": "integer",
+                  "minimum": 400,
+                  "maximum": 599,
+                  "description": "HTTP error code to return when IP is not allowed"
+                }
+              }
+            },
             "sql": {
               "type": "object",
               "description": "Database connection settings for the CoAuthoring service",
@@ -69,6 +105,21 @@
         }
       }
     },
+    "request-filtering-agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "allowPrivateIPAddress": {
+          "type": "boolean",
+          "description": "Whether to allow requests from private IP addresses"
+        },
+        "allowMetaIPAddress": {
+          "type": "boolean",
+          "description": "Whether to allow requests from meta IP addresses"
+        }
+      }
+    },
     "FileConverter": {
       "type": "object",
       "additionalProperties": false,
@@ -77,7 +128,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 104857600, "x-scope": ["admin", "tenant"]},
+            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 10485760000, "x-scope": ["admin", "tenant"]},
             "inputLimits": {
               "type": "array",
               "x-scope": ["admin", "tenant"],
@@ -152,8 +203,8 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "from": {"type": "string"},
-            "to": {"type": "string"}
+            "from": {"type": "string", "format": "email"},
+            "to": {"type": "string", "format": "email"}
           }
         }
       }

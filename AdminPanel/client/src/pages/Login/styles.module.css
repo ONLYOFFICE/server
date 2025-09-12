@@ -5,6 +5,7 @@
   min-height: calc(100vh - 60px); /* Account for header height */
   background: white;
   padding: 20px;
+  width: 100%;
 }
 
 .loginCard {

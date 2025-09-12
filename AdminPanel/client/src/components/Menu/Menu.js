@@ -1,0 +1,64 @@
+import {useSelector} from 'react-redux';
+import {useLocation, useNavigate} from 'react-router-dom';
+import {selectIsAuthenticated} from '../../store/slices/userSlice';
+import {logout} from '../../api';
+import MenuItem from './MenuItem/MenuItem';
+import AppMenuLogo from '../../assets/AppMenuLogo.svg';
+import {menuItems} from '../../config/menuItems';
+import styles from './Menu.module.scss';
+
+function Menu() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Reload the page after successful logout
+      window.location.reload();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Still reload the page even if logout API fails
+      window.location.reload();
+    }
+  };
+
+  const handleMenuItemClick = item => {
+    navigate(item.path);
+  };
+
+  const isActiveItem = path => {
+    return location.pathname === path;
+  };
+
+  return (
+    <div className={styles.menu}>
+      <div className={styles['menu__content']}>
+        <div className={styles['menu__logoContainer']}>
+          <img src={AppMenuLogo} alt='ONLYOFFICE' className={styles['menu__logo']} />
+        </div>
+
+        <div className={styles['menu__title']}>DocServer Admin Panel</div>
+
+        <div className={styles['menu__separator']}></div>
+
+        <div className={styles['menu__menuItems']}>
+          {menuItems.map(item => (
+            <MenuItem key={item.key} label={item.label} isActive={isActiveItem(item.path)} onClick={() => handleMenuItemClick(item)} />
+          ))}
+        </div>
+
+        {isAuthenticated && (
+          <div className={styles['menu__logoutContainer']}>
+            <button onClick={handleLogout} className={styles['menu__logoutButton']}>
+              Logout
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default Menu;

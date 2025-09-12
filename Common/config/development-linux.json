@@ -106,6 +106,13 @@
             "uncompressed": "1GB",
             "template": "*.xml"
           }
+        },
+        {
+          "type": "vsdx;vstx;vssx;vsdm;vstm;vssm",
+          "zip": {
+            "uncompressed": "1GB",
+            "template": "*.xml"
+          }
         }
       ]
     }
