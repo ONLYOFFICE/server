@@ -15,7 +15,7 @@ function WOPISettings() {
   const config = useSelector(selectConfig);
   const schema = useSelector(selectSchema);
   const loading = useSelector(selectConfigLoading);
-  const { validateField, getFieldError } = useFieldValidation();
+  const { validateField, getFieldError, hasValidationErrors } = useFieldValidation();
 
   // Local state for WOPI enable setting
   const [localWopiEnabled, setLocalWopiEnabled] = useState(false);
@@ -87,7 +87,7 @@ function WOPISettings() {
       <div className={styles.actions}>
         <SaveButton 
           onClick={handleSave}
-          disabled={!hasChanges}
+          disabled={!hasChanges || hasValidationErrors()}
         >
           Save Changes
         </SaveButton>

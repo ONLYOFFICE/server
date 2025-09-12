@@ -14,7 +14,7 @@ function FileLimits() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
   const loading = useSelector(selectConfigLoading);
-  const { validateField, getFieldError } = useFieldValidation();
+  const { validateField, getFieldError, hasValidationErrors } = useFieldValidation();
   
   // Local state for form fields
   const [localSettings, setLocalSettings] = useState({
@@ -224,7 +224,7 @@ function FileLimits() {
       <div className={styles.actions}>
         <SaveButton 
           onClick={handleSave}
-          disabled={!hasChanges}
+          disabled={!hasChanges || hasValidationErrors()}
         >
           Save Changes
         </SaveButton>

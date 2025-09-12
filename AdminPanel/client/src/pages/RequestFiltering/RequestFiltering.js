@@ -13,7 +13,7 @@ import styles from './RequestFiltering.module.scss';
 function RequestFiltering() {
   const dispatch = useDispatch();
   const { config, loading } = useSelector(state => state.config);
-  const { validateField, getFieldError } = useFieldValidation();
+  const { validateField, getFieldError, hasValidationErrors } = useFieldValidation();
 
   const [localSettings, setLocalSettings] = useState({
     allowPrivateIPAddress: false,
@@ -128,7 +128,7 @@ function RequestFiltering() {
       <div className={styles.actions}>
         <SaveButton 
           onClick={handleSave}
-          disabled={!hasChanges}
+          disabled={!hasChanges || hasValidationErrors()}
         >
           Save Changes
         </SaveButton>

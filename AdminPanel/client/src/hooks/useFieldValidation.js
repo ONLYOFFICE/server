@@ -105,10 +105,19 @@ export const useFieldValidation = () => {
     });
   }, []);
 
+  /**
+   * Checks if there are any validation errors
+   * @returns {boolean} True if there are validation errors
+   */
+  const hasValidationErrors = useCallback(() => {
+    return Object.keys(fieldErrors).length > 0;
+  }, [fieldErrors]);
+
   return {
     validateField,
     getFieldError,
     clearFieldError,
+    hasValidationErrors,
     isLoading,
     error
   };

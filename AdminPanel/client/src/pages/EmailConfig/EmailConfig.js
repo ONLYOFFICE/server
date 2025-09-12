@@ -22,7 +22,7 @@ function EmailConfig() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
   const loading = useSelector(selectConfigLoading);
-  const { validateField, getFieldError } = useFieldValidation();
+  const { validateField, getFieldError, hasValidationErrors } = useFieldValidation();
   
   const [activeTab, setActiveTab] = useState('smtp-server');
   
@@ -266,7 +266,7 @@ function EmailConfig() {
       <div className={styles.actions}>
         <SaveButton 
           onClick={handleSave}
-          disabled={!hasChanges}
+          disabled={!hasChanges || hasValidationErrors()}
         >
           Save Changes
         </SaveButton>
