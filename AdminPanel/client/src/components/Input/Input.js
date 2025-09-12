@@ -1,8 +1,8 @@
 import styles from './Input.module.scss';
 
 function Input({label, value, onChange, type = 'text', placeholder = '', error = null, description = null, width, ...props}) {
-  const inputStyle = width ? { width } : {};
-  
+  const inputStyle = width ? {width} : {};
+
   return (
     <div className={styles.inputGroup}>
       {label && <label className={styles.label}>{label}</label>}

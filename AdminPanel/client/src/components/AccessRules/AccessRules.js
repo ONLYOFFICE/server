@@ -45,7 +45,7 @@ function AccessRules({rules = [], onChange}) {
             value={newRule.value}
             onChange={value => setNewRule({...newRule, value})}
             onKeyPress={handleKeyPress}
-            width="calc(100% - 32px)"
+            width='calc(100% - 32px)'
           />
         </div>
         <button className={styles.addButton} onClick={handleAddRule} disabled={!newRule.value.trim()}>

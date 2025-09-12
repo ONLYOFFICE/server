@@ -108,7 +108,7 @@
           }
         },
         {
-          "type": "vsdx",
+          "type": "vsdx;vstx;vssx;vsdm;vstm;vssm",
           "zip": {
             "uncompressed": "1GB",
             "template": "*.xml"
