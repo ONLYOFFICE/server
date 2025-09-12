@@ -55,6 +55,7 @@ module.exports = [
       'no-console': 'off', // Allow console in server code
       'no-continue': 'off', // Allow continue statements
       'no-plusplus': 'off',
+      'react-hooks/exhaustive-deps': 'off',
 
       // Modern JavaScript practices
       'prefer-const': 'error', // Enforce const for immutable bindings

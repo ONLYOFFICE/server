@@ -83,7 +83,6 @@ function Expiration() {
     }
 
     // Check if there are changes
-    const originalValue = getNestedValue(config, CONFIG_PATHS[field], '');
     const hasFieldChanges = Object.keys(CONFIG_PATHS).some(key => {
       const currentValue = key === field ? value : localSettings[key];
       const originalFieldValue = getNestedValue(config, CONFIG_PATHS[key], '');

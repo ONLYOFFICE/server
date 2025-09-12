@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchConfig, saveConfig } from '../../store/slices/configSlice';
 import { getNestedValue } from '../../utils/getNestedValue';
@@ -57,7 +57,6 @@ function RequestFiltering() {
     }
 
     // Check if there are changes
-    const originalValue = getNestedValue(config, CONFIG_PATHS[field], false);
     const hasFieldChanges = Object.keys(CONFIG_PATHS).some(key => {
       const currentValue = key === field ? value : localSettings[key];
       const originalFieldValue = getNestedValue(config, CONFIG_PATHS[key], false);
