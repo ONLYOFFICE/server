@@ -614,6 +614,13 @@
             "uncompressed": "50MB",
             "template": "*.xml"
           }
+        },
+        {
+          "type": "vsdx",
+          "zip": {
+            "uncompressed": "50MB",
+            "template": "*.xml"
+          }
         }
       ]
     }

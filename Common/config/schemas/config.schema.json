@@ -98,7 +98,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 104857600, "x-scope": ["admin", "tenant"]},
+            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 10485760000, "x-scope": ["admin", "tenant"]},
             "inputLimits": {
               "type": "array",
               "x-scope": ["admin", "tenant"],

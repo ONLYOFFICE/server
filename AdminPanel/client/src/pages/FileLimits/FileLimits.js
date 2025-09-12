@@ -21,7 +21,8 @@ function FileLimits() {
     maxDownloadBytes: '',
     docxUncompressed: '',
     xlsxUncompressed: '',
-    pptxUncompressed: ''
+    pptxUncompressed: '',
+    vsdxUncompressed: ''
   });
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -30,7 +31,8 @@ function FileLimits() {
     maxDownloadBytes: 'FileConverter.converter.maxDownloadBytes',
     docxUncompressed: 'FileConverter.converter.inputLimits.0.zip.uncompressed',
     xlsxUncompressed: 'FileConverter.converter.inputLimits.1.zip.uncompressed',
-    pptxUncompressed: 'FileConverter.converter.inputLimits.2.zip.uncompressed'
+    pptxUncompressed: 'FileConverter.converter.inputLimits.2.zip.uncompressed',
+    vsdxUncompressed: 'FileConverter.converter.inputLimits.3.zip.uncompressed'
   };
 
   // Load config data when component mounts
@@ -50,10 +52,12 @@ function FileLimits() {
       const docxLimit = inputLimits.find(limit => limit.type && limit.type.includes('docx'));
       const xlsxLimit = inputLimits.find(limit => limit.type && limit.type.includes('xlsx'));
       const pptxLimit = inputLimits.find(limit => limit.type && limit.type.includes('pptx'));
+      const vsdxLimit = inputLimits.find(limit => limit.type && limit.type.includes('vsdx'));
 
       settings.docxUncompressed = docxLimit?.zip?.uncompressed || '';
       settings.xlsxUncompressed = xlsxLimit?.zip?.uncompressed || '';
       settings.pptxUncompressed = pptxLimit?.zip?.uncompressed || '';
+      settings.vsdxUncompressed = vsdxLimit?.zip?.uncompressed || '';
 
       setLocalSettings(settings);
       setHasChanges(false);
@@ -94,6 +98,9 @@ function FileLimits() {
         } else if (key === 'pptxUncompressed') {
           const pptxLimit = inputLimits.find(limit => limit.type && limit.type.includes('pptx'));
           originalValue = pptxLimit?.zip?.uncompressed || '';
+        } else if (key === 'vsdxUncompressed') {
+          const vsdxLimit = inputLimits.find(limit => limit.type && limit.type.includes('vsdx'));
+          originalValue = vsdxLimit?.zip?.uncompressed || '';
         }
       }
 
@@ -138,6 +145,14 @@ function FileLimits() {
           zip: {
             ...limit.zip,
             uncompressed: localSettings.pptxUncompressed
+          }
+        };
+      } else if (limit.type && limit.type.includes('vsdx')) {
+        return {
+          ...limit,
+          zip: {
+            ...limit.zip,
+            uncompressed: localSettings.vsdxUncompressed
           }
         };
       }
@@ -208,6 +223,16 @@ function FileLimits() {
             onChange={value => handleFieldChange('pptxUncompressed', value)}
             placeholder='50MB'
             description='Maximum uncompressed size for PowerPoint document archives'
+          />
+        </div>
+
+        <div className={styles.formRow}>
+          <Input
+            label='Visio Documents (VSDX)'
+            value={localSettings.vsdxUncompressed}
+            onChange={value => handleFieldChange('vsdxUncompressed', value)}
+            placeholder='50MB'
+            description='Maximum uncompressed size for Visio document archives'
           />
         </div>
       </div>
