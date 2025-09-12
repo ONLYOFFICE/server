@@ -48,6 +48,8 @@ const infoRouter = require('../../../DocService/sources/routes/info');
 const configRouter = require('./routes/config/router');
 const adminpanelRouter = require('./routes/adminpanel/router');
 
+const port = config.get('adminPanel.port');
+
 const app = express();
 app.disable('x-powered-by');
 
@@ -109,7 +111,6 @@ app.use((err, req, res, _next) => {
   res.sendStatus(500);
 });
 
-const port = 9000;
 server.listen(port, () => {
   operationContext.global.logger.warn('AdminPanel server listening on port %d', port);
 });

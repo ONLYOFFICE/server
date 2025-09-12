@@ -1,6 +1,7 @@
 {
   "adminPanel": {
-    "jwtSecret": "secret"
+    "jwtSecret": "secret",
+    "port": 9000
   },
   "statsd": {
     "useMetrics": false,
