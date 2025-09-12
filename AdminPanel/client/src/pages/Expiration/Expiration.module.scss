@@ -37,7 +37,7 @@
 }
 
 .tabPanel {
-  padding: 24px;
+  padding: 32px;
   background: #fff;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
@@ -52,31 +52,31 @@
 }
 
 // Responsive design
-@media (max-width: 768px) {
-  .expiration {
-    padding: 16px;
-  }
+// @media (max-width: 768px) {
+//   .expiration {
+//     padding: 16px;
+//   }
 
-  .settingsSection {
-    padding: 16px;
-    margin-bottom: 24px;
-  }
+//   .settingsSection {
+//     padding: 16px;
+//     margin-bottom: 24px;
+//   }
 
-  .sectionTitle {
-    font-size: 16px;
-    margin-bottom: 16px;
-  }
+//   .sectionTitle {
+//     font-size: 16px;
+//     margin-bottom: 16px;
+//   }
 
-  .formRow {
-    margin-bottom: 20px;
-  }
+//   .formRow {
+//     margin-bottom: 20px;
+//   }
 
-  .tabPanel {
-    padding: 16px;
-  }
+//   .tabPanel {
+//     padding: 16px;
+//   }
 
-  .actions {
-    padding: 16px 0;
-    margin-top: 24px;
-  }
-}
+//   .actions {
+//     padding: 16px 0;
+//     margin-top: 24px;
+//   }
+// }

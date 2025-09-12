@@ -5,7 +5,7 @@
 .tabsHeader {
   display: flex;
   border-bottom: 1px solid #e2e2e2;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .tab {
@@ -17,7 +17,7 @@
   text-transform: uppercase;
   background: none;
   border: none;
-  padding: 12px 16px;
+  padding-bottom: 4px;
   margin-right: 32px;
   cursor: pointer;
   position: relative;

@@ -39,7 +39,7 @@
   background: #fff;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
-  padding: 24px;
+  padding: 32px;
   margin-bottom: 32px;
 }
 
@@ -49,7 +49,7 @@
   font-size: 20px;
   line-height: 150%;
   color: #333333;
-  margin: 0 0 8px 0;
+  margin: 0 0 3px 0;
 }
 
 .sectionDescription {
@@ -78,17 +78,17 @@
 }
 
 // Responsive design
-@media (max-width: 768px) {
-  .requestFiltering {
-    padding: 16px;
-  }
+// @media (max-width: 768px) {
+//   .requestFiltering {
+//     padding: 16px;
+//   }
 
-  .title {
-    font-size: 24px;
-    line-height: 32px;
-  }
+//   .title {
+//     font-size: 24px;
+//     line-height: 32px;
+//   }
 
-  .section {
-    padding: 16px;
-  }
-}
+//   .section {
+//     padding: 16px;
+//   }
+// }
