@@ -31,10 +31,14 @@
   vertical-align: middle;
   transition:
     border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    background-color 0.2s ease,
+    color 0.2s ease;
 
   &:focus {
     outline: none;
+    border: 1px solid #CCCCCC;
+    background: #F1F1F1;
+    color: #444444;
   }
 
   &::placeholder {

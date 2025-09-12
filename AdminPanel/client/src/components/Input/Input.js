@@ -1,6 +1,8 @@
 import styles from './Input.module.scss';
 
-function Input({label, value, onChange, type = 'text', placeholder = '', error = null, description = null, ...props}) {
+function Input({label, value, onChange, type = 'text', placeholder = '', error = null, description = null, width, ...props}) {
+  const inputStyle = width ? { width } : {};
+  
   return (
     <div className={styles.inputGroup}>
       {label && <label className={styles.label}>{label}</label>}
@@ -11,6 +13,8 @@ function Input({label, value, onChange, type = 'text', placeholder = '', error =
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
+        spellCheck={false}
+        style={inputStyle}
         {...props}
       />
       {error && <span className={styles.error}>{error}</span>}

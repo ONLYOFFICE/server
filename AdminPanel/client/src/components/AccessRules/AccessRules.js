@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import Select from '../Select/Select';
+import Input from '../Input/Input';
 import styles from './AccessRules.module.scss';
 
 function AccessRules({rules = [], onChange}) {
@@ -38,14 +39,15 @@ function AccessRules({rules = [], onChange}) {
             {value: 'Deny', label: 'Deny'}
           ]}
         />
-        <input
-          className={styles.valueInput}
-          type='text'
-          placeholder='Enter value'
-          value={newRule.value}
-          onChange={e => setNewRule({...newRule, value: e.target.value})}
-          onKeyPress={handleKeyPress}
-        />
+        <div className={styles.inputWrapper}>
+          <Input
+            placeholder='Enter value'
+            value={newRule.value}
+            onChange={value => setNewRule({...newRule, value})}
+            onKeyPress={handleKeyPress}
+            width="calc(100% - 32px)"
+          />
+        </div>
         <button className={styles.addButton} onClick={handleAddRule} disabled={!newRule.value.trim()}>
           Add Rule
         </button>
