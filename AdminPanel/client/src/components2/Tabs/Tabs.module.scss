@@ -1,0 +1,48 @@
+.tabsContainer {
+  margin-bottom: 32px;
+}
+
+.tabsHeader {
+  display: flex;
+  border-bottom: 1px solid #E2E2E2;
+  margin-bottom: 24px;
+}
+
+.tab {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 150%;
+  letter-spacing: 4%;
+  text-transform: uppercase;
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  margin-right: 32px;
+  cursor: pointer;
+  position: relative;
+  color: #666666;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #333333;
+  }
+
+  &--active {
+    color: #FF6F3D;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #FF6F3D;
+    }
+  }
+}
+
+.tabContent {
+  // Content area for tab panels
+}

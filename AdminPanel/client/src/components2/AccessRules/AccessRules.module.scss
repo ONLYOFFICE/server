@@ -1,0 +1,180 @@
+.accessRules {
+  background: white;
+  // border: 1px solid #E2E2E2;
+  border-radius: 8px;
+  // padding: 24px;
+  margin-bottom: 32px;
+}
+
+.title {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 150%;
+  color: #333333;
+  margin: 0 0 8px 0;
+}
+
+.description {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 150%;
+  color: #666666;
+  margin: 0 0 24px 0;
+}
+
+.addRule {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.valueInput {
+  flex: 1;
+  height: 48px;
+  padding: 12px 16px;
+  background: #F1F1F1;
+  border: 1px solid #E2E2E2;
+  border-radius: 4px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 16px;
+  line-height: 150%;
+  letter-spacing: 0%;
+  color: #808080;
+  box-sizing: border-box;
+  outline: none;
+  
+  &:focus {
+    outline: none;
+  }
+
+  &::placeholder {
+    color: #808080;
+  }
+}
+
+.addButton {
+  background: #FF6F3D;
+  color: #FFFFFF;
+  border: none;
+  height: 48px;
+  padding: 12px 20px;
+  border-radius: 4px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-style: normal;
+  font-size: 16px;
+  line-height: 133%;
+  letter-spacing: 0%;
+  text-align: center;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover:not(:disabled) {
+    background: #E55A2B;
+  }
+
+  &:disabled {
+    background: #CCCCCC;
+    cursor: not-allowed;
+  }
+}
+
+.rulesList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  height: 64px;
+  padding: 0 0 0 16px;
+  border-bottom: 1px solid #EFEFEF;
+}
+
+.ruleType {
+  width: 64px;
+  height: 30px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Ubuntu Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 18px;
+  line-height: 120%;
+  letter-spacing: 2%;
+  text-transform: none;
+  box-sizing: border-box;
+
+  &--allow {
+    background: #DBF5E5;
+    color: #228047;
+  }
+
+  &--deny {
+    background: #F9D9DB;
+    color: #AB1C26;
+  }
+}
+
+.ruleValue {
+  flex: 1;
+  font-family: 'Ubuntu Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 18px;
+  line-height: 120%;
+  letter-spacing: 2%;
+  color: #333333;
+  margin: 0 32px;
+}
+
+.removeButton {
+  background: none;
+  border: 1px solid #AAAAAA;
+  color: #444444;
+  width: 111px;
+  height: 48px;
+  border-radius: 4px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-style: normal;
+  font-size: 16px;
+  line-height: 133%;
+  letter-spacing: 0%;
+  text-align: center;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  &:hover {
+    border-color: #888888;
+    color: #222222;
+  }
+}
+
+.emptyState {
+  text-align: center;
+  color: #999999;
+  font-style: italic;
+  padding: 24px;
+}
