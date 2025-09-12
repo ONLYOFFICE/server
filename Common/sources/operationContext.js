@@ -76,6 +76,13 @@ Context.prototype.initFromConnection = function (conn) {
   const userSessionId = utils.getSessionIdByConnection(this, conn);
   this.init(tenant, docId || this.docId, userId || this.userId, shardKey, wopiSrc, userSessionId);
 };
+Context.prototype.initFromConnectionRequest = function (req) {
+  this.initFromRequest(req);
+  const docIdParsed = constants.DOC_ID_SOCKET_PATTERN.exec(req.url);
+  if (docIdParsed && 1 < docIdParsed.length) {
+    this.setDocId(docIdParsed[1]);
+  }
+};
 Context.prototype.initFromRequest = function (req) {
   const tenant = tenantManager.getTenantByRequest(this, req);
   const shardKey = utils.getShardKeyByRequest(this, req);

@@ -4,7 +4,7 @@ import SecuritySettings from '../pages/SecuritySettings/SecuritySettings';
 import EmailConfig from '../pages/EmailConfig/EmailConfig';
 import FileLimits from '../pages/FileLimits/FileLimits';
 import RequestFiltering from '../pages/RequestFiltering/RequestFiltering';
-import Statistics from '../pages/Statistics/Statistics';
+import Statistics from '../pages/Statistics';
 
 // Generic component factory function for pages not yet implemented
 const createMockComponent = label => () => <div>{label} Component</div>;

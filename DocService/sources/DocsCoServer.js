@@ -1806,7 +1806,7 @@ async function encryptPasswordParams(ctx, data) {
 }
 exports.encryptPasswordParams = encryptPasswordParams;
 exports.getOpenFormatByEditor = getOpenFormatByEditor;
-exports.install = function (server, callbackFunction) {
+exports.install = function (server, app, callbackFunction) {
   const io = new Server(server, cfgSocketIoConnection);
 
   io.use((socket, next) => {
@@ -2022,7 +2022,15 @@ exports.install = function (server, callbackFunction) {
     }
   });
   io.engine.on('connection_error', err => {
-    operationContext.global.logger.warn('io.connection_error code=%s, message=%s', err.code, err.message);
+    let logger = operationContext.global.logger;
+    if (err.req) {
+      const ctx = new operationContext.Context();
+      // Ensure raw IncomingMessage has Express properties for consistent context init
+      utils.expressifyIncomingMessage(err.req, app);
+      ctx.initFromConnectionRequest(err.req);
+      logger = ctx.logger;
+    }
+    logger.warn('io.connection_error code=%s, message=%s, url=%s', err?.code, err?.message, err?.req?.url);
   });
   /**
    *
