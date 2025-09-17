@@ -2,6 +2,11 @@
   padding: 0;
 }
 
+// Ensure proper spacing with tabs
+:global(.tabsContainer) {
+  margin-bottom: 0;
+}
+
 .pageWithFixedSave {
   padding-bottom: 80px;
 }
@@ -21,6 +26,41 @@
   border-radius: 8px;
   padding: 32px;
   margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 8px;
+}
+
+.sectionDescription {
+  font-size: 14px;
+  color: #666666;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.formRow {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+// Ensure SaveButton aligns properly in form row
+:global(.saveButton) {
+  margin-top: 0;
+}
+
+// Override Input component styles for disabled key display
+:global(.input[disabled]) {
+  background-color: #f8f9fa !important;
+  color: #666666 !important;
+  cursor: not-allowed !important;
+  opacity: 0.8;
 }
 
 .actions {

@@ -3,13 +3,11 @@ const config = require('config');
 const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
-const operationContext = require('../../../../../Common/sources/operationContext');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
 const utils = require('../../../../../Common/sources/utils');
 const {getScopedConfig, validateScoped, getScopedSchema} = require('./config.service');
-const jwt = require('jsonwebtoken');
+const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
-const adminPanelJwtSecret = config.get('adminPanel.jwtSecret');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -22,23 +20,6 @@ const rawFileParser = bodyParser.raw({
   }
 });
 
-const validateJWT = async (req, res, next) => {
-  const ctx = new operationContext.Context();
-  try {
-    const token = req.cookies.accessToken;
-    if (!token) {
-      return res.status(401).json({error: 'Unauthorized - No token provided'});
-    }
-    const decoded = jwt.verify(token, adminPanelJwtSecret);
-    ctx.init(decoded.tenant);
-    await ctx.initTenantCache();
-    req.user = decoded;
-    req.ctx = ctx;
-    return next();
-  } catch {
-    return res.status(401).json({error: 'Unauthorized'});
-  }
-};
 
 router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;

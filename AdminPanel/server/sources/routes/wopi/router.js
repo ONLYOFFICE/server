@@ -34,9 +34,15 @@
 
 const express = require('express');
 const crypto = require('crypto');
-const operationContext = require('../../../../../Common/sources/operationContext');
+const utils = require('../../../../../Common/sources/utils');
+const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
+const tenantManager = require('../../../../../Common/sources/tenantManager');
+const {validateJWT} = require('../../middleware/auth');
+const {getScopedConfig} = require('../config/config.service');
+const cookieParser = require('cookie-parser');
 
 const router = express.Router();
+router.use(cookieParser());
 
 /**
  * Decode a base64url string into a Buffer (RFC 7515)
@@ -143,32 +149,51 @@ function generateWopiKeys() {
 }
 
 /**
- * Generates WOPI RSA keys and returns key parameters.
+ * Rotates WOPI keys - moves current keys to Old and generates new ones.
  */
-router.get('/generate-keys', express.json(), async (req, res) => {
-  const ctx = new operationContext.Context();
+router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
+  const ctx = req.ctx;
   try {
-    ctx.initFromRequest(req);
-    ctx.logger.info('WOPI key generation start');
+    ctx.logger.info('WOPI key rotation start');
 
-    // Generate WOPI keys
-    const wopiConfig = generateWopiKeys();
+    const currentConfig = ctx.getFullCfg();
+    const wopiConfig = utils.getImpl(currentConfig, 'wopi') || {};
 
-    res.json({
-      publicKey: wopiConfig.publicKey,
-      modulus: wopiConfig.modulus,
-      exponent: wopiConfig.exponent,
-      privateKey: wopiConfig.privateKey
-    });
+    const newWopiConfig = generateWopiKeys();
+
+    const configUpdate = {
+      wopi: {
+        publicKeyOld: wopiConfig.publicKey || '',
+        modulusOld: wopiConfig.modulus || '',
+        exponentOld: wopiConfig.exponent || '',
+        privateKeyOld: wopiConfig.privateKey || '',
+        publicKey: newWopiConfig.publicKey,
+        modulus: newWopiConfig.modulus,
+        exponent: newWopiConfig.exponent,
+        privateKey: newWopiConfig.privateKey
+      }
+    };
+
+    const newConfig = utils.deepMergeObjects(currentConfig, configUpdate);
+    
+    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
+      await tenantManager.setTenantConfig(ctx, newConfig);
+    } else {
+      await runtimeConfigManager.saveConfig(ctx, newConfig);
+    }
+
+    await ctx.initTenantCache();
+    const filteredConfig = getScopedConfig(ctx);
+    res.status(200).json(filteredConfig);
   } catch (error) {
-    ctx.logger.error('WOPI key generation error: %s', error.stack);
+    ctx.logger.error('WOPI key rotation error: %s', error.stack);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate WOPI keys',
+      error: 'Failed to rotate WOPI keys',
       details: error.message
     });
   } finally {
-    ctx.logger.info('WOPI key generation end');
+    ctx.logger.info('WOPI key rotation end');
   }
 });
 

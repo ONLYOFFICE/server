@@ -104,3 +104,20 @@ export const logout = async () => {
 
   return response.json();
 };
+
+export const rotateWopiKeys = async () => {
+  const response = await fetch(`${BACKEND_URL}/api/v1/admin/wopi/rotate-keys`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to rotate WOPI keys');
+  }
+
+  return response.json();
+};

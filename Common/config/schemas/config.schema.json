@@ -167,7 +167,8 @@
       "additionalProperties": false,
       "x-scope": ["admin", "tenant"],
       "properties": {
-        "enable": {"type": "boolean"}
+        "enable": {"type": "boolean"},
+        "publicKey": {"type": "string"}
       }
     },
     "email": {
