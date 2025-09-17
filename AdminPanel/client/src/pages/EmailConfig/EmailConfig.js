@@ -1,6 +1,6 @@
-import {useState, useEffect} from 'react';
+import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {fetchConfig, saveConfig, selectConfig, selectConfigLoading} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -21,8 +21,7 @@ const emailConfigTabs = [
 function EmailConfig() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
-  const loading = useSelector(selectConfigLoading);
-  const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
+  const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
   const [activeTab, setActiveTab] = useState('smtp-server');
 
@@ -38,6 +37,8 @@ function EmailConfig() {
     defaultToEmail: ''
   });
   const [hasChanges, setHasChanges] = useState(false);
+  const hasInitialized = useRef(false);
+
   // Configuration paths
   const CONFIG_PATHS = {
     smtpHost: 'email.smtpServerConfiguration.host',
@@ -50,11 +51,9 @@ function EmailConfig() {
     defaultToEmail: 'email.contactDefaults.to'
   };
 
-  // Load config data when component mounts
-  useEffect(() => {
-    if (!config) {
-      dispatch(fetchConfig());
-    } else {
+  // Reset state and errors to global config
+  const resetToGlobalConfig = () => {
+    if (config) {
       const settings = {};
       Object.keys(CONFIG_PATHS).forEach(key => {
         const value = getNestedValue(config, CONFIG_PATHS[key], '');
@@ -62,8 +61,24 @@ function EmailConfig() {
       });
       setLocalSettings(settings);
       setHasChanges(false);
+      // Clear validation errors for all fields
+      Object.values(CONFIG_PATHS).forEach(path => {
+        clearFieldError(path);
+      });
     }
-  }, [dispatch, config]);
+  };
+
+  // Initialize settings from config when component loads (only once)
+  if (config && !hasInitialized.current) {
+    resetToGlobalConfig();
+    hasInitialized.current = true;
+  }
+
+  // Handle tab change and reset state
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    resetToGlobalConfig();
+  };
 
   // Handle field changes
   const handleFieldChange = (field, value) => {
@@ -239,16 +254,13 @@ function EmailConfig() {
     }
   };
 
-  if (loading) {
-    return <div className={styles.loading}>Loading email configuration...</div>;
-  }
 
   return (
     <div className={`${styles.emailConfig} ${styles.pageWithFixedSave}`}>
       <PageHeader>Email Configuration</PageHeader>
       <PageDescription>Configure SMTP server settings, security options, and default email addresses</PageDescription>
 
-      <Tabs tabs={emailConfigTabs} activeTab={activeTab} onTabChange={setActiveTab}>
+      <Tabs tabs={emailConfigTabs} activeTab={activeTab} onTabChange={handleTabChange}>
         {renderTabContent()}
       </Tabs>
 

@@ -49,13 +49,8 @@ export const updateConfiguration = async configData => {
     }
   }
 
-  // Try to parse as JSON, fallback to text if it's not JSON
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    return response.json();
-  } else {
-    return response.text();
-  }
+  // Return the new config from the server
+  return response.json();
 };
 
 export const fetchCurrentUser = async () => {

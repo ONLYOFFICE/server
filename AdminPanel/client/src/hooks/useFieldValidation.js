@@ -1,7 +1,8 @@
 import {useState, useEffect, useCallback} from 'react';
+import {useSelector} from 'react-redux';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import {fetchConfigurationSchema} from '../api';
+import {selectSchema, selectSchemaLoading, selectSchemaError} from '../store/slices/configSlice';
 
 // Cron expression with 6 space-separated fields (server-compatible)
 const CRON6_REGEX = /^\s*\S+(?:\s+\S+){5}\s*$/;
@@ -12,19 +13,15 @@ const CRON6_REGEX = /^\s*\S+(?:\s+\S+){5}\s*$/;
  */
 export const useFieldValidation = () => {
   const [validator, setValidator] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
 
-  // Initialize validator with schema from backend
+  const schema = useSelector(selectSchema);
+  const isLoading = useSelector(selectSchemaLoading);
+  const error = useSelector(selectSchemaError);
+
   useEffect(() => {
-    const initializeValidator = async () => {
+    if (schema && !validator) {
       try {
-        setIsLoading(true);
-        setError(null);
-
-        const schema = await fetchConfigurationSchema();
-
         // Build AJV validator with custom and standard formats
         const ajv = new Ajv({allErrors: true, strict: false});
         addFormats(ajv); // Add standard formats including email
@@ -34,14 +31,9 @@ export const useFieldValidation = () => {
         setValidator(() => validateFn);
       } catch (err) {
         console.error('Failed to initialize field validator:', err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    initializeValidator();
-  }, []);
+    }
+  }, [schema, validator]);
 
   /**
    * Validates a single field value against the schema

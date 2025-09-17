@@ -74,3 +74,13 @@ body::-webkit-scrollbar {
 body::-webkit-scrollbar-thumb {
   background: #efefef;
 }
+
+/* Spinner animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

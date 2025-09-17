@@ -1,6 +1,6 @@
 import {useState, useEffect} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {fetchConfig, saveConfig, selectConfig, selectConfigLoading} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -13,7 +13,6 @@ import styles from './FileLimits.module.scss';
 function FileLimits() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
-  const loading = useSelector(selectConfigLoading);
   const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
 
   // Local state for form fields
@@ -37,13 +36,11 @@ function FileLimits() {
 
   // Load config data when component mounts
   useEffect(() => {
-    if (!config) {
-      dispatch(fetchConfig());
-    } else {
+    if (config) {
       const settings = {};
 
       // Get max download bytes
-      settings.maxDownloadBytes = getNestedValue(config, CONFIG_PATHS.maxDownloadBytes, '');
+      settings.maxDownloadBytes = getNestedValue(config, 'FileConverter.converter.maxDownloadBytes', '');
 
       // Get input limits - need to handle array structure
       const inputLimits = getNestedValue(config, 'FileConverter.converter.inputLimits', []);
@@ -85,7 +82,7 @@ function FileLimits() {
       let originalValue;
 
       if (key === 'maxDownloadBytes') {
-        originalValue = getNestedValue(config, CONFIG_PATHS.maxDownloadBytes, '');
+        originalValue = getNestedValue(config, 'FileConverter.converter.maxDownloadBytes', '');
       } else {
         // Handle input limits array structure for comparison
         const inputLimits = getNestedValue(config, 'FileConverter.converter.inputLimits', []);
@@ -166,9 +163,6 @@ function FileLimits() {
     setHasChanges(false);
   };
 
-  if (loading) {
-    return <div className={styles.loading}>Loading file limits settings...</div>;
-  }
 
   return (
     <div className={`${styles.fileLimits} ${styles.pageWithFixedSave}`}>

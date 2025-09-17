@@ -1,6 +1,6 @@
-import {useState, useEffect} from 'react';
+import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {fetchConfig, saveConfig, selectConfig, selectConfigLoading} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -16,30 +16,39 @@ const securityTabs = [{key: 'ip-filtering', label: 'IP Filtering'}];
 function SecuritySettings() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
-  const loading = useSelector(selectConfigLoading);
-  const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
+  const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
   const [activeTab, setActiveTab] = useState('ip-filtering');
   const [localRules, setLocalRules] = useState([]);
   const [hasChanges, setHasChanges] = useState(false);
 
-  useEffect(() => {
-    if (!config) {
-      dispatch(fetchConfig());
-    } else {
-      // Get IP filtering rules from actual config
+  // Reset state and errors to global config
+  const resetToGlobalConfig = () => {
+    if (config) {
       const ipFilterRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules', []);
-
-      // Convert from backend format to UI format
       const uiRules = ipFilterRules.map(rule => ({
         type: rule.allowed ? 'Allow' : 'Deny',
         value: rule.address
       }));
-
       setLocalRules(uiRules);
       setHasChanges(false);
+      // Clear validation errors
+      clearFieldError('services.CoAuthoring.ipfilter.rules');
     }
-  }, [dispatch, config]);
+  };
+
+  // Handle tab change and reset state
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    resetToGlobalConfig();
+  };
+
+  const hasInitialized = useRef(false);
+  
+  if (config && !hasInitialized.current) {
+    resetToGlobalConfig();
+    hasInitialized.current = true;
+  }
 
   // Handle rules changes
   const handleRulesChange = newRules => {
@@ -92,16 +101,13 @@ function SecuritySettings() {
     }
   };
 
-  if (loading) {
-    return <div className={styles.loading}>Loading security settings...</div>;
-  }
 
   return (
     <div className={`${styles.securitySettings} ${styles.pageWithFixedSave}`}>
       <PageHeader>Security Settings</PageHeader>
       <PageDescription>Configure IP filtering, authentication, and security policies</PageDescription>
 
-      <Tabs tabs={securityTabs} activeTab={activeTab} onTabChange={setActiveTab}>
+      <Tabs tabs={securityTabs} activeTab={activeTab} onTabChange={handleTabChange}>
         {renderTabContent()}
       </Tabs>
 

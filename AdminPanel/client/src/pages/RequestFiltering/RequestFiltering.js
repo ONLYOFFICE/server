@@ -1,6 +1,6 @@
-import {useState, useEffect} from 'react';
+import {useState, useRef} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
-import {fetchConfig, saveConfig} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -12,7 +12,7 @@ import styles from './RequestFiltering.module.scss';
 
 function RequestFiltering() {
   const dispatch = useDispatch();
-  const {config, loading} = useSelector(state => state.config);
+  const config = useSelector(selectConfig);
   const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
 
   const [localSettings, setLocalSettings] = useState({
@@ -27,8 +27,8 @@ function RequestFiltering() {
     allowMetaIPAddress: 'request-filtering-agent.allowMetaIPAddress'
   };
 
-  // Load initial values from config
-  useEffect(() => {
+  const hasInitialized = useRef(false);
+  const resetToGlobalConfig = () => {
     if (config) {
       const newSettings = {};
       Object.keys(CONFIG_PATHS).forEach(key => {
@@ -37,12 +37,12 @@ function RequestFiltering() {
       });
       setLocalSettings(newSettings);
     }
-  }, [config]);
-
-  // Load config on component mount
-  useEffect(() => {
-    dispatch(fetchConfig());
-  }, [dispatch]);
+  };
+  // Load initial values from config
+  if (config && !hasInitialized.current) {
+    resetToGlobalConfig();
+    hasInitialized.current = true;
+  }
 
   // Handle field changes
   const handleFieldChange = (field, value) => {
@@ -82,9 +82,6 @@ function RequestFiltering() {
     setHasChanges(false);
   };
 
-  if (loading) {
-    return <div className={styles.loading}>Loading request filtering settings...</div>;
-  }
 
   return (
     <div className={`${styles.requestFiltering} ${styles.pageWithFixedSave}`}>

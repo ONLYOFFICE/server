@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {fetchConfig, saveConfig, selectConfig, selectConfigLoading, selectSchema} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -13,8 +13,6 @@ import styles from './WOPISettings.module.scss';
 function WOPISettings() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
-  const schema = useSelector(selectSchema);
-  const loading = useSelector(selectConfigLoading);
   const {validateField, hasValidationErrors} = useFieldValidation();
 
   // Local state for WOPI enable setting
@@ -31,12 +29,6 @@ function WOPISettings() {
       setHasChanges(false);
     }
   }, [config, configWopiEnabled]);
-
-  useEffect(() => {
-    if (!config || !schema) {
-      dispatch(fetchConfig());
-    }
-  }, [dispatch, config, schema]);
 
   const handleWopiEnabledChange = enabled => {
     setLocalWopiEnabled(enabled);
@@ -61,9 +53,6 @@ function WOPISettings() {
     }
   };
 
-  if (loading) {
-    return <div className={styles.loading}>Loading WOPI settings...</div>;
-  }
 
   return (
     <div className={`${styles.wopiSettings} ${styles.pageWithFixedSave}`}>
