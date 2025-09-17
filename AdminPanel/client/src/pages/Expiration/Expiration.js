@@ -8,7 +8,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import styles from './Expiration.module.scss';
 
 const expirationTabs = [
@@ -206,7 +206,7 @@ function Expiration() {
   }
 
   return (
-    <div className={styles.expiration}>
+    <div className={`${styles.expiration} ${styles.pageWithFixedSave}`}>
       <PageHeader>Expiration Settings</PageHeader>
       <PageDescription>Configure file cleanup schedules, session timeouts, and garbage collection settings</PageDescription>
 
@@ -214,11 +214,9 @@ function Expiration() {
         {renderTabContent()}
       </Tabs>
 
-      <div className={styles.actions}>
-        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-          Save Changes
-        </SaveButton>
-      </div>
+      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
+        Save Changes
+      </FixedSaveButton>
     </div>
   );
 }

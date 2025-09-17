@@ -8,7 +8,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import AccessRules from '../../components/AccessRules/AccessRules';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import styles from './SecuritySettings.module.scss';
 
 const securityTabs = [{key: 'ip-filtering', label: 'IP Filtering'}];
@@ -97,7 +97,7 @@ function SecuritySettings() {
   }
 
   return (
-    <div className={styles.securitySettings}>
+    <div className={`${styles.securitySettings} ${styles.pageWithFixedSave}`}>
       <PageHeader>Security Settings</PageHeader>
       <PageDescription>Configure IP filtering, authentication, and security policies</PageDescription>
 
@@ -105,11 +105,9 @@ function SecuritySettings() {
         {renderTabContent()}
       </Tabs>
 
-      <div className={styles.actions}>
-        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-          Save Changes
-        </SaveButton>
-      </div>
+      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
+        Save Changes
+      </FixedSaveButton>
     </div>
   );
 }

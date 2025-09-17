@@ -7,7 +7,7 @@ import {useFieldValidation} from '../../hooks/useFieldValidation';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import ToggleSwitch from '../../components/ToggleSwitch/ToggleSwitch';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import styles from './WOPISettings.module.scss';
 
 function WOPISettings() {
@@ -66,7 +66,7 @@ function WOPISettings() {
   }
 
   return (
-    <div className={styles.wopiSettings}>
+    <div className={`${styles.wopiSettings} ${styles.pageWithFixedSave}`}>
       <PageHeader>WOPI Settings</PageHeader>
       <PageDescription>Configure WOPI (Web Application Open Platform Interface) support for document editing</PageDescription>
 
@@ -74,11 +74,9 @@ function WOPISettings() {
         <ToggleSwitch label='WOPI' checked={localWopiEnabled} onChange={handleWopiEnabledChange} />
       </div>
 
-      <div className={styles.actions}>
-        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-          Save Changes
-        </SaveButton>
-      </div>
+      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
+        Save Changes
+      </FixedSaveButton>
     </div>
   );
 }

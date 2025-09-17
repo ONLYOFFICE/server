@@ -9,7 +9,7 @@ import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import styles from './EmailConfig.module.scss';
 
 const emailConfigTabs = [
@@ -244,7 +244,7 @@ function EmailConfig() {
   }
 
   return (
-    <div className={styles.emailConfig}>
+    <div className={`${styles.emailConfig} ${styles.pageWithFixedSave}`}>
       <PageHeader>Email Configuration</PageHeader>
       <PageDescription>Configure SMTP server settings, security options, and default email addresses</PageDescription>
 
@@ -252,11 +252,9 @@ function EmailConfig() {
         {renderTabContent()}
       </Tabs>
 
-      <div className={styles.actions}>
-        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-          Save Changes
-        </SaveButton>
-      </div>
+      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
+        Save Changes
+      </FixedSaveButton>
     </div>
   );
 }

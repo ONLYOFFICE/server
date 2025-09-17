@@ -5,7 +5,7 @@ import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
 import Checkbox from '../../components/Checkbox/Checkbox';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import styles from './RequestFiltering.module.scss';
@@ -87,7 +87,7 @@ function RequestFiltering() {
   }
 
   return (
-    <div className={styles.requestFiltering}>
+    <div className={`${styles.requestFiltering} ${styles.pageWithFixedSave}`}>
       <PageHeader>Request Filtering</PageHeader>
       <PageDescription>
         Configure request filtering settings to control which IP addresses are allowed to make requests to the server.
@@ -118,11 +118,9 @@ function RequestFiltering() {
         </div>
       </div>
 
-      <div className={styles.actions}>
-        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-          Save Changes
-        </SaveButton>
-      </div>
+      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
+        Save Changes
+      </FixedSaveButton>
     </div>
   );
 }

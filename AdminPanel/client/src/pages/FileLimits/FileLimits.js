@@ -7,7 +7,7 @@ import {useFieldValidation} from '../../hooks/useFieldValidation';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Input from '../../components/Input/Input';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import styles from './FileLimits.module.scss';
 
 function FileLimits() {
@@ -171,7 +171,7 @@ function FileLimits() {
   }
 
   return (
-    <div className={styles.fileLimits}>
+    <div className={`${styles.fileLimits} ${styles.pageWithFixedSave}`}>
       <PageHeader>File Size Limits</PageHeader>
       <PageDescription>Configure maximum file sizes and download limits for document processing</PageDescription>
 
@@ -237,11 +237,9 @@ function FileLimits() {
         </div>
       </div>
 
-      <div className={styles.actions}>
-        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-          Save Changes
-        </SaveButton>
-      </div>
+      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
+        Save Changes
+      </FixedSaveButton>
     </div>
   );
 }
