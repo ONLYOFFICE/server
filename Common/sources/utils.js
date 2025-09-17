@@ -521,9 +521,10 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
  * @param {object} opt_timeout - Optional timeout configuration.
  * @param {number} opt_limit - Optional limit on the size of the response.
  * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
+ * @param {Object} [opt_axiosConfig={}] - Optional additional axios configuration options.
  * @returns {Promise<{response: axios.AxiosResponse, stream: SizeLimitStream}>} - A promise that resolves to an object containing the raw Axios response and a SizeLimitStream.
  */
-async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout, opt_limit, opt_filterPrivate) {
+async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout, opt_limit, opt_filterPrivate, opt_axiosConfig = {}) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   uri = URI.serialize(URI.parse(uri));
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
@@ -548,6 +549,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
 
   const axiosConfig = {
     ...options,
+    ...opt_axiosConfig,
     url: uri,
     method,
     headers: requestHeaders,
