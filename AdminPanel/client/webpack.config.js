@@ -16,23 +16,27 @@ envFiles.forEach(file => {
   dotenv.config({ path: file });
 });
 
+const basePath = process.env.REACT_APP_BASE_PATH || '';
+
 module.exports = {
   entry: './src/index.js',
   output: {
     filename: 'main.[contenthash].js',
     path: path.resolve(__dirname, 'build'),
-    // Use relative URLs so assets load under any prefix (e.g., /admin)
-    publicPath: ''
+    // Use BASE_PATH for asset URLs
+    publicPath: basePath + '/'
   },
 
   devServer: {
     static: {
       directory: path.join(__dirname, 'build'),
-      publicPath: '/'
+      publicPath: basePath + '/'
     },
     port: 3000,
     open: true,
-    historyApiFallback: true
+    historyApiFallback: {
+      index: basePath + '/index.html'
+    }
   },
 
   plugins: [
@@ -43,11 +47,18 @@ module.exports = {
       patterns: [
         {
           context: path.resolve(__dirname, 'public'),
-          from: 'images/*.*'
+          from: 'images/*.*',
+          to: 'images/[name][ext]'
+        },
+        {
+          context: path.resolve(__dirname, 'src/assets'),
+          from: '*.svg',
+          to: 'static/[name][ext]'
         },
         {
           context: path.resolve(__dirname),
-          from: 'config.json'
+          from: 'config.json',
+          to: 'config.json'
         }
       ]
     }),
