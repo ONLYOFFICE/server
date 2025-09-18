@@ -474,42 +474,8 @@ async function getPluginSettingsForInterface(ctx) {
   return pluginSettings;
 }
 
-async function requestSettings(req, res) {
-  const ctx = new operationContext.Context();
-  ctx.initFromRequest(req);
-  try {
-    await ctx.initTenantCache();
-    const result = await getPluginSettings(ctx);
-    res.json(result);
-  } catch (error) {
-    ctx.logger.error('getSettings error: %s', error.stack);
-    res.sendStatus(400);
-  }
-}
-
-async function requestModels(req, res) {
-  const ctx = new operationContext.Context();
-  ctx.initFromRequest(req);
-  try {
-    await ctx.initTenantCache();
-    const body = JSON.parse(req.body);
-    if (AI.Providers[body.name]) {
-      AI.Providers[body.name].key = body.key;
-      AI.Providers[body.name].url = body.url;
-    }
-    const getRes = await AI.getModels(body);
-    getRes.modelsApi = AI.TmpProviderForModels?.models;
-    res.json(getRes);
-  } catch (error) {
-    ctx.logger.error('getModels error: %s', error.stack);
-    res.sendStatus(400);
-  }
-}
-
 module.exports = {
   proxyRequest,
   getPluginSettings,
-  getPluginSettingsForInterface,
-  requestSettings,
-  requestModels
+  getPluginSettingsForInterface
 };
