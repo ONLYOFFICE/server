@@ -21,19 +21,23 @@ function WOPISettings() {
   // Local state for WOPI settings
   const [localWopiEnabled, setLocalWopiEnabled] = useState(false);
   const [localRotateKeys, setLocalRotateKeys] = useState(false);
+  const [localRefreshLockInterval, setLocalRefreshLockInterval] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const hasInitialized = useRef(false);
 
   // Get the actual config values
   const configWopiEnabled = getNestedValue(config, 'wopi.enable', false);
   const wopiPublicKey = getNestedValue(config, 'wopi.publicKey', '');
+  const configRefreshLockInterval = getNestedValue(config, 'wopi.refreshLockInterval', '10m');
 
   const resetToGlobalConfig = () => {
     if (config) {
       setLocalWopiEnabled(configWopiEnabled);
       setLocalRotateKeys(false);
+      setLocalRefreshLockInterval(configRefreshLockInterval);
       setHasChanges(false);
       validateField('wopi.enable', configWopiEnabled);
+      validateField('wopi.refreshLockInterval', configRefreshLockInterval);
     }
   };
 
@@ -50,7 +54,7 @@ function WOPISettings() {
     if (!enabled) {
       setLocalRotateKeys(false);
     }
-    setHasChanges(enabled !== configWopiEnabled || localRotateKeys);
+    setHasChanges(enabled !== configWopiEnabled || localRotateKeys || localRefreshLockInterval !== configRefreshLockInterval);
 
     // Validate the boolean field
     validateField('wopi.enable', enabled);
@@ -58,7 +62,13 @@ function WOPISettings() {
 
   const handleRotateKeysChange = checked => {
     setLocalRotateKeys(checked);
-    setHasChanges(localWopiEnabled !== configWopiEnabled || checked);
+    setHasChanges(localWopiEnabled !== configWopiEnabled || checked || localRefreshLockInterval !== configRefreshLockInterval);
+  };
+
+  const handleRefreshLockIntervalChange = value => {
+    setLocalRefreshLockInterval(value);
+    setHasChanges(localWopiEnabled !== configWopiEnabled || localRotateKeys || value !== configRefreshLockInterval);
+    validateField('wopi.refreshLockInterval', value);
   };
 
   const handleSave = async () => {
@@ -67,20 +77,30 @@ function WOPISettings() {
     try {
       const enableChanged = localWopiEnabled !== configWopiEnabled;
       const rotateRequested = localRotateKeys;
+      const refreshLockIntervalChanged = localRefreshLockInterval !== configRefreshLockInterval;
 
-      // If only enable changed, just update config
-      if (enableChanged && !rotateRequested) {
-        const updatedConfig = mergeNestedObjects([{'wopi.enable': localWopiEnabled}]);
-        await dispatch(saveConfig(updatedConfig)).unwrap();
+      // Build config update object
+      const configUpdates = {};
+      if (enableChanged) {
+        configUpdates['wopi.enable'] = localWopiEnabled;
       }
+      if (refreshLockIntervalChanged) {
+        configUpdates['wopi.refreshLockInterval'] = localRefreshLockInterval;
+      }
+
       // If only rotate requested, just rotate keys
-      else if (!enableChanged && rotateRequested) {
+      if (!enableChanged && !refreshLockIntervalChanged && rotateRequested) {
         await dispatch(rotateWopiKeysAction()).unwrap();
       }
-      // If both changed, make two requests
-      else if (enableChanged && rotateRequested) {
-        // First update the enable setting
-        const updatedConfig = mergeNestedObjects([{'wopi.enable': localWopiEnabled}]);
+      // If config changes (enable or refreshLockInterval) but no rotate
+      else if ((enableChanged || refreshLockIntervalChanged) && !rotateRequested) {
+        const updatedConfig = mergeNestedObjects([configUpdates]);
+        await dispatch(saveConfig(updatedConfig)).unwrap();
+      }
+      // If both config changes and rotate requested, make two requests
+      else if ((enableChanged || refreshLockIntervalChanged) && rotateRequested) {
+        // First update the config settings
+        const updatedConfig = mergeNestedObjects([configUpdates]);
         await dispatch(saveConfig(updatedConfig)).unwrap();
         // Then rotate keys
         await dispatch(rotateWopiKeysAction()).unwrap();
@@ -93,6 +113,7 @@ function WOPISettings() {
       // Revert local state on error
       setLocalWopiEnabled(configWopiEnabled);
       setLocalRotateKeys(false);
+      setLocalRefreshLockInterval(configRefreshLockInterval);
       setHasChanges(false);
     }
   };
@@ -109,31 +130,50 @@ function WOPISettings() {
       </div>
 
       {localWopiEnabled && (
-        <div className={styles.settingsSection}>
-          <div className={styles.sectionTitle}>Key Management</div>
-          <div className={styles.sectionDescription}>
-            Rotate WOPI encryption keys. Current keys will be moved to "Old" and new keys will be generated.
+        <>
+          <div className={styles.settingsSection}>
+            <div className={styles.sectionTitle}>Lock Settings</div>
+            <div className={styles.sectionDescription}>
+              Configure document lock refresh interval for WOPI sessions.
+            </div>
+            <div className={styles.formRow}>
+              <Input
+                label="Refresh Lock Interval"
+                value={localRefreshLockInterval}
+                onChange={handleRefreshLockIntervalChange}
+                placeholder="10m"
+                width="200px"
+                description="Time interval for refreshing document locks (e.g., '10m', '1h', '30s')"
+              />
+            </div>
           </div>
-          <div className={styles.formRow}>
-            <Input
-              label="Current Public Key"
-              value={maskKey(wopiPublicKey)}
-              disabled
-              placeholder="No key generated"
-              width="400px"
-              style={{fontFamily: 'Courier New, monospace'}}
-            />
+
+          <div className={styles.settingsSection}>
+            <div className={styles.sectionTitle}>Key Management</div>
+            <div className={styles.sectionDescription}>
+              Rotate WOPI encryption keys. Current keys will be moved to "Old" and new keys will be generated.
+            </div>
+            <div className={styles.formRow}>
+              <Input
+                label="Current Public Key"
+                value={maskKey(wopiPublicKey)}
+                disabled
+                placeholder="No key generated"
+                width="400px"
+                style={{fontFamily: 'Courier New, monospace'}}
+              />
+            </div>
+            <div className={styles.formRow}>
+              <Checkbox
+                label="Rotate Keys"
+                checked={localRotateKeys}
+                onChange={handleRotateKeysChange}
+                disabled={!localWopiEnabled}
+                description="Generate new encryption keys. Current keys will be moved to 'Old'."
+              />
+            </div>
           </div>
-          <div className={styles.formRow}>
-            <Checkbox
-              label="Rotate Keys"
-              checked={localRotateKeys}
-              onChange={handleRotateKeysChange}
-              disabled={!localWopiEnabled}
-              description="Generate new encryption keys. Current keys will be moved to 'Old'."
-            />
-          </div>
-        </div>
+        </>
       )}
 
       <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>

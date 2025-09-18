@@ -168,7 +168,12 @@
       "x-scope": ["admin", "tenant"],
       "properties": {
         "enable": {"type": "boolean"},
-        "publicKey": {"type": "string"}
+        "publicKey": {"type": "string"},
+        "refreshLockInterval": {
+          "type": "string",
+          "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+          "description": "Refresh lock interval in time format (e.g., '10m', '1h', '30s')"
+        }
       }
     },
     "email": {
