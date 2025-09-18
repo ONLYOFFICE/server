@@ -161,12 +161,14 @@ router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
 
     const newWopiConfig = generateWopiKeys();
 
+    const hasEmptyKeys = !wopiConfig.publicKey && !wopiConfig.modulus && !wopiConfig.privateKey;
+    
     const configUpdate = {
       wopi: {
-        publicKeyOld: wopiConfig.publicKey || '',
-        modulusOld: wopiConfig.modulus || '',
-        exponentOld: wopiConfig.exponent || '',
-        privateKeyOld: wopiConfig.privateKey || '',
+        publicKeyOld: hasEmptyKeys ? newWopiConfig.publicKey : wopiConfig.publicKey,
+        modulusOld: hasEmptyKeys ? newWopiConfig.modulus : wopiConfig.modulus,
+        exponentOld: hasEmptyKeys ? newWopiConfig.exponent : wopiConfig.exponent,
+        privateKeyOld: hasEmptyKeys ? newWopiConfig.privateKey : wopiConfig.privateKey,
         publicKey: newWopiConfig.publicKey,
         modulus: newWopiConfig.modulus,
         exponent: newWopiConfig.exponent,
