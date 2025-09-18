@@ -8,7 +8,7 @@ export const getBasePath = () => {
 };
 
 // Create a full path by combining base path with the given path
-export const createPath = (path) => {
+export const createPath = path => {
   const basePath = getBasePath();
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${basePath}${cleanPath}`;

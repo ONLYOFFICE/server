@@ -20,7 +20,6 @@ const rawFileParser = bodyParser.raw({
   }
 });
 
-
 router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
@@ -70,7 +69,7 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
     } else {
       await runtimeConfigManager.saveConfig(ctx, newConfig);
     }
-    
+
     await ctx.initTenantCache();
     const filteredConfig = getScopedConfig(ctx);
     res.status(200).json(filteredConfig);

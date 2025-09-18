@@ -82,7 +82,6 @@ function RequestFiltering() {
     setHasChanges(false);
   };
 
-
   return (
     <div className={`${styles.requestFiltering} ${styles.pageWithFixedSave}`}>
       <PageHeader>Request Filtering</PageHeader>

@@ -47,7 +47,6 @@ function WOPISettings() {
     hasInitialized.current = true;
   }
 
-
   const handleWopiEnabledChange = enabled => {
     setLocalWopiEnabled(enabled);
     // If WOPI is disabled, uncheck rotate keys
@@ -118,8 +117,6 @@ function WOPISettings() {
     }
   };
 
-
-
   return (
     <div className={`${styles.wopiSettings} ${styles.pageWithFixedSave}`}>
       <PageHeader>WOPI Settings</PageHeader>
@@ -133,16 +130,14 @@ function WOPISettings() {
         <>
           <div className={styles.settingsSection}>
             <div className={styles.sectionTitle}>Lock Settings</div>
-            <div className={styles.sectionDescription}>
-              Configure document lock refresh interval for WOPI sessions.
-            </div>
+            <div className={styles.sectionDescription}>Configure document lock refresh interval for WOPI sessions.</div>
             <div className={styles.formRow}>
               <Input
-                label="Refresh Lock Interval"
+                label='Refresh Lock Interval'
                 value={localRefreshLockInterval}
                 onChange={handleRefreshLockIntervalChange}
-                placeholder="10m"
-                width="200px"
+                placeholder='10m'
+                width='200px'
                 description="Time interval for refreshing document locks (e.g., '10m', '1h', '30s')"
               />
             </div>
@@ -155,17 +150,17 @@ function WOPISettings() {
             </div>
             <div className={styles.formRow}>
               <Input
-                label="Current Public Key"
+                label='Current Public Key'
                 value={maskKey(wopiPublicKey)}
                 disabled
-                placeholder="No key generated"
-                width="400px"
+                placeholder='No key generated'
+                width='400px'
                 style={{fontFamily: 'Courier New, monospace'}}
               />
             </div>
             <div className={styles.formRow}>
               <Checkbox
-                label="Rotate Keys"
+                label='Rotate Keys'
                 checked={localRotateKeys}
                 onChange={handleRotateKeysChange}
                 disabled={!localWopiEnabled}

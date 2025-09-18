@@ -163,7 +163,6 @@ function FileLimits() {
     setHasChanges(false);
   };
 
-
   return (
     <div className={`${styles.fileLimits} ${styles.pageWithFixedSave}`}>
       <PageHeader>File Size Limits</PageHeader>

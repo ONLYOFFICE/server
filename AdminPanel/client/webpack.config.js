@@ -6,14 +6,10 @@ const dotenv = require('dotenv');
 
 // Load environment variables from .env files
 // Priority: .env.local > .env.development/.env.production > .env
-const envFiles = [
-  '.env.local',
-  process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development',
-  '.env'
-];
+const envFiles = ['.env.local', process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development', '.env'];
 
 envFiles.forEach(file => {
-  dotenv.config({ path: file });
+  dotenv.config({path: file});
 });
 
 const basePath = process.env.REACT_APP_BASE_PATH || '';

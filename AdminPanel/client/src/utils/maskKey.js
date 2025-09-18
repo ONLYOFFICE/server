@@ -4,7 +4,7 @@
  * @param {string} key - The key string to mask
  * @returns {string} - The masked key string
  */
-export const maskKey = (key) => {
+export const maskKey = key => {
   if (!key || typeof key !== 'string') {
     return '';
   }

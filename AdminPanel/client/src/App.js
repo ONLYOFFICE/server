@@ -10,15 +10,15 @@ import {getBasePath} from './utils/basePath';
 
 function App() {
   const basePath = getBasePath();
-  
+
   return (
     <Provider store={store}>
       <BrowserRouter basename={basePath}>
         <div className='app'>
           <AuthWrapper>
-              <div className='appLayout'>
-                <Menu />
-                <div className='mainContent'>
+            <div className='appLayout'>
+              <Menu />
+              <div className='mainContent'>
                 <ConfigLoader>
                   <Routes>
                     <Route path='/' element={<Navigate to='/statistics' replace />} />

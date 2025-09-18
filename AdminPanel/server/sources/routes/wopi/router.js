@@ -162,7 +162,7 @@ router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
     const newWopiConfig = generateWopiKeys();
 
     const hasEmptyKeys = !wopiConfig.publicKey && !wopiConfig.modulus && !wopiConfig.privateKey;
-    
+
     const configUpdate = {
       wopi: {
         publicKeyOld: hasEmptyKeys ? newWopiConfig.publicKey : wopiConfig.publicKey,
@@ -177,7 +177,7 @@ router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
     };
 
     const newConfig = utils.deepMergeObjects(currentConfig, configUpdate);
-    
+
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
       await tenantManager.setTenantConfig(ctx, newConfig);
     } else {

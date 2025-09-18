@@ -110,7 +110,7 @@ export const rotateWopiKeys = async () => {
   const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/wopi/rotate-keys`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json'
     },
     credentials: 'include'
   });

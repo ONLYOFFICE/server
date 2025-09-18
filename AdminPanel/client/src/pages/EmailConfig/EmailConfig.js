@@ -75,7 +75,7 @@ function EmailConfig() {
   }
 
   // Handle tab change and reset state
-  const handleTabChange = (newTab) => {
+  const handleTabChange = newTab => {
     setActiveTab(newTab);
     resetToGlobalConfig();
   };
@@ -253,7 +253,6 @@ function EmailConfig() {
         return null;
     }
   };
-
 
   return (
     <div className={`${styles.emailConfig} ${styles.pageWithFixedSave}`}>

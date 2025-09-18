@@ -38,13 +38,13 @@ function SecuritySettings() {
   };
 
   // Handle tab change and reset state
-  const handleTabChange = (newTab) => {
+  const handleTabChange = newTab => {
     setActiveTab(newTab);
     resetToGlobalConfig();
   };
 
   const hasInitialized = useRef(false);
-  
+
   if (config && !hasInitialized.current) {
     resetToGlobalConfig();
     hasInitialized.current = true;
@@ -100,7 +100,6 @@ function SecuritySettings() {
         return null;
     }
   };
-
 
   return (
     <div className={`${styles.securitySettings} ${styles.pageWithFixedSave}`}>
