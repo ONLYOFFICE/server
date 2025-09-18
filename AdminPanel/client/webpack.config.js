@@ -2,6 +2,19 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const webpack = require('webpack');
+const dotenv = require('dotenv');
+
+// Load environment variables from .env files
+// Priority: .env.local > .env.development/.env.production > .env
+const envFiles = [
+  '.env.local',
+  process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development',
+  '.env'
+];
+
+envFiles.forEach(file => {
+  dotenv.config({ path: file });
+});
 
 module.exports = {
   entry: './src/index.js',
@@ -39,7 +52,8 @@ module.exports = {
       ]
     }),
     new webpack.DefinePlugin({
-      'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL)
+      'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL),
+      'process.env.REACT_APP_BASE_PATH': JSON.stringify(process.env.REACT_APP_BASE_PATH || '')
     })
   ],
 

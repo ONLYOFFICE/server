@@ -1,7 +1,8 @@
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL ?? '';
+const API_BASE_PATH = '/api/v1/admin';
 
 export const fetchStatistics = async () => {
-  const response = await fetch(`${BACKEND_URL}/api/v1/admin/stat`);
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/stat`);
   if (!response.ok) {
     throw new Error('Failed to fetch statistics');
   }
@@ -9,7 +10,7 @@ export const fetchStatistics = async () => {
 };
 
 export const fetchConfiguration = async () => {
-  const response = await fetch(`${BACKEND_URL}/api/v1/admin/config`, {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/config`, {
     credentials: 'include'
   });
   if (!response.ok) {
@@ -19,7 +20,7 @@ export const fetchConfiguration = async () => {
 };
 
 export const fetchConfigurationSchema = async () => {
-  const response = await fetch(`${BACKEND_URL}/api/v1/admin/config/schema`, {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/config/schema`, {
     credentials: 'include'
   });
   if (!response.ok) {
@@ -29,7 +30,7 @@ export const fetchConfigurationSchema = async () => {
 };
 
 export const updateConfiguration = async configData => {
-  const response = await fetch(`${BACKEND_URL}/api/v1/admin/config`, {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/config`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json'
@@ -54,7 +55,7 @@ export const updateConfiguration = async configData => {
 };
 
 export const fetchCurrentUser = async () => {
-  const response = await fetch(`${BACKEND_URL}/api/v1/admin/me`, {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/me`, {
     method: 'GET',
     credentials: 'include' // Include cookies in the request
   });
@@ -70,7 +71,7 @@ export const fetchCurrentUser = async () => {
 };
 
 export const login = async ({tenantName, secret}) => {
-  const response = await fetch(`${BACKEND_URL}/api/v1/admin/login`, {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -90,7 +91,7 @@ export const login = async ({tenantName, secret}) => {
 };
 
 export const logout = async () => {
-  const response = await fetch(`${BACKEND_URL}/api/v1/admin/logout`, {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/logout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -106,7 +107,7 @@ export const logout = async () => {
 };
 
 export const rotateWopiKeys = async () => {
-  const response = await fetch(`${BACKEND_URL}/api/v1/admin/wopi/rotate-keys`, {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/wopi/rotate-keys`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
