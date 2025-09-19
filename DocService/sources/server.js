@@ -179,24 +179,24 @@ docsCoServer.install(server, app, () => {
     const proxyToAdmin =
       (pathPrefix = '') =>
       (req, res) => {
-      const targetPath = pathPrefix + req.url;
-      const options = {
-        hostname: 'localhost',
-        port: 9000,
-        path: targetPath,
-        method: req.method,
-        headers: {...req.headers, host: 'localhost:9000'}
+        const targetPath = pathPrefix + req.url;
+        const options = {
+          hostname: 'localhost',
+          port: 9000,
+          path: targetPath,
+          method: req.method,
+          headers: {...req.headers, host: 'localhost:9000'}
+        };
+
+        const proxyReq = http.request(options, proxyRes => {
+          res.status(proxyRes.statusCode);
+          Object.entries(proxyRes.headers).forEach(([key, value]) => res.setHeader(key, value));
+          proxyRes.pipe(res);
+        });
+
+        proxyReq.on('error', () => res.sendStatus(502));
+        req.pipe(proxyReq);
       };
-
-      const proxyReq = http.request(options, proxyRes => {
-        res.status(proxyRes.statusCode);
-        Object.entries(proxyRes.headers).forEach(([key, value]) => res.setHeader(key, value));
-        proxyRes.pipe(res);
-      });
-
-      proxyReq.on('error', () => res.sendStatus(502));
-      req.pipe(proxyReq);
-    };
 
     app.use('/api/v1/admin', proxyToAdmin('/api/v1/admin'));
     app.all('/admin', (req, res, next) => {
