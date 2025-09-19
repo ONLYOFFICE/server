@@ -14,7 +14,7 @@
     "models": [],
     "providers": {},
     "version": 3,
-    "timeout": "30s",
+    "timeout": "5m",
     "allowedCorsOrigins": ["https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"],
     "proxy": "",
     "pluginDir": "../branding/info/ai"

@@ -47,6 +47,7 @@ const infoRouter = require('../../../DocService/sources/routes/info');
 
 const configRouter = require('./routes/config/router');
 const adminpanelRouter = require('./routes/adminpanel/router');
+const wopiRouter = require('./routes/wopi/router');
 
 const port = config.get('adminPanel.port');
 
@@ -81,6 +82,7 @@ const corsWithCredentials = cors({
 operationContext.global.logger.warn('AdminPanel server starting...');
 
 app.use('/api/v1/admin/config', corsWithCredentials, utils.checkClientIp, configRouter);
+app.use('/api/v1/admin/wopi', corsWithCredentials, utils.checkClientIp, wopiRouter);
 app.use('/api/v1/admin', corsWithCredentials, utils.checkClientIp, adminpanelRouter);
 app.get('/api/v1/admin/stat', corsWithCredentials, utils.checkClientIp, infoRouter.licenseInfo);
 

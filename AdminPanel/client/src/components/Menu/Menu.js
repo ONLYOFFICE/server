@@ -1,6 +1,7 @@
-import {useSelector} from 'react-redux';
+import {useSelector, useDispatch} from 'react-redux';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {selectIsAuthenticated} from '../../store/slices/userSlice';
+import {clearConfig} from '../../store/slices/configSlice';
 import {logout} from '../../api';
 import MenuItem from './MenuItem/MenuItem';
 import AppMenuLogo from '../../assets/AppMenuLogo.svg';
@@ -10,6 +11,7 @@ import styles from './Menu.module.scss';
 function Menu() {
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const isAuthenticated = useSelector(selectIsAuthenticated);
 
   const handleLogout = async () => {
@@ -25,11 +27,13 @@ function Menu() {
   };
 
   const handleMenuItemClick = item => {
+    // Clear config to force reload when switching pages
+    dispatch(clearConfig());
     navigate(item.path);
   };
 
   const isActiveItem = path => {
-    return location.pathname === path;
+    return location.pathname.endsWith(path);
   };
 
   return (

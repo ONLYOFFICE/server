@@ -2,6 +2,15 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const webpack = require('webpack');
+const dotenv = require('dotenv');
+
+// Load environment variables from .env files
+// Priority: .env.local > .env.development/.env.production > .env
+const envFiles = ['.env.local', process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development', '.env'];
+
+envFiles.forEach(file => {
+  dotenv.config({path: file});
+});
 
 module.exports = {
   entry: './src/index.js',
@@ -15,7 +24,7 @@ module.exports = {
   devServer: {
     static: {
       directory: path.join(__dirname, 'build'),
-      publicPath: '/'
+      publicPath: ''
     },
     port: 3000,
     open: true,
@@ -30,11 +39,18 @@ module.exports = {
       patterns: [
         {
           context: path.resolve(__dirname, 'public'),
-          from: 'images/*.*'
+          from: 'images/*.*',
+          to: 'images/[name][ext]'
+        },
+        {
+          context: path.resolve(__dirname, 'src/assets'),
+          from: '*.svg',
+          to: 'static/[name][ext]'
         },
         {
           context: path.resolve(__dirname),
-          from: 'config.json'
+          from: 'config.json',
+          to: 'config.json'
         }
       ]
     }),

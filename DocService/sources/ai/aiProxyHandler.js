@@ -300,7 +300,10 @@ async function proxyRequest(req, res) {
       requestParams.body, // Request body
       requestParams.timeout, // Timeout configuration
       requestParams.limit, // Size limit
-      requestParams.isInJwtToken // Filter private requests
+      requestParams.isInJwtToken, // Filter private requests
+      {
+        decompress: false
+      }
     );
 
     // Set the response headers to match the target response

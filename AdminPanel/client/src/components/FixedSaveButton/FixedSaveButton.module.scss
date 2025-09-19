@@ -1,0 +1,26 @@
+.fixedSaveContainer {
+  position: fixed;
+  bottom: 0;
+  left: 256px;
+  right: 0;
+  background: #ffffff;
+  border-top: 1px solid #e2e2e2;
+  //   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 16px 0;
+  width: calc(100% - 256px);
+  //   background-color: #fafafa;
+}
+
+.saveButtonWrapper {
+  //   width: calc(100% - 256px);
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+// Add bottom padding to pages to prevent content from being hidden behind fixed button
+.pageWithFixedSave {
+  padding-bottom: 40px; // Adjust based on button height + padding
+}

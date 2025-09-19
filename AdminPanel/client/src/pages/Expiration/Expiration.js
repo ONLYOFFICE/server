@@ -1,6 +1,6 @@
-import {useState, useEffect} from 'react';
+import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {fetchConfig, saveConfig, selectConfig, selectConfigLoading} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -8,7 +8,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import styles from './Expiration.module.scss';
 
 const expirationTabs = [
@@ -19,8 +19,7 @@ const expirationTabs = [
 function Expiration() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
-  const loading = useSelector(selectConfigLoading);
-  const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
+  const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
   const [activeTab, setActiveTab] = useState('garbage-collection');
 
@@ -34,6 +33,7 @@ function Expiration() {
     sessionabsolute: ''
   });
   const [hasChanges, setHasChanges] = useState(false);
+  const hasInitialized = useRef(false);
 
   // Configuration paths
   const CONFIG_PATHS = {
@@ -45,11 +45,9 @@ function Expiration() {
     sessionabsolute: 'services.CoAuthoring.expire.sessionabsolute'
   };
 
-  // Load config data when component mounts
-  useEffect(() => {
-    if (!config) {
-      dispatch(fetchConfig());
-    } else {
+  // Reset state and errors to global config
+  const resetToGlobalConfig = () => {
+    if (config) {
       const settings = {};
       Object.keys(CONFIG_PATHS).forEach(key => {
         const value = getNestedValue(config, CONFIG_PATHS[key], '');
@@ -57,8 +55,24 @@ function Expiration() {
       });
       setLocalSettings(settings);
       setHasChanges(false);
+      // Clear validation errors for all fields
+      Object.values(CONFIG_PATHS).forEach(path => {
+        clearFieldError(path);
+      });
     }
-  }, [dispatch, config]);
+  };
+
+  // Handle tab change and reset state
+  const handleTabChange = newTab => {
+    setActiveTab(newTab);
+    resetToGlobalConfig();
+  };
+
+  // Initialize settings from config when component loads (only once)
+  if (config && !hasInitialized.current) {
+    resetToGlobalConfig();
+    hasInitialized.current = true;
+  }
 
   // Handle field changes
   const handleFieldChange = (field, value) => {
@@ -201,24 +215,18 @@ function Expiration() {
     }
   };
 
-  if (loading) {
-    return <div className={styles.loading}>Loading expiration settings...</div>;
-  }
-
   return (
-    <div className={styles.expiration}>
+    <div className={`${styles.expiration} ${styles.pageWithFixedSave}`}>
       <PageHeader>Expiration Settings</PageHeader>
       <PageDescription>Configure file cleanup schedules, session timeouts, and garbage collection settings</PageDescription>
 
-      <Tabs tabs={expirationTabs} activeTab={activeTab} onTabChange={setActiveTab}>
+      <Tabs tabs={expirationTabs} activeTab={activeTab} onTabChange={handleTabChange}>
         {renderTabContent()}
       </Tabs>
 
-      <div className={styles.actions}>
-        <SaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-          Save Changes
-        </SaveButton>
-      </div>
+      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
+        Save Changes
+      </FixedSaveButton>
     </div>
   );
 }
