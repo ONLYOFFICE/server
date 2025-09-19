@@ -33,7 +33,7 @@ function Menu() {
   };
 
   const isActiveItem = path => {
-    return location.pathname === path;
+    return location.pathname.endsWith(path);
   };
 
   return (

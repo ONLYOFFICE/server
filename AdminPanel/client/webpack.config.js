@@ -12,27 +12,23 @@ envFiles.forEach(file => {
   dotenv.config({path: file});
 });
 
-const basePath = process.env.REACT_APP_BASE_PATH || '';
-
 module.exports = {
   entry: './src/index.js',
   output: {
     filename: 'main.[contenthash].js',
     path: path.resolve(__dirname, 'build'),
-    // Use BASE_PATH for asset URLs
-    publicPath: basePath + '/'
+    // Use relative URLs so assets load under any prefix (e.g., /admin)
+    publicPath: ''
   },
 
   devServer: {
     static: {
       directory: path.join(__dirname, 'build'),
-      publicPath: basePath + '/'
+      publicPath: ''
     },
     port: 3000,
     open: true,
-    historyApiFallback: {
-      index: basePath + '/index.html'
-    }
+    historyApiFallback: true
   },
 
   plugins: [
@@ -59,8 +55,7 @@ module.exports = {
       ]
     }),
     new webpack.DefinePlugin({
-      'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL),
-      'process.env.REACT_APP_BASE_PATH': JSON.stringify(process.env.REACT_APP_BASE_PATH || '')
+      'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL)
     })
   ],
 

@@ -170,6 +170,44 @@ docsCoServer.install(server, app, () => {
     );
   });
 
+  // Proxy AdminPanel endpoints for testing
+  if (process.env.NODE_ENV.startsWith('development-')) {
+    /**
+     * Simple proxy to localhost:9000 for testing AdminPanel routes
+     * @param {string} pathPrefix - Path to prepend or empty string to strip mount path
+     */
+    const proxyToAdmin =
+      (pathPrefix = '') =>
+      (req, res) => {
+      const targetPath = pathPrefix + req.url;
+      const options = {
+        hostname: 'localhost',
+        port: 9000,
+        path: targetPath,
+        method: req.method,
+        headers: {...req.headers, host: 'localhost:9000'}
+      };
+
+      const proxyReq = http.request(options, proxyRes => {
+        res.status(proxyRes.statusCode);
+        Object.entries(proxyRes.headers).forEach(([key, value]) => res.setHeader(key, value));
+        proxyRes.pipe(res);
+      });
+
+      proxyReq.on('error', () => res.sendStatus(502));
+      req.pipe(proxyReq);
+    };
+
+    app.use('/api/v1/admin', proxyToAdmin('/api/v1/admin'));
+    app.all('/admin', (req, res, next) => {
+      if (req.path === '/admin' && !req.path.endsWith('/')) {
+        return res.redirect(302, '/admin/');
+      }
+      next();
+    });
+    app.use('/admin', proxyToAdmin());
+  }
+
   app.get('/index.html', (req, res) => {
     return co(function* () {
       const ctx = new operationContext.Context();
