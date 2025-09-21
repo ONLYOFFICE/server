@@ -86,25 +86,16 @@ app.use('/api/v1/admin/wopi', corsWithCredentials, utils.checkClientIp, wopiRout
 app.use('/api/v1/admin', corsWithCredentials, utils.checkClientIp, adminpanelRouter);
 app.get('/api/v1/admin/stat', corsWithCredentials, utils.checkClientIp, infoRouter.licenseInfo);
 
-// Serve AdminPanel client build as static assets.
-// Use admin prefix in production (or ADMIN_PREFIX env), no prefix locally.
+// Serve AdminPanel client build as static assets
 const clientBuildPath = path.resolve('client/build');
-// Normalize admin prefix: default '/admin' in production, '' otherwise.
-const rawAdminPrefix = process.env.ADMIN_PREFIX || (process.env.NODE_ENV === 'production' ? '/admin' : '');
-const adminPrefix = rawAdminPrefix && rawAdminPrefix !== '/' ? rawAdminPrefix : '';
-app.use(adminPrefix || '/', express.static(clientBuildPath));
+app.use('/', express.static(clientBuildPath));
 
 function serveSpaIndex(req, res, next) {
   if (req.path.startsWith('/api')) return next();
   res.sendFile(path.join(clientBuildPath, 'index.html'));
 }
-
-// client SPA routes (prefix in prod, root locally)
-if (adminPrefix) {
-  app.get(`${adminPrefix}/*`, serveSpaIndex);
-} else {
-  app.get('*', serveSpaIndex);
-}
+// Client SPA routes fallback
+app.get('*', serveSpaIndex);
 
 app.use((err, req, res, _next) => {
   const ctx = new operationContext.Context();
