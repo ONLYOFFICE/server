@@ -770,9 +770,10 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
 
       let outputUrl = {url: 'error', path: 'error'};
       if (data) {
-        data = yield utilsDocService.fixImageExifRotation(ctx, data);
+        // process image: fix EXIF rotation and convert unsupported formats to optimal format
+        data = yield utilsDocService.processImageOptimal(ctx, data);
 
-        let format = formatChecker.getImageFormat(ctx, data);
+        const format = formatChecker.getImageFormat(ctx, data);
         let formatStr;
         let isAllow = false;
         if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== format) {
@@ -792,11 +793,6 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           }
         }
         if (isAllow) {
-          if (format === constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF) {
-            data = yield utilsDocService.convertImageToPng(ctx, data);
-            format = constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
-            formatStr = formatChecker.getStringFromFormat(format);
-          }
           let strLocalPath = 'media/' + crypto.randomBytes(16).toString('hex') + '_';
           if (urlParsed) {
             const urlBasename = pathModule.basename(urlParsed.pathname);
