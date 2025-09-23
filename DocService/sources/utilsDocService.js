@@ -34,12 +34,7 @@
 
 const util = require('util');
 const config = require('config');
-const exifParser = require('exif-parser');
-//set global window to fix issue https://github.com/photopea/UTIF.js/issues/130
-if (!global.window) {
-  global.window = global;
-}
-const Jimp = require('jimp');
+const sharp = require('sharp');
 const locale = require('windows-locale');
 const ms = require('ms');
 
@@ -49,42 +44,103 @@ const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
 const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template');
 const cfgNotificationRuleLicenseExpirationError = config.get('notification.rules.licenseExpirationError.template');
 
-async function fixImageExifRotation(ctx, buffer) {
-  if (!buffer) {
-    return buffer;
+/**
+ * Determine optimal format (PNG vs JPEG) for image conversion based on image characteristics.
+ * @param {operationContext} ctx Operation context for logging
+ * @param {Object} metadata Image metadata from sharp
+ * @returns {('png'|'jpeg')} Optimal format for conversion
+ */
+function determineOptimalFormat(ctx, metadata) {
+  // If image has alpha channel, only PNG can preserve transparency
+  if (metadata.hasAlpha) {
+    return 'png';
   }
-  //todo move to DocService dir common
+
+  // Analyze color characteristics
+  const width = metadata.width || 0;
+  const height = metadata.height || 0;
+  
+  // Small images (likely icons/logos) - prefer PNG
+  // Only apply when dimensions are known (greater than zero)
+  if (width > 0 && height > 0 && width <= 256 && height <= 256) {
+    return 'png';
+  }
+  
+  // Large photographic images - prefer JPEG
+  if (width > 800 || height > 600) {
+    return 'jpeg';
+  }
+  
+  // Default to JPEG for general compatibility and smaller file sizes
+  return 'jpeg';
+}
+
+/**
+ * Process and optimize image buffer with EXIF rotation fix and modern format conversion.
+ * 1. Fixes EXIF rotation and strips metadata for all images
+ * 2. Converts modern/unsupported formats to optimal formats:
+ *    - WebP/HEIC/HEIF/AVIF/TIFF: Convert to optimal format (PNG or JPEG) based on image characteristics
+ * @param {operationContext} ctx Operation context for logging
+ * @param {Buffer} buffer Source image bytes
+ * @returns {Promise<Buffer>} Processed and optimally converted buffer or original buffer
+ */
+async function processImageOptimal(ctx, buffer) {
+  if (!buffer) return buffer;
+  
+  let needsRotation = false;
+  
   try {
-    const parser = exifParser.create(buffer);
-    const exif = parser.parse();
-    if (exif.tags?.Orientation > 1) {
-      ctx.logger.debug('fixImageExifRotation remove exif and rotate:%j', exif);
-      buffer = convertImageTo(ctx, buffer, Jimp.AUTO);
+    const meta = await sharp(buffer, {failOn: 'none'}).metadata();
+    needsRotation = meta.orientation && meta.orientation > 1;
+    const fmt = (meta.format || '').toLowerCase();
+    
+    // Handle modern formats that need conversion
+    if (fmt === 'webp' || fmt === 'heic' || fmt === 'heif' || fmt === 'avif') {
+      const optimalFormat = determineOptimalFormat(ctx, meta);
+      ctx.logger.debug('processImageOptimal: detected %s, converting to %s%s', fmt, optimalFormat, 
+                       needsRotation ? ' with EXIF rotation' : '');
+      
+      const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
+      if (optimalFormat === 'png') {
+        return await pipeline.png({compressionLevel: 7}).toBuffer();
+      } else {
+        return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
+      }
     }
+    
+    if (fmt === 'tiff' || fmt === 'tif') {
+      const optimalFormat = determineOptimalFormat(ctx, meta);
+      ctx.logger.debug('processImageOptimal: detected TIFF, converting to %s%s', optimalFormat,
+                       needsRotation ? ' with EXIF rotation' : '');
+      
+      const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
+      if (optimalFormat === 'png') {
+        return await pipeline.png({compressionLevel: 7}).toBuffer();
+      } else {
+        return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
+      }
+    }
+    
+    // For other formats, only apply EXIF rotation if needed
+    if (needsRotation) {
+      ctx.logger.debug('processImageOptimal: applying EXIF rotation to %s', fmt);
+      const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
+      if (fmt === 'jpeg' || fmt === 'jpg') {
+        return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
+      }
+      if (fmt === 'png') {
+        return await pipeline.png({compressionLevel: 7}).toBuffer();
+      }
+      return await pipeline.toBuffer();
+    }
+    
   } catch (e) {
-    ctx.logger.debug('fixImageExifRotation error:%s', e.stack);
+    ctx.logger.debug('processImageOptimal error:%s', e.stack);
   }
+  
   return buffer;
 }
-async function convertImageToPng(ctx, buffer) {
-  return await convertImageTo(ctx, buffer, Jimp.MIME_PNG);
-}
-async function convertImageTo(ctx, buffer, mime) {
-  try {
-    ctx.logger.debug('convertImageTo %s', mime);
-    const image = await Jimp.read(buffer);
-    //remove exif
-    image.bitmap.exifBuffer = undefined;
-    //set jpeg and png quality
-    //https://www.imagemagick.org/script/command-line-options.php#quality
-    image.quality(90);
-    image.deflateLevel(7);
-    buffer = await image.getBufferAsync(mime);
-  } catch (e) {
-    ctx.logger.debug('convertImageTo error:%s', e.stack);
-  }
-  return buffer;
-}
+
 /**
  *
  * @param {string} lang
@@ -143,7 +199,7 @@ async function notifyLicenseExpiration(ctx, endDate) {
   }
 }
 
-module.exports.fixImageExifRotation = fixImageExifRotation;
-module.exports.convertImageToPng = convertImageToPng;
+module.exports.processImageOptimal = processImageOptimal;
+module.exports.determineOptimalFormat = determineOptimalFormat;
 module.exports.localeToLCID = localeToLCID;
 module.exports.notifyLicenseExpiration = notifyLicenseExpiration;

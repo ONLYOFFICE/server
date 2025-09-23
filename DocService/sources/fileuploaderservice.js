@@ -36,7 +36,6 @@ const co = require('co');
 const utilsDocService = require('./utilsDocService');
 const docsCoServer = require('./DocsCoServer');
 const utils = require('./../../Common/sources/utils');
-const constants = require('./../../Common/sources/constants');
 const storageBase = require('./../../Common/sources/storage/storage-base');
 const formatChecker = require('./../../Common/sources/formatchecker');
 const commonDefines = require('./../../Common/sources/commondefines');
@@ -103,7 +102,9 @@ exports.uploadImageFile = function (req, res) {
       if (200 === httpStatus && docId && req.body && Buffer.isBuffer(req.body)) {
         let buffer = req.body;
         if (buffer.length <= tenImageSize) {
-          let format = formatChecker.getImageFormat(ctx, buffer);
+          // process image: fix EXIF rotation and convert unsupported formats to optimal format
+          buffer = yield utilsDocService.processImageOptimal(ctx, buffer);
+          const format = formatChecker.getImageFormat(ctx, buffer);
           let formatStr = formatChecker.getStringFromFormat(format);
           if (encrypted && PATTERN_ENCRYPTED === buffer.toString('utf8', 0, PATTERN_ENCRYPTED.length)) {
             formatStr = buffer.toString('utf8', PATTERN_ENCRYPTED.length, buffer.indexOf(';', PATTERN_ENCRYPTED.length));
@@ -111,17 +112,10 @@ exports.uploadImageFile = function (req, res) {
           const supportedFormats = tenTypesUpload || 'jpg';
           const formatLimit = formatStr && -1 !== supportedFormats.indexOf(formatStr);
           if (formatLimit) {
-            if (format === constants.AVS_OFFICESTUDIO_FILE_IMAGE_TIFF) {
-              buffer = yield utilsDocService.convertImageToPng(ctx, buffer);
-              format = constants.AVS_OFFICESTUDIO_FILE_IMAGE_PNG;
-              formatStr = formatChecker.getStringFromFormat(format);
-            }
             //a hash is written at the beginning to avoid errors during parallel upload in co-editing
             const strImageName = crypto.randomBytes(16).toString('hex');
             const strPathRel = 'media/' + strImageName + '.' + formatStr;
             const strPath = docId + '/' + strPathRel;
-
-            buffer = yield utilsDocService.fixImageExifRotation(ctx, buffer);
 
             yield storageBase.putObject(ctx, strPath, buffer, buffer.length);
             output[strPathRel] = yield storageBase.getSignedUrl(
