@@ -67,18 +67,18 @@ function determineOptimalFormat(ctx, metadata) {
   // Analyze color characteristics
   const width = metadata.width || 0;
   const height = metadata.height || 0;
-  
+
   // Small images (likely icons/logos) - prefer PNG
   // Only apply when dimensions are known (greater than zero)
   if (width > 0 && height > 0 && width <= 256 && height <= 256) {
     return 'png';
   }
-  
+
   // Large photographic images - prefer JPEG
   if (width > 800 || height > 600) {
     return 'jpeg';
   }
-  
+
   // Default to JPEG for general compatibility and smaller file sizes
   return 'jpeg';
 }
@@ -94,26 +94,25 @@ function determineOptimalFormat(ctx, metadata) {
  */
 async function processImageOptimal(ctx, buffer) {
   if (!buffer) return buffer;
-  
+
   // Check if Sharp is available
   if (!sharp) {
     ctx.logger.warn('processImageOptimal: Sharp module not available, returning original buffer. Image processing disabled.');
     return buffer;
   }
-  
+
   let needsRotation = false;
-  
+
   try {
     const meta = await sharp(buffer, {failOn: 'none'}).metadata();
     needsRotation = meta.orientation && meta.orientation > 1;
     const fmt = (meta.format || '').toLowerCase();
-    
+
     // Handle modern formats that need conversion
     if (fmt === 'webp' || fmt === 'heic' || fmt === 'heif' || fmt === 'avif') {
       const optimalFormat = determineOptimalFormat(ctx, meta);
-      ctx.logger.debug('processImageOptimal: detected %s, converting to %s%s', fmt, optimalFormat, 
-                       needsRotation ? ' with EXIF rotation' : '');
-      
+      ctx.logger.debug('processImageOptimal: detected %s, converting to %s%s', fmt, optimalFormat, needsRotation ? ' with EXIF rotation' : '');
+
       const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
       if (optimalFormat === 'png') {
         return await pipeline.png({compressionLevel: 7}).toBuffer();
@@ -121,12 +120,11 @@ async function processImageOptimal(ctx, buffer) {
         return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
       }
     }
-    
+
     if (fmt === 'tiff' || fmt === 'tif') {
       const optimalFormat = determineOptimalFormat(ctx, meta);
-      ctx.logger.debug('processImageOptimal: detected TIFF, converting to %s%s', optimalFormat,
-                       needsRotation ? ' with EXIF rotation' : '');
-      
+      ctx.logger.debug('processImageOptimal: detected TIFF, converting to %s%s', optimalFormat, needsRotation ? ' with EXIF rotation' : '');
+
       const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
       if (optimalFormat === 'png') {
         return await pipeline.png({compressionLevel: 7}).toBuffer();
@@ -134,7 +132,7 @@ async function processImageOptimal(ctx, buffer) {
         return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
       }
     }
-    
+
     // For other formats, only apply EXIF rotation if needed
     if (needsRotation) {
       ctx.logger.debug('processImageOptimal: applying EXIF rotation to %s', fmt);
@@ -147,11 +145,10 @@ async function processImageOptimal(ctx, buffer) {
       }
       return await pipeline.toBuffer();
     }
-    
   } catch (e) {
     ctx.logger.debug('processImageOptimal error: %s', e.stack);
   }
-  
+
   return buffer;
 }
 

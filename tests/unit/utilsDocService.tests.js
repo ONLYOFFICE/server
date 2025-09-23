@@ -46,7 +46,7 @@ describe('utilsDocService image processing', () => {
         height: 300,
         channels: 4
       };
-      
+
       const format = utilsDocService.determineOptimalFormat(ctx, metadata);
       expect(format).toBe('png');
     });
@@ -58,11 +58,10 @@ describe('utilsDocService image processing', () => {
         height: 128,
         channels: 3
       };
-      
+
       const format = utilsDocService.determineOptimalFormat(ctx, metadata);
       expect(format).toBe('png');
     });
-
 
     test('should choose JPEG for large images', () => {
       const metadata = {
@@ -71,7 +70,7 @@ describe('utilsDocService image processing', () => {
         height: 800,
         channels: 3
       };
-      
+
       const format = utilsDocService.determineOptimalFormat(ctx, metadata);
       expect(format).toBe('jpeg');
     });
@@ -83,7 +82,7 @@ describe('utilsDocService image processing', () => {
         height: 256,
         channels: 3
       };
-      
+
       const format = utilsDocService.determineOptimalFormat(ctx, metadata);
       expect(format).toBe('png');
     });
@@ -95,7 +94,7 @@ describe('utilsDocService image processing', () => {
         height: 600,
         channels: 3
       };
-      
+
       const format = utilsDocService.determineOptimalFormat(ctx, metadata);
       expect(format).toBe('jpeg');
     });
@@ -107,12 +106,11 @@ describe('utilsDocService image processing', () => {
         height: 300,
         channels: 3
       };
-      
+
       const format = utilsDocService.determineOptimalFormat(ctx, metadata);
       expect(format).toBe('jpeg');
     });
   });
-
 
   describe('processImageOptimal', () => {
     test('should handle EXIF rotation and WebP conversion to JPEG for large images', async () => {
@@ -120,20 +118,24 @@ describe('utilsDocService image processing', () => {
       const webpImage = await sharp({
         create: {width: 1000, height: 600, channels: 3, background: {r: 100, g: 150, b: 200}}
       })
-      .composite([{
-        input: await sharp({
-          create: {width: 200, height: 120, channels: 3, background: {r: 200, g: 100, b: 50}}
-        }).png().toBuffer(),
-        top: 100,
-        left: 200
-      }])
-      .withMetadata({orientation: 6}) // rotate 90 degrees
-      .webp()
-      .toBuffer();
-      
+        .composite([
+          {
+            input: await sharp({
+              create: {width: 200, height: 120, channels: 3, background: {r: 200, g: 100, b: 50}}
+            })
+              .png()
+              .toBuffer(),
+            top: 100,
+            left: 200
+          }
+        ])
+        .withMetadata({orientation: 6}) // rotate 90 degrees
+        .webp()
+        .toBuffer();
+
       const result = await utilsDocService.processImageOptimal(ctx, webpImage);
       const metadata = await sharp(result).metadata();
-      
+
       expect(metadata.format).toBe('jpeg');
       expect(Buffer.compare(webpImage, result) !== 0).toBe(true);
     });
@@ -143,13 +145,13 @@ describe('utilsDocService image processing', () => {
       const webpImage = await sharp({
         create: {width: 100, height: 100, channels: 3, background: {r: 255, g: 255, b: 255}}
       })
-      .withMetadata({orientation: 3}) // rotate 180 degrees
-      .webp()
-      .toBuffer();
-      
+        .withMetadata({orientation: 3}) // rotate 180 degrees
+        .webp()
+        .toBuffer();
+
       const result = await utilsDocService.processImageOptimal(ctx, webpImage);
       const metadata = await sharp(result).metadata();
-      
+
       expect(metadata.format).toBe('png');
       expect(Buffer.compare(webpImage, result) !== 0).toBe(true);
     });
@@ -159,13 +161,13 @@ describe('utilsDocService image processing', () => {
       const tiffImage = await sharp({
         create: {width: 900, height: 600, channels: 3, background: {r: 255, g: 255, b: 255}}
       })
-      .withMetadata({orientation: 8}) // rotate 270 degrees
-      .tiff()
-      .toBuffer();
-      
+        .withMetadata({orientation: 8}) // rotate 270 degrees
+        .tiff()
+        .toBuffer();
+
       const result = await utilsDocService.processImageOptimal(ctx, tiffImage);
       const metadata = await sharp(result).metadata();
-      
+
       expect(metadata.format).toBe('jpeg'); // large image should use JPEG
       expect(Buffer.compare(tiffImage, result) !== 0).toBe(true);
     });
@@ -175,13 +177,13 @@ describe('utilsDocService image processing', () => {
       const jpegImage = await sharp({
         create: {width: 400, height: 300, channels: 3, background: {r: 255, g: 100, b: 50}}
       })
-      .withMetadata({orientation: 6}) // rotate 90 degrees
-      .jpeg()
-      .toBuffer();
-      
+        .withMetadata({orientation: 6}) // rotate 90 degrees
+        .jpeg()
+        .toBuffer();
+
       const result = await utilsDocService.processImageOptimal(ctx, jpegImage);
       const metadata = await sharp(result).metadata();
-      
+
       expect(metadata.format).toBe('jpeg');
       expect(Buffer.compare(jpegImage, result) !== 0).toBe(true);
     });
@@ -190,10 +192,12 @@ describe('utilsDocService image processing', () => {
       // Create a standard PNG without EXIF orientation
       const pngImage = await sharp({
         create: {width: 400, height: 300, channels: 3, background: {r: 255, g: 255, b: 255}}
-      }).png().toBuffer();
-      
+      })
+        .png()
+        .toBuffer();
+
       const result = await utilsDocService.processImageOptimal(ctx, pngImage);
-      
+
       expect(Buffer.compare(pngImage, result) === 0).toBe(true);
     });
 
@@ -201,11 +205,13 @@ describe('utilsDocService image processing', () => {
       // Create WebP with alpha channel - should convert to PNG
       const webpImage = await sharp({
         create: {width: 400, height: 300, channels: 4, background: {r: 255, g: 255, b: 255, alpha: 0.5}}
-      }).webp().toBuffer();
-      
+      })
+        .webp()
+        .toBuffer();
+
       const result = await utilsDocService.processImageOptimal(ctx, webpImage);
       const metadata = await sharp(result).metadata();
-      
+
       expect(metadata.format).toBe('png'); // alpha channel should force PNG
       expect(metadata.hasAlpha).toBe(true);
     });
@@ -214,7 +220,7 @@ describe('utilsDocService image processing', () => {
       // Note: Sharp may not support HEIC creation, so this test might need adjustment
       // For now testing the code path exists
       const mockHeicBuffer = Buffer.from('mock-heic-data');
-      
+
       // Test doesn't crash with invalid HEIC data
       const result = await utilsDocService.processImageOptimal(ctx, mockHeicBuffer);
       expect(result).toEqual(mockHeicBuffer); // Should return original on error
@@ -222,7 +228,7 @@ describe('utilsDocService image processing', () => {
 
     test('should handle corrupted image data gracefully', async () => {
       const corruptedBuffer = Buffer.from('not-an-image');
-      
+
       const result = await utilsDocService.processImageOptimal(ctx, corruptedBuffer);
       expect(result).toEqual(corruptedBuffer); // Should return original on error
     });
@@ -242,11 +248,13 @@ describe('utilsDocService image processing', () => {
       // Create a large WebP that should convert to JPEG
       const webpImage = await sharp({
         create: {width: 1000, height: 600, channels: 3, background: {r: 100, g: 150, b: 200}}
-      }).webp().toBuffer();
-      
+      })
+        .webp()
+        .toBuffer();
+
       const result = await utilsDocService.processImageOptimal(ctx, webpImage);
       const metadata = await sharp(result).metadata();
-      
+
       expect(metadata.format).toBe('jpeg');
       expect(metadata.width).toBe(1000);
       expect(metadata.height).toBe(600);
@@ -260,18 +268,23 @@ describe('utilsDocService image processing', () => {
       const tiffImage = await sharp({
         create: {width: 200, height: 150, channels: 3, background: {r: 255, g: 255, b: 255}}
       })
-      .composite([{
-        input: await sharp({
-          create: {width: 50, height: 50, channels: 3, background: {r: 255, g: 0, b: 0}}
-        }).png().toBuffer(),
-        top: 50,
-        left: 75
-      }])
-      .tiff().toBuffer();
-      
+        .composite([
+          {
+            input: await sharp({
+              create: {width: 50, height: 50, channels: 3, background: {r: 255, g: 0, b: 0}}
+            })
+              .png()
+              .toBuffer(),
+            top: 50,
+            left: 75
+          }
+        ])
+        .tiff()
+        .toBuffer();
+
       const result = await utilsDocService.processImageOptimal(ctx, tiffImage);
       const metadata = await sharp(result).metadata();
-      
+
       expect(metadata.format).toBe('png'); // small image should use PNG
       expect(metadata.width).toBe(200);
       expect(metadata.height).toBe(150);
