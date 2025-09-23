@@ -34,9 +34,17 @@
 
 const util = require('util');
 const config = require('config');
-const sharp = require('sharp');
 const locale = require('windows-locale');
 const ms = require('ms');
+
+// Load Sharp with graceful fallback for pkg-builds and missing dependencies
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (error) {
+  console.warn('Sharp module failed to load. Image processing functionality will be limited.');
+  console.warn('Sharp load error:', error.message);
+}
 
 const {notificationTypes, ...notificationService} = require('../../Common/sources/notificationService');
 
@@ -87,6 +95,12 @@ function determineOptimalFormat(ctx, metadata) {
 async function processImageOptimal(ctx, buffer) {
   if (!buffer) return buffer;
   
+  // Check if Sharp is available
+  if (!sharp) {
+    ctx.logger.warn('processImageOptimal: Sharp module not available, returning original buffer. Image processing disabled.');
+    return buffer;
+  }
+  
   let needsRotation = false;
   
   try {
@@ -135,7 +149,7 @@ async function processImageOptimal(ctx, buffer) {
     }
     
   } catch (e) {
-    ctx.logger.debug('processImageOptimal error:%s', e.stack);
+    ctx.logger.debug('processImageOptimal error: %s', e.stack);
   }
   
   return buffer;
