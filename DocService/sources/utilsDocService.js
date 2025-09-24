@@ -48,6 +48,12 @@ function initializeSharp() {
     if (!process.env.XDG_CACHE_HOME) {
       process.env.XDG_CACHE_HOME = tmp;
     }
+    if (!process.env.PKG_EXTRACT_PATH) {
+      process.env.PKG_EXTRACT_PATH = tmp;
+    }
+    if (!process.env.HOME) {
+      process.env.HOME = tmp;
+    }
 
     sharp = require('sharp');
     // todo test.
