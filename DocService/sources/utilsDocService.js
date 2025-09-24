@@ -32,6 +32,7 @@
 
 'use strict';
 
+const os = require('os');
 const util = require('util');
 const config = require('config');
 const locale = require('windows-locale');
@@ -39,7 +40,15 @@ const ms = require('ms');
 const operationContext = require('./../../Common/sources/operationContext');
 
 function initializeSharp() {
-  try {  
+  try {
+    const tmp = os.tmpdir();
+    if (!process.env.PKG_CACHE_PATH) {
+      process.env.PKG_CACHE_PATH = tmp;
+    }
+    if (!process.env.XDG_CACHE_HOME) {
+      process.env.XDG_CACHE_HOME = tmp;
+    }
+
     sharp = require('sharp');
     // todo test.
     // Set concurrency to 2 for better performance
