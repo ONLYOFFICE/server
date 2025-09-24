@@ -36,15 +36,25 @@ const util = require('util');
 const config = require('config');
 const locale = require('windows-locale');
 const ms = require('ms');
+const operationContext = require('./../../Common/sources/operationContext');
+
+function initializeSharp() {
+  try {  
+    sharp = require('sharp');
+    // todo test.
+    // Set concurrency to 2 for better performance
+    sharp.concurrency(2);
+    // Disable cache - not needed for one-time image conversion (writes to ./.cache dir)
+    sharp.cache(false);
+  } catch (error) {
+    operationContext.global.logger.warn('Sharp module failed to load. Image processing functionality will be limited.');
+    operationContext.global.logger.warn('Sharp load error:', error.message);
+  }
+}
 
 // Load Sharp with graceful fallback for pkg-builds and missing dependencies
 let sharp = null;
-try {
-  sharp = require('sharp');
-} catch (error) {
-  console.warn('Sharp module failed to load. Image processing functionality will be limited.');
-  console.warn('Sharp load error:', error.message);
-}
+initializeSharp();
 
 const {notificationTypes, ...notificationService} = require('../../Common/sources/notificationService');
 
