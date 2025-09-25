@@ -40,21 +40,6 @@
       "integrity": "sha512-x0yf9PL/nx9Nw9oLL8ZVErFAk85/lslwEP7Vz7s5SI1ODXZIgit3C5qyWjw4DxOuO/3Hb4866SQh28a1V1d+WA==",
       "optional": true
     },
-    "modern-syslog": {
-      "version": "1.2.0",
-      "resolved": "https://registry.npmjs.org/modern-syslog/-/modern-syslog-1.2.0.tgz",
-      "integrity": "sha512-dmFE23qpyZJf8MOdzuNKliW4j1PCqxaRtSzyNnv6QDUWjf1z8T4ZoQ7Qf0t6It2ewNv9/XJZSJoUgwpq3D0X7A==",
-      "optional": true,
-      "requires": {
-        "nan": "^2.13.2"
-      }
-    },
-    "nan": {
-      "version": "2.23.0",
-      "resolved": "https://registry.npmjs.org/nan/-/nan-2.23.0.tgz",
-      "integrity": "sha512-1UxuyYGdoQHcGg87Lkqm3FzefucTa0NAiOcuRsDmysep3c1LVCRK2krrUDafMWtjSG04htvAmvg96+SDknOmgQ==",
-      "optional": true
-    },
     "sequence": {
       "version": "2.2.1",
       "resolved": "https://registry.npmjs.org/sequence/-/sequence-2.2.1.tgz",
@@ -74,7 +59,6 @@
       "requires": {
         "generic-pool": "2.2.0",
         "hashring": "3.2.0",
-        "modern-syslog": "1.2.0",
         "winser": "=0.1.6"
       }
     },
