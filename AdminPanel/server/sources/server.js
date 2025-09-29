@@ -107,3 +107,6 @@ app.use((err, req, res, _next) => {
 server.listen(port, () => {
   operationContext.global.logger.warn('AdminPanel server listening on port %d', port);
 });
+
+//after all required modules in all files
+moduleReloader.finalizeConfigWithRuntime();

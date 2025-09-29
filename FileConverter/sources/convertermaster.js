@@ -33,10 +33,10 @@
 'use strict';
 
 const cluster = require('cluster');
-const logger = require('./../../Common/sources/logger');
-const operationContext = require('./../../Common/sources/operationContext');
 const moduleReloader = require('./../../Common/sources/moduleReloader');
 const config = moduleReloader.requireConfigWithRuntime();
+const logger = require('./../../Common/sources/logger');
+const operationContext = require('./../../Common/sources/operationContext');
 
 if (cluster.isMaster) {
   const fs = require('fs');
@@ -104,3 +104,6 @@ process.on('uncaughtException', err => {
     process.exit(1);
   });
 });
+
+//after all required modules in all files
+moduleReloader.finalizeConfigWithRuntime();
