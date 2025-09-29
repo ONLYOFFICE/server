@@ -46,6 +46,7 @@ export default function Login() {
               onChange={setTenantName}
               placeholder='Enter your tenant name'
               description='The name of your tenant organization'
+              error={error}
               onKeyDown={handleKeyDown}
             />
           </div>

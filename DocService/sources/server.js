@@ -509,3 +509,6 @@ process.on('uncaughtException', err => {
     process.exit(1);
   });
 });
+
+//after all required modules in all files
+moduleReloader.finalizeConfigWithRuntime();

@@ -50,6 +50,10 @@ function reloadNpmModule(moduleName) {
   }
 }
 
+// Backup original NODE_CONFIG to avoid growing environment
+const prevNodeConfig = process.env.NODE_CONFIG;
+let nodeConfigOverridden = false;
+
 /**
  * Requires config module with runtime configuration support.
  * Temporarily sets NODE_CONFIG for reload, then restores environment to prevent E2BIG.
@@ -58,10 +62,6 @@ function reloadNpmModule(moduleName) {
  */
 function requireConfigWithRuntime(opt_additionalConfig) {
   let config = require('config');
-
-  // Backup original NODE_CONFIG to avoid growing environment
-  const prevNodeConfig = process.env.NODE_CONFIG;
-  let nodeConfigOverridden = false;
 
   try {
     const configFilePath = config.get('runtimeConfig.filePath');
@@ -88,20 +88,23 @@ function requireConfigWithRuntime(opt_additionalConfig) {
     if (err.code !== 'ENOENT') {
       console.error('Failed to load runtime config: %s', err.stack);
     }
-  } finally {
-    // Restore original NODE_CONFIG to keep env small and avoid E2BIG on Windows/pkg
-    if (nodeConfigOverridden) {
-      if (typeof prevNodeConfig === 'undefined') {
-        delete process.env.NODE_CONFIG;
-      } else {
-        process.env.NODE_CONFIG = prevNodeConfig;
-      }
-    }
   }
   return config;
 }
 
+function finalizeConfigWithRuntime() {
+  // Restore original NODE_CONFIG to keep env small and avoid E2BIG on Windows/pkg
+  if (nodeConfigOverridden) {
+    if (typeof prevNodeConfig === 'undefined') {
+      delete process.env.NODE_CONFIG;
+    } else {
+      process.env.NODE_CONFIG = prevNodeConfig;
+    }
+  }
+}
+
 module.exports = {
   reloadNpmModule,
-  requireConfigWithRuntime
+  requireConfigWithRuntime,
+  finalizeConfigWithRuntime
 };
