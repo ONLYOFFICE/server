@@ -1465,7 +1465,9 @@ exports.downloadAs = function (req, res) {
       const strCmd = req.query['cmd'];
       const cmd = new commonDefines.InputCommand(JSON.parse(strCmd));
       docId = cmd.getDocId();
+      let userId = cmd.getUserId();
       ctx.setDocId(docId);
+      ctx.setUserId(userId);
       ctx.logger.debug('Start downloadAs: %s', strCmd);
       const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
@@ -1490,7 +1492,8 @@ exports.downloadAs = function (req, res) {
               isValidJwt = true;
               docId = doc.key;
               cmd.setDocId(doc.key);
-              cmd.setUserIndex(decoded.editorConfig && decoded.editorConfig.user && decoded.editorConfig.user.index);
+              userId = decoded.editorConfig?.user?.id;
+              cmd.setUserIndex(decoded.editorConfig?.user?.index);
             } else {
               ctx.logger.warn('Error downloadAs jwt: %s', 'access deny');
             }
@@ -1504,6 +1507,7 @@ exports.downloadAs = function (req, res) {
         }
       }
       ctx.setDocId(docId);
+      ctx.setUserId(userId);
       const selectRes = yield taskResult.select(ctx, docId);
       const row = selectRes.length > 0 ? selectRes[0] : null;
       if (!cmd.getWithoutPassword()) {
