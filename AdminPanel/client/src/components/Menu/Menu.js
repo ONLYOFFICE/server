@@ -7,12 +7,12 @@ import MenuItem from './MenuItem/MenuItem';
 import AppMenuLogo from '../../assets/AppMenuLogo.svg';
 import {menuItems} from '../../config/menuItems';
 import styles from './Menu.module.scss';
+import FileIcon from '../../assets/File.svg';
 
 function Menu() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const isAuthenticated = useSelector(selectIsAuthenticated);
 
   const handleLogout = async () => {
     try {
@@ -49,17 +49,10 @@ function Menu() {
 
         <div className={styles['menu__menuItems']}>
           {menuItems.map(item => (
-            <MenuItem key={item.key} label={item.label} isActive={isActiveItem(item.path)} onClick={() => handleMenuItemClick(item)} />
+            <MenuItem key={item.key} label={item.label} isActive={isActiveItem(item.path)} onClick={() => handleMenuItemClick(item)} icon={FileIcon}/>
           ))}
+          <MenuItem label='Logout' isActive={false} onClick={handleLogout} />
         </div>
-
-        {isAuthenticated && (
-          <div className={styles['menu__logoutContainer']}>
-            <button onClick={handleLogout} className={styles['menu__logoutButton']}>
-              Logout
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
