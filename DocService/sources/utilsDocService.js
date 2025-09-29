@@ -40,30 +40,39 @@ const ms = require('ms');
 const operationContext = require('./../../Common/sources/operationContext');
 
 function initializeSharp() {
+  let originalValues = {};
   try {
     const tmp = os.tmpdir();
-    if (!process.env.PKG_CACHE_PATH) {
-      process.env.PKG_CACHE_PATH = tmp;
-    }
-    if (!process.env.XDG_CACHE_HOME) {
-      process.env.XDG_CACHE_HOME = tmp;
-    }
-    if (!process.env.PKG_EXTRACT_PATH) {
-      process.env.PKG_EXTRACT_PATH = tmp;
-    }
-    if (!process.env.HOME) {
-      process.env.HOME = tmp;
-    }
+    // Save original values
+    originalValues = {
+      XDG_CACHE_HOME: process.env.XDG_CACHE_HOME,
+      HOME: process.env.HOME
+    };
+    // Set temporary values for Sharp initialization
+    process.env.XDG_CACHE_HOME = tmp;
+    process.env.HOME = tmp;
 
     sharp = require('sharp');
+  } catch (error) {
+    operationContext.global.logger.warn('Sharp module failed to load. Image processing functionality will be limited.');
+    operationContext.global.logger.warn('Sharp load error:', error.message);
+  } finally {
+    // Restore original values
+    Object.keys(originalValues).forEach(key => {
+      if (originalValues[key] !== undefined) {
+        process.env[key] = originalValues[key];
+      } else {
+        delete process.env[key];
+      }
+    });
+  }
+  
+  if (sharp) {
     // todo test.
     // Set concurrency to 2 for better performance
     sharp.concurrency(2);
     // Disable cache - not needed for one-time image conversion (writes to ./.cache dir)
     sharp.cache(false);
-  } catch (error) {
-    operationContext.global.logger.warn('Sharp module failed to load. Image processing functionality will be limited.');
-    operationContext.global.logger.warn('Sharp load error:', error.message);
   }
 }
 
