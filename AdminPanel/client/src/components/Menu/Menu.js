@@ -1,6 +1,5 @@
-import {useSelector, useDispatch} from 'react-redux';
+import {useDispatch} from 'react-redux';
 import {useLocation, useNavigate} from 'react-router-dom';
-import {selectIsAuthenticated} from '../../store/slices/userSlice';
 import {clearConfig} from '../../store/slices/configSlice';
 import {logout} from '../../api';
 import MenuItem from './MenuItem/MenuItem';
@@ -49,7 +48,13 @@ function Menu() {
 
         <div className={styles['menu__menuItems']}>
           {menuItems.map(item => (
-            <MenuItem key={item.key} label={item.label} isActive={isActiveItem(item.path)} onClick={() => handleMenuItemClick(item)} icon={FileIcon}/>
+            <MenuItem
+              key={item.key}
+              label={item.label}
+              isActive={isActiveItem(item.path)}
+              onClick={() => handleMenuItemClick(item)}
+              icon={FileIcon}
+            />
           ))}
           <MenuItem label='Logout' isActive={false} onClick={handleLogout} />
         </div>

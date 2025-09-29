@@ -66,7 +66,7 @@ function initializeSharp() {
       }
     });
   }
-  
+
   if (sharp) {
     // todo test.
     // Set concurrency to 2 for better performance
