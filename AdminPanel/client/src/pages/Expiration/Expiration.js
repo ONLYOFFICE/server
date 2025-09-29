@@ -137,34 +137,34 @@ function Expiration() {
           <div className={styles.tabPanel}>
             <div className={styles.formRow}>
               <Input
-                label='Files Cron Expression'
+                label='Cache Cleanup Cron Expression'
                 value={localSettings.filesCron}
                 onChange={value => handleFieldChange('filesCron', value)}
                 placeholder='0 0 */2 * * *'
-                description='Cron expression for file cleanup schedule (6 fields: second minute hour day month day_of_week)'
+                description='Cron expression for cleaning up expired cached files and temporary data (6 fields: second minute hour day month day_of_week)'
                 error={getFieldError(CONFIG_PATHS.filesCron)}
               />
             </div>
 
             <div className={styles.formRow}>
               <Input
-                label='Documents Cron Expression'
+                label='Auto-Save & Presence Cleanup Cron Expression'
                 value={localSettings.documentsCron}
                 onChange={value => handleFieldChange('documentsCron', value)}
                 placeholder='0 0 */2 * * *'
-                description='Cron expression for document cleanup schedule (6 fields: second minute hour day month day_of_week)'
+                description='Cron expression for auto-saving documents with pending changes and cleaning up expired user presence data (6 fields: second minute hour day month day_of_week)'
                 error={getFieldError(CONFIG_PATHS.documentsCron)}
               />
             </div>
 
             <div className={styles.formRow}>
               <Input
-                label='Files Expiration Time (seconds)'
+                label='Cache File Retention Time (seconds)'
                 type='number'
                 value={localSettings.files}
                 onChange={value => handleFieldChange('files', value)}
                 placeholder='3600'
-                description='Time in seconds after which files expire and can be cleaned up'
+                description='How long to keep cached files before marking them as expired and eligible for cleanup (default: 86400 = 24 hours)'
                 min='0'
                 error={getFieldError(CONFIG_PATHS.files)}
               />
