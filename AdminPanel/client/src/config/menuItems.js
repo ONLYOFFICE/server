@@ -4,6 +4,7 @@ import SecuritySettings from '../pages/SecuritySettings/SecuritySettings';
 import EmailConfig from '../pages/EmailConfig/EmailConfig';
 import FileLimits from '../pages/FileLimits/FileLimits';
 import RequestFiltering from '../pages/RequestFiltering/RequestFiltering';
+import LoggerConfig from '../pages/LoggerConfig/LoggerConfig';
 import Statistics from '../pages/Statistics';
 
 // Generic component factory function for pages not yet implemented
@@ -18,6 +19,7 @@ export const menuItems = [
   {key: 'request-filtering', label: 'Request Filtering', path: '/request-filtering', component: RequestFiltering},
   {key: 'wopi-settings', label: 'WOPI Settings', path: '/wopi-settings', component: WOPISettings},
   {key: 'email-config', label: 'Email Config', path: '/email-config', component: EmailConfig},
+  {key: 'logger-config', label: 'Logger Config', path: '/logger-config', component: LoggerConfig},
   {key: 'health-check', label: 'Health Check', path: '/health-check', component: createMockComponent('Health Check')},
   {key: 'config-check', label: 'Config Check', path: '/config-check', component: createMockComponent('Config Check')},
   {key: 'database-info', label: 'Database Info', path: '/database-info', component: createMockComponent('Database Info')},

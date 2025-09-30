@@ -38,6 +38,7 @@ const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
 const license = require('../../../Common/sources/license');
 const utils = require('../../../Common/sources/utils');
+const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
 
 const express = require('express');
 const http = require('http');
@@ -108,5 +109,9 @@ server.listen(port, () => {
   operationContext.global.logger.warn('AdminPanel server listening on port %d', port);
 });
 
+//Initialize watch here to avoid circular import with operationContext
+runtimeConfigManager.initRuntimeConfigWatcher(operationContext.global).catch(err => {
+  operationContext.global.logger.warn('initRuntimeConfigWatcher error: %s', err.stack);
+});
 //after all required modules in all files
 moduleReloader.finalizeConfigWithRuntime();

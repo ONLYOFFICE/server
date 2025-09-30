@@ -38,6 +38,7 @@ const config = require('config');
 const NodeCache = require('node-cache');
 const operationContext = require('./operationContext');
 const utils = require('./utils');
+const logger = require('./logger');
 
 const cfgRuntimeConfig = config.get('runtimeConfig');
 const configFilePath = cfgRuntimeConfig.filePath;
@@ -113,6 +114,10 @@ function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
     }
     if (shouldReload) {
       nodeCache.del(configFileName);
+      // Reload config and update logging level
+      getConfig(operationContext.global).then(config => {
+        logger.configureLogger(config?.log?.options);
+      });
     }
   } catch (err) {
     operationContext.global.logger.error(`handleConfigFileChange error: ${err.message}`);
