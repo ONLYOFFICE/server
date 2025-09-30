@@ -103,7 +103,6 @@ async function saveConfig(ctx, config) {
  */
 function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
   try {
-    const logLevel = logger.getLogLevel();
     let shouldReload = false;
 
     if (typeof eventTypeOrCurrent === 'object' && eventTypeOrCurrent.isFile) {
@@ -117,9 +116,7 @@ function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
       nodeCache.del(configFileName);
       // Reload config and update logging level
       getConfig(operationContext.global).then(config => {
-        if (config.log.level !== logLevel) {
-          logger.configureLogger(config.log.level);
-        }
+        logger.configureLogger(config?.log?.options);
       });
     }
   } catch (err) {

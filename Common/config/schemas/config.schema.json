@@ -220,10 +220,28 @@
       "additionalProperties": true,
       "x-scope": "admin",
       "properties": {
-        "level": {
-          "type": "string",
-          "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
-          "description": "Logging level for the application"
+        "options": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "categories": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "default": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "level": {
+                      "type": "string",
+                      "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
+                      "description": "Logging level for the application"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

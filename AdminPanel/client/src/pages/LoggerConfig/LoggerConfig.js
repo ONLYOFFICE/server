@@ -35,7 +35,7 @@ function LoggerConfig() {
 
   // Configuration paths
   const CONFIG_PATHS = {
-    logLevel: 'log.level'
+    logLevel: 'log.options.categories.default.level'
   };
 
   // Reset state and errors to global config

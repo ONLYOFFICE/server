@@ -60,6 +60,7 @@ const staticRouter = require('./routes/static');
 const infoRouter = require('./routes/info');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
+const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
@@ -499,5 +500,9 @@ process.on('uncaughtException', err => {
   });
 });
 
+//Initialize watch here to avoid circular import with operationContext
+runtimeConfigManager.initRuntimeConfigWatcher(operationContext.global).catch(err => {
+  operationContext.global.logger.warn('initRuntimeConfigWatcher error: %s', err.stack);
+});
 //after all required modules in all files
 moduleReloader.finalizeConfigWithRuntime();

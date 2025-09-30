@@ -33,6 +33,7 @@
 'use strict';
 const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
+const logger = require('../../../../../Common/sources/logger');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
 const {deriveSchemaForScope, X_SCOPE_KEYWORD} = require('./config.schema.utils');
@@ -101,6 +102,13 @@ function validateScoped(ctx, updateData) {
 function getScopedConfig(ctx) {
   const cfg = ctx.getFullCfg();
   const configCopy = JSON.parse(JSON.stringify(cfg));
+
+  // Add log config. getLoggerConfig return merged config
+  if (!configCopy.log) {
+    configCopy.log = {};
+  }
+  configCopy.log.options = logger.getLoggerConfig();
+
   const filter = isAdminScope(ctx) ? filterAdmin : filterTenant;
   filter(configCopy);
   return configCopy;

@@ -37,6 +37,7 @@ const moduleReloader = require('./../../Common/sources/moduleReloader');
 const config = moduleReloader.requireConfigWithRuntime();
 const logger = require('./../../Common/sources/logger');
 const operationContext = require('./../../Common/sources/operationContext');
+const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
 
 if (cluster.isMaster) {
   const fs = require('fs');
@@ -95,6 +96,10 @@ if (cluster.isMaster) {
 } else {
   const converter = require('./converter');
   converter.run();
+  //Initialize watch here to avoid circular import with operationContext
+  runtimeConfigManager.initRuntimeConfigWatcher(operationContext.global).catch(err => {
+    operationContext.global.logger.warn('initRuntimeConfigWatcher error: %s', err.stack);
+  });
 }
 
 process.on('uncaughtException', err => {

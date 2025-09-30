@@ -9,6 +9,6 @@
     }
   },
   "categories": {
-    "default": {"appenders": ["default"]}
+    "default": {"appenders": ["default"], "level": "WARN"}
   }
 }
