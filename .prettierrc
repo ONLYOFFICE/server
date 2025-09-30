@@ -13,5 +13,13 @@
   "htmlWhitespaceSensitivity": "css",
   "endOfLine": "lf",
   "proseWrap": "preserve",
-  "embeddedLanguageFormatting": "auto"
+  "embeddedLanguageFormatting": "auto",
+  "overrides": [
+    {
+      "files": "*.json",
+      "options": {
+        "printWidth": 250
+      }
+    }
+  ]
 }
