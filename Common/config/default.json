@@ -21,6 +21,7 @@
   },
   "log": {
     "filePath": "",
+    "level": "WARN",
     "options": {
       "replaceConsole": true
     }

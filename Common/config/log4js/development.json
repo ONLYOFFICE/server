@@ -9,6 +9,6 @@
     }
   },
   "categories": {
-    "default": {"appenders": ["default"], "level": "ALL"}
+    "default": {"appenders": ["default"]}
   }
 }

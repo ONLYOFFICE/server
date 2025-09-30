@@ -214,6 +214,18 @@
           }
         }
       }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": true,
+      "x-scope": "admin",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
+          "description": "Logging level for the application"
+        }
+      }
     }
   }
 }

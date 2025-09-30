@@ -34,9 +34,14 @@
 
 const config = require('config');
 const util = require('util');
+const path = require('path');
+const fs = require('fs');
 
 const log4js = require('log4js');
 const layouts = require('log4js/lib/layouts');
+const logConfigPath = config.get('log.filePath');
+let logLevel = config.get('log.level');
+const fullLogConfigPath = path.resolve(__dirname, '..', logConfigPath);
 
 // https://stackoverflow.com/a/36643588
 const dateToJSONWithTZ = function (d) {
@@ -78,7 +83,18 @@ log4js.addLayout('patternWithTokens', cfg => {
   return layouts.patternLayout(pattern, tokens);
 });
 
-log4js.configure(config.get('log.filePath'));
+exports.configureLogger = function (level = logLevel) {
+  const logConfig = JSON.parse(fs.readFileSync(fullLogConfigPath, 'utf8'));
+  Object.keys(logConfig.categories).forEach(categoryName => {
+    logConfig.categories[categoryName].level = level;
+  });
+  logLevel = level;
+  log4js.configure(logConfig);
+};
+exports.configureLogger();
+exports.getLogLevel = function () {
+  return logLevel;
+};
 
 const logger = log4js.getLogger('nodeJS');
 
