@@ -37,6 +37,7 @@
 - fakeredis 2.0.0 ([MIT](https://github.com/hdachev/fakeredis?tab=readme-ov-file#license))
 - ioredis 5.6.0 ([MIT](https://raw.githubusercontent.com/redis/ioredis/main/LICENSE))
 - jsonwebtoken 9.0.2 ([MIT](https://raw.githubusercontent.com/auth0/node-jsonwebtoken/master/LICENSE))
+- heic-decode 2.1.0 ([ISC](https://opensource.org/license/isc-license-txt))
 - mime 2.3.1 ([MIT](https://raw.githubusercontent.com/broofa/mime/main/LICENSE))
 - mime-db 1.53.0 ([MIT](https://raw.githubusercontent.com/jshttp/mime-db/master/LICENSE))
 - ms 2.1.3 ([MIT](https://raw.githubusercontent.com/vercel/ms/master/license.md))

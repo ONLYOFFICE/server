@@ -37,6 +37,7 @@ const util = require('util');
 const config = require('config');
 const locale = require('windows-locale');
 const ms = require('ms');
+const decodeHeic = require('heic-decode');
 const operationContext = require('./../../Common/sources/operationContext');
 
 function initializeSharp() {
@@ -118,6 +119,36 @@ function determineOptimalFormat(ctx, metadata) {
 }
 
 /**
+ * Convert Sharp pipeline to buffer in optimal format (PNG or JPEG).
+ * @param {Object} pipeline Sharp pipeline instance
+ * @param {string} format Target format ('png' or 'jpeg')
+ * @returns {Promise<Buffer>} Converted image buffer
+ */
+async function convertToFormat(pipeline, format) {
+  if (format === 'png') {
+    return await pipeline.png({compressionLevel: 7}).toBuffer();
+  }
+  return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
+}
+
+/**
+ * Decode HEIC/HEIF buffer using heic-decode library and create Sharp instance.
+ * @param {Buffer} buffer HEIC/HEIF image buffer
+ * @returns {Promise<Object>} Sharp instance with decoded raw image data
+ */
+async function decodeHeicToSharp(buffer) {
+  const decodedImage = await decodeHeic({buffer});
+  return sharp(decodedImage.data, {
+    failOn: 'none',
+    raw: {
+      width: decodedImage.width,
+      height: decodedImage.height,
+      channels: 4
+    }
+  });
+}
+
+/**
  * Process and optimize image buffer with EXIF rotation fix and modern format conversion.
  * 1. Fixes EXIF rotation and strips metadata for all images
  * 2. Converts modern/unsupported formats to optimal formats:
@@ -135,42 +166,35 @@ async function processImageOptimal(ctx, buffer) {
     return buffer;
   }
 
-  let needsRotation = false;
-
   try {
     const meta = await sharp(buffer, {failOn: 'none'}).metadata();
-    needsRotation = meta.orientation && meta.orientation > 1;
     const fmt = (meta.format || '').toLowerCase();
+    const needsRotation = meta.orientation && meta.orientation > 1;
 
-    // Handle modern formats that need conversion
-    if (fmt === 'webp' || fmt === 'heic' || fmt === 'heif' || fmt === 'avif') {
+    // Handle modern formats requiring conversion
+    if (fmt === 'heic' || fmt === 'heif' || fmt === 'webp' || fmt === 'avif' || fmt === 'tiff' || fmt === 'tif') {
       const optimalFormat = determineOptimalFormat(ctx, meta);
-      ctx.logger.debug('processImageOptimal: detected %s, converting to %s%s', fmt, optimalFormat, needsRotation ? ' with EXIF rotation' : '');
+      ctx.logger.debug('processImageOptimal: converting %s to %s%s', fmt, optimalFormat, needsRotation ? ' with rotation' : '');
 
-      const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
-      if (optimalFormat === 'png') {
-        return await pipeline.png({compressionLevel: 7}).toBuffer();
-      } else {
-        return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
+      try {
+        const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
+        return await convertToFormat(pipeline, optimalFormat);
+      } catch (sharpError) {
+        // Fallback to heic-decode for HEIC/HEIF when Sharp fails
+        if (fmt === 'heic' || fmt === 'heif') {
+          ctx.logger.debug('processImageOptimal: Sharp failed for %s, using heic-decode fallback', fmt);
+          const heicPipeline = await decodeHeicToSharp(buffer);
+          return await convertToFormat(heicPipeline, optimalFormat);
+        }
+        throw sharpError;
       }
     }
 
-    if (fmt === 'tiff' || fmt === 'tif') {
-      const optimalFormat = determineOptimalFormat(ctx, meta);
-      ctx.logger.debug('processImageOptimal: detected TIFF, converting to %s%s', optimalFormat, needsRotation ? ' with EXIF rotation' : '');
-
-      const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
-      if (optimalFormat === 'png') {
-        return await pipeline.png({compressionLevel: 7}).toBuffer();
-      } else {
-        return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
-      }
-    }
-
-    // For other formats, only apply EXIF rotation if needed
+    // For standard formats, only apply EXIF rotation if needed
     if (needsRotation) {
       ctx.logger.debug('processImageOptimal: applying EXIF rotation to %s', fmt);
       const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
+
       if (fmt === 'jpeg' || fmt === 'jpg') {
         return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
       }
