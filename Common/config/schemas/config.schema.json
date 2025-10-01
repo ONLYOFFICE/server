@@ -244,6 +244,104 @@
           }
         }
       }
+    },
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "rules": {
+          "type": "object",
+          "additionalProperties": false,
+          "x-scope": ["admin", "tenant"],
+          "properties": {
+            "licenseExpirationWarning": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseExpirationError": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseLimitEdit": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseLimitLiveViewer": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

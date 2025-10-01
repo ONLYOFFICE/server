@@ -2,6 +2,7 @@ import WOPISettings from '../pages/WOPISettings/WOPISettings';
 import Expiration from '../pages/Expiration/Expiration';
 import SecuritySettings from '../pages/SecuritySettings/SecuritySettings';
 import EmailConfig from '../pages/EmailConfig/EmailConfig';
+import NotificationRules from '../pages/NotificationRules/NotificationRules';
 import FileLimits from '../pages/FileLimits/FileLimits';
 import RequestFiltering from '../pages/RequestFiltering/RequestFiltering';
 import LoggerConfig from '../pages/LoggerConfig/LoggerConfig';
@@ -21,6 +22,7 @@ export const menuItems = [
   {key: 'wopi-settings', label: 'WOPI Settings', path: '/wopi-settings', component: WOPISettings},
   {key: 'email-config', label: 'Email Config', path: '/email-config', component: EmailConfig},
   {key: 'logger-config', label: 'Logger Config', path: '/logger-config', component: LoggerConfig},
+  {key: 'notification-rules', label: 'Notification Rules', path: '/notification-rules', component: NotificationRules},
   {key: 'health-check', label: 'Health Check', path: '/health-check', component: createMockComponent('Health Check')},
   {key: 'config-check', label: 'Config Check', path: '/config-check', component: createMockComponent('Config Check')},
   {key: 'database-info', label: 'Database Info', path: '/database-info', component: createMockComponent('Database Info')},
