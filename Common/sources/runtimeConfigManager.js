@@ -47,6 +47,10 @@ const configFileName = path.basename(configFilePath);
 // Initialize cache with TTL and check for expired keys every minute
 const nodeCache = new NodeCache(cfgRuntimeConfig.cache);
 
+// Debounce timer to wait for file write completion
+let reloadTimer = null;
+const RELOAD_DEBOUNCE_MS = 200;
+
 /**
  * Get runtime configuration for the current context
  * @param {operationContext} ctx - Operation context
@@ -99,25 +103,41 @@ async function saveConfig(ctx, config) {
 }
 
 /**
- * Supports both fs.watch (eventType, filename) and fs.watchFile (current, previous) callbacks
+ * Handle config file change event from fs.watch or fs.watchFile
+ * Debounces multiple events to prevent excessive reloads during file write
+ * @param {string|fs.Stats} eventTypeOrCurrent - Event type for fs.watch or current stats for fs.watchFile
+ * @param {string|fs.Stats} filenameOrPrevious - Filename for fs.watch or previous stats for fs.watchFile
  */
 function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
   try {
     let shouldReload = false;
 
     if (typeof eventTypeOrCurrent === 'object' && eventTypeOrCurrent.isFile) {
+      // fs.watchFile callback: (current, previous)
       shouldReload = eventTypeOrCurrent.mtime !== filenameOrPrevious.mtime;
-      operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watchFile: ${configFileName}`);
     } else {
+      // fs.watch callback: (eventType, filename)
       shouldReload = configFileName === filenameOrPrevious;
-      operationContext.global.logger.info(`handleConfigFileChange reloaded=${shouldReload} watch ${eventTypeOrCurrent}: ${filenameOrPrevious}`);
     }
+
     if (shouldReload) {
-      nodeCache.del(configFileName);
-      // Reload config and update logging level
-      getConfig(operationContext.global).then(config => {
-        logger.configureLogger(config?.log?.options);
-      });
+      // Clear timer and wait for file write to complete
+      if (reloadTimer) {
+        clearTimeout(reloadTimer);
+      }
+
+      reloadTimer = setTimeout(() => {
+        reloadTimer = null;
+        nodeCache.del(configFileName);
+        operationContext.global.logger.info(`handleConfigFileChange reloading config: ${configFileName}`);
+        getConfig(operationContext.global)
+          .then(config => {
+            logger.configureLogger(config?.log?.options);
+          })
+          .catch(err => {
+            operationContext.global.logger.error(`handleConfigFileChange reload error: ${err.message}`);
+          });
+      }, RELOAD_DEBOUNCE_MS);
     }
   } catch (err) {
     operationContext.global.logger.error(`handleConfigFileChange error: ${err.message}`);
