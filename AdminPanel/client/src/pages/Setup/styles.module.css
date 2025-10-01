@@ -2,7 +2,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 60px); /* Account for header height */
+  min-height: calc(100vh - 60px);
   background: white;
   padding: 20px;
   width: 100%;

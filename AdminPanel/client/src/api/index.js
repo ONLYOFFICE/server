@@ -70,21 +70,74 @@ export const fetchCurrentUser = async () => {
   return response.json();
 };
 
-export const login = async ({tenantName, secret}) => {
+export const checkSetupRequired = async () => {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/setup/required`, {
+    method: 'GET',
+    credentials: 'include'
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to check setup status');
+  }
+
+  return response.json();
+};
+
+export const setupAdminPassword = async ({bootstrapToken, password}) => {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/setup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    credentials: 'include',
+    body: JSON.stringify({bootstrapToken, password})
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Setup failed');
+  }
+
+  return response.json();
+};
+
+export const login = async password => {
   const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     credentials: 'include',
-    body: JSON.stringify({tenantName, secret})
+    body: JSON.stringify({password})
   });
 
   if (!response.ok) {
+    const errorData = await response.json();
+    if (response.status === 403 && errorData.setupRequired) {
+      throw new Error('SETUP_REQUIRED');
+    }
     if (response.status === 401) {
-      throw new Error('Invalid credentials');
+      throw new Error('Invalid password');
     }
     throw new Error('Login failed');
+  }
+
+  return response.json();
+};
+
+export const changePassword = async ({currentPassword, newPassword}) => {
+  const response = await fetch(`${BACKEND_URL}${API_BASE_PATH}/change-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    credentials: 'include',
+    body: JSON.stringify({currentPassword, newPassword})
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Password change failed');
   }
 
   return response.json();
