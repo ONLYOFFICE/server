@@ -49,6 +49,8 @@ const infoRouter = require('../../../DocService/sources/routes/info');
 const configRouter = require('./routes/config/router');
 const adminpanelRouter = require('./routes/adminpanel/router');
 const wopiRouter = require('./routes/wopi/router');
+const passwordManager = require('./passwordManager');
+const bootstrap = require('./bootstrap');
 
 const port = config.get('adminPanel.port');
 
@@ -70,6 +72,33 @@ const server = http.createServer(app);
     tenantManager.setDefLicense(info, original);
   } catch (e) {
     operationContext.global.logger.warn('License init error: %s', e.message);
+  }
+})();
+
+// Generate and display bootstrap token if setup is required
+(async () => {
+  try {
+    const ctx = operationContext.global;
+    const setupRequired = await passwordManager.isSetupRequired(ctx);
+
+    if (setupRequired) {
+      // Check if token already exists and valid
+      const hasToken = await bootstrap.hasValidBootstrapToken(ctx);
+
+      if (!hasToken) {
+        // Generate new bootstrap code
+        const {code, expiresAt} = await bootstrap.generateBootstrapToken(ctx);
+
+        // Log code as single line for log aggregation systems
+        ctx.logger.warn(
+          'AdminPanel SETUP REQUIRED | Bootstrap code: ' + code + ' | Expires: ' + expiresAt.toISOString() + ' | Open: http://host/admin'
+        );
+      } else {
+        ctx.logger.warn('AdminPanel SETUP REQUIRED | Bootstrap code already exists in memory');
+      }
+    }
+  } catch (e) {
+    operationContext.global.logger.error('Bootstrap token generation error: %s', e.stack);
   }
 })();
 

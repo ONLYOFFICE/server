@@ -9,9 +9,9 @@ export const fetchUser = createAsyncThunk('user/fetchUser', async (_, {rejectWit
   }
 });
 
-export const loginUser = createAsyncThunk('user/loginUser', async ({tenantName, secret}, {rejectWithValue}) => {
+export const loginUser = createAsyncThunk('user/loginUser', async (password, {rejectWithValue}) => {
   try {
-    const response = await login({tenantName, secret});
+    const response = await login(password);
     return response;
   } catch (error) {
     return rejectWithValue(error.message);

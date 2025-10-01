@@ -6,8 +6,7 @@ import Button from '../../components/LoginButton';
 import styles from './styles.module.css';
 
 export default function Login() {
-  const [tenantName, setTenantName] = useState('localhost');
-  const [secret, setSecret] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const dispatch = useDispatch();
   const buttonRef = useRef();
@@ -16,10 +15,11 @@ export default function Login() {
     setError('');
 
     try {
-      await dispatch(loginUser({tenantName, secret})).unwrap();
+      await dispatch(loginUser(password)).unwrap();
+      // AuthWrapper will automatically redirect based on isAuthenticated
     } catch (error) {
-      setError(error || 'Invalid credentials. Please try again.');
-      throw error; // Re-throw to trigger error state in Button component
+      setError(error || 'Invalid password. Please try again.');
+      throw error;
     }
   };
 
@@ -35,29 +35,17 @@ export default function Login() {
     <div className={styles.loginContainer}>
       <div className={styles.loginCard}>
         <h1 className={styles.title}>ONLYOFFICE Admin Panel</h1>
-        <p className={styles.subtitle}>Enter your secret key to access the admin panel</p>
+        <p className={styles.subtitle}>Enter your password to access the admin panel</p>
         <p className={styles.description}>The session is valid for 60 minutes.</p>
 
         <div className={styles.form}>
           <div className={styles.inputGroup}>
             <Input
-              type='text'
-              value={tenantName}
-              onChange={setTenantName}
-              placeholder='Enter your tenant name'
-              description='The name of your tenant organization'
-              error={error}
-              onKeyDown={handleKeyDown}
-            />
-          </div>
-
-          <div className={styles.inputGroup}>
-            <Input
               type='password'
-              value={secret}
-              onChange={setSecret}
-              placeholder='Enter your secret key'
-              description='The secret key associated with your tenant'
+              value={password}
+              onChange={setPassword}
+              placeholder='Enter your password'
+              description='Admin panel password'
               error={error}
               onKeyDown={handleKeyDown}
             />

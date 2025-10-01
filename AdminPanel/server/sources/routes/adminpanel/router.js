@@ -2,59 +2,214 @@
 const config = require('config');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const fs = require('fs').promises;
-const path = require('path');
 const cookieParser = require('cookie-parser');
+const operationContext = require('../../../../../Common/sources/operationContext');
+const passwordManager = require('../../passwordManager');
+const bootstrap = require('../../bootstrap');
 
-const tenantBaseDir = config.get('tenants.baseDir');
-const defaultTenantSecret = config.get('services.CoAuthoring.secret.browser.string');
-const filenameSecret = config.get('tenants.filenameSecret');
 const adminPanelJwtSecret = config.get('adminPanel.jwtSecret');
+const isDevelopment = process.env.NODE_ENV.startsWith('development-');
 
 const router = express.Router();
 
 router.use(express.json());
 router.use(cookieParser());
 
-router.get('/me', async (req, res) => {
+/**
+ * Create session cookie with standard options
+ * @param {import('express').Response} res - Express response
+ * @param {string} token - JWT token
+ */
+function setAuthCookie(res, token) {
+  res.cookie('accessToken', token, {
+    httpOnly: true,
+    secure: !isDevelopment,
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 1000,
+    path: '/'
+  });
+}
+
+/**
+ * Middleware to verify JWT token
+ * @param {import('express').Request} req - Express request
+ * @param {import('express').Response} res - Express response
+ * @param {import('express').NextFunction} next - Next middleware
+ */
+function requireAuth(req, res, next) {
   try {
-    const token = req.cookies.accessToken;
+    const token = req.cookies?.accessToken;
     if (!token) {
       return res.status(401).json({error: 'Unauthorized'});
     }
-
     const decoded = jwt.verify(token, adminPanelJwtSecret);
-    res.json(decoded);
+    req.user = decoded;
+    next();
   } catch {
     res.status(401).json({error: 'Unauthorized'});
   }
+}
+
+/**
+ * Check if AdminPanel setup is required
+ */
+router.get('/setup/required', async (req, res) => {
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+    const setupRequired = await passwordManager.isSetupRequired(ctx);
+
+    // If setup required but no valid code, generate new one (lazy generation)
+    if (setupRequired) {
+      const hasCode = await bootstrap.hasValidBootstrapToken(ctx);
+      if (!hasCode) {
+        const {code, expiresAt} = await bootstrap.generateBootstrapToken(ctx);
+        ctx.logger.warn('Bootstrap code generated on demand | Code: ' + code + ' | Expires: ' + expiresAt.toISOString());
+
+        // Also output to console for visibility
+        console.log('');
+        console.log('*** BOOTSTRAP CODE REGENERATED ***');
+        console.log('Bootstrap Code:', code);
+        console.log('Expires:', expiresAt.toISOString());
+        console.log('Reason: Token expired or password reset');
+        console.log('');
+      }
+    }
+
+    res.json({setupRequired});
+  } catch (error) {
+    ctx.logger.error('Setup check error: %s', error.stack);
+    res.status(500).json({error: 'Internal server error'});
+  }
+});
+
+/**
+ * Complete initial setup with password
+ * Requires valid bootstrap token
+ */
+router.post('/setup', async (req, res) => {
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+
+    const setupRequired = await passwordManager.isSetupRequired(ctx);
+    if (!setupRequired) {
+      return res.status(400).json({error: 'Setup already completed'});
+    }
+
+    const {bootstrapToken, password} = req.body;
+
+    // Verify bootstrap token
+    if (!bootstrapToken) {
+      return res.status(400).json({error: 'Bootstrap token is required'});
+    }
+
+    const tokenValid = await bootstrap.verifyBootstrapToken(ctx, bootstrapToken);
+    if (!tokenValid) {
+      ctx.logger.warn('Invalid or expired bootstrap token attempt');
+      return res.status(401).json({error: 'Invalid or expired bootstrap token'});
+    }
+
+    if (!password) {
+      return res.status(400).json({error: 'Password is required'});
+    }
+
+    if (password.length < passwordManager.PASSWORD_MIN_LENGTH) {
+      return res.status(400).json({error: `Password must be at least ${passwordManager.PASSWORD_MIN_LENGTH} characters long`});
+    }
+
+    if (password.length > passwordManager.PASSWORD_MAX_LENGTH) {
+      return res.status(400).json({error: `Password must not exceed ${passwordManager.PASSWORD_MAX_LENGTH} characters`});
+    }
+
+    await passwordManager.saveAdminPassword(ctx, password);
+
+    // Invalidate bootstrap token after successful setup
+    await bootstrap.invalidateBootstrapToken(ctx);
+
+    const token = jwt.sign({tenant: 'localhost', isAdmin: true}, adminPanelJwtSecret, {expiresIn: '1h'});
+    setAuthCookie(res, token);
+
+    ctx.logger.info('AdminPanel setup completed successfully');
+    res.json({message: 'Setup completed successfully'});
+  } catch (error) {
+    ctx.logger.error('Setup error: %s', error.stack);
+    res.status(500).json({error: error.message || 'Internal server error'});
+  }
+});
+
+/**
+ * Change admin password
+ */
+router.post('/change-password', requireAuth, async (req, res) => {
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+
+    const {currentPassword, newPassword} = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({error: 'Current password and new password are required'});
+    }
+
+    if (newPassword.length < passwordManager.PASSWORD_MIN_LENGTH) {
+      return res.status(400).json({error: `Password must be at least ${passwordManager.PASSWORD_MIN_LENGTH} characters long`});
+    }
+
+    if (newPassword.length > passwordManager.PASSWORD_MAX_LENGTH) {
+      return res.status(400).json({error: `Password must not exceed ${passwordManager.PASSWORD_MAX_LENGTH} characters`});
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({error: 'New password must be different from current password'});
+    }
+
+    const isValid = await passwordManager.verifyAdminPassword(ctx, currentPassword);
+    if (!isValid) {
+      return res.status(401).json({error: 'Current password is incorrect'});
+    }
+
+    await passwordManager.saveAdminPassword(ctx, newPassword);
+
+    ctx.logger.info('AdminPanel password changed successfully');
+    res.json({message: 'Password changed successfully'});
+  } catch (error) {
+    ctx.logger.error('Change password error: %s', error.stack);
+    res.status(500).json({error: 'Internal server error'});
+  }
+});
+
+router.get('/me', requireAuth, (req, res) => {
+  res.json(req.user);
 });
 
 router.post('/login', async (req, res) => {
+  const ctx = new operationContext.Context();
   try {
-    const {tenantName, secret} = req.body;
+    ctx.initFromRequest(req);
 
-    if (!tenantName || !secret) {
-      return res.status(400).json({error: 'Tenant name and secret are required'});
+    const setupRequired = await passwordManager.isSetupRequired(ctx);
+    if (setupRequired) {
+      return res.status(403).json({error: 'Setup required', setupRequired: true});
     }
 
-    const tenant = await verifyTenantCredentials(tenantName, secret);
-    if (!tenant) {
-      return res.status(401).json({error: 'Invalid tenant name or secret'});
+    const {password} = req.body;
+    if (!password) {
+      return res.status(400).json({error: 'Password is required'});
     }
 
-    const token = jwt.sign({...tenant}, adminPanelJwtSecret, {expiresIn: '1h'});
+    const isValid = await passwordManager.verifyAdminPassword(ctx, password);
+    if (!isValid) {
+      ctx.logger.warn('Failed login attempt for AdminPanel');
+      return res.status(401).json({error: 'Invalid password'});
+    }
 
-    res.cookie('accessToken', token, {
-      httpOnly: true,
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 1000,
-      path: '/'
-    });
+    const token = jwt.sign({tenant: 'localhost', isAdmin: true}, adminPanelJwtSecret, {expiresIn: '1h'});
+    setAuthCookie(res, token);
 
-    res.json({tenant: tenant.tenant, isAdmin: tenant.isAdmin});
+    ctx.logger.info('AdminPanel login successful');
+    res.json({tenant: 'localhost', isAdmin: true});
   } catch (error) {
-    console.error('Login error:', error);
+    ctx.logger.error('Login error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});
   }
 });
@@ -71,26 +226,5 @@ router.post('/logout', async (req, res) => {
     res.status(500).json({error: 'Internal server error'});
   }
 });
-
-async function verifyTenantCredentials(tenantName, secret) {
-  if (tenantName === config.get('tenants.defaultTenant') && secret === defaultTenantSecret) {
-    return {tenant: tenantName, isAdmin: true};
-  }
-
-  if (tenantBaseDir) {
-    try {
-      const tenantPath = path.join(tenantBaseDir, tenantName);
-      const tenantSecretPath = path.join(tenantPath, filenameSecret);
-      const tenantSecret = await fs.readFile(tenantSecretPath, 'utf8');
-      if (tenantSecret.trim() === secret) {
-        return {tenant: tenantName, isAdmin: true};
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-}
 
 module.exports = router;

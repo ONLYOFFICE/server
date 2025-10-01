@@ -16,11 +16,9 @@ function Menu() {
   const handleLogout = async () => {
     try {
       await logout();
-      // Reload the page after successful logout
       window.location.reload();
     } catch (error) {
       console.error('Logout failed:', error);
-      // Still reload the page even if logout API fails
       window.location.reload();
     }
   };

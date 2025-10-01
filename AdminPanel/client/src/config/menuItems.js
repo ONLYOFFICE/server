@@ -6,6 +6,7 @@ import FileLimits from '../pages/FileLimits/FileLimits';
 import RequestFiltering from '../pages/RequestFiltering/RequestFiltering';
 import LoggerConfig from '../pages/LoggerConfig/LoggerConfig';
 import Statistics from '../pages/Statistics';
+import ChangePassword from '../pages/ChangePassword/ChangePassword';
 
 // Generic component factory function for pages not yet implemented
 const createMockComponent = label => () => <div>{label} Component</div>;
@@ -26,5 +27,6 @@ export const menuItems = [
   {key: 'forgotten-folder', label: 'Forgotten Folder', path: '/forgotten-folder', component: createMockComponent('Forgotten Folder')},
   {key: 'license-info', label: 'License Info', path: '/license-info', component: createMockComponent('License Info')},
   {key: 'deployment-info', label: 'Deployment Info', path: '/deployment-info', component: createMockComponent('Deployment Info')},
-  {key: 'system-info', label: 'System Info', path: '/system-info', component: createMockComponent('System Info')}
+  {key: 'system-info', label: 'System Info', path: '/system-info', component: createMockComponent('System Info')},
+  {key: 'change-password', label: 'Change Password', path: '/change-password', component: ChangePassword}
 ];
