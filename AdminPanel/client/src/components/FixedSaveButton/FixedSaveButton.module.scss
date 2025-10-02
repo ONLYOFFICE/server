@@ -5,22 +5,56 @@
   right: 0;
   background: #ffffff;
   border-top: 1px solid #e2e2e2;
-  //   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  z-index: 900;
   padding: 16px 0;
   width: calc(100% - 256px);
-  //   background-color: #fafafa;
+  transition: all 0.3s ease;
+
+  // Mobile styles - add extra bottom padding for mobile navigation bar
+  @media (max-width: 768px) {
+    left: 0;
+    width: 100%;
+    padding: 12px 0;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  // iOS Safari bottom bar support with safe-area
+  @supports (padding: max(0px)) {
+    @media (max-width: 768px) {
+      padding-bottom: max(72px, calc(12px + env(safe-area-inset-bottom)));
+    }
+  }
 }
 
 .saveButtonWrapper {
-  //   width: calc(100% - 256px);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 32px;
   display: flex;
   justify-content: flex-start;
+
+  @media (max-width: 768px) {
+    padding: 0 16px;
+    justify-content: center;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0 12px;
+  }
 }
 
 // Add bottom padding to pages to prevent content from being hidden behind fixed button
 .pageWithFixedSave {
-  padding-bottom: 40px; // Adjust based on button height + padding
+  padding-bottom: 80px;
+
+  @media (max-width: 768px) {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  }
+
+  // iOS Safari bottom bar support
+  @supports (padding: max(0px)) {
+    @media (max-width: 768px) {
+      padding-bottom: max(70px, calc(70px + env(safe-area-inset-bottom)));
+    }
+  }
 }

@@ -6,4 +6,13 @@
   letter-spacing: -0.02em;
   color: #333333;
   margin: 0 0 3px 0;
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    font-size: 20px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 18px;
+  }
 }

@@ -15,6 +15,21 @@
   align-items: center;
   justify-content: center;
 
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 200px;
+    min-height: 44px;
+    height: auto;
+    padding: 14px 24px;
+    font-size: 15px;
+  }
+
+  @media (max-width: 480px) {
+    max-width: 100%;
+    font-size: 16px;
+    padding: 14px 20px;
+  }
+
   &:hover:not(:disabled) {
     background: #e55a2b;
   }

@@ -1,6 +1,15 @@
 .container {
   margin-bottom: 25px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
+
+@media (max-width: 768px) {
+  .container {
+    margin-bottom: 20px;
+  }
+}
+
 .sectionHeader {
   background: #efefef;
   font-size: 16px;
@@ -9,24 +18,87 @@
   margin-bottom: 8px;
   border-radius: 1px;
 }
+
+@media (max-width: 768px) {
+  .sectionHeader {
+    font-size: 14px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sectionHeader {
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+}
+
 .row {
   display: flex;
   justify-content: start;
+  min-width: 100%;
 }
+
+@media (max-width: 768px) {
+  .row {
+    gap: 4px;
+  }
+}
+
 .valueCell {
   font-size: 26px;
   line-height: 28px;
   padding: 8px 0;
   width: 25%;
   padding-left: 10px;
+  word-break: break-word;
 }
+
+@media (max-width: 768px) {
+  .valueCell {
+    font-size: 20px;
+    line-height: 24px;
+    padding: 6px 0;
+    padding-left: 8px;
+    min-width: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .valueCell {
+    font-size: 18px;
+    line-height: 22px;
+    padding-left: 6px;
+    min-width: 50px;
+  }
+}
+
 .labelCell {
   font-size: 12px;
   color: #555;
   padding-bottom: 8px;
   width: 25%;
   padding-left: 10px;
+  word-break: break-word;
 }
+
+@media (max-width: 768px) {
+  .labelCell {
+    font-size: 11px;
+    padding-bottom: 6px;
+    padding-left: 8px;
+    min-width: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .labelCell {
+    font-size: 10px;
+    padding-left: 6px;
+    min-width: 50px;
+  }
+}
+
 .editorsLabel,
 .viewerLabel {
   font-weight: 600;
@@ -34,13 +106,47 @@
   padding: 8px 0 0 10px;
 }
 
+@media (max-width: 768px) {
+  .editorsLabel,
+  .viewerLabel {
+    font-size: 11px;
+    padding: 6px 0 0 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .editorsLabel,
+  .viewerLabel {
+    font-size: 10px;
+    padding: 6px 0 0 6px;
+  }
+}
+
 .viewerLabel {
   margin-top: 15px;
+}
+
+@media (max-width: 768px) {
+  .viewerLabel {
+    margin-top: 12px;
+  }
 }
 
 .divider {
   border-bottom: 1px solid #dadada;
   margin: 2px 10px;
+}
+
+@media (max-width: 768px) {
+  .divider {
+    margin: 2px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .divider {
+    margin: 2px 6px;
+  }
 }
 
 .remainingValue {
@@ -51,6 +157,7 @@
 .critical {
   color: #ff0000;
 }
+
 .normal {
   color: #017d1c;
 }

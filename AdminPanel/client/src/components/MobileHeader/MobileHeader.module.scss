@@ -1,0 +1,33 @@
+.header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #e2e2e2;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 500;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    display: flex;
+  }
+}
+
+.title {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 133%;
+  color: #333333;
+  margin: 0;
+  margin-left: 16px;
+  flex: 1;
+
+  @media (max-width: 480px) {
+    font-size: 16px;
+  }
+}

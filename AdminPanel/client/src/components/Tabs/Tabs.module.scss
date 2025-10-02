@@ -1,11 +1,28 @@
 .tabsContainer {
   margin-bottom: 32px;
+
+  @media (max-width: 768px) {
+    margin-bottom: 24px;
+  }
 }
 
 .tabsHeader {
   display: flex;
   border-bottom: 1px solid #e2e2e2;
   margin-bottom: 32px;
+
+  // Mobile horizontal scroll
+  @media (max-width: 768px) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-bottom: 24px;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }
 
 .tab {
@@ -23,6 +40,21 @@
   position: relative;
   color: #666666;
   transition: color 0.2s ease;
+  white-space: nowrap;
+
+  @media (max-width: 768px) {
+    font-size: 12px;
+    margin-right: 24px;
+    padding: 8px 4px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 11px;
+    margin-right: 20px;
+  }
 
   &:hover {
     color: #333333;
@@ -39,10 +71,10 @@
       right: 0;
       height: 2px;
       background: #ff6f3d;
+
+      @media (max-width: 768px) {
+        bottom: 7px;
+      }
     }
   }
-}
-
-.tabContent {
-  // Content area for tab panels
 }

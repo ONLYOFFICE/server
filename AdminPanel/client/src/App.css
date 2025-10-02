@@ -7,6 +7,12 @@
   display: flex;
   width: 100%;
   height: 100%;
+
+  /* Mobile layout adjustments */
+  @media (max-width: 768px) {
+    flex-direction: column;
+    position: relative;
+  }
 }
 
 .mainContent {
@@ -15,6 +21,17 @@
   overflow-y: auto;
   overflow-x: hidden;
   /* height: 100vh; */
+
+  /* Mobile content adjustments */
+  @media (max-width: 768px) {
+    padding: 56px 16px 16px 16px; /* Add top padding for mobile menu button */
+    width: 100%;
+  }
+
+  /* Small mobile screens */
+  @media (max-width: 480px) {
+    padding: 56px 12px 12px 12px;
+  }
 }
 
 /* Custom scrollbar styling for main content */
@@ -82,5 +99,41 @@ body::-webkit-scrollbar-thumb {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Mobile responsive table styles */
+@media (max-width: 768px) {
+  table {
+    font-size: 14px;
+  }
+
+  th,
+  td {
+    padding: 8px 4px !important;
+    font-size: 12px !important;
+  }
+
+  /* Hide less important columns on mobile */
+  .mobile-hide {
+    display: none;
+  }
+}
+
+/* Touch-friendly buttons and inputs */
+@media (max-width: 768px) {
+  button,
+  input,
+  select,
+  textarea {
+    min-height: 44px; /* Apple's recommended touch target size */
+    padding: 12px 16px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Specific button adjustments */
+  button:not(.hamburger) {
+    padding: 12px 20px;
+    border-radius: 6px;
   }
 }

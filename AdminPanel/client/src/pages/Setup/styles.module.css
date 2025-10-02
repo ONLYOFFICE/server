@@ -8,11 +8,30 @@
   width: 100%;
 }
 
+@media (max-width: 768px) {
+  .loginContainer {
+    padding: 16px;
+    min-height: calc(100vh - 56px);
+  }
+}
+
+@media (max-width: 480px) {
+  .loginContainer {
+    padding: 12px;
+  }
+}
+
 .loginCard {
   background: white;
   width: 100%;
   max-width: 500px;
   text-align: center;
+}
+
+@media (max-width: 768px) {
+  .loginCard {
+    max-width: 100%;
+  }
 }
 
 .title {
@@ -23,12 +42,32 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+@media (max-width: 768px) {
+  .title {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 24px;
+    margin: 0 0 12px 0;
+  }
+}
+
 .subtitle {
   color: #333;
   font-size: 16px;
   font-weight: bold;
   margin: 0 0 16px 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (max-width: 480px) {
+  .subtitle {
+    font-size: 15px;
+    margin: 0 0 12px 0;
+  }
 }
 
 .description {
@@ -39,6 +78,19 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+@media (max-width: 768px) {
+  .description {
+    margin: 0 0 24px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .description {
+    font-size: 13px;
+    margin: 0 0 20px 0;
+  }
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -46,9 +98,21 @@
   gap: 20px;
 }
 
+@media (max-width: 480px) {
+  .form {
+    gap: 16px;
+  }
+}
+
 .inputGroup {
   width: 100%;
   max-width: 300px;
+}
+
+@media (max-width: 480px) {
+  .inputGroup {
+    max-width: 100%;
+  }
 }
 
 .errorMessage {
@@ -62,4 +126,18 @@
   text-align: center;
   max-width: 400px;
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .errorMessage {
+    margin: 0 0 16px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .errorMessage {
+    font-size: 13px;
+    padding: 10px 14px;
+    max-width: 100%;
+  }
 }

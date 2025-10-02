@@ -2,6 +2,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 44px;
+
+  @media (max-width: 768px) {
+    gap: 14px;
+  }
 }
 
 .label {
@@ -10,6 +15,14 @@
   font-size: 14px;
   line-height: 150%;
   color: #333333;
+
+  @media (max-width: 768px) {
+    font-size: 15px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 16px;
+  }
 }
 
 .switch {
@@ -22,6 +35,17 @@
   cursor: pointer;
   transition: all 0.2s ease;
   opacity: 1;
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 20px;
+  }
+
+  @media (max-width: 480px) {
+    width: 44px;
+    height: 22px;
+  }
 }
 
 .circle {
@@ -34,6 +58,18 @@
   top: 2px;
   transition: transform 0.2s ease;
   background: #8bb825;
+
+  @media (max-width: 768px) {
+    width: 14px;
+    height: 14px;
+    top: 2px;
+  }
+
+  @media (max-width: 480px) {
+    width: 16px;
+    height: 16px;
+    top: 2px;
+  }
 }
 
 .switch--off .circle {
@@ -44,4 +80,12 @@
 .switch--on .circle {
   left: 2px;
   transform: translateX(16px);
+
+  @media (max-width: 768px) {
+    transform: translateX(20px);
+  }
+
+  @media (max-width: 480px) {
+    transform: translateX(22px);
+  }
 }

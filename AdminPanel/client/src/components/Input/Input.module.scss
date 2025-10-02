@@ -34,6 +34,18 @@
     background-color 0.2s ease,
     color 0.2s ease;
 
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 400px;
+    min-height: 44px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 14px 16px;
+  }
+
   &:focus {
     outline: none;
     border: 1px solid #cccccc;

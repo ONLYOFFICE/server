@@ -2,6 +2,10 @@
   background: white;
   border-radius: 8px;
   margin-bottom: 32px;
+
+  @media (max-width: 768px) {
+    margin-bottom: 24px;
+  }
 }
 
 .title {
@@ -11,6 +15,14 @@
   line-height: 150%;
   color: #333333;
   margin: 0 0 8px 0;
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 15px;
+  }
 }
 
 .description {
@@ -20,6 +32,16 @@
   line-height: 150%;
   color: #666666;
   margin: 0 0 24px 0;
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+    margin: 0 0 20px 0;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 12px;
+    margin: 0 0 16px 0;
+  }
 }
 
 .addRule {
@@ -27,10 +49,20 @@
   gap: 12px;
   margin-bottom: 24px;
   align-items: center;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
 }
 
 .inputWrapper {
   flex: 1;
+
+  @media (max-width: 768px) {
+    width: 100%;
+  }
 }
 
 .addButton {
@@ -55,6 +87,17 @@
   align-items: center;
   justify-content: center;
 
+  @media (max-width: 768px) {
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    padding: 14px 20px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 16px;
+  }
+
   &:hover:not(:disabled) {
     background: #e55a2b;
   }
@@ -78,6 +121,19 @@
   height: 64px;
   padding: 0 0 0 16px;
   border-bottom: 1px solid #efefef;
+
+  @media (max-width: 768px) {
+    gap: 16px;
+    height: auto;
+    min-height: 64px;
+    padding: 12px 12px 12px 12px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 480px) {
+    gap: 12px;
+    padding: 12px 8px;
+  }
 }
 
 .ruleType {
@@ -118,6 +174,18 @@
   letter-spacing: 0.02em;
   color: #333333;
   margin: 0 32px;
+  word-break: break-all;
+
+  @media (max-width: 768px) {
+    font-size: 14px;
+    margin: 0 12px;
+    flex-basis: 100%;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 13px;
+    margin: 0 8px;
+  }
 }
 
 .removeButton {
@@ -141,6 +209,17 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    padding: 12px 16px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 16px;
+  }
 
   &:hover {
     border-color: #888888;

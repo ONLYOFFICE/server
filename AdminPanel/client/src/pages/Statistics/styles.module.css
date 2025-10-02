@@ -2,19 +2,41 @@
   display: flex;
   margin-bottom: 24px;
   gap: 24px;
+  flex-wrap: wrap;
+}
+
+/* Mobile responsive - stack blocks vertically */
+@media (max-width: 768px) {
+  .topRow {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
 }
 
 .modeBar {
   margin: 8px 0 16px;
   font-size: 14px;
 }
+
+@media (max-width: 480px) {
+  .modeBar {
+    font-size: 13px;
+  }
+}
+
 .modeLink {
   cursor: pointer;
   padding: 0 6px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
+
 .modeSeparator {
   color: #777;
 }
+
 .current {
   font-weight: 700;
 }

@@ -13,6 +13,16 @@
   background: #fff;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
+
+  @media (max-width: 768px) {
+    padding: 24px 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 20px 12px;
+    margin-bottom: 20px;
+  }
 }
 
 .sectionTitle {
@@ -22,6 +32,15 @@
   margin-bottom: 20px;
   padding-bottom: 8px;
   border-bottom: 2px solid #f0f0f0;
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 15px;
+  }
 }
 
 .sectionDescription {
@@ -29,6 +48,11 @@
   color: #666;
   margin-bottom: 20px;
   line-height: 1.5;
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
 }
 
 .formRow {
@@ -45,5 +69,9 @@
 }
 
 .pageWithFixedSave {
-  padding-bottom: 40px;
+  padding-bottom: 80px;
+
+  @media (max-width: 768px) {
+    padding-bottom: 70px;
+  }
 }

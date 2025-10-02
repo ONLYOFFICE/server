@@ -1,6 +1,11 @@
 .block {
   flex: 1;
   min-width: 180px;
+
+  @media (max-width: 768px) {
+    min-width: 100%;
+    width: 100%;
+  }
 }
 
 .title {
@@ -8,6 +13,15 @@
   font-size: 18px;
   border-bottom: 1px solid #ddd;
   padding: 0 0 5px 10px;
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    padding: 0 0 8px 8px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 15px;
+  }
 }
 
 .content {
@@ -17,4 +31,16 @@
   gap: 16px;
   margin-top: 16px;
   padding-left: 10px;
+
+  @media (max-width: 768px) {
+    gap: 12px;
+    margin-top: 12px;
+    padding-left: 8px;
+    font-size: 13px;
+  }
+
+  @media (max-width: 480px) {
+    gap: 10px;
+    font-size: 12px;
+  }
 }

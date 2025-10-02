@@ -2,6 +2,11 @@
   display: flex;
   align-items: flex-start;
   cursor: pointer;
+  min-height: 44px;
+
+  @media (max-width: 480px) {
+    align-items: center;
+  }
 }
 
 .checkbox {
@@ -28,6 +33,17 @@
   flex-shrink: 0;
   transition: all 0.2s ease;
 
+  @media (max-width: 768px) {
+    width: 20px;
+    height: 20px;
+    margin-right: 14px;
+  }
+
+  @media (max-width: 480px) {
+    width: 22px;
+    height: 22px;
+  }
+
   &::after {
     content: '';
     position: absolute;
@@ -39,6 +55,20 @@
     border: solid white;
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
+
+    @media (max-width: 768px) {
+      left: 5px;
+      top: 2px;
+      width: 7px;
+      height: 11px;
+    }
+
+    @media (max-width: 480px) {
+      left: 6px;
+      top: 2px;
+      width: 8px;
+      height: 12px;
+    }
   }
 }
 

@@ -1,11 +1,14 @@
 import {Provider} from 'react-redux';
 import {Routes, Route, Navigate, BrowserRouter} from 'react-router-dom';
+import {useState} from 'react';
 import './App.css';
 import {store} from './store';
 import AuthWrapper from './components/AuthWrapper/AuthWrapper';
 import ConfigLoader from './components/ConfigLoader/ConfigLoader';
 import Menu from './components/Menu/Menu';
+import MobileHeader from './components/MobileHeader/MobileHeader';
 import {menuItems} from './config/menuItems';
+import useMediaQuery from './hooks/useMediaQuery';
 
 /**
  * Simple basename computation from URL path.
@@ -32,13 +35,23 @@ const getBasename = () => {
 
 function App() {
   const basename = getBasename();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 768px)');
+
+  const handleMenuToggle = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
   return (
     <Provider store={store}>
       <BrowserRouter basename={basename}>
         <div className='app'>
           <AuthWrapper>
+            {/* Mobile Header */}
+            {isMobile && <MobileHeader isMenuOpen={isMobileMenuOpen} onMenuToggle={handleMenuToggle} />}
+
             <div className='appLayout'>
-              <Menu />
+              <Menu isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
               <div className='mainContent'>
                 <ConfigLoader>
                   <Routes>

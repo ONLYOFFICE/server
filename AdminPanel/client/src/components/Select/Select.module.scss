@@ -2,6 +2,15 @@
   position: relative;
   display: inline-block;
   width: auto;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  @media (max-width: 480px) {
+    max-width: 100%;
+  }
 }
 
 .select {
@@ -25,6 +34,20 @@
   outline: none;
   box-sizing: border-box;
   min-width: 120px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    padding: 14px 16px;
+    padding-right: 52px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 16px; // Prevent zoom on iOS
+    padding: 14px 12px;
+    padding-right: 48px;
+  }
 
   &--disabled {
     cursor: not-allowed;
@@ -70,6 +93,18 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   margin-top: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    max-height: 250px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  @media (max-width: 480px) {
+    max-height: 200px;
+  }
 }
 
 .option {
@@ -86,6 +121,17 @@
   transition: background-color 0.2s ease;
   border-bottom: 1px solid #f1f1f1;
   box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    min-height: 44px;
+    height: auto;
+    padding: 14px 16px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 16px; // Prevent zoom on iOS
+    padding: 14px 12px;
+  }
 
   &:last-child {
     border-bottom: none;

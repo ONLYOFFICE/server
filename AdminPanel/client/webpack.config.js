@@ -123,7 +123,22 @@ module.exports = (env, argv) => {
         '@services': path.resolve(__dirname, 'src/services'),
         '@store': path.resolve(__dirname, 'src/store'),
         '@utility': path.resolve(__dirname, 'src/utility'),
-        '@assets': path.resolve(__dirname, 'src/assets')
+        '@assets': path.resolve(__dirname, 'src/assets'),
+        '@hooks': path.resolve(__dirname, 'src/hooks')
+      }
+    },
+
+    // Optimize for mobile and desktop
+    optimization: {
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all'
+          }
+        }
       }
     }
   };
