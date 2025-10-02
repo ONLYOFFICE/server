@@ -8,7 +8,6 @@ const passwordManager = require('../../passwordManager');
 const bootstrap = require('../../bootstrap');
 
 const adminPanelJwtSecret = config.get('adminPanel.jwtSecret');
-const isDevelopment = process.env.NODE_ENV.startsWith('development-');
 
 const router = express.Router();
 
@@ -18,12 +17,13 @@ router.use(cookieParser());
 /**
  * Create session cookie with standard options
  * @param {import('express').Response} res - Express response
+ * @param {import('express').Request} req - Express request
  * @param {string} token - JWT token
  */
-function setAuthCookie(res, token) {
+function setAuthCookie(res, req, token) {
   res.cookie('accessToken', token, {
     httpOnly: true,
-    secure: !isDevelopment,
+    secure: req.secure,
     sameSite: 'strict',
     maxAge: 60 * 60 * 1000,
     path: '/'
@@ -128,7 +128,7 @@ router.post('/setup', async (req, res) => {
     await bootstrap.invalidateBootstrapToken(ctx);
 
     const token = jwt.sign({tenant: 'localhost', isAdmin: true}, adminPanelJwtSecret, {expiresIn: '1h'});
-    setAuthCookie(res, token);
+    setAuthCookie(res, req, token);
 
     ctx.logger.info('AdminPanel setup completed successfully');
     res.json({message: 'Setup completed successfully'});
@@ -204,7 +204,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({tenant: 'localhost', isAdmin: true}, adminPanelJwtSecret, {expiresIn: '1h'});
-    setAuthCookie(res, token);
+    setAuthCookie(res, req, token);
 
     ctx.logger.info('AdminPanel login successful');
     res.json({tenant: 'localhost', isAdmin: true});
