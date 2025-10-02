@@ -96,7 +96,7 @@ async function verifyPassword(password, hash) {
       return false;
     }
 
-    const [, iterationsStr, saltBase64, expectedHashBase64] = parts;
+    const [, , iterationsStr, saltBase64, expectedHashBase64] = parts;
     const iterations = parseInt(iterationsStr, 10);
 
     if (!iterations || !saltBase64 || !expectedHashBase64) {
@@ -108,13 +108,12 @@ async function verifyPassword(password, hash) {
 
     // Derive key from password with same parameters
     const derivedKey = await pbkdf2(password, saltBuffer, iterations, PBKDF2_KEYLEN, PBKDF2_DIGEST);
-    const computedHashBase64 = derivedKey.toString('base64').replace(/\+/g, '.').replace(/=/g, '');
 
-    // Compare using timing-safe comparison
-    const expectedBuffer = Buffer.from(expectedHashBase64);
-    const computedBuffer = Buffer.from(computedHashBase64);
+    // Decode expected hash from base64 (restore + from .)
+    const expectedHashBuffer = Buffer.from(expectedHashBase64.replace(/\./g, '+'), 'base64');
 
-    return crypto.timingSafeEqual(expectedBuffer, computedBuffer);
+    // Compare using timing-safe comparison (compare raw buffers, not base64 strings)
+    return crypto.timingSafeEqual(derivedKey, expectedHashBuffer);
   } catch {
     return false;
   }
