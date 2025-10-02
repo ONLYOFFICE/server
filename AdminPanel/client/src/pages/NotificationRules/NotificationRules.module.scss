@@ -1,4 +1,4 @@
-.wopiSettings {
+.notificationRules {
   padding: 0;
 }
 
@@ -43,23 +43,4 @@
   align-items: flex-end;
   gap: 16px;
   flex-wrap: wrap;
-}
-
-// Ensure SaveButton aligns properly in form row
-:global(.saveButton) {
-  margin-top: 0;
-}
-
-// Override Input component styles for disabled key display
-:global(.input[disabled]) {
-  background-color: #f8f9fa !important;
-  color: #666666 !important;
-  cursor: not-allowed !important;
-  opacity: 0.8;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-start;
-  // padding-top: 16px;
 }

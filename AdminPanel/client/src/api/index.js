@@ -14,6 +14,9 @@ export const fetchConfiguration = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('UNAUTHORIZED');
+    }
     throw new Error('Failed to fetch configuration');
   }
   return response.json();
@@ -24,6 +27,9 @@ export const fetchConfigurationSchema = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('UNAUTHORIZED');
+    }
     throw new Error('Failed to fetch configuration schema');
   }
   return response.json();
