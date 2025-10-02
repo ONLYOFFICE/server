@@ -61,7 +61,7 @@ router.get('/setup/required', async (req, res) => {
 
     // If setup required but no valid code, generate new one (lazy generation)
     if (setupRequired) {
-      const hasCode = await bootstrap.hasValidBootstrapToken(ctx);
+      const hasCode = bootstrap.hasValidBootstrapToken();
       if (!hasCode) {
         const {code, expiresAt} = await bootstrap.generateBootstrapToken(ctx);
         ctx.logger.warn('Bootstrap code generated on demand | Code: ' + code + ' | Expires: ' + expiresAt.toISOString());

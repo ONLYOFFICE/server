@@ -46,10 +46,10 @@ const PBKDF2_DIGEST = 'sha256'; // SHA-256 algorithm
 /**
  * Hash a password using PBKDF2-SHA256 in MCF format (OWASP recommended)
  * Format: $pbkdf2-sha256$iterations$salt$hash (all base64)
- * 
+ *
  * OpenSSL equivalent (requires OpenSSL 3.0+):
  * I=600000; S=$(openssl rand -base64 16 | tr -d '\n'); H=$(openssl kdf -binary -keylen 32 -kdfopt digest:SHA256 -kdfopt pass:UTF8:"password" -kdfopt salt:base64:"$S" -kdfopt iter:$I PBKDF2 | base64 | tr -d '\n'); echo "$pbkdf2-sha256$$I$$S$$H"
- * 
+ *
  * @param {string} password - Plain text password to hash
  * @returns {Promise<string>} Hashed password in MCF format
  */
@@ -113,7 +113,7 @@ async function verifyPassword(password, hash) {
     // Compare using timing-safe comparison
     const expectedBuffer = Buffer.from(expectedHashBase64);
     const computedBuffer = Buffer.from(computedHashBase64);
-    
+
     return crypto.timingSafeEqual(expectedBuffer, computedBuffer);
   } catch {
     return false;
@@ -128,19 +128,19 @@ async function verifyPassword(password, hash) {
 async function isSetupRequired(ctx) {
   const config = await runtimeConfigManager.getConfig(ctx);
   const passwordHash = config?.adminPanel?.passwordHash;
-  
+
   // No password hash - setup required
   if (!passwordHash) {
     return true;
   }
-  
+
   // Check if hash is in MCF format (new format)
   // Old format (salt:hash) is considered invalid - requires re-setup
   if (!passwordHash.startsWith('$pbkdf2-sha256$')) {
     ctx.logger.warn('Password hash in old format detected - setup required');
     return true;
   }
-  
+
   return false;
 }
 
