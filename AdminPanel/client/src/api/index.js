@@ -1,4 +1,5 @@
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL ?? '';
+const DOCSERVICE_URL = process.env.REACT_APP_DOCSERVICE_URL;
 const API_BASE_PATH = '/api/v1/admin';
 
 export const fetchStatistics = async () => {
@@ -180,4 +181,28 @@ export const rotateWopiKeys = async () => {
   }
 
   return response.json();
+};
+
+export const checkHealth = async () => {
+  // In development, use proxy path to avoid CORS issues
+  const url = process.env.NODE_ENV === 'development' 
+    ? '/healthcheck-api' 
+    : `${DOCSERVICE_URL}/healthcheck`;
+    
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('DocService is not responding properly');
+    }
+
+    return response.json();
+  } catch (error) {
+    throw error;
+  }
 };
