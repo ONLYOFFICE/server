@@ -36,15 +36,22 @@ const crypto = require('crypto');
 const util = require('util');
 const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
 
-const scrypt = util.promisify(crypto.scrypt);
+const pbkdf2 = util.promisify(crypto.pbkdf2);
 const PASSWORD_MIN_LENGTH = 1; // Any non-empty password allowed
-const PASSWORD_MAX_LENGTH = 128; // Prevent DoS attacks on scrypt
-const SCRYPT_KEYLEN = 64; // 64 bytes = 512 bits
+const PASSWORD_MAX_LENGTH = 128; // Prevent DoS attacks
+const PBKDF2_ITERATIONS = 600000; // OWASP 2023 recommendation for SHA-256
+const PBKDF2_KEYLEN = 32; // 32 bytes = 256 bits
+const PBKDF2_DIGEST = 'sha256'; // SHA-256 algorithm
 
 /**
- * Hash a password using scrypt (built-in Node.js crypto)
+ * Hash a password using PBKDF2-SHA256 in MCF format (OWASP recommended)
+ * Format: $pbkdf2-sha256$iterations$salt$hash (all base64)
+ * 
+ * OpenSSL equivalent (requires OpenSSL 3.0+):
+ * I=600000; S=$(openssl rand -base64 16 | tr -d '\n'); H=$(openssl kdf -binary -keylen 32 -kdfopt digest:SHA256 -kdfopt pass:UTF8:"password" -kdfopt salt:base64:"$S" -kdfopt iter:$I PBKDF2 | base64 | tr -d '\n'); echo "$pbkdf2-sha256$$I$$S$$H"
+ * 
  * @param {string} password - Plain text password to hash
- * @returns {Promise<string>} Hashed password in format: salt:hash
+ * @returns {Promise<string>} Hashed password in MCF format
  */
 async function hashPassword(password) {
   if (!password || password.length < PASSWORD_MIN_LENGTH) {
@@ -55,20 +62,22 @@ async function hashPassword(password) {
     throw new Error(`Password must not exceed ${PASSWORD_MAX_LENGTH} characters`);
   }
 
-  // Generate random salt
-  const salt = crypto.randomBytes(16).toString('hex');
+  // Generate random salt (16 bytes = 128 bits, OWASP minimum)
+  const saltBuffer = crypto.randomBytes(16);
+  const saltBase64 = saltBuffer.toString('base64').replace(/\+/g, '.').replace(/=/g, '');
 
-  // Derive key using scrypt
-  const derivedKey = await scrypt(password, salt, SCRYPT_KEYLEN);
+  // Derive key using PBKDF2-SHA256 with 600,000 iterations
+  const derivedKey = await pbkdf2(password, saltBuffer, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST);
+  const hashBase64 = derivedKey.toString('base64').replace(/\+/g, '.').replace(/=/g, '');
 
-  // Return salt:hash format
-  return salt + ':' + derivedKey.toString('hex');
+  // Return MCF format: $pbkdf2-sha256$iterations$salt$hash
+  return `$pbkdf2-sha256$${PBKDF2_ITERATIONS}$${saltBase64}$${hashBase64}`;
 }
 
 /**
  * Verify a password against a hash
  * @param {string} password - Plain text password to verify
- * @param {string} hash - Hashed password in format: salt:hash
+ * @param {string} hash - Hashed password in MCF format
  * @returns {Promise<boolean>} True if password matches hash
  */
 async function verifyPassword(password, hash) {
@@ -77,31 +86,62 @@ async function verifyPassword(password, hash) {
   }
 
   try {
-    // Split salt and hash
-    const [salt, key] = hash.split(':');
-    if (!salt || !key) {
+    // Parse MCF format: $pbkdf2-sha256$iterations$salt$hash
+    if (!hash.startsWith('$pbkdf2-sha256$')) {
       return false;
     }
 
-    // Derive key from password with same salt
-    const derivedKey = await scrypt(password, salt, SCRYPT_KEYLEN);
+    const parts = hash.split('$');
+    if (parts.length !== 5) {
+      return false;
+    }
+
+    const [, iterationsStr, saltBase64, expectedHashBase64] = parts;
+    const iterations = parseInt(iterationsStr, 10);
+
+    if (!iterations || !saltBase64 || !expectedHashBase64) {
+      return false;
+    }
+
+    // Decode base64 salt (restore + from .)
+    const saltBuffer = Buffer.from(saltBase64.replace(/\./g, '+'), 'base64');
+
+    // Derive key from password with same parameters
+    const derivedKey = await pbkdf2(password, saltBuffer, iterations, PBKDF2_KEYLEN, PBKDF2_DIGEST);
+    const computedHashBase64 = derivedKey.toString('base64').replace(/\+/g, '.').replace(/=/g, '');
 
     // Compare using timing-safe comparison
-    const keyBuffer = Buffer.from(key, 'hex');
-    return crypto.timingSafeEqual(keyBuffer, derivedKey);
+    const expectedBuffer = Buffer.from(expectedHashBase64);
+    const computedBuffer = Buffer.from(computedHashBase64);
+    
+    return crypto.timingSafeEqual(expectedBuffer, computedBuffer);
   } catch {
     return false;
   }
 }
 
 /**
- * Check if AdminPanel setup is required (no password configured)
+ * Check if AdminPanel setup is required (no password configured or invalid format)
  * @param {import('./operationContext').Context} ctx - Operation context
  * @returns {Promise<boolean>} True if setup is required
  */
 async function isSetupRequired(ctx) {
   const config = await runtimeConfigManager.getConfig(ctx);
-  return !config?.adminPanel?.passwordHash;
+  const passwordHash = config?.adminPanel?.passwordHash;
+  
+  // No password hash - setup required
+  if (!passwordHash) {
+    return true;
+  }
+  
+  // Check if hash is in MCF format (new format)
+  // Old format (salt:hash) is considered invalid - requires re-setup
+  if (!passwordHash.startsWith('$pbkdf2-sha256$')) {
+    ctx.logger.warn('Password hash in old format detected - setup required');
+    return true;
+  }
+  
+  return false;
 }
 
 /**
