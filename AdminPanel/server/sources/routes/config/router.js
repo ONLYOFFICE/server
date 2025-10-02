@@ -63,11 +63,10 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
         errorsText: validationResult.errorsText
       });
     }
-    const newConfig = utils.deepMergeObjects(currentConfig, validationResult.value);
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-      await tenantManager.setTenantConfig(ctx, newConfig);
+      await tenantManager.setTenantConfig(ctx, validationResult.value);
     } else {
-      await runtimeConfigManager.saveConfig(ctx, newConfig);
+      await runtimeConfigManager.saveConfig(ctx, validationResult.value);
     }
 
     await ctx.initTenantCache();
