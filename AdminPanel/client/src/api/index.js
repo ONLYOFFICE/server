@@ -187,7 +187,7 @@ export const checkHealth = async () => {
   // In development, use proxy path to avoid CORS issues
   const url = process.env.NODE_ENV === 'development' 
     ? '/healthcheck-api' 
-    : `${DOCSERVICE_URL}/healthcheck`;
+    : `/healthcheck`;
     
   try {
     const response = await fetch(url, {
