@@ -1,4 +1,4 @@
-import {useState, useRef, useEffect, useCallback} from 'react';
+import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
 import {saveConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
@@ -34,7 +34,7 @@ function NotificationRules() {
   };
 
   // Reset state and errors to global config
-  const resetToGlobalConfig = useCallback(() => {
+  const resetToGlobalConfig = () => {
     if (config) {
       const settings = {};
       Object.keys(CONFIG_PATHS).forEach(key => {
@@ -48,15 +48,13 @@ function NotificationRules() {
         clearFieldError(path);
       });
     }
-  }, [config, clearFieldError]);
+  };
 
-  // Initialize settings from config when component loads
-  useEffect(() => {
-    if (config && !hasInitialized.current) {
-      resetToGlobalConfig();
-      hasInitialized.current = true;
-    }
-  }, [config, resetToGlobalConfig]);
+  // Initialize settings from config when component loads (only once)
+  if (config && !hasInitialized.current) {
+    resetToGlobalConfig();
+    hasInitialized.current = true;
+  }
 
   // Handle field changes
   const handleFieldChange = (field, value) => {
