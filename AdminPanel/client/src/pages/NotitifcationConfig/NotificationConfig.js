@@ -13,10 +13,10 @@ import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import styles from './NotificationConfig.module.scss';
 
 const emailConfigTabs = [
+  {key: 'notifications', label: 'Notification Rules'},
   {key: 'smtp-server', label: 'SMTP Server'},
-  {key: 'security', label: 'Security'},
   {key: 'defaults', label: 'Default Emails'},
-  {key: 'notifications', label: 'Notification Rules'}
+  {key: 'security', label: 'Security'},
 ];
 
 function EmailConfig() {
@@ -24,7 +24,7 @@ function EmailConfig() {
   const config = useSelector(selectConfig);
   const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
-  const [activeTab, setActiveTab] = useState('smtp-server');
+  const [activeTab, setActiveTab] = useState('notifications');
 
   // Local state for form fields
   const [localSettings, setLocalSettings] = useState({

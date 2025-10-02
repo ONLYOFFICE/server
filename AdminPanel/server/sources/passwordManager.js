@@ -120,7 +120,45 @@ async function verifyPassword(password, hash) {
 }
 
 /**
+ * Check if password hash is valid (proper MCF format)
+ * @param {string} hash - Password hash to validate
+ * @returns {boolean} True if hash is in valid MCF format
+ */
+function isValidPasswordHash(hash) {
+  if (!hash || typeof hash !== 'string') {
+    return false;
+  }
+
+  // Must start with correct MCF prefix
+  if (!hash.startsWith('$pbkdf2-sha256$')) {
+    return false;
+  }
+
+  // Must have correct structure: $pbkdf2-sha256$iterations$salt$hash
+  const parts = hash.split('$');
+  if (parts.length !== 5) {
+    return false;
+  }
+
+  const [, , iterationsStr, saltBase64, hashBase64] = parts;
+
+  // Validate iterations is a number
+  const iterations = parseInt(iterationsStr, 10);
+  if (!iterations || iterations < 1000) {
+    return false;
+  }
+
+  // Validate salt and hash are present and reasonable length
+  if (!saltBase64 || saltBase64.length < 10 || !hashBase64 || hashBase64.length < 10) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Check if AdminPanel setup is required (no password configured or invalid format)
+ * Invalid or old format is treated as no password set
  * @param {import('./operationContext').Context} ctx - Operation context
  * @returns {Promise<boolean>} True if setup is required
  */
@@ -128,15 +166,11 @@ async function isSetupRequired(ctx) {
   const config = await runtimeConfigManager.getConfig(ctx);
   const passwordHash = config?.adminPanel?.passwordHash;
 
-  // No password hash - setup required
-  if (!passwordHash) {
-    return true;
-  }
-
-  // Check if hash is in MCF format (new format)
-  // Old format (salt:hash) is considered invalid - requires re-setup
-  if (!passwordHash.startsWith('$pbkdf2-sha256$')) {
-    ctx.logger.warn('Password hash in old format detected - setup required');
+  // No password hash or invalid format - setup required
+  if (!isValidPasswordHash(passwordHash)) {
+    if (passwordHash) {
+      ctx.logger.warn('Invalid password hash format detected - setup required');
+    }
     return true;
   }
 
@@ -160,6 +194,7 @@ async function saveAdminPassword(ctx, password) {
 
 /**
  * Verify admin password against stored hash
+ * Invalid or old format is treated as no password set - returns false
  * @param {import('./operationContext').Context} ctx - Operation context
  * @param {string} password - Plain text password to verify
  * @returns {Promise<boolean>} True if password matches stored hash
@@ -167,15 +202,22 @@ async function saveAdminPassword(ctx, password) {
 async function verifyAdminPassword(ctx, password) {
   const config = await runtimeConfigManager.getConfig(ctx);
   const hash = config?.adminPanel?.passwordHash;
-  if (!hash) {
+  
+  // No hash or invalid format - treat as no password set
+  if (!isValidPasswordHash(hash)) {
+    if (hash) {
+      ctx.logger.warn('Invalid password hash format detected - authentication rejected, re-setup required');
+    }
     return false;
   }
+  
   return verifyPassword(password, hash);
 }
 
 module.exports = {
   hashPassword,
   verifyPassword,
+  isValidPasswordHash,
   isSetupRequired,
   saveAdminPassword,
   verifyAdminPassword,
