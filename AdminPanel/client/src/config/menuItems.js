@@ -8,9 +8,11 @@ import RequestFiltering from '../pages/RequestFiltering/RequestFiltering';
 import LoggerConfig from '../pages/LoggerConfig/LoggerConfig';
 import Statistics from '../pages/Statistics';
 import ChangePassword from '../pages/ChangePassword/ChangePassword';
+import Example from '../pages/Example/Example';
 
 export const menuItems = [
   {key: 'statistics', label: 'Statistics', path: '/statistics', component: Statistics},
+  {key: 'example', label: 'Example', path: '/example', component: Example},
   {key: 'file-limits', label: 'File Limits', path: '/file-limits', component: FileLimits},
   {key: 'ip-filtering', label: 'IP Filtering', path: '/ip-filtering', component: SecuritySettings},
   {key: 'expiration', label: 'Expiration', path: '/expiration', component: Expiration},
