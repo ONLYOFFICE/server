@@ -8,20 +8,25 @@
 }
 
 .settingsSection {
-  margin-bottom: 32px;
-  padding: 32px;
-  background: #fff;
+  background: white;
+  border: 1px solid #e2e2e2;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
+  padding: 32px;
+  margin-bottom: 32px;
 }
 
 .sectionTitle {
   font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 20px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 8px;
+}
+
+.sectionDescription {
+  font-size: 14px;
+  color: #666666;
+  margin-bottom: 24px;
+  line-height: 1.5;
 }
 
 .formRow {

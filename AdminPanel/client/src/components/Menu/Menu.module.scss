@@ -15,12 +15,22 @@
     overflow-y: auto;
     overflow-x: hidden;
 
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
-
-    /* WebKit */
+    /* Custom scrollbar styling to match main content */
     &::-webkit-scrollbar {
-      display: none;
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: #a1a1a1;
     }
   }
 

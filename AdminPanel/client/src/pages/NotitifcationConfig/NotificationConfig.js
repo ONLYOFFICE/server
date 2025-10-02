@@ -10,12 +10,13 @@ import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
-import styles from './EmailConfig.module.scss';
+import styles from './NotificationConfig.module.scss';
 
 const emailConfigTabs = [
+  {key: 'notifications', label: 'Notification Rules'},
   {key: 'smtp-server', label: 'SMTP Server'},
+  {key: 'defaults', label: 'Default Emails'},
   {key: 'security', label: 'Security'},
-  {key: 'defaults', label: 'Default Emails'}
 ];
 
 function EmailConfig() {
@@ -23,7 +24,7 @@ function EmailConfig() {
   const config = useSelector(selectConfig);
   const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
-  const [activeTab, setActiveTab] = useState('smtp-server');
+  const [activeTab, setActiveTab] = useState('notifications');
 
   // Local state for form fields
   const [localSettings, setLocalSettings] = useState({
@@ -34,7 +35,15 @@ function EmailConfig() {
     disableFileAccess: false,
     disableUrlAccess: false,
     defaultFromEmail: '',
-    defaultToEmail: ''
+    defaultToEmail: '',
+    licenseExpirationWarningEnable: false,
+    licenseExpirationWarningRepeatInterval: '',
+    licenseExpirationErrorEnable: false,
+    licenseExpirationErrorRepeatInterval: '',
+    licenseLimitEditEnable: false,
+    licenseLimitEditRepeatInterval: '',
+    licenseLimitLiveViewerEnable: false,
+    licenseLimitLiveViewerRepeatInterval: ''
   });
   const [hasChanges, setHasChanges] = useState(false);
   const hasInitialized = useRef(false);
@@ -48,7 +57,15 @@ function EmailConfig() {
     disableFileAccess: 'email.connectionConfiguration.disableFileAccess',
     disableUrlAccess: 'email.connectionConfiguration.disableUrlAccess',
     defaultFromEmail: 'email.contactDefaults.from',
-    defaultToEmail: 'email.contactDefaults.to'
+    defaultToEmail: 'email.contactDefaults.to',
+    licenseExpirationWarningEnable: 'notification.rules.licenseExpirationWarning.enable',
+    licenseExpirationWarningRepeatInterval: 'notification.rules.licenseExpirationWarning.policies.repeatInterval',
+    licenseExpirationErrorEnable: 'notification.rules.licenseExpirationError.enable',
+    licenseExpirationErrorRepeatInterval: 'notification.rules.licenseExpirationError.policies.repeatInterval',
+    licenseLimitEditEnable: 'notification.rules.licenseLimitEdit.enable',
+    licenseLimitEditRepeatInterval: 'notification.rules.licenseLimitEdit.policies.repeatInterval',
+    licenseLimitLiveViewerEnable: 'notification.rules.licenseLimitLiveViewer.enable',
+    licenseLimitLiveViewerRepeatInterval: 'notification.rules.licenseLimitLiveViewer.policies.repeatInterval'
   };
 
   // Reset state and errors to global config
@@ -249,6 +266,102 @@ function EmailConfig() {
             </div>
           </div>
         );
+      case 'notifications':
+        return (
+          <>
+            <div className={styles.settingsSection}>
+              <div className={styles.sectionTitle}>License Expiration Warning</div>
+              <div className={styles.sectionDescription}>Configure email notifications when the license is about to expire</div>
+              <div className={styles.formRow}>
+                <Checkbox
+                  label='Enable'
+                  checked={localSettings.licenseExpirationWarningEnable || false}
+                  onChange={value => handleFieldChange('licenseExpirationWarningEnable', value)}
+                  error={getFieldError(CONFIG_PATHS.licenseExpirationWarningEnable)}
+                />
+              </div>
+              <div className={styles.formRow}>
+                <Input
+                  label='Repeat Interval:'
+                  value={localSettings.licenseExpirationWarningRepeatInterval || ''}
+                  onChange={value => handleFieldChange('licenseExpirationWarningRepeatInterval', value)}
+                  placeholder='1d'
+                  description='How often to repeat the warning (e.g., 1d, 1h, 30m)'
+                  error={getFieldError(CONFIG_PATHS.licenseExpirationWarningRepeatInterval)}
+                />
+              </div>
+            </div>
+
+            <div className={styles.settingsSection}>
+              <div className={styles.sectionTitle}>License Expiration Error</div>
+              <div className={styles.sectionDescription}>Configure email notifications when the license has expired</div>
+              <div className={styles.formRow}>
+                <Checkbox
+                  label='Enable'
+                  checked={localSettings.licenseExpirationErrorEnable || false}
+                  onChange={value => handleFieldChange('licenseExpirationErrorEnable', value)}
+                  error={getFieldError(CONFIG_PATHS.licenseExpirationErrorEnable)}
+                />
+              </div>
+              <div className={styles.formRow}>
+                <Input
+                  label='Repeat Interval:'
+                  value={localSettings.licenseExpirationErrorRepeatInterval || ''}
+                  onChange={value => handleFieldChange('licenseExpirationErrorRepeatInterval', value)}
+                  placeholder='1d'
+                  description='How often to repeat the error notification (e.g., 1d, 1h, 30m)'
+                  error={getFieldError(CONFIG_PATHS.licenseExpirationErrorRepeatInterval)}
+                />
+              </div>
+            </div>
+
+            <div className={styles.settingsSection}>
+              <div className={styles.sectionTitle}>License Limit Edit</div>
+              <div className={styles.sectionDescription}>Configure email notifications when the edit limit is reached</div>
+              <div className={styles.formRow}>
+                <Checkbox
+                  label='Enable'
+                  checked={localSettings.licenseLimitEditEnable || false}
+                  onChange={value => handleFieldChange('licenseLimitEditEnable', value)}
+                  error={getFieldError(CONFIG_PATHS.licenseLimitEditEnable)}
+                />
+              </div>
+              <div className={styles.formRow}>
+                <Input
+                  label='Repeat Interval:'
+                  value={localSettings.licenseLimitEditRepeatInterval || ''}
+                  onChange={value => handleFieldChange('licenseLimitEditRepeatInterval', value)}
+                  placeholder='1h'
+                  description='How often to repeat the limit warning (e.g., 1d, 1h, 30m)'
+                  error={getFieldError(CONFIG_PATHS.licenseLimitEditRepeatInterval)}
+                />
+              </div>
+            </div>
+
+            <div className={styles.settingsSection}>
+              <div className={styles.sectionTitle}>License Limit Live Viewer</div>
+              <div className={styles.sectionDescription}>Configure email notifications when the live viewer limit is reached</div>
+              <div className={styles.formRow}>
+                <Checkbox
+                  label='Enable'
+                  checked={localSettings.licenseLimitLiveViewerEnable || false}
+                  onChange={value => handleFieldChange('licenseLimitLiveViewerEnable', value)}
+                  error={getFieldError(CONFIG_PATHS.licenseLimitLiveViewerEnable)}
+                />
+              </div>
+              <div className={styles.formRow}>
+                <Input
+                  label='Repeat Interval:'
+                  value={localSettings.licenseLimitLiveViewerRepeatInterval || ''}
+                  onChange={value => handleFieldChange('licenseLimitLiveViewerRepeatInterval', value)}
+                  placeholder='1h'
+                  description='How often to repeat the limit warning (e.g., 1d, 1h, 30m)'
+                  error={getFieldError(CONFIG_PATHS.licenseLimitLiveViewerRepeatInterval)}
+                />
+              </div>
+            </div>
+          </>
+        );
       default:
         return null;
     }
@@ -256,8 +369,8 @@ function EmailConfig() {
 
   return (
     <div className={`${styles.emailConfig} ${styles.pageWithFixedSave}`}>
-      <PageHeader>Email Configuration</PageHeader>
-      <PageDescription>Configure SMTP server settings, security options, and default email addresses</PageDescription>
+      <PageHeader>Notifications</PageHeader>
+      <PageDescription>Configure SMTP server settings, security options, default email addresses, and notification rules</PageDescription>
 
       <Tabs tabs={emailConfigTabs} activeTab={activeTab} onTabChange={handleTabChange}>
         {renderTabContent()}

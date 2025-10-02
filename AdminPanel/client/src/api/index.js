@@ -1,4 +1,5 @@
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL ?? '';
+const DOCSERVICE_URL = process.env.REACT_APP_DOCSERVICE_URL;
 const API_BASE_PATH = '/api/v1/admin';
 
 export const fetchStatistics = async () => {
@@ -14,6 +15,9 @@ export const fetchConfiguration = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('UNAUTHORIZED');
+    }
     throw new Error('Failed to fetch configuration');
   }
   return response.json();
@@ -24,6 +28,9 @@ export const fetchConfigurationSchema = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('UNAUTHORIZED');
+    }
     throw new Error('Failed to fetch configuration schema');
   }
   return response.json();
@@ -174,4 +181,28 @@ export const rotateWopiKeys = async () => {
   }
 
   return response.json();
+};
+
+export const checkHealth = async () => {
+  // In development, use proxy path to avoid CORS issues
+  const url = process.env.NODE_ENV === 'development' 
+    ? '/healthcheck-api' 
+    : `/healthcheck`;
+    
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('DocService is not responding properly');
+    }
+
+    return response.json();
+  } catch (error) {
+    throw error;
+  }
 };

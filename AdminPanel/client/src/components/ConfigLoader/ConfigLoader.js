@@ -10,6 +10,7 @@ import {
   fetchConfig,
   fetchSchema
 } from '../../store/slices/configSlice';
+import Button from '../LoginButton';
 
 const ConfigLoader = ({children}) => {
   const dispatch = useDispatch();
@@ -59,6 +60,8 @@ const ConfigLoader = ({children}) => {
   }
 
   if (error) {
+    const isUnauthorized = error === 'UNAUTHORIZED' || error?.message === 'UNAUTHORIZED';
+
     return (
       <div
         style={{
@@ -67,11 +70,21 @@ const ConfigLoader = ({children}) => {
           alignItems: 'center',
           height: '100vh',
           flexDirection: 'column',
-          gap: '16px'
+          gap: '2px'
         }}
       >
-        <p style={{color: 'red'}}>Error loading configuration: {error}</p>
-        <button onClick={() => dispatch(fetchConfig())}>Retry</button>
+        {isUnauthorized ? (
+          <>
+            <p style={{color: '#d32f2f', fontSize: '18px', fontWeight: '500', margin: '0 0 8px 0'}}>Session expired</p>
+            <p style={{color: '#666', fontSize: '14px', margin: '0 0 16px 0'}}>Please log in again to continue</p>
+            <Button onClick={() => window.location.reload()}>Login</Button>
+          </>
+        ) : (
+          <>
+            <p style={{color: 'red'}}>Error loading configuration: {error}</p>
+            <Button onClick={() => window.location.reload()}>Login</Button>
+          </>
+        )}
       </div>
     );
   }

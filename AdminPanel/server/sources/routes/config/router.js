@@ -4,7 +4,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const utils = require('../../../../../Common/sources/utils');
 const {getScopedConfig, validateScoped, getScopedSchema} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
@@ -53,7 +52,6 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('config patch start');
-    const currentConfig = ctx.getFullCfg();
     const updateData = JSON.parse(req.body);
     const validationResult = validateScoped(ctx, updateData);
     if (validationResult.errors) {
@@ -63,11 +61,10 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
         errorsText: validationResult.errorsText
       });
     }
-    const newConfig = utils.deepMergeObjects(currentConfig, validationResult.value);
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-      await tenantManager.setTenantConfig(ctx, newConfig);
+      await tenantManager.setTenantConfig(ctx, validationResult.value);
     } else {
-      await runtimeConfigManager.saveConfig(ctx, newConfig);
+      await runtimeConfigManager.saveConfig(ctx, validationResult.value);
     }
 
     await ctx.initTenantCache();

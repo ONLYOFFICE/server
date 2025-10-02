@@ -1,4 +1,4 @@
-import {useState, useRef} from 'react';
+import {useState} from 'react';
 import {changePassword} from '../../api';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
@@ -12,7 +12,6 @@ function ChangePassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const saveButtonRef = useRef();
 
   const handlePasswordChange = async () => {
     setPasswordError('');
@@ -90,7 +89,7 @@ function ChangePassword() {
               description='Re-enter your new password'
             />
 
-            <FixedSaveButton ref={saveButtonRef} onClick={handlePasswordChange} />
+            <FixedSaveButton onClick={handlePasswordChange} />
           </div>
         </div>
       </div>
