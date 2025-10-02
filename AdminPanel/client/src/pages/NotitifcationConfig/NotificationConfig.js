@@ -10,7 +10,7 @@ import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
-import styles from './EmailConfig.module.scss';
+import styles from './NotificationConfig.module.scss';
 
 const emailConfigTabs = [
   {key: 'smtp-server', label: 'SMTP Server'},
@@ -369,7 +369,7 @@ function EmailConfig() {
 
   return (
     <div className={`${styles.emailConfig} ${styles.pageWithFixedSave}`}>
-      <PageHeader>Email Configuration</PageHeader>
+      <PageHeader>Notifications</PageHeader>
       <PageDescription>Configure SMTP server settings, security options, default email addresses, and notification rules</PageDescription>
 
       <Tabs tabs={emailConfigTabs} activeTab={activeTab} onTabChange={handleTabChange}>
