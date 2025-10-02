@@ -83,7 +83,7 @@ const server = http.createServer(app);
 
     if (setupRequired) {
       // Check if token already exists and valid
-      const hasToken = await bootstrap.hasValidBootstrapToken(ctx);
+      const hasToken = bootstrap.hasValidBootstrapToken();
 
       if (!hasToken) {
         // Generate new bootstrap code
