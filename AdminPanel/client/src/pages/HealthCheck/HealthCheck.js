@@ -48,7 +48,7 @@ function HealthCheck() {
         <div className={styles.statusContent}>
           {error && (
             <div className={styles.error}>
-                <h4>{error}</h4>
+              <h4>{error}</h4>
             </div>
           )}
 
@@ -58,7 +58,6 @@ function HealthCheck() {
             </div>
           )}
         </div>
-
       </div>
 
       <FixedSaveButton onClick={fetchHealthStatus} disabled={loading} disableResult={true}>

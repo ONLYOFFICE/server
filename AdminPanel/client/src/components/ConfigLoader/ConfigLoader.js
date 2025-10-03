@@ -60,6 +60,7 @@ const ConfigLoader = ({children}) => {
   }
 
   if (error) {
+    const errorMessage = typeof error === 'string' ? error : error?.message || 'Unknown error';
     const isUnauthorized = error === 'UNAUTHORIZED' || error?.message === 'UNAUTHORIZED';
 
     return (
@@ -81,7 +82,7 @@ const ConfigLoader = ({children}) => {
           </>
         ) : (
           <>
-            <p style={{color: 'red'}}>Error loading configuration: {error}</p>
+            <p style={{color: 'red'}}>Error loading configuration: {errorMessage}</p>
             <Button onClick={() => window.location.reload()}>Login</Button>
           </>
         )}

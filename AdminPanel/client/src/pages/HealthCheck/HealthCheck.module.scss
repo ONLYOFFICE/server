@@ -36,7 +36,6 @@
   flex-grow: 1;
 }
 
-
 .loading {
   display: flex;
   align-items: center;
@@ -54,23 +53,26 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error {
   color: #dc3545;
-  
+
   h4 {
     margin: 0;
     font-size: 16px;
   }
-
 }
 
 .success {
   color: #28a745;
-  
+
   h4 {
     margin: 0;
     font-size: 16px;
@@ -83,7 +85,7 @@
   border-radius: 4px;
   padding: 16px;
   overflow-x: auto;
-  
+
   pre {
     margin: 0;
     font-family: 'Courier New', monospace;
@@ -93,4 +95,3 @@
     word-break: break-all;
   }
 }
-
