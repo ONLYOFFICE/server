@@ -6,6 +6,7 @@ import {checkSetupRequired} from '../../api';
 import Spinner from '../../assets/Spinner.svg';
 import Login from '../../pages/Login/LoginPage';
 import Setup from '../../pages/Setup/SetupPage';
+import ServerUnavailable from '../ServerUnavailable/ServerUnavailable';
 
 export default function AuthWrapper({children}) {
   const dispatch = useDispatch();
@@ -17,6 +18,7 @@ export default function AuthWrapper({children}) {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [setupRequired, setSetupRequired] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
+  const [serverUnavailable, setServerUnavailable] = useState(false);
 
   // Save intended URL for redirect after setup/login
   useEffect(() => {
@@ -42,7 +44,9 @@ export default function AuthWrapper({children}) {
         const result = await checkSetupRequired();
         setSetupRequired(result.setupRequired);
       } catch (error) {
-        console.error('Setup check error:', error);
+        if (error.message === 'SERVER_UNAVAILABLE') {
+          setServerUnavailable(true);
+        }
       } finally {
         setCheckingSetup(false);
       }
@@ -52,17 +56,22 @@ export default function AuthWrapper({children}) {
   }, []);
 
   useEffect(() => {
-    if (!checkingSetup && !setupRequired) {
+    if (!checkingSetup && !setupRequired && !serverUnavailable) {
       dispatch(fetchUser()).finally(() => {
         setHasInitialized(true);
       });
-    } else if (!checkingSetup && setupRequired) {
+    } else if (!checkingSetup && (setupRequired || serverUnavailable)) {
       setHasInitialized(true);
     }
-  }, [dispatch, checkingSetup, setupRequired]);
+  }, [dispatch, checkingSetup, setupRequired, serverUnavailable]);
+
+  // Show server unavailable page if server is down
+  if (serverUnavailable && !isAuthenticated) {
+    return <ServerUnavailable />;
+  }
 
   // Show loading spinner during initial checks
-  if ((loading || !hasInitialized || checkingSetup) && !isAuthenticated) {
+  if ((loading || !hasInitialized || checkingSetup) && !isAuthenticated && !serverUnavailable) {
     return (
       <div
         style={{

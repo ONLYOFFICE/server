@@ -24,7 +24,7 @@ export const saveConfig = createAsyncThunk('config/saveConfig', async (configDat
     const newConfig = await updateConfiguration(configData);
     return newConfig;
   } catch (error) {
-    return rejectWithValue(error);
+    return rejectWithValue(error.message);
   }
 });
 
@@ -33,7 +33,7 @@ export const rotateWopiKeysAction = createAsyncThunk('config/rotateWopiKeys', as
     const newConfig = await rotateWopiKeys();
     return newConfig;
   } catch (error) {
-    return rejectWithValue(error);
+    return rejectWithValue(error.message);
   }
 });
 
