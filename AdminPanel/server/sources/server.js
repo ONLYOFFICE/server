@@ -57,6 +57,9 @@ const port = config.get('adminPanel.port');
 const app = express();
 app.disable('x-powered-by');
 
+// Trust first proxy for X-Forwarded-* headers (nginx, load balancer)
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 
 // Initialize license on startup

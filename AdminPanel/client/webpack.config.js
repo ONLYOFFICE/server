@@ -33,7 +33,16 @@ module.exports = (env, argv) => {
       },
       port: 3000,
       open: true,
-      historyApiFallback: true
+      historyApiFallback: true,
+      proxy: {
+        '/healthcheck-api': {
+          target: process.env.REACT_APP_DOCSERVICE_URL,
+          changeOrigin: true,
+          pathRewrite: {
+            '^/healthcheck-api': '/healthcheck'
+          }
+        }
+      }
     },
 
     plugins: [
@@ -55,7 +64,8 @@ module.exports = (env, argv) => {
         ]
       }),
       new webpack.DefinePlugin({
-        'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL)
+        'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL),
+        'process.env.REACT_APP_DOCSERVICE_URL': JSON.stringify(process.env.REACT_APP_DOCSERVICE_URL)
       })
     ],
 

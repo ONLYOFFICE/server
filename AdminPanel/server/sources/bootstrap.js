@@ -34,6 +34,7 @@
 
 const crypto = require('crypto');
 const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
+const passwordManager = require('./passwordManager');
 
 const BOOTSTRAP_TOKEN_TTL = 1 * 60 * 60 * 1000; // 1 hour
 const BOOTSTRAP_CODE_LENGTH = 12; // 12 chars = ~62 bits entropy (4.7 quintillion combinations)
@@ -129,10 +130,17 @@ async function verifyBootstrapToken(ctx, providedCode) {
   }
 
   // Check if setup already completed
+  // Invalid or old format is treated as no password set
   const config = await runtimeConfigManager.getConfig(ctx);
-  if (config?.adminPanel?.passwordHash) {
+  const passwordHash = config?.adminPanel?.passwordHash;
+  
+  if (passwordManager.isValidPasswordHash(passwordHash)) {
     ctx.logger.warn('Bootstrap code rejected: setup already completed');
     return false;
+  }
+  
+  if (passwordHash && !passwordManager.isValidPasswordHash(passwordHash)) {
+    ctx.logger.info('Invalid password hash format detected - allowing bootstrap for re-setup');
   }
 
   // Stateless verification: check if code matches current or previous time window

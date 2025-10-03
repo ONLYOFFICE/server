@@ -1,18 +1,10 @@
-.notificationRules {
-  padding: 0;
-}
-
-.pageWithFixedSave {
-  padding-bottom: 40px;
-}
-
 .loading {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 200px;
-  font-family: 'Open Sans', sans-serif;
-  color: #666666;
+  font-size: 16px;
+  color: #666;
 }
 
 .settingsSection {
@@ -26,7 +18,7 @@
 .sectionTitle {
   font-size: 18px;
   font-weight: 600;
-  color: #333333;
+  color: #333;
   margin-bottom: 8px;
 }
 
@@ -38,9 +30,25 @@
 }
 
 .formRow {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.tabPanel {
+  padding: 32px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.actions {
   display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.pageWithFixedSave {
+  padding-bottom: 40px;
 }

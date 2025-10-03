@@ -4,7 +4,7 @@ import Spinner from '../../assets/Spinner.svg';
 import Success from '../../assets/Success.svg';
 import Fail from '../../assets/Fail.svg';
 
-function SaveButton({onClick, children = 'Save Changes', disabled = false}) {
+function SaveButton({onClick, children = 'Save Changes', disabled = false, disableResult = false}) {
   const [state, setState] = useState('idle'); // 'idle', 'loading', 'success', 'error'
 
   // Reset to idle after showing success/error for 3 seconds
@@ -23,10 +23,18 @@ function SaveButton({onClick, children = 'Save Changes', disabled = false}) {
     setState('loading');
     try {
       await onClick();
-      setState('success');
+      if (!disableResult) {
+        setState('success');
+      } else {
+        setState('idle');
+      }
     } catch (error) {
       console.error('Save failed:', error);
-      setState('error');
+      if (!disableResult) {
+        setState('error');
+      } else {
+        setState('idle');
+      }
     }
   };
 
