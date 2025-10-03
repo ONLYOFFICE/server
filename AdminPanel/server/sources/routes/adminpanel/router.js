@@ -65,14 +65,6 @@ router.get('/setup/required', async (req, res) => {
       if (!hasCode) {
         const {code, expiresAt} = await bootstrap.generateBootstrapToken(ctx);
         ctx.logger.warn('Bootstrap code generated on demand | Code: ' + code + ' | Expires: ' + expiresAt.toISOString());
-
-        // Also output to console for visibility
-        console.log('');
-        console.log('*** BOOTSTRAP CODE REGENERATED ***');
-        console.log('Bootstrap Code:', code);
-        console.log('Expires:', expiresAt.toISOString());
-        console.log('Reason: Token expired or password reset');
-        console.log('');
       }
     }
 

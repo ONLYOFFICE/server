@@ -114,10 +114,19 @@ const corsWithCredentials = cors({
 
 operationContext.global.logger.warn('AdminPanel server starting...');
 
-app.use('/api/v1/admin/config', corsWithCredentials, utils.checkClientIp, configRouter);
-app.use('/api/v1/admin/wopi', corsWithCredentials, utils.checkClientIp, wopiRouter);
-app.use('/api/v1/admin', corsWithCredentials, utils.checkClientIp, adminpanelRouter);
-app.get('/api/v1/admin/stat', corsWithCredentials, utils.checkClientIp, infoRouter.licenseInfo);
+function disableCache(req, res, next) {
+  res.set({
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0'
+  });
+  next();
+}
+
+app.use('/api/v1/admin/config', corsWithCredentials, utils.checkClientIp, disableCache, configRouter);
+app.use('/api/v1/admin/wopi', corsWithCredentials, utils.checkClientIp, disableCache, wopiRouter);
+app.use('/api/v1/admin', corsWithCredentials, utils.checkClientIp, disableCache, adminpanelRouter);
+app.get('/api/v1/admin/stat', corsWithCredentials, utils.checkClientIp, disableCache, infoRouter.licenseInfo);
 
 // Serve AdminPanel client build as static assets
 const clientBuildPath = path.resolve('client/build');
@@ -125,6 +134,10 @@ app.use('/', express.static(clientBuildPath));
 
 function serveSpaIndex(req, res, next) {
   if (req.path.startsWith('/api')) return next();
+
+  // Disable caching for SPA index.html to ensure updates work
+  disableCache(req, res, () => {});
+
   res.sendFile(path.join(clientBuildPath, 'index.html'));
 }
 // Client SPA routes fallback
