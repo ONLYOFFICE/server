@@ -189,20 +189,22 @@ export const checkHealth = async () => {
     ? '/healthcheck-api' 
     : `/healthcheck`;
     
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('DocService is not responding properly');
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json'
     }
+  });
 
-    return response.json();
-  } catch (error) {
-    throw error;
+  if (!response.ok) {
+    throw new Error('DocService health check failed');
   }
+
+  const result = await response.text();
+  
+  if (result !== 'true') {
+    throw new Error('DocService health check failed');
+  }
+
+  return result === 'true';
 };
