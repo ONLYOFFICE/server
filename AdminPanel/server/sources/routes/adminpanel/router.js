@@ -7,7 +7,7 @@ const operationContext = require('../../../../../Common/sources/operationContext
 const passwordManager = require('../../passwordManager');
 const bootstrap = require('../../bootstrap');
 
-const adminPanelJwtSecret = config.get('adminPanel.jwtSecret');
+const adminPanelJwtSecret = config.get('adminPanel.secret');
 
 const router = express.Router();
 
