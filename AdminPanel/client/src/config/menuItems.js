@@ -8,9 +8,11 @@ import LoggerConfig from '../pages/LoggerConfig/LoggerConfig';
 import Statistics from '../pages/Statistics';
 import ChangePassword from '../pages/ChangePassword/ChangePassword';
 import HealthCheck from '../pages/HealthCheck/HealthCheck';
+import AiIntegration from '../pages/AiIntegration';
 
 export const menuItems = [
   {key: 'statistics', label: 'Statistics', path: '/statistics', component: Statistics},
+  {key: 'ai-integration', label: 'AI Integration', path: '/ai-integration', component: AiIntegration},
   {key: 'file-limits', label: 'File Limits', path: '/file-limits', component: FileLimits},
   {key: 'ip-filtering', label: 'IP Filtering', path: '/ip-filtering', component: SecuritySettings},
   {key: 'expiration', label: 'Expiration', path: '/expiration', component: Expiration},

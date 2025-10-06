@@ -6,6 +6,66 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "aiSettings": {
+      "type": "object",
+      "description": "AI integration settings for document processing and AI-powered features",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "description": "AI settings schema version",
+          "minimum": 1,
+          "x-scope": ["admin", "tenant"]
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Default timeout for AI API requests (e.g., '5m', '30s')",
+          "x-scope": ["admin", "tenant"]
+        },
+        "proxy": {
+          "type": "string",
+          "description": "Proxy URL for AI API requests",
+          "x-scope": ["admin", "tenant"]
+        },
+        "allowedCorsOrigins": {
+          "type": "array",
+          "description": "Array of allowed CORS origins for AI API requests",
+          "x-scope": ["admin", "tenant"],
+          "items": {
+            "type": "string",
+            "description": "Allowed origin URL"
+          }
+        },
+        "actions": {
+          "type": "object",
+          "description": "Available AI actions/features configuration",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"]
+        },
+        "providers": {
+          "type": "object",
+          "description": "AI service providers configuration",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"]
+        },
+        "customProviders": {
+          "type": "object",
+          "description": "Custom AI service providers configuration",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"]
+        },
+        "models": {
+          "type": "array",
+          "description": "Active AI models configuration",
+          "x-scope": ["admin", "tenant"],
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
     "services": {
       "type": "object",
       "additionalProperties": false,
