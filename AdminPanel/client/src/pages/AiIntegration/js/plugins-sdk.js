@@ -22,7 +22,6 @@ let settingsButton = null;
 function sendMessageToFrame(iframeId, data) {
     const frame = document.getElementById(iframeId);
     if (frame) {
-        console.log('sendMessageToFrame', iframeId, data);
         frame.contentWindow.postMessage(JSON.stringify(data), "*");
     }
 }
@@ -35,7 +34,6 @@ function receiveMessage(event) {
     if (typeof event.data !== 'string') {
         return;
     }
-    console.log(event);
     
     try {
         const data = JSON.parse(event.data);
@@ -394,9 +392,6 @@ function handleMethod(data) {
     } else if (data.methodName === 'CloseWindow') {
         CloseWindow(data.data);
         handleMethodReturn(undefined);
-    // } else if (data.methodName === 'SendEvent') {
-    //     console.error(data.data);
-    //     handleMethodReturn(undefined);
     } else {
         handleMethodReturn(undefined);
     }
