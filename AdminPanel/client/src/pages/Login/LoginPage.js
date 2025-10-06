@@ -1,6 +1,7 @@
 import {useState, useRef} from 'react';
 import {useDispatch} from 'react-redux';
-import {loginUser} from '../../store/slices/userSlice';
+import {fetchUser} from '../../store/slices/userSlice';
+import {login} from '../../api';
 import Input from '../../components/LoginInput';
 import Button from '../../components/LoginButton';
 import styles from './styles.module.css';
@@ -15,10 +16,12 @@ export default function Login() {
     setError('');
 
     try {
-      await dispatch(loginUser(password)).unwrap();
+      await login(password);
+      // Wait for cookie to be set and verify authentication works
+      await dispatch(fetchUser()).unwrap();
       // AuthWrapper will automatically redirect based on isAuthenticated
     } catch (error) {
-      setError(error || 'Invalid password. Please try again.');
+      setError(error.message || 'Invalid password. Please try again.');
       throw error;
     }
   };

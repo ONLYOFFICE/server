@@ -16,7 +16,7 @@ const emailConfigTabs = [
   {key: 'notifications', label: 'Notification Rules'},
   {key: 'smtp-server', label: 'SMTP Server'},
   {key: 'defaults', label: 'Default Emails'},
-  {key: 'security', label: 'Security'},
+  {key: 'security', label: 'Security'}
 ];
 
 function EmailConfig() {

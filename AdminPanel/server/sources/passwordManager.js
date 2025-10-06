@@ -202,7 +202,7 @@ async function saveAdminPassword(ctx, password) {
 async function verifyAdminPassword(ctx, password) {
   const config = await runtimeConfigManager.getConfig(ctx);
   const hash = config?.adminPanel?.passwordHash;
-  
+
   // No hash or invalid format - treat as no password set
   if (!isValidPasswordHash(hash)) {
     if (hash) {
@@ -210,7 +210,7 @@ async function verifyAdminPassword(ctx, password) {
     }
     return false;
   }
-  
+
   return verifyPassword(password, hash);
 }
 

@@ -4,7 +4,7 @@ const config = require('config');
 const jwt = require('jsonwebtoken');
 const operationContext = require('../../../../Common/sources/operationContext');
 
-const adminPanelJwtSecret = config.get('adminPanel.jwtSecret');
+const adminPanelJwtSecret = config.get('adminPanel.secret');
 
 /**
  * JWT Authentication Middleware

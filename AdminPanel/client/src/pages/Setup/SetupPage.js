@@ -1,7 +1,7 @@
 import {useState, useRef} from 'react';
 import {useDispatch} from 'react-redux';
 import {setupAdminPassword} from '../../api';
-import {setUser} from '../../store/slices/userSlice';
+import {fetchUser} from '../../store/slices/userSlice';
 import Input from '../../components/LoginInput';
 import Button from '../../components/LoginButton';
 import styles from './styles.module.css';
@@ -44,7 +44,8 @@ export default function Setup() {
 
     try {
       await setupAdminPassword({bootstrapToken, password});
-      dispatch(setUser({tenant: 'localhost', isAdmin: true}));
+      // Wait for cookie to be set and verify authentication works
+      await dispatch(fetchUser()).unwrap();
       // AuthWrapper will automatically redirect based on isAuthenticated
     } catch (error) {
       // Server error

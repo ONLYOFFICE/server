@@ -133,12 +133,12 @@ async function verifyBootstrapToken(ctx, providedCode) {
   // Invalid or old format is treated as no password set
   const config = await runtimeConfigManager.getConfig(ctx);
   const passwordHash = config?.adminPanel?.passwordHash;
-  
+
   if (passwordManager.isValidPasswordHash(passwordHash)) {
     ctx.logger.warn('Bootstrap code rejected: setup already completed');
     return false;
   }
-  
+
   if (passwordHash && !passwordManager.isValidPasswordHash(passwordHash)) {
     ctx.logger.info('Invalid password hash format detected - allowing bootstrap for re-setup');
   }

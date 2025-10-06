@@ -1,5 +1,5 @@
 import {createSlice, createAsyncThunk} from '@reduxjs/toolkit';
-import {fetchCurrentUser, login} from '../../api';
+import {fetchCurrentUser} from '../../api';
 
 export const fetchUser = createAsyncThunk('user/fetchUser', async (_, {rejectWithValue}) => {
   try {
@@ -9,19 +9,9 @@ export const fetchUser = createAsyncThunk('user/fetchUser', async (_, {rejectWit
   }
 });
 
-export const loginUser = createAsyncThunk('user/loginUser', async (password, {rejectWithValue}) => {
-  try {
-    const response = await login(password);
-    return response;
-  } catch (error) {
-    return rejectWithValue(error.message);
-  }
-});
-
 const initialState = {
   user: null,
   loading: false,
-  loginLoading: false,
   error: null,
   isAuthenticated: false
 };
@@ -34,12 +24,6 @@ const userSlice = createSlice({
     clearUser: state => {
       state.user = null;
       state.isAuthenticated = false;
-      state.error = null;
-    },
-    // Set user data manually
-    setUser: (state, action) => {
-      state.user = action.payload;
-      state.isAuthenticated = true;
       state.error = null;
     },
     // Clear error
@@ -67,35 +51,15 @@ const userSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.isAuthenticated = false;
-      })
-      // Login cases
-      .addCase(loginUser.pending, state => {
-        state.loginLoading = true;
-        state.error = null;
-      })
-      .addCase(loginUser.fulfilled, (state, action) => {
-        state.loginLoading = false;
-        state.user = {
-          tenant: action.payload.tenant,
-          isAdmin: action.payload.isAdmin
-        };
-        state.isAuthenticated = true;
-        state.error = null;
-      })
-      .addCase(loginUser.rejected, (state, action) => {
-        state.loginLoading = false;
-        state.error = action.payload;
-        state.isAuthenticated = false;
       });
   }
 });
 
-export const {clearUser, setUser, clearError} = userSlice.actions;
+export const {clearUser, clearError} = userSlice.actions;
 
 // Selectors
 export const selectUser = state => state.user.user;
 export const selectUserLoading = state => state.user.loading;
-export const selectLoginLoading = state => state.user.loginLoading;
 export const selectUserError = state => state.user.error;
 export const selectIsAuthenticated = state => state.user.isAuthenticated;
 

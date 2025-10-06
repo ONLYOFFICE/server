@@ -101,7 +101,7 @@ Context.prototype.initFromPubSub = function (data) {
 Context.prototype.initTenantCache = async function () {
   const runtimeConfig = await runtimeConfigManager.getConfig(this);
   const tenantConfig = await tenantManager.getTenantConfig(this);
-  this.config = utils.deepMergeObjects({}, runtimeConfig, tenantConfig);
+  this.config = utils.deepMergeObjects(config.util.toObject(), runtimeConfig, tenantConfig);
 
   //todo license and secret
 };
