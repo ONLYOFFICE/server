@@ -78,4 +78,35 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
   }
 });
 
+router.post('/reset', validateJWT, async (req, res) => {
+  const ctx = req.ctx;
+  try {
+    ctx.logger.info('config reset start');
+
+    const currentConfig = await runtimeConfigManager.getConfig(ctx);
+    const passwordHash = currentConfig?.adminPanel?.passwordHash;
+
+    const resetConfig = {};
+    if (passwordHash) {
+      resetConfig.adminPanel = {
+        passwordHash
+      };
+    }
+
+    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
+      await tenantManager.replaceTenantConfig(ctx, resetConfig);
+    } else {
+      await runtimeConfigManager.replaceConfig(ctx, resetConfig);
+    }
+
+    ctx.logger.info('Configuration reset successfully');
+    res.status(200).json({message: 'Configuration reset successfully'});
+  } catch (error) {
+    ctx.logger.error('Configuration reset error: %s', error.stack);
+    res.status(500).json({error: 'Internal server error', details: error.message});
+  } finally {
+    ctx.logger.info('config reset end');
+  }
+});
+
 module.exports = router;
