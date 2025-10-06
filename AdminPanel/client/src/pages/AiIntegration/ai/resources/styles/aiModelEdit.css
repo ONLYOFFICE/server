@@ -39,7 +39,7 @@ body {
 }
 
 #select2-provider-name-cmb-results {
-    max-height: 180px;
+    max-height: 192px;
 }
 
 .action-btn {
@@ -110,27 +110,30 @@ body {
     margin-bottom: 6px;
 }
 
-#block-use-for > :not(:first-child){
-    margin-left: 4px;
-}
-
 #custom-providers-button{
     display: inline-flex;
 }
 #custom-providers-button label{
     cursor: pointer;
-    border-bottom: 1px dotted currentColor;
-    padding-bottom: 2px;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 1px;
     margin-top: 24px;
+}
+
+#block-use-for {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .toggle-button {
     all: unset;
     display: inline-block;
-    padding: 4px;
-    height: 20px;
+    padding: 4px 14px;
     border: 1px solid;
-    border-radius: 2px;
+    border-radius: 50px;
+    line-height: 16px;
 }
 .toggle-button:hover:not([disabled]) {
     cursor: pointer;
@@ -138,12 +141,6 @@ body {
 .toggle-button[disabled] {
     opacity: 0.4;
 }
-
-.toggle-button img {
-    width: 20px;
-    height: 20px;
-}
-
 
 /* Themes style for Toggle button */
 body.theme-classic-light .toggle-button {
@@ -188,7 +185,33 @@ body.theme-contrast-dark .toggle-button {
     background-color: #e1e1e1 !important;
     background-color: var(--background-active-color) !important;
     background-color: var(--highlight-button-pressed) !important;
+
+    color: #fff;
+    color: var(--text-normal-pressed);
 }
+
+body.theme-white .toggle-button {
+    background-color: unset !important;
+}
+body.theme-white .toggle-button:hover:not([disabled]) {
+    border-color: #cecece;
+}
+body.theme-white .toggle-button.active {
+    border-color: #DCE7FA !important;
+    background-color: #DCE7FA !important;
+}
+
+body.theme-night .toggle-button {
+    background-color: unset !important;
+}
+body.theme-night .toggle-button:hover:not([disabled]) {
+    border-color: #969696;
+}
+body.theme-night .toggle-button.active {
+    border-color: #375478 !important;
+    background-color: #375478 !important;
+}
+
 
 .select2-container {
     max-height: none !important;

@@ -106,7 +106,10 @@ Available functions:\n";
 
 	for (let i = 0; i < this.funcs.length; i++) {
 		let func = this.funcs[i];
-		systemPrompt += "\n- " + func.name + "\n  Parameters:\n";
+		systemPrompt += "\n- " + func.name;
+		if (func.description)
+			systemPrompt += "\n  Description: " + func.description + "\n";
+		systemPrompt += "\n  Parameters:\n";
 		for (let j = 0; j < func.params.length; j++) {
 			systemPrompt += "  - " + func.params[j] + "\n";
 		}

@@ -440,9 +440,9 @@ function registerButtons(window, undefined)
 		let result = await requestEngine.imageGenerationRequest(content);
 		if (!result) return;
 
-			if (Asc.plugin.info.editorSubType === "pdf")
-				return await Asc.Library.AddGeneratedImage(result);
-			await Asc.Library.AddOleObject(result, content);
+		if (Asc.plugin.info.editorSubType === "pdf")
+			return await Asc.Library.AddGeneratedImage(result);
+		await Asc.Library.AddOleObject(result, content);
 	}
 
 	if (true)
@@ -530,12 +530,14 @@ function registerButtons(window, undefined)
 	window.buttonMainToolbar = buttonMainToolbar;
 	window.getToolBarButtonIcons = getToolBarButtonIcons;
 
+	window.buttonSettings = null;
+
 	if (!AI.serverSettings)
 	{
-		let button1 = new Asc.ButtonToolbar(buttonMainToolbar);
-		button1.text = "Settings";
-		button1.icons = getToolBarButtonIcons("settings");
-		button1.attachOnClick(function(data){
+		window.buttonSettings = new Asc.ButtonToolbar(buttonMainToolbar);
+		window.buttonSettings.text = "Settings";
+		window.buttonSettings.icons = getToolBarButtonIcons("settings");
+		window.buttonSettings.attachOnClick(function(data){
 			onOpenSettingsModal();
 		});
 	}
@@ -679,12 +681,12 @@ function registerButtons(window, undefined)
 	{
 		try
 		{
-			window.localStorage.setItem(actions_key, JSON.stringify(AI.Actions));
+			window.localStorage.setItem(actions_key, JSON.stringify(AI.Actions));			
 			return true;
 		}
 		catch (e)
 		{
-		}
+		}		
 		return false;
 	};
 
@@ -723,6 +725,9 @@ function registerButtons(window, undefined)
 			AI.Actions[id].model = model;
 			AI.ActionsSave();
 		}
+
+		if (Asc.plugin.sendEvent)
+			Asc.plugin.sendEvent("ai_onActionsChange", window.getActionsInfo());
 	};
 
 	AI.ActionsLoad();

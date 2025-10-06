@@ -236,7 +236,7 @@
 
 	Library.prototype.InsertAsMD = async function(data, plugins)
 	{
-		let htmlContent = Asc.Library.ConvertMdToHTML(data, plugins)
+		let htmlContent = Asc.Library.ConvertMdToHTML(data, plugins);
 		return await Asc.Library.InsertAsHTML(htmlContent);
 	};
 

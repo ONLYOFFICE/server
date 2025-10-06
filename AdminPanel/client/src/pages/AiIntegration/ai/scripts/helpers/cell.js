@@ -337,6 +337,24 @@ function getCellFunctions() {
             "To filter active range by column name 'Price' for values less than 100, respond:" +
             "[functionCalling (setAutoFilter)]: {\"fieldName\": \"Price\", \"criteria1\": \"<100\"}",
 
+            "When user requests filtering by column name with comparison operators (e.g., 'filter more than X by column Y', 'show values greater than Z in field W'), respond:" +
+            "[functionCalling (setAutoFilter)]: {\"fieldName\": \"[extracted_column_name]\", \"criteria1\": \"[operator][value]\"}",
+
+            "For filtering by column names with numeric criteria (e.g., 'values > 10', 'less than 50', 'equal to 25'), respond:" +
+            "[functionCalling (setAutoFilter)]: {\"fieldName\": \"[column_name_from_request]\", \"criteria1\": \"[comparison_operator][numeric_value]\"}",
+
+            "To filter by any column header with comparison operators mentioned in user request, respond:" +
+            "[functionCalling (setAutoFilter)]: {\"fieldName\": \"[header_name_from_user]\", \"criteria1\": \"[operator_and_value_from_request]\"}",
+
+            "When user requests filtering with 'more than', 'greater than', 'above' use '>' operator:" +
+            "[functionCalling (setAutoFilter)]: {\"fieldName\": \"[column_name]\", \"criteria1\": \">[value]\"}",
+
+            "When user requests filtering with 'less than', 'below', 'under' use '<' operator:" +
+            "[functionCalling (setAutoFilter)]: {\"fieldName\": \"[column_name]\", \"criteria1\": \"<[value]\"}",
+
+            "When user requests filtering with 'equal to', 'equals', 'exactly' use '=' operator:" +
+            "[functionCalling (setAutoFilter)]: {\"fieldName\": \"[column_name]\", \"criteria1\": \"=[value]\"}",
+
             "To remove autofilter from range, respond:" +
             "[functionCalling (setAutoFilter)]: {\"range\": \"A1:D10\", \"field\": null}",
 
@@ -517,7 +535,16 @@ function getCellFunctions() {
             "[functionCalling (setSort)]: {\"key1Name\": \"Price\", \"sortOrder1\": \"xlDescending\", \"header\": \"xlYes\"}",
 
             "To sort by three column names, respond:" +
-            "[functionCalling (setSort)]: {\"range\": \"A1:D10\", \"key1Name\": \"Category\", \"sortOrder1\": \"xlAscending\", \"key2Name\": \"Price\", \"sortOrder2\": \"xlDescending\", \"key3Name\": \"Date\", \"sortOrder3\": \"xlAscending\", \"header\": \"xlYes\"}"
+            "[functionCalling (setSort)]: {\"range\": \"A1:D10\", \"key1Name\": \"Category\", \"sortOrder1\": \"xlAscending\", \"key2Name\": \"Price\", \"sortOrder2\": \"xlDescending\", \"key3Name\": \"Date\", \"sortOrder3\": \"xlAscending\", \"header\": \"xlYes\"}",
+
+            "When user requests sorting by column name (e.g., 'sort by column X', 'order by field Y'), respond:" +
+            "[functionCalling (setSort)]: {\"key1Name\": \"[extracted_column_name]\", \"sortOrder1\": \"xlAscending\", \"header\": \"xlYes\"}",
+
+            "For sorting by specific column names in any case/format, respond:" +
+            "[functionCalling (setSort)]: {\"key1Name\": \"[column_name_from_request]\", \"header\": \"xlYes\"}",
+
+            "To sort data by any column header mentioned in user request, respond:" +
+            "[functionCalling (setSort)]: {\"key1Name\": \"[header_name_from_user]\", \"sortOrder1\": \"[xlAscending_or_xlDescending]\", \"header\": \"xlYes\"}"
         ];
 
         func.call = async function(params) {

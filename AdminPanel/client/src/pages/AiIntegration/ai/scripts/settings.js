@@ -175,6 +175,13 @@ function renderActionsList() {
 				id: e.params.data.actionId,
 				model: e.params.data.id 
 			});
+
+			for (let i = 0; i < actionsList.length; i++) {
+				if (actionsList[i].id == e.params.data.actionId) {
+					actionsList[i].model = e.params.data.id;
+					break;
+				}
+			}
 		});
 	});
 	toggleScrollbarPadding();
@@ -275,9 +282,12 @@ function updatedComboBoxes() {
 					$(el).addClass('separator');
 					return '';
 				} else {
-					var div = $('<div class="ellipsis-content"></div>');
-					div[0].innerText = option.text;
-					return div;
+					var $wrapper = $('<div style="display: flex"></div>');
+					var $div = $('<div class="ellipsis-content"></div>');
+					$div.text(option.text);
+					$wrapper.append($div);
+					$wrapper.prepend('<div class="check-icon"></div>');
+					return $wrapper;
 				}
 			},
 			minimumResultsForSearch: Infinity,

@@ -153,10 +153,10 @@ window.Asc.plugin.onTranslate = function () {
 			innerEl.appendChild(linkEl);
 			return innerEl;
 		},
-		xAnchor: 'left',
-		align: 'left',
+		xAnchor: 'center',
+		align: 'auto',
 		yOffset: 4,
-		width: 150,
+		width: 145,
 		hasShadow: true,
 		keepAliveOnHover: true,
 		delay: 200,

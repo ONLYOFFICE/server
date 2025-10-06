@@ -119,13 +119,45 @@ function Tooltip(targetEl, options) {
     };
 
     this._updatePosition = function() {
-        var rectTooltip = this.tooltipEl.getBoundingClientRect();
-        var rectEl = targetEl.getBoundingClientRect();
-        var yOffset = this.options.yOffset;
-        var xOffset = this.options.xOffset;
-        if (this.options.align == 'right') {
+        let rectTooltip = this.tooltipEl.getBoundingClientRect();
+        let rectEl = targetEl.getBoundingClientRect();
+        let yOffset = this.options.yOffset;
+        let xOffset = this.options.xOffset;
+        let tooltipWidth = rectTooltip.width;
+
+        let align = this.options.align;
+
+        if (this.options.align === 'auto') {
+            let spaceLeft = rectEl.left + xOffset;
+            let spaceRight = window.innerWidth - (rectEl.right + xOffset);
+
+            let hasSpaceLeft, hasSpaceRight, hasSpaceCenter;
+
+            if (this.options.xAnchor === 'left') {
+                spaceRight += rectEl.width;
+            } else if (this.options.xAnchor === 'right') {
+                spaceLeft += rectEl.width;
+            } else {
+                spaceLeft += rectEl.width / 2;
+                spaceRight += rectEl.width / 2;
+            }
+
+            hasSpaceLeft = tooltipWidth <= spaceLeft;
+            hasSpaceRight = tooltipWidth <= spaceRight;
+            hasSpaceCenter = (tooltipWidth / 2 <= spaceLeft) && (tooltipWidth / 2 <= spaceRight);
+
+            if(hasSpaceCenter) {
+                align = 'center';
+            } else if (hasSpaceRight) {
+                align = 'left';
+            } else if (hasSpaceLeft) {
+                align = 'right';
+            } 
+        }
+
+        if (align == 'right') {
             xOffset = -rectTooltip.width;
-        } else if (this.options.align == 'center') {
+        } else if (align == 'center') {
             xOffset = -rectTooltip.width / 2;
         }
 

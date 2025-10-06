@@ -35,7 +35,7 @@
 class Provider extends AI.Provider {
 
 	constructor() {
-		super("GPT4All", "http://127.0.0.1:4891", "", "v1");
+		super("GPT4All", "http://localhost:4891", "", "v1");
 	}
 
 	getRequestBodyOptions() {

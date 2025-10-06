@@ -30,6 +30,7 @@
 	"Key" : "密钥",
 	"Update models list" : "更新模型列表",
 	"Use model for" : "使用模型",
+	"All": "全部",
 	"Text": "处理文本",
 	"Audio Processing": "处理音频",
 	"Content Moderation": "审核内容",
