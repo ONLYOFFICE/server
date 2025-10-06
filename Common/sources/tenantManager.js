@@ -140,6 +140,23 @@ async function setTenantConfig(ctx, config) {
   return newConfig;
 }
 
+/**
+ * Replace tenant configuration completely (no merging)
+ * @param {operationContext} ctx - Operation context
+ * @param {Object} config - Configuration data to replace with
+ * @returns {Object} Replaced configuration object
+ */
+async function replaceTenantConfig(ctx, config) {
+  if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
+    const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
+    const configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
+    await writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
+    nodeCache.set(configPath, config);
+    return config;
+  }
+  return config;
+}
+
 function getTenantSecret(ctx, type) {
   return co(function* () {
     let cfgTenant;
@@ -447,6 +464,7 @@ exports.getTenantLicense = getTenantLicense;
 exports.getServerLicense = getServerLicense;
 exports.setDefLicense = setDefLicense;
 exports.setTenantConfig = setTenantConfig;
+exports.replaceTenantConfig = replaceTenantConfig;
 exports.isMultitenantMode = isMultitenantMode;
 exports.setMultitenantMode = setMultitenantMode;
 exports.isDefaultTenant = isDefaultTenant;

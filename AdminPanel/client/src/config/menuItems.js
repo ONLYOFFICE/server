@@ -9,6 +9,7 @@ import Statistics from '../pages/Statistics';
 import ChangePassword from '../pages/ChangePassword/ChangePassword';
 import HealthCheck from '../pages/HealthCheck/HealthCheck';
 import AiIntegration from '../pages/AiIntegration';
+import Settings from '../pages/Settings/Settings';
 
 export const menuItems = [
   {key: 'statistics', label: 'Statistics', path: '/statistics', component: Statistics},
@@ -20,6 +21,7 @@ export const menuItems = [
   {key: 'wopi-settings', label: 'WOPI Settings', path: '/wopi-settings', component: WOPISettings},
   {key: 'notifications', label: 'Notifications', path: '/notifications', component: EmailConfig},
   {key: 'logger-config', label: 'Logger Config', path: '/logger-config', component: LoggerConfig},
+  {key: 'settings', label: 'Settings', path: '/settings', component: Settings},
   {key: 'healthcheck', label: 'Health Check', path: '/healthcheck', component: HealthCheck},
   {key: 'change-password', label: 'Change Password', path: '/change-password', component: ChangePassword}
 ];

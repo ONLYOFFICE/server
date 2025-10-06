@@ -173,3 +173,13 @@ export const checkHealth = async () => {
   if (result !== 'true') throw new Error('DocService health check failed');
   return true;
 };
+
+export const resetConfiguration = async () => {
+  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config/reset`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'include'
+  });
+  if (!response.ok) throw new Error('Failed to reset configuration');
+  return response.json();
+};
