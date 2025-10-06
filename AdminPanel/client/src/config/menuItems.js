@@ -11,6 +11,7 @@ import HealthCheck from '../pages/HealthCheck/HealthCheck';
 import AiIntegration from '../pages/AiIntegration';
 import Settings from '../pages/Settings/Settings';
 import Example from '../pages/Example/Example';
+import Forgotten from '../pages/Forgotten/Forgotten';
 
 export const menuItems = [
   {key: 'statistics', label: 'Statistics', path: '/statistics', component: Statistics},
@@ -24,6 +25,7 @@ export const menuItems = [
   {key: 'notifications', label: 'Notifications', path: '/notifications', component: EmailConfig},
   {key: 'logger-config', label: 'Logger Config', path: '/logger-config', component: LoggerConfig},
   {key: 'settings', label: 'Settings', path: '/settings', component: Settings},
+  {key: 'forgotten', label: 'Forgotten Files', path: '/forgotten', component: Forgotten},
   {key: 'healthcheck', label: 'Health Check', path: '/healthcheck', component: HealthCheck},
   {key: 'change-password', label: 'Change Password', path: '/change-password', component: ChangePassword}
 ];

@@ -198,4 +198,58 @@ export const generateDocServerToken = async (document, editorConfig) => {
     throw new Error('Failed to generate Document Server token');
   }
   return response.json();
+}
+
+export const getForgottenList = async () => {
+  // Call Document Server directly
+  const docServiceUrl = process.env.REACT_APP_DOCSERVICE_URL || 'http://localhost:8000';
+  const response = await safeFetch(`${docServiceUrl}/coauthoring/CommandService.ashx`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      c: 'getForgottenList'
+    })
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch forgotten files list');
+  }
+  const result = await response.json();
+  // Format the response to match our component expectations
+  const files = result.keys || [];
+  return files.map(fileKey => {
+    const fileName = fileKey.split('/').pop() || fileKey;
+    return {
+      key: fileKey,
+      name: fileName,
+      size: null, // Size not available from getForgottenList
+      modified: null // Modified date not available from getForgottenList
+    };
+  });
+};
+
+export const getForgotten = async (docId) => {
+  // Call Document Server directly
+  const docServiceUrl = process.env.REACT_APP_DOCSERVICE_URL || 'http://localhost:8000';
+  const response = await safeFetch(`${docServiceUrl}/coauthoring/CommandService.ashx`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      c: 'getForgotten',
+      key: docId
+    })
+  });
+  if (!response.ok) {
+    if (response.status === 404) throw new Error('File not found');
+    throw new Error('Failed to fetch forgotten file');
+  }
+  const result = await response.json();
+  return {
+    docId: docId,
+    url: result.url,
+    name: docId.split('/').pop() || docId
+  };
 };
