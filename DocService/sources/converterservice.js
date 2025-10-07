@@ -137,7 +137,7 @@ function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority,
     task.tenant = ctx.tenant;
     task.key = docId;
     task.status = commonDefines.FileStatus.WaitQueue;
-    task.statusInfo = constants.NO_ERROR;
+    task.statusInfo = Math.floor(Date.now() / 60000); //minutes
 
     const upsertRes = yield taskResult.upsert(ctx, task);
     bCreate = upsertRes.isInsert;

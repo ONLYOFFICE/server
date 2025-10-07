@@ -303,6 +303,28 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
       //this status has no handler
       break;
     case commonDefines.FileStatus.WaitQueue:
+      {
+        const timeout = await utils.getConvertionTimeout(ctx);
+        console.log(timeout);
+        console.log(statusInfo);
+        console.log(Date.now() - statusInfo * 60000);
+        console.log(Date.now() - statusInfo * 60000 > timeout);
+        if (Date.now() - statusInfo * 60000 > timeout) {
+          ctx.logger.warn('WaitQueue expired');
+          const updateMask = new taskResult.TaskResultData();
+          updateMask.tenant = ctx.tenant;
+          updateMask.key = key;
+          updateMask.status = status;
+          updateMask.statusInfo = statusInfo;
+          const updateTask = new taskResult.TaskResultData();
+          updateTask.status = commonDefines.FileStatus.None;
+          updateTask.statusInfo = constants.NO_ERROR;
+          const updateIfRes = await taskResult.updateIf(ctx, updateTask, updateMask);
+          if (updateIfRes.affectedRows > 0) {
+            status = commonDefines.FileStatus.None;
+          }
+        }
+      }
       //task in the queue. response will be after convertion
       break;
     default:
@@ -514,7 +536,7 @@ function* commandOpen(ctx, conn, cmd, outputData, opt_upsertRes, opt_bIsRestore)
 
     const task = new taskResult.TaskResultData();
     task.status = commonDefines.FileStatus.WaitQueue;
-    task.statusInfo = constants.NO_ERROR;
+    task.statusInfo = Math.floor(Date.now() / 60000); //minutes
 
     const updateIfRes = yield taskResult.updateIf(ctx, task, updateMask);
     if (updateIfRes.affectedRows > 0) {
@@ -570,7 +592,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
 
     const task = new taskResult.TaskResultData();
     task.status = commonDefines.FileStatus.WaitQueue;
-    task.statusInfo = constants.NO_ERROR;
+    task.statusInfo = Math.floor(Date.now() / 60000); //minutes
 
     const upsertRes = yield taskResult.updateIf(ctx, task, updateMask);
     if (upsertRes.affectedRows > 0) {
