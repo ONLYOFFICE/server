@@ -1,13 +1,11 @@
 'use strict';
-const config = require('config');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const operationContext = require('../../../../../Common/sources/operationContext');
 const passwordManager = require('../../passwordManager');
 const bootstrap = require('../../bootstrap');
-
-const adminPanelJwtSecret = config.get('adminPanel.secret');
+const adminPanelJwtSecret = require('../../jwtSecret');
 
 const router = express.Router();
 

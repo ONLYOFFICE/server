@@ -1,6 +1,5 @@
 {
   "adminPanel": {
-    "secret": "secret",
     "port": 9000
   },
   "statsd": {
