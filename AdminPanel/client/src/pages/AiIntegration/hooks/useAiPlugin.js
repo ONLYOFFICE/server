@@ -29,7 +29,6 @@ const useAiPlugin = statisticsData => {
       }
 
       initAISettings(iframeId, sdkVersion);
-      console.log('AI Settings initialized with version:', sdkVersion);
     },
     [statisticsData]
   );
@@ -50,7 +49,6 @@ const useAiPlugin = statisticsData => {
     return () => {
       localStorage.removeItem('onlyoffice_ai_actions_key');
       localStorage.removeItem('onlyoffice_ai_plugin_storage_key');
-      console.log('AI configuration cleared from localStorage');
     };
   }, [config?.aiSettings]);
 
@@ -62,7 +60,6 @@ const useAiPlugin = statisticsData => {
      * @param {Object} config - Window configuration
      */
     const handleShowWindow = (iframeId, config) => {
-      console.log('showPluginWindow', iframeId, config);
       setPluginWindows(current => {
         // Avoid duplicate windows with same iframeId
         const filtered = current.filter(w => w.iframeId !== iframeId);
@@ -118,9 +115,6 @@ const useAiPlugin = statisticsData => {
 
           // Save configuration using Redux action
           dispatch(saveConfig(configToSave));
-          console.log('AI configuration saved successfully', updatedAiSettings);
-        } else {
-          console.log('No AI configuration found in localStorage');
         }
       } catch (error) {
         console.error('Error saving AI configuration:', error);

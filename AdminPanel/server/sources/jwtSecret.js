@@ -8,6 +8,5 @@ const crypto = require('crypto');
 
 // Generate random JWT secret once for cluster deployment
 const adminPanelJwtSecret = crypto.randomBytes(64).toString('hex');
-console.error('AdminPanel JWT Secret:', adminPanelJwtSecret);
 
 module.exports = adminPanelJwtSecret;
