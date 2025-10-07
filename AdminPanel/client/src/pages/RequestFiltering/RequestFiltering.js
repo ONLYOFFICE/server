@@ -23,8 +23,8 @@ function RequestFiltering() {
 
   // Configuration paths
   const CONFIG_PATHS = {
-    allowPrivateIPAddress: 'request-filtering-agent.allowPrivateIPAddress',
-    allowMetaIPAddress: 'request-filtering-agent.allowMetaIPAddress'
+    allowPrivateIPAddress: 'services.CoAuthoring.request-filtering-agent.allowPrivateIPAddress',
+    allowMetaIPAddress: 'services.CoAuthoring.request-filtering-agent.allowMetaIPAddress'
   };
 
   const hasInitialized = useRef(false);

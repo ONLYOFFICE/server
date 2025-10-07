@@ -87,6 +87,21 @@
                 "sessionabsolute": {"type": "string", "x-scope": ["admin", "tenant"]}
               }
             },
+            "request-filtering-agent": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "allowPrivateIPAddress": {
+                  "type": "boolean",
+                  "description": "Whether to allow requests from private IP addresses"
+                },
+                "allowMetaIPAddress": {
+                  "type": "boolean",
+                  "description": "Whether to allow requests from meta IP addresses"
+                }
+              }
+            },
             "autoAssembly": {
               "type": "object",
               "additionalProperties": false,
@@ -162,21 +177,6 @@
               }
             }
           }
-        }
-      }
-    },
-    "request-filtering-agent": {
-      "type": "object",
-      "additionalProperties": false,
-      "x-scope": ["admin", "tenant"],
-      "properties": {
-        "allowPrivateIPAddress": {
-          "type": "boolean",
-          "description": "Whether to allow requests from private IP addresses"
-        },
-        "allowMetaIPAddress": {
-          "type": "boolean",
-          "description": "Whether to allow requests from meta IP addresses"
         }
       }
     },

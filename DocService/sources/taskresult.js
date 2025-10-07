@@ -297,6 +297,7 @@ function* addRandomKeyTask(ctx, key, opt_prefix, opt_size) {
   task.tenant = ctx.tenant;
   task.key = key;
   task.status = commonDefines.FileStatus.WaitQueue;
+  task.statusInfo = Math.floor(Date.now() / 60000); //minutes
   //nTryCount so as not to freeze if there are really problems with the DB
   let nTryCount = RANDOM_KEY_MAX;
   let addRes = null;

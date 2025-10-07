@@ -62,9 +62,12 @@ export const updateConfiguration = async configData => {
 
 export const fetchCurrentUser = async () => {
   const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/me`, {credentials: 'include'});
-  if (response.status === 401) throw new Error('Unauthorized');
   if (!response.ok) throw new Error('Failed to fetch current user');
-  return response.json();
+  const data = await response.json();
+  if (data && data.authorized === false) {
+    throw new Error('Unauthorized');
+  }
+  return data;
 };
 
 export const checkSetupRequired = async () => {

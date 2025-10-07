@@ -1,13 +1,11 @@
 'use strict';
-const config = require('config');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const operationContext = require('../../../../../Common/sources/operationContext');
 const passwordManager = require('../../passwordManager');
 const bootstrap = require('../../bootstrap');
-
-const adminPanelJwtSecret = config.get('adminPanel.secret');
+const adminPanelJwtSecret = require('../../jwtSecret');
 
 const router = express.Router();
 
@@ -170,8 +168,17 @@ router.post('/change-password', requireAuth, async (req, res) => {
   }
 });
 
-router.get('/me', requireAuth, (req, res) => {
-  res.json(req.user);
+router.get('/me', (req, res) => {
+  try {
+    const token = req.cookies?.accessToken;
+    if (!token) {
+      return res.json({authorized: false});
+    }
+    const decoded = jwt.verify(token, adminPanelJwtSecret);
+    return res.json({authorized: true, ...decoded});
+  } catch {
+    return res.json({authorized: false});
+  }
 });
 
 router.post('/login', async (req, res) => {
