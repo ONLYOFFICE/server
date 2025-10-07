@@ -4346,8 +4346,6 @@ exports.install = function (server, app, callbackFunction) {
       );
     });
   });
-
-  void aiProxyHandler.getPluginSettings(operationContext.global);
 };
 exports.setLicenseInfo = async function (globalCtx, data, original) {
   tenantManager.setDefLicense(data, original);
