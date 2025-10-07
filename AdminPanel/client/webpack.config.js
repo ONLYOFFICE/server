@@ -60,6 +60,11 @@ module.exports = (env, argv) => {
             context: path.resolve(__dirname, 'src/assets'),
             from: '*.svg',
             to: 'static/[name][ext]'
+          },
+          {
+            context: path.resolve(__dirname, '../../../document-templates/sample'),
+            from: 'sample.docx',
+            to: 'assets/sample.docx'
           }
         ]
       }),
