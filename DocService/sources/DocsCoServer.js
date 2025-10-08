@@ -1556,6 +1556,7 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
     updateMask.tenant = ctx.tenant;
     updateMask.key = docId;
     updateMask.status = commonDefines.FileStatus.Ok;
+    updateMask.callback = 'NOT_EMPTY';
     const updateTask = new taskResult.TaskResultData();
     updateTask.status = commonDefines.FileStatus.SaveVersion;
     updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
@@ -1582,9 +1583,15 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
         yield utils.sleep(c_oAscLockTimeOutDelay);
       }
     } else {
-      //if it didn't work, it means FileStatus=SaveVersion(someone else started building) or UpdateVersion(build completed)
-      // in this case, nothing needs to be done
-      ctx.logger.debug('createSaveTimer updateIf no effect');
+      const selectRes = yield taskResult.select(ctx, docId);
+      if (selectRes.length > 0 && selectRes[0].callback) {
+        //if it didn't work, it means FileStatus=SaveVersion(someone else started building) or UpdateVersion(build completed)
+        // in this case, nothing needs to be done
+        ctx.logger.debug('createSaveTimer updateIf no effect');
+      } else {
+        ctx.logger.debug('createSaveTimer empty callback: %s', docId);
+        yield* cleanDocumentOnExitNoChanges(ctx, docId, opt_userId, opt_userIndex, false, true);
+      }
     }
   });
 }
