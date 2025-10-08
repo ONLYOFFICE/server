@@ -236,7 +236,7 @@ router.post('/generate-docserver-token', requireAuth, async (req, res) => {
   try {
     ctx.initFromRequest(req);
 
-    const {document, editorConfig} = req.body;
+    const {document, editorConfig, command} = req.body;
 
     if (!document || !editorConfig) {
       return res.status(400).json({error: 'Document and editorConfig are required'});
@@ -274,6 +274,15 @@ router.post('/generate-docserver-token', requireAuth, async (req, res) => {
         callbackUrl: editorConfig.callbackUrl
       }
     };
+
+    // Add command parameter if provided (required for forgotten files operations)
+    if (command) {
+      payload.c = command;
+      // For forgotten files operations, also add the key at root level
+      if (command === 'getForgotten' || command === 'getForgottenList') {
+        payload.key = document.key;
+      }
+    }
 
     const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', 'HS256');
     const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', '5m');

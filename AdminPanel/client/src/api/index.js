@@ -187,12 +187,12 @@ export const resetConfiguration = async () => {
   return response.json();
 };
 
-export const generateDocServerToken = async (document, editorConfig) => {
+export const generateDocServerToken = async (document, editorConfig, command) => {
   const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/generate-docserver-token`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
-    body: JSON.stringify({document, editorConfig})
+    body: JSON.stringify({document, editorConfig, command})
   });
   if (!response.ok) {
     throw new Error('Failed to generate Document Server token');
@@ -200,53 +200,50 @@ export const generateDocServerToken = async (document, editorConfig) => {
   return response.json();
 }
 
-export const getForgottenList = async () => {
-  // Call Document Server directly
-  const docServiceUrl = process.env.REACT_APP_DOCSERVICE_URL || 'http://localhost:8000';
-  const response = await safeFetch(`${docServiceUrl}/coauthoring/CommandService.ashx`, {
+const callDocumentServer = async (command, key = null) => {
+  const {token} = await generateDocServerToken(
+    {key: key || 'forgotten-list', fileType: 'docx', title: 'Document', url: ''},
+    {user: {id: 'admin', name: 'admin'}, lang: 'en', mode: 'view'},
+    command
+  );
+
+  const response = await safeFetch(`${process.env.REACT_APP_DOCSERVICE_URL || window.location.origin}/coauthoring/CommandService.ashx`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify({
-      c: 'getForgottenList'
+      c: command,
+      ...(key && {key}),
+      token: token
     })
   });
+  
   if (!response.ok) {
-    throw new Error('Failed to fetch forgotten files list');
+    if (response.status === 404) throw new Error('File not found');
+    throw new Error(`Failed to execute ${command}`);
   }
-  const result = await response.json();
-  // Format the response to match our component expectations
+  
+  return response.json();
+};
+
+export const getForgottenList = async () => {
+  const result = await callDocumentServer('getForgottenList');
   const files = result.keys || [];
   return files.map(fileKey => {
     const fileName = fileKey.split('/').pop() || fileKey;
     return {
       key: fileKey,
       name: fileName,
-      size: null, // Size not available from getForgottenList
-      modified: null // Modified date not available from getForgottenList
+      size: null,
+      modified: null
     };
   });
 };
 
 export const getForgotten = async (docId) => {
-  // Call Document Server directly
-  const docServiceUrl = process.env.REACT_APP_DOCSERVICE_URL || 'http://localhost:8000';
-  const response = await safeFetch(`${docServiceUrl}/coauthoring/CommandService.ashx`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      c: 'getForgotten',
-      key: docId
-    })
-  });
-  if (!response.ok) {
-    if (response.status === 404) throw new Error('File not found');
-    throw new Error('Failed to fetch forgotten file');
-  }
-  const result = await response.json();
+  const result = await callDocumentServer('getForgotten', docId);
   return {
     docId: docId,
     url: result.url,

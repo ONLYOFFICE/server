@@ -1,5 +1,7 @@
 import React, {useState, useEffect} from 'react';
 import {getForgottenList, getForgotten} from '../../api';
+import DownloadIcon from '../../assets/Download.svg';
+import styles from './Forgotten.module.scss';
 
 const Forgotten = () => {
   const [forgottenFiles, setForgottenFiles] = useState([]);
@@ -41,16 +43,13 @@ const Forgotten = () => {
     try {
       console.log('Downloading file:', file.name);
       
-      // Add file to downloading set
       setDownloadingFiles(prev => new Set(prev).add(file.key));
       
       const result = await getForgotten(file.key);
       
       if (result.url) {
-        // Create a temporary link element and trigger download
         const link = document.createElement('a');
         link.href = result.url;
-        // Use "output" as the filename with the proper extension
         const fileExtension = file.name.split('.').pop() || 'docx';
         link.download = 'output.docx';
         document.body.appendChild(link);
@@ -67,7 +66,6 @@ const Forgotten = () => {
       console.error('Error downloading file:', err);
       setError(`Failed to download ${file.name}: ${err.message}`);
     } finally {
-      // Remove file from downloading set
       setDownloadingFiles(prev => {
         const newSet = new Set(prev);
         newSet.delete(file.key);
@@ -76,79 +74,48 @@ const Forgotten = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="forgotten-page">
-        <div className="page-header">
-          <h1>Forgotten Files</h1>
-        </div>
-        <div className="loading">
-          <div className="spinner"></div>
-          <p>Loading forgotten files...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
-      <div className="forgotten-page">
-        <div className="page-header">
+      <div className={styles.forgottenPage}>
+        <div className={styles.pageHeader}>
           <h1>Forgotten Files</h1>
         </div>
-        <div className="error">
-          <p>{error}</p>
-          <button onClick={loadForgottenFiles} className="retry-btn">
-            Retry
-          </button>
-        </div>
+        Failed to load forgotten files
       </div>
     );
   }
 
   return (
-    <div className="forgotten-page">
-      <div className="page-header">
+    <div className={styles.forgottenPage}>
+      <div className={styles.pageHeader}>
         <h1>Forgotten Files</h1>
-        <button onClick={loadForgottenFiles} className="refresh-btn">
-          Refresh
-        </button>
       </div>
 
-      <div className="forgotten-content">
+      <div className={styles.forgottenContent}>
         {forgottenFiles.length === 0 ? (
-          <div className="empty-state">
+          <div className={styles.emptyState}>
             <p>No forgotten files found.</p>
           </div>
         ) : (
-          <div className="files-list">
-            <div className="files-header">
-              <span>File Name</span>
-              <span>Size</span>
-              <span>Modified</span>
-              <span>Actions</span>
-            </div>
+          <div className={styles.filesList}>
             {forgottenFiles.map((file, index) => (
-              <div key={index} className="file-item">
-                <span className="file-name" title={file.name}>
+              <div key={index} className={styles.fileRow}>
+                <span className={styles.fileName} title={file.name}>
                   {file.name}
                 </span>
-                <span className="file-size">
-                  {file.size ? formatFileSize(file.size) : '-'}
-                </span>
-                <span className="file-date">
-                  {file.modified ? formatDate(file.modified) : '-'}
-                </span>
-                <div className="file-actions">
-                  <button 
-                    className="download-btn"
-                    onClick={() => handleDownload(file)}
-                    disabled={downloadingFiles.has(file.key)}
-                    title="Download file"
-                  >
-                    {downloadingFiles.has(file.key) ? 'Downloading...' : 'Download'}
-                  </button>
-                </div>
+                <button 
+                  className={styles.downloadBtn}
+                  onClick={() => handleDownload(file)}
+                  disabled={downloadingFiles.has(file.key)}
+                  title="Download file"
+                >
+                  <img 
+                    src={DownloadIcon} 
+                    alt="Download" 
+                    className={styles.downloadIcon}
+                    style={{opacity: downloadingFiles.has(file.key) ? 0.5 : 1}}
+                  />
+                </button>
               </div>
             ))}
           </div>
