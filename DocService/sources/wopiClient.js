@@ -677,7 +677,7 @@ function getEditorHtml(req, res) {
 
       const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
       const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-      params.token = jwt.sign(params, secret, options);
+      params.token = jwt.sign(params, utils.getJwtHsKey(secret), options);
     } catch (err) {
       ctx.logger.error('wopiEditor error: %s', err.stack);
       params.fileInfo = {};
@@ -743,7 +743,7 @@ function getConverterHtml(req, res) {
         const tokenData = {docId};
         const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
         const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-        const token = jwt.sign(tokenData, secret, options);
+        const token = jwt.sign(tokenData, utils.getJwtHsKey(secret), options);
 
         params.statusHandler += `&token=${encodeURIComponent(token)}`;
       }
@@ -942,7 +942,7 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
     }
     const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
     const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-    res.token = jwt.sign(res, secret, options);
+    res.token = jwt.sign(res, utils.getJwtHsKey(secret), options);
   } catch (err) {
     res = undefined;
     ctx.logger.error('wopi error RefreshFile:%s', err.stack);

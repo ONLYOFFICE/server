@@ -512,7 +512,7 @@ function signToken(ctx, payload, algorithm, expiresIn, secretElem) {
   return co(function* () {
     const options = {algorithm, expiresIn};
     const secret = yield tenantManager.getTenantSecret(ctx, secretElem);
-    return jwt.sign(payload, secret, options);
+    return jwt.sign(payload, utils.getJwtHsKey(secret), options);
   });
 }
 function needSendChanges(conn) {
@@ -1599,7 +1599,7 @@ function checkJwt(ctx, token, type) {
       ctx.logger.warn('empty secret: token = %s', token);
     }
     try {
-      res.decoded = jwt.verify(token, secret, tenTokenVerifyOptions);
+      res.decoded = jwt.verify(token, utils.getJwtHsKey(secret), tenTokenVerifyOptions);
       ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
     } catch (err) {
       ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
