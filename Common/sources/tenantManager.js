@@ -116,6 +116,7 @@ async function getTenantConfig(ctx) {
       } catch (e) {
         ctx.logger.debug('getTenantConfig error: %s', e.stack);
       } finally {
+        ctx.cleanTenantConfigCache(ctx.tenant);
         nodeCache.set(configPath, res);
       }
     }
@@ -135,6 +136,8 @@ async function setTenantConfig(ctx, config) {
     const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
     const configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
     await writeFile(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
+
+    ctx.cleanTenantConfigCache(ctx.tenant);
     nodeCache.set(configPath, newConfig);
   }
   return newConfig;
@@ -151,6 +154,8 @@ async function replaceTenantConfig(ctx, config) {
     const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
     const configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
     await writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
+
+    ctx.cleanTenantConfigCache(ctx.tenant);
     nodeCache.set(configPath, config);
     return config;
   }
