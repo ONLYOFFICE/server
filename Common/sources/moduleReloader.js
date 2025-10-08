@@ -53,6 +53,15 @@ function reloadNpmModule(moduleName) {
 // Backup original NODE_CONFIG to avoid growing environment
 const prevNodeConfig = process.env.NODE_CONFIG;
 let nodeConfigOverridden = false;
+let baseConfigSnapshot = null;
+
+/**
+ * Returns the base configuration as plain object before runtime configuration is applied
+ * @returns {Object} Base configuration object
+ */
+function getBaseConfig() {
+  return baseConfigSnapshot;
+}
 
 /**
  * Requires config module with runtime configuration support.
@@ -64,6 +73,9 @@ function requireConfigWithRuntime(opt_additionalConfig) {
   let config = require('config');
 
   try {
+    // Save base config before reloading with runtime modifications
+    baseConfigSnapshot = config.util.toObject();
+
     const configFilePath = config.get('runtimeConfig.filePath');
     if (configFilePath) {
       const configData = fs.readFileSync(configFilePath, 'utf8');
@@ -105,6 +117,7 @@ function finalizeConfigWithRuntime() {
 
 module.exports = {
   reloadNpmModule,
+  getBaseConfig,
   requireConfigWithRuntime,
   finalizeConfigWithRuntime
 };

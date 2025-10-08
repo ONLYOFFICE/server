@@ -32,12 +32,12 @@
 
 'use strict';
 
-const config = require('config');
 const utils = require('./utils');
 const logger = require('./logger');
 const constants = require('./constants');
 const tenantManager = require('./tenantManager');
 const runtimeConfigManager = require('./runtimeConfigManager');
+const moduleReloader = require('./moduleReloader');
 
 function Context() {
   this.logger = logger.getLogger('nodeJS');
@@ -101,7 +101,7 @@ Context.prototype.initFromPubSub = function (data) {
 Context.prototype.initTenantCache = async function () {
   const runtimeConfig = await runtimeConfigManager.getConfig(this);
   const tenantConfig = await tenantManager.getTenantConfig(this);
-  this.config = utils.deepMergeObjects(config.util.toObject(), runtimeConfig, tenantConfig);
+  this.config = utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), runtimeConfig, tenantConfig);
 
   //todo license and secret
 };
@@ -151,7 +151,7 @@ Context.prototype.getCfg = function (property, defaultValue) {
  * @returns {object} The merged configuration object
  */
 Context.prototype.getFullCfg = function () {
-  return utils.deepMergeObjects(config.util.toObject(), this.config);
+  return utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), this.config);
 };
 
 exports.Context = Context;
