@@ -15,8 +15,7 @@ import styles from './NotificationConfig.module.scss';
 const emailConfigTabs = [
   {key: 'notifications', label: 'Notification Rules'},
   {key: 'smtp-server', label: 'SMTP Server'},
-  {key: 'defaults', label: 'Default Emails'},
-  {key: 'security', label: 'Security'}
+  {key: 'defaults', label: 'Default Emails'}
 ];
 
 function EmailConfig() {
@@ -32,8 +31,6 @@ function EmailConfig() {
     smtpPort: '',
     smtpUsername: '',
     smtpPassword: '',
-    disableFileAccess: false,
-    disableUrlAccess: false,
     defaultFromEmail: '',
     defaultToEmail: '',
     licenseExpirationWarningEnable: false,
@@ -54,8 +51,6 @@ function EmailConfig() {
     smtpPort: 'email.smtpServerConfiguration.port',
     smtpUsername: 'email.smtpServerConfiguration.auth.user',
     smtpPassword: 'email.smtpServerConfiguration.auth.pass',
-    disableFileAccess: 'email.connectionConfiguration.disableFileAccess',
-    disableUrlAccess: 'email.connectionConfiguration.disableUrlAccess',
     defaultFromEmail: 'email.contactDefaults.from',
     defaultToEmail: 'email.contactDefaults.to',
     licenseExpirationWarningEnable: 'notification.rules.licenseExpirationWarning.enable',
@@ -210,30 +205,6 @@ function EmailConfig() {
                 placeholder=''
                 description='Password for SMTP authentication (leave empty if no authentication required)'
                 error={getFieldError(CONFIG_PATHS.smtpPassword)}
-              />
-            </div>
-          </div>
-        );
-      case 'security':
-        return (
-          <div className={styles.tabPanel}>
-            <div className={styles.formRow}>
-              <Checkbox
-                label='Disable File Access:'
-                checked={localSettings.disableFileAccess}
-                onChange={value => handleFieldChange('disableFileAccess', value)}
-                description='Prevent email connections from accessing local files'
-                error={getFieldError(CONFIG_PATHS.disableFileAccess)}
-              />
-            </div>
-
-            <div className={styles.formRow}>
-              <Checkbox
-                label='Disable URL Access:'
-                checked={localSettings.disableUrlAccess}
-                onChange={value => handleFieldChange('disableUrlAccess', value)}
-                description='Prevent email connections from accessing external URLs'
-                error={getFieldError(CONFIG_PATHS.disableUrlAccess)}
               />
             </div>
           </div>
