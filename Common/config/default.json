@@ -16,8 +16,7 @@
     "version": 3,
     "timeout": "5m",
     "allowedCorsOrigins": ["https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"],
-    "proxy": "",
-    "pluginDir": "../branding/info/ai"
+    "proxy": ""
   },
   "log": {
     "filePath": "",

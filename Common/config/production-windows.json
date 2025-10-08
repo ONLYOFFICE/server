@@ -5,9 +5,6 @@
   "runtimeConfig": {
     "filePath": "./../runtime.json"
   },
-  "aiSettings": {
-    "pluginDir": "../info/ai"
-  },
   "storage": {
     "fs": {
       "folderPath": "../App_Data/cache/files"

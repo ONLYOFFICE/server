@@ -4,10 +4,8 @@ build
 coverage
 .next
 out
-branding/info/ai/**
-branding/info/js/plugin-stub.js
-branding/info/js/plugins.js
-branding/info/js/plugins-ui.js
+AdminPanel/client/src/pages/AiIntegration/ai/**
+AdminPanel/client/src/pages/AiIntegration/js/**
 *.min.js
 *.min.css
 package-lock.json

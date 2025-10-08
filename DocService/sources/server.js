@@ -294,8 +294,6 @@ docsCoServer.install(server, app, () => {
   app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
     converterService.builder(req, res);
   });
-  app.get('/info/plugin/settings', utils.checkClientIp, aiProxyHandler.requestSettings);
-  app.post('/info/plugin/models', utils.checkClientIp, rawFileParser, aiProxyHandler.requestModels);
   // Shared Info router (provides /info.json)
   app.use('/info', infoRouter());
   app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);

@@ -103,6 +103,22 @@ async function saveConfig(ctx, config) {
 }
 
 /**
+ * Replace runtime configuration completely (no merging)
+ * @param {operationContext} ctx - Operation context
+ * @param {Object} config - Configuration data to replace with
+ * @returns {Object} Replaced configuration object
+ */
+async function replaceConfig(_ctx, config) {
+  if (!configFilePath) {
+    throw new Error('runtimeConfig.filePath is not specified');
+  }
+  await fs.mkdir(path.dirname(configFilePath), {recursive: true});
+  await fs.writeFile(configFilePath, JSON.stringify(config, null, 2), 'utf8');
+  nodeCache.set(configFileName, config);
+  return config;
+}
+
+/**
  * Handle config file change event from fs.watch or fs.watchFile
  * Debounces multiple events to prevent excessive reloads during file write
  * @param {string|fs.Stats} eventTypeOrCurrent - Event type for fs.watch or current stats for fs.watchFile
@@ -158,5 +174,6 @@ async function initRuntimeConfigWatcher(ctx) {
 module.exports = {
   initRuntimeConfigWatcher,
   getConfig,
-  saveConfig
+  saveConfig,
+  replaceConfig
 };

@@ -42,9 +42,6 @@ const tenantManager = require('./../../../Common/sources/tenantManager');
 const docsCoServer = require('./../DocsCoServer');
 const statsDClient = require('./../../../Common/sources/statsdclient');
 
-// Import the new aiEngine module
-const aiEngine = require('./aiEngineWrapper');
-
 const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
 const cfgAiApiProxy = config.get('aiSettings.proxy');
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
@@ -53,7 +50,6 @@ const cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.heade
 const cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
 const cfgAiSettings = config.get('aiSettings');
 
-const AI = aiEngine.AI;
 const clientStatsD = statsDClient.getClient();
 /**
  * Helper function to set CORS headers if the request origin is allowed
@@ -106,39 +102,31 @@ function handleCorsHeaders(req, res, ctx, handleOptions = true) {
 }
 
 /**
- * Appends API key to the request URI if the provider passes it as a query parameter.
+ * Detects provider type and generates appropriate authentication headers based on URL patterns
  *
- * @param {operationContext.Context} ctx - The operation context for logging.
- * @param {object} provider - The AI provider configuration.
- * @param {string} uri - The original request URI.
- * @returns {string} The updated URI with API key as a query parameter, if applicable.
+ * @param {operationContext.Context} ctx - Operation context for logging
+ * @param {string} providerUrl - Provider base URL to detect type
+ * @param {string} providerKey - API key for the provider
+ * @param {string} uri - Full target request URI
+ * @param {object} providerHeaders - Optional provider headers from customProviders
+ * @returns {object} Headers object with authentication added
  */
-function appendApiKeyToQuery(ctx, provider, uri) {
-  const urlWithKey = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
+function insertKeyToProvider(ctx, providerUrl, providerKey, uri, providerHeaders) {
+  if (!providerKey) {
+    return uri;
+  }
+  const urlLower = providerUrl.toLowerCase();
 
-  // To check if the key is part of the query, we get the URL without the key.
-  const originalKey = provider.key;
-  provider.key = undefined;
-  const urlWithoutKey = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
-  provider.key = originalKey; // Restore the key on the provider object.
-
-  if (urlWithKey !== urlWithoutKey) {
-    try {
-      const parsedUrlWithKey = new URL(urlWithKey);
-      if (parsedUrlWithKey.search) {
-        const parsedUri = new URL(uri);
-        for (const [key, value] of parsedUrlWithKey.searchParams) {
-          if (originalKey === value) {
-            parsedUri.searchParams.set(key, value);
-            break;
-          }
-        }
-        ctx.logger.debug(`appendApiKeyToQuery: Appended API key to URI for provider ${provider.name}`);
-        return parsedUri.toString();
-      }
-    } catch (error) {
-      ctx.logger.error(`appendApiKeyToQuery: Failed to parse provider URL for ${provider.name}: ${urlWithKey}`, error);
-    }
+  if (urlLower.includes('anthropic.com')) {
+    // Anthropic uses x-api-key header
+    providerHeaders['x-api-key'] = providerKey;
+  } else if (urlLower.includes('generativelanguage.googleapis.com')) {
+    // Google Gemini uses API key as query parameter (already in URI)
+    if (uri.includes('?')) uri += `&key=${providerKey}`;
+    else uri += `?key=${providerKey}`;
+  } else {
+    // Default: Bearer Authorization (OpenAI, Deepseek, Groq, xAI, Mistral, Together.ai, etc.)
+    providerHeaders['Authorization'] = `Bearer ${providerKey}`;
   }
 
   return uri;
@@ -208,26 +196,24 @@ async function proxyRequest(req, res) {
     const body = JSON.parse(req.body);
     let uri = body.target;
 
-    let providerHeaders;
+    const providerHeaders = {};
     let providerMatched = false;
     // Determine which API key to use based on the target URL
     if (uri) {
       for (const providerName in tenAiApi.providers) {
         const tenProvider = tenAiApi.providers[providerName];
-        if (uri.startsWith(tenProvider.url) && AI.Providers[tenProvider.name]) {
+        if (uri.startsWith(tenProvider.url)) {
           providerMatched = true;
-          const provider = AI.Providers[tenProvider.name];
-          provider.key = tenProvider.key;
-          provider.url = tenProvider.url;
-          providerHeaders = AI._getHeaders(provider);
 
-          uri = appendApiKeyToQuery(ctx, provider, uri);
+          // Generate appropriate headers based on provider type
+          uri = insertKeyToProvider(ctx, tenProvider.url, tenProvider.key, uri, providerHeaders);
           break;
         }
       }
     }
+
     // If body.target was provided but no provider was matched, return 403
-    if (!providerHeaders) {
+    if (!providerMatched) {
       ctx.logger.warn(`proxyRequest: target '${uri}' does not match any configured AI provider. Denying access.`);
       res.status(403).json({
         error: {
@@ -338,117 +324,19 @@ async function proxyRequest(req, res) {
 }
 
 /**
- * Process a single AI provider and its models
- *
- * @param {operationContext.Context} ctx - Operation context
- * @param {Object} provider - Provider configuration
- * @returns {Promise<Object|null>} Processed provider with models or null if provider is invalid
- */
-async function processProvider(ctx, provider) {
-  const logger = ctx.logger;
-
-  if (!provider.url) {
-    return null;
-  }
-  const engineModels = [];
-  const engineModelsUI = [];
-  try {
-    // Call getModels from engine.js
-    if (provider.key && AI.Providers[provider.name]) {
-      AI.Providers[provider.name].key = provider.key;
-      // aiEngine.setCtx(ctx);
-      // await AI.getModels(provider);
-      // // Process result
-      // if (AI.TmpProviderForModels?.models) {
-      //   engineModels = AI.TmpProviderForModels.models;
-      //   engineModelsUI = AI.TmpProviderForModels.modelsUI;
-      // }
-    }
-  } catch (error) {
-    logger.error(`Error processing provider ${provider.name}:`, error);
-  }
-  // Return provider with any models we were able to get from config
-  return {
-    name: provider.name,
-    url: provider.url,
-    key: '',
-    models: engineModels,
-    modelsUI: engineModelsUI
-  };
-}
-
-/**
  * Retrieves all AI models from the configuration and dynamically from providers
  *
  * @param {operationContext.Context} ctx - Operation context
  * @returns {Promise<Object>} Object containing providers and their models along with action configurations
  */
 async function getPluginSettings(ctx) {
-  const logger = ctx.logger;
-  logger.info('Starting getPluginSettings');
-  const result = {
+  return {
     version: 3,
-    actions: {},
-    providers: {},
-    models: [],
-    customProviders: {}
+    actions: ctx.getCfg('aiSettings.actions', cfgAiSettings.actions),
+    providers: ctx.getCfg('aiSettings.providers', cfgAiSettings.providers),
+    customProviders: ctx.getCfg('aiSettings.customProviders', cfgAiSettings.customProviders),
+    models: ctx.getCfg('aiSettings.models', cfgAiSettings.models)
   };
-  try {
-    // Get AI API configuration
-    const tenProviders = ctx.getCfg('aiSettings.providers', cfgAiSettings.providers);
-    // Process providers and their models if configuration exists
-    if (tenProviders && Object.keys(tenProviders).length > 0) {
-      result.providers = tenProviders;
-    } else {
-      const providers = AI.serializeProviders();
-      for (let i = 0; i < providers.length; i++) {
-        const provider = providers[i];
-        // const cfgProvider = aiApi.providers[provider.name];
-        // if (cfgProvider) {
-        //   //todo clone
-        //   provider.key = cfgProvider.key;
-        // }
-
-        try {
-          const providerProcessed = await processProvider(ctx, provider);
-          provider.models.push(...providerProcessed.models);
-        } catch (error) {
-          logger.warn('Error processing provider:', error);
-        }
-
-        result.providers[provider.name] = provider;
-      }
-    }
-    const tenModels = ctx.getCfg('aiSettings.models', cfgAiSettings.models);
-    // Process AI actions
-    if (tenModels && tenModels.length > 0) {
-      result.models = tenModels;
-    } else {
-      // result.actions = aiApi.actions;
-      result.models = AI.Storage.serializeModels();
-    }
-
-    // Process AI actions
-    const tenActions = ctx.getCfg('aiSettings.actions', cfgAiSettings.actions);
-    if (tenActions && Object.keys(tenActions).length > 0) {
-      result.actions = tenActions;
-    } else {
-      // result.actions = aiApi.actions;
-      const actionSoted = AI.ActionsGetSorted();
-      result.actions = {};
-      for (let i = 0; i < actionSoted.length; i++) {
-        const action = actionSoted[i];
-        result.actions[action.id] = action;
-      }
-    }
-    const tenVersion = ctx.getCfg('aiSettings.version', cfgAiSettings.version);
-    result.version = tenVersion;
-  } catch (error) {
-    logger.error('Error retrieving AI models from config:', error);
-  } finally {
-    logger.info('Completed getPluginSettings');
-  }
-  return result;
 }
 
 async function getPluginSettingsForInterface(ctx) {
@@ -474,42 +362,8 @@ async function getPluginSettingsForInterface(ctx) {
   return pluginSettings;
 }
 
-async function requestSettings(req, res) {
-  const ctx = new operationContext.Context();
-  ctx.initFromRequest(req);
-  try {
-    await ctx.initTenantCache();
-    const result = await getPluginSettings(ctx);
-    res.json(result);
-  } catch (error) {
-    ctx.logger.error('getSettings error: %s', error.stack);
-    res.sendStatus(400);
-  }
-}
-
-async function requestModels(req, res) {
-  const ctx = new operationContext.Context();
-  ctx.initFromRequest(req);
-  try {
-    await ctx.initTenantCache();
-    const body = JSON.parse(req.body);
-    if (AI.Providers[body.name]) {
-      AI.Providers[body.name].key = body.key;
-      AI.Providers[body.name].url = body.url;
-    }
-    const getRes = await AI.getModels(body);
-    getRes.modelsApi = AI.TmpProviderForModels?.models;
-    res.json(getRes);
-  } catch (error) {
-    ctx.logger.error('getModels error: %s', error.stack);
-    res.sendStatus(400);
-  }
-}
-
 module.exports = {
   proxyRequest,
   getPluginSettings,
-  getPluginSettingsForInterface,
-  requestSettings,
-  requestModels
+  getPluginSettingsForInterface
 };

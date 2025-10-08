@@ -65,6 +65,23 @@ module.exports = (env, argv) => {
             context: path.resolve(__dirname, '../../../document-templates/sample'),
             from: 'sample.docx',
             to: 'assets/sample.docx'
+          },
+          // Copy AiIntegration static assets so iframe URLs resolve correctly
+          // Resulting paths in build/: /css/*, /js/*, /ai/**/*
+          {
+            context: path.resolve(__dirname, 'src', 'pages', 'AiIntegration', 'css'),
+            from: '**/*',
+            to: 'css'
+          },
+          {
+            context: path.resolve(__dirname, 'src', 'pages', 'AiIntegration', 'js'),
+            from: '**/*',
+            to: 'js'
+          },
+          {
+            context: path.resolve(__dirname, 'src', 'pages', 'AiIntegration', 'ai'),
+            from: '**/*',
+            to: 'ai'
           }
         ]
       }),
