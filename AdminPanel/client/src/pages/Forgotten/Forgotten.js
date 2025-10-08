@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import {useState, useEffect} from 'react';
 import {getForgottenList, getForgotten} from '../../api';
 import DownloadIcon from '../../assets/Download.svg';
 import styles from './Forgotten.module.scss';
@@ -23,18 +23,17 @@ const Forgotten = () => {
     loadForgottenFiles();
   }, []);
 
-  const handleDownload = async (file) => {
+  const handleDownload = async file => {
     try {
       console.log('Downloading file:', file.name);
-      
+
       setDownloadingFiles(prev => new Set(prev).add(file.key));
-      
+
       const result = await getForgotten(file.key);
-      
+
       if (result.url) {
         const link = document.createElement('a');
         link.href = result.url;
-        const fileExtension = file.name.split('.').pop() || 'docx';
         link.download = 'output.docx';
         document.body.appendChild(link);
         link.click();
@@ -87,15 +86,15 @@ const Forgotten = () => {
                 <span className={styles.fileName} title={file.name}>
                   {file.name}
                 </span>
-                <button 
+                <button
                   className={styles.downloadBtn}
                   onClick={() => handleDownload(file)}
                   disabled={downloadingFiles.has(file.key)}
-                  title="Download file"
+                  title='Download file'
                 >
-                  <img 
-                    src={DownloadIcon} 
-                    alt="Download" 
+                  <img
+                    src={DownloadIcon}
+                    alt='Download'
                     className={styles.downloadIcon}
                     style={{opacity: downloadingFiles.has(file.key) ? 0.5 : 1}}
                   />

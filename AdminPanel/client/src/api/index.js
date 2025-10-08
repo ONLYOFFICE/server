@@ -198,7 +198,7 @@ export const generateDocServerToken = async (document, editorConfig, command) =>
     throw new Error('Failed to generate Document Server token');
   }
   return response.json();
-}
+};
 
 const callDocumentServer = async (command, key = null) => {
   const {token} = await generateDocServerToken(
@@ -211,20 +211,20 @@ const callDocumentServer = async (command, key = null) => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      Authorization: `Bearer ${token}`
     },
     body: JSON.stringify({
       c: command,
       ...(key && {key}),
-      token: token
+      token
     })
   });
-  
+
   if (!response.ok) {
     if (response.status === 404) throw new Error('File not found');
     throw new Error(`Failed to execute ${command}`);
   }
-  
+
   return response.json();
 };
 
@@ -242,10 +242,10 @@ export const getForgottenList = async () => {
   });
 };
 
-export const getForgotten = async (docId) => {
+export const getForgotten = async docId => {
   const result = await callDocumentServer('getForgotten', docId);
   return {
-    docId: docId,
+    docId,
     url: result.url,
     name: docId.split('/').pop() || docId
   };
