@@ -186,3 +186,16 @@ export const resetConfiguration = async () => {
   if (!response.ok) throw new Error('Failed to reset configuration');
   return response.json();
 };
+
+export const generateDocServerToken = async (document, editorConfig) => {
+  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/generate-docserver-token`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'include',
+    body: JSON.stringify({document, editorConfig})
+  });
+  if (!response.ok) {
+    throw new Error('Failed to generate Document Server token');
+  }
+  return response.json();
+};

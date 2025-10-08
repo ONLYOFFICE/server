@@ -6,6 +6,8 @@ const operationContext = require('../../../../../Common/sources/operationContext
 const passwordManager = require('../../passwordManager');
 const bootstrap = require('../../bootstrap');
 const adminPanelJwtSecret = require('../../jwtSecret');
+const tenantManager = require('../../../../../Common/sources/tenantManager');
+const commonDefines = require('../../../../../Common/sources/commondefines');
 
 const router = express.Router();
 
@@ -222,6 +224,67 @@ router.post('/logout', async (req, res) => {
     });
     res.json({message: 'Logged out successfully'});
   } catch {
+    res.status(500).json({error: 'Internal server error'});
+  }
+});
+
+/**
+ * Generate JWT token for Document Server requests
+ */
+router.post('/generate-docserver-token', requireAuth, async (req, res) => {
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+
+    const {document, editorConfig} = req.body;
+
+    if (!document || !editorConfig) {
+      return res.status(400).json({error: 'Document and editorConfig are required'});
+    }
+
+    const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+
+    if (!secret) {
+      return res.status(500).json({error: 'JWT secret not configured'});
+    }
+
+    const payload = {
+      document: {
+        key: document.key || '0' + Math.random(),
+        fileType: document.fileType || 'docx',
+        title: document.title || 'Example',
+        url: document.url,
+        permissions: document.permissions || {
+          edit: true,
+          review: true,
+          comment: true,
+          copy: true,
+          print: true,
+          chat: true,
+          fillForms: true
+        }
+      },
+      editorConfig: {
+        user: {
+          id: editorConfig.user?.id || 'admin',
+          name: editorConfig.user?.name || 'admin'
+        },
+        lang: editorConfig.lang || 'en',
+        mode: editorConfig.mode || 'edit',
+        callbackUrl: editorConfig.callbackUrl
+      }
+    };
+
+    const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', 'HS256');
+    const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', '5m');
+
+    const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+    const token = jwt.sign(payload, secret, options);
+
+    ctx.logger.info('Generated Document Server JWT token');
+    res.json({token});
+  } catch (error) {
+    ctx.logger.error('JWT token generation error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});
   }
 });

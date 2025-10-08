@@ -1,4 +1,5 @@
 import {useState, useEffect, useRef, useCallback} from 'react';
+import {generateDocServerToken} from '../../api';
 
 /**
  * Preview page component with ONLYOFFICE Document Editor
@@ -17,35 +18,65 @@ function Preview(props) {
   const initEditor = useCallback(async () => {
     const userName = user?.email?.split('@')[0] || 'admin';
 
-    const config = {
-      document: {
-        fileType: 'docx',
-        key: '0' + Math.random(),
-        title: 'Example Document',
-        url: `${window.location.origin}/${window.location.pathname.split('/')[1].includes('example') ? '' : window.location.pathname.split('/')[1] + '/'}assets/sample.docx`
-      },
-      documentType: 'word',
-      editorConfig: {
-        user: {
-          id: userName,
-          name: userName
-        },
-        lang: navigator.language || navigator.userLanguage || 'en'
-      },
-      height: '100%',
-      width: '100%'
+    const document = {
+      fileType: 'docx',
+      key: '0' + Math.random(),
+      title: 'Example Document',
+      url: `${window.location.origin}/${window.location.pathname.split('/')[1].includes('example') ? '' : window.location.pathname.split('/')[1] + '/'}assets/sample.docx`,
+      permissions: {
+        edit: true,
+        review: true,
+        comment: true,
+        copy: true,
+        print: true,
+        chat: true,
+        fillForms: true
+      }
     };
 
-    // Mobile detection
-    if (
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|BB|PlayBook|IEMobile|Windows Phone|Kindle|Silk|Opera Mini|Macintosh/i.test(navigator.userAgent) &&
-      navigator.maxTouchPoints &&
-      navigator.maxTouchPoints > 1
-    ) {
-      config.type = 'mobile';
-    }
+    const editorConfig = {
+      user: {
+        id: userName,
+        name: userName
+      },
+      lang: navigator.language || navigator.userLanguage || 'en',
+      mode: 'edit'
+    };
 
-    setEditorConfig(config);
+    try {
+      const {token} = await generateDocServerToken(document, editorConfig);
+
+      const config = {
+        document: {
+          ...document
+        },
+        documentType: 'word',
+        editorConfig: {
+          ...editorConfig,
+          customization: {
+            autosave: false,
+            forcesave: false,
+            showHeader: true,
+            showFooter: true
+          }
+        },
+        height: '100%',
+        width: '100%',
+        token
+      };
+
+      if (
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|BB|PlayBook|IEMobile|Windows Phone|Kindle|Silk|Opera Mini|Macintosh/i.test(navigator.userAgent) &&
+        navigator.maxTouchPoints &&
+        navigator.maxTouchPoints > 1
+      ) {
+        config.type = 'mobile';
+      }
+
+      setEditorConfig(config);
+    } catch (error) {
+      console.error('Failed to load editor:', error);
+    }
   }, [user]);
 
   useEffect(() => {
