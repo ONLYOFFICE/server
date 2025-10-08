@@ -5,39 +5,23 @@ import styles from './Forgotten.module.scss';
 
 const Forgotten = () => {
   const [forgottenFiles, setForgottenFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [downloadingFiles, setDownloadingFiles] = useState(new Set());
 
   const loadForgottenFiles = async () => {
     try {
-      setLoading(true);
       setError(null);
       const files = await getForgottenList();
       setForgottenFiles(files);
     } catch (err) {
       console.error('Error loading forgotten files:', err);
       setError(`Failed to load forgotten files: ${err.message}`);
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadForgottenFiles();
   }, []);
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
-  };
 
   const handleDownload = async (file) => {
     try {
