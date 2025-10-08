@@ -236,59 +236,19 @@ router.post('/generate-docserver-token', requireAuth, async (req, res) => {
   try {
     ctx.initFromRequest(req);
 
-    const {document, editorConfig, command} = req.body;
+    const body = req.body;
 
-    if (!document || !editorConfig) {
-      return res.status(400).json({error: 'Document and editorConfig are required'});
-    }
-
-    const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+    const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Inbox);
 
     if (!secret) {
       return res.status(500).json({error: 'JWT secret not configured'});
     }
 
-    const payload = {
-      document: {
-        key: document.key || '0' + Math.random(),
-        fileType: document.fileType || 'docx',
-        title: document.title || 'Example',
-        url: document.url,
-        permissions: document.permissions || {
-          edit: true,
-          review: true,
-          comment: true,
-          copy: true,
-          print: true,
-          chat: true,
-          fillForms: true
-        }
-      },
-      editorConfig: {
-        user: {
-          id: editorConfig.user?.id || 'admin',
-          name: editorConfig.user?.name || 'admin'
-        },
-        lang: editorConfig.lang || 'en',
-        mode: editorConfig.mode || 'edit',
-        callbackUrl: editorConfig.callbackUrl
-      }
-    };
+    const tenTokenInboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.inbox.algorithm', 'HS256');
+    const tenTokenInboxExpires = ctx.getCfg('services.CoAuthoring.token.inbox.expires', '5m');
 
-    // Add command parameter if provided (required for forgotten files operations)
-    if (command) {
-      payload.c = command;
-      // For forgotten files operations, also add the key at root level
-      if (command === 'getForgotten' || command === 'getForgottenList') {
-        payload.key = document.key;
-      }
-    }
-
-    const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', 'HS256');
-    const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', '5m');
-
-    const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-    const token = jwt.sign(payload, secret, options);
+    const options = {algorithm: tenTokenInboxAlgorithm, expiresIn: tenTokenInboxExpires};
+    const token = jwt.sign(body, secret, options);
 
     ctx.logger.info('Generated Document Server JWT token');
     res.json({token});

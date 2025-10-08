@@ -79,7 +79,8 @@ module.exports = (env, argv) => {
           {
             context: path.resolve(__dirname, '../../../document-templates/sample'),
             from: 'sample.docx',
-            to: 'assets/sample.docx'
+            to: 'assets/sample.docx',
+            noErrorOnMissing: true
           }
         ]
       }),

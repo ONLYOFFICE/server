@@ -44,26 +44,15 @@ function Preview(props) {
     };
 
     try {
-      const {token} = await generateDocServerToken(document, editorConfig);
-
       const config = {
-        document: {
-          ...document
-        },
+        document,
         documentType: 'word',
-        editorConfig: {
-          ...editorConfig,
-          customization: {
-            autosave: false,
-            forcesave: false,
-            showHeader: true,
-            showFooter: true
-          }
-        },
+        editorConfig,
         height: '100%',
-        width: '100%',
-        token
+        width: '100%'
       };
+      const {token} = await generateDocServerToken(config);
+      config.token = token;
 
       if (
         /Android|webOS|iPhone|iPad|iPod|BlackBerry|BB|PlayBook|IEMobile|Windows Phone|Kindle|Silk|Opera Mini|Macintosh/i.test(navigator.userAgent) &&
@@ -82,7 +71,10 @@ function Preview(props) {
   useEffect(() => {
     // Load ONLYOFFICE API script
     const script = document.createElement('script');
-    script.src = `${process.env.REACT_APP_DOCSERVICE_URL || window.location.origin}/web-apps/apps/api/documents/api.js`;
+    const url = process.env.REACT_APP_DOCSERVICE_URL
+      ? `${process.env.REACT_APP_DOCSERVICE_URL}/web-apps/apps/api/documents/api.js`
+      : '../web-apps/apps/api/documents/api.js';
+    script.src = url;
     script.async = true;
     script.onload = () => {
       initEditor();

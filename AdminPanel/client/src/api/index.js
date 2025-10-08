@@ -169,7 +169,7 @@ export const rotateWopiKeys = async () => {
 };
 
 export const checkHealth = async () => {
-  const url = process.env.NODE_ENV === 'development' ? '/healthcheck-api' : '/healthcheck';
+  const url = process.env.NODE_ENV === 'development' ? '/healthcheck-api' : '../healthcheck';
   const response = await safeFetch(url);
   if (!response.ok) throw new Error('DocService health check failed');
   const result = await response.text();
@@ -187,12 +187,12 @@ export const resetConfiguration = async () => {
   return response.json();
 };
 
-export const generateDocServerToken = async (document, editorConfig, command) => {
+export const generateDocServerToken = async body => {
   const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/generate-docserver-token`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
-    body: JSON.stringify({document, editorConfig, command})
+    body: JSON.stringify(body)
   });
   if (!response.ok) {
     throw new Error('Failed to generate Document Server token');
@@ -200,36 +200,30 @@ export const generateDocServerToken = async (document, editorConfig, command) =>
   return response.json();
 };
 
-const callDocumentServer = async (command, key = null) => {
-  const {token} = await generateDocServerToken(
-    {key: key || 'forgotten-list', fileType: 'docx', title: 'Document', url: ''},
-    {user: {id: 'admin', name: 'admin'}, lang: 'en', mode: 'view'},
-    command
-  );
+const callCommandService = async body => {
+  const {token} = await generateDocServerToken(body);
+  body.token = token;
 
-  const response = await safeFetch(`${process.env.REACT_APP_DOCSERVICE_URL || window.location.origin}/coauthoring/CommandService.ashx`, {
+  const url = process.env.REACT_APP_DOCSERVICE_URL ? `${process.env.REACT_APP_DOCSERVICE_URL}/command` : '../command';
+  const response = await safeFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`
     },
-    body: JSON.stringify({
-      c: command,
-      ...(key && {key}),
-      token
-    })
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
     if (response.status === 404) throw new Error('File not found');
-    throw new Error(`Failed to execute ${command}`);
+    throw new Error(`Failed to execute ${JSON.stringify(body)}`);
   }
 
   return response.json();
 };
 
 export const getForgottenList = async () => {
-  const result = await callDocumentServer('getForgottenList');
+  const result = await callCommandService({c: 'getForgottenList'});
   const files = result.keys || [];
   return files.map(fileKey => {
     const fileName = fileKey.split('/').pop() || fileKey;
@@ -243,7 +237,7 @@ export const getForgottenList = async () => {
 };
 
 export const getForgotten = async docId => {
-  const result = await callDocumentServer('getForgotten', docId);
+  const result = await callCommandService({c: 'getForgotten', key: docId});
   return {
     docId,
     url: result.url,

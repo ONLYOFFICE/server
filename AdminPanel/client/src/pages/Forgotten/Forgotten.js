@@ -34,7 +34,6 @@ const Forgotten = () => {
       if (result.url) {
         const link = document.createElement('a');
         link.href = result.url;
-        link.download = 'output.docx';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
