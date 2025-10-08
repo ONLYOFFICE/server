@@ -186,3 +186,67 @@ export const resetConfiguration = async () => {
   if (!response.ok) throw new Error('Failed to reset configuration');
   return response.json();
 };
+
+export const generateDocServerToken = async (document, editorConfig, command) => {
+  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/generate-docserver-token`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'include',
+    body: JSON.stringify({document, editorConfig, command})
+  });
+  if (!response.ok) {
+    throw new Error('Failed to generate Document Server token');
+  }
+  return response.json();
+};
+
+const callDocumentServer = async (command, key = null) => {
+  const {token} = await generateDocServerToken(
+    {key: key || 'forgotten-list', fileType: 'docx', title: 'Document', url: ''},
+    {user: {id: 'admin', name: 'admin'}, lang: 'en', mode: 'view'},
+    command
+  );
+
+  const response = await safeFetch(`${process.env.REACT_APP_DOCSERVICE_URL || window.location.origin}/coauthoring/CommandService.ashx`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      c: command,
+      ...(key && {key}),
+      token
+    })
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) throw new Error('File not found');
+    throw new Error(`Failed to execute ${command}`);
+  }
+
+  return response.json();
+};
+
+export const getForgottenList = async () => {
+  const result = await callDocumentServer('getForgottenList');
+  const files = result.keys || [];
+  return files.map(fileKey => {
+    const fileName = fileKey.split('/').pop() || fileKey;
+    return {
+      key: fileKey,
+      name: fileName,
+      size: null,
+      modified: null
+    };
+  });
+};
+
+export const getForgotten = async docId => {
+  const result = await callDocumentServer('getForgotten', docId);
+  return {
+    docId,
+    url: result.url,
+    name: docId.split('/').pop() || docId
+  };
+};
