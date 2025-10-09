@@ -1,6 +1,5 @@
 import {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
-import {useLocation, useNavigate} from 'react-router-dom';
 import {fetchUser, selectUser, selectUserLoading, selectIsAuthenticated} from '../../store/slices/userSlice';
 import {checkSetupRequired} from '../../api';
 import Spinner from '../../assets/Spinner.svg';
@@ -10,8 +9,6 @@ import ServerUnavailable from '../ServerUnavailable/ServerUnavailable';
 
 export default function AuthWrapper({children}) {
   const dispatch = useDispatch();
-  const location = useLocation();
-  const navigate = useNavigate();
   const user = useSelector(selectUser);
   const loading = useSelector(selectUserLoading);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -19,24 +16,6 @@ export default function AuthWrapper({children}) {
   const [setupRequired, setSetupRequired] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
   const [serverUnavailable, setServerUnavailable] = useState(false);
-
-  // Save intended URL for redirect after setup/login
-  useEffect(() => {
-    if (!isAuthenticated && location.pathname !== '/admin/setup' && location.pathname !== '/admin/login') {
-      sessionStorage.setItem('redirectAfterAuth', location.pathname + location.search);
-    }
-  }, [location, isAuthenticated]);
-
-  // Redirect after successful authentication
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      const redirectUrl = sessionStorage.getItem('redirectAfterAuth');
-      if (redirectUrl) {
-        sessionStorage.removeItem('redirectAfterAuth');
-        navigate(redirectUrl, {replace: true});
-      }
-    }
-  }, [isAuthenticated, user, navigate]);
 
   useEffect(() => {
     const checkSetup = async () => {
