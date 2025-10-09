@@ -1,7 +1,13 @@
 import {useState, useEffect, useCallback} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
 import {selectConfig, saveConfig} from '../../../store/slices/configSlice';
-import {registerShowWindowCallback, registerCloseWindowCallback, registerSaveCallback, initAISettings} from '../js/plugins-sdk';
+import {
+  registerShowWindowCallback,
+  registerCloseWindowCallback,
+  registerSaveCallback,
+  registerLoadInternalProvidersCallback,
+  initAISettings
+} from '../js/plugins-sdk';
 
 /**
  * Custom hook for managing complete AI plugin functionality
@@ -11,6 +17,7 @@ import {registerShowWindowCallback, registerCloseWindowCallback, registerSaveCal
  */
 const useAiPlugin = statisticsData => {
   const [pluginWindows, setPluginWindows] = useState([]);
+  const [internalProvidersLoaded, setInternalProvidersLoaded] = useState(false);
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
 
@@ -121,16 +128,22 @@ const useAiPlugin = statisticsData => {
       }
     };
 
+    const handleLoadInternalProviders = () => {
+      setInternalProvidersLoaded(true);
+    };
+
     // Register all callbacks with SDK
     registerShowWindowCallback(handleShowWindow);
     registerCloseWindowCallback(handleCloseWindow);
     registerSaveCallback(handleSave);
+    registerLoadInternalProvidersCallback(handleLoadInternalProviders);
 
     // Cleanup: unregister all callbacks
     return () => {
       registerShowWindowCallback(null);
       registerCloseWindowCallback(null);
       registerSaveCallback(null);
+      registerLoadInternalProvidersCallback(null);
     };
   }, [config, dispatch]);
 
@@ -139,7 +152,8 @@ const useAiPlugin = statisticsData => {
   return {
     pluginWindows,
     currentWindow,
-    handleIframeLoad
+    handleIframeLoad,
+    internalProvidersLoaded
   };
 };
 

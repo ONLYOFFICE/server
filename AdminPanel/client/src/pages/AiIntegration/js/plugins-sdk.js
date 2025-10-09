@@ -9,6 +9,7 @@ const mainButtonId = 'settings.html';
 let showPluginWindowCallback = null;
 let closePluginWindowCallback = null;
 let saveCallback = null;
+let loadInternalProvidersCallback = null;
 
 let settingsButton = null;
 
@@ -390,6 +391,11 @@ function handleMethod(data) {
   } else if (data.methodName === 'CloseWindow') {
     CloseWindow(data.data);
     handleMethodReturn(undefined);
+  } else if (data.methodName === 'SendEvent') {
+    if (data.data && data.data[0] === 'ai_onLoadInternalProviders' && loadInternalProvidersCallback) {
+      loadInternalProvidersCallback();
+    }
+    handleMethodReturn(undefined);
   } else {
     handleMethodReturn(undefined);
   }
@@ -543,4 +549,12 @@ function registerSaveCallback(callback) {
   saveCallback = callback;
 }
 
-export {initAISettings, registerShowWindowCallback, registerCloseWindowCallback, registerSaveCallback};
+/**
+ * Registers callback for loading internal providers
+ * @param {function} callback - Function to call when internal providers should be loaded () => void
+ */
+function registerLoadInternalProvidersCallback(callback) {
+  loadInternalProvidersCallback = callback;
+}
+
+export {initAISettings, registerShowWindowCallback, registerCloseWindowCallback, registerSaveCallback, registerLoadInternalProvidersCallback};
