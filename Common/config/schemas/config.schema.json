@@ -257,14 +257,6 @@
             }
           }
         },
-        "connectionConfiguration": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "disableFileAccess": {"type": "boolean"},
-            "disableUrlAccess": {"type": "boolean"}
-          }
-        },
         "contactDefaults": {
           "type": "object",
           "additionalProperties": false,

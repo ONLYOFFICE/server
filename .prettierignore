@@ -5,7 +5,8 @@ coverage
 .next
 out
 AdminPanel/client/src/pages/AiIntegration/ai/**
-AdminPanel/client/src/pages/AiIntegration/js/**
+AdminPanel/client/src/pages/AiIntegration/js/plugins.js
+AdminPanel/client/src/pages/AiIntegration/js/plugins-ui.js
 *.min.js
 *.min.css
 package-lock.json

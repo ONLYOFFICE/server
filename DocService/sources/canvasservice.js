@@ -1891,7 +1891,7 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
       //we do a select, because during the timeout the information could change
       const selectRes = yield taskResult.select(ctx, docId);
       const row = selectRes.length > 0 ? selectRes[0] : null;
-      if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo && row.callback) {
+      if (row && row.status == commonDefines.FileStatus.SaveVersion && row.status_info == statusInfo) {
         if (null == optFormat) {
           optFormat = changeFormatByOrigin(ctx, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
         }
@@ -1921,10 +1921,6 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
           yield docsCoServer.editorStat.addShutdown(redisKeyShutdown, docId);
         }
         ctx.logger.debug('AddTask saveFromChanges');
-      } else if (row && !row.callback) {
-        ctx.logger.debug('saveFromChanges empty callback: %s', docId);
-        yield docsCoServer.cleanDocumentOnExitNoChangesPromise(ctx, docId, opt_userId, opt_userIndex, false, true);
-        //todo restore status
       } else {
         if (row) {
           ctx.logger.debug('saveFromChanges status mismatch: row: %d; %d; expected: %d', row.status, row.status_info, statusInfo);

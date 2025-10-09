@@ -1,12 +1,9 @@
 'use strict';
 
 const crypto = require('crypto');
+const config = require('config');
 
 //todo Need common secret in case of cluster deployment
-// const config = require('config');
-// const adminPanelJwtSecret = config.get('adminPanel.secret');
-
-// Generate random JWT secret once for cluster deployment
-const adminPanelJwtSecret = crypto.randomBytes(64).toString('hex');
+const adminPanelJwtSecret = config.has('adminPanel.secret') ? config.get('adminPanel.secret') : crypto.randomBytes(64).toString('hex');
 
 module.exports = adminPanelJwtSecret;

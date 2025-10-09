@@ -32,12 +32,14 @@
 
 'use strict';
 
-const config = require('config');
 const utils = require('./utils');
 const logger = require('./logger');
 const constants = require('./constants');
 const tenantManager = require('./tenantManager');
 const runtimeConfigManager = require('./runtimeConfigManager');
+const moduleReloader = require('./moduleReloader');
+
+let configCache = null;
 
 function Context() {
   this.logger = logger.getLogger('nodeJS');
@@ -99,11 +101,26 @@ Context.prototype.initFromPubSub = function (data) {
   this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc, ctx.userSessionId);
 };
 Context.prototype.initTenantCache = async function () {
-  const runtimeConfig = await runtimeConfigManager.getConfig(this);
-  const tenantConfig = await tenantManager.getTenantConfig(this);
-  this.config = utils.deepMergeObjects(config.util.toObject(), runtimeConfig, tenantConfig);
+  if (!configCache) {
+    configCache = Object.create(null);
+  }
+  this.config = configCache[this.tenant];
+  if (!this.config) {
+    const runtimeConfig = await runtimeConfigManager.getConfig(this);
+    const tenantConfig = await tenantManager.getTenantConfig(this);
+    this.config = utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), runtimeConfig, tenantConfig);
+    configCache[this.tenant] = this.config;
+  }
 
   //todo license and secret
+};
+Context.prototype.cleanRuntimeConfigCache = function () {
+  configCache = null;
+};
+Context.prototype.cleanTenantConfigCache = function (tenant) {
+  if (configCache) {
+    configCache[tenant] = null;
+  }
 };
 
 Context.prototype.setTenant = function (tenant) {
@@ -151,7 +168,7 @@ Context.prototype.getCfg = function (property, defaultValue) {
  * @returns {object} The merged configuration object
  */
 Context.prototype.getFullCfg = function () {
-  return utils.deepMergeObjects(config.util.toObject(), this.config);
+  return utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), this.config);
 };
 
 exports.Context = Context;

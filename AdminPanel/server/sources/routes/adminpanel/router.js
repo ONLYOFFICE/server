@@ -6,6 +6,8 @@ const operationContext = require('../../../../../Common/sources/operationContext
 const passwordManager = require('../../passwordManager');
 const bootstrap = require('../../bootstrap');
 const adminPanelJwtSecret = require('../../jwtSecret');
+const tenantManager = require('../../../../../Common/sources/tenantManager');
+const commonDefines = require('../../../../../Common/sources/commondefines');
 
 const router = express.Router();
 
@@ -222,6 +224,36 @@ router.post('/logout', async (req, res) => {
     });
     res.json({message: 'Logged out successfully'});
   } catch {
+    res.status(500).json({error: 'Internal server error'});
+  }
+});
+
+/**
+ * Generate JWT token for Document Server requests
+ */
+router.post('/generate-docserver-token', requireAuth, async (req, res) => {
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+
+    const body = req.body;
+
+    const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Inbox);
+
+    if (!secret) {
+      return res.status(500).json({error: 'JWT secret not configured'});
+    }
+
+    const tenTokenInboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.inbox.algorithm', 'HS256');
+    const tenTokenInboxExpires = ctx.getCfg('services.CoAuthoring.token.inbox.expires', '5m');
+
+    const options = {algorithm: tenTokenInboxAlgorithm, expiresIn: tenTokenInboxExpires};
+    const token = jwt.sign(body, secret, options);
+
+    ctx.logger.info('Generated Document Server JWT token');
+    res.json({token});
+  } catch (error) {
+    ctx.logger.error('JWT token generation error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});
   }
 });

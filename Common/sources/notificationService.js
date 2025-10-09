@@ -36,8 +36,6 @@ const ms = require('ms');
 
 const mailService = require('./mailService');
 
-const cfgMailServer = config.util.cloneDeep(config.get('email.smtpServerConfiguration'));
-const cfgMailMessageDefaults = config.util.cloneDeep(config.get('email.contactDefaults'));
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const editorStatStorage = require('./../../DocService/sources/' + (cfgEditorStatStorage || cfgEditorDataStorage));
@@ -56,12 +54,14 @@ class TransportInterface {
 }
 
 class MailTransport extends TransportInterface {
-  host = cfgMailServer.host;
-  port = cfgMailServer.port;
-  auth = cfgMailServer.auth;
-
   constructor(ctx) {
     super();
+
+    const mailServerConfig = ctx.getCfg('email.smtpServerConfiguration');
+    this.host = mailServerConfig.host;
+    this.port = mailServerConfig.port;
+    this.auth = mailServerConfig.auth;
+    const cfgMailMessageDefaults = ctx.getCfg('email.contactDefaults');
 
     mailService.createTransporter(ctx, this.host, this.port, this.auth, cfgMailMessageDefaults);
   }

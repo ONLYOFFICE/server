@@ -169,7 +169,7 @@ export const rotateWopiKeys = async () => {
 };
 
 export const checkHealth = async () => {
-  const url = process.env.NODE_ENV === 'development' ? '/healthcheck-api' : '/healthcheck';
+  const url = process.env.NODE_ENV === 'development' ? '/healthcheck-api' : '../healthcheck';
   const response = await safeFetch(url);
   if (!response.ok) throw new Error('DocService health check failed');
   const result = await response.text();
@@ -185,4 +185,62 @@ export const resetConfiguration = async () => {
   });
   if (!response.ok) throw new Error('Failed to reset configuration');
   return response.json();
+};
+
+export const generateDocServerToken = async body => {
+  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/generate-docserver-token`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'include',
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error('Failed to generate Document Server token');
+  }
+  return response.json();
+};
+
+const callCommandService = async body => {
+  const {token} = await generateDocServerToken(body);
+  body.token = token;
+
+  const url = process.env.REACT_APP_DOCSERVICE_URL ? `${process.env.REACT_APP_DOCSERVICE_URL}/command` : '../command';
+  const response = await safeFetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) throw new Error('File not found');
+    throw new Error(`Failed to execute ${JSON.stringify(body)}`);
+  }
+
+  return response.json();
+};
+
+export const getForgottenList = async () => {
+  const result = await callCommandService({c: 'getForgottenList'});
+  const files = result.keys || [];
+  return files.map(fileKey => {
+    const fileName = fileKey.split('/').pop() || fileKey;
+    return {
+      key: fileKey,
+      name: fileName,
+      size: null,
+      modified: null
+    };
+  });
+};
+
+export const getForgotten = async docId => {
+  const result = await callCommandService({c: 'getForgotten', key: docId});
+  return {
+    docId,
+    url: result.url,
+    name: docId.split('/').pop() || docId
+  };
 };

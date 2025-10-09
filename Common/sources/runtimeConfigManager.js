@@ -146,6 +146,8 @@ function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
         reloadTimer = null;
         nodeCache.del(configFileName);
         operationContext.global.logger.info(`handleConfigFileChange reloading config: ${configFileName}`);
+
+        operationContext.global.cleanRuntimeConfigCache();
         getConfig(operationContext.global)
           .then(config => {
             logger.configureLogger(config?.log?.options);

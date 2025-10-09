@@ -1100,6 +1100,22 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
+const jwtKeyCache = Object.create(null);
+/**
+ * Gets or creates a cached symmetric key for JWT verification (HS256/HS384/HS512).
+ * Caches crypto.KeyObject to avoid expensive key creation on every request.
+ * @param {string} secret - JWT symmetric secret
+ * @returns {crypto.KeyObject} Cached secret key object
+ */
+function getJwtHsKey(secret) {
+  let res = jwtKeyCache[secret];
+  if (!res) {
+    res = jwtKeyCache[secret] = crypto.createSecretKey(Buffer.from(secret, 'utf8'));
+  }
+  return res;
+}
+exports.getJwtHsKey = getJwtHsKey;
+
 function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
   const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
   const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
@@ -1114,7 +1130,7 @@ function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
   }
 
   const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-  return jwt.sign(data, secret, options);
+  return jwt.sign(data, getJwtHsKey(secret), options);
 }
 exports.fillJwtForRequest = fillJwtForRequest;
 exports.forwarded = forwarded;
