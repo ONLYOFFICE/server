@@ -38,7 +38,7 @@ const utils = require('../../../../../Common/sources/utils');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const {validateJWT} = require('../../middleware/auth');
-const {getScopedConfig} = require('../config/config.service');
+const {getConfig} = require('../../../../../Common/sources/runtimeConfigManager');
 const cookieParser = require('cookie-parser');
 
 const router = express.Router();
@@ -156,8 +156,8 @@ router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
   try {
     ctx.logger.info('WOPI key rotation start');
 
-    const currentConfig = ctx.getFullCfg();
-    const wopiConfig = utils.getImpl(currentConfig, 'wopi') || {};
+    const currentConfig = await getConfig(ctx);
+    const wopiConfig = currentConfig.wopi || {};
 
     const newWopiConfig = generateWopiKeys();
 
@@ -184,9 +184,7 @@ router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
       await runtimeConfigManager.saveConfig(ctx, newConfig);
     }
 
-    await ctx.initTenantCache();
-    const filteredConfig = getScopedConfig(ctx);
-    res.status(200).json(filteredConfig);
+    res.status(200).json(newConfig);
   } catch (error) {
     ctx.logger.error('WOPI key rotation error: %s', error.stack);
     res.status(500).json({

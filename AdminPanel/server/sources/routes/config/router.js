@@ -67,9 +67,9 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
       await runtimeConfigManager.saveConfig(ctx, validationResult.value);
     }
 
-    await ctx.initTenantCache();
-    const filteredConfig = getScopedConfig(ctx);
-    res.status(200).json(filteredConfig);
+    const newConfig = await runtimeConfigManager.getConfig(ctx);
+
+    res.status(200).json(newConfig);
   } catch (error) {
     ctx.logger.error('Configuration save error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});
