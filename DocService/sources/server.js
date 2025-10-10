@@ -295,7 +295,7 @@ docsCoServer.install(server, app, () => {
     converterService.builder(req, res);
   });
   // Shared Info router (provides /info.json)
-  app.use('/info', infoRouter());
+  app.use('/info', infoRouter(docsCoServer.getConnections));
   app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
   app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
   app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
