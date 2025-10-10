@@ -159,8 +159,8 @@ function generateWopiKeys() {
  */
 router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
   const ctx = req.ctx;
-  ctx.initTenantCache();
   try {
+    ctx.initTenantCache();
     ctx.logger.info('WOPI key rotation start');
 
     const currentConfig = await getConfig(ctx);

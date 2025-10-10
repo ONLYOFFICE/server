@@ -11,6 +11,7 @@ import ToggleSwitch from '../../components/ToggleSwitch/ToggleSwitch';
 import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import Note from '../../components/Note/Note';
 import styles from './WOPISettings.module.scss';
 
 function WOPISettings() {
@@ -147,6 +148,9 @@ function WOPISettings() {
             <div className={styles.sectionTitle}>Key Management</div>
             <div className={styles.sectionDescription}>
               Rotate WOPI encryption keys. Current keys will be moved to "Old" and new keys will be generated.
+            </div>
+            <div className={styles.noteWrapper}>
+              <Note type='warning'>Do not rotate keys more than once per 24 hours; storage may not refresh in time and authentication can fail.</Note>
             </div>
             <div className={styles.formRow}>
               <Input
