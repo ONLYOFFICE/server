@@ -32,6 +32,7 @@
 
 'use strict';
 
+const config = require('config');
 const express = require('express');
 const crypto = require('crypto');
 const utils = require('../../../../../Common/sources/utils');
@@ -40,6 +41,11 @@ const tenantManager = require('../../../../../Common/sources/tenantManager');
 const {validateJWT} = require('../../middleware/auth');
 const {getConfig} = require('../../../../../Common/sources/runtimeConfigManager');
 const cookieParser = require('cookie-parser');
+
+const cfgWopiPublicKey = config.get('wopi.publicKey');
+const cfgWopiModulus = config.get('wopi.modulus');
+const cfgWopiPrivateKey = config.get('wopi.privateKey');
+const cfgWopiExponent = config.get('wopi.exponent');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -153,6 +159,7 @@ function generateWopiKeys() {
  */
 router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
   const ctx = req.ctx;
+  ctx.initTenantCache();
   try {
     ctx.logger.info('WOPI key rotation start');
 
@@ -161,14 +168,19 @@ router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
 
     const newWopiConfig = generateWopiKeys();
 
-    const hasEmptyKeys = !wopiConfig.publicKey && !wopiConfig.modulus && !wopiConfig.privateKey;
+    const publicKey = ctx.getCfg('wopi.publicKey', cfgWopiPublicKey);
+    const modulus = ctx.getCfg('wopi.modulus', cfgWopiModulus);
+    const privateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
+    const exponent = ctx.getCfg('wopi.exponent', cfgWopiExponent);
+
+    const hasEmptyKeys = !(publicKey && modulus && privateKey && exponent);
 
     const configUpdate = {
       wopi: {
-        publicKeyOld: hasEmptyKeys ? newWopiConfig.publicKey : wopiConfig.publicKey,
-        modulusOld: hasEmptyKeys ? newWopiConfig.modulus : wopiConfig.modulus,
-        exponentOld: hasEmptyKeys ? newWopiConfig.exponent : wopiConfig.exponent,
-        privateKeyOld: hasEmptyKeys ? newWopiConfig.privateKey : wopiConfig.privateKey,
+        publicKeyOld: hasEmptyKeys ? newWopiConfig.publicKey : publicKey,
+        modulusOld: hasEmptyKeys ? newWopiConfig.modulus : modulus,
+        exponentOld: hasEmptyKeys ? newWopiConfig.exponent : exponent,
+        privateKeyOld: hasEmptyKeys ? newWopiConfig.privateKey : privateKey,
         publicKey: newWopiConfig.publicKey,
         modulus: newWopiConfig.modulus,
         exponent: newWopiConfig.exponent,
