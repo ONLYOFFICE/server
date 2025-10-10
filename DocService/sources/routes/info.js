@@ -220,11 +220,13 @@ async function licenseInfo(req, res, getConnections = null) {
     isError = true;
     ctx.logger.error('licenseInfo error %s', err.stack);
   } finally {
-    if (!isError) {
-      res.setHeader('Content-Type', 'application/json');
-      res.send(JSON.stringify(output));
-    } else {
-      res.sendStatus(400);
+    if (!res.headersSent) {
+      if (!isError) {
+        res.setHeader('Content-Type', 'application/json');
+        res.send(JSON.stringify(output));
+      } else {
+        res.sendStatus(400);
+      }
     }
   }
 }
@@ -238,8 +240,8 @@ function createInfoRouter(getConnections = null) {
   const router = express.Router();
 
   // License info endpoint with CORS and client IP check
-  router.get('/info.json', cors(), utils.checkClientIp, (req, res) => {
-    licenseInfo(req, res, getConnections);
+  router.get('/info.json', cors(), utils.checkClientIp, async (req, res) => {
+    await licenseInfo(req, res, getConnections);
   });
 
   return router;
