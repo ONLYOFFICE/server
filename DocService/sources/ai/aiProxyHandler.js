@@ -353,10 +353,13 @@ async function getPluginSettingsForInterface(ctx) {
       pluginSettings = undefined;
     }
   }
-  //remove keys from providers
-  if (pluginSettings && pluginSettings.providers) {
+  //remove keys from providers - create deep copy to avoid modifying cached config
+  if (pluginSettings?.providers) {
     for (const key in pluginSettings.providers) {
-      pluginSettings.providers[key].key = '';
+      if (pluginSettings.providers[key]?.key) {
+        pluginSettings.providers[key] = JSON.parse(JSON.stringify(pluginSettings.providers[key]));
+        pluginSettings.providers[key].key = '';
+      }
     }
   }
   return pluginSettings;

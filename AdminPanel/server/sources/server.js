@@ -126,8 +126,9 @@ function disableCache(req, res, next) {
 app.use('/api/v1/admin/config', corsWithCredentials, utils.checkClientIp, disableCache, configRouter);
 app.use('/api/v1/admin/wopi', corsWithCredentials, utils.checkClientIp, disableCache, wopiRouter);
 app.use('/api/v1/admin', corsWithCredentials, utils.checkClientIp, disableCache, adminpanelRouter);
-app.get('/api/v1/admin/stat', corsWithCredentials, utils.checkClientIp, disableCache, infoRouter.licenseInfo);
-
+app.get('/api/v1/admin/stat', corsWithCredentials, utils.checkClientIp, disableCache, async (req, res) => {
+  await infoRouter.licenseInfo(req, res);
+});
 // Serve AdminPanel client build as static assets
 const clientBuildPath = path.resolve('client/build');
 app.use('/', express.static(clientBuildPath));

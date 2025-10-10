@@ -54,8 +54,9 @@ function getLicenseNowUtc() {
  * License info endpoint handler
  * @param {import('express').Request} req Express request
  * @param {import('express').Response} res Express response
+ * @param {Function} getConnections Function to get active connections
  */
-async function licenseInfo(req, res) {
+async function licenseInfo(req, res, getConnections = null) {
   let isError = false;
   const serverDate = new Date();
   // Security risk of high-precision time
@@ -174,7 +175,8 @@ async function licenseInfo(req, res) {
     const nowUTC = getLicenseNowUtc();
     let execRes;
     execRes = await editorStat.getPresenceUniqueUser(ctx, nowUTC);
-    output.quota.edit.connectionsCount = await editorStat.getEditorConnectionsCount(ctx, {});
+    const connections = getConnections ? getConnections() : null;
+    output.quota.edit.connectionsCount = await editorStat.getEditorConnectionsCount(ctx, connections);
     output.quota.edit.usersCount.unique = execRes.length;
     execRes.forEach(elem => {
       if (elem.anonym) {
@@ -183,7 +185,7 @@ async function licenseInfo(req, res) {
     });
 
     execRes = await editorStat.getPresenceUniqueViewUser(ctx, nowUTC);
-    output.quota.view.connectionsCount = await editorStat.getLiveViewerConnectionsCount(ctx, {});
+    output.quota.view.connectionsCount = await editorStat.getLiveViewerConnectionsCount(ctx, connections);
     output.quota.view.usersCount.unique = execRes.length;
     execRes.forEach(elem => {
       if (elem.anonym) {
@@ -218,24 +220,29 @@ async function licenseInfo(req, res) {
     isError = true;
     ctx.logger.error('licenseInfo error %s', err.stack);
   } finally {
-    if (!isError) {
-      res.setHeader('Content-Type', 'application/json');
-      res.send(JSON.stringify(output));
-    } else {
-      res.sendStatus(400);
+    if (!res.headersSent) {
+      if (!isError) {
+        res.setHeader('Content-Type', 'application/json');
+        res.send(JSON.stringify(output));
+      } else {
+        res.sendStatus(400);
+      }
     }
   }
 }
 
 /**
  * Create shared Info router
+ * @param {Function} getConnections Optional function to get active connections
  * @returns {import('express').Router} Router instance
  */
-function createInfoRouter() {
+function createInfoRouter(getConnections = null) {
   const router = express.Router();
 
   // License info endpoint with CORS and client IP check
-  router.get('/info.json', cors(), utils.checkClientIp, licenseInfo);
+  router.get('/info.json', cors(), utils.checkClientIp, async (req, res) => {
+    await licenseInfo(req, res, getConnections);
+  });
 
   return router;
 }

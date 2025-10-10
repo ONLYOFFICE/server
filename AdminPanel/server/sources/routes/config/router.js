@@ -7,6 +7,7 @@ const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfi
 const {getScopedConfig, validateScoped, getScopedSchema} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
+const utils = require('../../../../../Common/sources/utils');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -66,10 +67,10 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
     } else {
       await runtimeConfigManager.saveConfig(ctx, validationResult.value);
     }
-
+    const filteredConfig = getScopedConfig(ctx);
     const newConfig = await runtimeConfigManager.getConfig(ctx);
 
-    res.status(200).json(newConfig);
+    res.status(200).json(utils.deepMergeObjects(filteredConfig, newConfig));
   } catch (error) {
     ctx.logger.error('Configuration save error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});
