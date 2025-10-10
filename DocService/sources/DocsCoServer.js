@@ -4695,6 +4695,15 @@ exports.shutdown = function (req, res) {
     }
   });
 };
+/**
+ * Get active connections array
+ * @returns {Array} Active connections
+ */
+function getConnections() {
+  return connections;
+}
+
+exports.getConnections = getConnections;
 exports.getEditorConnectionsCount = function (req, res) {
   const ctx = new operationContext.Context();
   let count = 0;
