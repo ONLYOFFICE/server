@@ -164,7 +164,6 @@ router.post('/rotate-keys', validateJWT, express.json(), async (req, res) => {
     ctx.logger.info('WOPI key rotation start');
 
     const currentConfig = await getConfig(ctx);
-    const wopiConfig = currentConfig.wopi || {};
 
     const newWopiConfig = generateWopiKeys();
 
