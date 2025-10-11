@@ -341,6 +341,12 @@ async function getPluginSettings(ctx) {
 
 async function getPluginSettingsForInterface(ctx) {
   let pluginSettings = await getPluginSettings(ctx);
+
+  // Create deep copy to avoid modifying cached config
+  if (pluginSettings) {
+    pluginSettings = JSON.parse(JSON.stringify(pluginSettings));
+  }
+
   //check empty settings
   if (pluginSettings && pluginSettings.actions) {
     let isEmptySettings = true;
@@ -353,11 +359,11 @@ async function getPluginSettingsForInterface(ctx) {
       pluginSettings = undefined;
     }
   }
-  //remove keys from providers - create deep copy to avoid modifying cached config
+
+  //remove keys from providers
   if (pluginSettings?.providers) {
     for (const key in pluginSettings.providers) {
       if (pluginSettings.providers[key]?.key) {
-        pluginSettings.providers[key] = JSON.parse(JSON.stringify(pluginSettings.providers[key]));
         pluginSettings.providers[key].key = '';
       }
     }
