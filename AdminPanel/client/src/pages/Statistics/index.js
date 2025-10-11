@@ -70,7 +70,8 @@ export default function Statistics() {
 
   // Build block
   const buildDate = licenseInfo.buildDate ? new Date(licenseInfo.buildDate).toLocaleDateString() : '';
-  const packageTypeLabel = licenseInfo.packageType === 0 ? 'Open source' : licenseInfo.packageType === 1 ? 'Enterprise Edition' : 'Developer Edition';
+  const isOpenSource = licenseInfo.packageType === 0;
+  const packageTypeLabel = isOpenSource ? 'Open source' : licenseInfo.packageType === 1 ? 'Enterprise Edition' : 'Developer Edition';
   const buildBlock = (
     <TopBlock title='Build'>
       <div>Type: {packageTypeLabel}</div>
@@ -246,11 +247,15 @@ export default function Statistics() {
 
       {renderDatabaseBlock(configData?.services?.CoAuthoring?.sql)}
 
-      <ModeSwitcher mode={mode} setMode={setMode} />
+      {!isOpenSource && (
+        <>
+          <ModeSwitcher mode={mode} setMode={setMode} />
 
-      {currentTable}
-      {peaksAverage}
-      {isUsersModel && <MonthlyStatistics byMonth={quota?.byMonth} mode={mode} />}
+          {currentTable}
+          {peaksAverage}
+          {isUsersModel && <MonthlyStatistics byMonth={quota?.byMonth} mode={mode} />}
+        </>
+      )}
     </div>
   );
 }
