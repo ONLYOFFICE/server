@@ -166,19 +166,23 @@ function getTenantSecret(ctx, type) {
   return co(function* () {
     let cfgTenant;
     //check config
-    switch (type) {
-      case commonDefines.c_oAscSecretType.Browser:
-      case commonDefines.c_oAscSecretType.Inbox:
-        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.inbox', undefined);
-        break;
-      case commonDefines.c_oAscSecretType.Outbox:
-        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.outbox', undefined);
-        break;
-      case commonDefines.c_oAscSecretType.Session:
-        cfgTenant = ctx.getCfg('services.CoAuthoring.secret.session', undefined);
-        break;
+    const tenantConfig = yield getTenantConfig(ctx);
+    if (tenantConfig) {
+      switch (type) {
+        case commonDefines.c_oAscSecretType.Browser:
+        case commonDefines.c_oAscSecretType.Inbox:
+          cfgTenant = tenantConfig?.services?.CoAuthoring?.secret?.inbox;
+          break;
+        case commonDefines.c_oAscSecretType.Outbox:
+          cfgTenant = tenantConfig?.services?.CoAuthoring?.secret?.outbox;
+          break;
+        case commonDefines.c_oAscSecretType.Session:
+          cfgTenant = tenantConfig?.services?.CoAuthoring?.secret?.session;
+          break;
+      }
     }
-    if (undefined !== cfgTenant) {
+
+    if (cfgTenant) {
       return utils.getSecretByElem(cfgTenant);
     }
     let res = undefined;
