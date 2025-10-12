@@ -227,6 +227,11 @@ async function proxyRequest(req, res) {
     // Merge key in headers
     const headers = {...body.headers, ...providerHeaders};
 
+    // Preserve Accept-Encoding from original request if not explicitly provided
+    if (!headers['accept-encoding'] && req.headers['accept-encoding']) {
+      headers['accept-encoding'] = req.headers['accept-encoding'];
+    }
+
     // use proxy instead of direct request
     if (tenAiApiProxy) {
       const tenTokenEnableOutbox = ctx.getCfg('services.CoAuthoring.token.enable.request.outbox', cfgTokenEnableOutbox);
