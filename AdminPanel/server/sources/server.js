@@ -44,6 +44,7 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const infoRouter = require('../../../DocService/sources/routes/info');
 
 const configRouter = require('./routes/config/router');
@@ -53,6 +54,7 @@ const passwordManager = require('./passwordManager');
 const bootstrap = require('./bootstrap');
 
 const port = config.get('adminPanel.port');
+const cfgLicenseFile = config.get('license.license_file');
 
 const app = express();
 app.disable('x-powered-by');
@@ -62,21 +64,25 @@ app.set('trust proxy', 1);
 
 const server = http.createServer(app);
 
-// Initialize license on startup
-(async () => {
+let licenseInfo, licenseOriginal;
+
+const readLicense = async function () {
+  [licenseInfo, licenseOriginal] = await license.readLicense(cfgLicenseFile);
+};
+
+const updateLicense = async () => {
   try {
-    let licenseFile;
-    try {
-      licenseFile = config.get('license.license_file');
-    } catch (_) {
-      licenseFile = null;
-    }
-    const [info, original] = await license.readLicense(licenseFile);
-    tenantManager.setDefLicense(info, original);
-  } catch (e) {
-    operationContext.global.logger.warn('License init error: %s', e.message);
+    await readLicense();
+    tenantManager.setDefLicense(licenseInfo, licenseOriginal);
+    operationContext.global.logger.info('End updateLicense');
+  } catch (err) {
+    operationContext.global.logger.error('updateLicense error: %s', err.stack);
   }
-})();
+};
+
+updateLicense();
+fs.watchFile(cfgLicenseFile, updateLicense);
+setInterval(updateLicense, 86400000);
 
 // Generate and display bootstrap token if setup is required
 (async () => {
