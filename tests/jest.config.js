@@ -48,6 +48,11 @@ module.exports = {
   // Automatically clear mock calls, instances, contexts and results before every test
   clearMocks: true,
 
+  // AWS SDK v3 uses AWS Common Runtime which creates persistent native handles
+  // that Jest cannot clean up (aws_logger, FSEVENTWRAP, etc.)
+  // This is a known limitation: https://github.com/awslabs/aws-crt-nodejs/issues/291
+  forceExit: true,
+
   // Indicates whether the coverage information should be collected while executing the test
   // collectCoverage: false,
 
@@ -63,7 +68,7 @@ module.exports = {
   // ],
 
   // Indicates which provider should be used to instrument code for coverage
-  coverageProvider: "v8",
+  coverageProvider: 'v8',
 
   // A list of reporter names that Jest uses when writing coverage reports
   // coverageReporters: [
@@ -121,7 +126,7 @@ module.exports = {
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
-    '^axios$': '../../Common/node_modules/axios/dist/node/axios.cjs',
+    '^axios$': '../../Common/node_modules/axios/dist/node/axios.cjs'
   },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
@@ -185,9 +190,7 @@ module.exports = {
   // testLocationInResults: false,
 
   // The glob patterns Jest uses to detect test files
-  testMatch: [
-    "**/?(*.)+(spec|tests).[tj]s?(x)"
-  ],
+  testMatch: ['**/?(*.)+(spec|tests).[tj]s?(x)']
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
   // testPathIgnorePatterns: [

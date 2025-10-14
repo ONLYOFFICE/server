@@ -32,87 +32,198 @@
 
 'use strict';
 
-const util = require("util");
+const os = require('os');
+const util = require('util');
 const config = require('config');
-const exifParser = require('exif-parser');
-//set global window to fix issue https://github.com/photopea/UTIF.js/issues/130
-if (!global.window) {
-  global.window = global;
-}
-const Jimp = require('jimp');
 const locale = require('windows-locale');
 const ms = require('ms');
+const decodeHeic = require('heic-decode');
+const operationContext = require('./../../Common/sources/operationContext');
 
-const tenantManager = require('../../Common/sources/tenantManager');
-const { notificationTypes, ...notificationService } = require('../../Common/sources/notificationService');
+function initializeSharp() {
+  let originalValues = {};
+  try {
+    const tmp = os.tmpdir();
+    // Save original values
+    originalValues = {
+      XDG_CACHE_HOME: process.env.XDG_CACHE_HOME,
+      HOME: process.env.HOME
+    };
+    // Set temporary values for Sharp initialization
+    process.env.XDG_CACHE_HOME = tmp;
+    process.env.HOME = tmp;
+
+    sharp = require('sharp');
+  } catch (error) {
+    operationContext.global.logger.warn('Sharp module failed to load. Image processing functionality will be limited.');
+    operationContext.global.logger.warn('Sharp load error:', error.message);
+  } finally {
+    // Restore original values
+    Object.keys(originalValues).forEach(key => {
+      if (originalValues[key] !== undefined) {
+        process.env[key] = originalValues[key];
+      } else {
+        delete process.env[key];
+      }
+    });
+  }
+
+  if (sharp) {
+    // todo test.
+    // Set concurrency to 2 for better performance
+    sharp.concurrency(2);
+    // Disable cache - not needed for one-time image conversion (writes to ./.cache dir)
+    sharp.cache(false);
+  }
+}
+
+// Load Sharp with graceful fallback for pkg-builds and missing dependencies
+let sharp = null;
+initializeSharp();
+
+const {notificationTypes, ...notificationService} = require('../../Common/sources/notificationService');
 
 const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
 const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template');
 const cfgNotificationRuleLicenseExpirationError = config.get('notification.rules.licenseExpirationError.template');
 
-async function fixImageExifRotation(ctx, buffer) {
-  if (!buffer) {
+/**
+ * Determine optimal format (PNG vs JPEG) for image conversion based on image characteristics.
+ * @param {operationContext} ctx Operation context for logging
+ * @param {Object} metadata Image metadata from sharp
+ * @returns {('png'|'jpeg')} Optimal format for conversion
+ */
+function determineOptimalFormat(ctx, metadata) {
+  // If image has alpha channel, only PNG can preserve transparency
+  if (metadata.hasAlpha) {
+    return 'png';
+  }
+
+  // Analyze color characteristics
+  const width = metadata.width || 0;
+  const height = metadata.height || 0;
+
+  // Small images (likely icons/logos) - prefer PNG
+  // Only apply when dimensions are known (greater than zero)
+  if (width > 0 && height > 0 && width <= 256 && height <= 256) {
+    return 'png';
+  }
+
+  // Large photographic images - prefer JPEG
+  if (width > 800 || height > 600) {
+    return 'jpeg';
+  }
+
+  // Default to JPEG for general compatibility and smaller file sizes
+  return 'jpeg';
+}
+
+/**
+ * Convert Sharp pipeline to buffer in optimal format (PNG or JPEG).
+ * @param {Object} pipeline Sharp pipeline instance
+ * @param {string} format Target format ('png' or 'jpeg')
+ * @returns {Promise<Buffer>} Converted image buffer
+ */
+async function convertToFormat(pipeline, format) {
+  if (format === 'png') {
+    return await pipeline.png({compressionLevel: 7}).toBuffer();
+  }
+  return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
+}
+
+/**
+ * Decode HEIC/HEIF buffer using heic-decode library and create Sharp instance.
+ * @param {Buffer} buffer HEIC/HEIF image buffer
+ * @returns {Promise<Object>} Sharp instance with decoded raw image data
+ */
+async function decodeHeicToSharp(buffer) {
+  const decodedImage = await decodeHeic({buffer});
+  return sharp(decodedImage.data, {
+    failOn: 'none',
+    raw: {
+      width: decodedImage.width,
+      height: decodedImage.height,
+      channels: 4
+    }
+  });
+}
+
+/**
+ * Process and optimize image buffer with EXIF rotation fix and modern format conversion.
+ * 1. Fixes EXIF rotation and strips metadata for all images
+ * 2. Converts modern/unsupported formats to optimal formats:
+ *    - WebP/HEIC/HEIF/AVIF/TIFF: Convert to optimal format (PNG or JPEG) based on image characteristics
+ * @param {operationContext} ctx Operation context for logging
+ * @param {Buffer} buffer Source image bytes
+ * @returns {Promise<Buffer>} Processed and optimally converted buffer or original buffer
+ */
+async function processImageOptimal(ctx, buffer) {
+  if (!buffer) return buffer;
+
+  // Check if Sharp is available
+  if (!sharp) {
+    ctx.logger.warn('processImageOptimal: Sharp module not available, returning original buffer. Image processing disabled.');
     return buffer;
   }
-  //todo move to DocService dir common
+
   try {
-    let parser = exifParser.create(buffer);
-    let exif = parser.parse();
-    if (exif.tags?.Orientation > 1) {
-      ctx.logger.debug('fixImageExifRotation remove exif and rotate:%j', exif);
-      buffer = convertImageTo(ctx, buffer, Jimp.AUTO);
+    const meta = await sharp(buffer, {failOn: 'none'}).metadata();
+    const fmt = (meta.format || '').toLowerCase();
+    const needsRotation = meta.orientation && meta.orientation > 1;
+
+    // Handle modern formats requiring conversion
+    if (fmt === 'heic' || fmt === 'heif' || fmt === 'webp' || fmt === 'avif' || fmt === 'tiff' || fmt === 'tif') {
+      const optimalFormat = determineOptimalFormat(ctx, meta);
+      ctx.logger.debug('processImageOptimal: converting %s to %s%s', fmt, optimalFormat, needsRotation ? ' with rotation' : '');
+
+      try {
+        const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
+        return await convertToFormat(pipeline, optimalFormat);
+      } catch (sharpError) {
+        // Fallback to heic-decode for HEIC/HEIF when Sharp fails
+        if (fmt === 'heic' || fmt === 'heif') {
+          ctx.logger.debug('processImageOptimal: Sharp failed for %s, using heic-decode fallback', fmt);
+          const heicPipeline = await decodeHeicToSharp(buffer);
+          return await convertToFormat(heicPipeline, optimalFormat);
+        }
+        throw sharpError;
+      }
+    }
+
+    // For standard formats, only apply EXIF rotation if needed
+    if (needsRotation) {
+      ctx.logger.debug('processImageOptimal: applying EXIF rotation to %s', fmt);
+      const pipeline = sharp(buffer, {failOn: 'none'}).rotate();
+
+      if (fmt === 'jpeg' || fmt === 'jpg') {
+        return await pipeline.jpeg({quality: 90, chromaSubsampling: '4:4:4'}).toBuffer();
+      }
+      if (fmt === 'png') {
+        return await pipeline.png({compressionLevel: 7}).toBuffer();
+      }
+      return await pipeline.toBuffer();
     }
   } catch (e) {
-    ctx.logger.debug('fixImageExifRotation error:%s', e.stack);
+    ctx.logger.debug('processImageOptimal error: %s', e.stack);
   }
+
   return buffer;
 }
-async function convertImageToPng(ctx, buffer) {
-  return await convertImageTo(ctx, buffer, Jimp.MIME_PNG);
-}
-async function convertImageTo(ctx, buffer, mime) {
-  try {
-    ctx.logger.debug('convertImageTo %s', mime);
-    let image = await Jimp.read(buffer);
-    //remove exif
-    image.bitmap.exifBuffer = undefined;
-    //set jpeg and png quality
-    //https://www.imagemagick.org/script/command-line-options.php#quality
-    image.quality(90);
-    image.deflateLevel(7);
-    buffer = await image.getBufferAsync(mime);
-  } catch (e) {
-    ctx.logger.debug('convertImageTo error:%s', e.stack);
-  }
-  return buffer;
-}
+
 /**
  *
  * @param {string} lang
  * @returns {number | undefined}
  */
 function localeToLCID(lang) {
-  let elem = locale[lang && lang.toLowerCase()];
+  const elem = locale[lang && lang.toLowerCase()];
   return elem && elem.id;
 }
 
 function humanFriendlyExpirationTime(endTime) {
-  const month = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December'
-  ];
+  const month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-  return `${month[endTime.getUTCMonth()]} ${endTime.getUTCDate()}, ${endTime.getUTCFullYear()}`
+  return `${month[endTime.getUTCMonth()]} ${endTime.getUTCDate()}, ${endTime.getUTCFullYear()}`;
 }
 
 /**
@@ -134,15 +245,21 @@ async function notifyLicenseExpiration(ctx, endDate) {
       endDate = currentDate;
     }
     const formattedExpirationTime = humanFriendlyExpirationTime(endDate);
-    const applicationName = (process.env.APPLICATION_NAME || "").toUpperCase();
+    const applicationName = (process.env.APPLICATION_NAME || '').toUpperCase();
     if (endDate <= currentDate) {
-      const tenNotificationRuleLicenseExpirationError = ctx.getCfg('notification.rules.licenseExpirationError.template', cfgNotificationRuleLicenseExpirationError);
+      const tenNotificationRuleLicenseExpirationError = ctx.getCfg(
+        'notification.rules.licenseExpirationError.template',
+        cfgNotificationRuleLicenseExpirationError
+      );
       const title = util.format(tenNotificationRuleLicenseExpirationError.title, applicationName);
       const message = util.format(tenNotificationRuleLicenseExpirationError.body, formattedExpirationTime);
       ctx.logger.error(message);
       await notificationService.notify(ctx, notificationTypes.LICENSE_EXPIRATION_ERROR, title, message);
     } else {
-      const tenNotificationRuleLicenseExpirationWarning = ctx.getCfg('notification.rules.licenseExpirationWarning.template', cfgNotificationRuleLicenseExpirationWarning);
+      const tenNotificationRuleLicenseExpirationWarning = ctx.getCfg(
+        'notification.rules.licenseExpirationWarning.template',
+        cfgNotificationRuleLicenseExpirationWarning
+      );
       const title = util.format(tenNotificationRuleLicenseExpirationWarning.title, applicationName);
       const message = util.format(tenNotificationRuleLicenseExpirationWarning.body, formattedExpirationTime);
       ctx.logger.warn(message);
@@ -151,7 +268,7 @@ async function notifyLicenseExpiration(ctx, endDate) {
   }
 }
 
-module.exports.fixImageExifRotation = fixImageExifRotation;
-module.exports.convertImageToPng = convertImageToPng;
+module.exports.processImageOptimal = processImageOptimal;
+module.exports.determineOptimalFormat = determineOptimalFormat;
 module.exports.localeToLCID = localeToLCID;
 module.exports.notifyLicenseExpiration = notifyLicenseExpiration;

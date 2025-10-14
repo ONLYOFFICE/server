@@ -1,0 +1,57 @@
+.securitySettings {
+  padding: 0;
+}
+
+.pageWithFixedSave {
+  padding-bottom: 40px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-family: 'Open Sans', sans-serif;
+  color: #666666;
+}
+
+.tabPanel {
+  background: white;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+
+  h3 {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 150%;
+    color: #333333;
+    margin: 0 0 16px 0;
+  }
+
+  p {
+    font-family: 'Open Sans', sans-serif;
+    font-size: 14px;
+    line-height: 150%;
+    color: #666666;
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.error {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 12px;
+  color: #dc3545;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+}

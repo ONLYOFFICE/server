@@ -1,0 +1,24 @@
+{
+  "licenseInfo": {
+    "packageType": 1,
+    "buildDate": "2025-07-01T00:00:00Z",
+    "mode": 0,
+    "endDate": "2025-09-01T00:00:00Z",
+    "type": 0,
+    "startDate": "2025-07-01T00:00:00Z",
+    "usersCount": 100,
+    "usersViewCount": 80,
+    "usersExpire": 2592000
+  },
+  "serverInfo": {
+    "buildVersion": "8.2",
+    "buildNumber": "2006",
+    "date": "2025-09-10T12:00:00Z"
+  },
+  "quota": {
+    "edit": {"usersCount": {"unique": 50, "anonymous": 5}},
+    "view": {"usersCount": {"unique": 40, "anonymous": 4}},
+    "byMonth": []
+  },
+  "connectionsStat": {}
+}

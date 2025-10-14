@@ -1,0 +1,65 @@
+.saveButton {
+  background: #ff6f3d;
+  width: 154px;
+  height: 48px;
+  padding: 13px 24px;
+  border-radius: 6px;
+  border: none;
+  color: white;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover:not(:disabled) {
+    background: #e55a2b;
+  }
+
+  &--disabled {
+    background: #ffd4c5;
+    cursor: not-allowed;
+  }
+
+  &--loading {
+    background: #ff6f3d;
+    cursor: wait;
+  }
+
+  &--success {
+    background: #8bb825;
+  }
+
+  &--error {
+    background: #cb0000;
+  }
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+
+  // Spinning animation for the spinner
+  .saveButton--loading & {
+    animation: spin 1s linear infinite;
+  }
+
+  // Smaller size for success and fail icons
+  .saveButton--success &,
+  .saveButton--error & {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

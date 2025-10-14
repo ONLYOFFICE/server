@@ -1,0 +1,156 @@
+.accessRules {
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 32px;
+}
+
+.title {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 150%;
+  color: #333333;
+  margin: 0 0 8px 0;
+}
+
+.description {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 150%;
+  color: #666666;
+  margin: 0 0 24px 0;
+}
+
+.addRule {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.inputWrapper {
+  flex: 1;
+}
+
+.addButton {
+  background: #ff6f3d;
+  color: #ffffff;
+  border: none;
+  height: 48px;
+  padding: 12px 20px;
+  border-radius: 4px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-style: normal;
+  font-size: 16px;
+  line-height: 133%;
+  letter-spacing: 0em;
+  text-align: center;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover:not(:disabled) {
+    background: #e55a2b;
+  }
+
+  &:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+  }
+}
+
+.rulesList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  height: 64px;
+  padding: 0 0 0 16px;
+  border-bottom: 1px solid #efefef;
+}
+
+.ruleType {
+  width: 64px;
+  height: 30px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Ubuntu Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 18px;
+  line-height: 120%;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  box-sizing: border-box;
+
+  &--allow {
+    background: #dbf5e5;
+    color: #228047;
+  }
+
+  &--deny {
+    background: #f9d9db;
+    color: #ab1c26;
+  }
+}
+
+.ruleValue {
+  flex: 1;
+  font-family: 'Ubuntu Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 18px;
+  line-height: 120%;
+  letter-spacing: 0.02em;
+  color: #333333;
+  margin: 0 32px;
+}
+
+.removeButton {
+  background: none;
+  border: 1px solid #aaaaaa;
+  color: #444444;
+  width: 111px;
+  height: 48px;
+  border-radius: 4px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-style: normal;
+  font-size: 16px;
+  line-height: 133%;
+  letter-spacing: 0em;
+  text-align: center;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  &:hover {
+    border-color: #888888;
+    color: #222222;
+  }
+}
+
+.emptyState {
+  text-align: center;
+  color: #999999;
+  font-style: italic;
+  padding: 24px;
+}

@@ -1,0 +1,399 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:onlyoffice:config:superset:1",
+  "title": "Config Patch Schema (Superset for Admin and Tenant)",
+  "description": "Superset schema with x-scope markers. Use at runtime to derive per-scope schemas.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "aiSettings": {
+      "type": "object",
+      "description": "AI integration settings for document processing and AI-powered features",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "description": "AI settings schema version",
+          "minimum": 1,
+          "x-scope": ["admin", "tenant"]
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Default timeout for AI API requests (e.g., '5m', '30s')",
+          "x-scope": ["admin", "tenant"]
+        },
+        "proxy": {
+          "type": "string",
+          "description": "Proxy URL for AI API requests",
+          "x-scope": ["admin", "tenant"]
+        },
+        "allowedCorsOrigins": {
+          "type": "array",
+          "description": "Array of allowed CORS origins for AI API requests",
+          "x-scope": ["admin", "tenant"],
+          "items": {
+            "type": "string",
+            "description": "Allowed origin URL"
+          }
+        },
+        "actions": {
+          "type": "object",
+          "description": "Available AI actions/features configuration",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"]
+        },
+        "providers": {
+          "type": "object",
+          "description": "AI service providers configuration",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"]
+        },
+        "customProviders": {
+          "type": "object",
+          "description": "Custom AI service providers configuration",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"]
+        },
+        "models": {
+          "type": "array",
+          "description": "Active AI models configuration",
+          "x-scope": ["admin", "tenant"],
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "services": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "CoAuthoring": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "expire": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "filesCron": {"type": "string", "format": "cron6", "x-scope": "admin"},
+                "documentsCron": {"type": "string", "format": "cron6", "x-scope": "admin"},
+                "files": {"type": "integer", "minimum": 0, "x-scope": "admin"},
+                "filesremovedatonce": {"type": "integer", "minimum": 0, "x-scope": "admin"},
+                "sessionidle": {"type": "string", "x-scope": ["admin", "tenant"]},
+                "sessionabsolute": {"type": "string", "x-scope": ["admin", "tenant"]}
+              }
+            },
+            "request-filtering-agent": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "allowPrivateIPAddress": {
+                  "type": "boolean",
+                  "description": "Whether to allow requests from private IP addresses"
+                },
+                "allowMetaIPAddress": {
+                  "type": "boolean",
+                  "description": "Whether to allow requests from meta IP addresses"
+                }
+              }
+            },
+            "autoAssembly": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "step": {"type": "string", "enum": ["1m", "5m", "10m", "15m", "30m"]}
+              }
+            },
+            "ipfilter": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "rules": {
+                  "type": "array",
+                  "description": "Array of IP filtering rules",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["address", "allowed"],
+                    "properties": {
+                      "address": {
+                        "type": "string",
+                        "description": "IP address, CIDR notation, or '*' for all (e.g., '192.168.1.0/24', '10.0.0.1', '*')"
+                      },
+                      "allowed": {
+                        "type": "boolean",
+                        "description": "Whether this address/range is allowed (true) or denied (false)"
+                      }
+                    }
+                  }
+                },
+                "useforrequest": {
+                  "type": "boolean",
+                  "description": "Whether to use IP filtering for requests"
+                },
+                "errorcode": {
+                  "type": "integer",
+                  "minimum": 400,
+                  "maximum": 599,
+                  "description": "HTTP error code to return when IP is not allowed"
+                }
+              }
+            },
+            "sql": {
+              "type": "object",
+              "description": "Database connection settings for the CoAuthoring service",
+              "additionalProperties": false,
+              "x-scope": "admin",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "Database type (e.g., 'mysql', 'mariadb', 'mssql', 'postgres', 'dameng', 'oracle')",
+                  "examples": ["postgres"]
+                },
+                "dbHost": {
+                  "type": "string",
+                  "description": "Database host name or IP address",
+                  "examples": ["localhost"]
+                },
+                "dbPort": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535,
+                  "description": "Database TCP port",
+                  "examples": [5432]
+                },
+                "dbName": {
+                  "type": "string",
+                  "description": "Database name",
+                  "examples": ["onlyoffice"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "FileConverter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "converter": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 10485760000, "x-scope": ["admin", "tenant"]},
+            "inputLimits": {
+              "type": "array",
+              "x-scope": ["admin", "tenant"],
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type"],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "description": "File types this limit applies to (e.g., 'docx;dotx;docm;dotm')"
+                  },
+                  "zip": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "uncompressed": {
+                        "type": "string",
+                        "description": "Maximum uncompressed size (e.g., '50MB', '300MB')"
+                      },
+                      "template": {
+                        "type": "string",
+                        "description": "Template pattern for file matching (e.g., '*.xml')"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "wopi": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "enable": {"type": "boolean"},
+        "publicKey": {"type": "string"},
+        "refreshLockInterval": {
+          "type": "string",
+          "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+          "description": "Refresh lock interval in time format (e.g., '10m', '1h', '30s')"
+        }
+      }
+    },
+    "email": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "smtpServerConfiguration": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "host": {"type": "string"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "auth": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "user": {"type": "string"},
+                "pass": {"type": "string"}
+              }
+            }
+          }
+        },
+        "contactDefaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "from": {"type": "string", "format": "email"},
+            "to": {"type": "string", "format": "email"}
+          }
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": true,
+      "x-scope": "admin",
+      "properties": {
+        "options": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "categories": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "default": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "level": {
+                      "type": "string",
+                      "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
+                      "description": "Logging level for the application"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "rules": {
+          "type": "object",
+          "additionalProperties": false,
+          "x-scope": ["admin", "tenant"],
+          "properties": {
+            "licenseExpirationWarning": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseExpirationError": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseLimitEdit": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseLimitLiveViewer": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

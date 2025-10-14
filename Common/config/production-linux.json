@@ -2,9 +2,6 @@
   "log": {
     "filePath": "/etc/onlyoffice/documentserver/log4js/production.json"
   },
-  "aiSettings": {
-    "pluginDir" : "/var/www/onlyoffice/documentserver/server/info/ai"
-  },
   "runtimeConfig": {
     "filePath": "/var/www/onlyoffice/documentserver/../Data/runtime.json"
   },
@@ -14,12 +11,12 @@
     }
   },
   "wopi": {
-    "htmlTemplate" : "/var/www/onlyoffice/documentserver/web-apps/apps/api/wopi"
+    "htmlTemplate": "/var/www/onlyoffice/documentserver/web-apps/apps/api/wopi"
   },
   "services": {
     "CoAuthoring": {
       "server": {
-        "newFileTemplate" : "/var/www/onlyoffice/documentserver/document-templates/new",
+        "newFileTemplate": "/var/www/onlyoffice/documentserver/document-templates/new",
         "static_content": {
           "/fonts": {
             "path": "/var/www/onlyoffice/documentserver/fonts",
