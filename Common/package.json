@@ -24,7 +24,7 @@
     "node-cache": "5.1.2",
     "node-statsd": "0.1.1",
     "nodemailer": "6.10.0",
-    "request-filtering-agent": "1.0.5",
+    "request-filtering-agent": "2.0.0",
     "rhea": "3.0.3",
     "uri-js-replace": "1.0.1",
     "win-ca": "3.5.1"
