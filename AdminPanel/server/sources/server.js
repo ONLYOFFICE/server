@@ -42,7 +42,6 @@ const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManag
 
 const express = require('express');
 const http = require('http');
-const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const infoRouter = require('../../../DocService/sources/routes/info');
@@ -52,9 +51,11 @@ const adminpanelRouter = require('./routes/adminpanel/router');
 const wopiRouter = require('./routes/wopi/router');
 const passwordManager = require('./passwordManager');
 const bootstrap = require('./bootstrap');
+const devProxy = require('./devProxy');
 
 const port = config.get('adminPanel.port');
 const cfgLicenseFile = config.get('license.license_file');
+const cfgCoAuthoringPort = config.get('services.CoAuthoring.server.port');
 
 const app = express();
 app.disable('x-powered-by');
@@ -111,12 +112,10 @@ setInterval(updateLicense, 86400000);
   }
 })();
 
-const corsWithCredentials = cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-});
+// Development mode setup: CORS + DocService proxy
+if (process.env.NODE_ENV.startsWith('development-')) {
+  app.use(devProxy.getDevCors());
+}
 
 operationContext.global.logger.warn('AdminPanel server starting...');
 
@@ -129,26 +128,54 @@ function disableCache(req, res, next) {
   next();
 }
 
-app.use('/api/v1/admin/config', corsWithCredentials, utils.checkClientIp, disableCache, configRouter);
-app.use('/api/v1/admin/wopi', corsWithCredentials, utils.checkClientIp, disableCache, wopiRouter);
-app.use('/api/v1/admin', corsWithCredentials, utils.checkClientIp, disableCache, adminpanelRouter);
-app.get('/api/v1/admin/stat', corsWithCredentials, utils.checkClientIp, disableCache, async (req, res) => {
+// API routes under /admin prefix
+app.use('/admin/api/v1/config', utils.checkClientIp, disableCache, configRouter);
+app.use('/admin/api/v1/wopi', utils.checkClientIp, disableCache, wopiRouter);
+app.use('/admin/api/v1', utils.checkClientIp, disableCache, adminpanelRouter);
+app.get('/admin/api/v1/stat', utils.checkClientIp, disableCache, async (req, res) => {
   await infoRouter.licenseInfo(req, res);
 });
-// Serve AdminPanel client build as static assets
-const clientBuildPath = path.resolve('client/build');
-app.use('/', express.static(clientBuildPath));
 
+// Serve AdminPanel client build as static assets under /admin
+const clientBuildPath = path.resolve('client/build');
+
+/**
+ * Custom middleware to handle /admin redirect with relative path
+ * Prevents express.static from doing absolute 302 redirect
+ */
+app.use('/admin', (req, res, next) => {
+  // If path is exactly /admin (no trailing slash), redirect relatively
+  if ((req.path === '' || req.path === '/') && !req.originalUrl.endsWith('/')) {
+    // Relative redirect preserves virtual path prefix
+    return res.redirect(302, 'admin/');
+  }
+  next();
+});
+
+app.use('/admin', express.static(clientBuildPath));
+
+/**
+ * Serves SPA index.html for client-side routing
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {Function} next - Express next middleware
+ */
 function serveSpaIndex(req, res, next) {
-  if (req.path.startsWith('/api')) return next();
+  if (req.path.startsWith('/admin/api')) return next();
 
   // Disable caching for SPA index.html to ensure updates work
   disableCache(req, res, () => {});
 
   res.sendFile(path.join(clientBuildPath, 'index.html'));
 }
-// Client SPA routes fallback
-app.get('*', serveSpaIndex);
+
+// Client SPA routes fallback for /admin/*
+app.get('/admin/*', serveSpaIndex);
+
+// Development mode: proxy non-/admin requests to DocService (must be last)
+if (process.env.NODE_ENV.startsWith('development-')) {
+  devProxy.setupDevProxy(app, server, cfgCoAuthoringPort);
+}
 
 app.use((err, req, res, _next) => {
   const ctx = new operationContext.Context();
