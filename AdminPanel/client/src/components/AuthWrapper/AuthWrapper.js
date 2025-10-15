@@ -23,9 +23,8 @@ export default function AuthWrapper({children}) {
         const result = await checkSetupRequired();
         setSetupRequired(result.setupRequired);
       } catch (error) {
-        if (error.message === 'SERVER_UNAVAILABLE') {
-          setServerUnavailable(true);
-        }
+        console.error('Error checking setup:', error);
+        setServerUnavailable(true);
       } finally {
         setCheckingSetup(false);
       }
