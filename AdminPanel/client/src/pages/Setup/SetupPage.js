@@ -2,8 +2,10 @@ import {useState, useRef} from 'react';
 import {useDispatch} from 'react-redux';
 import {setupAdminPassword} from '../../api';
 import {fetchUser} from '../../store/slices/userSlice';
-import Input from '../../components/LoginInput';
+import Input from '../../components/Input/Input';
 import Button from '../../components/LoginButton';
+import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
+import {validatePasswordStrength} from '../../utils/passwordValidation';
 import styles from './styles.module.css';
 
 export default function Setup() {
@@ -13,6 +15,24 @@ export default function Setup() {
   const [errors, setErrors] = useState({});
   const dispatch = useDispatch();
   const buttonRef = useRef();
+
+  // Check if form can be submitted
+  const canSubmit = () => {
+    if (!bootstrapToken.trim() || !password || !confirmPassword) {
+      return false;
+    }
+    
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      return false;
+    }
+    
+    if (password !== confirmPassword) {
+      return false;
+    }
+    
+    return true;
+  };
 
   const handleSubmit = async () => {
     setErrors({});
@@ -26,8 +46,11 @@ export default function Setup() {
 
     if (!password) {
       newErrors.password = 'Password is required';
-    } else if (password.length > 128) {
-      newErrors.password = 'Password must not exceed 128 characters';
+    } else {
+      const passwordValidation = validatePasswordStrength(password);
+      if (!passwordValidation.isValid) {
+        newErrors.password = passwordValidation.errorMessage;
+      }
     }
 
     if (!confirmPassword) {
@@ -80,19 +103,17 @@ export default function Setup() {
               value={bootstrapToken}
               onChange={setBootstrapToken}
               placeholder='Enter bootstrap token'
-              description='Get token from server startup logs'
               error={errors.bootstrapToken}
               onKeyDown={handleKeyDown}
             />
           </div>
 
           <div className={styles.inputGroup}>
-            <Input
+            <PasswordInputWithRequirements
               type='password'
               value={password}
               onChange={setPassword}
               placeholder='Enter your password'
-              description='Any non-empty password, maximum 128 characters'
               error={errors.password}
               onKeyDown={handleKeyDown}
             />
@@ -104,13 +125,17 @@ export default function Setup() {
               value={confirmPassword}
               onChange={setConfirmPassword}
               placeholder='Confirm your password'
-              description='Re-enter your password'
               error={errors.confirmPassword}
               onKeyDown={handleKeyDown}
             />
+            <div className={styles.passwordMismatch}>
+              {password && confirmPassword && password !== confirmPassword && validatePasswordStrength(password).isValid && (
+                'Passwords don\'t match'
+              )}
+            </div>
           </div>
 
-          <Button ref={buttonRef} onClick={handleSubmit} errorText='FAILED'>
+          <Button ref={buttonRef} onClick={handleSubmit} errorText='FAILED' disabled={!canSubmit()}>
             SETUP
           </Button>
         </div>

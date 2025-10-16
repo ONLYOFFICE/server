@@ -2,7 +2,7 @@ import {useState, useRef} from 'react';
 import {useDispatch} from 'react-redux';
 import {fetchUser} from '../../store/slices/userSlice';
 import {login} from '../../api';
-import Input from '../../components/LoginInput';
+import Input from '../../components/Input/Input';
 import Button from '../../components/LoginButton';
 import styles from './styles.module.css';
 
@@ -48,9 +48,9 @@ export default function Login() {
               value={password}
               onChange={setPassword}
               placeholder='Enter your password'
-              description='Admin panel password'
               error={error}
               onKeyDown={handleKeyDown}
+              width='200px'
             />
           </div>
 
