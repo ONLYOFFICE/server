@@ -4,6 +4,8 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Input from '../../components/Input/Input';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
+import {validatePasswordStrength} from '../../utils/passwordValidation';
 import styles from './ChangePassword.module.scss';
 
 function ChangePassword() {
@@ -12,6 +14,24 @@ function ChangePassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // Check if form can be submitted
+  const canSubmit = () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return false;
+    }
+    
+    const passwordValidation = validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      return false;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return false;
+    }
+    
+    return true;
+  };
 
   const handlePasswordChange = async () => {
     setPasswordError('');
@@ -28,8 +48,9 @@ function ChangePassword() {
       throw new Error('Validation failed');
     }
 
-    if (newPassword.length > 128) {
-      setPasswordError('Password must not exceed 128 characters');
+    const passwordValidation = validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      setPasswordError(passwordValidation.errorMessage);
       throw new Error('Validation failed');
     }
 
@@ -71,25 +92,32 @@ function ChangePassword() {
               description='Your current admin password'
             />
 
-            <Input
+            <PasswordInputWithRequirements
               label='New Password'
               type='password'
               value={newPassword}
               onChange={setNewPassword}
               placeholder='Enter new password'
-              description='Any non-empty password, maximum 128 characters'
+              description='Create a strong password'
             />
 
-            <Input
-              label='Confirm New Password'
-              type='password'
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              placeholder='Confirm new password'
-              description='Re-enter your new password'
-            />
+            <div className={styles.confirmPasswordGroup}>
+              <Input
+                label='Confirm New Password'
+                type='password'
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder='Confirm new password'
+                description='Re-enter your new password'
+              />
+              <div className={styles.passwordMismatch}>
+                {newPassword && confirmPassword && newPassword !== confirmPassword && validatePasswordStrength(newPassword).isValid && (
+                  'Passwords don\'t match'
+                )}
+              </div>
+            </div>
 
-            <FixedSaveButton onClick={handlePasswordChange} />
+            <FixedSaveButton onClick={handlePasswordChange} disabled={!canSubmit()} />
           </div>
         </div>
       </div>
