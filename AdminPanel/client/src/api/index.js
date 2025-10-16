@@ -48,6 +48,7 @@ export const updateConfiguration = async configData => {
     body: JSON.stringify(configData)
   });
   if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
     let errorMessage = 'Configuration update failed';
     try {
       const errorData = await response.json();
@@ -62,10 +63,9 @@ export const updateConfiguration = async configData => {
 
 export const fetchCurrentUser = async () => {
   const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/me`, {credentials: 'include'});
-  if (!response.ok) throw new Error('Failed to fetch current user');
   const data = await response.json();
   if (data && data.authorized === false) {
-    throw new Error('Unauthorized');
+    throw new Error('UNAUTHORIZED');
   }
   return data;
 };
@@ -127,6 +127,7 @@ export const changePassword = async ({currentPassword, newPassword}) => {
     body: JSON.stringify({currentPassword, newPassword})
   });
   if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
     let errorMessage = 'Password change failed';
     try {
       const errorData = await response.json();
@@ -156,6 +157,7 @@ export const rotateWopiKeys = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
     let errorMessage = 'Failed to rotate WOPI keys';
     try {
       const errorData = await response.json();
@@ -183,7 +185,10 @@ export const resetConfiguration = async () => {
     headers: {'Content-Type': 'application/json'},
     credentials: 'include'
   });
-  if (!response.ok) throw new Error('Failed to reset configuration');
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error('Failed to reset configuration');
+  }
   return response.json();
 };
 
