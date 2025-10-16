@@ -10,7 +10,7 @@ import {
   fetchConfig,
   fetchSchema
 } from '../../store/slices/configSlice';
-import Button from '../LoginButton';
+import Button from '../Button/Button';
 
 const ConfigLoader = ({children}) => {
   const dispatch = useDispatch();

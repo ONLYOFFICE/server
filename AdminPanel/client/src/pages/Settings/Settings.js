@@ -1,5 +1,5 @@
 import {resetConfiguration} from '../../api';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import Button from '../../components/Button/Button';
 import './Settings.scss';
 
 const Settings = () => {
@@ -25,7 +25,7 @@ const Settings = () => {
               <p>This will reset all configuration settings to their default values. This action cannot be undone.</p>
             </div>
             <div className='settings-actions'>
-              <SaveButton onClick={handleResetConfig}>Reset</SaveButton>
+              <Button onClick={handleResetConfig}>Reset</Button>
             </div>
           </div>
         </div>
