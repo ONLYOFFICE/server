@@ -100,6 +100,10 @@ const upsertCases = {
   insert: 'baseConnector-upsert()-tester-row-inserted',
   update: 'baseConnector-upsert()-tester-row-updated'
 };
+const updateIfCases = {
+  notEmpty: 'baseConnector-updateIf()-tester-not-empty-callback',
+  emptyCallback: 'baseConnector-updateIf()-tester-empty-callback'
+};
 
 function createChanges(changesLength, date) {
   const objChanges = [
@@ -203,9 +207,10 @@ afterAll(async () => {
   const insertIds = Object.values(insertCases);
   const changesIds = Object.values(changesCases);
   const upsertIds = Object.values(upsertCases);
+  const updateIfIds = Object.values(updateIfCases);
 
   const tableChangesIds = [...emptyCallbacksCase, ...documentsWithChangesCase, ...changesIds, ...insertIds];
-  const tableResultIds = [...emptyCallbacksCase, ...documentsWithChangesCase, ...getExpiredCase, ...getCountWithStatusCase, ...upsertIds];
+  const tableResultIds = [...emptyCallbacksCase, ...documentsWithChangesCase, ...getExpiredCase, ...getCountWithStatusCase, ...upsertIds, ...updateIfIds];
 
   const deletionPool = [
     deleteRowsByIds(cfgTableChanges, tableChangesIds),
@@ -467,6 +472,45 @@ describe('Base database connector', () => {
 
       const expectedUrlChanges = [{id: task.key, baseurl: 'some-updated-url'}];
       expect(updatedRow).toEqual(expectedUrlChanges);
+    });
+  });
+
+  describe('updateIf() method', () => {
+    test('Update with NOT_EMPTY callback mask', async () => {
+      const date = new Date();
+      const taskWithCallback = createTask(updateIfCases.notEmpty, 'http://example.com/callback');
+      const taskEmptyCallback = createTask(updateIfCases.emptyCallback, '');
+
+      // Insert two rows: one with callback, one without
+      await Promise.all([
+        insertIntoResultTable(date, taskWithCallback),
+        insertIntoResultTable(date, taskEmptyCallback)
+      ]);
+
+      // Update mask: only update rows with non-empty callback and status=None
+      const mask = new taskResult.TaskResultData();
+      mask.tenant = ctx.tenant;
+      mask.key = taskWithCallback.key;
+      mask.status = commonDefines.FileStatus.None;
+      mask.callback = 'NOT_EMPTY';
+
+      // Update task: change status to SaveVersion
+      const updateTask = new taskResult.TaskResultData();
+      updateTask.status = commonDefines.FileStatus.SaveVersion;
+      updateTask.statusInfo = constants.NO_ERROR;
+
+      const result = await taskResult.updateIf(ctx, updateTask, mask);
+
+      // Should update exactly 1 row (the one with callback)
+      expect(result.affectedRows).toEqual(1);
+
+      // Verify the row with callback was updated
+      const updatedRow = await executeSql(`SELECT status FROM ${cfgTableResult} WHERE id = '${taskWithCallback.key}';`);
+      expect(updatedRow[0].status).toEqual(commonDefines.FileStatus.SaveVersion);
+
+      // Verify the row without callback was NOT updated
+      const notUpdatedRow = await executeSql(`SELECT status FROM ${cfgTableResult} WHERE id = '${taskEmptyCallback.key}';`);
+      expect(notUpdatedRow[0].status).toEqual(commonDefines.FileStatus.None);
     });
   });
 });
