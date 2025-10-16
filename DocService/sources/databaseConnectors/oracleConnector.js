@@ -445,6 +445,16 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
   return result;
 }
 
+/**
+ * Generate SQL condition to check if a field is not empty
+ * Oracle-specific: NCLOB cannot be compared with != operator, and empty strings are NULL
+ * @param {string} fieldName - Name of the field to check
+ * @returns {string} SQL condition string
+ */
+function getNotEmptyCondition(fieldName) {
+  return `${fieldName} IS NOT NULL`;
+}
+
 module.exports = {
   sqlQuery,
   closePool,
@@ -456,5 +466,6 @@ module.exports = {
   getDocumentsWithChanges,
   getExpired,
   upsert,
-  insertChanges
+  insertChanges,
+  getNotEmptyCondition
 };

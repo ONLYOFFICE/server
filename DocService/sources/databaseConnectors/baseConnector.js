@@ -439,6 +439,17 @@ function getTableColumns(ctx, tableName) {
   });
 }
 
+/**
+ * Generate SQL condition to check if a field is not empty (fallback implementation)
+ * Database-specific connectors can override this function
+ * @param {string} fieldName - Name of the field to check
+ * @returns {string} SQL condition string
+ */
+function getNotEmptyConditionFallback(fieldName) {
+  // Default implementation for most databases: check both NULL and empty string
+  return `${fieldName} IS NOT NULL AND ${fieldName} != ''`;
+}
+
 module.exports = {
   insertChangesPromise,
   deleteChangesPromise,
@@ -454,5 +465,7 @@ module.exports = {
   getTableColumns,
   getDateTime: _getDateTime2,
   ...connectorUtilities,
-  ...dbInstance
+  ...dbInstance,
+  // Use connector-specific implementation if available, otherwise use fallback
+  getNotEmptyCondition: dbInstance.getNotEmptyCondition || getNotEmptyConditionFallback
 };
