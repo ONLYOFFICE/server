@@ -1,10 +1,10 @@
-import React, {useState, useEffect} from 'react';
-import styles from './SaveButton.module.scss';
+import React, {useState, useEffect, forwardRef} from 'react';
+import styles from './Button.module.scss';
 import Spinner from '../../assets/Spinner.svg';
 import Success from '../../assets/Success.svg';
 import Fail from '../../assets/Fail.svg';
 
-function SaveButton({onClick, children = 'Save Changes', disabled = false, disableResult = false}) {
+const Button = forwardRef(({onClick, children = 'Save Changes', disabled = false, disableResult = false, errorText = 'FAILED', className}, ref) => {
   const [state, setState] = useState('idle'); // 'idle', 'loading', 'success', 'error'
 
   // Reset to idle after showing success/error for 3 seconds
@@ -29,7 +29,7 @@ function SaveButton({onClick, children = 'Save Changes', disabled = false, disab
         setState('idle');
       }
     } catch (error) {
-      console.error('Save failed:', error);
+      console.error('Button action failed:', error);
       if (!disableResult) {
         setState('error');
       } else {
@@ -39,12 +39,13 @@ function SaveButton({onClick, children = 'Save Changes', disabled = false, disab
   };
 
   const getButtonClass = () => {
-    let className = styles.saveButton;
-    if (disabled && state === 'idle') className += ` ${styles['saveButton--disabled']}`;
-    if (state === 'loading') className += ` ${styles['saveButton--loading']}`;
-    if (state === 'success') className += ` ${styles['saveButton--success']}`;
-    if (state === 'error') className += ` ${styles['saveButton--error']}`;
-    return className;
+    let buttonClass = styles.button;
+    if (disabled && state === 'idle') buttonClass += ` ${styles['button--disabled']}`;
+    if (state === 'loading') buttonClass += ` ${styles['button--loading']}`;
+    if (state === 'success') buttonClass += ` ${styles['button--success']}`;
+    if (state === 'error') buttonClass += ` ${styles['button--error']}`;
+    if (className) buttonClass += ` ${className}`;
+    return buttonClass;
   };
 
   const getButtonContent = () => {
@@ -54,18 +55,20 @@ function SaveButton({onClick, children = 'Save Changes', disabled = false, disab
       case 'success':
         return <img src={Success} alt='Success' className={styles.icon} />;
       case 'error':
-        return <img src={Fail} alt='Error' className={styles.icon} />;
+        return errorText;
       default:
         return children;
     }
   };
 
   return (
-    <button className={getButtonClass()} onClick={handleClick} disabled={disabled || state !== 'idle'}>
+    <button ref={ref} className={getButtonClass()} onClick={handleClick} disabled={disabled || state !== 'idle'}>
       {getButtonContent()}
     </button>
   );
-}
+});
 
-// Memoize the SaveButton to prevent unnecessary rerenders when props haven't changed
-export default React.memo(SaveButton);
+Button.displayName = 'Button';
+
+// Memoize the Button to prevent unnecessary rerenders when props haven't changed
+export default React.memo(Button);

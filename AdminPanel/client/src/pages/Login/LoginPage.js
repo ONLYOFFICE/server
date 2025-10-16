@@ -3,7 +3,7 @@ import {useDispatch} from 'react-redux';
 import {fetchUser} from '../../store/slices/userSlice';
 import {login} from '../../api';
 import Input from '../../components/Input/Input';
-import Button from '../../components/LoginButton';
+import Button from '../../components/Button/Button';
 import styles from './styles.module.css';
 
 export default function Login() {

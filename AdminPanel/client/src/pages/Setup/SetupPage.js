@@ -3,7 +3,7 @@ import {useDispatch} from 'react-redux';
 import {setupAdminPassword} from '../../api';
 import {fetchUser} from '../../store/slices/userSlice';
 import Input from '../../components/Input/Input';
-import Button from '../../components/LoginButton';
+import Button from '../../components/Button/Button';
 import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
 import {validatePasswordStrength} from '../../utils/passwordValidation';
 import styles from './styles.module.css';
