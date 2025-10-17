@@ -104,6 +104,7 @@ const updateIfCases = {
   notEmpty: 'baseConnector-updateIf()-tester-not-empty-callback',
   emptyCallback: 'baseConnector-updateIf()-tester-empty-callback'
 };
+const oracleNullHandlingCases = ['baseConnector-oracle-nclob-null-handling', 'baseConnector-oracle-nclob-null-handling-2'];
 
 function createChanges(changesLength, date) {
   const objChanges = [
@@ -216,7 +217,8 @@ afterAll(async () => {
     ...getExpiredCase,
     ...getCountWithStatusCase,
     ...upsertIds,
-    ...updateIfIds
+    ...updateIfIds,
+    ...oracleNullHandlingCases
   ];
 
   const deletionPool = [
@@ -485,6 +487,47 @@ describe('Base database connector', () => {
 
       const expectedUrlChanges = [{id: task.key, baseurl: 'some-updated-url'}];
       expect(updatedRow).toEqual(expectedUrlChanges);
+    });
+  });
+
+  describe('Oracle NCLOB null handling', () => {
+    const nullHandlingCase = 'baseConnector-oracle-nclob-null-handling';
+
+    test('Empty callback is retrieved as empty string (not null)', async () => {
+      const date = new Date();
+      const task = createTask(nullHandlingCase, ''); // Empty callback
+
+      await noRowsExistenceCheck(cfgTableResult, task.key);
+      await insertIntoResultTable(date, task);
+
+      // Retrieve the row and check callback field
+      const result = await executeSql(`SELECT callback, baseurl FROM ${cfgTableResult} WHERE id = '${task.key}';`);
+
+      expect(result.length).toEqual(1);
+      // Oracle should normalize null NCLOB to empty string
+      expect(result[0].callback).toEqual('');
+      expect(result[0].baseurl).toEqual('');
+      // Verify they are strings, not null
+      expect(typeof result[0].callback).toEqual('string');
+      expect(typeof result[0].baseurl).toEqual('string');
+    });
+
+    test('Null callback does not cause TypeError in getCallbackByUserIndex', async () => {
+      const date = new Date();
+      const task = createTask(nullHandlingCase + '-2', '');
+
+      await insertIntoResultTable(date, task);
+
+      const result = await executeSql(`SELECT callback FROM ${cfgTableResult} WHERE id = '${task.key}';`);
+
+      // This should not throw TypeError
+      const userCallback = new baseConnector.UserCallback();
+      expect(() => {
+        userCallback.getCallbackByUserIndex(ctx, result[0].callback, 1);
+      }).not.toThrow();
+
+      const callbackResult = userCallback.getCallbackByUserIndex(ctx, result[0].callback, 1);
+      expect(callbackResult).toEqual('');
     });
   });
 

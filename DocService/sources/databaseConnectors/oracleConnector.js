@@ -75,14 +75,60 @@ let pool = null;
 oracledb.fetchAsString = [oracledb.NCLOB, oracledb.CLOB];
 oracledb.autoCommit = true;
 
-function columnsToLowercase(rows) {
+/**
+ * WeakMap cache for column type maps
+ * Key: metaData array reference from Oracle result
+ * Value: Object mapping column names (lowercase) to boolean (is NCLOB/CLOB)
+ * Automatically garbage collected when metaData is no longer referenced
+ */
+const columnTypeMapCache = new WeakMap();
+
+/**
+ * Get or build column type map from metadata
+ * @param {Array} metaData - Column metadata from Oracle
+ * @returns {Object.<string, boolean>} Map of column name (lowercase) to isClobColumn flag
+ */
+function getColumnTypeMap(metaData) {
+  let columnTypeMap = columnTypeMapCache.get(metaData);
+
+  if (!columnTypeMap) {
+    columnTypeMap = {};
+    for (let i = 0; i < metaData.length; i++) {
+      const col = metaData[i];
+      // Check if column is NCLOB/CLOB (converted to string by fetchAsString config)
+      const isClobColumn = col.dbType === oracledb.DB_TYPE_NCLOB || col.dbType === oracledb.DB_TYPE_CLOB;
+      columnTypeMap[col.name.toLowerCase()] = isClobColumn;
+    }
+    columnTypeMapCache.set(metaData, columnTypeMap);
+  }
+
+  return columnTypeMap;
+}
+
+/**
+ * Convert column names to lowercase and normalize null values
+ * Oracle returns null for empty NCLOB/CLOB fields, converts to empty string for consistency with other databases
+ * @param {Array<Object>} rows - Query result rows
+ * @param {Array} metaData - Column metadata from Oracle (optional)
+ * @returns {Array<Object>} Formatted rows with lowercase column names and normalized values
+ */
+function columnsToLowercase(rows, metaData) {
+  const columnTypeMap = metaData ? getColumnTypeMap(metaData) : null;
+
   const formattedRows = [];
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const newRow = {};
     for (const column in row) {
-      if (Object.hasOwn(row, column)) {
-        newRow[column.toLowerCase()] = row[column];
+      if (!Object.hasOwn(row, column)) continue;
+
+      const columnLower = column.toLowerCase();
+      let value = row[column];
+      // Normalize null to empty string for NCLOB/CLOB columns
+      if (value === null && columnTypeMap?.[columnLower]) {
+        value = '';
       }
+      newRow[columnLower] = value;
     }
 
     formattedRows.push(newRow);
@@ -121,7 +167,7 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
       }
 
       if (result?.rows) {
-        output = columnsToLowercase(result.rows);
+        output = columnsToLowercase(result.rows, result.metaData);
       }
     } else {
       output = result;
@@ -204,6 +250,7 @@ async function executeBunch(ctx, sqlCommand, values = [], options, noLog = false
 }
 
 function closePool() {
+  // WeakMap cache is automatically garbage collected, no manual cleanup needed
   return pool?.close(forceClosingCountdownMs);
 }
 
