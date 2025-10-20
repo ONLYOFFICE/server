@@ -4,8 +4,34 @@ import './App.css';
 import {store} from './store';
 import AuthWrapper from './components/AuthWrapper/AuthWrapper';
 import ConfigLoader from './components/ConfigLoader/ConfigLoader';
+import {useSchemaLoader} from './hooks/useSchemaLoader';
 import Menu from './components/Menu/Menu';
 import {menuItems} from './config/menuItems';
+
+function AppContent() {
+  useSchemaLoader();
+
+  return (
+    <div className='app'>
+      <AuthWrapper>
+        <div className='appLayout'>
+          <Menu />
+          <div className='mainContent'>
+            <ConfigLoader>
+              <Routes>
+                <Route path='/' element={<Navigate to='/statistics' replace />} />
+                <Route path='/index.html' element={<Navigate to='/statistics' replace />} />
+                {menuItems.map(item => (
+                  <Route key={item.key} path={item.path} element={<item.component />} />
+                ))}
+              </Routes>
+            </ConfigLoader>
+          </div>
+        </div>
+      </AuthWrapper>
+    </div>
+  );
+}
 
 /**
  * Simple basename computation from URL path.
@@ -35,24 +61,7 @@ function App() {
   return (
     <Provider store={store}>
       <BrowserRouter basename={basename}>
-        <div className='app'>
-          <AuthWrapper>
-            <div className='appLayout'>
-              <Menu />
-              <div className='mainContent'>
-                <ConfigLoader>
-                  <Routes>
-                    <Route path='/' element={<Navigate to='/statistics' replace />} />
-                    <Route path='/index.html' element={<Navigate to='/statistics' replace />} />
-                    {menuItems.map(item => (
-                      <Route key={item.key} path={item.path} element={<item.component />} />
-                    ))}
-                  </Routes>
-                </ConfigLoader>
-              </div>
-            </div>
-          </AuthWrapper>
-        </div>
+        <AppContent />
       </BrowserRouter>
     </Provider>
   );

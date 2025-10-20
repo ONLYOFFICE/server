@@ -1,15 +1,7 @@
 import {useEffect} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {
-  selectConfig,
-  selectConfigLoading,
-  selectConfigError,
-  selectSchema,
-  selectSchemaLoading,
-  selectSchemaError,
-  fetchConfig,
-  fetchSchema
-} from '../../store/slices/configSlice';
+import {selectConfig, selectConfigLoading, selectConfigError, selectSchema, fetchConfig} from '../../store/slices/configSlice';
+import {selectIsAuthenticated} from '../../store/slices/userSlice';
 import Button from '../Button/Button';
 
 const ConfigLoader = ({children}) => {
@@ -18,23 +10,16 @@ const ConfigLoader = ({children}) => {
   const configLoading = useSelector(selectConfigLoading);
   const configError = useSelector(selectConfigError);
   const schema = useSelector(selectSchema);
-  const schemaLoading = useSelector(selectSchemaLoading);
-  const schemaError = useSelector(selectSchemaError);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
 
-  const loading = configLoading || schemaLoading;
-  const error = configError || schemaError;
+  const loading = configLoading;
+  const error = configError;
 
   useEffect(() => {
-    // Fetch config if not loaded
-    if (!config && !configLoading && !configError) {
+    if (isAuthenticated && !config && !configLoading && !configError) {
       dispatch(fetchConfig());
     }
-
-    // Fetch schema if not loaded (only once per session)
-    if (!schema && !schemaLoading && !schemaError) {
-      dispatch(fetchSchema());
-    }
-  }, [config, configLoading, configError, schema, schemaLoading, schemaError, dispatch]);
+  }, [config, configLoading, configError, isAuthenticated, dispatch]);
 
   if (loading) {
     return (

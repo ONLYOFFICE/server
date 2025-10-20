@@ -5,7 +5,7 @@ import PageDescription from '../../components/PageDescription/PageDescription';
 import Input from '../../components/Input/Input';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
-import {validatePasswordStrength} from '../../utils/passwordValidation';
+import {usePasswordValidation} from '../../utils/passwordValidation';
 import styles from './ChangePassword.module.scss';
 
 function ChangePassword() {
@@ -15,49 +15,28 @@ function ChangePassword() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  const {isValid: newPasswordIsValid, isLoading} = usePasswordValidation(newPassword);
+
   // Check if form can be submitted
   const canSubmit = () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!currentPassword || !newPassword || !confirmPassword || isLoading) {
       return false;
     }
-    
-    const passwordValidation = validatePasswordStrength(newPassword);
-    if (!passwordValidation.isValid) {
+
+    if (!newPasswordIsValid) {
       return false;
     }
-    
+
     if (newPassword !== confirmPassword) {
       return false;
     }
-    
+
     return true;
   };
 
   const handlePasswordChange = async () => {
     setPasswordError('');
     setPasswordSuccess(false);
-
-    // Validation
-    if (!currentPassword) {
-      setPasswordError('Current password is required');
-      throw new Error('Validation failed');
-    }
-
-    if (!newPassword) {
-      setPasswordError('New password is required');
-      throw new Error('Validation failed');
-    }
-
-    const passwordValidation = validatePasswordStrength(newPassword);
-    if (!passwordValidation.isValid) {
-      setPasswordError(passwordValidation.errorMessage);
-      throw new Error('Validation failed');
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('New passwords do not match');
-      throw new Error('Validation failed');
-    }
 
     try {
       await changePassword({currentPassword, newPassword});
@@ -111,9 +90,7 @@ function ChangePassword() {
                 description='Re-enter your new password'
               />
               <div className={styles.passwordMismatch}>
-                {newPassword && confirmPassword && newPassword !== confirmPassword && validatePasswordStrength(newPassword).isValid && (
-                  'Passwords don\'t match'
-                )}
+                {newPassword && confirmPassword && newPassword !== confirmPassword && newPasswordIsValid && "Passwords don't match"}
               </div>
             </div>
 

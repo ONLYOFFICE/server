@@ -34,8 +34,7 @@ export const fetchConfiguration = async () => {
 };
 
 export const fetchConfigurationSchema = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config/schema`, {credentials: 'include'});
-  if (response.status === 401) throw new Error('UNAUTHORIZED');
+  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config/schema`);
   if (!response.ok) throw new Error('Failed to fetch configuration schema');
   return response.json();
 };

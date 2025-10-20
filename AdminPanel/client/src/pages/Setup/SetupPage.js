@@ -5,7 +5,7 @@ import {fetchUser} from '../../store/slices/userSlice';
 import Input from '../../components/Input/Input';
 import Button from '../../components/Button/Button';
 import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
-import {validatePasswordStrength} from '../../utils/passwordValidation';
+import {usePasswordValidation} from '../../utils/passwordValidation';
 import styles from './styles.module.css';
 
 export default function Setup() {
@@ -16,55 +16,28 @@ export default function Setup() {
   const dispatch = useDispatch();
   const buttonRef = useRef();
 
+  const {isValid: passwordIsValid, isLoading} = usePasswordValidation(password);
+
   // Check if form can be submitted
   const canSubmit = () => {
-    if (!bootstrapToken.trim() || !password || !confirmPassword) {
+    if (!bootstrapToken.trim() || !password || !confirmPassword || isLoading) {
       return false;
     }
-    
-    const passwordValidation = validatePasswordStrength(password);
-    if (!passwordValidation.isValid) {
+
+    // Check if password meets all requirements using hook
+    if (!passwordIsValid) {
       return false;
     }
-    
+
     if (password !== confirmPassword) {
       return false;
     }
-    
+
     return true;
   };
 
   const handleSubmit = async () => {
     setErrors({});
-
-    // Validate all fields
-    const newErrors = {};
-
-    if (!bootstrapToken.trim()) {
-      newErrors.bootstrapToken = 'Bootstrap token is required';
-    }
-
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else {
-      const passwordValidation = validatePasswordStrength(password);
-      if (!passwordValidation.isValid) {
-        newErrors.password = passwordValidation.errorMessage;
-      }
-    }
-
-    if (!confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    // If there are validation errors, show them
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      throw new Error('Validation failed');
-    }
-
     try {
       await setupAdminPassword({bootstrapToken, password});
       // Wait for cookie to be set and verify authentication works
@@ -129,9 +102,7 @@ export default function Setup() {
               onKeyDown={handleKeyDown}
             />
             <div className={styles.passwordMismatch}>
-              {password && confirmPassword && password !== confirmPassword && validatePasswordStrength(password).isValid && (
-                'Passwords don\'t match'
-              )}
+              {password && confirmPassword && password !== confirmPassword && passwordIsValid && "Passwords don't match"}
             </div>
           </div>
 

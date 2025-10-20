@@ -4,10 +4,11 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, validateScoped, getScopedSchema} = require('./config.service');
+const {getScopedConfig, validateScoped} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
+const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -35,18 +36,8 @@ router.get('/', validateJWT, async (req, res) => {
   }
 });
 
-router.get('/schema', validateJWT, async (req, res) => {
-  const ctx = req.ctx;
-  try {
-    ctx.logger.info('config schema start');
-    const schema = getScopedSchema(ctx);
-    res.json(schema);
-  } catch (error) {
-    ctx.logger.error('Config schema error: %s', error.stack);
-    res.status(500).json({error: 'Internal server error'});
-  } finally {
-    ctx.logger.info('config schema end');
-  }
+router.get('/schema', async (_req, res) => {
+  res.json(supersetSchema);
 });
 
 router.patch('/', validateJWT, rawFileParser, async (req, res) => {
