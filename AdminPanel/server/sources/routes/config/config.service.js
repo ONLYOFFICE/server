@@ -33,6 +33,7 @@
 'use strict';
 const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
+const addErrors = require('ajv-errors');
 const logger = require('../../../../../Common/sources/logger');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
@@ -48,14 +49,6 @@ const AJV_FILTER_CONFIG = {allErrors: true, strict: false, removeAdditional: tru
  */
 function registerAjvExtras(instance) {
   instance.addKeyword({keyword: X_SCOPE_KEYWORD, schemaType: ['string', 'array'], errors: false});
-
-  const formats = supersetSchema?.$defs?.formats;
-  if (formats && typeof formats === 'object') {
-    for (const [name, patternString] of Object.entries(formats)) {
-      const re = new RegExp(patternString);
-      instance.addFormat(name, re);
-    }
-  }
 }
 
 /**
@@ -66,6 +59,7 @@ function registerAjvExtras(instance) {
 function createAjvInstance(config) {
   const instance = new Ajv(config);
   addFormats(instance);
+  addErrors(instance);
   registerAjvExtras(instance);
   return instance;
 }
