@@ -2,7 +2,6 @@ import React, {useState, useEffect, forwardRef} from 'react';
 import styles from './Button.module.scss';
 import Spinner from '../../assets/Spinner.svg';
 import Success from '../../assets/Success.svg';
-import Fail from '../../assets/Fail.svg';
 
 const Button = forwardRef(({onClick, children = 'Save Changes', disabled = false, disableResult = false, errorText = 'FAILED', className}, ref) => {
   const [state, setState] = useState('idle'); // 'idle', 'loading', 'success', 'error'

@@ -306,141 +306,141 @@
         }
       }
     },
-     "notification": {
-       "type": "object",
-       "additionalProperties": false,
-       "x-scope": ["admin", "tenant"],
-       "properties": {
-         "rules": {
-           "type": "object",
-           "additionalProperties": false,
-           "x-scope": ["admin", "tenant"],
-           "properties": {
-             "licenseExpirationWarning": {
-               "type": "object",
-               "additionalProperties": false,
-               "x-scope": ["admin", "tenant"],
-               "properties": {
-                 "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                 "policies": {
-                   "type": "object",
-                   "additionalProperties": false,
-                   "x-scope": ["admin", "tenant"],
-                   "properties": {
-                     "repeatInterval": {
-                       "type": "string",
-                       "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                       "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                       "x-scope": ["admin", "tenant"]
-                     }
-                   }
-                 }
-               }
-             },
-             "licenseExpirationError": {
-               "type": "object",
-               "additionalProperties": false,
-               "x-scope": ["admin", "tenant"],
-               "properties": {
-                 "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                 "policies": {
-                   "type": "object",
-                   "additionalProperties": false,
-                   "x-scope": ["admin", "tenant"],
-                   "properties": {
-                     "repeatInterval": {
-                       "type": "string",
-                       "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                       "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                       "x-scope": ["admin", "tenant"]
-                     }
-                   }
-                 }
-               }
-             },
-             "licenseLimitEdit": {
-               "type": "object",
-               "additionalProperties": false,
-               "x-scope": ["admin", "tenant"],
-               "properties": {
-                 "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                 "policies": {
-                   "type": "object",
-                   "additionalProperties": false,
-                   "x-scope": ["admin", "tenant"],
-                   "properties": {
-                     "repeatInterval": {
-                       "type": "string",
-                       "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                       "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                       "x-scope": ["admin", "tenant"]
-                     }
-                   }
-                 }
-               }
-             },
-             "licenseLimitLiveViewer": {
-               "type": "object",
-               "additionalProperties": false,
-               "x-scope": ["admin", "tenant"],
-               "properties": {
-                 "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                 "policies": {
-                   "type": "object",
-                   "additionalProperties": false,
-                   "x-scope": ["admin", "tenant"],
-                   "properties": {
-                     "repeatInterval": {
-                       "type": "string",
-                       "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                       "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                       "x-scope": ["admin", "tenant"]
-                     }
-                   }
-                 }
-               }
-             }
-           }
-         }
-       }
-     },
-     "adminPanel": {
-       "type": "object",
-       "additionalProperties": false,
-       "x-scope": ["admin", "tenant"],
-       "properties": {
-         "passwordValidation": {
-           "type": "object",
-           "x-scope": ["admin", "tenant"],
-           "description": "Password validation requirements using custom format types",
-           "properties": {
-             "minLength": {
-               "type": "string",
-               "format": "passlength",
-               "description": "be at least 8 characters long",
-               "x-scope": ["admin", "tenant"]
-             },
-             "hasDigit": {
-               "type": "string", 
-               "format": "passdigit",
-               "description": "contain at least one digit",
-               "x-scope": ["admin", "tenant"]
-             },
-             "hasUppercase": {
-               "type": "string",
-               "format": "passupper", 
-               "description": "contain at least one uppercase letter",
-               "x-scope": ["admin", "tenant"]
-             },
-             "hasSpecialChar": {
-               "type": "string",
-               "format": "passspecial",
-               "description": "contain at least one special character",
-               "x-scope": ["admin", "tenant"]
-             }
-           }
-         }
-       }
-     }
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "rules": {
+          "type": "object",
+          "additionalProperties": false,
+          "x-scope": ["admin", "tenant"],
+          "properties": {
+            "licenseExpirationWarning": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseExpirationError": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseLimitEdit": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            },
+            "licenseLimitLiveViewer": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
+                "policies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
+                      "x-scope": ["admin", "tenant"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "adminPanel": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "passwordValidation": {
+          "type": "object",
+          "x-scope": ["admin", "tenant"],
+          "description": "Password validation requirements using custom format types",
+          "properties": {
+            "minLength": {
+              "type": "string",
+              "format": "passlength",
+              "description": "be at least 8 characters long",
+              "x-scope": ["admin", "tenant"]
+            },
+            "hasDigit": {
+              "type": "string",
+              "format": "passdigit",
+              "description": "contain at least one digit",
+              "x-scope": ["admin", "tenant"]
+            },
+            "hasUppercase": {
+              "type": "string",
+              "format": "passupper",
+              "description": "contain at least one uppercase letter",
+              "x-scope": ["admin", "tenant"]
+            },
+            "hasSpecialChar": {
+              "type": "string",
+              "format": "passspecial",
+              "description": "contain at least one special character",
+              "x-scope": ["admin", "tenant"]
+            }
+          }
+        }
+      }
+    }
   }
 }
