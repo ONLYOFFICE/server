@@ -39,7 +39,6 @@ const supersetSchema = require('../../../../../Common/config/schemas/config.sche
 const {deriveSchemaForScope, X_SCOPE_KEYWORD} = require('./config.schema.utils');
 
 // Constants
-const CRON6_REGEX = /^\s*\S+(?:\s+\S+){5}\s*$/;
 const AJV_CONFIG = {allErrors: true, strict: false};
 const AJV_FILTER_CONFIG = {allErrors: true, strict: false, removeAdditional: true};
 
@@ -49,7 +48,14 @@ const AJV_FILTER_CONFIG = {allErrors: true, strict: false, removeAdditional: tru
  */
 function registerAjvExtras(instance) {
   instance.addKeyword({keyword: X_SCOPE_KEYWORD, schemaType: ['string', 'array'], errors: false});
-  instance.addFormat('cron6', CRON6_REGEX);
+
+  const formats = supersetSchema?.$defs?.formats;
+  if (formats && typeof formats === 'object') {
+    for (const [name, patternString] of Object.entries(formats)) {
+      const re = new RegExp(patternString);
+      instance.addFormat(name, re);
+    }
+  }
 }
 
 /**
@@ -114,13 +120,4 @@ function getScopedConfig(ctx) {
   return configCopy;
 }
 
-/**
- * Returns the derived per-scope schema for ctx (admin or tenant).
- * @param {operationContext} ctx
- * @returns {object}
- */
-function getScopedSchema(ctx) {
-  return isAdminScope(ctx) ? adminSchema : tenantSchema;
-}
-
-module.exports = {validateScoped, getScopedConfig, getScopedSchema};
+module.exports = {validateScoped, getScopedConfig};

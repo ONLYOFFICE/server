@@ -1,31 +1,22 @@
-import React, {useState} from 'react';
+import {useState} from 'react';
 import Input from '../Input/Input';
 import PasswordRequirements from '../PasswordRequirements/PasswordRequirements';
-import {validatePasswordStrength} from '../../utils/passwordValidation';
+import {usePasswordValidation} from '../../utils/passwordValidation';
 
 /**
  * Password input component with requirements display on focus
  * Matches DocSpace PasswordInput standard behavior
  */
-function PasswordInputWithRequirements({
-  label,
-  value,
-  onChange,
-  placeholder,
-  description,
-  error,
-  settings,
-  ...props
-}) {
+function PasswordInputWithRequirements({label, value, onChange, placeholder, description, error, ...props}) {
   const [isFocused, setIsFocused] = useState(false);
+  const {isValid} = usePasswordValidation(value);
 
   const handleFocus = () => {
     setIsFocused(true);
   };
 
   const handleBlur = () => {
-    const passwordValidation = validatePasswordStrength(value || '');
-    if (passwordValidation.isValid || !value) {
+    if (isValid || !value) {
       setIsFocused(false);
     }
   };
@@ -35,7 +26,7 @@ function PasswordInputWithRequirements({
       <div style={{position: 'relative'}}>
         <Input
           label={label}
-          type="password"
+          type='password'
           value={value}
           onChange={onChange}
           placeholder={placeholder}
@@ -45,11 +36,7 @@ function PasswordInputWithRequirements({
           onBlur={handleBlur}
           {...props}
         />
-        <PasswordRequirements 
-          password={value} 
-          isVisible={isFocused} 
-          settings={settings}
-        />
+        <PasswordRequirements password={value} isVisible={isFocused} />
       </div>
     </div>
   );
