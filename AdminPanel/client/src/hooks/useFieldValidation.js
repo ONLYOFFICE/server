@@ -2,6 +2,7 @@ import {useState, useEffect, useCallback} from 'react';
 import {useSelector} from 'react-redux';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+import addErrors from 'ajv-errors';
 import {selectSchema, selectSchemaLoading, selectSchemaError} from '../store/slices/configSlice';
 
 /**
@@ -22,19 +23,7 @@ export const useFieldValidation = () => {
         // Build AJV validator with custom and standard formats
         const ajv = new Ajv({allErrors: true, strict: false});
         addFormats(ajv); // Add standard formats including email
-
-        // Register formats from schema $defs.formats (regex strings)
-        const formats = schema?.$defs?.formats;
-        if (formats && typeof formats === 'object') {
-          for (const [name, patternString] of Object.entries(formats)) {
-            try {
-              const re = new RegExp(patternString);
-              ajv.addFormat(name, re);
-            } catch (e) {
-              console.warn('Invalid format regex in schema $defs.formats:', name, e.message);
-            }
-          }
-        }
+        addErrors(ajv);
 
         const validateFn = ajv.compile(schema);
         setValidator(() => validateFn);

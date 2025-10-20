@@ -140,7 +140,9 @@ router.post('/setup', async (req, res) => {
 
     const passwordValidationResult = validatePassword(ctx, password);
     if (!passwordValidationResult.isValid) {
-      return res.status(400).json({error: 'Password is too weak'});
+      return res
+        .status(400)
+        .json({error: 'Password must me at least 8 characters long, contain at least one digit, one uppercase letter and one special character'});
     }
 
     await passwordManager.saveAdminPassword(ctx, password);
@@ -174,7 +176,9 @@ router.post('/change-password', requireAuth, async (req, res) => {
 
     const passwordValidationResult = validatePassword(ctx, newPassword);
     if (!passwordValidationResult.isValid) {
-      return res.status(400).json({error: 'Password is too weak'});
+      return res
+        .status(400)
+        .json({error: 'Password must me at least 8 characters long, contain at least one digit, one uppercase letter and one special character'});
     }
 
     if (currentPassword === newPassword) {
