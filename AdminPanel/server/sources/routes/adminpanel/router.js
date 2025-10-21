@@ -142,7 +142,7 @@ router.post('/setup', async (req, res) => {
     if (!passwordValidationResult.isValid) {
       return res
         .status(400)
-        .json({error: 'Password must me at least 8 characters long, contain at least one digit, one uppercase letter and one special character'});
+        .json({error: 'Password must be at least 8 characters long, contain at least one digit, one uppercase letter and one special character'});
     }
 
     await passwordManager.saveAdminPassword(ctx, password);
@@ -178,7 +178,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
     if (!passwordValidationResult.isValid) {
       return res
         .status(400)
-        .json({error: 'Password must me at least 8 characters long, contain at least one digit, one uppercase letter and one special character'});
+        .json({error: 'Password must be at least 8 characters long, contain at least one digit, one uppercase letter and one special character'});
     }
 
     if (currentPassword === newPassword) {
