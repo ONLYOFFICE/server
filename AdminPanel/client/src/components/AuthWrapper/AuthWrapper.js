@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {fetchUser, selectUser, selectUserLoading, selectIsAuthenticated} from '../../store/slices/userSlice';
+import {setPasswordSchema} from '../../store/slices/configSlice';
 import {checkSetupRequired} from '../../api';
 import Spinner from '../../assets/Spinner.svg';
 import Login from '../../pages/Login/LoginPage';
@@ -22,6 +23,11 @@ export default function AuthWrapper({children}) {
       try {
         const result = await checkSetupRequired();
         setSetupRequired(result.setupRequired);
+
+        // Save minimal password schema to Redux for Setup page validation
+        if (result.passwordValidationSchema) {
+          dispatch(setPasswordSchema(result.passwordValidationSchema));
+        }
       } catch (error) {
         if (error.message === 'SERVER_UNAVAILABLE') {
           setServerUnavailable(true);
@@ -32,7 +38,7 @@ export default function AuthWrapper({children}) {
     };
 
     checkSetup();
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (!checkingSetup && !setupRequired && !serverUnavailable) {

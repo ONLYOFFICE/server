@@ -9,6 +9,7 @@ const adminPanelJwtSecret = require('../../jwtSecret');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const commonDefines = require('../../../../../Common/sources/commondefines');
 const {validateScoped} = require('../config/config.service');
+const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
 
 const router = express.Router();
 
@@ -83,7 +84,8 @@ function requireAuth(req, res, next) {
 }
 
 /**
- * Check if AdminPanel setup is required
+ * Check if initial setup is required and get password validation schema
+ * Returns setup status and minimal schema for password validation
  */
 router.get('/setup/required', async (req, res) => {
   const ctx = new operationContext.Context();
@@ -100,7 +102,22 @@ router.get('/setup/required', async (req, res) => {
       }
     }
 
-    res.json({setupRequired});
+    // Include minimal password validation schema for setup page
+    const passwordValidationSchema = {
+      $defs: supersetSchema.$defs,
+      properties: {
+        adminPanel: {
+          properties: {
+            passwordValidation: supersetSchema.properties.adminPanel.properties.passwordValidation
+          }
+        }
+      }
+    };
+
+    res.json({
+      setupRequired,
+      passwordValidationSchema
+    });
   } catch (error) {
     ctx.logger.error('Setup check error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});
