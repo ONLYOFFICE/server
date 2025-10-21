@@ -2,7 +2,7 @@ import SuccessGreenIcon from '../../assets/SuccessGreen.svg';
 import FailRedIcon from '../../assets/FailRed.svg';
 import styles from './PasswordRequirements.module.scss';
 import {useSelector} from 'react-redux';
-import {selectSchema} from '../../store/slices/configSlice';
+import {selectSchema, selectPasswordSchema} from '../../store/slices/configSlice';
 import {useMemo} from 'react';
 import {usePasswordValidation} from '../../utils/passwordValidation';
 
@@ -13,12 +13,19 @@ import {usePasswordValidation} from '../../utils/passwordValidation';
  * @param {boolean} isVisible - Whether to show the requirements (e.g., on focus)
  */
 function PasswordRequirements({password, isVisible = false}) {
-  const schema = useSelector(selectSchema);
+  const fullSchema = useSelector(selectSchema);
+  const passwordSchema = useSelector(selectPasswordSchema);
   const {invalidRules, isValid} = usePasswordValidation(password);
 
+  // Use fullSchema (admin panel) or passwordSchema (Setup page)
+  const schema = fullSchema || passwordSchema;
   const passwordValidation = schema?.properties?.adminPanel?.properties?.passwordValidation;
 
   const requirements = useMemo(() => {
+    if (!passwordValidation?.properties) {
+      return [];
+    }
+
     const rules = [
       {key: 'minLength', format: 'passlength'},
       {key: 'hasDigit', format: 'passdigit'},
@@ -41,9 +48,14 @@ function PasswordRequirements({password, isVisible = false}) {
 
   const validRequirements = requirements.filter(req => req.isValid).length;
   const totalRequirements = requirements.length;
-  const progress = (validRequirements / totalRequirements) * 100;
+  const progress = totalRequirements > 0 ? (validRequirements / totalRequirements) * 100 : 0;
 
   const shouldShow = isVisible || (!isValid && password);
+
+  // Don't show if schema is not loaded yet
+  if (!schema || !passwordValidation?.properties) {
+    return null;
+  }
 
   if (!shouldShow) {
     return null;

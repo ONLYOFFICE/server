@@ -36,7 +36,7 @@ router.get('/', validateJWT, async (req, res) => {
   }
 });
 
-router.get('/schema', async (_req, res) => {
+router.get('/schema', validateJWT, async (_req, res) => {
   res.json(supersetSchema);
 });
 

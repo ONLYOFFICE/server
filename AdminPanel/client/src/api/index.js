@@ -21,7 +21,7 @@ const safeFetch = async (url, options = {}) => {
 };
 
 export const fetchStatistics = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/stat`);
+  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/stat`, {credentials: 'include'});
   if (!response.ok) throw new Error('Failed to fetch statistics');
   return response.json();
 };
@@ -34,7 +34,7 @@ export const fetchConfiguration = async () => {
 };
 
 export const fetchConfigurationSchema = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config/schema`);
+  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config/schema`, {credentials: 'include'});
   if (!response.ok) throw new Error('Failed to fetch configuration schema');
   return response.json();
 };

@@ -39,7 +39,8 @@ export const rotateWopiKeysAction = createAsyncThunk('config/rotateWopiKeys', as
 
 const initialState = {
   config: null,
-  schema: null,
+  schema: null, // Full schema for admin panel
+  passwordSchema: null, // Minimal schema for Setup page password validation
   loading: false,
   schemaLoading: false,
   saving: false,
@@ -64,6 +65,9 @@ const configSlice = createSlice({
     },
     clearError: state => {
       state.error = null;
+    },
+    setPasswordSchema: (state, action) => {
+      state.passwordSchema = action.payload;
     }
   },
   extraReducers: builder => {
@@ -127,11 +131,12 @@ const configSlice = createSlice({
   }
 });
 
-export const {updateLocalConfig, clearConfig, clearError} = configSlice.actions;
+export const {updateLocalConfig, clearConfig, clearError, setPasswordSchema} = configSlice.actions;
 
 // Selectors
 export const selectConfig = state => state.config.config;
 export const selectSchema = state => state.config.schema;
+export const selectPasswordSchema = state => state.config.passwordSchema;
 export const selectConfigLoading = state => state.config.loading;
 export const selectSchemaLoading = state => state.config.schemaLoading;
 export const selectConfigSaving = state => state.config.saving;
