@@ -70,7 +70,7 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
   }
 });
 
-router.post('/reset', validateJWT, async (req, res) => {
+router.post('/reset', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('config reset start');
@@ -78,11 +78,44 @@ router.post('/reset', validateJWT, async (req, res) => {
     const currentConfig = await runtimeConfigManager.getConfig(ctx);
     const passwordHash = currentConfig?.adminPanel?.passwordHash;
 
-    const resetConfig = {};
-    if (passwordHash) {
-      resetConfig.adminPanel = {
-        passwordHash
-      };
+    const {paths} = JSON.parse(req.body);
+    let resetConfig = {};
+
+    if (paths.includes('*')) {
+      if (passwordHash) {
+        resetConfig.adminPanel = {
+          passwordHash
+        };
+      }
+    } else {
+      resetConfig = JSON.parse(JSON.stringify(currentConfig));
+
+      paths.forEach(path => {
+        if (path && path !== '*') {
+          const pathParts = path.split('.');
+          let current = resetConfig;
+
+          for (let i = 0; i < pathParts.length - 1; i++) {
+            if (current && typeof current === 'object') {
+              current = current[pathParts[i]];
+            } else {
+              current = undefined;
+              break;
+            }
+          }
+
+          if (current && typeof current === 'object') {
+            delete current[pathParts[pathParts.length - 1]];
+          }
+        }
+      });
+
+      if (passwordHash) {
+        resetConfig.adminPanel = {
+          ...resetConfig.adminPanel,
+          passwordHash
+        };
+      }
     }
 
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {

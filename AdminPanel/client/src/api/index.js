@@ -178,11 +178,14 @@ export const checkHealth = async () => {
   return true;
 };
 
-export const resetConfiguration = async () => {
+export const resetConfiguration = async (paths = ['*']) => {
+  const pathsArray = Array.isArray(paths) ? paths : [paths];
+
   const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config/reset`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    credentials: 'include'
+    credentials: 'include',
+    body: JSON.stringify({paths: pathsArray})
   });
   if (!response.ok) {
     if (response.status === 401) throw new Error('UNAUTHORIZED');

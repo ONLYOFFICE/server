@@ -1,5 +1,5 @@
 import {createSlice, createAsyncThunk} from '@reduxjs/toolkit';
-import {fetchConfiguration, fetchConfigurationSchema, updateConfiguration, rotateWopiKeys} from '../../api';
+import {fetchConfiguration, fetchConfigurationSchema, updateConfiguration, rotateWopiKeys, resetConfiguration} from '../../api';
 
 export const fetchConfig = createAsyncThunk('config/fetchConfig', async (_, {rejectWithValue}) => {
   try {
@@ -31,6 +31,15 @@ export const saveConfig = createAsyncThunk('config/saveConfig', async (configDat
 export const rotateWopiKeysAction = createAsyncThunk('config/rotateWopiKeys', async (_, {rejectWithValue}) => {
   try {
     const newConfig = await rotateWopiKeys();
+    return newConfig;
+  } catch (error) {
+    return rejectWithValue(error.message);
+  }
+});
+
+export const resetConfig = createAsyncThunk('config/resetConfig', async (paths, {rejectWithValue}) => {
+  try {
+    const newConfig = await resetConfiguration(paths);
     return newConfig;
   } catch (error) {
     return rejectWithValue(error.message);
@@ -125,6 +134,18 @@ const configSlice = createSlice({
         state.error = null;
       })
       .addCase(rotateWopiKeysAction.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      .addCase(resetConfig.pending, state => {
+        state.saving = true;
+        state.error = null;
+      })
+      .addCase(resetConfig.fulfilled, state => {
+        state.saving = false;
+        state.error = null;
+      })
+      .addCase(resetConfig.rejected, (state, action) => {
         state.saving = false;
         state.error = action.payload;
       });
