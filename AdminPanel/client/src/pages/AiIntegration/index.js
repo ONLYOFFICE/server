@@ -66,18 +66,22 @@ export default function AiIntegration() {
           {(() => {
             const buttons = [...(currentWindow.buttons || [])];
 
-            buttons.push(
-              {
-                text: 'Reset Tasks',
-                onClick: handleResetAiTasks,
-                primary: false
-              },
-              {
-                text: 'Reset All Settings',
-                onClick: handleResetAiSettings,
-                primary: false
-              }
-            );
+            const isFirstStep = currentWindow.url && currentWindow.url.includes('settings.html');
+
+            if (isFirstStep) {
+              buttons.push(
+                {
+                  text: 'Reset Tasks',
+                  onClick: handleResetAiTasks,
+                  primary: false
+                },
+                {
+                  text: 'Reset All Settings',
+                  onClick: handleResetAiSettings,
+                  primary: false
+                }
+              );
+            }
 
             return buttons.length > 0 && <FixedSaveButtonGroup buttons={buttons} />;
           })()}
