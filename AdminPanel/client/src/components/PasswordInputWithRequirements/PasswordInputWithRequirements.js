@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import Input from '../Input/Input';
+import PasswordInput from '../PasswordInput/PasswordInput';
 import PasswordRequirements from '../PasswordRequirements/PasswordRequirements';
 import {usePasswordValidation} from '../../utils/passwordValidation';
 
@@ -16,15 +16,13 @@ function PasswordInputWithRequirements({label, value, onChange, placeholder, des
   };
 
   const handleBlur = () => {
-    if (isValid || !value) {
-      setIsFocused(false);
-    }
+    setIsFocused(false);
   };
 
   return (
     <div>
       <div style={{position: 'relative'}}>
-        <Input
+        <PasswordInput
           label={label}
           type='password'
           value={value}
@@ -32,6 +30,7 @@ function PasswordInputWithRequirements({label, value, onChange, placeholder, des
           placeholder={placeholder}
           description={description}
           error={error}
+          isValid={isValid}
           onFocus={handleFocus}
           onBlur={handleBlur}
           {...props}
