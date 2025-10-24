@@ -50,7 +50,7 @@ function PasswordRequirements({password, isVisible = false}) {
   const totalRequirements = requirements.length;
   const progress = totalRequirements > 0 ? (validRequirements / totalRequirements) * 100 : 0;
 
-  const shouldShow = isVisible || (!isValid && password);
+  const shouldShow = isVisible;
 
   // Don't show if schema is not loaded yet
   if (!schema || !passwordValidation?.properties) {

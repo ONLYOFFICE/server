@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {changePassword} from '../../api';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
-import Input from '../../components/Input/Input';
+import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
 import {usePasswordValidation} from '../../utils/passwordValidation';
@@ -62,13 +62,14 @@ function ChangePassword() {
           {passwordError && <div className={styles.errorMessage}>{passwordError}</div>}
 
           <div className={styles.form}>
-            <Input
+            <PasswordInput
               label='Current Password'
               type='password'
               value={currentPassword}
               onChange={setCurrentPassword}
               placeholder='Enter current password'
               description='Your current admin password'
+              isValid={true}
             />
 
             <PasswordInputWithRequirements
@@ -81,13 +82,14 @@ function ChangePassword() {
             />
 
             <div className={styles.confirmPasswordGroup}>
-              <Input
+              <PasswordInput
                 label='Confirm New Password'
                 type='password'
                 value={confirmPassword}
                 onChange={setConfirmPassword}
                 placeholder='Confirm new password'
                 description='Re-enter your new password'
+                isValid={true}
               />
               <div className={styles.passwordMismatch}>
                 {newPassword && confirmPassword && newPassword !== confirmPassword && newPasswordIsValid && "Passwords don't match"}

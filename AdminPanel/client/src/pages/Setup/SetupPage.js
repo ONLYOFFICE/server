@@ -4,6 +4,7 @@ import {setupAdminPassword} from '../../api';
 import {fetchUser} from '../../store/slices/userSlice';
 import Input from '../../components/Input/Input';
 import Button from '../../components/Button/Button';
+import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
 import {usePasswordValidation} from '../../utils/passwordValidation';
 import styles from './styles.module.css';
@@ -93,13 +94,14 @@ export default function Setup() {
           </div>
 
           <div className={styles.inputGroup}>
-            <Input
+            <PasswordInput
               type='password'
               value={confirmPassword}
               onChange={setConfirmPassword}
               placeholder='Confirm your password'
               error={errors.confirmPassword}
               onKeyDown={handleKeyDown}
+              isValid={true}
             />
             <div className={styles.passwordMismatch}>
               {password && confirmPassword && password !== confirmPassword && passwordIsValid && "Passwords don't match"}
