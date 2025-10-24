@@ -23,7 +23,7 @@ export default function AiIntegration() {
   });
 
   // Use custom hook for complete AI plugin functionality
-  const {currentWindow, handleIframeLoad, internalProvidersLoaded, handleResetAiSettings, handleResetAiTasks} = useAiPlugin(data);
+  const {currentWindow, handleIframeLoad, internalProvidersLoaded} = useAiPlugin(data);
 
   // Constants
   const AI_IFRAME_SRC = `ai/index.html`;
@@ -63,28 +63,7 @@ export default function AiIntegration() {
         <div key={currentWindow.iframeId} style={{width: '100%', height: '100%'}}>
           <PageHeader>{currentWindow.description || ''} </PageHeader>
           <iframe id={currentWindow.iframeId} title={currentWindow.description || ''} src={currentWindow.url} style={pluginWindowStyle} />
-          {(() => {
-            const buttons = [...(currentWindow.buttons || [])];
-
-            const isFirstStep = currentWindow.url && currentWindow.url.includes('settings.html');
-
-            if (isFirstStep) {
-              buttons.push(
-                {
-                  text: 'Reset Tasks',
-                  onClick: handleResetAiTasks,
-                  primary: false
-                },
-                {
-                  text: 'Reset All Settings',
-                  onClick: handleResetAiSettings,
-                  primary: false
-                }
-              );
-            }
-
-            return buttons.length > 0 && <FixedSaveButtonGroup buttons={buttons} />;
-          })()}
+          {currentWindow.buttons && currentWindow.buttons.length > 0 && <FixedSaveButtonGroup buttons={currentWindow.buttons} />}
         </div>
       )}
     </div>
