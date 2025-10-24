@@ -6,6 +6,8 @@ import {
   registerCloseWindowCallback,
   registerSaveCallback,
   registerLoadInternalProvidersCallback,
+  registerResetAiSettingsCallback,
+  registerResetAiTasksCallback,
   initAISettings
 } from '../js/plugins-sdk';
 
@@ -168,6 +170,8 @@ const useAiPlugin = statisticsData => {
     registerCloseWindowCallback(handleCloseWindow);
     registerSaveCallback(handleSave);
     registerLoadInternalProvidersCallback(handleLoadInternalProviders);
+    registerResetAiSettingsCallback(handleResetAiSettings);
+    registerResetAiTasksCallback(handleResetAiTasks);
 
     // Cleanup: unregister all callbacks
     return () => {
@@ -175,6 +179,8 @@ const useAiPlugin = statisticsData => {
       registerCloseWindowCallback(null);
       registerSaveCallback(null);
       registerLoadInternalProvidersCallback(null);
+      registerResetAiSettingsCallback(null);
+      registerResetAiTasksCallback(null);
     };
   }, [config, dispatch]);
 
