@@ -66,3 +66,12 @@
   max-width: 400px;
   width: 100%;
 }
+
+.passwordMismatch {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+  text-align: left;
+  min-height: 16px;
+  line-height: 16px;
+}
