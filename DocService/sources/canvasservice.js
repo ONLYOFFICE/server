@@ -1300,6 +1300,9 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
         //todo simultaneous opening
         //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
         yield docsCoServer.editorData.cleanDocumentOnExit(ctx, docId);
+        if (docsCoServer?.editorStatProxy?.deleteKey) {
+          yield docsCoServer.editorStatProxy.deleteKey(docId);
+        }
         //to unlock wopi file
         yield docsCoServer.unlockWopiDoc(ctx, docId, callbackUserIndex);
         //cleanupRes can be false in case of simultaneous opening. it is OK
