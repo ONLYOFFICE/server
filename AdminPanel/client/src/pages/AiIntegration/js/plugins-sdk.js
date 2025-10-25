@@ -494,7 +494,7 @@ function ShowWindow(val) {
   }
 
   if (isMain) {
-    config.buttons = [getButton('Save Changes', false, false), getButton('Reset Action', true, false), getButton('Reset All', false, true)];
+    config.buttons = [getButton('Save Changes', false, false), getButton('Reset Tasks', true, false), getButton('Reset All Settings', false, true)];
   } else {
     config.buttons = config.buttons.map((button, index) => ({
       text: button.text,
