@@ -165,6 +165,10 @@ const defaultHttpPort = 80,
 //todo remove editorDataStorage constructor usage after 8.1
 const editorData = editorDataStorage.EditorData ? new editorDataStorage.EditorData() : new editorDataStorage();
 const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorDataStorage();
+let editorStatProxy = null;
+if (process.env.REDIS_SERVER_DB_KEYS_NUM) {
+  editorStatProxy = new editorStatStorage.EditorStat(process.env.REDIS_SERVER_DB_KEYS_NUM);
+}
 const clientStatsD = statsDClient.getClient();
 let connections = []; // Active connections
 const lockDocumentsTimerId = {}; //to drop connection that can't unlockDocument
@@ -1530,6 +1534,9 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
 
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
   yield editorData.cleanDocumentOnExit(ctx, docId);
+  if (editorStatProxy?.deleteKey) {
+    yield editorStatProxy.deleteKey(docId);
+  }
   //remove changes
   if (deleteChanges) {
     yield taskResult.restoreInitialPassword(ctx, docId);
@@ -1748,6 +1755,7 @@ async function isSchemaCompatible([tableName, tableSchema]) {
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
 exports.editorStat = editorStat;
+exports.editorStatProxy = editorStatProxy;
 exports.sendData = sendData;
 exports.modifyConnectionForPassword = modifyConnectionForPassword;
 exports.parseUrl = parseUrl;
