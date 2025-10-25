@@ -1,5 +1,7 @@
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL ?? '';
-const API_BASE_PATH = '/api/v1/admin';
+import {getApiBasePath, getDocServicePath} from '../utils/paths';
+
+const API_BASE_PATH = getApiBasePath();
+const DOCSERVICE_URL = getDocServicePath();
 
 const isNetworkError = error => {
   if (!error) return false;
@@ -21,26 +23,26 @@ const safeFetch = async (url, options = {}) => {
 };
 
 export const fetchStatistics = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/stat`, {credentials: 'include'});
+  const response = await safeFetch(`${API_BASE_PATH}/stat`, {credentials: 'include'});
   if (!response.ok) throw new Error('Failed to fetch statistics');
   return response.json();
 };
 
 export const fetchConfiguration = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config`, {credentials: 'include'});
+  const response = await safeFetch(`${API_BASE_PATH}/config`, {credentials: 'include'});
   if (response.status === 401) throw new Error('UNAUTHORIZED');
   if (!response.ok) throw new Error('Failed to fetch configuration');
   return response.json();
 };
 
 export const fetchConfigurationSchema = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config/schema`, {credentials: 'include'});
+  const response = await safeFetch(`${API_BASE_PATH}/config/schema`, {credentials: 'include'});
   if (!response.ok) throw new Error('Failed to fetch configuration schema');
   return response.json();
 };
 
 export const updateConfiguration = async configData => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config`, {
+  const response = await safeFetch(`${API_BASE_PATH}/config`, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
@@ -61,7 +63,7 @@ export const updateConfiguration = async configData => {
 };
 
 export const fetchCurrentUser = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/me`, {credentials: 'include'});
+  const response = await safeFetch(`${API_BASE_PATH}/me`, {credentials: 'include'});
   const data = await response.json();
   if (data && data.authorized === false) {
     throw new Error('UNAUTHORIZED');
@@ -70,13 +72,13 @@ export const fetchCurrentUser = async () => {
 };
 
 export const checkSetupRequired = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/setup/required`, {credentials: 'include'});
+  const response = await safeFetch(`${API_BASE_PATH}/setup/required`, {credentials: 'include'});
   if (!response.ok) throw new Error('Failed to check setup status');
   return response.json();
 };
 
 export const setupAdminPassword = async ({bootstrapToken, password}) => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/setup`, {
+  const response = await safeFetch(`${API_BASE_PATH}/setup`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
@@ -96,7 +98,7 @@ export const setupAdminPassword = async ({bootstrapToken, password}) => {
 };
 
 export const login = async password => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/login`, {
+  const response = await safeFetch(`${API_BASE_PATH}/login`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
@@ -119,7 +121,7 @@ export const login = async password => {
 };
 
 export const changePassword = async ({currentPassword, newPassword}) => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/change-password`, {
+  const response = await safeFetch(`${API_BASE_PATH}/change-password`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
@@ -140,7 +142,7 @@ export const changePassword = async ({currentPassword, newPassword}) => {
 };
 
 export const logout = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/logout`, {
+  const response = await safeFetch(`${API_BASE_PATH}/logout`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include'
@@ -150,7 +152,7 @@ export const logout = async () => {
 };
 
 export const rotateWopiKeys = async () => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/wopi/rotate-keys`, {
+  const response = await safeFetch(`${API_BASE_PATH}/wopi/rotate-keys`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include'
@@ -170,8 +172,7 @@ export const rotateWopiKeys = async () => {
 };
 
 export const checkHealth = async () => {
-  const url = process.env.NODE_ENV === 'development' ? '/healthcheck-api' : '../healthcheck';
-  const response = await safeFetch(url);
+  const response = await safeFetch(`${DOCSERVICE_URL}/healthcheck`);
   if (!response.ok) throw new Error('DocService health check failed');
   const result = await response.text();
   if (result !== 'true') throw new Error('DocService health check failed');
@@ -181,7 +182,7 @@ export const checkHealth = async () => {
 export const resetConfiguration = async (paths = ['*']) => {
   const pathsArray = Array.isArray(paths) ? paths : [paths];
 
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/config/reset`, {
+  const response = await safeFetch(`${API_BASE_PATH}/config/reset`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
@@ -195,7 +196,7 @@ export const resetConfiguration = async (paths = ['*']) => {
 };
 
 export const generateDocServerToken = async body => {
-  const response = await safeFetch(`${BACKEND_URL}${API_BASE_PATH}/generate-docserver-token`, {
+  const response = await safeFetch(`${API_BASE_PATH}/generate-docserver-token`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
@@ -211,8 +212,7 @@ const callCommandService = async body => {
   const {token} = await generateDocServerToken(body);
   body.token = token;
 
-  const url = process.env.REACT_APP_DOCSERVICE_URL ? `${process.env.REACT_APP_DOCSERVICE_URL}/command` : '../command';
-  const response = await safeFetch(url, {
+  const response = await safeFetch(`${DOCSERVICE_URL}/command`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
