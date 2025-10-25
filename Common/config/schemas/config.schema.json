@@ -5,6 +5,29 @@
   "description": "Superset schema with x-scope markers. Use at runtime to derive per-scope schemas.",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "cron6": {
+      "type": "string",
+      "pattern": "^\\s*\\S+(?:\\s+\\S+){5}\\s*$",
+      "errorMessage": "Cron expression must have exactly 6 parts"
+    },
+    "passlength": {
+      "type": "string",
+      "pattern": "^.{8,128}$"
+    },
+    "passdigit": {
+      "type": "string",
+      "pattern": ".*\\d.*"
+    },
+    "passupper": {
+      "type": "string",
+      "pattern": ".*[A-Z].*"
+    },
+    "passspecial": {
+      "type": "string",
+      "pattern": ".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*"
+    }
+  },
   "properties": {
     "aiSettings": {
       "type": "object",
@@ -79,8 +102,8 @@
               "additionalProperties": false,
               "x-scope": ["admin", "tenant"],
               "properties": {
-                "filesCron": {"type": "string", "format": "cron6", "x-scope": "admin"},
-                "documentsCron": {"type": "string", "format": "cron6", "x-scope": "admin"},
+                "filesCron": {"$ref": "#/$defs/cron6", "x-scope": "admin"},
+                "documentsCron": {"$ref": "#/$defs/cron6", "x-scope": "admin"},
                 "files": {"type": "integer", "minimum": 0, "x-scope": "admin"},
                 "filesremovedatonce": {"type": "integer", "minimum": 0, "x-scope": "admin"},
                 "sessionidle": {"type": "string", "x-scope": ["admin", "tenant"]},
@@ -390,6 +413,40 @@
                   }
                 }
               }
+            }
+          }
+        }
+      }
+    },
+    "adminPanel": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-scope": ["admin", "tenant"],
+      "properties": {
+        "passwordValidation": {
+          "type": "object",
+          "x-scope": ["admin", "tenant"],
+          "description": "Password validation requirements using custom format types",
+          "properties": {
+            "minLength": {
+              "$ref": "#/$defs/passlength",
+              "description": "be at least 8 characters long",
+              "x-scope": ["admin", "tenant"]
+            },
+            "hasDigit": {
+              "$ref": "#/$defs/passdigit",
+              "description": "contain at least one digit",
+              "x-scope": ["admin", "tenant"]
+            },
+            "hasUppercase": {
+              "$ref": "#/$defs/passupper",
+              "description": "contain at least one uppercase letter",
+              "x-scope": ["admin", "tenant"]
+            },
+            "hasSpecialChar": {
+              "$ref": "#/$defs/passspecial",
+              "description": "contain at least one special character",
+              "x-scope": ["admin", "tenant"]
             }
           }
         }

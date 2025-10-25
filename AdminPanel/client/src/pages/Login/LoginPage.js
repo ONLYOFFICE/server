@@ -2,8 +2,8 @@ import {useState, useRef} from 'react';
 import {useDispatch} from 'react-redux';
 import {fetchUser} from '../../store/slices/userSlice';
 import {login} from '../../api';
-import Input from '../../components/LoginInput';
-import Button from '../../components/LoginButton';
+import PasswordInput from '../../components/PasswordInput/PasswordInput';
+import Button from '../../components/Button/Button';
 import styles from './styles.module.css';
 
 export default function Login() {
@@ -43,14 +43,15 @@ export default function Login() {
 
         <div className={styles.form}>
           <div className={styles.inputGroup}>
-            <Input
+            <PasswordInput
               type='password'
               value={password}
               onChange={setPassword}
               placeholder='Enter your password'
-              description='Admin panel password'
               error={error}
               onKeyDown={handleKeyDown}
+              width='200px'
+              isValid={true}
             />
           </div>
 

@@ -8,11 +8,44 @@ const bootstrap = require('../../bootstrap');
 const adminPanelJwtSecret = require('../../jwtSecret');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const commonDefines = require('../../../../../Common/sources/commondefines');
+const {validateScoped} = require('../config/config.service');
+const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
 
 const router = express.Router();
 
 router.use(express.json());
 router.use(cookieParser());
+
+/**
+ * Validates password against all requirements using existing config service
+ * @param {operationContext} ctx - Operation context
+ * @param {string} password - Password to validate
+ * @returns {Object} Validation result with isValid boolean and error messages
+ */
+function validatePassword(ctx, password) {
+  const testData = {
+    adminPanel: {
+      passwordValidation: {
+        minLength: password,
+        hasDigit: password,
+        hasUppercase: password,
+        hasSpecialChar: password
+      }
+    }
+  };
+
+  const result = validateScoped(ctx, testData);
+
+  if (result.value) {
+    return {
+      isValid: true
+    };
+  }
+
+  return {
+    isValid: false
+  };
+}
 
 /**
  * Create session cookie with standard options
@@ -51,7 +84,8 @@ function requireAuth(req, res, next) {
 }
 
 /**
- * Check if AdminPanel setup is required
+ * Check if initial setup is required and get password validation schema
+ * Returns setup status and minimal schema for password validation
  */
 router.get('/setup/required', async (req, res) => {
   const ctx = new operationContext.Context();
@@ -68,7 +102,22 @@ router.get('/setup/required', async (req, res) => {
       }
     }
 
-    res.json({setupRequired});
+    // Include minimal password validation schema for setup page
+    const passwordValidationSchema = {
+      $defs: supersetSchema.$defs,
+      properties: {
+        adminPanel: {
+          properties: {
+            passwordValidation: supersetSchema.properties.adminPanel.properties.passwordValidation
+          }
+        }
+      }
+    };
+
+    res.json({
+      setupRequired,
+      passwordValidationSchema
+    });
   } catch (error) {
     ctx.logger.error('Setup check error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});
@@ -106,12 +155,11 @@ router.post('/setup', async (req, res) => {
       return res.status(400).json({error: 'Password is required'});
     }
 
-    if (password.length < passwordManager.PASSWORD_MIN_LENGTH) {
-      return res.status(400).json({error: `Password must be at least ${passwordManager.PASSWORD_MIN_LENGTH} characters long`});
-    }
-
-    if (password.length > passwordManager.PASSWORD_MAX_LENGTH) {
-      return res.status(400).json({error: `Password must not exceed ${passwordManager.PASSWORD_MAX_LENGTH} characters`});
+    const passwordValidationResult = validatePassword(ctx, password);
+    if (!passwordValidationResult.isValid) {
+      return res
+        .status(400)
+        .json({error: 'Password must be at least 8 characters long, contain at least one digit, one uppercase letter and one special character'});
     }
 
     await passwordManager.saveAdminPassword(ctx, password);
@@ -143,12 +191,11 @@ router.post('/change-password', requireAuth, async (req, res) => {
       return res.status(400).json({error: 'Current password and new password are required'});
     }
 
-    if (newPassword.length < passwordManager.PASSWORD_MIN_LENGTH) {
-      return res.status(400).json({error: `Password must be at least ${passwordManager.PASSWORD_MIN_LENGTH} characters long`});
-    }
-
-    if (newPassword.length > passwordManager.PASSWORD_MAX_LENGTH) {
-      return res.status(400).json({error: `Password must not exceed ${passwordManager.PASSWORD_MAX_LENGTH} characters`});
+    const passwordValidationResult = validatePassword(ctx, newPassword);
+    if (!passwordValidationResult.isValid) {
+      return res
+        .status(400)
+        .json({error: 'Password must be at least 8 characters long, contain at least one digit, one uppercase letter and one special character'});
     }
 
     if (currentPassword === newPassword) {

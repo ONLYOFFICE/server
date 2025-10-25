@@ -7,13 +7,10 @@ const dotenv = require('dotenv');
 module.exports = (env, argv) => {
   const mode = argv && argv.mode ? argv.mode : 'development';
 
-  // Load environment variables from .env files
-  // Priority: .env.local > .env.development/.env.production > .env
-  const envFiles = ['.env.local', mode === 'production' ? '.env.production' : '.env.development', '.env'];
-
-  envFiles.forEach(file => {
-    dotenv.config({path: file});
-  });
+  // Load environment variables from .env.development only in development mode
+  if (mode === 'development') {
+    dotenv.config({path: '.env.development'});
+  }
 
   return {
     entry: './src/index.js',

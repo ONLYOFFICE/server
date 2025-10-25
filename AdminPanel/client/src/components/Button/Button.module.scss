@@ -1,4 +1,4 @@
-.saveButton {
+.button {
   background: #ff6f3d;
   width: 154px;
   height: 48px;
@@ -43,13 +43,13 @@
   height: 20px;
 
   // Spinning animation for the spinner
-  .saveButton--loading & {
+  .button--loading & {
     animation: spin 1s linear infinite;
   }
 
   // Smaller size for success and fail icons
-  .saveButton--success &,
-  .saveButton--error & {
+  .button--success &,
+  .button--error & {
     width: 14px;
     height: 14px;
   }
