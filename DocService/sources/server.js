@@ -92,6 +92,20 @@ const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes
 
 const app = express();
 app.disable('x-powered-by');
+
+// Enable CORS in development mode for AdminPanel webpack dev server
+if (process.env.NODE_ENV.startsWith('development-')) {
+  const cors = require('cors');
+  app.use(
+    cors({
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+    })
+  );
+}
+
 //path.resolve uses __dirname by default(unexpected path in pkg)
 app.set('views', path.resolve(process.cwd(), cfgHtmlTemplate));
 app.set('view engine', 'ejs');
@@ -161,44 +175,6 @@ docsCoServer.install(server, app, () => {
       commonDefines.buildNumber
     );
   });
-
-  // Proxy AdminPanel endpoints for testing
-  if (process.env.NODE_ENV.startsWith('development-')) {
-    /**
-     * Simple proxy to localhost:9000 for testing AdminPanel routes
-     * @param {string} pathPrefix - Path to prepend or empty string to strip mount path
-     */
-    const proxyToAdmin =
-      (pathPrefix = '') =>
-      (req, res) => {
-        const targetPath = pathPrefix + req.url;
-        const options = {
-          hostname: 'localhost',
-          port: 9000,
-          path: targetPath,
-          method: req.method,
-          headers: {...req.headers, host: 'localhost:9000'}
-        };
-
-        const proxyReq = http.request(options, proxyRes => {
-          res.status(proxyRes.statusCode);
-          Object.entries(proxyRes.headers).forEach(([key, value]) => res.setHeader(key, value));
-          proxyRes.pipe(res);
-        });
-
-        proxyReq.on('error', () => res.sendStatus(502));
-        req.pipe(proxyReq);
-      };
-
-    app.use('/api/v1/admin', proxyToAdmin('/api/v1/admin'));
-    app.all('/admin', (req, res, next) => {
-      if (req.path === '/admin' && !req.path.endsWith('/')) {
-        return res.redirect(302, '/admin/');
-      }
-      next();
-    });
-    app.use('/admin', proxyToAdmin());
-  }
 
   app.get('/index.html', (req, res) => {
     return co(function* () {

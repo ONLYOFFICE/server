@@ -29,9 +29,8 @@ export default function AuthWrapper({children}) {
           dispatch(setPasswordSchema(result.passwordValidationSchema));
         }
       } catch (error) {
-        if (error.message === 'SERVER_UNAVAILABLE') {
-          setServerUnavailable(true);
-        }
+        console.error('Error checking setup:', error);
+        setServerUnavailable(true);
       } finally {
         setCheckingSetup(false);
       }

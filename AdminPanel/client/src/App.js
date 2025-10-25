@@ -7,6 +7,7 @@ import ConfigLoader from './components/ConfigLoader/ConfigLoader';
 import {useSchemaLoader} from './hooks/useSchemaLoader';
 import Menu from './components/Menu/Menu';
 import {menuItems} from './config/menuItems';
+import {getBasename} from './utils/paths';
 
 function AppContent() {
   useSchemaLoader();
@@ -32,29 +33,6 @@ function AppContent() {
     </div>
   );
 }
-
-/**
- * Simple basename computation from URL path.
- * Basename is everything before the last path segment.
- * Examples:
- *  - '/statistics' -> basename ''
- *  - '/admin/' -> basename '/admin'
- *  - '/admin/statistics' -> basename '/admin'
- *  - '/admin/su/statistics' -> basename '/admin/su'
- * @returns {string} basename
- */
-const getBasename = () => {
-  const path = window.location.pathname || '/';
-  if (path === '/') return '';
-  // Treat '/prefix/' as a directory prefix
-  if (path.endsWith('/')) return path.slice(0, -1);
-  // Remove trailing slash (keep root '/') for consistent parsing
-  const normalized = path;
-  const lastSlash = normalized.lastIndexOf('/');
-  // If no parent directory, there is no basename
-  if (lastSlash <= 0) return '';
-  return normalized.slice(0, lastSlash);
-};
 
 function App() {
   const basename = getBasename();

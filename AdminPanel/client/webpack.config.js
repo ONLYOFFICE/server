@@ -24,21 +24,25 @@ module.exports = (env, argv) => {
     },
 
     devServer: {
-      static: {
-        directory: path.join(__dirname, 'build'),
-        publicPath: ''
-      },
+      static: path.join(__dirname, 'public'),
       port: 3000,
-      open: true,
-      historyApiFallback: true,
-      proxy: {
-        '/healthcheck-api': {
-          target: process.env.REACT_APP_DOCSERVICE_URL,
-          changeOrigin: true,
-          pathRewrite: {
-            '^/healthcheck-api': '/healthcheck'
+      open: '/admin/',
+      hot: true,
+      historyApiFallback: {
+        index: '/admin/index.html'
+      },
+      devMiddleware: {
+        publicPath: '/admin'
+      },
+      setupMiddlewares: (middlewares, devServer) => {
+        // Redirect /admin -> /admin/ (only exact match without trailing slash)
+        devServer.app.use((req, res, next) => {
+          if (req.path === '/admin' && !req.originalUrl.endsWith('/')) {
+            return res.redirect(302, '/admin/');
           }
-        }
+          next();
+        });
+        return middlewares;
       }
     },
 
@@ -82,8 +86,7 @@ module.exports = (env, argv) => {
         ]
       }),
       new webpack.DefinePlugin({
-        'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL),
-        'process.env.REACT_APP_DOCSERVICE_URL': JSON.stringify(process.env.REACT_APP_DOCSERVICE_URL)
+        'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL)
       })
     ],
 
