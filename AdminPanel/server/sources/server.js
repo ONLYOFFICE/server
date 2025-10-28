@@ -39,6 +39,7 @@ const tenantManager = require('../../../Common/sources/tenantManager');
 const license = require('../../../Common/sources/license');
 const utils = require('../../../Common/sources/utils');
 const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
+const {validateJWT} = require('./middleware/auth');
 
 const express = require('express');
 const http = require('http');
@@ -132,8 +133,21 @@ function disableCache(req, res, next) {
 app.use('/admin/api/v1/config', utils.checkClientIp, disableCache, configRouter);
 app.use('/admin/api/v1/wopi', utils.checkClientIp, disableCache, wopiRouter);
 app.use('/admin/api/v1', utils.checkClientIp, disableCache, adminpanelRouter);
-app.get('/admin/api/v1/stat', utils.checkClientIp, disableCache, async (req, res) => {
+app.get('/admin/api/v1/stat', utils.checkClientIp, disableCache, validateJWT, async (req, res) => {
   await infoRouter.licenseInfo(req, res);
+});
+app.get('/admin/api/v1/tenants', utils.checkClientIp, disableCache, validateJWT, async (req, res) => {
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+    await ctx.initTenantCache();
+    const tenants = await tenantManager.getAllTenants(ctx);
+    const baseTenant = tenantManager.getDefautTenant();
+    res.json({baseTenant, tenants});
+  } catch (e) {
+    ctx.logger.error('tenants list error: %s', e.stack);
+    res.status(500).json({error: 'Internal server error'});
+  }
 });
 
 // Serve AdminPanel client build as static assets under /admin

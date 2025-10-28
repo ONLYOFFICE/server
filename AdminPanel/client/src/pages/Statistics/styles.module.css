@@ -4,6 +4,28 @@
   gap: 24px;
 }
 
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  margin-left: 10px;
+}
+
+.tenantGroup {
+  display: flex;
+  align-items: center;
+}
+
+.tenantLabel {
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+.tenantSelect {
+  width: 400px;
+}
+
 .modeBar {
   margin: 8px 0 16px;
   font-size: 14px;
