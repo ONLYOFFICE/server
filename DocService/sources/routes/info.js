@@ -91,6 +91,21 @@ async function licenseInfo(req, res, getConnections = null) {
   const ctx = new operationContext.Context();
   try {
     ctx.initFromRequest(req);
+
+    const requestedTenant = req.query && req.query.tenant;
+    if (requestedTenant) {
+      const userTenant = req.user && req.user.tenant;
+      if (userTenant && requestedTenant !== userTenant) {
+        const defaultTenant = tenantManager.getDefautTenant();
+        if (userTenant !== defaultTenant) {
+          if (!res.headersSent) {
+            res.status(403).json({error: 'Forbidden'});
+          }
+          return;
+        }
+      }
+      ctx.setTenant(requestedTenant);
+    }
     await ctx.initTenantCache();
     ctx.logger.debug('licenseInfo start');
 
