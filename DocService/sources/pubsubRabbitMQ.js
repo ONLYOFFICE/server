@@ -31,26 +31,25 @@
  */
 
 'use strict';
-var config = require('config');
-var events = require('events');
-var util = require('util');
-var co = require('co');
-var constants = require('./../../Common/sources/constants');
+const config = require('config');
+const events = require('events');
+const util = require('util');
+const co = require('co');
+const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
-var utils = require('./../../Common/sources/utils');
-var rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
-var activeMQCore = require('./../../Common/sources/activeMQCore');
+const rabbitMQCore = require('./../../Common/sources/rabbitMQCore');
+const activeMQCore = require('./../../Common/sources/activeMQCore');
 
 const cfgQueueType = config.get('queue.type');
 const cfgRabbitExchangePubSub = config.util.cloneDeep(config.get('rabbitmq.exchangepubsub'));
 const cfgRabbitQueuePubsub = config.util.cloneDeep(config.get('rabbitmq.queuepubsub'));
-var cfgActiveTopicPubSub = constants.ACTIVEMQ_TOPIC_PREFIX + config.get('activemq.topicpubsub');
+const cfgActiveTopicPubSub = constants.ACTIVEMQ_TOPIC_PREFIX + config.get('activemq.topicpubsub');
 
 function initRabbit(pubsub, callback) {
   return co(function* () {
-    var e = null;
+    let e = null;
     try {
-      var conn = yield rabbitMQCore.connetPromise(function() {
+      const conn = yield rabbitMQCore.connetPromise(() => {
         clear(pubsub);
         if (!pubsub.isClose) {
           setTimeout(() => {
@@ -60,20 +59,29 @@ function initRabbit(pubsub, callback) {
       });
       pubsub.connection = conn;
       pubsub.channelPublish = yield rabbitMQCore.createChannelPromise(conn);
-      pubsub.exchangePublish = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub.name,
-        'fanout', cfgRabbitExchangePubSub.options);
+      pubsub.exchangePublish = yield rabbitMQCore.assertExchangePromise(
+        pubsub.channelPublish,
+        cfgRabbitExchangePubSub.name,
+        'fanout',
+        cfgRabbitExchangePubSub.options
+      );
 
       pubsub.channelReceive = yield rabbitMQCore.createChannelPromise(conn);
-      var queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, cfgRabbitQueuePubsub.name, cfgRabbitQueuePubsub.options);
+      const queue = yield rabbitMQCore.assertQueuePromise(pubsub.channelReceive, cfgRabbitQueuePubsub.name, cfgRabbitQueuePubsub.options);
       pubsub.channelReceive.bindQueue(queue, cfgRabbitExchangePubSub.name, '');
-      yield rabbitMQCore.consumePromise(pubsub.channelReceive, queue, function (message) {
-        if(null != pubsub.channelReceive){
-          if (message) {
-            pubsub.emit('message', message.content.toString());
+      yield rabbitMQCore.consumePromise(
+        pubsub.channelReceive,
+        queue,
+        message => {
+          if (null != pubsub.channelReceive) {
+            if (message) {
+              pubsub.emit('message', message.content.toString());
+            }
+            pubsub.channelReceive.ack(message);
           }
-          pubsub.channelReceive.ack(message);
-        }
-      }, {noAck: false});
+        },
+        {noAck: false}
+      );
       //process messages received while reconnection time
       yield repeat(pubsub);
     } catch (err) {
@@ -85,10 +93,10 @@ function initRabbit(pubsub, callback) {
   });
 }
 function initActive(pubsub, callback) {
-  return co(function*() {
-    var e = null;
+  return co(function* () {
+    let e = null;
     try {
-      var conn = yield activeMQCore.connetPromise(function() {
+      const conn = yield activeMQCore.connetPromise(() => {
         clear(pubsub);
         if (!pubsub.isClose) {
           setTimeout(() => {
@@ -98,7 +106,7 @@ function initActive(pubsub, callback) {
       });
       pubsub.connection = conn;
       //https://github.com/amqp/rhea/issues/251#issuecomment-535076570
-      let optionsPubSubSender = {
+      const optionsPubSubSender = {
         target: {
           address: cfgActiveTopicPubSub,
           capabilities: ['topic']
@@ -106,7 +114,7 @@ function initActive(pubsub, callback) {
       };
       pubsub.channelPublish = yield activeMQCore.openSenderPromise(conn, optionsPubSubSender);
 
-      let optionsPubSubReceiver = {
+      const optionsPubSubReceiver = {
         source: {
           address: cfgActiveTopicPubSub,
           capabilities: ['topic']
@@ -114,10 +122,10 @@ function initActive(pubsub, callback) {
         credit_window: 0,
         autoaccept: false
       };
-      let receiver = yield activeMQCore.openReceiverPromise(conn, optionsPubSubReceiver);
+      const receiver = yield activeMQCore.openReceiverPromise(conn, optionsPubSubReceiver);
       //todo ?consumer.dispatchAsync=false&consumer.prefetchSize=1
       receiver.add_credit(1);
-      receiver.on("message", function(context) {
+      receiver.on('message', context => {
         if (context) {
           pubsub.emit('message', context.message.body);
         }
@@ -141,18 +149,17 @@ function clear(pubsub) {
   pubsub.channelReceive = null;
 }
 function repeat(pubsub) {
-  return co(function*() {
-    for (var i = 0; i < pubsub.publishStore.length; ++i) {
+  return co(function* () {
+    for (let i = 0; i < pubsub.publishStore.length; ++i) {
       yield publish(pubsub, pubsub.publishStore[i]);
     }
     pubsub.publishStore.length = 0;
   });
-
 }
 function publishRabbit(pubsub, data) {
-  return new Promise(function (resolve, reject) {
+  return new Promise((resolve, _reject) => {
     //Channels act like stream.Writable when you call publish or sendToQueue: they return either true, meaning “keep sending”, or false, meaning “please wait for a ‘drain’ event”.
-    let keepSending = pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
+    const keepSending = pubsub.channelPublish.publish(pubsub.exchangePublish, '', data);
     if (!keepSending) {
       //todo (node:4308) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 drain listeners added to [Sender]. Use emitter.setMaxListeners() to increase limit
       pubsub.channelPublish.once('drain', resolve);
@@ -163,9 +170,9 @@ function publishRabbit(pubsub, data) {
 }
 
 function publishActive(pubsub, data) {
-  return new Promise(function (resolve, reject) {
+  return new Promise((resolve, _reject) => {
     //Returns true if the sender has available credits for sending a message. Otherwise it returns false.
-    let sendable = pubsub.channelPublish.sendable();
+    const sendable = pubsub.channelPublish.sendable();
     if (!sendable) {
       //todo (node:4308) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 sendable listeners added to [Sender]. Use emitter.setMaxListeners() to increase limit
       pubsub.channelPublish.once('sendable', () => {
@@ -189,8 +196,12 @@ function healthCheckRabbit(pubsub) {
     if (!pubsub.channelPublish) {
       return false;
     }
-    const exchange = yield rabbitMQCore.assertExchangePromise(pubsub.channelPublish, cfgRabbitExchangePubSub.name,
-      'fanout', cfgRabbitExchangePubSub.options);
+    const exchange = yield rabbitMQCore.assertExchangePromise(
+      pubsub.channelPublish,
+      cfgRabbitExchangePubSub.name,
+      'fanout',
+      cfgRabbitExchangePubSub.options
+    );
     return !!exchange;
   });
 }
@@ -199,6 +210,7 @@ function healthCheckActive(pubsub) {
     if (!pubsub.connection) {
       return false;
     }
+    yield null;
     return pubsub.connection.is_open();
   });
 }
@@ -231,10 +243,10 @@ util.inherits(PubsubRabbitMQ, events.EventEmitter);
 PubsubRabbitMQ.prototype.init = function (callback) {
   init(this, callback);
 };
-PubsubRabbitMQ.prototype.initPromise = function() {
-  var t = this;
-  return new Promise(function(resolve, reject) {
-    init(t, function(err) {
+PubsubRabbitMQ.prototype.initPromise = function () {
+  const t = this;
+  return new Promise((resolve, reject) => {
+    init(t, err => {
       if (err) {
         reject(err);
       } else {
@@ -252,11 +264,11 @@ PubsubRabbitMQ.prototype.publish = function (message) {
     return Promise.resolve();
   }
 };
-PubsubRabbitMQ.prototype.close = function() {
+PubsubRabbitMQ.prototype.close = function () {
   this.isClose = true;
   return close(this.connection);
 };
-PubsubRabbitMQ.prototype.healthCheck = function() {
+PubsubRabbitMQ.prototype.healthCheck = function () {
   return healthCheck(this);
 };
 

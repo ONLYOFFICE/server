@@ -1,0 +1,46 @@
+.loggerConfig {
+  margin: 0 auto;
+}
+
+.configSection {
+  background: white;
+  border-radius: 8px;
+  padding: 32px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 24px;
+}
+
+.formRow {
+  margin-bottom: 24px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 500px;
+}
+
+.label {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.description {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.error {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+}

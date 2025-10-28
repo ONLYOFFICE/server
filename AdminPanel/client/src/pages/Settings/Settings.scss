@@ -1,0 +1,148 @@
+.settings-page {
+  margin: 0 auto;
+
+  .page-header {
+    margin-bottom: 32px;
+
+    h1 {
+      margin: 0;
+      color: #333;
+      font-size: 28px;
+      font-weight: 600;
+    }
+  }
+
+  .settings-content {
+    .settings-section {
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      margin-bottom: 20px;
+      overflow: hidden;
+
+      h2 {
+        margin: 0;
+        padding: 20px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+        color: #333;
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .settings-item {
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+
+        .settings-info {
+          flex: 1;
+
+          h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+          }
+
+          p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+          }
+        }
+
+        .settings-actions {
+          flex-shrink: 0;
+
+          .reset-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-width: 150px;
+
+            &:hover:not(:disabled) {
+              background: #c82333;
+              transform: translateY(-1px);
+            }
+
+            &:disabled {
+              background: #6c757d;
+              cursor: not-allowed;
+              transform: none;
+            }
+
+            &:active:not(:disabled) {
+              transform: translateY(0);
+            }
+          }
+        }
+      }
+    }
+
+    .error-message {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 20px;
+
+      p {
+        margin: 0;
+        color: #721c24;
+        font-size: 14px;
+      }
+    }
+
+    .success-message {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 20px;
+
+      p {
+        margin: 0;
+        color: #155724;
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .settings-page {
+    padding: 15px;
+
+    .page-header h1 {
+      font-size: 24px;
+    }
+
+    .settings-content {
+      .settings-section {
+        .settings-item {
+          flex-direction: column;
+          gap: 15px;
+
+          .settings-actions {
+            width: 100%;
+
+            .reset-btn {
+              width: 100%;
+            }
+          }
+        }
+      }
+    }
+  }
+}

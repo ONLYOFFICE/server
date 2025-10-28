@@ -1,0 +1,55 @@
+.toggleGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.label {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #333333;
+}
+
+.switch {
+  position: relative;
+  width: 32px;
+  height: 16px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 1;
+}
+
+.switch--off {
+  background: rgb(241, 241, 241);
+  border: 1px solid rgb(128, 128, 128);
+}
+
+.switch--on {
+  background: #f9feef;
+  border: 1px solid #8bb825;
+}
+
+.circle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  top: 2px;
+  transition: all 0.2s ease;
+}
+
+.switch--off .circle {
+  left: 2px;
+  transform: translateX(0);
+  background: rgb(128, 128, 128);
+  border: 1px solid rgb(128, 128, 128);
+}
+
+.switch--on .circle {
+  left: 2px;
+  transform: translateX(16px);
+  background: #8bb825;
+  border: 1px solid #8bb825;
+}

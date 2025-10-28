@@ -33,13 +33,13 @@
 'use strict';
 
 exports.DOC_ID_PATTERN = '0-9-.a-zA-Z_=';
-exports.DOC_ID_REGEX = new RegExp("^[" + exports.DOC_ID_PATTERN + "]*$", 'i');
-exports.DOC_ID_REPLACE_REGEX = new RegExp("[^" + exports.DOC_ID_PATTERN + "]", 'g');
-exports.DOC_ID_SOCKET_PATTERN = new RegExp("^/doc/([" + exports.DOC_ID_PATTERN + "]*)/c.+", 'i');
+exports.DOC_ID_REGEX = new RegExp('^[' + exports.DOC_ID_PATTERN + ']*$', 'i');
+exports.DOC_ID_REPLACE_REGEX = new RegExp('[^' + exports.DOC_ID_PATTERN + ']', 'g');
+exports.DOC_ID_SOCKET_PATTERN = new RegExp('^/doc/([' + exports.DOC_ID_PATTERN + ']*)/c.+', 'i');
 exports.DOC_ID_MAX_LENGTH = 240;
-exports.USER_ID_MAX_LENGTH = 240;//255-240=15 symbols to make user id unique
+exports.USER_ID_MAX_LENGTH = 240; //255-240=15 symbols to make user id unique
 exports.USER_NAME_MAX_LENGTH = 255;
-exports.PASSWORD_MAX_LENGTH = 255;//set password limit for DoS protection with long password
+exports.PASSWORD_MAX_LENGTH = 255; //set password limit for DoS protection with long password
 exports.EXTENTION_REGEX = /^[a-zA-Z0-9]*$/;
 exports.CHAR_DELIMITER = String.fromCharCode(5);
 exports.OUTPUT_NAME = 'output';
@@ -52,13 +52,14 @@ exports.DEFAULT_USER_ID = 'userId';
 exports.ALLOWED_PROTO = /^https?$/i;
 exports.SHARD_KEY_WOPI_NAME = 'WOPISrc';
 exports.SHARD_KEY_API_NAME = 'shardkey';
+exports.USER_SESSION_ID_NAME = 'usid';
 
 exports.RIGHTS = {
-  None    : 0,
-  Edit    : 1,
-  Review  : 2,
-  Comment : 3,
-  View    : 4
+  None: 0,
+  Edit: 1,
+  Review: 2,
+  Comment: 3,
+  View: 4
 };
 
 exports.LICENSE_MODE = {
@@ -69,16 +70,16 @@ exports.LICENSE_MODE = {
 };
 
 exports.LICENSE_RESULT = {
-  Error         : 1,
-  Expired       : 2,
-  Success       : 3,
-  UnknownUser   : 4,
-  Connections   : 5,
-  ExpiredTrial  : 6,
-  SuccessLimit  : 7,
-  UsersCount    : 8,
-  ConnectionsOS : 9,
-  UsersCountOS  : 10,
+  Error: 1,
+  Expired: 2,
+  Success: 3,
+  UnknownUser: 4,
+  Connections: 5,
+  ExpiredTrial: 6,
+  SuccessLimit: 7,
+  UsersCount: 8,
+  ConnectionsOS: 9,
+  UsersCountOS: 10,
   ExpiredLimited: 11,
   ConnectionsLiveOS: 12,
   ConnectionsLive: 13,
@@ -91,7 +92,7 @@ exports.LICENSE_CONNECTIONS = 20;
 exports.LICENSE_USERS = 3;
 exports.LICENSE_EXPIRE_USERS_ONE_DAY = 24 * 60 * 60; // day in seconds
 
-exports.AVS_OFFICESTUDIO_FILE_UNKNOWN =  0x0000;
+exports.AVS_OFFICESTUDIO_FILE_UNKNOWN = 0x0000;
 exports.AVS_OFFICESTUDIO_FILE_DOCUMENT = 0x0040;
 exports.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOCX = exports.AVS_OFFICESTUDIO_FILE_DOCUMENT + 0x0001;
 exports.AVS_OFFICESTUDIO_FILE_DOCUMENT_DOC = exports.AVS_OFFICESTUDIO_FILE_DOCUMENT + 0x0002;
@@ -128,7 +129,7 @@ exports.AVS_OFFICESTUDIO_FILE_PRESENTATION_POTM = exports.AVS_OFFICESTUDIO_FILE_
 exports.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODP_FLAT = exports.AVS_OFFICESTUDIO_FILE_PRESENTATION + 0x0009;
 exports.AVS_OFFICESTUDIO_FILE_PRESENTATION_OTP = exports.AVS_OFFICESTUDIO_FILE_PRESENTATION + 0x000a;
 exports.AVS_OFFICESTUDIO_FILE_PRESENTATION_PPTX_PACKAGE = exports.AVS_OFFICESTUDIO_FILE_PRESENTATION + 0x000b;
-exports.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODG  = exports.AVS_OFFICESTUDIO_FILE_PRESENTATION + 0x000c;
+exports.AVS_OFFICESTUDIO_FILE_PRESENTATION_ODG = exports.AVS_OFFICESTUDIO_FILE_PRESENTATION + 0x000c;
 
 exports.AVS_OFFICESTUDIO_FILE_SPREADSHEET = 0x0100;
 exports.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX = exports.AVS_OFFICESTUDIO_FILE_SPREADSHEET + 0x0001;
@@ -195,7 +196,7 @@ exports.AVS_OFFICESTUDIO_FILE_CANVAS_SPREADSHEET = exports.AVS_OFFICESTUDIO_FILE
 exports.AVS_OFFICESTUDIO_FILE_CANVAS_PRESENTATION = exports.AVS_OFFICESTUDIO_FILE_CANVAS + 0x0003;
 exports.AVS_OFFICESTUDIO_FILE_CANVAS_PDF = exports.AVS_OFFICESTUDIO_FILE_CANVAS + 0x0004;
 
-exports.AVS_OFFICESTUDIO_FILE_DRAW  = 0x4000;
+exports.AVS_OFFICESTUDIO_FILE_DRAW = 0x4000;
 exports.AVS_OFFICESTUDIO_FILE_DRAW_VSDX = exports.AVS_OFFICESTUDIO_FILE_DRAW + 0x0001;
 exports.AVS_OFFICESTUDIO_FILE_DRAW_VSSX = exports.AVS_OFFICESTUDIO_FILE_DRAW + 0x0002;
 exports.AVS_OFFICESTUDIO_FILE_DRAW_VSTX = exports.AVS_OFFICESTUDIO_FILE_DRAW + 0x0003;
@@ -248,6 +249,7 @@ exports.VKEY_TIME_EXPIRE = -124;
 exports.VKEY_TIME_INCORRECT = -125;
 exports.EDITOR_CHANGES = -160;
 exports.PASSWORD = -180;
+exports.FORCED_VIEW_MODE = -200;
 
 //Quorum queues internally only support two priorities: high and normal.
 //Messages without a priority set will be mapped to normal as will priorities 0 - 4.
@@ -291,16 +293,16 @@ exports.NO_CACHE_CODE = 4009;
 exports.NO_CACHE = 'no cache';
 exports.RESTORE_CODE = 4010;
 exports.RESTORE = 'restore';
-exports.QUIET_CODE = 4011;//browser only
+exports.QUIET_CODE = 4011; //browser only
 exports.QUIET = 'quiet';
-exports.RECONNECT_FAILED_CODE = 4012;//browser only
+exports.RECONNECT_FAILED_CODE = 4012; //browser only
 exports.RECONNECT_FAILED = 'reconnect failed';
 //update connection error codes
 
 exports.CONTENT_DISPOSITION_INLINE = 'inline';
 exports.CONTENT_DISPOSITION_ATTACHMENT = 'attachment';
 
-exports.CONN_CLOSED = "closed";
+exports.CONN_CLOSED = 'closed';
 
 exports.FILE_STATUS_OK = 'ok';
 exports.FILE_STATUS_UPDATE_VERSION = 'updateversion';
@@ -310,9 +312,9 @@ exports.ACTIVEMQ_TOPIC_PREFIX = 'topic://';
 
 exports.TEMPLATES_DEFAULT_LOCALE = 'en-US';
 exports.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP = {
-  'en': 'en-US',
-  'pt': 'pt-BR',
-  'zh': 'zh-CH',
+  en: 'en-US',
+  pt: 'pt-BR',
+  zh: 'zh-CH',
   'pt-PT': 'pt-PT',
   'zh-TW': 'zh-TW'
 };
@@ -330,13 +332,4 @@ exports.TABLE_RESULT_SCHEMA = [
   'password',
   'additional'
 ];
-exports.TABLE_CHANGES_SCHEMA = [
-  'tenant',
-  'id',
-  'change_id',
-  'user_id',
-  'user_id_original',
-  'user_name',
-  'change_data',
-  'change_date',
-];
+exports.TABLE_CHANGES_SCHEMA = ['tenant', 'id', 'change_id', 'user_id', 'user_id_original', 'user_name', 'change_data', 'change_date'];

@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require('@azure/storage-blob');
+const {BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions} = require('@azure/storage-blob');
 const mime = require('mime');
 const config = require('config');
 const utils = require('../utils');
@@ -22,17 +22,12 @@ const blobServiceClients = {};
 function getBlobServiceClient(storageCfg) {
   const configKey = `${storageCfg.accessKeyId}_${storageCfg.bucketName}`;
   if (!blobServiceClients[configKey]) {
-    const credential = new StorageSharedKeyCredential(
-      storageCfg.accessKeyId,
-      storageCfg.secretAccessKey
-    );
+    const credential = new StorageSharedKeyCredential(storageCfg.accessKeyId, storageCfg.secretAccessKey);
     if (storageCfg.endpoint.includes(storageCfg.accessKeyId)) {
       blobServiceClients[configKey] = new BlobServiceClient(storageCfg.endpoint, credential);
     } else {
       const endpointUrl = new URL(storageCfg.endpoint.replace(/\/+$/, ''));
-      blobServiceClients[configKey] = new BlobServiceClient(
-        `${endpointUrl.protocol}//${storageCfg.accessKeyId}.${endpointUrl.host}`,
-        credential);
+      blobServiceClients[configKey] = new BlobServiceClient(`${endpointUrl.protocol}//${storageCfg.accessKeyId}.${endpointUrl.host}`, credential);
     }
   }
   return blobServiceClients[configKey];
@@ -73,14 +68,32 @@ function getFilePath(storageCfg, strPath) {
   return `${storageFolderName}/${strPath}`;
 }
 
+/**
+ * @param {Object} baseOptions - Base options object
+ * @param {Object} storageCfg - Storage configuration
+ * @param {string} commandType - uploadData, uploadStream, download, etc.
+ * @returns {Object|undefined} Merged options or undefined if empty
+ */
+function applyCommandOptions(baseOptions, storageCfg, commandType) {
+  if (storageCfg.commandOptions.az && storageCfg.commandOptions.az[commandType]) {
+    const configOptions = storageCfg.commandOptions.az[commandType];
+    if (configOptions && Object.keys(configOptions).length > 0) {
+      return {...baseOptions, ...configOptions};
+    }
+  }
+  return Object.keys(baseOptions).length > 0 ? baseOptions : undefined;
+}
+
 async function listObjectsExec(storageCfg, prefix, output = []) {
   const containerClient = getContainerClient(storageCfg);
   const storageFolderName = storageCfg.storageFolderName;
   const prefixWithFolder = storageFolderName ? `${storageFolderName}/${prefix}` : prefix;
 
-  for await (const blob of containerClient.listBlobsFlat({prefix: prefixWithFolder})) {
-    const relativePath = storageFolderName ?
-      blob.name.substring(storageFolderName.length + 1) : blob.name;
+  const baseOptions = {prefix: prefixWithFolder};
+  const listOptions = applyCommandOptions(baseOptions, storageCfg, 'listBlobsFlat');
+
+  for await (const blob of containerClient.listBlobsFlat(listOptions)) {
+    const relativePath = storageFolderName ? blob.name.substring(storageFolderName.length + 1) : blob.name;
     output.push(relativePath);
   }
   return output;
@@ -88,8 +101,11 @@ async function listObjectsExec(storageCfg, prefix, output = []) {
 
 async function deleteObjectsHelp(storageCfg, aKeys) {
   const containerClient = getContainerClient(storageCfg);
+  const deleteOptions = applyCommandOptions({}, storageCfg, 'deleteBlob');
   await Promise.all(
-    aKeys.map(key => containerClient.deleteBlob(key.Key))
+    aKeys.map(key => {
+      return containerClient.deleteBlob(key.Key, deleteOptions);
+    })
   );
 }
 
@@ -101,33 +117,35 @@ async function headObject(storageCfg, strPath) {
 
 async function getObject(storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
-  const response = await blobClient.download();
+  const options = applyCommandOptions({}, storageCfg, 'download');
+  const response = await blobClient.download(options);
   return await utils.stream2Buffer(response.readableStreamBody);
 }
 
 async function createReadStream(storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
-  const response = await blobClient.download();
+  const options = applyCommandOptions({}, storageCfg, 'download');
+  const response = await blobClient.download(options);
   return {
     contentLength: response.contentLength,
     readStream: response.readableStreamBody
   };
 }
 
-async function putObject(storageCfg, strPath, buffer, contentLength) {
+async function putObject(storageCfg, strPath, buffer, _contentLength) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
 
-  const uploadOptions = {
+  const baseOptions = {
     blobHTTPHeaders: {
       contentType: mime.getType(strPath),
       contentDisposition: utils.getContentDisposition(path.basename(strPath))
     }
   };
+  const uploadOptions = applyCommandOptions(baseOptions, storageCfg, 'uploadData');
+
   if (buffer instanceof Buffer) {
-    // Handle Buffer upload
     await blobClient.uploadData(buffer, uploadOptions);
   } else if (typeof buffer.pipe === 'function') {
-    // Handle Stream upload
     await blobClient.uploadStream(buffer, undefined, undefined, uploadOptions);
   } else {
     throw new TypeError('Input must be Buffer or Readable stream');
@@ -138,31 +156,33 @@ async function uploadObject(storageCfg, strPath, filePath) {
   const blockBlobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const uploadStream = fs.createReadStream(filePath);
 
-  await blockBlobClient.uploadStream(
-    uploadStream,
-    undefined,
-    undefined,
-    {
-      blobHTTPHeaders: {
-        contentType: mime.getType(strPath),
-        contentDisposition: utils.getContentDisposition(path.basename(strPath))
-      }
+  const uploadOptions = {
+    blobHTTPHeaders: {
+      contentType: mime.getType(strPath),
+      contentDisposition: utils.getContentDisposition(path.basename(strPath))
     }
-  );
+  };
+  const finalOptions = applyCommandOptions(uploadOptions, storageCfg, 'uploadStream');
+
+  await blockBlobClient.uploadStream(uploadStream, undefined, undefined, finalOptions);
 }
 
 async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
   const sourceBlobClient = getBlobClient(storageCfgSrc, getFilePath(storageCfgSrc, sourceKey));
   const destBlobClient = getBlobClient(storageCfgDst, getFilePath(storageCfgDst, destinationKey));
-  const sasToken = generateBlobSASQueryParameters({
-    containerName: storageCfgSrc.bucketName,
-    blobName: getFilePath(storageCfgSrc, sourceKey),
-    permissions: BlobSASPermissions.parse("r"),
-    startsOn: new Date(),
-    expiresOn: new Date(Date.now() + 3600 * 1000)
-  }, new StorageSharedKeyCredential(storageCfgSrc.accessKeyId, storageCfgSrc.secretAccessKey)).toString();
+  const sasToken = generateBlobSASQueryParameters(
+    {
+      containerName: storageCfgSrc.bucketName,
+      blobName: getFilePath(storageCfgSrc, sourceKey),
+      permissions: BlobSASPermissions.parse('r'),
+      startsOn: new Date(),
+      expiresOn: new Date(Date.now() + 3600 * 1000)
+    },
+    new StorageSharedKeyCredential(storageCfgSrc.accessKeyId, storageCfgSrc.secretAccessKey)
+  ).toString();
 
-  await destBlobClient.syncCopyFromURL(`${sourceBlobClient.url}?${sasToken}`);
+  const copyOptions = applyCommandOptions({}, storageCfgDst, 'syncCopyFromURL');
+  await destBlobClient.syncCopyFromURL(`${sourceBlobClient.url}?${sasToken}`, copyOptions);
 }
 
 async function listObjects(storageCfg, strPath) {
@@ -171,33 +191,34 @@ async function listObjects(storageCfg, strPath) {
 
 async function deleteObject(storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
-  await blobClient.delete();
+  const options = applyCommandOptions({}, storageCfg, 'deleteBlob');
+  await blobClient.delete(options);
 }
 
 async function deleteObjects(storageCfg, strPaths) {
-  let aKeys = strPaths.map(path => ({Key: getFilePath(storageCfg, path)}));
+  const aKeys = strPaths.map(path => ({Key: getFilePath(storageCfg, path)}));
   for (let i = 0; i < aKeys.length; i += MAX_DELETE_OBJECTS) {
     await deleteObjectsHelp(storageCfg, aKeys.slice(i, i + MAX_DELETE_OBJECTS));
   }
 }
 
 async function deletePath(storageCfg, strPath) {
-  let list = await listObjects(storageCfg, strPath);
+  const list = await listObjects(storageCfg, strPath);
   await deleteObjects(storageCfg, list);
 }
 
-async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, opt_creationDate) {
+async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, optFilename, _opt_creationDate) {
   const storageUrlExpires = storageCfg.fs.urlExpires;
   let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
   expires = Math.min(expires, 604800);
 
-  const userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
+  const userFriendlyName = optFilename ? optFilename.replace(/\//g, '%2f') : path.basename(strPath);
   const contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
 
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
 
   const sasOptions = {
-    permissions: BlobSASPermissions.parse("r"),
+    permissions: BlobSASPermissions.parse('r'),
     expiresOn: new Date(Date.now() + expires * 1000),
     contentDisposition,
     contentType: mime.getType(strPath)

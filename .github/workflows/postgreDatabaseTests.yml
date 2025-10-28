@@ -22,7 +22,7 @@ jobs:
       - name: Caching dependencies
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: |
             ./npm-shrinkwrap.json
@@ -37,12 +37,13 @@ jobs:
 
       - name: Creating service DB configuration
         run: |
-          echo '{"services": {"CoAuthoring": {"sql": {"dbHost": "127.0.0.1"}}}}' >> Common/config/local.json
+          echo '{"services": {"CoAuthoring": {"sql": {"dbHost": "127.0.0.1", "pgPoolExtraOptions": {"options": "-c search_path=ci_test"}}}}}' >> Common/config/local.json
 
       - name: Creating schema
         run: |
+          docker exec postgres psql -d onlyoffice -U onlyoffice -c "CREATE SCHEMA IF NOT EXISTS ci_test;"
           docker cp ./schema/postgresql/createdb.sql postgres:/
-          docker exec postgres psql -d onlyoffice -U onlyoffice -a -f /createdb.sql
+          docker exec postgres bash -c 'PGOPTIONS="-c search_path=ci_test" psql -d onlyoffice -U onlyoffice -a -f /createdb.sql'
 
       - name: Run Jest
         run: npm run "integration database tests"

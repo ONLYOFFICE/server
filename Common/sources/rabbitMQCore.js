@@ -31,28 +31,27 @@
  */
 
 'use strict';
-var config = require('config');
-var amqp = require('amqplib/callback_api');
-var logger = require('./logger');
+const config = require('config');
+const amqp = require('amqplib/callback_api');
 const operationContext = require('./operationContext');
 
-var cfgRabbitUrl = config.get('rabbitmq.url');
-var cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOptions'));
+const cfgRabbitUrl = config.get('rabbitmq.url');
+const cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOptions'));
 
-var RECONNECT_TIMEOUT = 1000;
+const RECONNECT_TIMEOUT = 1000;
 
 function connetPromise(closeCallback) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, _reject) => {
     function startConnect() {
-      amqp.connect(cfgRabbitUrl, cfgRabbitSocketOptions, function(err, conn) {
+      amqp.connect(cfgRabbitUrl, cfgRabbitSocketOptions, (err, conn) => {
         if (null != err) {
           operationContext.global.logger.error('[AMQP] %s', err.stack);
           setTimeout(startConnect, RECONNECT_TIMEOUT);
         } else {
-          conn.on('error', function(err) {
+          conn.on('error', err => {
             operationContext.global.logger.error('[AMQP] conn error', err.stack);
           });
-          var closeEventCallback = function() {
+          const closeEventCallback = function () {
             //in some case receive multiple close events
             conn.removeListener('close', closeEventCallback);
             operationContext.global.logger.debug('[AMQP] conn close');
@@ -68,8 +67,8 @@ function connetPromise(closeCallback) {
   });
 }
 function createChannelPromise(conn) {
-  return new Promise(function(resolve, reject) {
-    conn.createChannel(function(err, channel) {
+  return new Promise((resolve, reject) => {
+    conn.createChannel((err, channel) => {
       if (null != err) {
         reject(err);
       } else {
@@ -79,8 +78,8 @@ function createChannelPromise(conn) {
   });
 }
 function createConfirmChannelPromise(conn) {
-  return new Promise(function(resolve, reject) {
-    conn.createConfirmChannel(function(err, channel) {
+  return new Promise((resolve, reject) => {
+    conn.createConfirmChannel((err, channel) => {
       if (null != err) {
         reject(err);
       } else {
@@ -90,8 +89,8 @@ function createConfirmChannelPromise(conn) {
   });
 }
 function assertExchangePromise(channel, exchange, type, options) {
-  return new Promise(function(resolve, reject) {
-    channel.assertExchange(exchange, type, options, function(err, ok) {
+  return new Promise((resolve, reject) => {
+    channel.assertExchange(exchange, type, options, (err, ok) => {
       if (null != err) {
         reject(err);
       } else {
@@ -101,8 +100,8 @@ function assertExchangePromise(channel, exchange, type, options) {
   });
 }
 function assertQueuePromise(channel, queue, options) {
-  return new Promise(function(resolve, reject) {
-    channel.assertQueue(queue, options, function(err, ok) {
+  return new Promise((resolve, reject) => {
+    channel.assertQueue(queue, options, (err, ok) => {
       if (null != err) {
         reject(err);
       } else {
@@ -112,8 +111,8 @@ function assertQueuePromise(channel, queue, options) {
   });
 }
 function consumePromise(channel, queue, messageCallback, options) {
-  return new Promise(function(resolve, reject) {
-    channel.consume(queue, messageCallback, options, function(err, ok) {
+  return new Promise((resolve, reject) => {
+    channel.consume(queue, messageCallback, options, (err, ok) => {
       if (null != err) {
         reject(err);
       } else {
@@ -123,8 +122,8 @@ function consumePromise(channel, queue, messageCallback, options) {
   });
 }
 function closePromise(conn) {
-  return new Promise(function(resolve, reject) {
-    conn.close(function(err) {
+  return new Promise((resolve, reject) => {
+    conn.close(err => {
       if (err) {
         reject(err);
       } else {

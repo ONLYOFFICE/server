@@ -1,0 +1,20 @@
+.topRow {
+  display: flex;
+  margin-bottom: 24px;
+  gap: 24px;
+}
+
+.modeBar {
+  margin: 8px 0 16px;
+  font-size: 14px;
+}
+.modeLink {
+  cursor: pointer;
+  padding: 0 6px;
+}
+.modeSeparator {
+  color: #777;
+}
+.current {
+  font-weight: 700;
+}

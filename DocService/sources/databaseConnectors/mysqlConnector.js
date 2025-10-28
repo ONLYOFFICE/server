@@ -34,22 +34,21 @@
 
 const mysql = require('mysql2/promise');
 const connectorUtilities = require('./connectorUtilities');
-const operationContext = require('../../../Common/sources/operationContext');
 const config = require('config');
 
 const configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = configSql.get('tableResult');
 
 const connectionConfiguration = {
-  host		: configSql.get('dbHost'),
-  port		: parseInt(configSql.get('dbPort')),
-  user		: configSql.get('dbUser'),
-  password	: configSql.get('dbPass'),
-  database	: configSql.get('dbName'),
-  charset		: configSql.get('charset'),
-  connectionLimit	: configSql.get('connectionlimit'),
-  timezone	: 'Z',
-  flags : '-FOUND_ROWS'
+  host: configSql.get('dbHost'),
+  port: parseInt(configSql.get('dbPort')),
+  user: configSql.get('dbUser'),
+  password: configSql.get('dbPass'),
+  database: configSql.get('dbName'),
+  charset: configSql.get('charset'),
+  connectionLimit: configSql.get('connectionlimit'),
+  timezone: 'Z',
+  flags: '-FOUND_ROWS'
 };
 
 const additionalOptions = config.util.cloneDeep(configSql.get('mysqlExtraOptions'));
@@ -59,23 +58,8 @@ if (configuration.queryTimeout) {
   queryTimeout = configuration.queryTimeout;
   delete configuration.queryTimeout;
 }
-let autoCommit = false;
-if (configuration.autoCommit !== undefined) {
-  //delete to fix issue with invalid configuration option
-  autoCommit = configuration.autoCommit;
-  delete configuration.autoCommit
-}
 
 const pool = mysql.createPool(configuration);
-
-// Set autocommit once per connection
-if (autoCommit === true) {
-  pool.on('connection', async (conn) => {
-    conn.promise().query('SET autocommit=1').catch(err =>
-      operationContext.global.logger.error('Failed to set autocommit=1:', err.message)
-    );
-  });
-}
 
 function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes = false, opt_noLog = false, opt_values = []) {
   return executeQuery(ctx, sqlCommand, opt_values, opt_noModifyRes, opt_noLog).then(
@@ -89,16 +73,22 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
   try {
     connection = await pool.getConnection();
 
-    const result = await connection.query({ sql: sqlCommand, timeout: queryTimeout, values });
+    // Ensure session autocommit=1 once per physical connection; avoids pool 'connection' race and per-query overhead
+    if (!connection.__autocommitSet) {
+      await connection.query('SET autocommit=1');
+      connection.__autocommitSet = true;
+    }
+
+    const result = await connection.query({sql: sqlCommand, timeout: queryTimeout, values});
 
     let output;
     if (!noModifyRes) {
-      output = result[0]?.affectedRows ? { affectedRows: result[0].affectedRows } : result[0];
+      output = result[0]?.affectedRows ? {affectedRows: result[0].affectedRows} : result[0];
     } else {
       output = result[0];
     }
 
-    return output ?? { rows: [], affectedRows: 0 };
+    return output ?? {rows: [], affectedRows: 0};
   } catch (error) {
     if (!noLog) {
       ctx.logger.error(`sqlQuery() error while executing query: ${sqlCommand}\n${error.stack}`);
@@ -158,18 +148,19 @@ async function upsert(ctx, task) {
 
   let updateStatement = `last_open_date = ${addSqlParameter(dateNow, values)}`;
   if (task.callback) {
-    let callbackPlaceholder = addSqlParameter(JSON.stringify(task.callback), values);
+    const callbackPlaceholder = addSqlParameter(JSON.stringify(task.callback), values);
     updateStatement += `, callback = CONCAT(callback , '${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":' , (user_index + 1) , ',"callback":', ${callbackPlaceholder}, '}')`;
   }
 
   if (task.baseurl) {
-    let baseUrlPlaceholder = addSqlParameter(task.baseurl, values);
+    const baseUrlPlaceholder = addSqlParameter(task.baseurl, values);
     updateStatement += `, baseurl = ${baseUrlPlaceholder}`;
   }
 
   updateStatement += ', user_index = LAST_INSERT_ID(user_index + 1);';
 
-  const sqlCommand = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) `+
+  const sqlCommand =
+    `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) ` +
     `VALUES (${valuesPlaceholder.join(', ')}) ` +
     `ON DUPLICATE KEY UPDATE ${updateStatement}`;
 
@@ -179,7 +170,7 @@ async function upsert(ctx, task) {
   //http://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
   const isInsert = result.affectedRows === 1;
 
-  return { isInsert, insertId };
+  return {isInsert, insertId};
 }
 
 module.exports.sqlQuery = sqlQuery;

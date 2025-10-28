@@ -32,96 +32,102 @@
 
 'use strict';
 
-var mongoDB = require('mongodb');
-var config = require('./config.json');
-var _errorConnection = true;
+const mongoDB = require('mongodb');
+const config = require('./config.json');
+const _errorConnection = true;
 
-var logger = require('./../../Common/sources/logger');
+const logger = require('./../../Common/sources/logger');
 
-function CreateDbClient(){
-	return new mongoDB.Db(config['mongodb']['database'], new mongoDB.Server(config['mongodb']['host'], config['mongodb']['port'], {auto_reconnect: true}), {safe:false});
+function CreateDbClient() {
+  return new mongoDB.Db(
+    config['mongodb']['database'],
+    new mongoDB.Server(config['mongodb']['host'], config['mongodb']['port'], {auto_reconnect: true}),
+    {safe: false}
+  );
 }
 exports.insert = function (_collectionName, _newElement) {
-	var _db = CreateDbClient();
-	if (!_db) {
-		logger.error ("Error _db");
-		return;
-	}
+  const _db = CreateDbClient();
+  if (!_db) {
+    logger.error('Error _db');
+    return;
+  }
 
-	_db.open (function (err, db) {
-		if (!err) {
-			// open collection. If it doesn't exist, it will be created
-			db.collection(_collectionName, function(err, collection) {
-				if (!err) {
-					collection.insert (_newElement);
-				} else {
-					logger.error ("Error collection");
-					return;
-				}
-				
-				db.close();
-			});
-		} else {
-			logger.error ("Error open database");
-		}
-	});
+  _db.open((err, db) => {
+    if (!err) {
+      // open collection. If it doesn't exist, it will be created
+      db.collection(_collectionName, (err, collection) => {
+        if (!err) {
+          collection.insert(_newElement);
+        } else {
+          logger.error('Error collection');
+          return;
+        }
+
+        db.close();
+      });
+    } else {
+      logger.error('Error open database');
+    }
+  });
 };
 exports.remove = function (_collectionName, _removeElements) {
-	var _db = CreateDbClient();
-	if (!_db) {
-		logger.error ("Error _db");
-		return;
-	}
-	
-	// Opening the database
-	_db.open (function (err, db) {
-		if (!err) {
-			// open collection. If it doesn't exist, it will be created
-			db.collection(_collectionName, function(err, collection) {
-				if (!err) {
-					collection.remove (_removeElements, function(err, collection) {
-						logger.info ("All elements remove");
-					});
-				} else {
-					logger.error ("Error collection");
-					return;
-				}
-				
-				db.close();
-			});
-		} else {
-			logger.error ("Error open database");
-		}
-	});
+  const _db = CreateDbClient();
+  if (!_db) {
+    logger.error('Error _db');
+    return;
+  }
+
+  // Opening the database
+  _db.open((err, db) => {
+    if (!err) {
+      // open collection. If it doesn't exist, it will be created
+      db.collection(_collectionName, (err, collection) => {
+        if (!err) {
+          collection.remove(_removeElements, (_err, _collection) => {
+            logger.info('All elements remove');
+          });
+        } else {
+          logger.error('Error collection');
+          return;
+        }
+
+        db.close();
+      });
+    } else {
+      logger.error('Error open database');
+    }
+  });
 };
 exports.load = function (_collectionName, callbackFunction) {
-	var _db = CreateDbClient();
-	if (!_db) {
-		logger.error ("Error _db");
-		return callbackFunction (null);
-	}
-	
-	var result = [];
-	
-	// opening database
-	_db.open (function (err, db) {
-		// open collection. If it doesn't exist, it will be created
-		db.collection(_collectionName, function(err, collection) {
-			// Get all elements of a collection with find()
-			collection.find(function(err, cursor) {
-				cursor.each(function(err, item) {
-					// Null denotes the last element
-					if (item != null) {
-						if (!result.hasOwnProperty (item.docid))
-							result[item.docid] = [item];
-						else
-							result[item.docid].push(item);
-					} else
-						callbackFunction (result);
-				});
-				
-				db.close();
-			});
-		});
-	});
+  const _db = CreateDbClient();
+  if (!_db) {
+    logger.error('Error _db');
+    return callbackFunction(null);
+  }
+
+  const result = [];
+
+  // opening database
+  _db.open((err, db) => {
+    // open collection. If it doesn't exist, it will be created
+    db.collection(_collectionName, (err, collection) => {
+      // Get all elements of a collection with find()
+      collection.find((err, cursor) => {
+        cursor.each((err, item) => {
+          // Null denotes the last element
+          if (item != null) {
+            if (!Object.hasOwn(result, item.docid)) {
+              result[item.docid] = [item];
+            } else {
+              result[item.docid].push(item);
+            }
+          } else {
+            callbackFunction(result);
+          }
+        });
+
+        db.close();
+      });
+    });
+  });
 };

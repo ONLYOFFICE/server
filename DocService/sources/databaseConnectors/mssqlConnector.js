@@ -106,11 +106,11 @@ function convertPlaceholdersValues(values) {
 
 function registerPlaceholderValues(values, statement) {
   if (values._typesMetadata !== undefined) {
-      for (const placeholderName of Object.keys(values._typesMetadata)) {
-        statement.input(placeholderName, values._typesMetadata[placeholderName]);
-      }
+    for (const placeholderName of Object.keys(values._typesMetadata)) {
+      statement.input(placeholderName, values._typesMetadata[placeholderName]);
+    }
 
-      delete values._typesMetadata;
+    delete values._typesMetadata;
   } else {
     for (const key of Object.keys(values)) {
       statement.input(key, dataType(values[key]));
@@ -138,7 +138,7 @@ async function executeQuery(ctx, sqlCommand, values = {}, noModifyRes = false, n
     await statement.unprepare();
 
     if (!result.recordset && !result.rowsAffected?.length) {
-      return { rows: [], affectedRows: 0 };
+      return {rows: [], affectedRows: 0};
     }
 
     let output = result;
@@ -146,7 +146,7 @@ async function executeQuery(ctx, sqlCommand, values = {}, noModifyRes = false, n
       if (result.recordset) {
         output = result.recordset;
       } else {
-        output = { affectedRows: result.rowsAffected.pop() };
+        output = {affectedRows: result.rowsAffected.pop()};
       }
     }
 
@@ -165,7 +165,7 @@ async function executeBulk(ctx, table) {
     await sql.connect(configuration);
     const result = await new sql.Request().bulk(table);
 
-    return { affectedRows: result?.rowsAffected ?? 0 };
+    return {affectedRows: result?.rowsAffected ?? 0};
   } catch (error) {
     errorHandle(`sqlQuery() error while executing bulk for table ${table.name}`, error, ctx);
 
@@ -199,9 +199,9 @@ function concatParams(...parameters) {
 }
 
 function getTableColumns(ctx, tableName) {
-  let values = [];
-  let sqlParam = addSqlParameter(tableName, values);
-  const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = ${sqlParam} AND TABLE_SCHEMA = 'dbo';`;
+  const values = [];
+  const sqlParam = addSqlParameter(tableName, values);
+  const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = ${sqlParam} AND TABLE_SCHEMA = SCHEMA_NAME();`;
   return executeQuery(ctx, sqlCommand, values);
 }
 
@@ -219,10 +219,10 @@ function getExpired(ctx, maxCount, expireSeconds) {
   const values = {};
   const date = addSqlParameterObjectBased(expireDate, 'expireDate', sql.TYPES.DateTime(), values);
   const count = addSqlParameterObjectBased(maxCount, 'maxCount', sql.TYPES.Int(), values);
-  const notExistingTenantAndId = `SELECT TOP(1) tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id`
+  const notExistingTenantAndId = `SELECT TOP(1) tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id`;
   const sqlCommand = `SELECT TOP(${count}) * FROM ${cfgTableResult} WHERE last_open_date <= ${date} AND NOT EXISTS(${notExistingTenantAndId});`;
 
- return executeQuery(ctx, sqlCommand, values);
+  return executeQuery(ctx, sqlCommand, values);
 }
 
 async function upsert(ctx, task) {
@@ -247,7 +247,7 @@ async function upsert(ctx, task) {
     addSqlParameterObjectBased(task.userIndex, 'userIndex', sql.TYPES.Decimal(18, 0), values),
     addSqlParameterObjectBased(task.changeId, 'changeId', sql.TYPES.Decimal(18, 0), values),
     addSqlParameterObjectBased(cbInsert, 'cbInsert', sql.TYPES.NVarChar(sql.MAX), values),
-    addSqlParameterObjectBased(task.baseurl, 'baseurl', sql.TYPES.NVarChar(sql.MAX), values),
+    addSqlParameterObjectBased(task.baseurl, 'baseurl', sql.TYPES.NVarChar(sql.MAX), values)
   ];
 
   const tenant = insertValuesPlaceholder[0];
@@ -265,7 +265,12 @@ async function upsert(ctx, task) {
   if (task.callback) {
     const parameter = addSqlParameterObjectBased(JSON.stringify(task.callback), 'callback', sql.TYPES.NVarChar(sql.MAX), values);
     const concatenatedColumns = concatParams(
-      'target.callback', `'${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":'`, '(target.user_index + 1)', `',"callback":'`, parameter, `'}'`
+      'target.callback',
+      `'${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":'`,
+      '(target.user_index + 1)',
+      `',"callback":'`,
+      parameter,
+      `'}'`
     );
 
     updateColumns += `, target.callback = ${concatenatedColumns}`;
@@ -277,18 +282,19 @@ async function upsert(ctx, task) {
 
   updateColumns += ', target.user_index = target.user_index + 1';
 
-  let sqlMerge = `MERGE INTO ${cfgTableResult} AS target `
-    + `USING(VALUES(${insertValues})) AS source(${sourceColumns}) `
-    + `ON(${condition}) `
-    + `WHEN MATCHED THEN UPDATE SET ${updateColumns} `
-    + `WHEN NOT MATCHED THEN INSERT(${sourceColumns}) VALUES(${sourceValues}) `
-    + `OUTPUT $ACTION as action, INSERTED.user_index as insertId;`;
+  const sqlMerge =
+    `MERGE INTO ${cfgTableResult} AS target ` +
+    `USING(VALUES(${insertValues})) AS source(${sourceColumns}) ` +
+    `ON(${condition}) ` +
+    `WHEN MATCHED THEN UPDATE SET ${updateColumns} ` +
+    `WHEN NOT MATCHED THEN INSERT(${sourceColumns}) VALUES(${sourceValues}) ` +
+    `OUTPUT $ACTION as action, INSERTED.user_index as insertId;`;
 
   const result = await executeQuery(ctx, sqlMerge, values, true);
   const insertId = result.recordset[0].insertId;
   const isInsert = result.recordset[0].action === 'INSERT';
 
-  return { isInsert, insertId };
+  return {isInsert, insertId};
 }
 
 function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, user, callback) {
@@ -300,26 +306,29 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
 
 async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user) {
   if (startIndex === objChanges.length) {
-    return { affectedRows: 0 };
+    return {affectedRows: 0};
   }
 
   const table = new sql.Table(tableChanges);
-  table.columns.add('tenant', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('id', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('change_id', sql.TYPES.Int, { nullable: false });
-  table.columns.add('user_id', sql.TYPES.NVarChar(sql.MAX), { nullable: false , length: 'max' });
-  table.columns.add('user_id_original', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('user_name', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('change_data', sql.TYPES.NVarChar(sql.MAX), { nullable: false, length: 'max' });
-  table.columns.add('change_date', sql.TYPES.DateTime, { nullable: false });
+  table.columns.add('tenant', sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: 'max'});
+  table.columns.add('id', sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: 'max'});
+  table.columns.add('change_id', sql.TYPES.Int, {nullable: false});
+  table.columns.add('user_id', sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: 'max'});
+  table.columns.add('user_id_original', sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: 'max'});
+  table.columns.add('user_name', sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: 'max'});
+  table.columns.add('change_data', sql.TYPES.NVarChar(sql.MAX), {nullable: false, length: 'max'});
+  table.columns.add('change_date', sql.TYPES.DateTime, {nullable: false});
 
   const indexBytes = 4;
   const timeBytes = 8;
   let bytes = 0;
   let currentIndex = startIndex;
   for (; currentIndex < objChanges.length && bytes <= cfgMaxPacketSize; ++currentIndex, ++index) {
-    bytes += indexBytes + timeBytes
-      + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
+    bytes +=
+      indexBytes +
+      timeBytes +
+      4 *
+        (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
 
     table.rows.add(ctx.tenant, docId, index, user.id, user.idOriginal, user.username, objChanges[currentIndex].change, objChanges[currentIndex].time);
   }

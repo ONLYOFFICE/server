@@ -1,0 +1,73 @@
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 16px;
+  color: #666;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.title {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 44px;
+  color: #333333;
+  margin: 0 0 8px 0;
+}
+
+.description {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 150%;
+  color: #666666;
+  margin: 0;
+}
+
+.section {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 150%;
+  color: #333333;
+  margin: 0 0 3px 0;
+}
+
+.sectionDescription {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 150%;
+  color: #666666;
+  margin: 0 0 24px 0;
+}
+
+.formRow {
+  margin-bottom: 24px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.pageWithFixedSave {
+  padding-bottom: 40px;
+}

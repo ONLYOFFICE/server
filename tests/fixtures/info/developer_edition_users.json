@@ -1,0 +1,35 @@
+{
+  "licenseInfo": {
+    "packageType": 2,
+    "buildDate": "2025-08-18T00:00:00Z",
+    "mode": 4,
+    "endDate": "2026-08-18T00:00:00Z",
+    "type": 0,
+    "startDate": "2025-08-01T00:00:00Z",
+    "usersCount": 200,
+    "usersViewCount": 150,
+    "usersExpire": 2592000
+  },
+  "serverInfo": {
+    "buildVersion": "8.2",
+    "buildNumber": "2007",
+    "date": "2025-09-05T12:00:00Z"
+  },
+  "quota": {
+    "edit": {"usersCount": {"unique": 120, "anonymous": 30}},
+    "view": {"usersCount": {"unique": 100, "anonymous": 20}},
+    "byMonth": [
+      {
+        "date": "2025-06-01T00:00:00Z",
+        "users": {"a": {}, "b": {}, "c": {"anonym": true}},
+        "usersView": {"d": {}, "e": {"anonym": true}}
+      },
+      {
+        "date": "2025-07-01T00:00:00Z",
+        "users": {"f": {}, "g": {"anonym": true}},
+        "usersView": {"h": {}, "i": {}, "j": {"anonym": true}}
+      }
+    ]
+  },
+  "connectionsStat": {}
+}

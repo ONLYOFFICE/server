@@ -1,0 +1,20 @@
+.block {
+  flex: 1;
+  min-width: 180px;
+}
+
+.title {
+  font-weight: 400;
+  font-size: 18px;
+  border-bottom: 1px solid #ddd;
+  padding: 0 0 5px 10px;
+}
+
+.content {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+  padding-left: 10px;
+}

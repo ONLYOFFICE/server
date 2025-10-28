@@ -22,7 +22,7 @@ jobs:
       - name: Caching dependencies
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: |
             ./npm-shrinkwrap.json
@@ -45,7 +45,7 @@ jobs:
       - name: Creating schema
         run: |
           docker cp ./schema/oracle/createdb.sql oracle:/
-          docker exec oracle sqlplus -s onlyoffice/onlyoffice@//localhost/onlyoffice @/createdb.sql
+          docker exec oracle sqlplus -s onlyoffice/onlyoffice@//localhost/onlyoffice "@/createdb.sql"
 
       - name: Run Jest
         run: npm run "integration database tests"
