@@ -1,132 +1,129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <title>ONLYOFFICE™</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=IE8"/>
-    <link href="img/favicon.ico" rel="icon" type="image/x-icon">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=IE8" />
+    <link href="img/favicon.ico" rel="icon" type="image/x-icon" />
 
     <style type="text/css">
-        html {
-            height: 100%;
-        }
+      html {
+        height: 100%;
+      }
 
-        body {
-            height: 100%;
-            min-width: 600px;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-            color: #333333;
-        }
+      body {
+        height: 100%;
+        min-width: 600px;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color: #333333;
+      }
 
-        #doc-server-header {
-            height: 80px;
-            font-size: 18px;
-            color: #adadad;
-        }
+      #doc-server-header {
+        height: 80px;
+        font-size: 18px;
+        color: #adadad;
+      }
 
-        #doc-server-footer {
-            height: 100px;
-            font-size: 12px;
-            line-height: 20px;
-        }
+      #doc-server-footer {
+        height: 100px;
+        font-size: 12px;
+        line-height: 20px;
+      }
 
-        #doc-server-status {
-            font-size: 24px;
-            font-weight: bold;
-        }
+      #doc-server-status {
+        font-size: 24px;
+        font-weight: bold;
+      }
 
-        #doc-server-status > div {
-            display: inline-block;
-            vertical-align: middle;
-            text-align: left;
-        }
+      #doc-server-status > div {
+        display: inline-block;
+        vertical-align: middle;
+        text-align: left;
+      }
 
-        #doc-server-status > div:first-child {
-            height: 48px;
-        }
+      #doc-server-status > div:first-child {
+        height: 48px;
+      }
 
-        #status-ok-icon {
-            width:48px;
-            margin-right: 15px;
-            background: url(img/icon-done.png) center no-repeat;
-        }
+      #status-ok-icon {
+        width: 48px;
+        margin-right: 15px;
+        background: url(img/icon-done.png) center no-repeat;
+      }
 
-        #status-err-icon {
-            width:48px;
-            margin-right: 15px;
-            background: url(img/icon-cross.png) center no-repeat;
-        }
+      #status-err-icon {
+        width: 48px;
+        margin-right: 15px;
+        background: url(img/icon-cross.png) center no-repeat;
+      }
 
-        #status-err-help {
-            font-size: 18px;
-            font-weight: normal;
-            margin-top: 5px;
-        }
+      #status-err-help {
+        font-size: 18px;
+        font-weight: normal;
+        margin-top: 5px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <script>
-        document.write(
-            '<table width="100%" height="100%">' +
-                '<tr><td id="doc-server-header" valign="bottom" align="center">Thank you for choosing ONLYOFFICE!</td></tr>' +
-                '<tr><td align="center">' +
-                    '<div id="doc-server-status"><div></div>Please, wait...</div>' +
-                '</td></tr>' +
-                '<tr><td id="doc-server-footer" valign="top" align="center">' +
-                    '<div>Any questions?</div>' +
-                    '<div>Explore ONLYOFFICE™ Document Server <a href="https://api.onlyoffice.com/editors/basic" target="_blank">API Documentation</a></div>' +
-                    '<div>or visit our <a href="http://dev.onlyoffice.org/viewforum.php?f=44&sid=505c86017ee42e6005d24fc5b8c6818c" target="_blank">developers forum.</a></div>' +
-                '</td></tr>' +
-            '</table>'
-        );
+      document.write(
+        '<table width="100%" height="100%">' +
+          '<tr><td id="doc-server-header" valign="bottom" align="center">Thank you for choosing ONLYOFFICE!</td></tr>' +
+          '<tr><td align="center">' +
+          '<div id="doc-server-status"><div></div>Please, wait...</div>' +
+          '</td></tr>' +
+          '<tr><td id="doc-server-footer" valign="top" align="center">' +
+          '<div>Any questions?</div>' +
+          '<div>Explore ONLYOFFICE™ Document Server <a href="https://api.onlyoffice.com/editors/basic" target="_blank">API Documentation</a></div>' +
+          '<div>or visit our <a href="http://dev.onlyoffice.org/viewforum.php?f=44&sid=505c86017ee42e6005d24fc5b8c6818c" target="_blank">developers forum.</a></div>' +
+          '</td></tr>' +
+          '</table>'
+      );
 
-        var _createXMLHTTPObject = function() {
-            var xmlhttp;
-            try {
-                xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
-            }
-            catch (e) {
-                try {
-                    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-                }
-                catch (E) {
-                    xmlhttp = false;
-                }
-            }
-            if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
-                xmlhttp = new XMLHttpRequest();
-            }
-            return xmlhttp;
-        };
+      var _createXMLHTTPObject = function () {
+        var xmlhttp;
+        try {
+          xmlhttp = new ActiveXObject('Msxml2.XMLHTTP');
+        } catch (e) {
+          try {
+            xmlhttp = new ActiveXObject('Microsoft.XMLHTTP');
+          } catch (E) {
+            xmlhttp = false;
+          }
+        }
+        if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
+          xmlhttp = new XMLHttpRequest();
+        }
+        return xmlhttp;
+      };
 
-        (function(){
-            try {
-                var xhrObj = _createXMLHTTPObject();
-                if (xhrObj) {
-                    var index_html = window["location"]["href"];
-                    var healthcheck_url = index_html.substring(0, index_html.lastIndexOf("/") + 1) + '../healthcheck';
-                    xhrObj.open('GET', healthcheck_url);
-                    xhrObj.onreadystatechange = function() {
-                        if (xhrObj.readyState == 4) {
-                            var serverstatus = document.getElementById('doc-server-status');
-                            if (xhrObj.status == 200 && xhrObj.responseText=="true") {
-                                serverstatus.innerHTML = '<div id="status-ok-icon"></div>Document Server is running';
-                            } else {
-                                serverstatus.innerHTML = '<div id="status-err-icon"></div><div>'+
-                                '<div>Something went wrong during installation</div>' +
-                                '<div id="status-err-help">Make sure that you have followed the <a href="http://helpcenter.onlyoffice.com/server/document.aspx" target="_blank">installation instructions</a></div></div>';
-                            }
-                        }
-                    };
-                    xhrObj.send('');
+      (function () {
+        try {
+          var xhrObj = _createXMLHTTPObject();
+          if (xhrObj) {
+            var index_html = window['location']['href'];
+            var healthcheck_url = index_html.substring(0, index_html.lastIndexOf('/') + 1) + '../healthcheck';
+            xhrObj.open('GET', healthcheck_url);
+            xhrObj.onreadystatechange = function () {
+              if (xhrObj.readyState == 4) {
+                var serverstatus = document.getElementById('doc-server-status');
+                if (xhrObj.status == 200 && xhrObj.responseText == 'true') {
+                  serverstatus.innerHTML = '<div id="status-ok-icon"></div>Document Server is running';
+                } else {
+                  serverstatus.innerHTML =
+                    '<div id="status-err-icon"></div><div>' +
+                    '<div>Something went wrong during installation</div>' +
+                    '<div id="status-err-help">Make sure that you have followed the <a href="http://helpcenter.onlyoffice.com/server/document.aspx" target="_blank">installation instructions</a></div></div>';
                 }
-            }
-            catch (e) {}
-        })();
-        
+              }
+            };
+            xhrObj.send('');
+          }
+        } catch (e) {}
+      })();
     </script>
-</body>
+  </body>
 </html>

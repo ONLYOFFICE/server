@@ -47,7 +47,7 @@ const cryptoSign = util.promisify(crypto.sign);
 
 /**
  * Generates a proof buffer for WOPI requests
- * 
+ *
  * @param {string} url - The URL to generate proof for
  * @param {string} accessToken - The access token
  * @param {bigint} timeStamp - The timestamp in ticks
@@ -58,7 +58,7 @@ function generateProofBuffer(url, accessToken, timeStamp) {
   const urlBytes = Buffer.from(url.toUpperCase(), 'utf8');
 
   let offset = 0;
-  let buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
+  const buffer = Buffer.alloc(4 + accessTokenBytes.length + 4 + urlBytes.length + 4 + 8);
   buffer.writeUInt32BE(accessTokenBytes.length, offset);
   offset += 4;
   accessTokenBytes.copy(buffer, offset, 0, accessTokenBytes.length);
@@ -75,7 +75,7 @@ function generateProofBuffer(url, accessToken, timeStamp) {
 
 /**
  * Generates a proof signature for WOPI requests
- * 
+ *
  * @param {string} url - The URL to generate proof for
  * @param {string} accessToken - The access token
  * @param {bigint} timeStamp - The timestamp in ticks
@@ -83,21 +83,21 @@ function generateProofBuffer(url, accessToken, timeStamp) {
  * @returns {string} - The base64-encoded signature
  */
 async function generateProofSign(url, accessToken, timeStamp, privateKey) {
-  let data = generateProofBuffer(url, accessToken, timeStamp);
-  let sign = await cryptoSign('RSA-SHA256', data, privateKey);
+  const data = generateProofBuffer(url, accessToken, timeStamp);
+  const sign = await cryptoSign('RSA-SHA256', data, privateKey);
   return sign.toString('base64');
 }
 
 /**
  * Fills standard WOPI headers for requests
- * 
+ *
  * @param {Object} ctx - The operation context
  * @param {Object} headers - The headers object to fill
  * @param {string} url - The URL for the request
  * @param {string} access_token - The access token
  */
 async function fillStandardHeaders(ctx, headers, url, access_token) {
-  let timeStamp = utils.getDateTimeTicks(new Date());
+  const timeStamp = utils.getDateTimeTicks(new Date());
   const tenWopiPrivateKey = ctx.getCfg('wopi.privateKey', cfgWopiPrivateKey);
   const tenWopiPrivateKeyOld = ctx.getCfg('wopi.privateKeyOld', cfgWopiPrivateKeyOld);
   if (tenWopiPrivateKey && tenWopiPrivateKeyOld) {
@@ -106,16 +106,15 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
   }
   headers['X-WOPI-TimeStamp'] = timeStamp;
   headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
-  // todo
-  // headers['X-WOPI-CorrelationId '] = "";
-  // headers['X-WOPI-SessionId'] = "";
+  headers['X-WOPI-CorrelationId'] = crypto.randomUUID();
+  headers['X-WOPI-SessionId'] = ctx.userSessionId;
   //remove redundant header https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/common-headers#request-headers
   // headers['Authorization'] = `Bearer ${access_token}`;
 }
 
 /**
  * Gets a WOPI file URL with appropriate headers
- * 
+ *
  * @param {Object} ctx - The operation context
  * @param {Object} fileInfo - Information about the file
  * @param {Object} userAuth - User authentication details
@@ -124,7 +123,7 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
 async function getWopiFileUrl(ctx, fileInfo, userAuth) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   let url;
-  let headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
+  const headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
   if (fileInfo?.FileUrl) {
     //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
     url = fileInfo.FileUrl;

@@ -1,4 +1,3 @@
-
 ## Third-party
 
 - @aws-sdk/client-s3 3.637.0 ([Apache-2.0](https://raw.githubusercontent.com/aws/aws-sdk-js-v3/main/LICENSE))
@@ -34,12 +33,11 @@
 - cron 1.5.0 ([MIT](https://raw.githubusercontent.com/kelektiv/node-cron/main/LICENSE))
 - dmdb 1.0.36002 ([none](https://www.npmjs.com/package/dmdb))
 - ejs 3.1.10 ([Apache-2.0](https://raw.githubusercontent.com/mde/ejs/main/LICENSE))
-- exif-parser 0.1.12 ([MIT](https://raw.githubusercontent.com/bwindels/exif-parser/master/LICENSE.md))
 - express 4.21.2 ([MIT](https://raw.githubusercontent.com/expressjs/express/master/LICENSE))
 - fakeredis 2.0.0 ([MIT](https://github.com/hdachev/fakeredis?tab=readme-ov-file#license))
 - ioredis 5.6.0 ([MIT](https://raw.githubusercontent.com/redis/ioredis/main/LICENSE))
-- jimp 0.22.10 ([MIT](https://raw.githubusercontent.com/jimp-dev/jimp/main/LICENSE))
 - jsonwebtoken 9.0.2 ([MIT](https://raw.githubusercontent.com/auth0/node-jsonwebtoken/master/LICENSE))
+- heic-decode 2.1.0 ([ISC](https://opensource.org/license/isc-license-txt))
 - mime 2.3.1 ([MIT](https://raw.githubusercontent.com/broofa/mime/main/LICENSE))
 - mime-db 1.53.0 ([MIT](https://raw.githubusercontent.com/jshttp/mime-db/master/LICENSE))
 - ms 2.1.3 ([MIT](https://raw.githubusercontent.com/vercel/ms/master/license.md))
@@ -48,10 +46,11 @@
 - multi-integer-range 5.2.0 ([MIT](https://raw.githubusercontent.com/smikitky/node-multi-integer-range/master/LICENSE))
 - multiparty 4.2.3 ([MIT](https://raw.githubusercontent.com/pillarjs/multiparty/master/LICENSE))
 - mysql2 3.13.0 ([MIT](https://raw.githubusercontent.com/sidorares/node-mysql2/master/License))
-- oracledb 6.8.0 ([(Apache-2.0 OR UPL-1.0)](https://raw.githubusercontent.com/oracle/node-oracledb/main/LICENSE.txt))
+- oracledb 6.9.0 ([(Apache-2.0 OR UPL-1.0)](https://raw.githubusercontent.com/oracle/node-oracledb/main/LICENSE.txt))
 - pg 8.14.0 ([MIT](https://raw.githubusercontent.com/brianc/node-postgres/master/LICENSE))
 - redis 4.7.0 ([MIT](https://raw.githubusercontent.com/redis/node-redis/master/LICENSE))
 - retry 0.13.1 ([MIT](https://raw.githubusercontent.com/tim-kos/node-retry/master/License))
+- sharp 0.32.6 ([Apache-2.0](https://raw.githubusercontent.com/lovell/sharp/master/LICENSE))
 - socket.io 4.8.1 ([MIT](https://raw.githubusercontent.com/socketio/socket.io/main/LICENSE))
 - underscore 1.13.7 ([MIT](https://raw.githubusercontent.com/jashkenas/underscore/master/LICENSE))
 - utf7 1.0.2 ([BSD](https://www.npmjs.com/package/utf7))

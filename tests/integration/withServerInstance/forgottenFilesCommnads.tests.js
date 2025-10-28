@@ -30,14 +30,13 @@
  *
  */
 
-const { describe, test, expect, afterAll, beforeAll } = require('@jest/globals');
-const http = require('http');
+const {describe, test, expect, afterAll, beforeAll} = require('@jest/globals');
 
-const { signToken } = require('../../../DocService/sources/DocsCoServer');
+const {signToken} = require('../../../DocService/sources/DocsCoServer');
 const storage = require('../../../Common/sources/storage/storage-base');
 const constants = require('../../../Common/sources/commondefines');
 const operationContext = require('../../../Common/sources/operationContext');
-const utils = require("../../../Common/sources/utils");
+const utils = require('../../../Common/sources/utils');
 
 const config = require('../../../Common/node_modules/config');
 
@@ -62,82 +61,79 @@ const testFilesNames = {
   getList: 'DocService-DocsCoServer-forgottenFilesCommands-getForgottenList-integration-test'
 };
 
-function makeRequest(requestBody, timeout = 5000) {
-  return new Promise(async (resolve, reject) => {
-    const timer = setTimeout(() => reject('Request timeout'), timeout);
+/**
+ * Makes HTTP request to the command service
+ * @param {Object} requestBody - Request payload
+ * @param {number} timeout - Request timeout in milliseconds
+ * @returns {Promise<string>} Response data
+ */
+async function makeRequest(requestBody, timeout = 5000) {
+  let body = '';
+  if (cfgTokenEnableRequestOutbox) {
+    const secret = utils.getSecretByElem(cfgSecretOutbox);
+    const token = await signToken(ctx, requestBody, cfgTokenAlgorithm, cfgTokenOutboxExpires, constants.c_oAscSecretType.Inbox, secret);
+    body = JSON.stringify({token});
+  } else {
+    body = JSON.stringify(requestBody);
+  }
 
-    let body = '';
-    if (cfgTokenEnableRequestOutbox) {
-      const secret = utils.getSecretByElem(cfgSecretOutbox);
-      const token = await signToken(ctx, requestBody, cfgTokenAlgorithm, cfgTokenOutboxExpires, constants.c_oAscSecretType.Inbox, secret);
-      body = JSON.stringify({ token });
-    } else {
-      body = JSON.stringify(requestBody);
-    }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    const options = {
-      port: '8000',
-      path: '/coauthoring/CommandService.ashx',
+  try {
+    const response = await fetch('http://localhost:8000/coauthoring/CommandService.ashx', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body)
-      }
-    };
-    const request = http.request(options, (response) => {
-      response.setEncoding('utf8');
-
-      let data = '';
-      response.on('data', (chunk) => {
-        data += chunk
-      });
-      response.on('end', () => {
-        resolve(data);
-        clearTimeout(timer);
-      });
+        'Content-Length': Buffer.byteLength(body).toString()
+      },
+      body,
+      signal: controller.signal
     });
 
-    request.on('error', (error) => {
-      reject(error);
-      clearTimeout(timer);
-    });
-
-    request.write(body);
-    request.end();
-  });
+    clearTimeout(timeoutId);
+    return await response.text();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout');
+    }
+    throw error;
+  }
 }
 
 function getKeysDirectories(keys) {
   return keys.map(value => value.split('/')[0]);
 }
 
-beforeAll(async function () {
+beforeAll(async () => {
   const buffer = Buffer.from('Forgotten commands test file');
   for (const index in testFilesNames) {
     await storage.putObject(ctx, `${testFilesNames[index]}/${cfgForgottenFilesName}.docx`, buffer, buffer.length, cfgForgottenFiles);
   }
 });
 
-afterAll(async function () {
+afterAll(async () => {
   const keys = await storage.listObjects(ctx, '', cfgForgottenFiles);
   const keysDirectories = getKeysDirectories(keys);
-  const deletePromises = keysDirectories.filter(key => key.includes('DocService-DocsCoServer-forgottenFilesCommands'))
+  const deletePromises = keysDirectories
+    .filter(key => key.includes('DocService-DocsCoServer-forgottenFilesCommands'))
     .map(filteredKey => storage.deletePath(ctx, filteredKey, cfgForgottenFiles));
-  console.log(`keys:`+JSON.stringify(keys));
-  console.log(`keysDirectories:`+JSON.stringify(keysDirectories));
+  console.log(`keys:` + JSON.stringify(keys));
+  console.log(`keysDirectories:` + JSON.stringify(keysDirectories));
   return Promise.allSettled(deletePromises);
 });
 
 // Assumed, that server is already up.
-describe('Command service', function () {
-  describe('Forgotten files commands parameters validation', function () {
-    describe('Invalid key format', function () {
+describe('Command service', () => {
+  describe('Forgotten files commands parameters validation', () => {
+    describe('Invalid key format', () => {
       const tests = ['getForgotten', 'deleteForgotten'];
       const addSpecialCases = (invalidRequests, expected, testSubject) => {
         invalidRequests.push({
           c: testSubject
         });
-        expected.push({ error: 1});
+        expected.push({error: 1});
 
         invalidRequests.push({
           c: testSubject,
@@ -150,19 +146,19 @@ describe('Command service', function () {
       };
 
       for (const testSubject of tests) {
-        test(testSubject, async function () {
+        test(testSubject, async () => {
           const invalidKeys = [true, [], {}, 1, 1.1];
           const invalidRequests = invalidKeys.map(key => {
             return {
               c: testSubject,
               key
-            }
+            };
           });
 
           const expected = invalidKeys.map(key => {
             return {
               key,
-              error: 1,
+              error: 1
             };
           });
 
@@ -178,20 +174,20 @@ describe('Command service', function () {
       }
     });
   });
-  
-  describe('Forgotten files commands verification', function () {
-    describe('getForgotten', function () {
-      const createExpected = ({ key, error }) => {
-        const validKey = typeof key === 'string' && error === 0
+
+  describe('Forgotten files commands verification', () => {
+    describe('getForgotten', () => {
+      const createExpected = ({key, error}) => {
+        const validKey = typeof key === 'string' && error === 0;
         let urlPattern;
-        if ("storage-fs" === cfgStorageName || !cfgUseDirectStorageUrls) {
-          if ("storage-fs" === cfgStorageName) {
+        if ('storage-fs' === cfgStorageName || !cfgUseDirectStorageUrls) {
+          if ('storage-fs' === cfgStorageName) {
             urlPattern = 'http://localhost:8000/cache/files/forgotten/--key--/output.docx/output.docx';
           } else {
             urlPattern = 'http://localhost:8000/storage-cache/files/forgotten/--key--/output.docx/output.docx';
           }
-        } else if ("storage-s3" === cfgStorageName) {
-          let host = cfgEndpoint.slice(0, "https://".length) + cfgBucketName + "." + cfgEndpoint.slice("https://".length);
+        } else if ('storage-s3' === cfgStorageName) {
+          let host = cfgEndpoint.slice(0, 'https://'.length) + cfgBucketName + '.' + cfgEndpoint.slice('https://'.length);
           if (host[host.length - 1] === '/') {
             host = host.slice(0, -1);
           }
@@ -199,9 +195,9 @@ describe('Command service', function () {
         } else {
           let host;
           if (cfgEndpoint.includes(cfgAccessKeyId)) {
-            host = cfgEndpoint.slice(0, "https://".length) + cfgEndpoint.slice("https://".length) + '/' + cfgBucketName;
+            host = cfgEndpoint.slice(0, 'https://'.length) + cfgEndpoint.slice('https://'.length) + '/' + cfgBucketName;
           } else {
-            host = cfgEndpoint.slice(0, "https://".length) + cfgAccessKeyId + "." + cfgEndpoint.slice("https://".length) + '/' + cfgBucketName;
+            host = cfgEndpoint.slice(0, 'https://'.length) + cfgAccessKeyId + '.' + cfgEndpoint.slice('https://'.length) + '/' + cfgBucketName;
           }
           if (host[host.length - 1] === '/') {
             host = host.slice(0, -1);
@@ -209,7 +205,7 @@ describe('Command service', function () {
           urlPattern = host + '/files/forgotten/--key--/output.docx';
         }
 
-        const expected = { key, error };
+        const expected = {key, error};
 
         if (validKey) {
           expected.url = urlPattern.replace('--key--', key);
@@ -219,8 +215,8 @@ describe('Command service', function () {
       };
 
       const testCases = {
-        'Single key': { key: testFilesNames.get, error: 0 },
-        'Not existed key': { key: '--not-existed--', error: 1 },
+        'Single key': {key: testFilesNames.get, error: 0},
+        'Not existed key': {key: '--not-existed--', error: 1}
       };
 
       for (const testCase in testCases) {
@@ -244,8 +240,8 @@ describe('Command service', function () {
       }
     });
 
-    describe('deleteForgotten', function () {
-      const createExpected = ({ key, error }) => {
+    describe('deleteForgotten', () => {
+      const createExpected = ({key, error}) => {
         return {
           key,
           error
@@ -253,8 +249,8 @@ describe('Command service', function () {
       };
 
       const testCases = {
-        'Single key': { key: testFilesNames.delete1, error: 0 },
-        'Not existed key': { key: '--not-existed--', error: 1 },
+        'Single key': {key: testFilesNames.delete1, error: 0},
+        'Not existed key': {key: '--not-existed--', error: 1}
       };
 
       for (const testCase in testCases) {
@@ -280,8 +276,8 @@ describe('Command service', function () {
         });
       }
     });
-    
-    describe('getForgottenList', function () {
+
+    describe('getForgottenList', () => {
       test('Main case', async () => {
         const requestBody = {
           c: 'getForgottenList'
@@ -300,7 +296,7 @@ describe('Command service', function () {
         const expected = {
           error: 0,
           keys: alreadyExistedDirectories.keys
-        }
+        };
 
         actual.keys?.sort();
         expected.keys.sort();

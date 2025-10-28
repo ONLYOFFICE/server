@@ -1,0 +1,101 @@
+/* Base note container */
+.noteContainer {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px;
+  gap: 8px;
+  background: #f9f9f9;
+  border-radius: 2px;
+  flex: none;
+  align-self: stretch;
+  flex-grow: 0;
+}
+
+/* Header with icon and title */
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0;
+  gap: 8px;
+  flex: none;
+  order: 0;
+  flex-grow: 0;
+}
+
+/* Icon styling */
+.icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  order: 0;
+  flex-grow: 0;
+}
+
+/* Title text */
+.title {
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 130%;
+  display: flex;
+  align-items: center;
+  letter-spacing: -0.02em;
+  flex: none;
+  order: 1;
+  flex-grow: 0;
+}
+
+/* Content text */
+.content {
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 150%;
+  color: #333333;
+  flex: none;
+  order: 1;
+  align-self: stretch;
+  flex-grow: 0;
+}
+
+/* Note variant - Orange */
+.note {
+  border-left: 2px solid #ff6f3d;
+
+  .title {
+    color: #ff6f3d;
+  }
+}
+
+/* Warning variant - Red */
+.warning {
+  border-left: 2px solid #cb0000;
+  border-radius: 2px 0 0 2px;
+
+  .title {
+    color: #cb0000;
+  }
+}
+
+/* Tip variant - Green */
+.tip {
+  border-left: 2px solid #007b14;
+
+  .title {
+    color: #007b14;
+  }
+}
+
+/* Important variant - Blue */
+.important {
+  border-left: 2px solid #262ba5;
+
+  .title {
+    color: #262ba5;
+  }
+}

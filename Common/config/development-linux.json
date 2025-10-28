@@ -53,7 +53,7 @@
       "utils": {
         "utils_common_fontdir": "/usr/share/fonts"
       },
-      "request-filtering-agent" : {
+      "request-filtering-agent": {
         "allowPrivateIPAddress": true,
         "allowMetaIPAddress": true
       },
@@ -102,6 +102,13 @@
         },
         {
           "type": "pptx;ppsx;potx;pptm;ppsm;potm",
+          "zip": {
+            "uncompressed": "1GB",
+            "template": "*.xml"
+          }
+        },
+        {
+          "type": "vsdx;vstx;vssx;vsdm;vstm;vssm",
           "zip": {
             "uncompressed": "1GB",
             "template": "*.xml"

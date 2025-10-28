@@ -31,9 +31,9 @@
  */
 
 const platforms = {
-  'win32': 'windows',
-  'darwin': 'mac',
-  'linux': 'linux'
+  win32: 'windows',
+  darwin: 'mac',
+  linux: 'linux'
 };
 const platform = platforms[process.platform];
 

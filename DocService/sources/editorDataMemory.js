@@ -43,19 +43,21 @@ function EditorCommon() {
   this.data = {};
 }
 EditorCommon.prototype.connect = async function () {};
-EditorCommon.prototype.isConnected = function() {
+EditorCommon.prototype.isConnected = function () {
   return true;
 };
-EditorCommon.prototype.ping = async function() {return "PONG"};
-EditorCommon.prototype.close = async function() {};
-EditorCommon.prototype.healthCheck = async function() {
+EditorCommon.prototype.ping = async function () {
+  return 'PONG';
+};
+EditorCommon.prototype.close = async function () {};
+EditorCommon.prototype.healthCheck = async function () {
   if (this.isConnected()) {
     await this.ping();
     return true;
   }
   return false;
 };
-EditorCommon.prototype._getDocumentData = function(ctx, docId) {
+EditorCommon.prototype._getDocumentData = function (ctx, docId) {
   let tenantData = this.data[ctx.tenant];
   if (!tenantData) {
     this.data[ctx.tenant] = tenantData = {};
@@ -66,20 +68,20 @@ EditorCommon.prototype._getDocumentData = function(ctx, docId) {
   }
   return options;
 };
-EditorCommon.prototype._checkAndLock = function(ctx, name, docId, fencingToken, ttl) {
-  let data = this._getDocumentData(ctx, docId);
+EditorCommon.prototype._checkAndLock = function (ctx, name, docId, fencingToken, ttl) {
+  const data = this._getDocumentData(ctx, docId);
   const now = Date.now();
   let res = true;
   if (data[name] && now < data[name].expireAt && fencingToken !== data[name].fencingToken) {
     res = false;
   } else {
     const expireAt = now + ttl * 1000;
-    data[name] = {fencingToken: fencingToken, expireAt: expireAt};
+    data[name] = {fencingToken, expireAt};
   }
   return res;
 };
-EditorCommon.prototype._checkAndUnlock = function(ctx, name, docId, fencingToken) {
-  let data = this._getDocumentData(ctx, docId);
+EditorCommon.prototype._checkAndUnlock = function (ctx, name, docId, fencingToken) {
+  const data = this._getDocumentData(ctx, docId);
   const now = Date.now();
   let res;
   if (data[name] && now < data[name].expireAt) {
@@ -103,14 +105,14 @@ function EditorData() {
 EditorData.prototype = Object.create(EditorCommon.prototype);
 EditorData.prototype.constructor = EditorData;
 
-EditorData.prototype.addPresence = async function(ctx, docId, userId, userInfo) {};
-EditorData.prototype.updatePresence = async function(ctx, docId, userId) {};
-EditorData.prototype.removePresence = async function(ctx, docId, userId) {};
-EditorData.prototype.getPresence = async function(ctx, docId, connections) {
-  let hvals = [];
+EditorData.prototype.addPresence = async function (_ctx, _docId, _userId, _userInfo) {};
+EditorData.prototype.updatePresence = async function (_ctx, _docId, _userId) {};
+EditorData.prototype.removePresence = async function (_ctx, _docId, _userId) {};
+EditorData.prototype.getPresence = async function (ctx, docId, connections) {
+  const hvals = [];
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
-      let conn = connections[i];
+      const conn = connections[i];
       if (conn.docId === docId && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
         hvals.push(utils.getConnectionInfoStr(conn));
       }
@@ -119,38 +121,38 @@ EditorData.prototype.getPresence = async function(ctx, docId, connections) {
   return hvals;
 };
 
-EditorData.prototype.lockSave = async function(ctx, docId, userId, ttl) {
+EditorData.prototype.lockSave = async function (ctx, docId, userId, ttl) {
   return this._checkAndLock(ctx, 'lockSave', docId, userId, ttl);
 };
-EditorData.prototype.unlockSave = async function(ctx, docId, userId) {
+EditorData.prototype.unlockSave = async function (ctx, docId, userId) {
   return this._checkAndUnlock(ctx, 'lockSave', docId, userId);
 };
-EditorData.prototype.lockAuth = async function(ctx, docId, userId, ttl) {
+EditorData.prototype.lockAuth = async function (ctx, docId, userId, ttl) {
   return this._checkAndLock(ctx, 'lockAuth', docId, userId, ttl);
 };
-EditorData.prototype.unlockAuth = async function(ctx, docId, userId) {
+EditorData.prototype.unlockAuth = async function (ctx, docId, userId) {
   return this._checkAndUnlock(ctx, 'lockAuth', docId, userId);
 };
 
-EditorData.prototype.getDocumentPresenceExpired = async function(now) {
+EditorData.prototype.getDocumentPresenceExpired = async function (_now) {
   return [];
 };
-EditorData.prototype.removePresenceDocument = async function(ctx, docId) {};
+EditorData.prototype.removePresenceDocument = async function (_ctx, _docId) {};
 
-EditorData.prototype.addLocks = async function(ctx, docId, locks) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.addLocks = async function (ctx, docId, locks) {
+  const data = this._getDocumentData(ctx, docId);
   if (!data.locks) {
     data.locks = {};
   }
   Object.assign(data.locks, locks);
 };
-EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.addLocksNX = async function (ctx, docId, locks) {
+  const data = this._getDocumentData(ctx, docId);
   if (!data.locks) {
     data.locks = {};
   }
-  let lockConflict = {};
-  for (let lockId in locks) {
+  const lockConflict = {};
+  for (const lockId in locks) {
     if (undefined === data.locks[lockId]) {
       data.locks[lockId] = locks[lockId];
     } else {
@@ -159,59 +161,59 @@ EditorData.prototype.addLocksNX = async function(ctx, docId, locks) {
   }
   return {lockConflict, allLocks: data.locks};
 };
-EditorData.prototype.removeLocks = async function(ctx, docId, locks) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.removeLocks = async function (ctx, docId, locks) {
+  const data = this._getDocumentData(ctx, docId);
   if (data.locks) {
-    for (let lockId in locks) {
+    for (const lockId in locks) {
       delete data.locks[lockId];
     }
   }
 };
-EditorData.prototype.removeAllLocks = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.removeAllLocks = async function (ctx, docId) {
+  const data = this._getDocumentData(ctx, docId);
   data.locks = undefined;
 };
-EditorData.prototype.getLocks = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.getLocks = async function (ctx, docId) {
+  const data = this._getDocumentData(ctx, docId);
   return data.locks || {};
 };
 
-EditorData.prototype.addMessage = async function(ctx, docId, msg) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.addMessage = async function (ctx, docId, msg) {
+  const data = this._getDocumentData(ctx, docId);
   if (!data.messages) {
     data.messages = [];
   }
   data.messages.push(msg);
 };
-EditorData.prototype.removeMessages = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.removeMessages = async function (ctx, docId) {
+  const data = this._getDocumentData(ctx, docId);
   data.messages = undefined;
 };
-EditorData.prototype.getMessages = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.getMessages = async function (ctx, docId) {
+  const data = this._getDocumentData(ctx, docId);
   return data.messages || [];
 };
 
-EditorData.prototype.setSaved = async function(ctx, docId, status) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.setSaved = async function (ctx, docId, status) {
+  const data = this._getDocumentData(ctx, docId);
   data.saved = status;
 };
-EditorData.prototype.getdelSaved = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
-  let res = data.saved;
+EditorData.prototype.getdelSaved = async function (ctx, docId) {
+  const data = this._getDocumentData(ctx, docId);
+  const res = data.saved;
   data.saved = null;
   return res;
 };
-EditorData.prototype.setForceSave = async function(ctx, docId, time, index, baseUrl, changeInfo, convertInfo) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.setForceSave = async function (ctx, docId, time, index, baseUrl, changeInfo, convertInfo) {
+  const data = this._getDocumentData(ctx, docId);
   data.forceSave = {time, index, baseUrl, changeInfo, started: false, ended: false, convertInfo};
 };
-EditorData.prototype.getForceSave = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.getForceSave = async function (ctx, docId) {
+  const data = this._getDocumentData(ctx, docId);
   return data.forceSave || null;
 };
-EditorData.prototype.checkAndStartForceSave = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.checkAndStartForceSave = async function (ctx, docId) {
+  const data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && !data.forceSave.started) {
     data.forceSave.started = true;
@@ -220,8 +222,8 @@ EditorData.prototype.checkAndStartForceSave = async function(ctx, docId) {
   }
   return res;
 };
-EditorData.prototype.checkAndSetForceSave = async function(ctx, docId, time, index, started, ended, convertInfo) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.checkAndSetForceSave = async function (ctx, docId, time, index, started, ended, convertInfo) {
+  const data = this._getDocumentData(ctx, docId);
   let res;
   if (data.forceSave && time === data.forceSave.time && index === data.forceSave.index) {
     data.forceSave.started = started;
@@ -231,23 +233,23 @@ EditorData.prototype.checkAndSetForceSave = async function(ctx, docId, time, ind
   }
   return res;
 };
-EditorData.prototype.removeForceSave = async function(ctx, docId) {
-  let data = this._getDocumentData(ctx, docId);
+EditorData.prototype.removeForceSave = async function (ctx, docId) {
+  const data = this._getDocumentData(ctx, docId);
   data.forceSave = undefined;
 };
 
-EditorData.prototype.cleanDocumentOnExit = async function(ctx, docId) {
-  let tenantData = this.data[ctx.tenant];
+EditorData.prototype.cleanDocumentOnExit = async function (ctx, docId) {
+  const tenantData = this.data[ctx.tenant];
   if (tenantData) {
     delete tenantData[docId];
   }
-  let tenantTimer = this.forceSaveTimer[ctx.tenant];
+  const tenantTimer = this.forceSaveTimer[ctx.tenant];
   if (tenantTimer) {
     delete tenantTimer[docId];
   }
 };
 
-EditorData.prototype.addForceSaveTimerNX = async function(ctx, docId, expireAt) {
+EditorData.prototype.addForceSaveTimerNX = async function (ctx, docId, expireAt) {
   let tenantTimer = this.forceSaveTimer[ctx.tenant];
   if (!tenantTimer) {
     this.forceSaveTimer[ctx.tenant] = tenantTimer = {};
@@ -256,13 +258,13 @@ EditorData.prototype.addForceSaveTimerNX = async function(ctx, docId, expireAt) 
     tenantTimer[docId] = expireAt;
   }
 };
-EditorData.prototype.getForceSaveTimer = async function(now) {
-  let res = [];
-  for (let tenant in this.forceSaveTimer) {
-    if (this.forceSaveTimer.hasOwnProperty(tenant)) {
-      let tenantTimer = this.forceSaveTimer[tenant];
-      for (let docId in tenantTimer) {
-        if (tenantTimer.hasOwnProperty(docId)) {
+EditorData.prototype.getForceSaveTimer = async function (now) {
+  const res = [];
+  for (const tenant in this.forceSaveTimer) {
+    if (Object.hasOwn(this.forceSaveTimer, tenant)) {
+      const tenantTimer = this.forceSaveTimer[tenant];
+      for (const docId in tenantTimer) {
+        if (Object.hasOwn(tenantTimer, docId)) {
           if (tenantTimer[docId] < now) {
             res.push([tenant, docId]);
             delete tenantTimer[docId];
@@ -286,24 +288,24 @@ function EditorStat() {
 }
 EditorStat.prototype = Object.create(EditorCommon.prototype);
 EditorStat.prototype.constructor = EditorStat;
-EditorStat.prototype.addPresenceUniqueUser = async function(ctx, userId, expireAt, userInfo) {
+EditorStat.prototype.addPresenceUniqueUser = async function (ctx, userId, expireAt, userInfo) {
   let tenantUser = this.uniqueUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUser[ctx.tenant] = tenantUser = {};
   }
-  tenantUser[userId] = {expireAt: expireAt, userInfo: userInfo};
+  tenantUser[userId] = {expireAt, userInfo};
 };
-EditorStat.prototype.getPresenceUniqueUser = async function(ctx, nowUTC) {
-  let res = [];
+EditorStat.prototype.getPresenceUniqueUser = async function (ctx, nowUTC) {
+  const res = [];
   let tenantUser = this.uniqueUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUser[ctx.tenant] = tenantUser = {};
   }
-  for (let userId in tenantUser) {
-    if (tenantUser.hasOwnProperty(userId)) {
+  for (const userId in tenantUser) {
+    if (Object.hasOwn(tenantUser, userId)) {
       if (tenantUser[userId].expireAt > nowUTC) {
-        let elem = tenantUser[userId];
-        let newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
+        const elem = tenantUser[userId];
+        const newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
         Object.assign(newElem, elem.userInfo);
         res.push(newElem);
       } else {
@@ -313,30 +315,30 @@ EditorStat.prototype.getPresenceUniqueUser = async function(ctx, nowUTC) {
   }
   return res;
 };
-EditorStat.prototype.addPresenceUniqueUsersOfMonth = async function(ctx, userId, period, userInfo) {
+EditorStat.prototype.addPresenceUniqueUsersOfMonth = async function (ctx, userId, period, userInfo) {
   let tenantUser = this.uniqueUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
-  if(!tenantUser[period]) {
-    let expireAt = Date.now() + cfgExpMonthUniqueUsers;
-    tenantUser[period] = {expireAt: expireAt, data: {}};
+  if (!tenantUser[period]) {
+    const expireAt = Date.now() + cfgExpMonthUniqueUsers;
+    tenantUser[period] = {expireAt, data: {}};
   }
   tenantUser[period].data[userId] = userInfo;
 };
-EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function(ctx) {
-  let res = {};
-  let nowUTC = Date.now();
+EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function (ctx) {
+  const res = {};
+  const nowUTC = Date.now();
   let tenantUser = this.uniqueUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
-  for (let periodId in tenantUser) {
-    if (tenantUser.hasOwnProperty(periodId)) {
+  for (const periodId in tenantUser) {
+    if (Object.hasOwn(tenantUser, periodId)) {
       if (tenantUser[periodId].expireAt <= nowUTC) {
         delete tenantUser[periodId];
       } else {
-        let date = new Date(parseInt(periodId)).toISOString();
+        const date = new Date(parseInt(periodId)).toISOString();
         res[date] = tenantUser[periodId].data;
       }
     }
@@ -344,24 +346,24 @@ EditorStat.prototype.getPresenceUniqueUsersOfMonth = async function(ctx) {
   return res;
 };
 
-EditorStat.prototype.addPresenceUniqueViewUser = async function(ctx, userId, expireAt, userInfo) {
+EditorStat.prototype.addPresenceUniqueViewUser = async function (ctx, userId, expireAt, userInfo) {
   let tenantUser = this.uniqueViewUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUser[ctx.tenant] = tenantUser = {};
   }
-  tenantUser[userId] = {expireAt: expireAt, userInfo: userInfo};
+  tenantUser[userId] = {expireAt, userInfo};
 };
-EditorStat.prototype.getPresenceUniqueViewUser = async function(ctx, nowUTC) {
-  let res = [];
+EditorStat.prototype.getPresenceUniqueViewUser = async function (ctx, nowUTC) {
+  const res = [];
   let tenantUser = this.uniqueViewUser[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUser[ctx.tenant] = tenantUser = {};
   }
-  for (let userId in tenantUser) {
-    if (tenantUser.hasOwnProperty(userId)) {
+  for (const userId in tenantUser) {
+    if (Object.hasOwn(tenantUser, userId)) {
       if (tenantUser[userId].expireAt > nowUTC) {
-        let elem = tenantUser[userId];
-        let newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
+        const elem = tenantUser[userId];
+        const newElem = {userid: userId, expire: new Date(elem.expireAt * 1000)};
         Object.assign(newElem, elem.userInfo);
         res.push(newElem);
       } else {
@@ -371,37 +373,37 @@ EditorStat.prototype.getPresenceUniqueViewUser = async function(ctx, nowUTC) {
   }
   return res;
 };
-EditorStat.prototype.addPresenceUniqueViewUsersOfMonth = async function(ctx, userId, period, userInfo) {
+EditorStat.prototype.addPresenceUniqueViewUsersOfMonth = async function (ctx, userId, period, userInfo) {
   let tenantUser = this.uniqueViewUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
-  if(!tenantUser[period]) {
-    let expireAt = Date.now() + cfgExpMonthUniqueUsers;
-    tenantUser[period] = {expireAt: expireAt, data: {}};
+  if (!tenantUser[period]) {
+    const expireAt = Date.now() + cfgExpMonthUniqueUsers;
+    tenantUser[period] = {expireAt, data: {}};
   }
   tenantUser[period].data[userId] = userInfo;
 };
-EditorStat.prototype.getPresenceUniqueViewUsersOfMonth = async function(ctx) {
-  let res = {};
-  let nowUTC = Date.now();
+EditorStat.prototype.getPresenceUniqueViewUsersOfMonth = async function (ctx) {
+  const res = {};
+  const nowUTC = Date.now();
   let tenantUser = this.uniqueViewUsersOfMonth[ctx.tenant];
   if (!tenantUser) {
     this.uniqueViewUsersOfMonth[ctx.tenant] = tenantUser = {};
   }
-  for (let periodId in tenantUser) {
-    if (tenantUser.hasOwnProperty(periodId)) {
+  for (const periodId in tenantUser) {
+    if (Object.hasOwn(tenantUser, periodId)) {
       if (tenantUser[periodId].expireAt <= nowUTC) {
         delete tenantUser[periodId];
       } else {
-        let date = new Date(parseInt(periodId)).toISOString();
+        const date = new Date(parseInt(periodId)).toISOString();
         res[date] = tenantUser[periodId].data;
       }
     }
   }
   return res;
 };
-EditorStat.prototype.setEditorConnections = async function(ctx, countEdit, countLiveView, countView, now, precision) {
+EditorStat.prototype.setEditorConnections = async function (ctx, countEdit, countLiveView, countView, now, precision) {
   let tenantStat = this.stat[ctx.tenant];
   if (!tenantStat) {
     this.stat[ctx.tenant] = tenantStat = [];
@@ -413,20 +415,20 @@ EditorStat.prototype.setEditorConnections = async function(ctx, countEdit, count
   }
   tenantStat.splice(0, i);
 };
-EditorStat.prototype.getEditorConnections = async function(ctx) {
+EditorStat.prototype.getEditorConnections = async function (ctx) {
   let tenantStat = this.stat[ctx.tenant];
   if (!tenantStat) {
     this.stat[ctx.tenant] = tenantStat = [];
   }
   return tenantStat;
 };
-EditorStat.prototype.setEditorConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrEditorConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.getEditorConnectionsCount = async function(ctx, connections) {
+EditorStat.prototype.setEditorConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
+EditorStat.prototype.incrEditorConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
+EditorStat.prototype.getEditorConnectionsCount = async function (ctx, connections) {
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
-      let conn = connections[i];
+      const conn = connections[i];
       if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
         count++;
       }
@@ -434,27 +436,27 @@ EditorStat.prototype.getEditorConnectionsCount = async function(ctx, connections
   }
   return count;
 };
-EditorStat.prototype.setViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.getViewerConnectionsCount = async function(ctx, connections) {
+EditorStat.prototype.setViewerConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
+EditorStat.prototype.incrViewerConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
+EditorStat.prototype.getViewerConnectionsCount = async function (ctx, connections) {
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
-      let conn = connections[i];
-      if (conn.isCloseCoAuthoring || (conn.user && conn.user.view) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+      const conn = connections[i];
+      if (conn.isCloseCoAuthoring || (conn.user && conn.user.view && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn))) {
         count++;
       }
     }
   }
   return count;
 };
-EditorStat.prototype.setLiveViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.incrLiveViewerConnectionsCountByShard = async function(ctx, shardId, count) {};
-EditorStat.prototype.getLiveViewerConnectionsCount = async function(ctx, connections) {
+EditorStat.prototype.setLiveViewerConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
+EditorStat.prototype.incrLiveViewerConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
+EditorStat.prototype.getLiveViewerConnectionsCount = async function (ctx, connections) {
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
-      let conn = connections[i];
+      const conn = connections[i];
       if (utils.isLiveViewer(conn) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
         count++;
       }
@@ -462,42 +464,42 @@ EditorStat.prototype.getLiveViewerConnectionsCount = async function(ctx, connect
   }
   return count;
 };
-EditorStat.prototype.addShutdown = async function(key, docId) {
+EditorStat.prototype.addShutdown = async function (key, docId) {
   if (!this.shutdown[key]) {
     this.shutdown[key] = {};
   }
   this.shutdown[key][docId] = 1;
 };
-EditorStat.prototype.removeShutdown = async function(key, docId) {
+EditorStat.prototype.removeShutdown = async function (key, docId) {
   if (!this.shutdown[key]) {
     this.shutdown[key] = {};
   }
   delete this.shutdown[key][docId];
 };
-EditorStat.prototype.getShutdownCount = async function(key) {
+EditorStat.prototype.getShutdownCount = async function (key) {
   let count = 0;
   if (this.shutdown[key]) {
-    for (let docId in this.shutdown[key]) {
-      if (this.shutdown[key].hasOwnProperty(docId)) {
+    for (const docId in this.shutdown[key]) {
+      if (Object.hasOwn(this.shutdown[key], docId)) {
         count++;
       }
     }
   }
   return count;
 };
-EditorStat.prototype.cleanupShutdown = async function(key) {
+EditorStat.prototype.cleanupShutdown = async function (key) {
   delete this.shutdown[key];
 };
-EditorStat.prototype.setLicense = async function(key, val) {
+EditorStat.prototype.setLicense = async function (key, val) {
   this.license[key] = val;
 };
-EditorStat.prototype.getLicense = async function(key) {
+EditorStat.prototype.getLicense = async function (key) {
   return this.license[key] || null;
 };
-EditorStat.prototype.removeLicense = async function(key) {
+EditorStat.prototype.removeLicense = async function (key) {
   delete this.license[key];
 };
-EditorStat.prototype.lockNotification = async function(ctx, notificationType, ttl) {
+EditorStat.prototype.lockNotification = async function (ctx, notificationType, ttl) {
   //true NaN !== NaN
   return this._checkAndLock(ctx, notificationType, notificationType, NaN, ttl);
 };
@@ -505,4 +507,4 @@ EditorStat.prototype.lockNotification = async function(ctx, notificationType, tt
 module.exports = {
   EditorData,
   EditorStat
-}
+};

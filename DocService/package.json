@@ -16,13 +16,13 @@
     "bytes": "3.1.2",
     "co": "4.6.0",
     "config": "3.3.12",
+    "cors": "^2.8.5",
     "cron": "1.5.0",
     "dmdb": "1.0.36002",
     "ejs": "3.1.10",
-    "exif-parser": "0.1.12",
     "express": "4.21.2",
+    "heic-decode": "2.1.0",
     "ioredis": "5.6.0",
-    "jimp": "0.22.10",
     "jsonwebtoken": "9.0.2",
     "mime": "2.3.1",
     "mime-db": "1.53.0",
@@ -32,10 +32,11 @@
     "multi-integer-range": "5.2.0",
     "multiparty": "4.2.3",
     "mysql2": "3.13.0",
-    "oracledb": "6.8.0",
+    "oracledb": "6.9.0",
     "pg": "8.14.0",
     "redis": "4.7.0",
     "retry": "0.13.1",
+    "sharp": "0.32.6",
     "socket.io": "4.8.1",
     "underscore": "1.13.7",
     "utf7": "1.0.2",
@@ -51,6 +52,11 @@
       "../Common/sources/storage/storage-s3.js",
       "../Common/sources/storage/storage-az.js",
       "../Common/node_modules/axios/dist/node/axios.cjs"
+    ],
+    "assets": [
+      "node_modules/oracledb/build/Release/oracledb-*.node",
+      "node_modules/sharp/build/Release/*",
+      "node_modules/sharp/vendor/**/*"
     ]
   }
 }

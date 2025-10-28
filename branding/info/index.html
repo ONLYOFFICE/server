@@ -1,578 +1,600 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <title>ONLYOFFICE</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=IE8"/>
-    <link href="img/favicon.ico" rel="icon" type="image/x-icon">
-    <link rel="stylesheet" href="css/ai-integration.css">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=IE8" />
+    <link href="img/favicon.ico" rel="icon" type="image/x-icon" />
 
     <style type="text/css">
-        html {
-            height: 100%;
-        }
+      html {
+        height: 100%;
+      }
 
-        body {
-            height: 100%;
-            min-width: 600px;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            font-family: 'Open Sans', sans-serif;
-            font-size: 12px;
-            color: #333333;
-            display: flex;
-            flex-direction: column;
-        }
+      body {
+        height: 100%;
+        min-width: 600px;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'Open Sans', sans-serif;
+        font-size: 12px;
+        color: #333333;
+        display: flex;
+        flex-direction: column;
+      }
 
-        header {
-            background: #3D4A6B;
-            height: 44px;
-            margin: 0 auto;
-            min-width: 600px;
-            width: 100%;
-            padding-top: 4px;
-            flex-shrink: 0;
-        }
+      header {
+        background: #3d4a6b;
+        height: 44px;
+        margin: 0 auto;
+        min-width: 600px;
+        width: 100%;
+        padding-top: 4px;
+        flex-shrink: 0;
+      }
 
-        header img {
-            margin: 8px 0 0 24px;
-        }
+      header img {
+        margin: 8px 0 0 24px;
+      }
 
-        table {
-            table-layout: fixed;
-            border-spacing: 0;
-            margin-bottom: 25px;
-        }
+      table {
+        table-layout: fixed;
+        border-spacing: 0;
+        margin-bottom: 25px;
+      }
 
-        td {
-            padding-left: 15px;
-            padding-bottom: 10px;
-            vertical-align: top;
-        }
+      td {
+        padding-left: 15px;
+        padding-bottom: 10px;
+        vertical-align: top;
+      }
 
-        .td-caption-main {
-            font-size: 18px;
-            padding-bottom: 4px;
-        }
+      .td-caption-main {
+        font-size: 18px;
+        padding-bottom: 4px;
+      }
 
-        .td-caption-main:last-child {
-            width: 208px;
-        }
+      .td-caption-main:last-child {
+        width: 208px;
+      }
 
-        .td-value-main {
-            font-size: 32px;
-            line-height: 28px;
-            padding-bottom: 8px;
-        }
+      .td-value-main {
+        font-size: 32px;
+        line-height: 28px;
+        padding-bottom: 8px;
+      }
 
-        .td-caption {
-            font-size: 16px;
-            padding-bottom: 4px;
-            background: #EFEFEF;
-            border-radius: 1px;
-        }
+      .td-caption {
+        font-size: 16px;
+        padding-bottom: 4px;
+        background: #efefef;
+        border-radius: 1px;
+      }
 
-        .td-caption-small {
-            font-size: 12px;
-            padding-bottom: 4px;
-            font-weight: 600;
-        }
+      .td-caption-small {
+        font-size: 12px;
+        padding-bottom: 4px;
+        font-weight: 600;
+      }
 
-        .td-value {
-            font-size: 26px;
-            line-height: 28px;
-            padding-bottom: 8px;
-            width: 150px;
-        }
+      .td-value {
+        font-size: 26px;
+        line-height: 28px;
+        padding-bottom: 8px;
+        width: 150px;
+      }
 
-        .td-value:last-child {
-            width: 224px;
-        }
+      .td-value:last-child {
+        width: 224px;
+      }
 
-        .td-separator {
-            padding-left: 0;
-        }
+      .td-separator {
+        padding-left: 0;
+      }
 
-        .td-separator:not(:last-child) {
-            padding-right: 20px;
-        }
+      .td-separator:not(:last-child) {
+        padding-right: 20px;
+      }
 
-        .td-separator-vert {
-            padding: 0 10px;
-        }
+      .td-separator-vert {
+        padding: 0 10px;
+      }
 
-        .td-last {
-            padding-bottom: 15px;
-        }
+      .td-last {
+        padding-bottom: 15px;
+      }
 
-        .td-link {
-            padding: 0;
-            font-size: 14px;
-            cursor: pointer;
-        }
+      .td-link {
+        padding: 0;
+        font-size: 14px;
+        cursor: pointer;
+      }
 
-        .td-link.current {
-            font-weight: 700;
-        }
+      .td-link.current {
+        font-weight: 700;
+      }
 
-        .main-panel {
-            margin: 40px auto 16px;
-            padding-left: calc(100vw - 100%);
-            width: 672px;
-        }
+      .main-panel {
+        margin: 40px auto 16px;
+        padding-left: calc(100vw - 100%);
+        width: 672px;
+      }
 
-        .header0 {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        .header1 {
-            font-size: 20px;
-            font-weight: 600;
-            padding-bottom: 25px;
-        }
-        .header2 {
-            font-size: 16px;
-            font-weight: 600;
-            padding-bottom: 25px;
-            text-align: center;
-        }
+      .header0 {
+        font-size: 24px;
+        font-weight: bold;
+      }
+      .header1 {
+        font-size: 20px;
+        font-weight: 600;
+        padding-bottom: 25px;
+      }
+      .header2 {
+        font-size: 16px;
+        font-weight: 600;
+        padding-bottom: 25px;
+        text-align: center;
+      }
 
-        #doc-server-wait {
-            text-align: center;
-        }
-        #doc-server-err > div {
-            display: inline-block;
-            vertical-align: middle;
-            text-align: left;
-        }
+      #doc-server-wait {
+        text-align: center;
+      }
+      #doc-server-err > div {
+        display: inline-block;
+        vertical-align: middle;
+        text-align: left;
+      }
 
-        #status-err-icon {
-            display: inline-block;
-            vertical-align: middle;
-            text-align: left;
-            width:48px;
-            height: 48px;
-            margin-right: 15px;
-            background: url(img/icon-cross.png) center no-repeat;
-        }
+      #status-err-icon {
+        display: inline-block;
+        vertical-align: middle;
+        text-align: left;
+        width: 48px;
+        height: 48px;
+        margin-right: 15px;
+        background: url(img/icon-cross.png) center no-repeat;
+      }
 
-        #status-err-help {
-            font-size: 18px;
-            font-weight: normal;
-            margin-top: 5px;
-        }
-        .hidden {
-            display: none !important;
-            visibility: hidden;
-        }
-        .critical {
-            color: #ff0000;
-        }
-        .normal {
-            color: #017D1C;
-        }
+      #status-err-help {
+        font-size: 18px;
+        font-weight: normal;
+        margin-top: 5px;
+      }
+      .hidden {
+        display: none !important;
+        visibility: hidden;
+      }
+      .critical {
+        color: #ff0000;
+      }
+      .normal {
+        color: #017d1c;
+      }
 
-        .separator {
-            vertical-align: top;
-            width: 100%;
-            height: 0;
-            border-top: 1px solid #dadada;
-        }
+      .separator {
+        vertical-align: top;
+        width: 100%;
+        height: 0;
+        border-top: 1px solid #dadada;
+      }
 
-        .separator-vert {
-            display: inline;
-            width: 0;
-            height: 100%;
-            border-left: 1px dotted #333333;
-        }
-
+      .separator-vert {
+        display: inline;
+        width: 0;
+        height: 100%;
+        border-left: 1px dotted #333333;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <header>
-        <img src="img/logo.png" alt="ONLYOFFICE">
+      <img src="img/logo.png" alt="ONLYOFFICE" />
     </header>
-    <div style="overflow: auto;height: 100%;flex-grow: 1;">
-    <div class="main-panel">
+    <div style="overflow: auto; height: 100%; flex-grow: 1">
+      <div class="main-panel">
         <div class="header0" id="doc-server-wait">Please, wait...</div>
         <div class="hidden" id="doc-server-ok">
-            <div id="ai-settings-section" class="ai-settings-section"></div>
-            <div class="header1">Document Server information</div>
-            <table width="672px">
-                <tr>
-                    <td class="td-caption-main">Build</td>
-                    <td class="td-caption-main">License</td>
-                    <td class="td-caption-main" id="limit-type">Connections limit</td>
-                </tr>
-                <tr>
-                    <td class="td-separator"><div class="separator"></div></td>
-                    <td class="td-separator"><div class="separator"></div></td>
-                    <td class="td-separator"><div class="separator"></div></td>
-                </tr>
-                <tr>
-                    <td id="build-type">Type:</td>
-                    <td><span>Start date: </span><span id="lic-start"></span></td>
-                    <td id="lic-limit-edit"></td>
-                </tr>
-                <tr>
-                    <td id="build-version">Version:</td>
-                    <td><span id="lic-valid-type">Valid: </span><span id="lic-valid"></span></td>
-                    <td id="lic-limit-view"></td>
-                </tr>
-                <tr>
-                    <td id="build-date">Release date:</td>
-                    <td id="trial"></td>
-                    <td></td>
-                </tr>
-            </table>
-            <table style="margin-left: 15px;">
-                <tr>
-                    <td class="td-link" value="all">All</td>
-                    <td class="td-separator-vert"><div class="separator-vert"></div></td>
-                    <td class="td-link" value="edit">Editors</td>
-                    <td class="td-separator-vert"><div class="separator-vert"></div></td>
-                    <td class="td-link" value="view">Live Viewer</td>
-                </tr>
-                <tr>
-                    <td class="td-separator" colspan="5"></td>
-                </tr>
-            </table>
-            <table id="user-activity-info" class="hidden">
-            </table>
-            <table id="connection-activity-info" class="hidden">
-            </table>
-            <table id="connections-peaks" class="hidden">
-            </table>
-            <table id="connections-average" class="hidden">
-            </table>
-            <div id="user-statistics-caption" class="header2 hidden">Usage statistics for the reporting period</div>
-            <table id="user-statistics" class="hidden">
-            </table>
+          <div id="ai-settings-section" class="ai-settings-section"></div>
+          <div class="header1">Document Server information</div>
+          <table width="672px">
+            <tr>
+              <td class="td-caption-main">Build</td>
+              <td class="td-caption-main">License</td>
+              <td class="td-caption-main" id="limit-type">Connections limit</td>
+            </tr>
+            <tr>
+              <td class="td-separator"><div class="separator"></div></td>
+              <td class="td-separator"><div class="separator"></div></td>
+              <td class="td-separator"><div class="separator"></div></td>
+            </tr>
+            <tr>
+              <td id="build-type">Type:</td>
+              <td><span>Start date: </span><span id="lic-start"></span></td>
+              <td id="lic-limit-edit"></td>
+            </tr>
+            <tr>
+              <td id="build-version">Version:</td>
+              <td><span id="lic-valid-type">Valid: </span><span id="lic-valid"></span></td>
+              <td id="lic-limit-view"></td>
+            </tr>
+            <tr>
+              <td id="build-date">Release date:</td>
+              <td id="trial"></td>
+              <td></td>
+            </tr>
+          </table>
+          <table style="margin-left: 15px">
+            <tr>
+              <td class="td-link" value="all">All</td>
+              <td class="td-separator-vert"><div class="separator-vert"></div></td>
+              <td class="td-link" value="edit">Editors</td>
+              <td class="td-separator-vert"><div class="separator-vert"></div></td>
+              <td class="td-link" value="view">Live Viewer</td>
+            </tr>
+            <tr>
+              <td class="td-separator" colspan="5"></td>
+            </tr>
+          </table>
+          <table id="user-activity-info" class="hidden"></table>
+          <table id="connection-activity-info" class="hidden"></table>
+          <table id="connections-peaks" class="hidden"></table>
+          <table id="connections-average" class="hidden"></table>
+          <div id="user-statistics-caption" class="header2 hidden">Usage statistics for the reporting period</div>
+          <table id="user-statistics" class="hidden"></table>
         </div>
         <div class="hidden header0" id="doc-server-err">
-            <div id="status-err-icon"></div>
-            <div>
-                <div>Something went wrong during installation</div>
-                <div id="status-err-help">Make sure that you have followed the <a href="http://helpcenter.onlyoffice.com/server/document.aspx" target="_blank">installation instructions</a></div>
+          <div id="status-err-icon"></div>
+          <div>
+            <div>Something went wrong during installation</div>
+            <div id="status-err-help">
+              Make sure that you have followed the
+              <a href="http://helpcenter.onlyoffice.com/server/document.aspx" target="_blank">installation instructions</a>
             </div>
+          </div>
         </div>
-    </div>
+      </div>
     </div>
     <script>
-        var _createXMLHTTPObject = function() {
-            var xmlhttp;
-            try {
-                xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
+      var _createXMLHTTPObject = function () {
+        var xmlhttp;
+        try {
+          xmlhttp = new ActiveXObject('Msxml2.XMLHTTP');
+        } catch (e) {
+          try {
+            xmlhttp = new ActiveXObject('Microsoft.XMLHTTP');
+          } catch (E) {
+            xmlhttp = false;
+          }
+        }
+        if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
+          xmlhttp = new XMLHttpRequest();
+        }
+        return xmlhttp;
+      };
+      function fillInfo(info) {
+        var licenseInfo = info.licenseInfo,
+          serverInfo = info.serverInfo;
+
+        var elem = document.getElementById('build-type');
+        elem.innerText =
+          'Type: ' + (licenseInfo.packageType == 0 ? 'Open source' : licenseInfo.packageType == 1 ? 'Enterprise Edition' : 'Developer Edition');
+
+        elem = document.getElementById('build-date');
+        var builddate = new Date(licenseInfo.buildDate);
+        elem.innerText = 'Release date: ' + builddate.toLocaleDateString();
+
+        elem = document.getElementById('build-version');
+        elem.innerText = 'Version: ' + serverInfo.buildVersion + '.' + serverInfo.buildNumber;
+
+        let limitText, limitEdit, limitView;
+        if (licenseInfo.usersCount > 0) {
+          limitText = 'Users limit';
+          limitEdit = licenseInfo.usersCount;
+          limitView = licenseInfo.usersViewCount;
+        } else {
+          limitText = 'Connections limit';
+          limitEdit = licenseInfo.connections;
+          limitView = licenseInfo.connectionsView;
+        }
+        elem = document.getElementById('limit-type');
+        elem.innerText = limitText;
+
+        elem = document.getElementById('lic-limit-edit');
+        elem.innerText = 'Editors: ' + limitEdit;
+
+        elem = document.getElementById('lic-limit-view');
+        elem.innerText = 'Live Viewer: ' + limitView;
+
+        if (licenseInfo.endDate === null) {
+          elem = document.getElementById('lic-valid-type');
+          elem.innerText = 'No license';
+        } else {
+          var isLimited = licenseInfo.mode & 1 || licenseInfo.mode & 4;
+          elem = document.getElementById('lic-valid-type');
+          elem.innerText = isLimited ? 'Valid: ' : 'Updates available: ';
+
+          var licdate = new Date(licenseInfo.endDate);
+          var licType = licenseInfo.type;
+          elem = document.getElementById('lic-valid');
+          elem.innerText = licdate.toLocaleDateString();
+          var isInvalid = 2 === licType || 1 === licType || 6 === licType || 11 === licType;
+          var isUpdateUnavailible = !isLimited && new Date(serverInfo.date) > licdate;
+          if (isInvalid || isUpdateUnavailible) {
+            elem.classList.add('critical');
+          }
+          if (licenseInfo.startDate) {
+            var licdateStart = new Date(licenseInfo.startDate);
+            elem = document.getElementById('lic-start');
+            elem.innerText = licdateStart.toLocaleDateString();
+            if (16 === licType || licdateStart > new Date(serverInfo.date)) {
+              elem.classList.add('critical');
             }
-            catch (e) {
-                try {
-                    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-                }
-                catch (E) {
-                    xmlhttp = false;
-                }
+          }
+
+          elem = document.getElementById('trial');
+          elem.innerText = licenseInfo.mode & 1 ? 'Trial' : '';
+        }
+
+        var quotaEdit = info.quota.edit,
+          quotaView = info.quota.view;
+
+        if (licenseInfo.usersCount > 0) {
+          // users limit
+          var days = parseInt(licenseInfo.usersExpire / 86400) || 1;
+          var value = licenseInfo.usersCount - quotaEdit.usersCount.unique;
+          var editor = [
+            [quotaEdit.usersCount.unique, ''],
+            [quotaEdit.usersCount.unique - quotaEdit.usersCount.anonymous, ''],
+            [quotaEdit.usersCount.anonymous, ''],
+            [value, value > licenseInfo.usersCount * 0.1 ? 'normal' : 'critical']
+          ];
+          value = licenseInfo.usersViewCount - quotaView.usersCount.unique;
+          var viewer = [
+            [quotaView.usersCount.unique, ''],
+            [quotaView.usersCount.unique - quotaView.usersCount.anonymous, ''],
+            [quotaView.usersCount.anonymous, ''],
+            [value, value > licenseInfo.usersViewCount * 0.1 ? 'normal' : 'critical']
+          ];
+          elem = document.getElementById('user-activity-info');
+          elem.classList.remove('hidden');
+          createInfoTable(elem, 'User activity in the last ' + days + (days > 1 ? ' days' : ' day'), editor, viewer, [
+            'Active',
+            'Internal',
+            'External',
+            'Remaining'
+          ]);
+        } else {
+          // connections limit
+          var value = licenseInfo.connections - (quotaEdit.connectionsCount || 0);
+          var editor = [
+            [quotaEdit.connectionsCount || 0, ''],
+            [value, value > licenseInfo.connections * 0.1 ? 'normal' : 'critical']
+          ];
+          value = licenseInfo.connectionsView - (quotaView.connectionsCount || 0);
+          var viewer = [
+            [quotaView.connectionsCount || 0, ''],
+            [value, value > licenseInfo.connectionsView * 0.1 ? 'normal' : 'critical']
+          ];
+          elem = document.getElementById('connection-activity-info');
+          elem.classList.remove('hidden');
+          createInfoTable(elem, 'Current connections', editor, viewer, ['Active', 'Remaining']);
+        }
+      }
+      function fillConnections(info) {
+        var licenseInfo = info.licenseInfo;
+
+        if (licenseInfo.usersCount > 0) return;
+
+        var limitEdit = licenseInfo.connections,
+          limitView = licenseInfo.connectionsView,
+          peaksEdit = [],
+          peaksView = [],
+          avrEdit = [],
+          avrView = [], // value and class
+          desc = ['Last Hour', '24 Hours', 'Week', 'Month'];
+
+        ['hour', 'day', 'week', 'month'].forEach(function (item, index) {
+          item = info.connectionsStat[item];
+          if (item) {
+            if (item.edit) {
+              var value = item.edit['max'] || 0;
+              peaksEdit[index] = [value, value >= limitEdit ? 'critical' : ''];
+              value = item.edit['avr'] || 0;
+              avrEdit[index] = [value, value >= limitEdit ? 'critical' : ''];
             }
-            if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
-                xmlhttp = new XMLHttpRequest();
+            if (item.liveview) {
+              var value = item.liveview['max'] || 0;
+              peaksView[index] = [value, value >= limitView ? 'critical' : ''];
+              value = item.liveview['avr'] || 0;
+              avrView[index] = [value, value >= limitView ? 'critical' : ''];
             }
-            return xmlhttp;
+          }
+        });
+
+        var elem = document.getElementById('connections-peaks');
+        elem.classList.remove('hidden');
+        createInfoTable(elem, 'Peaks', peaksEdit, peaksView, desc);
+
+        elem = document.getElementById('connections-average');
+        elem.classList.remove('hidden');
+        createInfoTable(elem, 'Average', avrEdit, avrView, desc);
+      }
+
+      function fillStatistic(info) {
+        if (info.licenseInfo.usersCount < 1) return;
+
+        var byMonth = info.quota.byMonth;
+        if (byMonth.length < 1) return;
+
+        document.getElementById('user-statistics-caption').classList.remove('hidden');
+        var elem = document.getElementById('user-statistics');
+        elem.classList.remove('hidden');
+        var arr = [];
+        byMonth.forEach(function (item) {
+          var date = item.date,
+            users = item.users,
+            internalEdit = 0,
+            internalView = 0,
+            externalEdit = 0,
+            externalView = 0;
+          if (date && users) {
+            for (var uid in users) {
+              if (users.hasOwnProperty(uid)) {
+                users[uid].anonym ? externalEdit++ : internalEdit++;
+              }
+            }
+            users = item.usersView;
+            for (var uid in users) {
+              if (users.hasOwnProperty(uid)) {
+                users[uid].anonym ? externalView++ : internalView++;
+              }
+            }
+            arr.push({
+              startDate: new Date(date),
+              internalEdit: internalEdit,
+              externalEdit: externalEdit,
+              internalView: internalView,
+              externalView: externalView
+            });
+            if (arr.length > 1) {
+              arr[arr.length - 2].endDate = new Date(new Date(date) - 86400000);
+            }
+          }
+        });
+
+        for (var i = 0; i < arr.length; i++) {
+          var item = arr[arr.length - i - 1];
+          createInfoTable(
+            elem,
+            item.endDate
+              ? item.startDate.toLocaleDateString() + ' - ' + item.endDate.toLocaleDateString()
+              : 'From ' + item.startDate.toLocaleDateString(),
+            [
+              [item.internalEdit, ''],
+              [item.externalEdit, ''],
+              [item.internalEdit + item.externalEdit, '']
+            ],
+            [
+              [item.internalView, ''],
+              [item.externalView, ''],
+              [item.internalView + item.externalView, '']
+            ],
+            ['Internal', 'External', 'Active', '']
+          );
+        }
+      }
+
+      function createInfoTableSection(elem, caption, cls, values, desc) {
+        var tr = document.createElement('tr');
+        tr.classList.add('all-info');
+        tr.innerHTML = '<td colspan="4" class="td-caption-small">' + caption + '</td>';
+        elem.appendChild(tr);
+        tr = document.createElement('tr');
+        tr.classList.add('all-info');
+        tr.innerHTML = '<td class="td-separator" colspan="4"><div class="separator"></div></td>';
+        elem.appendChild(tr);
+
+        tr = document.createElement('tr');
+        tr.classList.add(cls);
+        tr.innerHTML = '';
+        for (var i = 0; i < 4; i++) {
+          var value = values[i];
+          tr.innerHTML +=
+            '<td class="td-value ' + (value && value[1] ? value[1] : '') + '">' + (value && value[0] !== undefined ? value[0] : '') + '</td>';
+        }
+        elem.appendChild(tr);
+
+        tr = document.createElement('tr');
+        tr.classList.add(cls);
+        tr.innerHTML = '';
+        for (var i = 0; i < 4; i++) tr.innerHTML += '<td class="td-last">' + (desc[i] || '') + '</td>';
+        elem.appendChild(tr);
+
+        tr = document.createElement('tr');
+        tr.classList.add('all-info');
+        tr.innerHTML = '<td class="td-separator" colspan="4"></div></td>';
+        elem.appendChild(tr);
+      }
+
+      function createInfoTable(elem, caption, editor, viewer, desc) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="4" class="td-caption">' + caption + '</td>';
+        elem.appendChild(tr);
+        tr = document.createElement('tr');
+        tr.innerHTML = '<td class="td-separator" colspan="4"></div></td>';
+        elem.appendChild(tr);
+
+        createInfoTableSection(elem, 'EDITORS', 'editor-info', editor, desc);
+        createInfoTableSection(elem, 'LIVE VIEWER', 'viewer-info', viewer, desc);
+      }
+
+      function applyMode() {
+        var current = document.querySelector('.td-link.current').getAttribute('value') || 'all';
+        var arr = document.getElementsByClassName('editor-info');
+        for (var i = 0; i < arr.length; i++) {
+          current === 'view' ? arr[i].classList.add('hidden') : arr[i].classList.remove('hidden');
+        }
+        arr = document.getElementsByClassName('viewer-info');
+        for (var i = 0; i < arr.length; i++) {
+          current === 'edit' ? arr[i].classList.add('hidden') : arr[i].classList.remove('hidden');
+        }
+        arr = document.getElementsByClassName('all-info');
+        for (var i = 0; i < arr.length; i++) {
+          current === 'all' ? arr[i].classList.remove('hidden') : arr[i].classList.add('hidden');
+        }
+      }
+
+      function initEvents() {
+        var arr = document.getElementsByClassName('td-link');
+        var onClick = function (evt) {
+          for (var i = 0; i < arr.length; i++) {
+            arr[i].classList.remove('current');
+          }
+          evt.target.classList.add('current');
+          window.localStorage && window.localStorage.setItem('server-info-display-mode', evt.target.getAttribute('value'));
+          applyMode();
         };
-        function fillInfo(info) {
-            var licenseInfo = info.licenseInfo,
-                serverInfo = info.serverInfo;
 
-            var elem = document.getElementById('build-type');
-            elem.innerText = 'Type: ' + ((licenseInfo.packageType == 0) ? 'Open source' : ((licenseInfo.packageType == 1) ? 'Enterprise Edition' : 'Developer Edition'));
+        for (var i = 0; i < arr.length; i++) {
+          if (arr[i].addEventListener) {
+            arr[i].addEventListener('click', onClick);
+          } else if (arr[i].attachEvent) {
+            arr[i].attachEvent('click', onClick);
+          }
+        }
 
-            elem = document.getElementById('build-date');
-            var builddate = new Date(licenseInfo.buildDate);
-            elem.innerText = 'Release date: ' + builddate.toLocaleDateString();
+        var value = window.localStorage ? window.localStorage.getItem('server-info-display-mode') || 'all' : 'all';
+        document.querySelector('.td-link[value=' + value + ']').classList.add('current');
+      }
 
-            elem = document.getElementById('build-version');
-            elem.innerText = 'Version: ' + serverInfo.buildVersion + '.' + serverInfo.buildNumber;
-
-            let limitText, limitEdit, limitView;
-            if (licenseInfo.usersCount > 0) {
-              limitText = 'Users limit';
-              limitEdit = licenseInfo.usersCount;
-              limitView = licenseInfo.usersViewCount;
-            } else {
-              limitText = 'Connections limit';
-              limitEdit = licenseInfo.connections;
-              limitView = licenseInfo.connectionsView;
-            }
-            elem = document.getElementById('limit-type');
-            elem.innerText = limitText;
-
-            elem = document.getElementById('lic-limit-edit');
-			elem.innerText = 'Editors: ' + limitEdit;
-
-            elem = document.getElementById('lic-limit-view');
-            elem.innerText = 'Live Viewer: ' + limitView;
-
-            if (licenseInfo.endDate===null) {
-                elem = document.getElementById('lic-valid-type');
-                elem.innerText = 'No license';
-            } else {
-                var isLimited = (licenseInfo.mode & 1) || (licenseInfo.mode & 4);
-                elem = document.getElementById('lic-valid-type');
-                elem.innerText = isLimited ? 'Valid: ' : 'Updates available: ';
-
-                var licdate = new Date(licenseInfo.endDate);
-                var licType = licenseInfo.type;
-                elem = document.getElementById('lic-valid');
-                elem.innerText = licdate.toLocaleDateString();
-                var isInvalid = 2 === licType || 1 === licType || 6 === licType || 11 === licType;
-                var isUpdateUnavailible = !isLimited && new Date(serverInfo.date) > licdate;
-                if (isInvalid || isUpdateUnavailible) {
-                    elem.classList.add('critical');
+      (function () {
+        try {
+          var xhrObj = _createXMLHTTPObject();
+          if (xhrObj) {
+            var index_html = window['location']['href'];
+            var healthcheck_url = index_html.substring(0, index_html.lastIndexOf('/') + 1) + 'info.json';
+            xhrObj.open('GET', healthcheck_url);
+            xhrObj.onreadystatechange = function () {
+              if (xhrObj.readyState == 4) {
+                document.getElementById('doc-server-wait').classList.add('hidden');
+                if (xhrObj.status == 200) {
+                  document.getElementById('doc-server-ok').classList.remove('hidden');
+                  var info = JSON.parse(xhrObj.responseText);
+                  fillInfo(info);
+                  fillConnections(info);
+                  fillStatistic(info);
+                  initEvents();
+                  applyMode();
+                } else {
+                  document.getElementById('doc-server-err').classList.remove('hidden');
                 }
-                if (licenseInfo.startDate) {
-                  var licdateStart = new Date(licenseInfo.startDate);
-                  elem = document.getElementById('lic-start');
-                  elem.innerText = licdateStart.toLocaleDateString();
-                  if (16 === licType || licdateStart > new Date(serverInfo.date)) {
-                    elem.classList.add('critical');
-                  }
-                }
-
-                elem = document.getElementById('trial');
-                elem.innerText = (licenseInfo.mode & 1) ? 'Trial' : '';
-            }
-
-            var quotaEdit = info.quota.edit,
-                quotaView = info.quota.view;
-
-            if (licenseInfo.usersCount>0) { // users limit
-                var days = parseInt(licenseInfo.usersExpire/86400) || 1;
-                var value = licenseInfo.usersCount - quotaEdit.usersCount.unique;
-                var editor = [
-                    [quotaEdit.usersCount.unique, ''],
-                    [quotaEdit.usersCount.unique - quotaEdit.usersCount.anonymous, ''],
-                    [quotaEdit.usersCount.anonymous, ''],
-                    [value, value > licenseInfo.usersCount * 0.1 ? "normal" : "critical"]
-                ];
-                value = licenseInfo.usersViewCount - quotaView.usersCount.unique;
-                var viewer = [
-                    [quotaView.usersCount.unique, ''],
-                    [quotaView.usersCount.unique - quotaView.usersCount.anonymous, ''],
-                    [quotaView.usersCount.anonymous, ''],
-                    [value, value > licenseInfo.usersViewCount * 0.1 ? "normal" : "critical"]
-                ];
-                elem = document.getElementById('user-activity-info');
-                elem.classList.remove('hidden');
-                createInfoTable(elem, 'User activity in the last ' + days + (days>1 ? ' days' : ' day'), editor, viewer, ['Active', 'Internal', 'External', 'Remaining']);
-            } else { // connections limit
-                var value = licenseInfo.connections - (quotaEdit.connectionsCount || 0);
-                var editor = [
-                    [quotaEdit.connectionsCount || 0, ''],
-                    [value, value > licenseInfo.connections * 0.1 ? "normal" : "critical"]
-                ];
-                value = licenseInfo.connectionsView - (quotaView.connectionsCount || 0);
-                var viewer = [
-                    [quotaView.connectionsCount || 0, ''],
-                    [value, value > licenseInfo.connectionsView * 0.1 ? "normal" : "critical"]
-                ];
-                elem = document.getElementById('connection-activity-info');
-                elem.classList.remove('hidden');
-                createInfoTable(elem, 'Current connections', editor, viewer, ['Active', 'Remaining']);
-            }
-        }
-        function fillConnections(info) {
-            var licenseInfo = info.licenseInfo;
-
-            if (licenseInfo.usersCount>0) return;
-
-            var limitEdit = licenseInfo.connections,
-                limitView = licenseInfo.connectionsView,
-                peaksEdit = [], peaksView = [], avrEdit = [], avrView = [], // value and class
-                desc = ['Last Hour', '24 Hours', 'Week', 'Month'];
-
-            ['hour', 'day', 'week', 'month'].forEach(function(item, index){
-                item = info.connectionsStat[item];
-                if (item) {
-                    if (item.edit) {
-                        var value = item.edit['max'] || 0;
-                        peaksEdit[index] = [value, value >= limitEdit ? "critical" : "" ];
-                        value = item.edit['avr'] || 0;
-                        avrEdit[index] = [value, value >= limitEdit ? "critical" : "" ];
-                    }
-                    if (item.liveview) {
-                        var value = item.liveview['max'] || 0;
-                        peaksView[index] = [value, value >= limitView ? "critical" : "" ];
-                        value = item.liveview['avr'] || 0;
-                        avrView[index] = [value, value >= limitView ? "critical" : "" ];
-                    }
-                }
-            });
-
-            var elem = document.getElementById('connections-peaks');
-            elem.classList.remove('hidden');
-            createInfoTable(elem, 'Peaks', peaksEdit, peaksView, desc);
-
-            elem = document.getElementById('connections-average');
-            elem.classList.remove('hidden');
-            createInfoTable(elem, 'Average', avrEdit, avrView, desc);
-        }
-
-        function fillStatistic(info) {
-            if (info.licenseInfo.usersCount<1) return;
-
-            var byMonth = info.quota.byMonth;
-            if (byMonth.length<1) return;
-
-            document.getElementById('user-statistics-caption').classList.remove('hidden');
-            var elem = document.getElementById('user-statistics');
-            elem.classList.remove('hidden');
-            var arr = [];
-            byMonth.forEach(function(item){
-                var date = item.date,
-                    users = item.users,
-                    internalEdit = 0, internalView = 0,
-                    externalEdit = 0, externalView = 0;
-                if (date && users) {
-                    for (var uid in users) {
-                        if (users.hasOwnProperty(uid)) {
-                            users[uid].anonym ? externalEdit++ : internalEdit++;
-                        }
-                    }
-                    users = item.usersView;
-                    for (var uid in users) {
-                        if (users.hasOwnProperty(uid)) {
-                            users[uid].anonym ? externalView++ : internalView++;
-                        }
-                    }
-                    arr.push({
-                        startDate: new Date(date),
-                        internalEdit: internalEdit,
-                        externalEdit: externalEdit,
-                        internalView: internalView,
-                        externalView: externalView
-                    });
-                    if (arr.length>1) {
-                        arr[arr.length-2].endDate = new Date(new Date(date) - 86400000);
-                    }
-                }
-            });
-
-            for (var i=0; i<arr.length; i++) {
-                var item = arr[arr.length-i-1];
-                createInfoTable(elem, item.endDate ? item.startDate.toLocaleDateString() + ' - ' + item.endDate.toLocaleDateString(): 'From ' + item.startDate.toLocaleDateString(),
-                                [[item.internalEdit, ''], [item.externalEdit, ''], [item.internalEdit + item.externalEdit, '']],
-                                [[item.internalView, ''], [item.externalView, ''], [item.internalView + item.externalView, '']],
-                                ['Internal', 'External', 'Active', ''])
-            }
-        }
-
-        function createInfoTableSection(elem, caption, cls, values, desc) {
-            var tr = document.createElement("tr"); tr.classList.add('all-info');
-            tr.innerHTML = '<td colspan="4" class="td-caption-small">' + caption + '</td>';
-            elem.appendChild(tr);
-            tr = document.createElement("tr"); tr.classList.add('all-info');
-            tr.innerHTML = '<td class="td-separator" colspan="4"><div class="separator"></div></td>';
-            elem.appendChild(tr);
-
-            tr = document.createElement("tr"); tr.classList.add(cls); tr.innerHTML = '';
-            for (var i=0; i<4; i++) {
-                var value = values[i];
-                tr.innerHTML +=  '<td class="td-value ' + (value && value[1] ? value[1] : '') + '">' + (value && (value[0]!==undefined) ? value[0] : '')  + '</td>';
-            }
-            elem.appendChild(tr);
-
-            tr = document.createElement("tr"); tr.classList.add(cls); tr.innerHTML = '';
-            for (var i=0; i<4; i++)
-                tr.innerHTML +=  '<td class="td-last">' + (desc[i] || '') + '</td>';
-            elem.appendChild(tr);
-
-            tr = document.createElement("tr"); tr.classList.add('all-info');
-            tr.innerHTML = '<td class="td-separator" colspan="4"></div></td>';
-            elem.appendChild(tr);
-        }
-
-        function createInfoTable(elem, caption, editor, viewer, desc) {
-            var tr = document.createElement("tr");
-            tr.innerHTML = '<td colspan="4" class="td-caption">' + caption + '</td>';
-            elem.appendChild(tr);
-            tr = document.createElement("tr");
-            tr.innerHTML = '<td class="td-separator" colspan="4"></div></td>';
-            elem.appendChild(tr);
-
-            createInfoTableSection(elem, 'EDITORS', 'editor-info', editor, desc);
-            createInfoTableSection(elem, 'LIVE VIEWER', 'viewer-info', viewer, desc);
-        }
-
-        function applyMode() {
-            var current = document.querySelector('.td-link.current').getAttribute('value') || 'all';
-            var arr = document.getElementsByClassName('editor-info');
-            for (var i=0; i < arr.length; i++) {
-                (current==='view') ? arr[i].classList.add("hidden") : arr[i].classList.remove("hidden");
-            }
-            arr = document.getElementsByClassName('viewer-info');
-            for (var i=0; i < arr.length; i++) {
-                (current==='edit') ? arr[i].classList.add("hidden") : arr[i].classList.remove("hidden");
-            }
-            arr = document.getElementsByClassName('all-info');
-            for (var i=0; i < arr.length; i++) {
-                (current==='all') ? arr[i].classList.remove("hidden") : arr[i].classList.add("hidden");
-            }
-        }
-
-        function initEvents() {
-            var arr = document.getElementsByClassName('td-link');
-            var onClick = function (evt) {
-                for (var i=0; i < arr.length; i++) {
-                    arr[i].classList.remove("current");
-                }
-                evt.target.classList.add('current');
-                window.localStorage && window.localStorage.setItem('server-info-display-mode', evt.target.getAttribute('value'));
-                applyMode();
+              }
             };
-
-            for (var i=0; i < arr.length; i++) {
-                if (arr[i].addEventListener) {
-                    arr[i].addEventListener("click", onClick)
-                } else if (arr[i].attachEvent) {
-                    arr[i].attachEvent("click", onClick);
-                }
-            }
-
-            var value = window.localStorage ? window.localStorage.getItem('server-info-display-mode') || 'all' : 'all';
-            document.querySelector('.td-link[value=' + value + ']').classList.add('current');
-        }
-
-
-        (function(){
-            try {
-                var xhrObj = _createXMLHTTPObject();
-                if (xhrObj) {
-                    var index_html = window["location"]["href"];
-                    var healthcheck_url = index_html.substring(0, index_html.lastIndexOf("/") + 1) + 'info.json';
-                    xhrObj.open('GET', healthcheck_url);
-                    xhrObj.onreadystatechange = function() {
-                        if (xhrObj.readyState == 4) {
-							document.getElementById('doc-server-wait').classList.add("hidden");
-                            if (xhrObj.status == 200) {
-								document.getElementById('doc-server-ok').classList.remove("hidden");
-                                var info = JSON.parse(xhrObj.responseText);
-                                fillInfo(info);
-                                fillConnections(info);
-                                fillStatistic(info);
-                                initEvents();
-                                applyMode();
-                            } else {
-								document.getElementById('doc-server-err').classList.remove("hidden");
-                            }
-                        }
-                    };
-                    xhrObj.send('');
-                }
-            }
-            catch (e) {}
-        })();
-        
+            xhrObj.send('');
+          }
+        } catch (e) {}
+      })();
     </script>
-    <script type="text/javascript" src="js/ai-integration.js"></script>
-    <script type="text/javascript" src="js/ai-interface.js"></script>
-</body>
+  </body>
 </html>

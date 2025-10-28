@@ -1,0 +1,42 @@
+{
+  "licenseInfo": {
+    "packageType": 1,
+    "buildDate": "2025-08-20T00:00:00Z",
+    "mode": 4,
+    "endDate": "2026-08-20T00:00:00Z",
+    "type": 0,
+    "startDate": "2025-08-01T00:00:00Z",
+    "connections": 50,
+    "connectionsView": 30,
+    "usersCount": 0,
+    "usersViewCount": 0
+  },
+  "serverInfo": {
+    "buildVersion": "8.2",
+    "buildNumber": "1234",
+    "date": "2025-09-05T12:00:00Z"
+  },
+  "quota": {
+    "edit": {"connectionsCount": 20},
+    "view": {"connectionsCount": 28},
+    "byMonth": []
+  },
+  "connectionsStat": {
+    "hour": {
+      "edit": {"max": 52, "avr": 40},
+      "liveview": {"max": 29, "avr": 27}
+    },
+    "day": {
+      "edit": {"max": 45, "avr": 30},
+      "liveview": {"max": 30, "avr": 22}
+    },
+    "week": {
+      "edit": {"max": 50, "avr": 35},
+      "liveview": {"max": 31, "avr": 26}
+    },
+    "month": {
+      "edit": {"max": 40, "avr": 28},
+      "liveview": {"max": 25, "avr": 20}
+    }
+  }
+}

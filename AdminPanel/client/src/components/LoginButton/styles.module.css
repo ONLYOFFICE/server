@@ -1,0 +1,53 @@
+.button {
+  background: rgb(255, 111, 61);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 16px;
+  width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+}
+
+.button:hover:not(:disabled) {
+  background: rgb(255, 149, 113);
+}
+
+.button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.button.loading,
+.button.success {
+  background-color: rgb(139, 184, 37);
+}
+
+.button.error {
+  background-color: rgb(187, 5, 5);
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.button.loading .icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
