@@ -37,7 +37,9 @@ const operationContext = require('./operationContext');
 
 const cfgRabbitUrl = config.get('rabbitmq.url');
 const cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOptions'));
-
+if (cfgRabbitSocketOptions.cert && cfgRabbitSocketOptions.key && cfgRabbitSocketOptions.ca) {
+  cfgRabbitSocketOptions.credentials = amqp.credentials.external();
+}
 const RECONNECT_TIMEOUT = 1000;
 
 function connetPromise(closeCallback) {
