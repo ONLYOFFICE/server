@@ -17,14 +17,16 @@ function RequestFiltering() {
 
   const [localSettings, setLocalSettings] = useState({
     allowPrivateIPAddress: false,
-    allowMetaIPAddress: false
+    allowMetaIPAddress: false,
+    useforrequest: false
   });
   const [hasChanges, setHasChanges] = useState(false);
 
   // Configuration paths
   const CONFIG_PATHS = {
     allowPrivateIPAddress: 'services.CoAuthoring.request-filtering-agent.allowPrivateIPAddress',
-    allowMetaIPAddress: 'services.CoAuthoring.request-filtering-agent.allowMetaIPAddress'
+    allowMetaIPAddress: 'services.CoAuthoring.request-filtering-agent.allowMetaIPAddress',
+    useforrequest: 'services.CoAuthoring.ipfilter.useforrequest'
   };
 
   const hasInitialized = useRef(false);
@@ -92,6 +94,16 @@ function RequestFiltering() {
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>IP Address Filtering</h2>
         <p className={styles.sectionDescription}>Control access based on IP address types to enhance security.</p>
+
+        <div className={styles.formRow}>
+          <Checkbox
+            label='Use IP filtering for requests'
+            checked={localSettings.useforrequest}
+            onChange={value => handleFieldChange('useforrequest', value)}
+            description='Enable IP filtering for incoming requests. When disabled, rules are ignored.'
+            error={getFieldError(CONFIG_PATHS.useforrequest)}
+          />
+        </div>
 
         <div className={styles.formRow}>
           <Checkbox

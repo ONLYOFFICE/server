@@ -1041,20 +1041,24 @@ function* checkHostFilter(ctx, hostname) {
   return status;
 }
 exports.checkHostFilter = checkHostFilter;
-function checkClientIp(req, res, next) {
-  const ctx = new operationContext.Context();
-  ctx.initFromRequest(req);
-  const tenIpFilterUseForRequest = ctx.getCfg('services.CoAuthoring.ipfilter.useforrequest', cfgIpFilterUseForRequest);
-  let status = 0;
-  if (tenIpFilterUseForRequest) {
-    const addresses = forwarded(req);
-    const ipString = addresses[addresses.length - 1];
-    status = checkIpFilter(ctx, ipString);
-  }
-  if (status > 0) {
-    res.sendStatus(status);
-  } else {
-    next();
+async function checkClientIp(req, res, next) {
+  try {
+    const ctx = new operationContext.Context();
+    ctx.initFromRequest(req);
+    await ctx.initTenantCache();
+    const tenIpFilterUseForRequest = ctx.getCfg('services.CoAuthoring.ipfilter.useforrequest', cfgIpFilterUseForRequest);
+    let status = 0;
+    if (tenIpFilterUseForRequest) {
+      const addresses = forwarded(req);
+      const ipString = addresses[addresses.length - 1];
+      status = checkIpFilter(ctx, ipString);
+    }
+    if (status > 0) {
+      return res.sendStatus(status);
+    }
+    return next();
+  } catch (err) {
+    return next(err);
   }
 }
 exports.checkClientIp = checkClientIp;
