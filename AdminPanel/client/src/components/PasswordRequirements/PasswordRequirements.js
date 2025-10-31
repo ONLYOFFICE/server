@@ -30,7 +30,8 @@ function PasswordRequirements({password, isVisible = false}) {
       {key: 'minLength', format: 'passlength'},
       {key: 'hasDigit', format: 'passdigit'},
       {key: 'hasUppercase', format: 'passupper'},
-      {key: 'hasSpecialChar', format: 'passspecial'}
+      {key: 'hasSpecialChar', format: 'passspecial'},
+      {key: 'allowedCharactersOnly', format: 'passallowedchars'}
     ];
 
     const invalidRulesSet = new Set(invalidRules);
