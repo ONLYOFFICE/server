@@ -9,6 +9,7 @@ const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
 const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
+const moduleReloader = require('../../../../../Common/sources/moduleReloader');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -124,8 +125,11 @@ router.post('/reset', validateJWT, rawFileParser, async (req, res) => {
       await runtimeConfigManager.replaceConfig(ctx, resetConfig);
     }
 
-    ctx.logger.info('Configuration reset successfully');
-    res.status(200).json({message: 'Configuration reset successfully'});
+    delete resetConfig.adminPanel;
+    ctx.logger.info('Configuration reset successfully for paths: %j', paths);
+    const mergedConfig = utils.deepMergeObjects({aiSettings: moduleReloader.getBaseConfig().aiSettings}, resetConfig);
+
+    res.status(200).json(mergedConfig);
   } catch (error) {
     ctx.logger.error('Configuration reset error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});
