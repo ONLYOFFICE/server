@@ -4,6 +4,13 @@
   gap: 24px;
 }
 
+@media (max-width: 767px) {
+  .topRow {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
 .modeBar {
   margin: 8px 0 16px;
   font-size: 14px;

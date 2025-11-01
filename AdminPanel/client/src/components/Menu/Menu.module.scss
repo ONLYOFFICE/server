@@ -6,6 +6,31 @@
   flex-direction: column;
   overflow: hidden;
 
+  /* Mobile off-canvas behavior */
+  @media (max-width: 767px) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1101; /* above backdrop, below header z-index 1100? keep slightly above */
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: none;
+  }
+
+  &--open {
+    @media (max-width: 767px) {
+      width: 240px;
+      transform: translateX(0);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.04),
+        0 8px 24px rgba(0, 0, 0, 0.12);
+      .menu__content {
+        padding-left: 16px;
+        padding-top: 16px;
+      }
+    }
+  }
+
   &__content {
     display: flex;
     flex-direction: column;
