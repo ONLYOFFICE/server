@@ -47,3 +47,9 @@
 .pageWithFixedSave {
   padding-bottom: 40px;
 }
+
+@media (max-width: 767px) {
+  .pageWithFixedSave {
+    padding-bottom: 0;
+  }
+}

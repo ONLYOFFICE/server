@@ -8,7 +8,7 @@ import {menuItems} from '../../config/menuItems';
 import styles from './Menu.module.scss';
 import FileIcon from '../../assets/File.svg';
 
-function Menu() {
+function Menu({isOpen, onClose}) {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -27,6 +27,9 @@ function Menu() {
     // Clear config to force reload when switching pages
     dispatch(clearConfig());
     navigate(item.path);
+    if (onClose) {
+      onClose();
+    }
   };
 
   const isActiveItem = path => {
@@ -34,7 +37,7 @@ function Menu() {
   };
 
   return (
-    <div className={styles.menu}>
+    <div className={`${styles.menu} ${isOpen ? styles['menu--open'] : ''}`}>
       <div className={styles['menu__content']}>
         <div className={styles['menu__logoContainer']}>
           <img src={AppMenuLogo} alt='ONLYOFFICE' className={styles['menu__logo']} />
@@ -54,7 +57,16 @@ function Menu() {
               icon={FileIcon}
             />
           ))}
-          <MenuItem label='Logout' isActive={false} onClick={handleLogout} />
+          <MenuItem
+            label='Logout'
+            isActive={false}
+            onClick={async () => {
+              if (onClose) {
+                onClose();
+              }
+              await handleLogout();
+            }}
+          />
         </div>
       </div>
     </div>

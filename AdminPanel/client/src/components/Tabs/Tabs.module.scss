@@ -24,12 +24,28 @@
   color: #666666;
   transition: color 0.2s ease;
 
+  @media (max-width: 767px) {
+    margin-right: 12px;
+  }
+
   &:hover {
     color: #333333;
   }
 
+  &:focus,
+  &:active {
+    outline: none;
+    color: inherit; /* keep current color; active tab will override below */
+  }
+
   &--active {
     color: #ff6f3d;
+
+    &:hover,
+    &:focus,
+    &:active {
+      color: #ff6f3d; /* ensure orange while focused/pressed */
+    }
 
     &::after {
       content: '';
