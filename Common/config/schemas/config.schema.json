@@ -17,7 +17,7 @@
     },
     "passdigit": {
       "type": "string",
-      "pattern": ".*\\d.*"
+      "pattern": ".*[0-9].*"
     },
     "passupper": {
       "type": "string",
@@ -26,6 +26,11 @@
     "passspecial": {
       "type": "string",
       "pattern": ".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*"
+    },
+    "passallowedchars": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]+$",
+      "errorMessage": "contain only uppercase letters (A-Z), lowercase letters (a-z), digits (0-9), and special characters"
     }
   },
   "properties": {
@@ -446,6 +451,11 @@
             "hasSpecialChar": {
               "$ref": "#/$defs/passspecial",
               "description": "contain at least one special character",
+              "x-scope": ["admin", "tenant"]
+            },
+            "allowedCharactersOnly": {
+              "$ref": "#/$defs/passallowedchars",
+              "description": "contain only uppercase letters (A-Z), lowercase letters (a-z), digits (0-9), and special characters (e.g., ! @ # $ % & *)",
               "x-scope": ["admin", "tenant"]
             }
           }

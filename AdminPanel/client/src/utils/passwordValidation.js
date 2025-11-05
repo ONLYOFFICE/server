@@ -10,7 +10,7 @@ export function usePasswordValidation(password) {
   const {validateField, isLoading} = useFieldValidation();
 
   const validationResult = useMemo(() => {
-    const rules = ['minLength', 'hasDigit', 'hasUppercase', 'hasSpecialChar'];
+    const rules = ['minLength', 'hasDigit', 'hasUppercase', 'hasSpecialChar', 'allowedCharactersOnly'];
 
     const invalidRules = rules.filter(rule => {
       const fieldPath = `adminPanel.passwordValidation.${rule}`;
