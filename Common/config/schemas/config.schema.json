@@ -17,7 +17,7 @@
     },
     "passdigit": {
       "type": "string",
-      "pattern": ".*\\d.*"
+      "pattern": ".*[0-9].*"
     },
     "passupper": {
       "type": "string",
