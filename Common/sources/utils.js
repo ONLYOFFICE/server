@@ -1108,13 +1108,18 @@ const jwtKeyCache = Object.create(null);
 /**
  * Gets or creates a cached symmetric key for JWT verification (HS256/HS384/HS512).
  * Caches crypto.KeyObject to avoid expensive key creation on every request.
- * @param {string} secret - JWT symmetric secret
- * @returns {crypto.KeyObject} Cached secret key object
+ * Uses the same validation approach as jsonwebtoken library.
+ * @param {string|Buffer} secret - JWT symmetric secret
+ * @returns {crypto.KeyObject|undefined} Cached secret key object, or undefined when secret is missing/invalid
  */
 function getJwtHsKey(secret) {
   let res = jwtKeyCache[secret];
-  if (!res) {
-    res = jwtKeyCache[secret] = crypto.createSecretKey(Buffer.from(secret, 'utf8'));
+  if (!res && secret != null) {
+    try {
+      res = jwtKeyCache[secret] = crypto.createSecretKey(typeof secret === 'string' ? Buffer.from(secret, 'utf8') : secret);
+    } catch {
+      return undefined;
+    }
   }
   return res;
 }
