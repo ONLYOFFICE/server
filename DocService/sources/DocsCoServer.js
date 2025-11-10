@@ -2177,6 +2177,10 @@ exports.install = function (server, app, callbackFunction) {
             userIndex
           );
         }
+      } else {
+        if (hvals?.length <= 0 && editorStatProxy?.deleteKey) {
+          yield editorStatProxy.deleteKey(docId);
+        }
       }
       const sessionType = isView ? 'view' : 'edit';
       const sessionTimeMs = new Date().getTime() - conn.sessionTimeConnect;
