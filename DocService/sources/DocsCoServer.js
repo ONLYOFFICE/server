@@ -1951,18 +1951,9 @@ exports.install = function (server, app, callbackFunction) {
                 yield canvasService.openDocument(ctx, conn, cmd);
                 break;
               }
-              case 'clientLog': {
-                const level = data.level?.toLowerCase();
-                if ('trace' === level || 'debug' === level || 'info' === level || 'warn' === level || 'error' === level || 'fatal' === level) {
-                  ctx.logger[level]('clientLog: %s', data.msg);
-                }
-                if ('error' === level && tenErrorFiles && docId) {
-                  const destDir = 'browser/' + docId;
-                  yield storage.copyPath(ctx, docId, destDir, undefined, tenErrorFiles);
-                  yield* saveErrorChanges(ctx, docId, destDir);
-                }
+              case 'clientLog':
+                yield handleClientLog(ctx, conn, docId, data, tenErrorFiles);
                 break;
-              }
               case 'extendSession':
                 ctx.logger.debug('extendSession idletime: %d', data.idletime);
                 conn.sessionIsSendWarning = false;
@@ -2186,12 +2177,41 @@ exports.install = function (server, app, callbackFunction) {
             userIndex
           );
         }
+      } else {
+        if (hvals?.length <= 0 && editorStatProxy?.deleteKey) {
+          yield editorStatProxy.deleteKey(docId);
+        }
       }
       const sessionType = isView ? 'view' : 'edit';
       const sessionTimeMs = new Date().getTime() - conn.sessionTimeConnect;
       ctx.logger.debug(`closeDocument %s session time:%s`, sessionType, sessionTimeMs);
       if (clientStatsD) {
         clientStatsD.timing(`coauth.session.${sessionType}`, sessionTimeMs);
+      }
+    }
+  }
+
+  /**
+   * Handle client log message and create error files once per connection on first error.
+   * @param {object} ctx - Operation context
+   * @param {object} conn - Socket connection
+   * @param {string} docId - Document identifier
+   * @param {{level?: string, msg?: string}} data - Client log data
+   * @param {object} tenErrorFiles - Error files storage configuration
+   * @returns {Promise<void>}
+   */
+  async function handleClientLog(ctx, conn, docId, data, tenErrorFiles) {
+    const level = data.level?.toLowerCase();
+    if ('trace' === level || 'debug' === level || 'info' === level || 'warn' === level || 'error' === level || 'fatal' === level) {
+      ctx.logger[level]('clientLog: %s', data.msg);
+    }
+    if ('error' === level && tenErrorFiles && docId && !conn.clientError) {
+      conn.clientError = true;
+      const destDir = 'browser/' + docId;
+      const list = await storage.listObjects(ctx, destDir, tenErrorFiles);
+      if (list.length === 0) {
+        await storage.copyPath(ctx, docId, destDir, undefined, tenErrorFiles);
+        await saveErrorChanges(ctx, docId, destDir);
       }
     }
   }
@@ -3252,7 +3272,16 @@ exports.install = function (server, app, callbackFunction) {
     return res;
   }
 
-  function* saveErrorChanges(ctx, docId, destDir) {
+  /**
+   * Save document changes to error files storage for debugging purposes.
+   * Retrieves changes from database and creates JSON chunks stored as separate files.
+   *
+   * @param {object} ctx - Operation context with configuration and logger
+   * @param {string} docId - Document identifier to retrieve changes for
+   * @param {string} destDir - Destination directory path in storage for error files
+   * @returns {Promise<void>} Resolves when all changes are saved to storage
+   */
+  async function saveErrorChanges(ctx, docId, destDir) {
     const tenEditor = getEditorConfig(ctx);
     const tenMaxRequestChanges = ctx.getCfg('services.CoAuthoring.server.maxRequestChanges', cfgMaxRequestChanges);
     const tenErrorFiles = ctx.getCfg('FileConverter.converter.errorfiles', cfgErrorFiles);
@@ -3262,12 +3291,12 @@ exports.install = function (server, app, callbackFunction) {
     let changes;
     const changesPrefix = destDir + '/' + constants.CHANGES_NAME + '/' + constants.CHANGES_NAME + '.json.';
     do {
-      changes = yield sqlBase.getChangesPromise(ctx, docId, index, index + tenMaxRequestChanges);
+      changes = await sqlBase.getChangesPromise(ctx, docId, index, index + tenMaxRequestChanges);
       if (changes.length > 0) {
         let buffer;
         if (tenEditor['binaryChanges']) {
           const buffers = changes.map(elem => elem.change_data);
-          buffers.unshift(Buffer.from(utils.getChangesFileHeader(), 'utf-8'));
+          buffers.unshift(Buffer.from(utils.getChangesFileHeader(), 'utf8'));
           buffer = Buffer.concat(buffers);
         } else {
           let changesJSON = indexChunk > 1 ? ',[' : '[';
@@ -3279,7 +3308,7 @@ exports.install = function (server, app, callbackFunction) {
           changesJSON += ']\r\n';
           buffer = Buffer.from(changesJSON, 'utf8');
         }
-        yield storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, tenErrorFiles);
+        await storage.putObject(ctx, changesPrefix + (indexChunk++).toString().padStart(3, '0'), buffer, buffer.length, tenErrorFiles);
       }
       index += tenMaxRequestChanges;
     } while (changes && tenMaxRequestChanges === changes.length);
