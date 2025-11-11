@@ -75,6 +75,16 @@ body::-webkit-scrollbar-thumb {
   background: #efefef;
 }
 
+a {
+  color: #ff6f3d;
+  text-decoration: underline;
+  font-weight: 400;
+}
+
+a:hover {
+  color: #e55a2b;
+}
+
 /* Spinner animation */
 @keyframes spin {
   from {
