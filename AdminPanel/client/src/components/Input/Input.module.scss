@@ -63,3 +63,9 @@
   color: #dc3545;
   margin-top: 4px;
 }
+
+@media (max-width: 767px) {
+  .input {
+    max-width: 100%;
+  }
+}

@@ -42,11 +42,11 @@
 }
 
 .formRow {
-  margin-bottom: 16px;
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  flex-wrap: wrap;
+  margin-bottom: 24px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 
 // Ensure SaveButton aligns properly in form row

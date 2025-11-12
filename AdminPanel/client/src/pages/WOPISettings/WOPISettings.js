@@ -137,7 +137,6 @@ function WOPISettings() {
                 value={localRefreshLockInterval}
                 onChange={handleRefreshLockIntervalChange}
                 placeholder='10m'
-                width='200px'
                 description="Time interval for refreshing document locks (e.g., '10m', '1h', '30s')"
               />
             </div>
@@ -156,7 +155,6 @@ function WOPISettings() {
                 value={maskKey(wopiPublicKey)}
                 disabled
                 placeholder='No key generated'
-                width='400px'
                 style={{fontFamily: 'Courier New, monospace'}}
               />
             </div>

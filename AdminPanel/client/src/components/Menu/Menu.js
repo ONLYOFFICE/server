@@ -38,15 +38,16 @@ function Menu({isOpen, onClose}) {
 
   return (
     <div className={`${styles.menu} ${isOpen ? styles['menu--open'] : ''}`}>
-      <div className={styles['menu__content']}>
+      <button className={styles['menu__closeButton']} onClick={onClose} aria-label='Close menu' />
+      <div className={styles['menu__header']}>
         <div className={styles['menu__logoContainer']}>
           <img src={AppMenuLogo} alt='ONLYOFFICE' className={styles['menu__logo']} />
         </div>
-
         <div className={styles['menu__title']}>DocServer Admin Panel</div>
-
         <div className={styles['menu__separator']}></div>
+      </div>
 
+      <div className={styles['menu__content']}>
         <div className={styles['menu__menuItems']}>
           {menuItems.map(item => (
             <MenuItem
