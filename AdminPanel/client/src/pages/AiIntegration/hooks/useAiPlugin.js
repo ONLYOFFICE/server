@@ -69,6 +69,14 @@ const useAiPlugin = statisticsData => {
     if (!confirmed) return;
 
     try {
+      const iframe = document.getElementById('ai-iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.AI = undefined;
+        if (iframe.contentWindow.Asc && iframe.contentWindow.Asc.plugin && iframe.contentWindow.Asc.plugin.info) {
+          delete iframe.contentWindow.Asc.plugin.info.aiPluginSettings;
+        }
+      }
+
       localStorage.removeItem('onlyoffice_ai_actions_key');
       localStorage.removeItem('onlyoffice_ai_plugin_storage_key');
 
@@ -85,6 +93,14 @@ const useAiPlugin = statisticsData => {
     if (!confirmed) return;
 
     try {
+      const iframe = document.getElementById('ai-iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.AI = undefined;
+        if (iframe.contentWindow.Asc && iframe.contentWindow.Asc.plugin && iframe.contentWindow.Asc.plugin.info) {
+          delete iframe.contentWindow.Asc.plugin.info.aiPluginSettings;
+        }
+      }
+
       localStorage.removeItem('onlyoffice_ai_actions_key');
 
       await dispatch(resetConfig(['aiSettings.actions'])).unwrap();

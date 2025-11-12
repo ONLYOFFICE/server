@@ -23,7 +23,7 @@ export default function AiIntegration() {
   });
 
   // Use custom hook for complete AI plugin functionality
-  const {currentWindow, handleIframeLoad, internalProvidersLoaded} = useAiPlugin(data);
+  const {currentWindow, handleIframeLoad, internalProvidersLoaded, iframeKey} = useAiPlugin(data);
 
   // Constants
   const AI_IFRAME_SRC = `ai/index.html`;
@@ -57,7 +57,14 @@ export default function AiIntegration() {
 
   return (
     <div style={{display: 'flex', flexDirection: 'column', height: '100%', position: 'relative'}}>
-      <iframe id={AI_IFRAME_ID} title='AI Settings' src={AI_IFRAME_SRC} style={iframeStyle} onLoad={() => handleIframeLoad(AI_IFRAME_ID)} />
+      <iframe
+        key={iframeKey}
+        id={AI_IFRAME_ID}
+        title='AI Settings'
+        src={AI_IFRAME_SRC}
+        style={iframeStyle}
+        onLoad={() => handleIframeLoad(AI_IFRAME_ID)}
+      />
       {!internalProvidersLoaded && <div>Please, wait...</div>}
       {internalProvidersLoaded && currentWindow && (
         <div key={currentWindow.iframeId} style={{width: '100%', height: '100%'}}>
