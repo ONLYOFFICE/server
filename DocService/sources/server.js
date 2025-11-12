@@ -274,6 +274,9 @@ docsCoServer.install(server, app, () => {
   app.use('/info', infoRouter(docsCoServer.getConnections));
   app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
   app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+  app.put('/internal/cluster/pre-stop', utils.checkClientIp, docsCoServer.preStop);
+  app.delete('/internal/cluster/pre-stop', utils.checkClientIp, docsCoServer.preStop);
+
   app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
 
   function checkWopiEnable(req, res, next) {
