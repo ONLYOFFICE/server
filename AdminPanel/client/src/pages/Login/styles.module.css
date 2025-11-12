@@ -31,10 +31,17 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+.descriptionContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 0 32px 0;
+}
+
 .description {
   color: #333;
   font-size: 14px;
-  margin: 0 0 32px 0;
+  margin: 0;
   line-height: 1.5;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }

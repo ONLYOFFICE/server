@@ -154,3 +154,55 @@
   font-style: italic;
   padding: 24px;
 }
+
+@media (max-width: 767px) {
+  .addRule {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .addRule :global(.selectWrapper) {
+    order: 2;
+    width: 100%;
+  }
+
+  .addRule :global(.select) {
+    width: 100%;
+  }
+
+  .inputWrapper {
+    order: 1;
+  }
+
+  .addButton {
+    order: 3;
+    width: 100%;
+  }
+
+  .rulesList {
+    gap: 8px;
+  }
+
+  .rule {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    height: auto;
+    padding: 12px 0;
+  }
+
+  .ruleValue {
+    order: 1;
+    margin: 0;
+  }
+
+  .ruleType {
+    order: 2;
+    align-self: flex-start;
+  }
+
+  .removeButton {
+    order: 3;
+    width: 100%;
+  }
+}

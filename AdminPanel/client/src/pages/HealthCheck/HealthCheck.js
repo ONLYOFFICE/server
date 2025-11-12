@@ -3,6 +3,7 @@ import {checkHealth} from '../../api';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import Section from '../../components/Section/Section';
 import styles from './HealthCheck.module.scss';
 
 function HealthCheck() {
@@ -39,7 +40,7 @@ function HealthCheck() {
       <PageHeader>Health Check</PageHeader>
       <PageDescription>Monitor the status of DocService backend</PageDescription>
 
-      <div className={styles.statusCard}>
+      <Section>
         <div className={styles.statusHeader}>
           <div className={styles.statusIndicator} style={{backgroundColor: getStatusColor()}} />
           <h3 className={styles.statusTitle}>DocService Status</h3>
@@ -58,7 +59,7 @@ function HealthCheck() {
             </div>
           )}
         </div>
-      </div>
+      </Section>
 
       <FixedSaveButton onClick={fetchHealthStatus} disabled={loading} disableResult={true}>
         {loading ? 'Checking...' : 'Refresh'}

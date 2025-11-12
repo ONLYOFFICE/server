@@ -10,6 +10,7 @@ import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import Section from '../../components/Section/Section';
 import styles from './NotificationConfig.module.scss';
 
 const emailConfigTabs = [
@@ -159,7 +160,7 @@ function EmailConfig() {
     switch (activeTab) {
       case 'smtp-server':
         return (
-          <div className={styles.tabPanel}>
+          <Section>
             <div className={styles.formRow}>
               <Input
                 label='SMTP Host:'
@@ -207,11 +208,11 @@ function EmailConfig() {
                 error={getFieldError(CONFIG_PATHS.smtpPassword)}
               />
             </div>
-          </div>
+          </Section>
         );
       case 'defaults':
         return (
-          <div className={styles.tabPanel}>
+          <Section>
             <div className={styles.formRow}>
               <Input
                 label='Default From Email:'
@@ -235,14 +236,12 @@ function EmailConfig() {
                 error={getFieldError(CONFIG_PATHS.defaultToEmail)}
               />
             </div>
-          </div>
+          </Section>
         );
       case 'notifications':
         return (
           <>
-            <div className={styles.settingsSection}>
-              <div className={styles.sectionTitle}>License Expiration Warning</div>
-              <div className={styles.sectionDescription}>Configure email notifications when the license is about to expire</div>
+            <Section title='License Expiration Warning' description='Configure email notifications when the license is about to expire'>
               <div className={styles.formRow}>
                 <Checkbox
                   label='Enable'
@@ -261,11 +260,9 @@ function EmailConfig() {
                   error={getFieldError(CONFIG_PATHS.licenseExpirationWarningRepeatInterval)}
                 />
               </div>
-            </div>
+            </Section>
 
-            <div className={styles.settingsSection}>
-              <div className={styles.sectionTitle}>License Expiration Error</div>
-              <div className={styles.sectionDescription}>Configure email notifications when the license has expired</div>
+            <Section title='License Expiration Error' description='Configure email notifications when the license has expired'>
               <div className={styles.formRow}>
                 <Checkbox
                   label='Enable'
@@ -284,11 +281,9 @@ function EmailConfig() {
                   error={getFieldError(CONFIG_PATHS.licenseExpirationErrorRepeatInterval)}
                 />
               </div>
-            </div>
+            </Section>
 
-            <div className={styles.settingsSection}>
-              <div className={styles.sectionTitle}>License Limit Edit</div>
-              <div className={styles.sectionDescription}>Configure email notifications when the edit limit is reached</div>
+            <Section title='License Limit Edit' description='Configure email notifications when the edit limit is reached'>
               <div className={styles.formRow}>
                 <Checkbox
                   label='Enable'
@@ -307,11 +302,9 @@ function EmailConfig() {
                   error={getFieldError(CONFIG_PATHS.licenseLimitEditRepeatInterval)}
                 />
               </div>
-            </div>
+            </Section>
 
-            <div className={styles.settingsSection}>
-              <div className={styles.sectionTitle}>License Limit Live Viewer</div>
-              <div className={styles.sectionDescription}>Configure email notifications when the live viewer limit is reached</div>
+            <Section title='License Limit Live Viewer' description='Configure email notifications when the live viewer limit is reached'>
               <div className={styles.formRow}>
                 <Checkbox
                   label='Enable'
@@ -330,7 +323,7 @@ function EmailConfig() {
                   error={getFieldError(CONFIG_PATHS.licenseLimitLiveViewerRepeatInterval)}
                 />
               </div>
-            </div>
+            </Section>
           </>
         );
       default:
