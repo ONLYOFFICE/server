@@ -3,7 +3,7 @@ import styles from './PasswordInput.module.scss';
 
 function PasswordInput({label, value, onChange, placeholder = '', error = null, description = null, width, isValid = true, ...props}) {
   const [showPassword, setShowPassword] = useState(false);
-  const inputStyle = width ? {width} : {};
+  const inputStyle = width ? {maxWidth: width} : {};
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);

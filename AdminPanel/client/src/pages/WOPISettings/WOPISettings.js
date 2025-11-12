@@ -12,6 +12,7 @@ import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import Note from '../../components/Note/Note';
+import Section from '../../components/Section/Section';
 import styles from './WOPISettings.module.scss';
 
 function WOPISettings() {
@@ -123,32 +124,28 @@ function WOPISettings() {
       <PageHeader>WOPI Settings</PageHeader>
       <PageDescription>Configure WOPI (Web Application Open Platform Interface) support for document editing</PageDescription>
 
-      <div className={styles.settingsSection}>
+      <Section>
         <ToggleSwitch label='WOPI' checked={localWopiEnabled} onChange={handleWopiEnabledChange} />
-      </div>
+      </Section>
 
       {localWopiEnabled && (
         <>
-          <div className={styles.settingsSection}>
-            <div className={styles.sectionTitle}>Lock Settings</div>
-            <div className={styles.sectionDescription}>Configure document lock refresh interval for WOPI sessions.</div>
+          <Section title='Lock Settings' description='Configure document lock refresh interval for WOPI sessions.'>
             <div className={styles.formRow}>
               <Input
                 label='Refresh Lock Interval'
                 value={localRefreshLockInterval}
                 onChange={handleRefreshLockIntervalChange}
                 placeholder='10m'
-                width='200px'
                 description="Time interval for refreshing document locks (e.g., '10m', '1h', '30s')"
               />
             </div>
-          </div>
+          </Section>
 
-          <div className={styles.settingsSection}>
-            <div className={styles.sectionTitle}>Key Management</div>
-            <div className={styles.sectionDescription}>
-              Rotate WOPI encryption keys. Current keys will be moved to "Old" and new keys will be generated.
-            </div>
+          <Section
+            title='Key Management'
+            description='Rotate WOPI encryption keys. Current keys will be moved to "Old" and new keys will be generated.'
+          >
             <div className={styles.noteWrapper}>
               <Note type='warning'>Do not rotate keys more than once per 24 hours; storage may not refresh in time and authentication can fail.</Note>
             </div>
@@ -158,7 +155,6 @@ function WOPISettings() {
                 value={maskKey(wopiPublicKey)}
                 disabled
                 placeholder='No key generated'
-                width='400px'
                 style={{fontFamily: 'Courier New, monospace'}}
               />
             </div>
@@ -171,7 +167,7 @@ function WOPISettings() {
                 description="Generate new encryption keys. Current keys will be moved to 'Old'."
               />
             </div>
-          </div>
+          </Section>
         </>
       )}
 
