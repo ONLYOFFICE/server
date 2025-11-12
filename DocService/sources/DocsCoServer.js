@@ -175,6 +175,7 @@ const lockDocumentsTimerId = {}; //to drop connection that can't unlockDocument
 let pubsub;
 let queue;
 let shutdownFlag = false;
+let preStopFlag = false;
 const expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
 const MIN_SAVE_EXPIRATION = 60000;
@@ -189,6 +190,10 @@ const PRECISION = [
 
 function getIsShutdown() {
   return shutdownFlag;
+}
+
+function getIsPreStop() {
+  return preStopFlag;
 }
 
 function getEditorConfig(ctx) {
@@ -1534,7 +1539,7 @@ function* cleanDocumentOnExit(ctx, docId, deleteChanges, opt_userIndex) {
 
   //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
   yield editorData.cleanDocumentOnExit(ctx, docId);
-  if (editorStatProxy?.deleteKey) {
+  if (preStopFlag && editorStatProxy?.deleteKey) {
     yield editorStatProxy.deleteKey(docId);
   }
   //remove changes
@@ -1772,6 +1777,7 @@ exports.hasEditors = hasEditors;
 exports.getEditorsCountPromise = co.wrap(getEditorsCount);
 exports.getCallback = getCallback;
 exports.getIsShutdown = getIsShutdown;
+exports.getIsPreStop = getIsPreStop;
 exports.hasChanges = hasChanges;
 exports.cleanDocumentOnExitPromise = co.wrap(cleanDocumentOnExit);
 exports.cleanDocumentOnExitNoChangesPromise = co.wrap(cleanDocumentOnExitNoChanges);
@@ -2178,7 +2184,7 @@ exports.install = function (server, app, callbackFunction) {
           );
         }
       } else {
-        if (hvals?.length <= 0 && editorStatProxy?.deleteKey) {
+        if (preStopFlag && hvals?.length <= 0 && editorStatProxy?.deleteKey) {
           yield editorStatProxy.deleteKey(docId);
         }
       }
@@ -4214,9 +4220,12 @@ exports.install = function (server, app, callbackFunction) {
           ctx.initFromConnection(conn);
           //todo group by tenant
           yield ctx.initTenantCache();
-          const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
+          let tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle)) || 0;
           const tenExpSessionAbsolute = ms(ctx.getCfg('services.CoAuthoring.expire.sessionabsolute', cfgExpSessionAbsolute));
           const tenExpSessionCloseCommand = ms(ctx.getCfg('services.CoAuthoring.expire.sessionclosecommand', cfgExpSessionCloseCommand));
+          if (preStopFlag && (tenExpSessionIdle > 5 * 60 * 1000 || tenExpSessionIdle <= 0)) {
+            tenExpSessionIdle = 5 * 60 * 1000; //5 minutes
+          }
 
           const maxMs = nowMs + Math.max(tenExpSessionCloseCommand, expDocumentsStep);
           let tenant = tenants[ctx.tenant];
@@ -4731,6 +4740,26 @@ exports.shutdown = function (req, res) {
       ctx.logger.info('shutdown end');
     }
   });
+};
+exports.preStop = async function (req, res) {
+  let output = false;
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+    await ctx.initTenantCache();
+    preStopFlag = req.method === 'PUT';
+    ctx.logger.info('preStop set flag', preStopFlag);
+    if (preStopFlag) {
+      await gc.checkFileExpire(0);
+    }
+    output = true;
+  } catch (err) {
+    ctx.logger.error('preStop error %s', err.stack);
+  } finally {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(output.toString());
+    ctx.logger.info('preStop end');
+  }
 };
 /**
  * Get active connections array
