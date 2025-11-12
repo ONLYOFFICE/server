@@ -467,6 +467,9 @@ const cleanupCache = co.wrap(function* (ctx, docId) {
   const removeRes = yield taskResult.remove(ctx, docId);
   if (removeRes.affectedRows > 0) {
     yield storage.deletePath(ctx, docId);
+    if (docsCoServer?.editorStatProxy?.deleteKey) {
+      yield docsCoServer.editorStatProxy.deleteKey(docId);
+    }
     res = true;
   }
   ctx.logger.debug('cleanupCache docId=%s db.affectedRows=%d', docId, removeRes.affectedRows);
@@ -479,6 +482,9 @@ const cleanupCacheIf = co.wrap(function* (ctx, mask) {
   if (removeRes.affectedRows > 0) {
     sqlBase.deleteChanges(ctx, mask.key, null);
     yield storage.deletePath(ctx, mask.key);
+    if (docsCoServer?.editorStatProxy?.deleteKey) {
+      yield docsCoServer.editorStatProxy.deleteKey(mask.key);
+    }
     res = true;
   }
   ctx.logger.debug('cleanupCacheIf db.affectedRows=%d', removeRes.affectedRows);
@@ -1300,7 +1306,7 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
         //todo simultaneous opening
         //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
         yield docsCoServer.editorData.cleanDocumentOnExit(ctx, docId);
-        if (docsCoServer?.editorStatProxy?.deleteKey) {
+        if (docsCoServer.getIsPreStop() && docsCoServer?.editorStatProxy?.deleteKey) {
           yield docsCoServer.editorStatProxy.deleteKey(docId);
         }
         //to unlock wopi file

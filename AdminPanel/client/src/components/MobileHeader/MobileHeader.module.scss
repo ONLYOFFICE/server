@@ -1,0 +1,56 @@
+.mobileHeader {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileHeader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #e2e2e2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    z-index: 1000;
+  }
+
+  .mobileHeader--open {
+    background: #ececec;
+  }
+
+  .burger {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .burger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: #333333;
+    margin: 0;
+  }
+
+  .title {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 133%;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #333333;
+  }
+}

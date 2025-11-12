@@ -39,7 +39,19 @@ export default function Login() {
       <div className={styles.loginCard}>
         <h1 className={styles.title}>ONLYOFFICE Admin Panel</h1>
         <p className={styles.subtitle}>Enter your password to access the admin panel</p>
-        <p className={styles.description}>The session is valid for 60 minutes.</p>
+        <div className={styles.descriptionContainer}>
+          <p className={styles.description}>The session is valid for 60 minutes.</p>
+          <p className={styles.description}>
+            Need to reset your password? See{' '}
+            <a
+              href='https://helpcenter.onlyoffice.com/docs/installation/docs-admin-panel.aspx#passwordresetrecovery_block'
+              target='_blank'
+              rel='noopener noreferrer'
+            >
+              password recovery documentation
+            </a>
+          </p>
+        </div>
 
         <div className={styles.form}>
           <div className={styles.inputGroup}>

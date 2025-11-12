@@ -6,6 +6,7 @@ import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
 import {usePasswordValidation} from '../../utils/passwordValidation';
+import Section from '../../components/Section/Section';
 import styles from './ChangePassword.module.scss';
 
 function ChangePassword() {
@@ -56,7 +57,7 @@ function ChangePassword() {
       <PageDescription>Update your admin panel password</PageDescription>
 
       <div className={styles.content}>
-        <div className={styles.section}>
+        <Section>
           {passwordSuccess && <div className={styles.successMessage}>Password changed successfully!</div>}
 
           {passwordError && <div className={styles.errorMessage}>{passwordError}</div>}
@@ -98,7 +99,7 @@ function ChangePassword() {
 
             <FixedSaveButton onClick={handlePasswordChange} disabled={!canSubmit()} />
           </div>
-        </div>
+        </Section>
       </div>
     </div>
   );
