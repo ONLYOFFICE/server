@@ -9,6 +9,7 @@ import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import Section from '../../components/Section/Section';
 import styles from './Expiration.module.scss';
 
 const expirationTabs = [
@@ -134,7 +135,7 @@ function Expiration() {
     switch (activeTab) {
       case 'garbage-collection':
         return (
-          <div className={styles.tabPanel}>
+          <Section>
             <div className={styles.formRow}>
               <Input
                 label='Cache Cleanup Cron Expression'
@@ -182,11 +183,11 @@ function Expiration() {
                 error={getFieldError(CONFIG_PATHS.filesremovedatonce)}
               />
             </div>
-          </div>
+          </Section>
         );
       case 'session-management':
         return (
-          <div className={styles.tabPanel}>
+          <Section>
             <div className={styles.formRow}>
               <Input
                 label='Session Idle Timeout'
@@ -208,7 +209,7 @@ function Expiration() {
                 error={getFieldError(CONFIG_PATHS.sessionabsolute)}
               />
             </div>
-          </div>
+          </Section>
         );
       default:
         return null;

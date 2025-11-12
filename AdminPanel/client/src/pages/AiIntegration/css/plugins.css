@@ -350,6 +350,7 @@ a.aboutlink:active {
   user-select: none;
   -moz-user-select: none;
   -webkit-user-select: none;
+  padding: 0;
 }
 
 .select2-dropdown,

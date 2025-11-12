@@ -8,6 +8,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Select from '../../components/Select/Select';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import Section from '../../components/Section/Section';
 import styles from './LoggerConfig.module.scss';
 
 const LOG_LEVELS = [
@@ -104,7 +105,7 @@ function LoggerConfig() {
       <PageHeader>Logger Configuration</PageHeader>
       <PageDescription>Configure the logging level for the application</PageDescription>
 
-      <div className={styles.configSection}>
+      <Section title='Logger Settings'>
         <div className={styles.formRow}>
           <div className={styles.fieldGroup}>
             <label className={styles.label}>Log Level:</label>
@@ -118,7 +119,7 @@ function LoggerConfig() {
             {getFieldError(CONFIG_PATHS.logLevel) && <div className={styles.error}>{getFieldError(CONFIG_PATHS.logLevel)}</div>}
           </div>
         </div>
-      </div>
+      </Section>
 
       <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
         Save Changes
