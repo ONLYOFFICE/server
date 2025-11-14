@@ -127,7 +127,7 @@ router.post('/reset', validateJWT, rawFileParser, async (req, res) => {
 
     delete resetConfig.adminPanel;
     ctx.logger.info('Configuration reset successfully for paths: %j', paths);
-    const mergedConfig = utils.deepMergeObjects({aiSettings: moduleReloader.getBaseConfig().aiSettings}, resetConfig);
+    const mergedConfig = utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), resetConfig);
 
     res.status(200).json(mergedConfig);
   } catch (error) {
