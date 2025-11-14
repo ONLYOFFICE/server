@@ -37,7 +37,6 @@ const config = moduleReloader.requireConfigWithRuntime();
 const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
 const license = require('../../../Common/sources/license');
-const utils = require('../../../Common/sources/utils');
 const runtimeConfigManager = require('../../../Common/sources/runtimeConfigManager');
 
 const express = require('express');
@@ -129,10 +128,10 @@ function disableCache(req, res, next) {
 }
 
 // API routes under /admin prefix
-app.use('/admin/api/v1/config', utils.checkClientIp, disableCache, configRouter);
-app.use('/admin/api/v1/wopi', utils.checkClientIp, disableCache, wopiRouter);
-app.use('/admin/api/v1', utils.checkClientIp, disableCache, adminpanelRouter);
-app.get('/admin/api/v1/stat', utils.checkClientIp, disableCache, async (req, res) => {
+app.use('/admin/api/v1/config', disableCache, configRouter);
+app.use('/admin/api/v1/wopi', disableCache, wopiRouter);
+app.use('/admin/api/v1', disableCache, adminpanelRouter);
+app.get('/admin/api/v1/stat', disableCache, async (req, res) => {
   await infoRouter.licenseInfo(req, res);
 });
 
