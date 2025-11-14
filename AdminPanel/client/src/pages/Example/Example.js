@@ -9,6 +9,7 @@ import {getBasename, getDocServicePath} from '../../utils/paths';
  */
 function Preview(props) {
   const {user} = props;
+  const width = window.innerWidth <= 767 ? '80%' : '100%';
 
   const [editorConfig, setEditorConfig] = useState(null);
   const editorRef = useRef(null);
@@ -56,7 +57,7 @@ function Preview(props) {
         documentType: 'word',
         editorConfig,
         height: '100%',
-        width: '100%'
+        width
       };
       const {token} = await generateDocServerToken(config);
       config.token = token;
@@ -110,8 +111,8 @@ function Preview(props) {
   }, [editorConfig]);
 
   return (
-    <div style={{height: '100%', margin: 0}}>
-      <div id='onlyoffice-editor' ref={editorRef} style={{height: '100%', width: '100%'}} />
+    <div style={{height: '100%', display: 'flex', justifyContent: 'center'}}>
+      <div id='onlyoffice-editor' ref={editorRef} style={{height: '100%', width}} />
     </div>
   );
 }
