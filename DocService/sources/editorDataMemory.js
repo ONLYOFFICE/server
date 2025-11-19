@@ -503,6 +503,9 @@ EditorStat.prototype.lockNotification = async function (ctx, notificationType, t
   //true NaN !== NaN
   return this._checkAndLock(ctx, notificationType, notificationType, NaN, ttl);
 };
+EditorStat.prototype.deleteKey = async function (_key) {
+  //no need
+};
 
 module.exports = {
   EditorData,

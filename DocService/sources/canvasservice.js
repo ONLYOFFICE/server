@@ -56,6 +56,7 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const config = require('config');
 
 const cfgTypesUpload = config.get('services.CoAuthoring.utils.limits_image_types_upload');
+const cfgDocumentTypesUpload = config.get('services.CoAuthoring.utils.limits_document_types_upload');
 const cfgImageSize = config.get('services.CoAuthoring.server.limits_image_size');
 const cfgImageDownloadTimeout = config.get('services.CoAuthoring.server.limits_image_download_timeout');
 const cfgRedisPrefix = config.get('services.CoAuthoring.redis.prefix');
@@ -466,6 +467,9 @@ const cleanupCache = co.wrap(function* (ctx, docId) {
   const removeRes = yield taskResult.remove(ctx, docId);
   if (removeRes.affectedRows > 0) {
     yield storage.deletePath(ctx, docId);
+    if (docsCoServer?.editorStatProxy?.deleteKey) {
+      yield docsCoServer.editorStatProxy.deleteKey(docId);
+    }
     res = true;
   }
   ctx.logger.debug('cleanupCache docId=%s db.affectedRows=%d', docId, removeRes.affectedRows);
@@ -478,6 +482,9 @@ const cleanupCacheIf = co.wrap(function* (ctx, mask) {
   if (removeRes.affectedRows > 0) {
     sqlBase.deleteChanges(ctx, mask.key, null);
     yield storage.deletePath(ctx, mask.key);
+    if (docsCoServer?.editorStatProxy?.deleteKey) {
+      yield docsCoServer.editorStatProxy.deleteKey(mask.key);
+    }
     res = true;
   }
   ctx.logger.debug('cleanupCacheIf db.affectedRows=%d', removeRes.affectedRows);
@@ -706,6 +713,7 @@ function isDisplayedImage(strName) {
 }
 function* commandImgurls(ctx, conn, cmd, outputData) {
   const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
+  const tenDocumentTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_document_types_upload', cfgDocumentTypesUpload);
   const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
   const tenImageDownloadTimeout = ctx.getCfg('services.CoAuthoring.server.limits_image_download_timeout', cfgImageDownloadTimeout);
   const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
@@ -740,6 +748,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
     }
   }
   const supportedFormats = tenTypesUpload || 'jpg';
+  const supportedDocumentFormats = tenDocumentTypesUpload || 'xlsx';
   const outputUrls = [];
   if (constants.NO_ERROR === errorCode && !conn.user.view && !conn.isCloseCoAuthoring) {
     //todo Promise.all()
@@ -747,6 +756,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
     for (let i = 0; i < urls.length; ++i) {
       const urlSource = urls[i];
       let urlParsed;
+      let isDocument = false;
       let data = undefined;
       if (urlSource?.startsWith('data:')) {
         const delimiterIndex = urlSource.indexOf(',');
@@ -803,6 +813,12 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
           if (formatStr && -1 !== supportedFormats.indexOf(formatStr)) {
             isAllow = true;
           }
+        } else if (constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX === formatChecker.getOfficeZipFormatBySignature(data)) {
+          formatStr = 'xlsx';
+          if (-1 !== supportedDocumentFormats.indexOf(formatStr)) {
+            isAllow = true;
+            isDocument = true;
+          }
         }
         if (!isAllow && urlParsed) {
           //for ole object, presentation video/audio
@@ -829,7 +845,11 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
               strLocalPath += constants.DISPLAY_PREFIX + displayN;
             }
           }
-          strLocalPath += 'image1' + '.' + formatStr;
+          if (isDocument) {
+            strLocalPath += 'document1' + '.' + formatStr;
+          } else {
+            strLocalPath += 'image1' + '.' + formatStr;
+          }
           const strPath = cmd.getDocId() + '/' + strLocalPath;
           yield storage.putObject(ctx, strPath, data, data.length);
           const imgUrl = yield storage.getSignedUrl(ctx, conn.baseUrl, strPath, commonDefines.c_oAscUrlTypes.Session);
@@ -1286,6 +1306,9 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
         //todo simultaneous opening
         //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
         yield docsCoServer.editorData.cleanDocumentOnExit(ctx, docId);
+        if (docsCoServer.getIsPreStop() && docsCoServer?.editorStatProxy?.deleteKey) {
+          yield docsCoServer.editorStatProxy.deleteKey(docId);
+        }
         //to unlock wopi file
         yield docsCoServer.unlockWopiDoc(ctx, docId, callbackUserIndex);
         //cleanupRes can be false in case of simultaneous opening. it is OK

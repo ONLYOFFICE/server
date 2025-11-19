@@ -1,11 +1,13 @@
 import {useState, useEffect, useCallback} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {selectConfig, saveConfig} from '../../../store/slices/configSlice';
+import {selectConfig, saveConfig, resetConfig} from '../../../store/slices/configSlice';
 import {
   registerShowWindowCallback,
   registerCloseWindowCallback,
   registerSaveCallback,
   registerLoadInternalProvidersCallback,
+  registerResetAiSettingsCallback,
+  registerResetAiTasksCallback,
   initAISettings
 } from '../js/plugins-sdk';
 
@@ -58,6 +60,37 @@ const useAiPlugin = statisticsData => {
       localStorage.removeItem('onlyoffice_ai_plugin_storage_key');
     };
   }, [config?.aiSettings]);
+
+  const handleResetAiSettings = useCallback(async () => {
+    const confirmed = window.confirm('Are you sure you want to reset all AI settings? This action cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      localStorage.removeItem('onlyoffice_ai_actions_key');
+      localStorage.removeItem('onlyoffice_ai_plugin_storage_key');
+
+      await dispatch(resetConfig(['aiSettings'])).unwrap();
+      window.location.reload();
+    } catch (error) {
+      console.error('Error resetting AI settings:', error);
+      alert('Failed to reset AI settings. Please try again.');
+    }
+  }, [dispatch]);
+
+  const handleResetAiTasks = useCallback(async () => {
+    const confirmed = window.confirm('Are you sure you want to reset AI tasks? This action cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      localStorage.removeItem('onlyoffice_ai_actions_key');
+
+      await dispatch(resetConfig(['aiSettings.actions'])).unwrap();
+      window.location.reload();
+    } catch (error) {
+      console.error('Error resetting AI tasks:', error);
+      alert('Failed to reset AI tasks. Please try again.');
+    }
+  }, [dispatch]);
 
   // Manage plugin windows and register all SDK callbacks
   useEffect(() => {
@@ -137,6 +170,8 @@ const useAiPlugin = statisticsData => {
     registerCloseWindowCallback(handleCloseWindow);
     registerSaveCallback(handleSave);
     registerLoadInternalProvidersCallback(handleLoadInternalProviders);
+    registerResetAiSettingsCallback(handleResetAiSettings);
+    registerResetAiTasksCallback(handleResetAiTasks);
 
     // Cleanup: unregister all callbacks
     return () => {
@@ -144,6 +179,8 @@ const useAiPlugin = statisticsData => {
       registerCloseWindowCallback(null);
       registerSaveCallback(null);
       registerLoadInternalProvidersCallback(null);
+      registerResetAiSettingsCallback(null);
+      registerResetAiTasksCallback(null);
     };
   }, [config, dispatch]);
 
@@ -153,7 +190,9 @@ const useAiPlugin = statisticsData => {
     pluginWindows,
     currentWindow,
     handleIframeLoad,
-    internalProvidersLoaded
+    internalProvidersLoaded,
+    handleResetAiSettings,
+    handleResetAiTasks
   };
 };
 

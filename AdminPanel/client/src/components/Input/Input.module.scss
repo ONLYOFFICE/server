@@ -18,8 +18,10 @@
 }
 
 .input {
-  width: 294px;
+  width: 100%;
+  max-width: 294px;
   padding: 12px 16px;
+  box-sizing: border-box;
   border: 1px solid #e2e2e2;
   border-radius: 4px;
   font-family: 'Open Sans', sans-serif;
@@ -60,4 +62,10 @@
   font-size: 12px;
   color: #dc3545;
   margin-top: 4px;
+}
+
+@media (max-width: 767px) {
+  .input {
+    max-width: 100%;
+  }
 }

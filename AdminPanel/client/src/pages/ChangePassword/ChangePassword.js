@@ -2,8 +2,11 @@ import {useState} from 'react';
 import {changePassword} from '../../api';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
-import Input from '../../components/Input/Input';
+import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
+import {usePasswordValidation} from '../../utils/passwordValidation';
+import Section from '../../components/Section/Section';
 import styles from './ChangePassword.module.scss';
 
 function ChangePassword() {
@@ -13,30 +16,28 @@ function ChangePassword() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  const handlePasswordChange = async () => {
-    setPasswordError('');
-    setPasswordSuccess(false);
+  const {isValid: newPasswordIsValid, isLoading} = usePasswordValidation(newPassword);
 
-    // Validation
-    if (!currentPassword) {
-      setPasswordError('Current password is required');
-      throw new Error('Validation failed');
+  // Check if form can be submitted
+  const canSubmit = () => {
+    if (!currentPassword || !newPassword || !confirmPassword || isLoading) {
+      return false;
     }
 
-    if (!newPassword) {
-      setPasswordError('New password is required');
-      throw new Error('Validation failed');
-    }
-
-    if (newPassword.length > 128) {
-      setPasswordError('Password must not exceed 128 characters');
-      throw new Error('Validation failed');
+    if (!newPasswordIsValid) {
+      return false;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError('New passwords do not match');
-      throw new Error('Validation failed');
+      return false;
     }
+
+    return true;
+  };
+
+  const handlePasswordChange = async () => {
+    setPasswordError('');
+    setPasswordSuccess(false);
 
     try {
       await changePassword({currentPassword, newPassword});
@@ -56,42 +57,49 @@ function ChangePassword() {
       <PageDescription>Update your admin panel password</PageDescription>
 
       <div className={styles.content}>
-        <div className={styles.section}>
+        <Section>
           {passwordSuccess && <div className={styles.successMessage}>Password changed successfully!</div>}
 
           {passwordError && <div className={styles.errorMessage}>{passwordError}</div>}
 
           <div className={styles.form}>
-            <Input
+            <PasswordInput
               label='Current Password'
               type='password'
               value={currentPassword}
               onChange={setCurrentPassword}
               placeholder='Enter current password'
               description='Your current admin password'
+              isValid={true}
             />
 
-            <Input
+            <PasswordInputWithRequirements
               label='New Password'
               type='password'
               value={newPassword}
               onChange={setNewPassword}
               placeholder='Enter new password'
-              description='Any non-empty password, maximum 128 characters'
+              description='Create a strong password'
             />
 
-            <Input
-              label='Confirm New Password'
-              type='password'
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              placeholder='Confirm new password'
-              description='Re-enter your new password'
-            />
+            <div className={styles.confirmPasswordGroup}>
+              <PasswordInput
+                label='Confirm New Password'
+                type='password'
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder='Confirm new password'
+                description='Re-enter your new password'
+                isValid={true}
+              />
+              <div className={styles.passwordMismatch}>
+                {newPassword && confirmPassword && newPassword !== confirmPassword && newPasswordIsValid && "Passwords don't match"}
+              </div>
+            </div>
 
-            <FixedSaveButton onClick={handlePasswordChange} />
+            <FixedSaveButton onClick={handlePasswordChange} disabled={!canSubmit()} />
           </div>
-        </div>
+        </Section>
       </div>
     </div>
   );

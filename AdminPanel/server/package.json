@@ -1,5 +1,5 @@
 {
-  "name": "adminpanel",
+  "name": "onlyoffice-adminpanel-server",
   "version": "1.0.0",
   "homepage": "https://www.onlyoffice.com",
   "private": true,
@@ -19,6 +19,7 @@
     "express": "^4.19.2",
     "ajv": "^8.17.1",
     "ajv-formats": "^2.1.1",
+    "ajv-errors": "^3.0.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "ms": "^2.1.3"

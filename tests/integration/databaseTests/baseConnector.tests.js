@@ -100,6 +100,11 @@ const upsertCases = {
   insert: 'baseConnector-upsert()-tester-row-inserted',
   update: 'baseConnector-upsert()-tester-row-updated'
 };
+const updateIfCases = {
+  notEmpty: 'baseConnector-updateIf()-tester-not-empty-callback',
+  emptyCallback: 'baseConnector-updateIf()-tester-empty-callback'
+};
+const oracleNullHandlingCases = ['baseConnector-oracle-nclob-null-handling', 'baseConnector-oracle-nclob-null-handling-2'];
 
 function createChanges(changesLength, date) {
   const objChanges = [
@@ -203,9 +208,18 @@ afterAll(async () => {
   const insertIds = Object.values(insertCases);
   const changesIds = Object.values(changesCases);
   const upsertIds = Object.values(upsertCases);
+  const updateIfIds = Object.values(updateIfCases);
 
   const tableChangesIds = [...emptyCallbacksCase, ...documentsWithChangesCase, ...changesIds, ...insertIds];
-  const tableResultIds = [...emptyCallbacksCase, ...documentsWithChangesCase, ...getExpiredCase, ...getCountWithStatusCase, ...upsertIds];
+  const tableResultIds = [
+    ...emptyCallbacksCase,
+    ...documentsWithChangesCase,
+    ...getExpiredCase,
+    ...getCountWithStatusCase,
+    ...upsertIds,
+    ...updateIfIds,
+    ...oracleNullHandlingCases
+  ];
 
   const deletionPool = [
     deleteRowsByIds(cfgTableChanges, tableChangesIds),
@@ -287,17 +301,23 @@ describe('Base database connector', () => {
 
     describe('Add changes', () => {
       for (const testCase in insertCases) {
-        test(`${testCase} rows inserted`, async () => {
-          const docId = insertCases[testCase];
-          const objChanges = createChanges(+testCase, date);
+        // Increase timeout for large inserts (5000+ rows can take longer on some databases)
+        const timeout = +testCase >= 5000 ? 15000 : 5000;
+        test(
+          `${testCase} rows inserted`,
+          async () => {
+            const docId = insertCases[testCase];
+            const objChanges = createChanges(+testCase, date);
 
-          await noRowsExistenceCheck(cfgTableChanges, docId);
+            await noRowsExistenceCheck(cfgTableChanges, docId);
 
-          await baseConnector.insertChangesPromise(ctx, objChanges, docId, index, user);
-          const result = await getRowsCountById(cfgTableChanges, docId);
+            await baseConnector.insertChangesPromise(ctx, objChanges, docId, index, user);
+            const result = await getRowsCountById(cfgTableChanges, docId);
 
-          expect(result).toEqual(objChanges.length);
-        });
+            expect(result).toEqual(objChanges.length);
+          },
+          timeout
+        );
       }
     });
 
@@ -467,6 +487,83 @@ describe('Base database connector', () => {
 
       const expectedUrlChanges = [{id: task.key, baseurl: 'some-updated-url'}];
       expect(updatedRow).toEqual(expectedUrlChanges);
+    });
+  });
+
+  describe('Oracle NCLOB null handling', () => {
+    const nullHandlingCase = 'baseConnector-oracle-nclob-null-handling';
+
+    test('Empty callback is retrieved as empty string (not null)', async () => {
+      const date = new Date();
+      const task = createTask(nullHandlingCase, ''); // Empty callback
+
+      await noRowsExistenceCheck(cfgTableResult, task.key);
+      await insertIntoResultTable(date, task);
+
+      // Retrieve the row and check callback field
+      const result = await executeSql(`SELECT callback, baseurl FROM ${cfgTableResult} WHERE id = '${task.key}';`);
+
+      expect(result.length).toEqual(1);
+      // Oracle should normalize null NCLOB to empty string
+      expect(result[0].callback).toEqual('');
+      expect(result[0].baseurl).toEqual('');
+      // Verify they are strings, not null
+      expect(typeof result[0].callback).toEqual('string');
+      expect(typeof result[0].baseurl).toEqual('string');
+    });
+
+    test('Null callback does not cause TypeError in getCallbackByUserIndex', async () => {
+      const date = new Date();
+      const task = createTask(nullHandlingCase + '-2', '');
+
+      await insertIntoResultTable(date, task);
+
+      const result = await executeSql(`SELECT callback FROM ${cfgTableResult} WHERE id = '${task.key}';`);
+
+      // This should not throw TypeError
+      const userCallback = new baseConnector.UserCallback();
+      expect(() => {
+        userCallback.getCallbackByUserIndex(ctx, result[0].callback, 1);
+      }).not.toThrow();
+
+      const callbackResult = userCallback.getCallbackByUserIndex(ctx, result[0].callback, 1);
+      expect(callbackResult).toEqual('');
+    });
+  });
+
+  describe('updateIf() method', () => {
+    test('Update with NOT_EMPTY callback mask', async () => {
+      const date = new Date();
+      const taskWithCallback = createTask(updateIfCases.notEmpty, 'http://example.com/callback');
+      const taskEmptyCallback = createTask(updateIfCases.emptyCallback, '');
+
+      // Insert two rows: one with callback, one without
+      await Promise.all([insertIntoResultTable(date, taskWithCallback), insertIntoResultTable(date, taskEmptyCallback)]);
+
+      // Update mask: only update rows with non-empty callback and status=None
+      const mask = new taskResult.TaskResultData();
+      mask.tenant = ctx.tenant;
+      mask.key = taskWithCallback.key;
+      mask.status = commonDefines.FileStatus.None;
+      mask.callback = 'NOT_EMPTY';
+
+      // Update task: change status to SaveVersion
+      const updateTask = new taskResult.TaskResultData();
+      updateTask.status = commonDefines.FileStatus.SaveVersion;
+      updateTask.statusInfo = constants.NO_ERROR;
+
+      const result = await taskResult.updateIf(ctx, updateTask, mask);
+
+      // Should update exactly 1 row (the one with callback)
+      expect(result.affectedRows).toEqual(1);
+
+      // Verify the row with callback was updated
+      const updatedRow = await executeSql(`SELECT status FROM ${cfgTableResult} WHERE id = '${taskWithCallback.key}';`);
+      expect(updatedRow[0].status).toEqual(commonDefines.FileStatus.SaveVersion);
+
+      // Verify the row without callback was NOT updated
+      const notUpdatedRow = await executeSql(`SELECT status FROM ${cfgTableResult} WHERE id = '${taskEmptyCallback.key}';`);
+      expect(notUpdatedRow[0].status).toEqual(commonDefines.FileStatus.None);
     });
   });
 });
