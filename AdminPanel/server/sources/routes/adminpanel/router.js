@@ -29,7 +29,8 @@ function validatePassword(ctx, password) {
         minLength: password,
         hasDigit: password,
         hasUppercase: password,
-        hasSpecialChar: password
+        hasSpecialChar: password,
+        allowedCharactersOnly: password
       }
     }
   };

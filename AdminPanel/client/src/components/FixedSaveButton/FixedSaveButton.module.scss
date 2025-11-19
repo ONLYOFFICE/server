@@ -10,6 +10,15 @@
   padding: 16px 0;
   width: calc(100% - 256px);
   //   background-color: #fafafa;
+
+  @media (max-width: 767px) {
+    position: static;
+    left: auto;
+    right: auto;
+    width: auto;
+    border-top: none;
+    padding: 0;
+  }
 }
 
 .saveButtonWrapper {
@@ -18,9 +27,24 @@
   padding: 0 24px;
   display: flex;
   justify-content: flex-start;
+
+  @media (max-width: 767px) {
+    padding: 0;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
 }
 
 // Add bottom padding to pages to prevent content from being hidden behind fixed button
 .pageWithFixedSave {
   padding-bottom: 40px; // Adjust based on button height + padding
+}
+
+/* Removed separate modifier; mobile behavior is now global via media query above */
+
+.fixedSaveGroup {
+  @media (max-width: 767px) {
+    padding: 32px 0;
+  }
 }

@@ -8,6 +8,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Input from '../../components/Input/Input';
 import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
+import Section from '../../components/Section/Section';
 import styles from './FileLimits.module.scss';
 
 function FileLimits() {
@@ -182,9 +183,7 @@ function FileLimits() {
       <PageHeader>File Size Limits</PageHeader>
       <PageDescription>Configure maximum file sizes and download limits for document processing</PageDescription>
 
-      <div className={styles.settingsSection}>
-        <div className={styles.sectionTitle}>Download Limits</div>
-
+      <Section title='Download Limits'>
         <div className={styles.formRow}>
           <Input
             label='Max Download Bytes'
@@ -197,12 +196,12 @@ function FileLimits() {
             error={getFieldError(CONFIG_PATHS.maxDownloadBytes)}
           />
         </div>
-      </div>
+      </Section>
 
-      <div className={styles.settingsSection}>
-        <div className={styles.sectionTitle}>Input File Size Limits</div>
-        <div className={styles.sectionDescription}>Configure uncompressed size limits for different document types when processing ZIP archives</div>
-
+      <Section
+        title='Input File Size Limits'
+        description='Configure uncompressed size limits for different document types when processing ZIP archives'
+      >
         <div className={styles.formRow}>
           <Input
             label='Word Documents (DOCX, DOTX, DOCM, DOTM)'
@@ -242,7 +241,7 @@ function FileLimits() {
             description='Maximum uncompressed size for Visio document archives'
           />
         </div>
-      </div>
+      </Section>
 
       <FixedSaveButtonGroup
         buttons={[

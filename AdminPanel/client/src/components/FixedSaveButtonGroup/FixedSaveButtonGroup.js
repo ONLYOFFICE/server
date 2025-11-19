@@ -12,7 +12,7 @@ function FixedSaveButtonGroup({buttons = []}) {
   if (!buttons || buttons.length === 0) return null;
 
   return (
-    <div className={styles.fixedSaveContainer}>
+    <div className={`${styles.fixedSaveContainer} ${styles.fixedSaveGroup}`}>
       <div
         className={styles.saveButtonWrapper}
         style={{
