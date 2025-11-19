@@ -1,6 +1,6 @@
-import {useState, useRef} from 'react';
+import {useState, useRef, useEffect} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, resetConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -8,7 +8,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import styles from './Expiration.module.scss';
 
 const expirationTabs = [
@@ -46,11 +46,12 @@ function Expiration() {
   };
 
   // Reset state and errors to global config
-  const resetToGlobalConfig = () => {
-    if (config) {
+  const resetToGlobalConfig = source => {
+    const src = source || config;
+    if (src) {
       const settings = {};
       Object.keys(CONFIG_PATHS).forEach(key => {
-        const value = getNestedValue(config, CONFIG_PATHS[key], '');
+        const value = getNestedValue(src, CONFIG_PATHS[key], '');
         settings[key] = value;
       });
       setLocalSettings(settings);
@@ -74,6 +75,12 @@ function Expiration() {
     hasInitialized.current = true;
   }
 
+  // Sync from Redux when config changes (e.g., after reset), unless user has local edits
+  useEffect(() => {
+    if (config && !hasChanges) {
+      resetToGlobalConfig();
+    }
+  }, [config]); // eslint-disable-line react-hooks/exhaustive-deps
   // Handle field changes
   const handleFieldChange = (field, value) => {
     setLocalSettings(prev => ({
@@ -127,6 +134,24 @@ function Expiration() {
     const mergedConfig = mergeNestedObjects([configUpdate]);
     await dispatch(saveConfig(mergedConfig)).unwrap();
     setHasChanges(false);
+  };
+
+  // Handle reset for active tab
+  const handleReset = async () => {
+    const confirmed = window.confirm('Reset settings on this tab to defaults?');
+    if (!confirmed) return;
+    try {
+      const paths =
+        activeTab === 'garbage-collection'
+          ? [CONFIG_PATHS.filesCron, CONFIG_PATHS.documentsCron, CONFIG_PATHS.files, CONFIG_PATHS.filesremovedatonce]
+          : [CONFIG_PATHS.sessionidle, CONFIG_PATHS.sessionabsolute];
+      const merged = await dispatch(resetConfig(paths)).unwrap();
+      resetToGlobalConfig(merged);
+      setHasChanges(false);
+    } catch (e) {
+      console.error('Failed to reset expiration settings:', e);
+      alert('Failed to reset settings. Please try again.');
+    }
   };
 
   // Render tab content
@@ -224,9 +249,20 @@ function Expiration() {
         {renderTabContent()}
       </Tabs>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset to Defaults',
+            onClick: handleReset,
+            disabled: false
+          }
+        ]}
+      />
     </div>
   );
 }

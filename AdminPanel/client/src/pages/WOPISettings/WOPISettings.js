@@ -1,6 +1,6 @@
-import {useState, useRef} from 'react';
+import {useState, useRef, useEffect} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig, rotateWopiKeysAction} from '../../store/slices/configSlice';
+import {saveConfig, resetConfig, selectConfig, rotateWopiKeysAction} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -10,7 +10,7 @@ import PageDescription from '../../components/PageDescription/PageDescription';
 import ToggleSwitch from '../../components/ToggleSwitch/ToggleSwitch';
 import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import Note from '../../components/Note/Note';
 import styles from './WOPISettings.module.scss';
 
@@ -31,14 +31,17 @@ function WOPISettings() {
   const wopiPublicKey = getNestedValue(config, 'wopi.publicKey', '');
   const configRefreshLockInterval = getNestedValue(config, 'wopi.refreshLockInterval', '10m');
 
-  const resetToGlobalConfig = () => {
-    if (config) {
-      setLocalWopiEnabled(configWopiEnabled);
+  const resetToGlobalConfig = source => {
+    const src = source || config;
+    if (src) {
+      const srcEnabled = getNestedValue(src, 'wopi.enable');
+      const srcInterval = getNestedValue(src, 'wopi.refreshLockInterval');
+      setLocalWopiEnabled(srcEnabled);
       setLocalRotateKeys(false);
-      setLocalRefreshLockInterval(configRefreshLockInterval);
+      setLocalRefreshLockInterval(srcInterval);
       setHasChanges(false);
-      validateField('wopi.enable', configWopiEnabled);
-      validateField('wopi.refreshLockInterval', configRefreshLockInterval);
+      validateField('wopi.enable', srcEnabled);
+      validateField('wopi.refreshLockInterval', srcInterval);
     }
   };
 
@@ -48,6 +51,12 @@ function WOPISettings() {
     hasInitialized.current = true;
   }
 
+  // Sync from Redux when config changes (e.g., after reset), unless user has local edits
+  useEffect(() => {
+    if (config && !hasChanges) {
+      resetToGlobalConfig();
+    }
+  }, [config]); // eslint-disable-line react-hooks/exhaustive-deps
   const handleWopiEnabledChange = enabled => {
     setLocalWopiEnabled(enabled);
     // If WOPI is disabled, uncheck rotate keys
@@ -118,6 +127,20 @@ function WOPISettings() {
     }
   };
 
+  const handleReset = async () => {
+    const confirmed = window.confirm('Reset WOPI settings to defaults?');
+    if (!confirmed) return;
+    try {
+      const merged = await dispatch(resetConfig(['wopi.enable', 'wopi.refreshLockInterval'])).unwrap();
+      resetToGlobalConfig(merged);
+      setHasChanges(false);
+      setLocalRotateKeys(false);
+    } catch (e) {
+      console.error('Failed to reset WOPI settings:', e);
+      alert('Failed to reset settings. Please try again.');
+    }
+  };
+
   return (
     <div className={`${styles.wopiSettings} ${styles.pageWithFixedSave}`}>
       <PageHeader>WOPI Settings</PageHeader>
@@ -175,9 +198,20 @@ function WOPISettings() {
         </>
       )}
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset to Defaults',
+            onClick: handleReset,
+            disabled: false
+          }
+        ]}
+      />
     </div>
   );
 }

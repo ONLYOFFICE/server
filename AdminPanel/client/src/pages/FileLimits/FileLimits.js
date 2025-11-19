@@ -1,13 +1,13 @@
 import {useState, useEffect} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, resetConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Input from '../../components/Input/Input';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import styles from './FileLimits.module.scss';
 
 function FileLimits() {
@@ -163,6 +163,20 @@ function FileLimits() {
     setHasChanges(false);
   };
 
+  // Handle reset to defaults
+  const handleReset = async () => {
+    const confirmed = window.confirm('Reset file limits to defaults? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      await dispatch(resetConfig(['FileConverter.converter.maxDownloadBytes', 'FileConverter.converter.inputLimits'])).unwrap();
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Error resetting file limits:', error);
+      alert('Failed to reset file limits. Please try again.');
+    }
+  };
+
   return (
     <div className={`${styles.fileLimits} ${styles.pageWithFixedSave}`}>
       <PageHeader>File Size Limits</PageHeader>
@@ -230,9 +244,20 @@ function FileLimits() {
         </div>
       </div>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset to Defaults',
+            onClick: handleReset,
+            disabled: false
+          }
+        ]}
+      />
     </div>
   );
 }

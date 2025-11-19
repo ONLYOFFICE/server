@@ -1,6 +1,6 @@
-import {useState, useRef} from 'react';
+import {useState, useRef, useEffect} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, resetConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -8,7 +8,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import AccessRules from '../../components/AccessRules/AccessRules';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import styles from './SecuritySettings.module.scss';
 
 const securityTabs = [{key: 'ip-filtering', label: 'IP Filtering'}];
@@ -23,9 +23,10 @@ function SecuritySettings() {
   const [hasChanges, setHasChanges] = useState(false);
 
   // Reset state and errors to global config
-  const resetToGlobalConfig = () => {
-    if (config) {
-      const ipFilterRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules', []);
+  const resetToGlobalConfig = source => {
+    const src = source || config;
+    if (src) {
+      const ipFilterRules = getNestedValue(src, 'services.CoAuthoring.ipfilter.rules', []);
       const uiRules = ipFilterRules.map(rule => ({
         type: rule.allowed ? 'Allow' : 'Deny',
         value: rule.address
@@ -50,6 +51,12 @@ function SecuritySettings() {
     hasInitialized.current = true;
   }
 
+  // Sync from Redux when config changes (e.g., after reset), unless user has local edits
+  useEffect(() => {
+    if (config && !hasChanges) {
+      resetToGlobalConfig();
+    }
+  }, [config]); // eslint-disable-line react-hooks/exhaustive-deps
   // Handle rules changes
   const handleRulesChange = newRules => {
     setLocalRules(newRules);
@@ -85,6 +92,23 @@ function SecuritySettings() {
     setHasChanges(false);
   };
 
+  const handleReset = async () => {
+    const confirmed = window.confirm('Reset security settings on this tab to defaults?');
+    if (!confirmed) return;
+    try {
+      // Only reset active tab settings
+      const paths = activeTab === 'ip-filtering' ? ['services.CoAuthoring.ipfilter.rules'] : [];
+      if (paths.length > 0) {
+        const merged = await dispatch(resetConfig(paths)).unwrap();
+        resetToGlobalConfig(merged);
+      }
+      setHasChanges(false);
+    } catch (e) {
+      console.error('Failed to reset security settings:', e);
+      alert('Failed to reset settings. Please try again.');
+    }
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'ip-filtering':
@@ -110,9 +134,20 @@ function SecuritySettings() {
         {renderTabContent()}
       </Tabs>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset to Defaults',
+            onClick: handleReset,
+            disabled: false
+          }
+        ]}
+      />
     </div>
   );
 }

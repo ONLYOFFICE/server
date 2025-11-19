@@ -1,11 +1,11 @@
-import {useState, useRef} from 'react';
+import {useState, useRef, useEffect} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, resetConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
 import Checkbox from '../../components/Checkbox/Checkbox';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import styles from './RequestFiltering.module.scss';
@@ -28,12 +28,13 @@ function RequestFiltering() {
   };
 
   const hasInitialized = useRef(false);
-  const resetToGlobalConfig = () => {
-    if (config) {
+  const resetToGlobalConfig = source => {
+    const src = source || config;
+    if (src) {
       const newSettings = {};
       Object.keys(CONFIG_PATHS).forEach(key => {
         const path = CONFIG_PATHS[key];
-        newSettings[key] = getNestedValue(config, path, false);
+        newSettings[key] = getNestedValue(src, path, false);
       });
       setLocalSettings(newSettings);
     }
@@ -44,6 +45,12 @@ function RequestFiltering() {
     hasInitialized.current = true;
   }
 
+  // Sync from Redux when config changes (e.g., after reset), unless user has local edits
+  useEffect(() => {
+    if (config && !hasChanges) {
+      resetToGlobalConfig();
+    }
+  }, [config]); // eslint-disable-line react-hooks/exhaustive-deps
   // Handle field changes
   const handleFieldChange = (field, value) => {
     setLocalSettings(prev => ({
@@ -82,6 +89,19 @@ function RequestFiltering() {
     setHasChanges(false);
   };
 
+  const handleReset = async () => {
+    const confirmed = window.confirm('Reset request filtering settings to defaults?');
+    if (!confirmed) return;
+    try {
+      const merged = await dispatch(resetConfig(Object.values(CONFIG_PATHS))).unwrap();
+      resetToGlobalConfig(merged);
+      setHasChanges(false);
+    } catch (e) {
+      console.error('Failed to reset request filtering:', e);
+      alert('Failed to reset settings. Please try again.');
+    }
+  };
+
   return (
     <div className={`${styles.requestFiltering} ${styles.pageWithFixedSave}`}>
       <PageHeader>Request Filtering</PageHeader>
@@ -114,9 +134,20 @@ function RequestFiltering() {
         </div>
       </div>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset to Defaults',
+            onClick: handleReset,
+            disabled: false
+          }
+        ]}
+      />
     </div>
   );
 }
