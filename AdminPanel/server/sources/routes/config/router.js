@@ -4,10 +4,11 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, validateScoped, getScopedSchema} = require('./config.service');
+const {getScopedConfig, validateScoped} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
+const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -35,18 +36,8 @@ router.get('/', validateJWT, async (req, res) => {
   }
 });
 
-router.get('/schema', validateJWT, async (req, res) => {
-  const ctx = req.ctx;
-  try {
-    ctx.logger.info('config schema start');
-    const schema = getScopedSchema(ctx);
-    res.json(schema);
-  } catch (error) {
-    ctx.logger.error('Config schema error: %s', error.stack);
-    res.status(500).json({error: 'Internal server error'});
-  } finally {
-    ctx.logger.info('config schema end');
-  }
+router.get('/schema', validateJWT, async (_req, res) => {
+  res.json(supersetSchema);
 });
 
 router.patch('/', validateJWT, rawFileParser, async (req, res) => {
@@ -79,7 +70,7 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
   }
 });
 
-router.post('/reset', validateJWT, async (req, res) => {
+router.post('/reset', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('config reset start');
@@ -87,11 +78,44 @@ router.post('/reset', validateJWT, async (req, res) => {
     const currentConfig = await runtimeConfigManager.getConfig(ctx);
     const passwordHash = currentConfig?.adminPanel?.passwordHash;
 
-    const resetConfig = {};
-    if (passwordHash) {
-      resetConfig.adminPanel = {
-        passwordHash
-      };
+    const {paths} = JSON.parse(req.body);
+    let resetConfig = {};
+
+    if (paths.includes('*')) {
+      if (passwordHash) {
+        resetConfig.adminPanel = {
+          passwordHash
+        };
+      }
+    } else {
+      resetConfig = JSON.parse(JSON.stringify(currentConfig));
+
+      paths.forEach(path => {
+        if (path && path !== '*') {
+          const pathParts = path.split('.');
+          let current = resetConfig;
+
+          for (let i = 0; i < pathParts.length - 1; i++) {
+            if (current && typeof current === 'object') {
+              current = current[pathParts[i]];
+            } else {
+              current = undefined;
+              break;
+            }
+          }
+
+          if (current && typeof current === 'object') {
+            delete current[pathParts[pathParts.length - 1]];
+          }
+        }
+      });
+
+      if (passwordHash) {
+        resetConfig.adminPanel = {
+          ...resetConfig.adminPanel,
+          passwordHash
+        };
+      }
     }
 
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {

@@ -135,7 +135,7 @@ function select(ctx, docId) {
   });
 }
 /**
- * Convert task object to SQL update/condition array
+ * Generate SQL SET/WHERE clauses from task object
  * @param {TaskResultData} task - Task data object
  * @param {boolean} updateTime - Whether to update last_open_date
  * @param {boolean} isMask - Whether this is for WHERE clause (mask mode)
@@ -145,7 +145,7 @@ function select(ctx, docId) {
  *
  * Special mask values:
  * - Use 'NOT_EMPTY' as field value in mask mode to check for non-empty callback
- * - Example: {callback: 'NOT_EMPTY'} generates "callback IS NOT NULL AND callback != ''"
+ * - Uses baseConnector.getNotEmptyCondition() for database-specific SQL generation
  */
 function toUpdateArray(task, updateTime, isMask, values, setPassword) {
   const res = [];
@@ -177,7 +177,8 @@ function toUpdateArray(task, updateTime, isMask, values, setPassword) {
   }
   // Add callback non-empty check for mask
   if (isMask && task.callback === 'NOT_EMPTY') {
-    res.push(`callback IS NOT NULL AND callback != ''`);
+    // Use database-specific condition (Oracle NCLOB needs special handling)
+    res.push(sqlBase.getNotEmptyCondition('callback'));
   }
   if (null != task.baseurl) {
     const sqlParam = addSqlParam(task.baseurl, values);

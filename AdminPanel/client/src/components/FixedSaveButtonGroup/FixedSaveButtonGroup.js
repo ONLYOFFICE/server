@@ -1,4 +1,4 @@
-import SaveButton from '../SaveButton/SaveButton';
+import Button from '../Button/Button';
 import styles from '../FixedSaveButton/FixedSaveButton.module.scss';
 
 /**
@@ -12,7 +12,7 @@ function FixedSaveButtonGroup({buttons = []}) {
   if (!buttons || buttons.length === 0) return null;
 
   return (
-    <div className={styles.fixedSaveContainer}>
+    <div className={`${styles.fixedSaveContainer} ${styles.fixedSaveGroup}`}>
       <div
         className={styles.saveButtonWrapper}
         style={{
@@ -21,9 +21,9 @@ function FixedSaveButtonGroup({buttons = []}) {
         }}
       >
         {buttons.map((button, index) => (
-          <SaveButton key={index} onClick={button.onClick} disabled={button.disabled || false} disableResult={true}>
+          <Button key={index} onClick={button.onClick} disabled={button.disabled || false} disableResult={true}>
             {button.text}
-          </SaveButton>
+          </Button>
         ))}
       </div>
     </div>

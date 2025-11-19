@@ -7,13 +7,10 @@ const dotenv = require('dotenv');
 module.exports = (env, argv) => {
   const mode = argv && argv.mode ? argv.mode : 'development';
 
-  // Load environment variables from .env files
-  // Priority: .env.local > .env.development/.env.production > .env
-  const envFiles = ['.env.local', mode === 'production' ? '.env.production' : '.env.development', '.env'];
-
-  envFiles.forEach(file => {
-    dotenv.config({path: file});
-  });
+  // Load environment variables from .env.development only in development mode
+  if (mode === 'development') {
+    dotenv.config({path: '.env.development'});
+  }
 
   return {
     entry: './src/index.js',
@@ -27,21 +24,25 @@ module.exports = (env, argv) => {
     },
 
     devServer: {
-      static: {
-        directory: path.join(__dirname, 'build'),
-        publicPath: ''
-      },
+      static: path.join(__dirname, 'public'),
       port: 3000,
-      open: true,
-      historyApiFallback: true,
-      proxy: {
-        '/healthcheck-api': {
-          target: process.env.REACT_APP_DOCSERVICE_URL,
-          changeOrigin: true,
-          pathRewrite: {
-            '^/healthcheck-api': '/healthcheck'
+      open: '/admin/',
+      hot: true,
+      historyApiFallback: {
+        index: '/admin/index.html'
+      },
+      devMiddleware: {
+        publicPath: '/admin'
+      },
+      setupMiddlewares: (middlewares, devServer) => {
+        // Redirect /admin -> /admin/ (only exact match without trailing slash)
+        devServer.app.use((req, res, next) => {
+          if (req.path === '/admin' && !req.originalUrl.endsWith('/')) {
+            return res.redirect(302, '/admin/');
           }
-        }
+          next();
+        });
+        return middlewares;
       }
     },
 
@@ -85,8 +86,7 @@ module.exports = (env, argv) => {
         ]
       }),
       new webpack.DefinePlugin({
-        'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL),
-        'process.env.REACT_APP_DOCSERVICE_URL': JSON.stringify(process.env.REACT_APP_DOCSERVICE_URL)
+        'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL)
       })
     ],
 
