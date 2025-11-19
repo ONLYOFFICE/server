@@ -20,6 +20,7 @@ import {
 const useAiPlugin = statisticsData => {
   const [pluginWindows, setPluginWindows] = useState([]);
   const [internalProvidersLoaded, setInternalProvidersLoaded] = useState(false);
+  const [iframeKey, setIframeKey] = useState(0);
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
 
@@ -47,8 +48,10 @@ const useAiPlugin = statisticsData => {
     // Load AI config from Redux state to localStorage when component mounts/config changes
     localStorage.removeItem('onlyoffice_ai_actions_key');
     localStorage.removeItem('onlyoffice_ai_plugin_storage_key');
-    if (config?.aiSettings?.actions) {
+    if (config?.aiSettings?.actions && typeof config.aiSettings.actions === 'object' && Object.keys(config.aiSettings.actions).length > 0) {
       localStorage.setItem('onlyoffice_ai_actions_key', JSON.stringify(config.aiSettings.actions));
+    } else {
+      localStorage.removeItem('onlyoffice_ai_actions_key');
     }
     if (config?.aiSettings) {
       const {actions: _actions, timeout: _timeout, allowedCorsOrigins: _allowedCorsOrigins, proxy: _proxy, ...storage_key} = config.aiSettings;
@@ -66,11 +69,19 @@ const useAiPlugin = statisticsData => {
     if (!confirmed) return;
 
     try {
+      const iframe = document.getElementById('ai-iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.AI = undefined;
+        if (iframe.contentWindow.Asc && iframe.contentWindow.Asc.plugin && iframe.contentWindow.Asc.plugin.info) {
+          delete iframe.contentWindow.Asc.plugin.info.aiPluginSettings;
+        }
+      }
+
       localStorage.removeItem('onlyoffice_ai_actions_key');
       localStorage.removeItem('onlyoffice_ai_plugin_storage_key');
 
       await dispatch(resetConfig(['aiSettings'])).unwrap();
-      window.location.reload();
+      setIframeKey(prev => prev + 1);
     } catch (error) {
       console.error('Error resetting AI settings:', error);
       alert('Failed to reset AI settings. Please try again.');
@@ -82,10 +93,18 @@ const useAiPlugin = statisticsData => {
     if (!confirmed) return;
 
     try {
+      const iframe = document.getElementById('ai-iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.AI = undefined;
+        if (iframe.contentWindow.Asc && iframe.contentWindow.Asc.plugin && iframe.contentWindow.Asc.plugin.info) {
+          delete iframe.contentWindow.Asc.plugin.info.aiPluginSettings;
+        }
+      }
+
       localStorage.removeItem('onlyoffice_ai_actions_key');
 
       await dispatch(resetConfig(['aiSettings.actions'])).unwrap();
-      window.location.reload();
+      setIframeKey(prev => prev + 1);
     } catch (error) {
       console.error('Error resetting AI tasks:', error);
       alert('Failed to reset AI tasks. Please try again.');
@@ -192,7 +211,8 @@ const useAiPlugin = statisticsData => {
     handleIframeLoad,
     internalProvidersLoaded,
     handleResetAiSettings,
-    handleResetAiTasks
+    handleResetAiTasks,
+    iframeKey
   };
 };
 

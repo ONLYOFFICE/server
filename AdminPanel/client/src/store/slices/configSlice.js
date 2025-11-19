@@ -141,8 +141,9 @@ const configSlice = createSlice({
         state.saving = true;
         state.error = null;
       })
-      .addCase(resetConfig.fulfilled, state => {
+      .addCase(resetConfig.fulfilled, (state, action) => {
         state.saving = false;
+        state.config = action.payload;
         state.error = null;
       })
       .addCase(resetConfig.rejected, (state, action) => {
