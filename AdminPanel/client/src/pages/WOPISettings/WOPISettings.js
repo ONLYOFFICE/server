@@ -135,7 +135,6 @@ function WOPISettings() {
       const merged = await dispatch(resetConfig(['wopi.enable', 'wopi.refreshLockInterval'])).unwrap();
       resetToGlobalConfig(merged);
       setHasChanges(false);
-      setLocalRotateKeys(false);
     } catch (e) {
       console.error('Failed to reset WOPI settings:', e);
       alert('Failed to reset settings. Please try again.');

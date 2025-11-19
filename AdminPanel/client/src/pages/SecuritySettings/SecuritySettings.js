@@ -183,8 +183,8 @@ function SecuritySettings() {
       if (paths.length > 0) {
         const merged = await dispatch(resetConfig(paths)).unwrap();
         resetToGlobalConfig(merged);
+        setHasChanges(false);
       }
-      setHasChanges(false);
     } catch (e) {
       console.error('Failed to reset settings:', e);
       alert('Failed to reset settings. Please try again.');
