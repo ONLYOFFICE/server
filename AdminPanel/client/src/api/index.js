@@ -199,7 +199,8 @@ export const resetConfiguration = async (paths = ['*']) => {
     if (response.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error('Failed to reset configuration');
   }
-  return response.json();
+  const result = await response.json();
+  return result;
 };
 
 export const generateDocServerToken = async body => {
