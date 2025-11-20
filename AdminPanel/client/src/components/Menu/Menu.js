@@ -6,7 +6,6 @@ import MenuItem from './MenuItem/MenuItem';
 import AppMenuLogo from '../../assets/AppMenuLogo.svg';
 import {menuItems} from '../../config/menuItems';
 import styles from './Menu.module.scss';
-import FileIcon from '../../assets/File.svg';
 
 function Menu({isOpen, onClose}) {
   const location = useLocation();
@@ -55,7 +54,7 @@ function Menu({isOpen, onClose}) {
               label={item.label}
               isActive={isActiveItem(item.path)}
               onClick={() => handleMenuItemClick(item)}
-              icon={FileIcon}
+              iconIndex={item.iconIndex}
             />
           ))}
           <MenuItem
@@ -67,6 +66,7 @@ function Menu({isOpen, onClose}) {
               }
               await handleLogout();
             }}
+            iconIndex={15}
           />
         </div>
       </div>
