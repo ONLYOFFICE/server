@@ -4,7 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, validateScoped} = require('./config.service');
+const {getScopedConfig, getScopedBaseConfig, validateScoped} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
@@ -38,6 +38,21 @@ router.get('/', validateJWT, async (req, res) => {
 
 router.get('/schema', validateJWT, async (_req, res) => {
   res.json(supersetSchema);
+});
+
+router.get('/baseconfig', validateJWT, async (req, res) => {
+  const ctx = req.ctx;
+  try {
+    ctx.logger.info('baseconfig get start');
+    const scopedBaseConfig = getScopedBaseConfig();
+    res.setHeader('Content-Type', 'application/json');
+    res.json(scopedBaseConfig);
+  } catch (error) {
+    ctx.logger.error('Baseconfig get error: %s', error.stack);
+    res.status(500).json({error: 'Internal server error'});
+  } finally {
+    ctx.logger.info('baseconfig get end');
+  }
 });
 
 router.patch('/', validateJWT, rawFileParser, async (req, res) => {

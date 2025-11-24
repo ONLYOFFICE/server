@@ -1,5 +1,12 @@
 import {createSlice, createAsyncThunk} from '@reduxjs/toolkit';
-import {fetchConfiguration, fetchConfigurationSchema, updateConfiguration, rotateWopiKeys, resetConfiguration} from '../../api';
+import {
+  fetchConfiguration,
+  fetchConfigurationSchema,
+  fetchBaseConfiguration,
+  updateConfiguration,
+  rotateWopiKeys,
+  resetConfiguration
+} from '../../api';
 
 export const fetchConfig = createAsyncThunk('config/fetchConfig', async (_, {rejectWithValue}) => {
   try {
@@ -14,6 +21,15 @@ export const fetchSchema = createAsyncThunk('config/fetchSchema', async (_, {rej
   try {
     const schema = await fetchConfigurationSchema();
     return {schema};
+  } catch (error) {
+    return rejectWithValue(error.message);
+  }
+});
+
+export const fetchBaseConfig = createAsyncThunk('config/fetchBaseConfig', async (_, {rejectWithValue}) => {
+  try {
+    const baseConfig = await fetchBaseConfiguration();
+    return {baseConfig};
   } catch (error) {
     return rejectWithValue(error.message);
   }
@@ -48,13 +64,16 @@ export const resetConfig = createAsyncThunk('config/resetConfig', async (paths, 
 
 const initialState = {
   config: null,
+  baseConfig: null,
   schema: null, // Full schema for admin panel
   passwordSchema: null, // Minimal schema for Setup page password validation
   loading: false,
   schemaLoading: false,
+  baseConfigLoading: false,
   saving: false,
   error: null,
-  schemaError: null
+  schemaError: null,
+  baseConfigError: null
 };
 
 const configSlice = createSlice({
@@ -109,6 +128,19 @@ const configSlice = createSlice({
         state.schemaLoading = false;
         state.schemaError = action.payload;
       })
+      .addCase(fetchBaseConfig.pending, state => {
+        state.baseConfigLoading = true;
+        state.baseConfigError = null;
+      })
+      .addCase(fetchBaseConfig.fulfilled, (state, action) => {
+        state.baseConfigLoading = false;
+        state.baseConfig = action.payload.baseConfig;
+        state.baseConfigError = null;
+      })
+      .addCase(fetchBaseConfig.rejected, (state, action) => {
+        state.baseConfigLoading = false;
+        state.baseConfigError = action.payload;
+      })
       // Save config cases
       .addCase(saveConfig.pending, state => {
         state.saving = true;
@@ -156,12 +188,15 @@ export const {updateLocalConfig, clearConfig, clearError, setPasswordSchema} = c
 
 // Selectors
 export const selectConfig = state => state.config.config;
+export const selectBaseConfig = state => state.config.baseConfig;
 export const selectSchema = state => state.config.schema;
 export const selectPasswordSchema = state => state.config.passwordSchema;
 export const selectConfigLoading = state => state.config.loading;
 export const selectSchemaLoading = state => state.config.schemaLoading;
+export const selectBaseConfigLoading = state => state.config.baseConfigLoading;
 export const selectConfigSaving = state => state.config.saving;
 export const selectConfigError = state => state.config.error;
 export const selectSchemaError = state => state.config.schemaError;
+export const selectBaseConfigError = state => state.config.baseConfigError;
 
 export default configSlice.reducer;

@@ -1,6 +1,6 @@
 import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig, rotateWopiKeysAction} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig, selectBaseConfig, rotateWopiKeysAction} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -10,7 +10,7 @@ import PageDescription from '../../components/PageDescription/PageDescription';
 import ToggleSwitch from '../../components/ToggleSwitch/ToggleSwitch';
 import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import Note from '../../components/Note/Note';
 import Section from '../../components/Section/Section';
 import styles from './WOPISettings.module.scss';
@@ -18,6 +18,7 @@ import styles from './WOPISettings.module.scss';
 function WOPISettings() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
+  const baseConfig = useSelector(selectBaseConfig);
   const {validateField, hasValidationErrors} = useFieldValidation();
 
   // Local state for WOPI settings
@@ -28,9 +29,16 @@ function WOPISettings() {
   const hasInitialized = useRef(false);
 
   // Get the actual config values
-  const configWopiEnabled = getNestedValue(config, 'wopi.enable', false);
-  const wopiPublicKey = getNestedValue(config, 'wopi.publicKey', '');
-  const configRefreshLockInterval = getNestedValue(config, 'wopi.refreshLockInterval', '10m');
+  const configWopiEnabled = getNestedValue(config, 'wopi.enable');
+  const wopiPublicKey = getNestedValue(config, 'wopi.publicKey');
+  const configRefreshLockInterval = getNestedValue(config, 'wopi.refreshLockInterval');
+
+  const computeHasChanges = ({wopiEnabled = localWopiEnabled, rotateKeys = localRotateKeys, refreshLockInterval = localRefreshLockInterval} = {}) => {
+    const enableChanged = wopiEnabled !== configWopiEnabled;
+    const refreshChanged = refreshLockInterval !== configRefreshLockInterval;
+    const rotateChanged = !!rotateKeys;
+    return enableChanged || refreshChanged || rotateChanged;
+  };
 
   const resetToGlobalConfig = () => {
     if (config) {
@@ -43,6 +51,19 @@ function WOPISettings() {
     }
   };
 
+  const resetToBaseConfig = () => {
+    const baseEnabled = getNestedValue(baseConfig, 'wopi.enable');
+    const baseRefreshInterval = getNestedValue(baseConfig, 'wopi.refreshLockInterval');
+
+    setLocalWopiEnabled(baseEnabled);
+    setLocalRotateKeys(false);
+    setLocalRefreshLockInterval(baseRefreshInterval);
+    setHasChanges(computeHasChanges({wopiEnabled: baseEnabled, rotateKeys: false, refreshLockInterval: baseRefreshInterval}));
+
+    validateField('wopi.enable', baseEnabled);
+    validateField('wopi.refreshLockInterval', baseRefreshInterval);
+  };
+
   // Initialize settings from config when component loads (only once)
   if (config && !hasInitialized.current) {
     resetToGlobalConfig();
@@ -50,12 +71,10 @@ function WOPISettings() {
   }
 
   const handleWopiEnabledChange = enabled => {
+    const nextRotateKeys = enabled ? localRotateKeys : false;
     setLocalWopiEnabled(enabled);
-    // If WOPI is disabled, uncheck rotate keys
-    if (!enabled) {
-      setLocalRotateKeys(false);
-    }
-    setHasChanges(enabled !== configWopiEnabled || localRotateKeys || localRefreshLockInterval !== configRefreshLockInterval);
+    setLocalRotateKeys(nextRotateKeys);
+    setHasChanges(computeHasChanges({wopiEnabled: enabled, rotateKeys: nextRotateKeys}));
 
     // Validate the boolean field
     validateField('wopi.enable', enabled);
@@ -63,12 +82,12 @@ function WOPISettings() {
 
   const handleRotateKeysChange = checked => {
     setLocalRotateKeys(checked);
-    setHasChanges(localWopiEnabled !== configWopiEnabled || checked || localRefreshLockInterval !== configRefreshLockInterval);
+    setHasChanges(computeHasChanges({rotateKeys: checked}));
   };
 
   const handleRefreshLockIntervalChange = value => {
     setLocalRefreshLockInterval(value);
-    setHasChanges(localWopiEnabled !== configWopiEnabled || localRotateKeys || value !== configRefreshLockInterval);
+    setHasChanges(computeHasChanges({refreshLockInterval: value}));
     validateField('wopi.refreshLockInterval', value);
   };
 
@@ -171,9 +190,19 @@ function WOPISettings() {
         </>
       )}
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset',
+            onClick: resetToBaseConfig
+          }
+        ]}
+      />
     </div>
   );
 }
