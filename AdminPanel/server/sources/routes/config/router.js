@@ -45,7 +45,7 @@ router.get('/baseconfig', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('baseconfig get start');
-    const scopedBaseConfig = getScopedBaseConfig();
+    const scopedBaseConfig = getScopedBaseConfig(ctx);
     res.setHeader('Content-Type', 'application/json');
     res.json(scopedBaseConfig);
   } catch (error) {

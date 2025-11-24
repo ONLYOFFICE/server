@@ -118,9 +118,10 @@ function getScopedConfig(ctx) {
 
 /**
  * Filters base configuration to include only fields defined in the appropriate schema
+ * @param {operationContext} ctx - Operation context
  * @returns {Object} Filtered base configuration object
  */
-function getScopedBaseConfig() {
+function getScopedBaseConfig(ctx) {
   const baseConfig = utils.deepMergeObjects({}, moduleReloader.getBaseConfig());
 
   if (!baseConfig.log) {
@@ -128,7 +129,8 @@ function getScopedBaseConfig() {
   }
   baseConfig.log.options = logger.getInitialLoggerConfig();
 
-  filterAdmin(baseConfig);
+  const filter = isAdminScope(ctx) ? filterAdmin : filterTenant;
+  filter(baseConfig);
   return baseConfig;
 }
 
