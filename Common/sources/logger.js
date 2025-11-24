@@ -126,5 +126,8 @@ exports.shutdown = function (callback) {
 };
 exports.configureLogger = configureLogger;
 exports.getLoggerConfig = function () {
-  return curLogConfig;
+  return config.util.extendDeep({}, curLogConfig);
+};
+exports.getInitialLoggerConfig = function () {
+  return config.util.extendDeep({}, cachedLogConfig);
 };

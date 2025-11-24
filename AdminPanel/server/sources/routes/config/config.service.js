@@ -36,6 +36,8 @@ const addFormats = require('ajv-formats');
 const addErrors = require('ajv-errors');
 const logger = require('../../../../../Common/sources/logger');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
+const moduleReloader = require('../../../../../Common/sources/moduleReloader');
+const utils = require('../../../../../Common/sources/utils');
 const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
 const {deriveSchemaForScope, X_SCOPE_KEYWORD} = require('./config.schema.utils');
 
@@ -114,4 +116,20 @@ function getScopedConfig(ctx) {
   return configCopy;
 }
 
-module.exports = {validateScoped, getScopedConfig};
+/**
+ * Filters base configuration to include only fields defined in the appropriate schema
+ * @returns {Object} Filtered base configuration object
+ */
+function getScopedBaseConfig() {
+  const baseConfig = utils.deepMergeObjects({}, moduleReloader.getBaseConfig());
+
+  if (!baseConfig.log) {
+    baseConfig.log = {};
+  }
+  baseConfig.log.options = logger.getInitialLoggerConfig();
+
+  filterAdmin(baseConfig);
+  return baseConfig;
+}
+
+module.exports = {validateScoped, getScopedConfig, getScopedBaseConfig};

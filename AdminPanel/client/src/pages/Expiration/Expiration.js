@@ -1,6 +1,6 @@
 import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig, selectBaseConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -8,7 +8,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import Section from '../../components/Section/Section';
 import styles from './Expiration.module.scss';
 
@@ -20,6 +20,7 @@ const expirationTabs = [
 function Expiration() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
+  const baseConfig = useSelector(selectBaseConfig);
   const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
   const [activeTab, setActiveTab] = useState('garbage-collection');
@@ -46,12 +47,27 @@ function Expiration() {
     sessionabsolute: 'services.CoAuthoring.expire.sessionabsolute'
   };
 
+  const TAB_FIELDS = {
+    'garbage-collection': ['filesCron', 'documentsCron', 'files', 'filesremovedatonce'],
+    'session-management': ['sessionidle', 'sessionabsolute']
+  };
+
+  const computeHasChanges = (nextSettings = localSettings) => {
+    if (!config) return false;
+
+    return Object.keys(CONFIG_PATHS).some(key => {
+      const currentValue = nextSettings[key];
+      const originalFieldValue = getNestedValue(config, CONFIG_PATHS[key]);
+      return currentValue.toString() !== originalFieldValue.toString();
+    });
+  };
+
   // Reset state and errors to global config
   const resetToGlobalConfig = () => {
     if (config) {
       const settings = {};
       Object.keys(CONFIG_PATHS).forEach(key => {
-        const value = getNestedValue(config, CONFIG_PATHS[key], '');
+        const value = getNestedValue(config, CONFIG_PATHS[key]);
         settings[key] = value;
       });
       setLocalSettings(settings);
@@ -77,11 +93,6 @@ function Expiration() {
 
   // Handle field changes
   const handleFieldChange = (field, value) => {
-    setLocalSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
-
     // Validate fields with schema validation
     if (value !== '' && CONFIG_PATHS[field]) {
       let validationValue = value;
@@ -97,14 +108,28 @@ function Expiration() {
       }
     }
 
-    // Check if there are changes
-    const hasFieldChanges = Object.keys(CONFIG_PATHS).some(key => {
-      const currentValue = key === field ? value : localSettings[key];
-      const originalFieldValue = getNestedValue(config, CONFIG_PATHS[key], '');
-      return currentValue.toString() !== originalFieldValue.toString();
+    setLocalSettings(prev => {
+      const updatedSettings = {
+        ...prev,
+        [field]: value
+      };
+      setHasChanges(computeHasChanges(updatedSettings));
+      return updatedSettings;
+    });
+  };
+
+  const resetToBaseConfig = () => {
+    const fieldsToReset = TAB_FIELDS[activeTab] || [];
+    const updatedSettings = {...localSettings};
+
+    fieldsToReset.forEach(key => {
+      const value = getNestedValue(baseConfig, CONFIG_PATHS[key]);
+      updatedSettings[key] = value;
+      clearFieldError(CONFIG_PATHS[key]);
     });
 
-    setHasChanges(hasFieldChanges);
+    setLocalSettings(updatedSettings);
+    setHasChanges(computeHasChanges(updatedSettings));
   };
 
   // Handle save
@@ -225,9 +250,19 @@ function Expiration() {
         {renderTabContent()}
       </Tabs>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset',
+            onClick: resetToBaseConfig
+          }
+        ]}
+      />
     </div>
   );
 }

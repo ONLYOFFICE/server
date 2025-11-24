@@ -1,6 +1,6 @@
 import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig, selectBaseConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -10,7 +10,7 @@ import Tabs from '../../components/Tabs/Tabs';
 import AccessRules from '../../components/AccessRules/AccessRules';
 import Section from '../../components/Section/Section';
 import Checkbox from '../../components/Checkbox/Checkbox';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import styles from './SecuritySettings.module.scss';
 
 const securityTabs = [
@@ -27,6 +27,7 @@ const CONFIG_PATHS = {
 function SecuritySettings() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
+  const baseConfig = useSelector(selectBaseConfig);
   const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
   const [activeTab, setActiveTab] = useState('ip-rules');
@@ -43,7 +44,7 @@ function SecuritySettings() {
   const computeHasChanges = (nextSettings = localSettings, nextRules = localRules) => {
     if (!config) return false;
 
-    const originalRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules', []);
+    const originalRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules');
     const normalizedOriginalRules = originalRules.map(rule => ({
       address: rule.address,
       allowed: !!rule.allowed
@@ -55,7 +56,7 @@ function SecuritySettings() {
 
     const rulesChanged = JSON.stringify(normalizedOriginalRules) !== JSON.stringify(nextBackendRules);
     const settingsChanged = Object.keys(CONFIG_PATHS).some(key => {
-      const originalValue = getNestedValue(config, CONFIG_PATHS[key], false);
+      const originalValue = getNestedValue(config, CONFIG_PATHS[key]);
       return originalValue !== nextSettings[key];
     });
 
@@ -65,21 +66,42 @@ function SecuritySettings() {
   const resetToGlobalConfig = () => {
     if (!config) return;
 
-    const ipFilterRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules', []);
-    const uiRules = ipFilterRules.map(rule => ({
+    const ipFilterRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules');
+    const rules = ipFilterRules.map(rule => ({
       type: rule.allowed ? 'Allow' : 'Deny',
       value: rule.address
     }));
-    setLocalRules(uiRules);
+    setLocalRules(rules);
 
     const newSettings = {};
     Object.keys(CONFIG_PATHS).forEach(key => {
-      newSettings[key] = getNestedValue(config, CONFIG_PATHS[key], false);
+      newSettings[key] = getNestedValue(config, CONFIG_PATHS[key]);
       clearFieldError(CONFIG_PATHS[key]);
     });
     setLocalSettings(newSettings);
     clearFieldError('services.CoAuthoring.ipfilter.rules');
     setHasChanges(false);
+  };
+
+  const resetToBaseConfig = () => {
+    if (activeTab === 'ip-rules') {
+      const ipFilterRules = getNestedValue(baseConfig, 'services.CoAuthoring.ipfilter.rules');
+      const newRules = ipFilterRules.map(rule => ({
+        type: rule.allowed ? 'Allow' : 'Deny',
+        value: rule.address
+      }));
+      setLocalRules(newRules);
+      clearFieldError('services.CoAuthoring.ipfilter.rules');
+      setHasChanges(computeHasChanges(localSettings, newRules));
+    } else if (activeTab === 'request-filtering') {
+      const newSettings = {};
+      Object.keys(CONFIG_PATHS).forEach(key => {
+        newSettings[key] = getNestedValue(baseConfig, CONFIG_PATHS[key]);
+        clearFieldError(CONFIG_PATHS[key]);
+      });
+      setLocalSettings(newSettings);
+      setHasChanges(computeHasChanges(newSettings, localRules));
+    }
   };
 
   const handleTabChange = newTab => {
@@ -132,7 +154,7 @@ function SecuritySettings() {
       address: rule.value,
       allowed: rule.type === 'Allow'
     }));
-    const originalRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules', []);
+    const originalRules = getNestedValue(config, 'services.CoAuthoring.ipfilter.rules');
 
     if (JSON.stringify(originalRules) !== JSON.stringify(backendRules)) {
       updates.push({
@@ -141,7 +163,7 @@ function SecuritySettings() {
     }
 
     const settingsChanged = Object.keys(CONFIG_PATHS).some(key => {
-      const originalValue = getNestedValue(config, CONFIG_PATHS[key], false);
+      const originalValue = getNestedValue(config, CONFIG_PATHS[key]);
       return originalValue !== localSettings[key];
     });
 
@@ -224,9 +246,19 @@ function SecuritySettings() {
         {renderTabContent()}
       </Tabs>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset',
+            onClick: resetToBaseConfig
+          }
+        ]}
+      />
     </div>
   );
 }

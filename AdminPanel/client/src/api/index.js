@@ -41,6 +41,13 @@ export const fetchConfigurationSchema = async () => {
   return response.json();
 };
 
+export const fetchBaseConfiguration = async () => {
+  const response = await safeFetch(`${API_BASE_PATH}/config/baseconfig`, {credentials: 'include'});
+  if (response.status === 401) throw new Error('UNAUTHORIZED');
+  if (!response.ok) throw new Error('Failed to fetch base configuration');
+  return response.json();
+};
+
 export const updateConfiguration = async configData => {
   const response = await safeFetch(`${API_BASE_PATH}/config`, {
     method: 'PATCH',
