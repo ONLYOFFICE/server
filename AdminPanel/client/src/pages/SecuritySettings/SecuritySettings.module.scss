@@ -55,3 +55,11 @@
   border: 1px solid #fecaca;
   border-radius: 4px;
 }
+
+.formRow {
+  margin-bottom: 24px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
