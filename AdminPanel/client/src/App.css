@@ -40,8 +40,6 @@ body {
   font-size: 1rem;
   font-weight: 400;
   margin: 0px !important;
-  overflow-y: scroll;
-  scrollbar-gutter: stable;
   color: rgb(51, 51, 51);
 }
 
