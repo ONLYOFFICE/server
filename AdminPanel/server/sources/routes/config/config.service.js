@@ -132,4 +132,4 @@ function getScopedBaseConfig() {
   return baseConfig;
 }
 
-module.exports = {validateScoped, getScopedConfig, getScopedBaseConfig};
+module.exports = {validateScoped, getScopedConfig, getScopedBaseConfig, filterAdmin};
