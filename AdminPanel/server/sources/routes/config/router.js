@@ -4,7 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, getScopedBaseConfig, validateScoped} = require('./config.service');
+const {getScopedConfig, getScopedBaseConfig, validateScoped, filterAdmin} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
@@ -143,6 +143,7 @@ router.post('/reset', validateJWT, rawFileParser, async (req, res) => {
     delete resetConfig.adminPanel;
     ctx.logger.info('Configuration reset successfully for paths: %j', paths);
     const mergedConfig = utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), resetConfig);
+    filterAdmin(mergedConfig);
 
     res.status(200).json(mergedConfig);
   } catch (error) {
