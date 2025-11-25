@@ -46,8 +46,6 @@ const useAiPlugin = statisticsData => {
   // Synchronize AI config with localStorage
   useEffect(() => {
     // Load AI config from Redux state to localStorage when component mounts/config changes
-    localStorage.removeItem('onlyoffice_ai_actions_key');
-    localStorage.removeItem('onlyoffice_ai_plugin_storage_key');
     if (config?.aiSettings?.actions && typeof config.aiSettings.actions === 'object' && Object.keys(config.aiSettings.actions).length > 0) {
       localStorage.setItem('onlyoffice_ai_actions_key', JSON.stringify(config.aiSettings.actions));
     } else {
@@ -56,6 +54,8 @@ const useAiPlugin = statisticsData => {
     if (config?.aiSettings) {
       const {actions: _actions, timeout: _timeout, allowedCorsOrigins: _allowedCorsOrigins, proxy: _proxy, ...storage_key} = config.aiSettings;
       localStorage.setItem('onlyoffice_ai_plugin_storage_key', JSON.stringify(storage_key));
+    } else {
+      localStorage.removeItem('onlyoffice_ai_plugin_storage_key');
     }
     // Cleanup: clear localStorage when component unmounts
     return () => {
