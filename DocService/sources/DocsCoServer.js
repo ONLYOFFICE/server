@@ -3131,7 +3131,7 @@ exports.install = function (server, app, callbackFunction) {
                     wopiParamsFull.userAuth
                   );
                 }
-                if (wopiLockRes) {
+                if (!wopiLockRes.error) {
                   yield* authRestore(ctx, conn, data.sessionId);
                 } else {
                   yield* sendFileErrorAuth(ctx, conn, data.sessionId, 'Restore error. Wopi lock error.', constants.RESTORE_CODE, true);
