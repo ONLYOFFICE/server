@@ -599,29 +599,36 @@ async function preOpen(ctx, lockId, docId, fileInfo, userAuth, baseUrl, fileType
  * @returns {Promise<boolean>} Promise resolving to success result
  */
 async function prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, baseUrl, params) {
-  // Create document ID
-  const docId = createDocId(ctx, wopiSrc, userAuth.mode, fileInfo);
-  params.key = docId;
+  let retryInViewMode = false;
 
-  // Check and invalidate cache
-  const checkRes = await checkAndInvalidateCache(ctx, docId, fileInfo);
-  if (!checkRes.success) {
-    params.fileInfo = {};
-    return false;
-  }
+  do {
+    // Create document ID
+    const docId = createDocId(ctx, wopiSrc, userAuth.mode, fileInfo);
+    params.key = docId;
 
-  if (!shutdownFlag) {
-    const preOpenRes = await preOpen(ctx, checkRes.lockId, docId, fileInfo, userAuth, baseUrl, fileType);
-    if (preOpenRes.error && userAuth.mode !== 'view') {
-      ctx.logger.warn('prepareDocumentForEditing error: lock failed, fallback to view mode');
-      userAuth.mode = 'view';
-      userAuth.forcedViewMode = true;
-      return await prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, baseUrl, params);
-    } else if (preOpenRes.error) {
-      params.statusCode = preOpenRes.statusCode;
+    // Check and invalidate cache
+    const checkRes = await checkAndInvalidateCache(ctx, docId, fileInfo);
+    if (!checkRes.success) {
+      params.fileInfo = {};
       return false;
     }
-  }
+
+    if (!shutdownFlag) {
+      const preOpenRes = await preOpen(ctx, checkRes.lockId, docId, fileInfo, userAuth, baseUrl, fileType);
+      if (preOpenRes.error && userAuth.mode !== 'view' && !retryInViewMode) {
+        ctx.logger.warn('prepareDocumentForEditing error: lock failed, fallback to view mode');
+        userAuth.mode = 'view';
+        userAuth.forcedViewMode = true;
+        retryInViewMode = true;
+        continue;
+      } else if (preOpenRes.error) {
+        params.statusCode = preOpenRes.statusCode;
+        return false;
+      }
+    }
+
+    break;
+  } while (retryInViewMode);
 
   return true;
 }
@@ -1001,101 +1008,96 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
  * @param {string} wopiSrc - The WOPI source URL
  * @param {string} access_token - Access token
  * @param {string} opt_sc - Optional session context
- * @returns {Promise<Object|null>} File info object or error object with statusCode
+ * @returns {Promise<Object>} File info object or error object
  *   - Success: File info object with properties
  *   - Error: {error: true, statusCode: 401|404|500}
  */
-function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
-  return co(function* () {
-    let result = null;
-    try {
-      ctx.logger.info('wopi checkFileInfo start');
-      const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
+async function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
+  let result = null;
+  try {
+    ctx.logger.info('wopi checkFileInfo start');
+    const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
 
+    const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
+    const filterStatus = await checkIpFilter(ctx, uri);
+    if (0 !== filterStatus) {
+      const errorMsg = getWopiErrorMessage(403);
+      ctx.logger.error('wopi checkFileInfo error status=%d (%s)', 403, errorMsg);
+      return {error: true, statusCode: 403};
+    }
+    const headers = {};
+    if (opt_sc) {
+      headers['X-WOPI-SessionContext'] = opt_sc;
+    }
+    await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
+    ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
+    //isInJwtToken is true because it passed checkIpFilter for wopi
+    const isInJwtToken = true;
+    const getRes = await utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, isInJwtToken, headers);
+    ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
+    result = JSON.parse(getRes.body);
+  } catch (err) {
+    const errorMsg = getWopiErrorMessage(err.statusCode);
+    ctx.logger.error('wopi checkFileInfo error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
+    result = {
+      error: true,
+      statusCode: err.statusCode
+    };
+  } finally {
+    ctx.logger.info('wopi checkFileInfo end');
+  }
+  return result;
+}
+async function lock(ctx, command, lockId, fileInfo, userAuth) {
+  const res = {error: false, statusCode: undefined};
+  try {
+    ctx.logger.info('wopi %s start', command);
+    const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
+
+    if (fileInfo && fileInfo.SupportsLocks) {
+      if (!userAuth) {
+        res.error = true;
+        return res;
+      }
+      const wopiSrc = userAuth.wopiSrc;
+      const access_token = userAuth.access_token;
       const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-      const filterStatus = yield checkIpFilter(ctx, uri);
+      const filterStatus = await checkIpFilter(ctx, uri);
       if (0 !== filterStatus) {
-        const errorMsg = getWopiErrorMessage(403);
-        ctx.logger.error('wopi checkFileInfo failed: status=%d (%s)', 403, errorMsg);
-        return {error: true, statusCode: 403};
+        res.error = true;
+        res.statusCode = 403;
+        return res;
       }
-      const headers = {};
-      if (opt_sc) {
-        headers['X-WOPI-SessionContext'] = opt_sc;
-      }
-      yield wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
-      ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
+
+      const headers = {'X-WOPI-Override': command, 'X-WOPI-Lock': lockId};
+      await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
+      ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
       //isInJwtToken is true because it passed checkIpFilter for wopi
       const isInJwtToken = true;
-      const getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, isInJwtToken, headers);
-      ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
-      result = JSON.parse(getRes.body);
-    } catch (err) {
-      const errorMsg = getWopiErrorMessage(err.statusCode);
-      ctx.logger.error('wopi error checkFileInfo status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
-      result = {
-        error: true,
-        statusCode: err.statusCode
-      };
-    } finally {
-      ctx.logger.info('wopi checkFileInfo end');
+      const postRes = await utils.postRequestPromise(
+        ctx,
+        uri,
+        undefined,
+        undefined,
+        undefined,
+        tenCallbackRequestTimeout,
+        undefined,
+        isInJwtToken,
+        headers
+      );
+      ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
+    } else {
+      ctx.logger.info('wopi %s SupportsLocks = false', command);
     }
-    return result;
-  });
-}
-function lock(ctx, command, lockId, fileInfo, userAuth) {
-  return co(function* () {
-    const res = {error: false, statusCode: undefined};
-    try {
-      ctx.logger.info('wopi %s start', command);
-      const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
-
-      if (fileInfo && fileInfo.SupportsLocks) {
-        if (!userAuth) {
-          res.error = true;
-          return res;
-        }
-        const wopiSrc = userAuth.wopiSrc;
-        const access_token = userAuth.access_token;
-        const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-        const filterStatus = yield checkIpFilter(ctx, uri);
-        if (0 !== filterStatus) {
-          res.error = true;
-          res.statusCode = 403;
-          return res;
-        }
-
-        const headers = {'X-WOPI-Override': command, 'X-WOPI-Lock': lockId};
-        yield wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
-        ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
-        //isInJwtToken is true because it passed checkIpFilter for wopi
-        const isInJwtToken = true;
-        const postRes = yield utils.postRequestPromise(
-          ctx,
-          uri,
-          undefined,
-          undefined,
-          undefined,
-          tenCallbackRequestTimeout,
-          undefined,
-          isInJwtToken,
-          headers
-        );
-        ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
-      } else {
-        ctx.logger.info('wopi %s SupportsLocks = false', command);
-      }
-    } catch (err) {
-      res.error = true;
-      res.statusCode = err.statusCode;
-      // Extract HTTP status from error
-      const errorMsg = getWopiErrorMessage(err.statusCode);
-      ctx.logger.error('wopi %s error status=%d (%s):%s', command, err.statusCode, errorMsg, err.stack);
-    } finally {
-      ctx.logger.info('wopi %s end', command);
-    }
-    return res;
-  });
+  } catch (err) {
+    res.error = true;
+    res.statusCode = err.statusCode;
+    const errorMsg = getWopiErrorMessage(err.statusCode);
+    ctx.logger.error('wopi %s error status=%d (%s):%s', command, err.statusCode, errorMsg, err.stack);
+  } finally {
+    ctx.logger.info('wopi %s end', command);
+  }
+  return res;
 }
 async function unlock(ctx, wopiParams) {
   let res = false;
