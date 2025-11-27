@@ -4,7 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, getScopedBaseConfig, validateScoped, filterAdmin} = require('./config.service');
+const {getScopedConfig, getScopedBaseConfig, validateScoped, filterAdmin, getDiffFromBase} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
@@ -69,15 +69,23 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
         errorsText: validationResult.errorsText
       });
     }
+
+    let currentConfig;
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-      await tenantManager.setTenantConfig(ctx, validationResult.value);
+      currentConfig = await tenantManager.getTenantConfig(ctx);
     } else {
-      await runtimeConfigManager.saveConfig(ctx, validationResult.value);
+      currentConfig = await runtimeConfigManager.getConfig(ctx);
+    }
+    const diffConfig = getDiffFromBase(ctx, currentConfig, validationResult.value);
+
+    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
+      await tenantManager.setTenantConfig(ctx, diffConfig);
+    } else {
+      await runtimeConfigManager.replaceConfig(ctx, diffConfig);
     }
     const filteredConfig = getScopedConfig(ctx);
-    const newConfig = await runtimeConfigManager.getConfig(ctx);
 
-    res.status(200).json(utils.deepMergeObjects(filteredConfig, newConfig));
+    res.status(200).json(utils.deepMergeObjects(filteredConfig, validationResult.value));
   } catch (error) {
     ctx.logger.error('Configuration save error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});

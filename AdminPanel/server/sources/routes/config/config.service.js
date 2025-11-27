@@ -77,6 +77,83 @@ const validateTenant = ajvValidator.compile(tenantSchema);
 const filterAdmin = ajvFilter.compile(adminSchema);
 const filterTenant = ajvFilter.compile(tenantSchema);
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Performs a deep equality check between two values.
+ * Arrays are compared by serializing to JSON strings.
+ * @param {*} lhs - Left-hand value to compare.
+ * @param {*} rhs - Right-hand value to compare.
+ * @returns {boolean} True when both values are structurally identical.
+ */
+function isEqual(lhs, rhs) {
+  if (lhs === rhs) {
+    return true;
+  }
+  if (Number.isNaN(lhs) && Number.isNaN(rhs)) {
+    return true;
+  }
+
+  if (Array.isArray(lhs) && Array.isArray(rhs)) {
+    return JSON.stringify(lhs) === JSON.stringify(rhs);
+  }
+
+  if (Array.isArray(lhs) || Array.isArray(rhs)) {
+    return false;
+  }
+  if (isPlainObject(lhs) && isPlainObject(rhs)) {
+    const lhsKeys = Object.keys(lhs);
+    const rhsKeys = Object.keys(rhs);
+    if (lhsKeys.length !== rhsKeys.length) {
+      return false;
+    }
+    return lhsKeys.every(key => isEqual(lhs[key], rhs[key]));
+  }
+  return false;
+}
+
+/**
+ * Strips properties from source that match base config values.
+ * Arrays are compared as serialized JSON strings.
+ * @param {*} source - Source value to filter.
+ * @param {*} base - Base value to compare against.
+ * @returns {*|undefined} Filtered value or undefined if it matches base.
+ */
+function stripBaseMatches(source, base) {
+  if (isEqual(source, base)) {
+    return undefined;
+  }
+
+  if (Array.isArray(source) || !isPlainObject(source)) {
+    return source;
+  }
+
+  const result = {};
+  Object.keys(source).forEach(key => {
+    const diff = stripBaseMatches(source[key], base ? base[key] : undefined);
+    if (diff !== undefined) {
+      result[key] = diff;
+    }
+  });
+
+  return Object.keys(result).length ? result : undefined;
+}
+
+/**
+ * Merges current runtime config with incoming config and returns only differences from base config.
+ * @param {operationContext} ctx - Operation context
+ * @param {Object} currentConfig - Current runtime/tenant config
+ * @param {Object} incomingConfig - Incoming config data to merge
+ * @returns {Object} Configuration object containing only values that differ from base config
+ */
+function getDiffFromBase(_ctx, currentConfig, incomingConfig) {
+  const baseConfig = moduleReloader.getBaseConfig();
+  const mergedConfig = utils.deepMergeObjects({}, currentConfig, incomingConfig);
+  return stripBaseMatches(mergedConfig, baseConfig) || {};
+}
+
 function isAdminScope(ctx) {
   return tenantManager.isDefaultTenant(ctx);
 }
@@ -134,4 +211,4 @@ function getScopedBaseConfig(ctx) {
   return baseConfig;
 }
 
-module.exports = {validateScoped, getScopedConfig, getScopedBaseConfig, filterAdmin};
+module.exports = {validateScoped, getScopedConfig, getScopedBaseConfig, filterAdmin, getDiffFromBase};
