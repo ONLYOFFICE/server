@@ -34,6 +34,7 @@
 const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 const addErrors = require('ajv-errors');
+const config = require('config');
 const logger = require('../../../../../Common/sources/logger');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const moduleReloader = require('../../../../../Common/sources/moduleReloader');
@@ -55,11 +56,11 @@ function registerAjvExtras(instance) {
 
 /**
  * Creates and configures an AJV instance.
- * @param {Object} config - AJV configuration
+ * @param {Object} ajvConfig - AJV configuration
  * @returns {Ajv.default}
  */
-function createAjvInstance(config) {
-  const instance = new Ajv(config);
+function createAjvInstance(ajvConfig) {
+  const instance = new Ajv(ajvConfig);
   addFormats(instance);
   addErrors(instance);
   registerAjvExtras(instance);
@@ -77,68 +78,22 @@ const validateTenant = ajvValidator.compile(tenantSchema);
 const filterAdmin = ajvFilter.compile(adminSchema);
 const filterTenant = ajvFilter.compile(tenantSchema);
 
-function isPlainObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
 /**
- * Performs a deep equality check between two values.
- * Arrays are compared by serializing to JSON strings.
- * @param {*} lhs - Left-hand value to compare.
- * @param {*} rhs - Right-hand value to compare.
- * @returns {boolean} True when both values are structurally identical.
+ * Recursively removes empty objects from the given object.
+ * @param {*} obj - Object to clean up
+ * @returns {*} Cleaned object with empty nested objects removed
  */
-function isEqual(lhs, rhs) {
-  if (lhs === rhs) {
-    return true;
-  }
-  if (Number.isNaN(lhs) && Number.isNaN(rhs)) {
-    return true;
-  }
-
-  if (Array.isArray(lhs) && Array.isArray(rhs)) {
-    return JSON.stringify(lhs) === JSON.stringify(rhs);
-  }
-
-  if (Array.isArray(lhs) || Array.isArray(rhs)) {
-    return false;
-  }
-  if (isPlainObject(lhs) && isPlainObject(rhs)) {
-    const lhsKeys = Object.keys(lhs);
-    const rhsKeys = Object.keys(rhs);
-    if (lhsKeys.length !== rhsKeys.length) {
-      return false;
-    }
-    return lhsKeys.every(key => isEqual(lhs[key], rhs[key]));
-  }
-  return false;
-}
-
-/**
- * Strips properties from source that match base config values.
- * Arrays are compared as serialized JSON strings.
- * @param {*} source - Source value to filter.
- * @param {*} base - Base value to compare against.
- * @returns {*|undefined} Filtered value or undefined if it matches base.
- */
-function stripBaseMatches(source, base) {
-  if (isEqual(source, base)) {
-    return undefined;
-  }
-
-  if (Array.isArray(source) || !isPlainObject(source)) {
-    return source;
-  }
+function removeEmptyObjects(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
 
   const result = {};
-  Object.keys(source).forEach(key => {
-    const diff = stripBaseMatches(source[key], base ? base[key] : undefined);
-    if (diff !== undefined) {
-      result[key] = diff;
+  for (const [key, value] of Object.entries(obj)) {
+    const cleaned = removeEmptyObjects(value);
+    if (!(cleaned && typeof cleaned === 'object' && !Array.isArray(cleaned) && !Object.keys(cleaned).length)) {
+      result[key] = cleaned;
     }
-  });
-
-  return Object.keys(result).length ? result : undefined;
+  }
+  return result;
 }
 
 /**
@@ -151,7 +106,8 @@ function stripBaseMatches(source, base) {
 function getDiffFromBase(_ctx, currentConfig, incomingConfig) {
   const baseConfig = moduleReloader.getBaseConfig();
   const mergedConfig = utils.deepMergeObjects({}, currentConfig, incomingConfig);
-  return stripBaseMatches(mergedConfig, baseConfig) || {};
+  const diff = config.util.diffDeep(baseConfig, mergedConfig);
+  return removeEmptyObjects(diff);
 }
 
 function isAdminScope(ctx) {
