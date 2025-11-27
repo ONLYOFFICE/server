@@ -4,7 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, validateScoped} = require('./config.service');
+const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
@@ -40,6 +40,21 @@ router.get('/schema', validateJWT, async (_req, res) => {
   res.json(supersetSchema);
 });
 
+router.get('/baseconfig', validateJWT, async (req, res) => {
+  const ctx = req.ctx;
+  try {
+    ctx.logger.info('baseconfig get start');
+    const scopedBaseConfig = getScopedBaseConfig(ctx);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(scopedBaseConfig);
+  } catch (error) {
+    ctx.logger.error('Baseconfig get error: %s', error.stack);
+    res.status(500).json({error: 'Internal server error'});
+  } finally {
+    ctx.logger.info('baseconfig get end');
+  }
+});
+
 router.patch('/', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
@@ -53,15 +68,23 @@ router.patch('/', validateJWT, rawFileParser, async (req, res) => {
         errorsText: validationResult.errorsText
       });
     }
+
+    let currentConfig;
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-      await tenantManager.setTenantConfig(ctx, validationResult.value);
+      currentConfig = await tenantManager.getTenantConfig(ctx);
     } else {
-      await runtimeConfigManager.saveConfig(ctx, validationResult.value);
+      currentConfig = await runtimeConfigManager.getConfig(ctx);
+    }
+    const diffConfig = getDiffFromBase(ctx, currentConfig, validationResult.value);
+
+    if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
+      await tenantManager.setTenantConfig(ctx, diffConfig);
+    } else {
+      await runtimeConfigManager.replaceConfig(ctx, diffConfig);
     }
     const filteredConfig = getScopedConfig(ctx);
-    const newConfig = await runtimeConfigManager.getConfig(ctx);
 
-    res.status(200).json(utils.deepMergeObjects(filteredConfig, newConfig));
+    res.status(200).json(utils.deepMergeObjects(filteredConfig, validationResult.value));
   } catch (error) {
     ctx.logger.error('Configuration save error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});
@@ -124,8 +147,11 @@ router.post('/reset', validateJWT, rawFileParser, async (req, res) => {
       await runtimeConfigManager.replaceConfig(ctx, resetConfig);
     }
 
-    ctx.logger.info('Configuration reset successfully');
-    res.status(200).json({message: 'Configuration reset successfully'});
+    delete resetConfig.adminPanel;
+    ctx.logger.info('Configuration reset successfully for paths: %j', paths);
+    const filteredMergedConfig = getScopedBaseConfig(ctx);
+
+    res.status(200).json(utils.deepMergeObjects({}, filteredMergedConfig, resetConfig));
   } catch (error) {
     ctx.logger.error('Configuration reset error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});

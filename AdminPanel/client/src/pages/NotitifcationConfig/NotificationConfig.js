@@ -1,6 +1,6 @@
 import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig, selectBaseConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
@@ -9,7 +9,7 @@ import PageDescription from '../../components/PageDescription/PageDescription';
 import Tabs from '../../components/Tabs/Tabs';
 import Input from '../../components/Input/Input';
 import Checkbox from '../../components/Checkbox/Checkbox';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import Section from '../../components/Section/Section';
 import styles from './NotificationConfig.module.scss';
 
@@ -22,6 +22,7 @@ const emailConfigTabs = [
 function EmailConfig() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
+  const baseConfig = useSelector(selectBaseConfig);
   const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
   const [activeTab, setActiveTab] = useState('notifications');
@@ -64,12 +65,44 @@ function EmailConfig() {
     licenseLimitLiveViewerRepeatInterval: 'notification.rules.licenseLimitLiveViewer.policies.repeatInterval'
   };
 
+  const TAB_FIELDS = {
+    notifications: [
+      'licenseExpirationWarningEnable',
+      'licenseExpirationWarningRepeatInterval',
+      'licenseExpirationErrorEnable',
+      'licenseExpirationErrorRepeatInterval',
+      'licenseLimitEditEnable',
+      'licenseLimitEditRepeatInterval',
+      'licenseLimitLiveViewerEnable',
+      'licenseLimitLiveViewerRepeatInterval'
+    ],
+    'smtp-server': ['smtpHost', 'smtpPort', 'smtpUsername', 'smtpPassword'],
+    defaults: ['defaultFromEmail', 'defaultToEmail']
+  };
+
+  const computeHasChanges = (nextSettings = localSettings) => {
+    if (!config) return false;
+
+    return Object.keys(CONFIG_PATHS).some(key => {
+      const currentValue = nextSettings[key];
+      const originalValue = getNestedValue(config, CONFIG_PATHS[key]);
+
+      if (typeof originalValue === 'boolean') {
+        return currentValue !== originalValue;
+      }
+
+      const normalizedCurrent = currentValue === undefined || currentValue === null ? '' : currentValue.toString();
+      const normalizedOriginal = originalValue === undefined || originalValue === null ? '' : originalValue.toString();
+      return normalizedCurrent !== normalizedOriginal;
+    });
+  };
+
   // Reset state and errors to global config
   const resetToGlobalConfig = () => {
     if (config) {
       const settings = {};
       Object.keys(CONFIG_PATHS).forEach(key => {
-        const value = getNestedValue(config, CONFIG_PATHS[key], '');
+        const value = getNestedValue(config, CONFIG_PATHS[key]);
         settings[key] = value;
       });
       setLocalSettings(settings);
@@ -95,41 +128,40 @@ function EmailConfig() {
 
   // Handle field changes
   const handleFieldChange = (field, value) => {
-    setLocalSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
-
-    // Validate fields with schema validation
     if (CONFIG_PATHS[field]) {
       let validationValue = value;
 
-      // Convert port to integer for validation
       if (field === 'smtpPort' && value !== '') {
         validationValue = parseInt(value);
         if (!isNaN(validationValue)) {
           validateField(CONFIG_PATHS[field], validationValue);
         }
-      } else if (typeof value === 'string') {
-        validateField(CONFIG_PATHS[field], value);
-      } else if (typeof value === 'boolean') {
+      } else if (typeof value === 'string' || typeof value === 'boolean') {
         validateField(CONFIG_PATHS[field], value);
       }
     }
 
-    // Check if there are changes
-    const hasFieldChanges = Object.keys(CONFIG_PATHS).some(key => {
-      const currentValue = key === field ? value : localSettings[key];
-      const originalFieldValue = getNestedValue(config, CONFIG_PATHS[key], '');
+    setLocalSettings(prev => {
+      const updatedSettings = {
+        ...prev,
+        [field]: value
+      };
+      setHasChanges(computeHasChanges(updatedSettings));
+      return updatedSettings;
+    });
+  };
 
-      // Handle different data types properly
-      if (typeof originalFieldValue === 'boolean') {
-        return currentValue !== originalFieldValue;
-      }
-      return currentValue.toString() !== originalFieldValue.toString();
+  const resetToBaseConfig = () => {
+    const fieldsToReset = TAB_FIELDS[activeTab];
+    const updatedSettings = {...localSettings};
+
+    fieldsToReset.forEach(key => {
+      updatedSettings[key] = getNestedValue(baseConfig, CONFIG_PATHS[key]);
+      clearFieldError(CONFIG_PATHS[key]);
     });
 
-    setHasChanges(hasFieldChanges);
+    setLocalSettings(updatedSettings);
+    setHasChanges(computeHasChanges(updatedSettings));
   };
 
   // Handle save
@@ -144,7 +176,7 @@ function EmailConfig() {
 
       // Convert port to integer
       if (key === 'smtpPort') {
-        value = value ? parseInt(value) : 587;
+        value = parseInt(value);
       }
 
       configUpdate[path] = value;
@@ -340,9 +372,19 @@ function EmailConfig() {
         {renderTabContent()}
       </Tabs>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset',
+            onClick: resetToBaseConfig
+          }
+        ]}
+      />
     </div>
   );
 }

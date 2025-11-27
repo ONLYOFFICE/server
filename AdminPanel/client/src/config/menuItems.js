@@ -3,7 +3,6 @@ import Expiration from '../pages/Expiration/Expiration';
 import SecuritySettings from '../pages/SecuritySettings/SecuritySettings';
 import EmailConfig from '../pages/NotitifcationConfig/NotificationConfig';
 import FileLimits from '../pages/FileLimits/FileLimits';
-import RequestFiltering from '../pages/RequestFiltering/RequestFiltering';
 import LoggerConfig from '../pages/LoggerConfig/LoggerConfig';
 import Statistics from '../pages/Statistics';
 import ChangePassword from '../pages/ChangePassword/ChangePassword';
@@ -20,7 +19,6 @@ export const menuItems = [
   {key: 'file-limits', label: 'File Limits', path: '/file-limits', component: FileLimits, iconIndex: 4},
   {key: 'ip-filtering', label: 'IP Filtering', path: '/ip-filtering', component: SecuritySettings, iconIndex: 5},
   {key: 'expiration', label: 'Expiration', path: '/expiration', component: Expiration, iconIndex: 6},
-  {key: 'request-filtering', label: 'Request Filtering', path: '/request-filtering', component: RequestFiltering, iconIndex: 7},
   {key: 'wopi-settings', label: 'WOPI Settings', path: '/wopi-settings', component: WOPISettings, iconIndex: 8},
   {key: 'notifications', label: 'Notifications', path: '/notifications', component: EmailConfig, iconIndex: 9},
   {key: 'logger-config', label: 'Logger Config', path: '/logger-config', component: LoggerConfig, iconIndex: 10},
