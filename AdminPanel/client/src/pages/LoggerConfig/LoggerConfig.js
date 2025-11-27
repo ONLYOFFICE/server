@@ -1,13 +1,13 @@
 import {useState, useRef} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig, selectBaseConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Select from '../../components/Select/Select';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import Section from '../../components/Section/Section';
 import styles from './LoggerConfig.module.scss';
 
@@ -25,6 +25,7 @@ const LOG_LEVELS = [
 function LoggerConfig() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
+  const baseConfig = useSelector(selectBaseConfig);
   const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
   // Local state for form fields
@@ -39,19 +40,34 @@ function LoggerConfig() {
     logLevel: 'log.options.categories.default.level'
   };
 
+  const computeHasChanges = (nextSettings = localSettings) => {
+    if (!config) return false;
+    return Object.keys(CONFIG_PATHS).some(key => {
+      const currentValue = nextSettings[key];
+      const originalValue = getNestedValue(config, CONFIG_PATHS[key]);
+      return currentValue !== originalValue;
+    });
+  };
+
   // Reset state and errors to global config
   const resetToGlobalConfig = () => {
     if (config) {
       const settings = {
-        logLevel: getNestedValue(config, CONFIG_PATHS.logLevel, 'INFO')
+        logLevel: getNestedValue(config, CONFIG_PATHS.logLevel)
       };
       setLocalSettings(settings);
       setHasChanges(false);
-      // Clear validation errors for all fields
       Object.values(CONFIG_PATHS).forEach(path => {
         clearFieldError(path);
       });
     }
+  };
+
+  const resetToBaseConfig = () => {
+    const baseValue = getNestedValue(baseConfig, CONFIG_PATHS.logLevel);
+    setLocalSettings({logLevel: baseValue});
+    clearFieldError(CONFIG_PATHS.logLevel);
+    setHasChanges(computeHasChanges({logLevel: baseValue}));
   };
 
   // Initialize settings from config when component loads (only once)
@@ -62,25 +78,18 @@ function LoggerConfig() {
 
   // Handle field changes
   const handleFieldChange = (field, value) => {
-    setLocalSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
-
-    // Validate fields with schema validation
     if (CONFIG_PATHS[field]) {
       validateField(CONFIG_PATHS[field], value);
     }
 
-    // Check if there are changes
-    const hasFieldChanges = Object.keys(CONFIG_PATHS).some(key => {
-      const currentValue = key === field ? value : localSettings[key];
-      const originalFieldValue = getNestedValue(config, CONFIG_PATHS[key], 'INFO');
-
-      return currentValue.toString() !== originalFieldValue.toString();
+    setLocalSettings(prev => {
+      const updatedSettings = {
+        ...prev,
+        [field]: value
+      };
+      setHasChanges(computeHasChanges(updatedSettings));
+      return updatedSettings;
     });
-
-    setHasChanges(hasFieldChanges);
   };
 
   // Handle save
@@ -121,9 +130,19 @@ function LoggerConfig() {
         </div>
       </Section>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset',
+            onClick: resetToBaseConfig
+          }
+        ]}
+      />
     </div>
   );
 }

@@ -1,20 +1,21 @@
 import {useState, useEffect} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {saveConfig, selectConfig, selectBaseConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import {useFieldValidation} from '../../hooks/useFieldValidation';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Input from '../../components/Input/Input';
-import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
+import FixedSaveButtonGroup from '../../components/FixedSaveButtonGroup/FixedSaveButtonGroup';
 import Section from '../../components/Section/Section';
 import styles from './FileLimits.module.scss';
 
 function FileLimits() {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
-  const {validateField, getFieldError, hasValidationErrors} = useFieldValidation();
+  const baseConfig = useSelector(selectBaseConfig);
+  const {validateField, getFieldError, hasValidationErrors, clearFieldError} = useFieldValidation();
 
   // Local state for form fields
   const [localSettings, setLocalSettings] = useState({
@@ -35,16 +36,46 @@ function FileLimits() {
     vsdxUncompressed: 'FileConverter.converter.inputLimits.3.zip.uncompressed'
   };
 
+  const computeHasChanges = (nextSettings = localSettings) => {
+    if (!config) return false;
+
+    return Object.keys(nextSettings).some(key => {
+      const currentValue = nextSettings[key];
+      let originalValue;
+
+      if (key === 'maxDownloadBytes') {
+        originalValue = getNestedValue(config, 'FileConverter.converter.maxDownloadBytes');
+      } else {
+        const inputLimits = getNestedValue(config, 'FileConverter.converter.inputLimits');
+        if (key === 'docxUncompressed') {
+          const docxLimit = inputLimits.find(limit => limit.type && limit.type.includes('docx'));
+          originalValue = docxLimit?.zip?.uncompressed;
+        } else if (key === 'xlsxUncompressed') {
+          const xlsxLimit = inputLimits.find(limit => limit.type && limit.type.includes('xlsx'));
+          originalValue = xlsxLimit?.zip?.uncompressed;
+        } else if (key === 'pptxUncompressed') {
+          const pptxLimit = inputLimits.find(limit => limit.type && limit.type.includes('pptx'));
+          originalValue = pptxLimit?.zip?.uncompressed;
+        } else if (key === 'vsdxUncompressed') {
+          const vsdxLimit = inputLimits.find(limit => limit.type && limit.type.includes('vsdx'));
+          originalValue = vsdxLimit?.zip?.uncompressed;
+        }
+      }
+
+      return currentValue.toString() !== originalValue.toString();
+    });
+  };
+
   // Load config data when component mounts
   useEffect(() => {
     if (config) {
       const settings = {};
 
       // Get max download bytes
-      settings.maxDownloadBytes = getNestedValue(config, 'FileConverter.converter.maxDownloadBytes', '');
+      settings.maxDownloadBytes = getNestedValue(config, 'FileConverter.converter.maxDownloadBytes');
 
       // Get input limits - need to handle array structure
-      const inputLimits = getNestedValue(config, 'FileConverter.converter.inputLimits', []);
+      const inputLimits = getNestedValue(config, 'FileConverter.converter.inputLimits');
 
       // Find limits by document type
       const docxLimit = inputLimits.find(limit => limit.type && limit.type.includes('docx'));
@@ -77,35 +108,38 @@ function FileLimits() {
       }
     }
 
-    // Check if there are changes
-    const hasFieldChanges = Object.keys(localSettings).some(key => {
-      const currentValue = key === field ? value : localSettings[key];
-      let originalValue;
+    setLocalSettings(prev => {
+      const updatedSettings = {
+        ...prev,
+        [field]: value
+      };
+      setHasChanges(computeHasChanges(updatedSettings));
+      return updatedSettings;
+    });
+  };
 
-      if (key === 'maxDownloadBytes') {
-        originalValue = getNestedValue(config, 'FileConverter.converter.maxDownloadBytes', '');
-      } else {
-        // Handle input limits array structure for comparison
-        const inputLimits = getNestedValue(config, 'FileConverter.converter.inputLimits', []);
-        if (key === 'docxUncompressed') {
-          const docxLimit = inputLimits.find(limit => limit.type && limit.type.includes('docx'));
-          originalValue = docxLimit?.zip?.uncompressed || '';
-        } else if (key === 'xlsxUncompressed') {
-          const xlsxLimit = inputLimits.find(limit => limit.type && limit.type.includes('xlsx'));
-          originalValue = xlsxLimit?.zip?.uncompressed || '';
-        } else if (key === 'pptxUncompressed') {
-          const pptxLimit = inputLimits.find(limit => limit.type && limit.type.includes('pptx'));
-          originalValue = pptxLimit?.zip?.uncompressed || '';
-        } else if (key === 'vsdxUncompressed') {
-          const vsdxLimit = inputLimits.find(limit => limit.type && limit.type.includes('vsdx'));
-          originalValue = vsdxLimit?.zip?.uncompressed || '';
-        }
-      }
+  const resetToBaseConfig = () => {
+    const settings = {};
 
-      return currentValue.toString() !== originalValue.toString();
+    settings.maxDownloadBytes = getNestedValue(baseConfig, 'FileConverter.converter.maxDownloadBytes');
+
+    const inputLimits = getNestedValue(baseConfig, 'FileConverter.converter.inputLimits');
+    const docxLimit = inputLimits.find(limit => limit.type && limit.type.includes('docx'));
+    const xlsxLimit = inputLimits.find(limit => limit.type && limit.type.includes('xlsx'));
+    const pptxLimit = inputLimits.find(limit => limit.type && limit.type.includes('pptx'));
+    const vsdxLimit = inputLimits.find(limit => limit.type && limit.type.includes('vsdx'));
+
+    settings.docxUncompressed = docxLimit?.zip?.uncompressed || '';
+    settings.xlsxUncompressed = xlsxLimit?.zip?.uncompressed || '';
+    settings.pptxUncompressed = pptxLimit?.zip?.uncompressed || '';
+    settings.vsdxUncompressed = vsdxLimit?.zip?.uncompressed || '';
+
+    Object.values(CONFIG_PATHS).forEach(path => {
+      clearFieldError(path);
     });
 
-    setHasChanges(hasFieldChanges);
+    setLocalSettings(settings);
+    setHasChanges(computeHasChanges(settings));
   };
 
   // Handle save
@@ -119,7 +153,7 @@ function FileLimits() {
     configUpdate['FileConverter.converter.maxDownloadBytes'] = parseInt(localSettings.maxDownloadBytes);
 
     // Update input limits - we need to preserve the existing structure
-    const currentInputLimits = getNestedValue(config, 'FileConverter.converter.inputLimits', []);
+    const currentInputLimits = getNestedValue(config, 'FileConverter.converter.inputLimits');
     const updatedInputLimits = currentInputLimits.map(limit => {
       if (limit.type && limit.type.includes('docx')) {
         return {
@@ -229,9 +263,19 @@ function FileLimits() {
         </div>
       </Section>
 
-      <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
-        Save Changes
-      </FixedSaveButton>
+      <FixedSaveButtonGroup
+        buttons={[
+          {
+            text: 'Save Changes',
+            onClick: handleSave,
+            disabled: !hasChanges || hasValidationErrors()
+          },
+          {
+            text: 'Reset',
+            onClick: resetToBaseConfig
+          }
+        ]}
+      />
     </div>
   );
 }

@@ -62,7 +62,6 @@ export default function Login() {
               placeholder='Enter your password'
               error={error}
               onKeyDown={handleKeyDown}
-              width='200px'
               isValid={true}
             />
           </div>

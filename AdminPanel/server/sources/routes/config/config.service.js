@@ -34,8 +34,11 @@
 const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 const addErrors = require('ajv-errors');
+const config = require('config');
 const logger = require('../../../../../Common/sources/logger');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
+const moduleReloader = require('../../../../../Common/sources/moduleReloader');
+const utils = require('../../../../../Common/sources/utils');
 const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
 const {deriveSchemaForScope, X_SCOPE_KEYWORD} = require('./config.schema.utils');
 
@@ -53,11 +56,11 @@ function registerAjvExtras(instance) {
 
 /**
  * Creates and configures an AJV instance.
- * @param {Object} config - AJV configuration
+ * @param {Object} ajvConfig - AJV configuration
  * @returns {Ajv.default}
  */
-function createAjvInstance(config) {
-  const instance = new Ajv(config);
+function createAjvInstance(ajvConfig) {
+  const instance = new Ajv(ajvConfig);
   addFormats(instance);
   addErrors(instance);
   registerAjvExtras(instance);
@@ -74,6 +77,38 @@ const validateAdmin = ajvValidator.compile(adminSchema);
 const validateTenant = ajvValidator.compile(tenantSchema);
 const filterAdmin = ajvFilter.compile(adminSchema);
 const filterTenant = ajvFilter.compile(tenantSchema);
+
+/**
+ * Recursively removes empty objects from the given object.
+ * @param {*} obj - Object to clean up
+ * @returns {*} Cleaned object with empty nested objects removed
+ */
+function removeEmptyObjects(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const cleaned = removeEmptyObjects(value);
+    if (!(cleaned && typeof cleaned === 'object' && !Array.isArray(cleaned) && !Object.keys(cleaned).length)) {
+      result[key] = cleaned;
+    }
+  }
+  return result;
+}
+
+/**
+ * Merges current runtime config with incoming config and returns only differences from base config.
+ * @param {operationContext} ctx - Operation context
+ * @param {Object} currentConfig - Current runtime/tenant config
+ * @param {Object} incomingConfig - Incoming config data to merge
+ * @returns {Object} Configuration object containing only values that differ from base config
+ */
+function getDiffFromBase(_ctx, currentConfig, incomingConfig) {
+  const baseConfig = moduleReloader.getBaseConfig();
+  const mergedConfig = utils.deepMergeObjects({}, currentConfig, incomingConfig);
+  const diff = config.util.diffDeep(baseConfig, mergedConfig);
+  return removeEmptyObjects(diff);
+}
 
 function isAdminScope(ctx) {
   return tenantManager.isDefaultTenant(ctx);
@@ -114,4 +149,22 @@ function getScopedConfig(ctx) {
   return configCopy;
 }
 
-module.exports = {validateScoped, getScopedConfig};
+/**
+ * Filters base configuration to include only fields defined in the appropriate schema
+ * @param {operationContext} ctx - Operation context
+ * @returns {Object} Filtered base configuration object
+ */
+function getScopedBaseConfig(ctx) {
+  const baseConfig = utils.deepMergeObjects({}, moduleReloader.getBaseConfig());
+
+  if (!baseConfig.log) {
+    baseConfig.log = {};
+  }
+  baseConfig.log.options = logger.getInitialLoggerConfig();
+
+  const filter = isAdminScope(ctx) ? filterAdmin : filterTenant;
+  filter(baseConfig);
+  return baseConfig;
+}
+
+module.exports = {validateScoped, getScopedConfig, getScopedBaseConfig, filterAdmin, getDiffFromBase};
