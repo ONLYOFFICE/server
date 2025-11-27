@@ -4,12 +4,11 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, getScopedBaseConfig, validateScoped, filterAdmin, getDiffFromBase} = require('./config.service');
+const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
 const supersetSchema = require('../../../../../Common/config/schemas/config.schema.json');
-const moduleReloader = require('../../../../../Common/sources/moduleReloader');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -150,10 +149,9 @@ router.post('/reset', validateJWT, rawFileParser, async (req, res) => {
 
     delete resetConfig.adminPanel;
     ctx.logger.info('Configuration reset successfully for paths: %j', paths);
-    const mergedConfig = utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), resetConfig);
-    filterAdmin(mergedConfig);
+    const filteredMergedConfig = getScopedBaseConfig(ctx);
 
-    res.status(200).json(mergedConfig);
+    res.status(200).json(utils.deepMergeObjects({}, filteredMergedConfig, resetConfig));
   } catch (error) {
     ctx.logger.error('Configuration reset error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});
