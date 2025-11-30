@@ -5,7 +5,8 @@ import InfoTable from './InfoTable/index';
 import ModeSwitcher from './ModeSwitcher';
 import MonthlyStatistics from './MonthlyStatistics';
 import styles from './styles.module.css';
-import {fetchStatistics, fetchConfiguration} from '../../api';
+import ComboBox from '../../components/ComboBox/ComboBox';
+import {fetchStatistics, fetchConfiguration, fetchTenants} from '../../api';
 
 // Constants
 const CRITICAL_COLOR = '#ff0000';
@@ -29,9 +30,27 @@ const getCriticalStatus = (remaining, limit) => (remaining > limit * CRITICAL_TH
  * Mirrors branding/info/index.html rendering logic with mode toggling
  */
 export default function Statistics() {
+  const [selectedTenant, setSelectedTenant] = useState('');
+
+  const {
+    data: tenantsData,
+    isLoading: tenantsLoading,
+    error: tenantsError
+  } = useQuery({
+    queryKey: ['tenants'],
+    queryFn: fetchTenants
+  });
+
+  useEffect(() => {
+    if (tenantsData?.baseTenant && !selectedTenant) {
+      setSelectedTenant(tenantsData.baseTenant);
+    }
+  }, [tenantsData, selectedTenant]);
+
   const {data, isLoading, error} = useQuery({
-    queryKey: ['statistics'],
-    queryFn: fetchStatistics
+    queryKey: ['statistics', selectedTenant],
+    queryFn: () => fetchStatistics(selectedTenant),
+    enabled: !!selectedTenant
   });
 
   // Fetch configuration to display DB info
@@ -233,12 +252,35 @@ export default function Statistics() {
   if (error) {
     return <div style={{color: 'red'}}>Error: {error.message}</div>;
   }
-  if (isLoading || !data) {
+  if (tenantsError) {
+    return <div style={{color: 'red'}}>Error: {tenantsError.message}</div>;
+  }
+
+  if (isLoading || !data || !tenantsData || tenantsLoading) {
     return <div>Please, wait...</div>;
   }
 
   return (
     <div>
+      <div className={styles.toolbar}>
+        <div className={styles.tenantGroup}>
+          <label htmlFor='tenant-combobox' className={styles.tenantLabel}>
+            Tenant:
+          </label>
+          <ComboBox
+            id='tenant-combobox'
+            className={styles.tenantSelect}
+            value={selectedTenant}
+            onChange={setSelectedTenant}
+            options={[tenantsData.baseTenant, ...tenantsData.tenants.filter(t => t !== tenantsData.baseTenant)].map(t => ({
+              value: t,
+              label: t
+            }))}
+            placeholder='Select tenant'
+          />
+        </div>
+      </div>
+
       <div className={styles.topRow}>
         {buildBlock}
         {licenseBlock}
