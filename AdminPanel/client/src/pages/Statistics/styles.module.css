@@ -25,3 +25,7 @@
 .current {
   font-weight: 700;
 }
+
+.noteWrapper {
+  margin-top: 24px;
+}

@@ -4,6 +4,7 @@ import TopBlock from './TopBlock/index';
 import InfoTable from './InfoTable/index';
 import ModeSwitcher from './ModeSwitcher';
 import MonthlyStatistics from './MonthlyStatistics';
+import Note from '../../components/Note/Note';
 import styles from './styles.module.css';
 import {fetchStatistics, fetchConfiguration} from '../../api';
 
@@ -237,8 +238,9 @@ export default function Statistics() {
     return <div>Please, wait...</div>;
   }
 
-  return (
-    <div>
+  // Common header blocks
+  const headerBlocks = (
+    <>
       <div className={styles.topRow}>
         {buildBlock}
         {licenseBlock}
@@ -246,16 +248,28 @@ export default function Statistics() {
       </div>
 
       {renderDatabaseBlock(configData?.services?.CoAuthoring?.sql)}
+    </>
+  );
 
-      {!isOpenSource && (
-        <>
-          <ModeSwitcher mode={mode} setMode={setMode} />
+  // Content based on license type
+  const statisticsContent = isOpenSource ? (
+    <div className={styles.noteWrapper}>
+      <Note type='note'>Connection and unique user statistics are only available in the Enterprise Edition or the Developer Edition.</Note>
+    </div>
+  ) : (
+    <>
+      <ModeSwitcher mode={mode} setMode={setMode} />
 
-          {currentTable}
-          {peaksAverage}
-          {isUsersModel && <MonthlyStatistics byMonth={quota?.byMonth} mode={mode} />}
-        </>
-      )}
+      {currentTable}
+      {peaksAverage}
+      {isUsersModel && <MonthlyStatistics byMonth={quota?.byMonth} mode={mode} />}
+    </>
+  );
+
+  return (
+    <div>
+      {headerBlocks}
+      {statisticsContent}
     </div>
   );
 }
