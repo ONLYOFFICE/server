@@ -23,7 +23,7 @@ let settingsButton = null;
 function sendMessageToFrame(iframeId, data) {
   const frame = document.getElementById(iframeId);
   if (frame) {
-    frame.contentWindow.postMessage(JSON.stringify(data), '*');
+    frame.contentWindow.postMessage(JSON.stringify(data), window.location.origin);
   }
 }
 
@@ -32,6 +32,11 @@ function sendMessageToFrame(iframeId, data) {
  * @param {MessageEvent} event - The message event
  */
 function receiveMessage(event) {
+  if (event.origin !== window.location.origin) {
+    console.warn('Rejected postMessage from untrusted origin:', event.origin);
+    return;
+  }
+
   if (typeof event.data !== 'string') {
     return;
   }
