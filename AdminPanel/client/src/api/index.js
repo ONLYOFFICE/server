@@ -22,9 +22,16 @@ const safeFetch = async (url, options = {}) => {
   }
 };
 
-export const fetchStatistics = async () => {
-  const response = await safeFetch(`${API_BASE_PATH}/stat`, {credentials: 'include'});
+export const fetchStatistics = async tenant => {
+  const url = tenant ? `${API_BASE_PATH}/stat?tenant=${encodeURIComponent(tenant)}` : `${API_BASE_PATH}/stat`;
+  const response = await safeFetch(url, {credentials: 'include'});
   if (!response.ok) throw new Error('Failed to fetch statistics');
+  return response.json();
+};
+
+export const fetchTenants = async () => {
+  const response = await safeFetch(`${API_BASE_PATH}/tenants`, {credentials: 'include'});
+  if (!response.ok) throw new Error('Failed to fetch tenants');
   return response.json();
 };
 
