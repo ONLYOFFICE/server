@@ -10,6 +10,8 @@ let showPluginWindowCallback = null;
 let closePluginWindowCallback = null;
 let saveCallback = null;
 let loadInternalProvidersCallback = null;
+let resetAiSettingsCallback = null;
+let resetAiTasksCallback = null;
 
 let settingsButton = null;
 
@@ -473,18 +475,26 @@ function ShowWindow(val) {
   const [iframeId, config] = val;
   const isMain = config.url.includes(mainButtonId);
 
-  if (isMain) {
-    config.buttons = config.buttons.map((button, index) => ({
-      text: 'Save Changes',
+  function getButton(text, resetAction = false, resetAll = false) {
+    return {
+      text,
       onClick: () => {
-        onButtonClick(index, iframeId);
-        if (saveCallback) {
-          saveCallback();
+        onButtonClick(0, iframeId);
+        if (resetAction && resetAiTasksCallback) {
+          resetAiTasksCallback();
+        } else if (resetAll && resetAiSettingsCallback) {
+          resetAiSettingsCallback();
+        } else if (saveCallback) {
+          saveCallback(resetAction, resetAll);
         }
         AddToolbarMenuItem(settingsButton);
       },
       disabled: false
-    }));
+    };
+  }
+
+  if (isMain) {
+    config.buttons = [getButton('Save Changes', false, false), getButton('Reset Tasks', true, false), getButton('Reset All Settings', false, true)];
   } else {
     config.buttons = config.buttons.map((button, index) => ({
       text: button.text,
@@ -557,4 +567,28 @@ function registerLoadInternalProvidersCallback(callback) {
   loadInternalProvidersCallback = callback;
 }
 
-export {initAISettings, registerShowWindowCallback, registerCloseWindowCallback, registerSaveCallback, registerLoadInternalProvidersCallback};
+/**
+ * Registers callback for resetting AI settings
+ * @param {function} callback - Function to call when AI settings should be reset () => void
+ */
+function registerResetAiSettingsCallback(callback) {
+  resetAiSettingsCallback = callback;
+}
+
+/**
+ * Registers callback for resetting AI tasks
+ * @param {function} callback - Function to call when AI tasks should be reset () => void
+ */
+function registerResetAiTasksCallback(callback) {
+  resetAiTasksCallback = callback;
+}
+
+export {
+  initAISettings,
+  registerShowWindowCallback,
+  registerCloseWindowCallback,
+  registerSaveCallback,
+  registerLoadInternalProvidersCallback,
+  registerResetAiSettingsCallback,
+  registerResetAiTasksCallback
+};

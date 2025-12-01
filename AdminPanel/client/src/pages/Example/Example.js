@@ -1,5 +1,6 @@
 import {useState, useEffect, useRef, useCallback} from 'react';
 import {generateDocServerToken} from '../../api';
+import {getBasename, getDocServicePath} from '../../utils/paths';
 
 /**
  * Preview page component with ONLYOFFICE Document Editor
@@ -17,12 +18,18 @@ function Preview(props) {
    */
   const initEditor = useCallback(async () => {
     const userName = user?.email?.split('@')[0] || 'admin';
+    let url = `${getBasename()}/assets/sample.docx`;
+
+    // Add origin only if URL is not absolute (doesn't start with http:// or https://)
+    if (!/^https?:\/\//i.test(url)) {
+      url = window.location.origin + url;
+    }
 
     const document = {
       fileType: 'docx',
       key: '0' + Math.random(),
       title: 'Example Document',
-      url: `${window.location.origin}/${window.location.pathname.split('/')[1].includes('example') ? '' : window.location.pathname.split('/')[1] + '/'}assets/sample.docx`,
+      url,
       permissions: {
         edit: true,
         review: true,
@@ -71,10 +78,7 @@ function Preview(props) {
   useEffect(() => {
     // Load ONLYOFFICE API script
     const script = document.createElement('script');
-    const url = process.env.REACT_APP_DOCSERVICE_URL
-      ? `${process.env.REACT_APP_DOCSERVICE_URL}/web-apps/apps/api/documents/api.js`
-      : '../web-apps/apps/api/documents/api.js';
-    script.src = url;
+    script.src = `${getDocServicePath()}/web-apps/apps/api/documents/api.js`;
     script.async = true;
     script.onload = () => {
       initEditor();

@@ -8,6 +8,7 @@ import Checkbox from '../../components/Checkbox/Checkbox';
 import FixedSaveButton from '../../components/FixedSaveButton/FixedSaveButton';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
+import Section from '../../components/Section/Section';
 import styles from './RequestFiltering.module.scss';
 
 function RequestFiltering() {
@@ -17,14 +18,16 @@ function RequestFiltering() {
 
   const [localSettings, setLocalSettings] = useState({
     allowPrivateIPAddress: false,
-    allowMetaIPAddress: false
+    allowMetaIPAddress: false,
+    useforrequest: false
   });
   const [hasChanges, setHasChanges] = useState(false);
 
   // Configuration paths
   const CONFIG_PATHS = {
     allowPrivateIPAddress: 'services.CoAuthoring.request-filtering-agent.allowPrivateIPAddress',
-    allowMetaIPAddress: 'services.CoAuthoring.request-filtering-agent.allowMetaIPAddress'
+    allowMetaIPAddress: 'services.CoAuthoring.request-filtering-agent.allowMetaIPAddress',
+    useforrequest: 'services.CoAuthoring.ipfilter.useforrequest'
   };
 
   const hasInitialized = useRef(false);
@@ -89,9 +92,16 @@ function RequestFiltering() {
         Configure request filtering settings to control which IP addresses are allowed to make requests to the server.
       </PageDescription>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>IP Address Filtering</h2>
-        <p className={styles.sectionDescription}>Control access based on IP address types to enhance security.</p>
+      <Section title='IP Address Filtering' description='Control access based on IP address types to enhance security.'>
+        <div className={styles.formRow}>
+          <Checkbox
+            label='Use IP filtering for requests'
+            checked={localSettings.useforrequest}
+            onChange={value => handleFieldChange('useforrequest', value)}
+            description='Enable IP filtering for incoming requests. When disabled, rules are ignored.'
+            error={getFieldError(CONFIG_PATHS.useforrequest)}
+          />
+        </div>
 
         <div className={styles.formRow}>
           <Checkbox
@@ -112,7 +122,7 @@ function RequestFiltering() {
             error={getFieldError(CONFIG_PATHS.allowMetaIPAddress)}
           />
         </div>
-      </div>
+      </Section>
 
       <FixedSaveButton onClick={handleSave} disabled={!hasChanges || hasValidationErrors()}>
         Save Changes

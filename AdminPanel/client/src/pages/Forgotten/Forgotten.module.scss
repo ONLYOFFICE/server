@@ -132,37 +132,3 @@
     transform: rotate(360deg);
   }
 }
-
-// Responsive design
-@media (max-width: 768px) {
-  .forgottenPage {
-    // padding: 15px;
-
-    .pageHeader {
-      flex-direction: column;
-      gap: 15px;
-      align-items: flex-start;
-
-      h1 {
-        font-size: 24px;
-      }
-    }
-
-    .filesList {
-      .fileRow {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-
-        .fileName {
-          margin-right: 0;
-          margin-bottom: 8px;
-        }
-
-        .downloadBtn {
-          align-self: flex-end;
-        }
-      }
-    }
-  }
-}

@@ -691,6 +691,54 @@ function getDocumentFormatBySignature(buffer) {
   // Unknown format
   return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
 }
+
+/**
+ * Определяет формат Office документов по ZIP сигнатуре
+ * @param {Buffer} buffer - Буфер с данными файла
+ * @returns {number} Константа формата или AVS_OFFICESTUDIO_FILE_UNKNOWN
+ */
+function getOfficeZipFormatBySignature(buffer) {
+  const length = buffer.length;
+
+  // Check ZIP signature (PK header)
+  if (
+    4 <= length &&
+    0x50 == buffer[0] &&
+    0x4b == buffer[1] &&
+    (0x03 == buffer[2] || 0x05 == buffer[2] || 0x07 == buffer[2]) && // ZIP version markers
+    0x04 == buffer[3]
+  ) {
+    const searchFromEnd = 8192; // Search last 8KB where central directory located
+    const startPos = Math.max(0, length - searchFromEnd);
+
+    // Helper function for direct byte search in ZIP central directory
+    const searchOfficeFile = filename => {
+      const searchBytes = Buffer.from(filename, 'utf8');
+      const searchLen = searchBytes.length;
+      const endPos = Math.max(0, length - searchLen);
+
+      for (let i = endPos; i >= startPos; i--) {
+        let match = true;
+        for (let j = 0; j < searchLen; j++) {
+          if (buffer[i + j] !== searchBytes[j]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) return true;
+      }
+      return false;
+    };
+
+    // Check for Excel files
+    if (searchOfficeFile('xl/workbook.xml')) {
+      return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSX;
+    }
+  }
+
+  return constants.AVS_OFFICESTUDIO_FILE_UNKNOWN;
+}
+
 async function getDocumentFormatByFile(file) {
   const firstBytesLen = 100;
   let buffer;
@@ -710,3 +758,4 @@ async function getDocumentFormatByFile(file) {
 }
 exports.getDocumentFormatBySignature = getDocumentFormatBySignature;
 exports.getDocumentFormatByFile = getDocumentFormatByFile;
+exports.getOfficeZipFormatBySignature = getOfficeZipFormatBySignature;

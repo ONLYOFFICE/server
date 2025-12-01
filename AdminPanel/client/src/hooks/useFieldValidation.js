@@ -2,38 +2,44 @@ import {useState, useEffect, useCallback} from 'react';
 import {useSelector} from 'react-redux';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import {selectSchema, selectSchemaLoading, selectSchemaError} from '../store/slices/configSlice';
-
-// Cron expression with 6 space-separated fields (server-compatible)
-const CRON6_REGEX = /^\s*\S+(?:\s+\S+){5}\s*$/;
+import addErrors from 'ajv-errors';
+import {selectSchema, selectPasswordSchema, selectSchemaLoading, selectSchemaError} from '../store/slices/configSlice';
 
 /**
  * Hook for field validation using backend schema
+ * Uses passwordSchema (minimal) for Setup page, or schema (full) for admin panel
  * @returns {Object} { validateField, getFieldError, isLoading, error }
  */
 export const useFieldValidation = () => {
   const [validator, setValidator] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [cachedSchema, setCachedSchema] = useState(null);
 
-  const schema = useSelector(selectSchema);
+  const fullSchema = useSelector(selectSchema);
+  const passwordSchema = useSelector(selectPasswordSchema);
   const isLoading = useSelector(selectSchemaLoading);
   const error = useSelector(selectSchemaError);
 
+  // Prefer fullSchema (admin panel) over passwordSchema (Setup page)
+  const schema = fullSchema || passwordSchema;
+
   useEffect(() => {
-    if (schema && !validator) {
+    // Only recreate validator if schema actually changed
+    if (schema && schema !== cachedSchema) {
       try {
         // Build AJV validator with custom and standard formats
         const ajv = new Ajv({allErrors: true, strict: false});
         addFormats(ajv); // Add standard formats including email
-        ajv.addFormat('cron6', CRON6_REGEX); // Add custom cron6 format
+        addErrors(ajv);
 
         const validateFn = ajv.compile(schema);
         setValidator(() => validateFn);
+        setCachedSchema(schema);
       } catch (err) {
         console.error('Failed to initialize field validator:', err);
       }
     }
-  }, [schema, validator]);
+  }, [schema, cachedSchema]);
 
   /**
    * Validates a single field value against the schema

@@ -1,5 +1,6 @@
 import {resetConfiguration} from '../../api';
-import SaveButton from '../../components/SaveButton/SaveButton';
+import Button from '../../components/Button/Button';
+import Section from '../../components/Section/Section';
 import './Settings.scss';
 
 const Settings = () => {
@@ -17,18 +18,13 @@ const Settings = () => {
         <h1>Settings</h1>
       </div>
 
-      <div className='settings-content'>
-        <div className='settings-section'>
-          <div className='settings-item'>
-            <div className='settings-info'>
-              <h3>Reset Configuration</h3>
-              <p>This will reset all configuration settings to their default values. This action cannot be undone.</p>
-            </div>
-            <div className='settings-actions'>
-              <SaveButton onClick={handleResetConfig}>Reset</SaveButton>
-            </div>
-          </div>
-        </div>
+      <div className='settings-content' title='Settings'>
+        <Section
+          title='Reset Configuration'
+          description='This will reset all configuration settings to their default values. This action cannot be undone.'
+        >
+          <Button onClick={handleResetConfig}>Reset</Button>
+        </Section>
       </div>
     </div>
   );

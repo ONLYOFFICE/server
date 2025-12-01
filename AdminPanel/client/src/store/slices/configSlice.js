@@ -1,5 +1,5 @@
 import {createSlice, createAsyncThunk} from '@reduxjs/toolkit';
-import {fetchConfiguration, fetchConfigurationSchema, updateConfiguration, rotateWopiKeys} from '../../api';
+import {fetchConfiguration, fetchConfigurationSchema, updateConfiguration, rotateWopiKeys, resetConfiguration} from '../../api';
 
 export const fetchConfig = createAsyncThunk('config/fetchConfig', async (_, {rejectWithValue}) => {
   try {
@@ -37,9 +37,19 @@ export const rotateWopiKeysAction = createAsyncThunk('config/rotateWopiKeys', as
   }
 });
 
+export const resetConfig = createAsyncThunk('config/resetConfig', async (paths, {rejectWithValue}) => {
+  try {
+    const newConfig = await resetConfiguration(paths);
+    return newConfig;
+  } catch (error) {
+    return rejectWithValue(error.message);
+  }
+});
+
 const initialState = {
   config: null,
-  schema: null,
+  schema: null, // Full schema for admin panel
+  passwordSchema: null, // Minimal schema for Setup page password validation
   loading: false,
   schemaLoading: false,
   saving: false,
@@ -64,6 +74,9 @@ const configSlice = createSlice({
     },
     clearError: state => {
       state.error = null;
+    },
+    setPasswordSchema: (state, action) => {
+      state.passwordSchema = action.payload;
     }
   },
   extraReducers: builder => {
@@ -123,15 +136,28 @@ const configSlice = createSlice({
       .addCase(rotateWopiKeysAction.rejected, (state, action) => {
         state.saving = false;
         state.error = action.payload;
+      })
+      .addCase(resetConfig.pending, state => {
+        state.saving = true;
+        state.error = null;
+      })
+      .addCase(resetConfig.fulfilled, state => {
+        state.saving = false;
+        state.error = null;
+      })
+      .addCase(resetConfig.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
       });
   }
 });
 
-export const {updateLocalConfig, clearConfig, clearError} = configSlice.actions;
+export const {updateLocalConfig, clearConfig, clearError, setPasswordSchema} = configSlice.actions;
 
 // Selectors
 export const selectConfig = state => state.config.config;
 export const selectSchema = state => state.config.schema;
+export const selectPasswordSchema = state => state.config.passwordSchema;
 export const selectConfigLoading = state => state.config.loading;
 export const selectSchemaLoading = state => state.config.schemaLoading;
 export const selectConfigSaving = state => state.config.saving;

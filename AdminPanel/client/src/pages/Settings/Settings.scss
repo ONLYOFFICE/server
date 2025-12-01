@@ -118,31 +118,3 @@
     }
   }
 }
-
-// Responsive design
-@media (max-width: 768px) {
-  .settings-page {
-    padding: 15px;
-
-    .page-header h1 {
-      font-size: 24px;
-    }
-
-    .settings-content {
-      .settings-section {
-        .settings-item {
-          flex-direction: column;
-          gap: 15px;
-
-          .settings-actions {
-            width: 100%;
-
-            .reset-btn {
-              width: 100%;
-            }
-          }
-        }
-      }
-    }
-  }
-}

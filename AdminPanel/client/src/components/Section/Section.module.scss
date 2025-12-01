@@ -1,0 +1,38 @@
+.section {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 32px;
+}
+
+.header {
+  padding: 24px 32px 0 32px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333333;
+  margin: 0;
+}
+
+.description {
+  font-size: 14px;
+  color: #666666;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.content {
+  padding: 24px 32px;
+}
+
+@media (max-width: 767px) {
+  .header {
+    padding: 12px 16px 0 16px;
+  }
+
+  .content {
+    padding: 12px 16px;
+  }
+}

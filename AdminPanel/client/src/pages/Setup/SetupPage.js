@@ -2,8 +2,11 @@ import {useState, useRef} from 'react';
 import {useDispatch} from 'react-redux';
 import {setupAdminPassword} from '../../api';
 import {fetchUser} from '../../store/slices/userSlice';
-import Input from '../../components/LoginInput';
-import Button from '../../components/LoginButton';
+import Input from '../../components/Input/Input';
+import Button from '../../components/Button/Button';
+import PasswordInput from '../../components/PasswordInput/PasswordInput';
+import PasswordInputWithRequirements from '../../components/PasswordInputWithRequirements/PasswordInputWithRequirements';
+import {usePasswordValidation} from '../../utils/passwordValidation';
 import styles from './styles.module.css';
 
 export default function Setup() {
@@ -14,34 +17,28 @@ export default function Setup() {
   const dispatch = useDispatch();
   const buttonRef = useRef();
 
+  const {isValid: passwordIsValid, isLoading} = usePasswordValidation(password);
+
+  // Check if form can be submitted
+  const canSubmit = () => {
+    if (!bootstrapToken.trim() || !password || !confirmPassword || isLoading) {
+      return false;
+    }
+
+    // Check if password meets all requirements using hook
+    if (!passwordIsValid) {
+      return false;
+    }
+
+    if (password !== confirmPassword) {
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async () => {
     setErrors({});
-
-    // Validate all fields
-    const newErrors = {};
-
-    if (!bootstrapToken.trim()) {
-      newErrors.bootstrapToken = 'Bootstrap token is required';
-    }
-
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length > 128) {
-      newErrors.password = 'Password must not exceed 128 characters';
-    }
-
-    if (!confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    // If there are validation errors, show them
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      throw new Error('Validation failed');
-    }
-
     try {
       await setupAdminPassword({bootstrapToken, password});
       // Wait for cookie to be set and verify authentication works
@@ -80,37 +77,38 @@ export default function Setup() {
               value={bootstrapToken}
               onChange={setBootstrapToken}
               placeholder='Enter bootstrap token'
-              description='Get token from server startup logs'
               error={errors.bootstrapToken}
               onKeyDown={handleKeyDown}
             />
           </div>
 
           <div className={styles.inputGroup}>
-            <Input
+            <PasswordInputWithRequirements
               type='password'
               value={password}
               onChange={setPassword}
               placeholder='Enter your password'
-              description='Any non-empty password, maximum 128 characters'
               error={errors.password}
               onKeyDown={handleKeyDown}
             />
           </div>
 
           <div className={styles.inputGroup}>
-            <Input
+            <PasswordInput
               type='password'
               value={confirmPassword}
               onChange={setConfirmPassword}
               placeholder='Confirm your password'
-              description='Re-enter your password'
               error={errors.confirmPassword}
               onKeyDown={handleKeyDown}
+              isValid={true}
             />
+            <div className={styles.passwordMismatch}>
+              {password && confirmPassword && password !== confirmPassword && passwordIsValid && "Passwords don't match"}
+            </div>
           </div>
 
-          <Button ref={buttonRef} onClick={handleSubmit} errorText='FAILED'>
+          <Button ref={buttonRef} onClick={handleSubmit} errorText='FAILED' disabled={!canSubmit()}>
             SETUP
           </Button>
         </div>
