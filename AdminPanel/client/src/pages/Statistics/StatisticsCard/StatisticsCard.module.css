@@ -1,0 +1,33 @@
+.card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 32px;
+  margin: 0;
+  overflow: hidden;
+}
+
+.connections-card {
+  padding-bottom: 8px;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 150%;
+  color: #333333;
+  margin: 0;
+  text-align: left;
+}
+
+.description {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 150%;
+  color: #666666;
+  margin: 0 0 32px 0;
+  text-align: left;
+}

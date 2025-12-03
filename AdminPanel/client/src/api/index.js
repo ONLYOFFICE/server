@@ -22,9 +22,16 @@ const safeFetch = async (url, options = {}) => {
   }
 };
 
-export const fetchStatistics = async () => {
-  const response = await safeFetch(`${API_BASE_PATH}/stat`, {credentials: 'include'});
+export const fetchStatistics = async tenant => {
+  const url = tenant ? `${API_BASE_PATH}/stat?tenant=${encodeURIComponent(tenant)}` : `${API_BASE_PATH}/stat`;
+  const response = await safeFetch(url, {credentials: 'include'});
   if (!response.ok) throw new Error('Failed to fetch statistics');
+  return response.json();
+};
+
+export const fetchTenants = async () => {
+  const response = await safeFetch(`${API_BASE_PATH}/tenants`, {credentials: 'include'});
+  if (!response.ok) throw new Error('Failed to fetch tenants');
   return response.json();
 };
 
@@ -258,4 +265,32 @@ export const getForgotten = async docId => {
     url: result.url,
     name: docId.split('/').pop() || docId
   };
+};
+
+/**
+ * Convert HTML to PDF using the FileConverter service
+ * @param {string} htmlContent - HTML content to convert
+ * @returns {Promise<Blob>} PDF blob
+ */
+export const convertHtmlToPdf = async htmlContent => {
+  // Create a Blob from HTML content
+  const htmlBlob = new Blob([htmlContent], {type: 'text/html'});
+  const htmlFile = new File([htmlBlob], 'statistics.html', {type: 'text/html'});
+
+  // Create FormData
+  const formData = new FormData();
+  formData.append('file', htmlFile);
+  formData.append('format', 'pdf');
+
+  const response = await safeFetch(`${DOCSERVICE_URL}/lool/convert-to/pdf`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to convert HTML to PDF');
+  }
+
+  return await response.blob();
 };

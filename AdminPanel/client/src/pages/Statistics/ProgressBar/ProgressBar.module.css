@@ -1,0 +1,58 @@
+.container {
+  margin-bottom: 24px;
+}
+
+.labelTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+.labelCell {
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 130%;
+  color: #444444;
+  padding: 0;
+}
+
+.valueCell {
+  color: #333333;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 130%;
+  text-align: right;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.infoIcon {
+  position: relative;
+  display: inline-block;
+  margin-left: 4px;
+  cursor: help;
+  vertical-align: middle;
+}
+
+.infoIcon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.barContainer {
+  width: 100%;
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.barFill {
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 8px;
+}
