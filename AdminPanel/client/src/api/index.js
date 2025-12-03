@@ -266,3 +266,31 @@ export const getForgotten = async docId => {
     name: docId.split('/').pop() || docId
   };
 };
+
+/**
+ * Convert HTML to PDF using the FileConverter service
+ * @param {string} htmlContent - HTML content to convert
+ * @returns {Promise<Blob>} PDF blob
+ */
+export const convertHtmlToPdf = async htmlContent => {
+  // Create a Blob from HTML content
+  const htmlBlob = new Blob([htmlContent], {type: 'text/html'});
+  const htmlFile = new File([htmlBlob], 'statistics.html', {type: 'text/html'});
+
+  // Create FormData
+  const formData = new FormData();
+  formData.append('file', htmlFile);
+  formData.append('format', 'pdf');
+
+  const response = await safeFetch(`${DOCSERVICE_URL}/lool/convert-to/pdf`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to convert HTML to PDF');
+  }
+
+  return await response.blob();
+};

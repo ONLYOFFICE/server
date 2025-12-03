@@ -1,0 +1,45 @@
+.container {
+  margin-bottom: 24px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.titleCell {
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 130%;
+  color: #444444;
+  padding: 0;
+  vertical-align: top;
+}
+
+.countCell {
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 130%;
+  text-align: right;
+  padding: 0;
+  vertical-align: top;
+}
+
+.descriptionCell {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 150%;
+  color: #666666;
+  padding: 0;
+  padding-top: 4px;
+}
+
+.labelCell {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 150%;
+  color: #666666;
+  text-align: right;
+  padding: 0;
+  padding-top: 4px;
+}
