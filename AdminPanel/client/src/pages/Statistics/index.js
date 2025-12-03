@@ -3,12 +3,13 @@ import {useQuery} from '@tanstack/react-query';
 import Tabs from '../../components/Tabs/Tabs';
 import styles from './styles.module.css';
 import ComboBox from '../../components/ComboBox/ComboBox';
-import {fetchTenants, fetchStatistics, convertHtmlToPdf} from '../../api';
+import {fetchTenants, convertHtmlToPdf} from '../../api';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Button from '../../components/Button/Button';
 import {generateStatisticsHtml} from './generateStatisticsHtml';
 import StatisticsContent from './StatisticsContent/StatisticsContent';
+import {MOCK_STATISTICS_DATA} from './mockStatisticsData';
 
 const statisticsTabs = [
   {key: 'all', label: 'ALL'},
@@ -40,11 +41,8 @@ export default function Statistics() {
     }
   }, [tenantsData, selectedTenant]);
 
-  const {data, isLoading, error} = useQuery({
-    queryKey: ['statistics', selectedTenant],
-    queryFn: () => fetchStatistics(selectedTenant),
-    enabled: !!selectedTenant
-  });
+  // Use mock data instead of API data
+  const data = MOCK_STATISTICS_DATA;
 
   const [mode, setMode] = useState(() => {
     try {
@@ -93,14 +91,11 @@ export default function Statistics() {
   // Use React components for browser display instead of HTML string
   // generateStatisticsHtml is now only used for PDF generation
 
-  // Show loading/error states
-  if (error) {
-    return <div style={{color: 'red'}}>Error: {error.message}</div>;
-  }
+  // Show loading/error states (only for tenants, not statistics since we use mock data)
   if (tenantsError) {
     return <div style={{color: 'red'}}>Error: {tenantsError.message}</div>;
   }
-  if (isLoading || !data || !tenantsData || tenantsLoading) {
+  if (!tenantsData || tenantsLoading) {
     return <div>Please, wait...</div>;
   }
 
@@ -108,35 +103,32 @@ export default function Statistics() {
     <div>
       <PageHeader>Statistics</PageHeader>
       <PageDescription>Real-time connection and session metrics</PageDescription>
-      {isOpenSource && <div>Statistics are not available for open source version</div>}
-      {tenantsData && !isOpenSource && (
-        <>
-          <div className={styles.tenantGroup}>
-            <label htmlFor='tenant-combobox' className={styles.tenantLabel}>
-              Tenant:
-            </label>
-            <ComboBox
-              id='tenant-combobox'
-              className={styles.tenantSelect}
-              value={selectedTenant}
-              onChange={setSelectedTenant}
-              options={[tenantsData.baseTenant, ...tenantsData.tenants.filter(t => t !== tenantsData.baseTenant)].map(t => ({
-                value: t,
-                label: t
-              }))}
-              placeholder='Select tenant'
-            />
-          </div>
-          <Tabs tabs={statisticsTabs} activeTab={mode} onTabChange={setMode} />
-          <h2 className={styles.title}>Current connections</h2>
-          <p className={styles.description}>Real-time active sessions and remaining capacity before limit.</p>
-          <StatisticsContent data={data} mode={mode} />
-          <div className={styles.spacer} />
-          <Button onClick={handleDownloadPdf} disableResult={true} className={styles.buttonNoWidth}>
-            Download Report
-          </Button>
-        </>
+      {tenantsData && (
+        <div className={styles.tenantGroup}>
+          <label htmlFor='tenant-combobox' className={styles.tenantLabel}>
+            Tenant:
+          </label>
+          <ComboBox
+            id='tenant-combobox'
+            className={styles.tenantSelect}
+            value={selectedTenant}
+            onChange={setSelectedTenant}
+            options={[tenantsData.baseTenant, ...tenantsData.tenants.filter(t => t !== tenantsData.baseTenant)].map(t => ({
+              value: t,
+              label: t
+            }))}
+            placeholder='Select tenant'
+          />
+        </div>
       )}
+      <Tabs tabs={statisticsTabs} activeTab={mode} onTabChange={setMode} />
+      <h2 className={styles.title}>Current connections</h2>
+      <p className={styles.description}>Real-time active sessions and remaining capacity before limit.</p>
+      <StatisticsContent data={data} mode={mode} />
+      <div className={styles.spacer} />
+      <Button onClick={handleDownloadPdf} disableResult={true} className={styles.buttonNoWidth}>
+        Download Report
+      </Button>
     </div>
   );
 }
