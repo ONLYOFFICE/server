@@ -27,8 +27,8 @@ function AppContent() {
             <ScrollToTop />
             <ConfigLoader>
               <Routes>
-                <Route path='/' element={<Navigate to='/statistics' replace />} />
-                <Route path='/index.html' element={<Navigate to='/statistics' replace />} />
+                <Route path='/' element={<Navigate to='/dashboard' replace />} />
+                <Route path='/index.html' element={<Navigate to='/dashboard' replace />} />
                 {menuItems.map(item => (
                   <Route key={item.key} path={item.path} element={<item.component />} />
                 ))}

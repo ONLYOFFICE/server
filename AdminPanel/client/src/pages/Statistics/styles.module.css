@@ -10,6 +10,29 @@
     gap: 12px;
   }
 }
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  margin-left: 10px;
+}
+
+.tenantGroup {
+  display: flex;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.tenantLabel {
+  margin-right: 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.tenantSelect {
+  width: 400px;
+}
 
 .modeBar {
   margin: 8px 0 16px;
@@ -26,6 +49,33 @@
   font-weight: 700;
 }
 
-.noteWrapper {
-  margin-top: 24px;
+.title {
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 150%;
+  color: #333333;
+  margin-bottom: 4px;
+}
+.description {
+  margin-top: 0;
+  font-weight: 600;
+  font-size: 16px;
+  color: #666666;
+  line-height: 150%;
+  margin-bottom: 32px;
+}
+
+.buttonNoWidth {
+  width: auto !important;
+  min-width: 154px;
+}
+
+/* .spacer {
+  margin-bottom: 56px;
+} */
+
+@media (max-width: 1160px) {
+  .spacer {
+    margin-bottom: 56px;
+  }
 }
