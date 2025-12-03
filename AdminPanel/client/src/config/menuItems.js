@@ -1,3 +1,4 @@
+import Dashboard from '../pages/Dashboard/Dashboard';
 import WOPISettings from '../pages/WOPISettings/WOPISettings';
 import Expiration from '../pages/Expiration/Expiration';
 import SecuritySettings from '../pages/SecuritySettings/SecuritySettings';
@@ -13,6 +14,7 @@ import Example from '../pages/Example/Example';
 import Forgotten from '../pages/Forgotten/Forgotten';
 
 export const menuItems = [
+  {key: 'dashboard', label: 'Dashboard', path: '/dashboard', component: Dashboard, iconIndex: 0},
   {key: 'statistics', label: 'Statistics', path: '/statistics', component: Statistics, iconIndex: 1},
   {key: 'ai-integration', label: 'AI Integration', path: '/ai-integration', component: AiIntegration, iconIndex: 2},
   {key: 'example', label: 'Example', path: '/example', component: Example, iconIndex: 3},

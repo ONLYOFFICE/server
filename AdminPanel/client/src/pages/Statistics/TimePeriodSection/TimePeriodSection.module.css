@@ -1,0 +1,60 @@
+.timePeriodCard {
+  margin-bottom: 8px;
+}
+
+.timePeriodTitle {
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 130%;
+  color: #444444;
+  margin: 0 0 4px 0;
+}
+
+.timePeriodDescription {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 150%;
+  color: #666666;
+  margin: 0 0 28px 0;
+}
+
+.valuesContainer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.valueItem {
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+.value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 4px;
+}
+
+.label {
+  font-size: 12px;
+  color: #666666;
+}
+
+.divider {
+  margin-top: 32px;
+  margin-bottom: 32px;
+  border-top: 1px solid #e0e0e0;
+}
+
+@media (max-width: 1160px) {
+  .valuesContainer {
+    display: flex !important;
+    justify-content: space-between !important;
+  }
+
+  .valueItem {
+    text-align: right !important;
+  }
+}

@@ -1,0 +1,96 @@
+.container {
+  width: 100%;
+}
+
+.connectionsRow {
+  width: 100%;
+  display: flex;
+  margin-bottom: 0;
+}
+
+.connectionsCard {
+  width: 50%;
+  max-width: 50%;
+  box-sizing: border-box;
+  vertical-align: top;
+  min-width: 0;
+  margin-bottom: 56px;
+}
+
+.connectionsCard:first-child {
+  padding-right: 28px;
+}
+
+.connectionsCard:last-child {
+  padding-left: 28px;
+}
+
+/* When only one card, it should take 50% with gap preserved */
+.connectionsCard:only-child {
+  padding-right: 28px;
+  padding-left: 0;
+  margin-bottom: 56px;
+}
+
+/* Remove margin-bottom only from last card in row when there are two cards */
+.connectionsRow .connectionsCard:last-child:not(:only-child),
+.peakAverageRow .peakCard:last-child,
+.peakAverageRow .averageCard:last-child {
+  margin-bottom: 0;
+}
+
+.peakAverageRow {
+  width: 100%;
+  display: flex;
+  margin-bottom: 0;
+}
+
+.peakCard {
+  width: 50%;
+  max-width: 50%;
+  box-sizing: border-box;
+  padding-right: 28px;
+  vertical-align: top;
+  min-width: 0;
+  margin-bottom: 56px;
+}
+
+.averageCard {
+  width: 50%;
+  max-width: 50%;
+  box-sizing: border-box;
+  padding-left: 28px;
+  vertical-align: top;
+  min-width: 0;
+  margin-bottom: 56px;
+}
+
+/* Responsive: stack everything vertically on smaller screens */
+@media (max-width: 1160px) {
+  .connectionsRow,
+  .peakAverageRow {
+    flex-direction: column;
+    margin-bottom: 0;
+  }
+
+  .connectionsCard,
+  .peakCard,
+  .averageCard {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 56px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Override the rule that removes margin from last child in row */
+  .connectionsRow .connectionsCard:last-child,
+  .peakAverageRow .peakCard:last-child {
+    margin-bottom: 56px !important;
+  }
+
+  /* Only the last card in the last row should have no margin */
+  .peakAverageRow .averageCard:last-child {
+    margin-bottom: 0 !important;
+  }
+}
