@@ -2034,15 +2034,30 @@ exports.install = function (server, app, callbackFunction) {
   });
   io.engine.on('connection_error', err => {
     let logger = operationContext.global.logger;
+    let url;
+    let headers = {};
     if (err.req) {
       const ctx = new operationContext.Context();
       // Ensure raw IncomingMessage has Express properties for consistent context init
       utils.expressifyIncomingMessage(err.req, app);
       ctx.initFromConnectionRequest(err.req);
       logger = ctx.logger;
+      url = err.req.url;
+      headers = err.req.headers || {};
     }
-    logger.warn('io.connection_error code=%s, message=%s, url=%s', err?.code, err?.message, err?.req?.url);
+    logger.warn(
+      'io.connection_error code=%s, message=%s, url=%s, x_forwarded_proto=%s, upgrade=%s, connection=%s, sec_websocket_key=%s, sec_websocket_version=%s',
+      err?.code,
+      err?.message,
+      url,
+      headers['x-forwarded-proto'],
+      headers.upgrade,
+      headers.connection,
+      headers['sec-websocket-key'],
+      headers['sec-websocket-version']
+    );
   });
+
   /**
    *
    * @param ctx
