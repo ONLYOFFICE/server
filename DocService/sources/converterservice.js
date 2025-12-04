@@ -335,6 +335,9 @@ function convertRequest(req, res, isJson) {
       if (params.spreadsheetLayout) {
         jsonParams['spreadsheetLayout'] = params.spreadsheetLayout;
       }
+      if (params.pdfLayout) {
+        jsonParams['pdfLayout'] = params.pdfLayout;
+      }
       if (params.watermark) {
         jsonParams['watermark'] = params.watermark;
       }
