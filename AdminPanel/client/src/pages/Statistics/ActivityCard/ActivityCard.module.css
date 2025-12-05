@@ -1,8 +1,8 @@
-.timePeriodCard {
+.tableCard {
   margin-bottom: 8px;
 }
 
-.timePeriodTitle {
+.tableTitle {
   font-weight: 700;
   font-size: 18px;
   line-height: 130%;
@@ -10,7 +10,7 @@
   margin: 0 0 4px 0;
 }
 
-.timePeriodDescription {
+.tableDescription {
   font-weight: 600;
   font-size: 14px;
   line-height: 150%;

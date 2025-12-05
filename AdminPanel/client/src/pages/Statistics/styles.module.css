@@ -69,13 +69,3 @@
   width: auto !important;
   min-width: 154px;
 }
-
-/* .spacer {
-  margin-bottom: 56px;
-} */
-
-@media (max-width: 1160px) {
-  .spacer {
-    margin-bottom: 56px;
-  }
-}

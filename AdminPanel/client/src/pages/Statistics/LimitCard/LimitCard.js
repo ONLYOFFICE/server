@@ -1,4 +1,4 @@
-import StatisticsCard from '../StatisticsCard/StatisticsCard';
+import CardWrapper from '../CardWrapper/CardWrapper';
 import ProgressBar from '../ProgressBar/ProgressBar';
 import MetricRow from '../MetricRow/MetricRow';
 
@@ -12,14 +12,15 @@ const getUsageColor = percent => {
 };
 
 /**
- * ConnectionsCard component for Editors or Live Viewer
+ * LimitCard component for displaying statistics with progress bar and metrics
+ * Used for Editors or Live Viewer to show active, limit, and remaining values
  * @param {Object} props
- * @param {number} props.active - Active connections count
+ * @param {number} props.active - Active count (connections or users)
  * @param {number} props.limit - Maximum limit
- * @param {number} props.remaining - Remaining connections
+ * @param {number} props.remaining - Remaining count
  * @param {string} props.type - 'Editor' or 'Viewer'
  */
-export default function ConnectionsCard({active, limit, remaining, type}) {
+export default function LimitCard({active, limit, remaining, type}) {
   const percent = limit > 0 ? (active / limit) * 100 : 0;
   const color = getUsageColor(percent);
   const remainingColor = getUsageColor(percent); // Use same color logic for remaining
@@ -30,10 +31,10 @@ export default function ConnectionsCard({active, limit, remaining, type}) {
   const remainingDescription = type === 'Editor' ? 'Editor sessions before limit' : 'Viewer sessions before limit';
 
   return (
-    <StatisticsCard title={title} description={description} additionalClass='connections-card'>
+    <CardWrapper title={title} description={description} additionalClass='limit-card'>
       <ProgressBar current={active} limit={limit} percent={percent} color={color} label={type} />
       <MetricRow count={active} description={activeDescription} label='Sessions' title='Active' />
       <MetricRow count={remaining} description={remainingDescription} label='Available' title='Remaining' color={remainingColor} />
-    </StatisticsCard>
+    </CardWrapper>
   );
 }

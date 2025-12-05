@@ -29,14 +29,6 @@
 .connectionsCard:only-child {
   padding-right: 28px;
   padding-left: 0;
-  margin-bottom: 56px;
-}
-
-/* Remove margin-bottom only from last card in row when there are two cards */
-.connectionsRow .connectionsCard:last-child:not(:only-child),
-.peakAverageRow .peakCard:last-child,
-.peakAverageRow .averageCard:last-child {
-  margin-bottom: 0;
 }
 
 .peakAverageRow {
@@ -70,7 +62,6 @@
   .connectionsRow,
   .peakAverageRow {
     flex-direction: column;
-    margin-bottom: 0;
   }
 
   .connectionsCard,
@@ -78,19 +69,7 @@
   .averageCard {
     width: 100% !important;
     max-width: 100% !important;
-    margin-bottom: 56px !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
-  }
-
-  /* Override the rule that removes margin from last child in row */
-  .connectionsRow .connectionsCard:last-child,
-  .peakAverageRow .peakCard:last-child {
-    margin-bottom: 56px !important;
-  }
-
-  /* Only the last card in the last row should have no margin */
-  .peakAverageRow .averageCard:last-child {
-    margin-bottom: 0 !important;
   }
 }
