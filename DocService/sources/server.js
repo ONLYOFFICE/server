@@ -470,6 +470,19 @@ docsCoServer.install(server, app, () => {
   });
 });
 
+server.on('clientError', (err, socket) => {
+  // Silently ignore client-side connection errors
+  if (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
+    socket.destroy();
+    return;
+  }
+  operationContext.global.logger.debug('clientError: %s', err.code || err.message);
+  if (socket.writable) {
+    socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+  }
+  socket.destroy();
+});
+
 process.on('uncaughtException', err => {
   operationContext.global.logger.error('uncaughtException:%s', err.stack);
   logger.shutdown(() => {

@@ -201,6 +201,19 @@ server.listen(port, () => {
   operationContext.global.logger.warn('AdminPanel server listening on port %d', port);
 });
 
+server.on('clientError', (err, socket) => {
+  // Silently ignore client-side connection errors
+  if (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
+    socket.destroy();
+    return;
+  }
+  operationContext.global.logger.debug('clientError: %s', err.code || err.message);
+  if (socket.writable) {
+    socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+  }
+  socket.destroy();
+});
+
 //Initialize watch here to avoid circular import with operationContext
 runtimeConfigManager.initRuntimeConfigWatcher(operationContext.global).catch(err => {
   operationContext.global.logger.warn('initRuntimeConfigWatcher error: %s', err.stack);
