@@ -61,11 +61,13 @@ function Preview(props) {
       const {token} = await generateDocServerToken(config);
       config.token = token;
 
-      if (
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|BB|PlayBook|IEMobile|Windows Phone|Kindle|Silk|Opera Mini|Macintosh/i.test(navigator.userAgent) &&
-        navigator.maxTouchPoints &&
-        navigator.maxTouchPoints > 1
-      ) {
+      const userAgent = navigator.userAgent;
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|BB|PlayBook|IEMobile|Windows Phone|Kindle|Silk|Opera Mini/i.test(userAgent);
+      // iPadOS 13+ often requests desktop site (Macintosh UA) but has touch
+      const isIPad = /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1;
+      const isTouchDevice = isMobileUA || isIPad || window.matchMedia?.('(pointer: coarse)').matches;
+
+      if (isTouchDevice) {
         config.type = 'mobile';
       }
 
