@@ -34,9 +34,23 @@ else
         PLATFORM := linux
         SHARED_EXT := .so*
         LIB_PREFIX := lib
+        SED_FLAGS :=
+        USER_ADD := useradd -m -d /var/www/onlyoffice -r -U onlyoffice
+        USER_DEL := userdel onlyoffice
+    endif
+    ifeq ($(UNAME_S),FreeBSD)
+        PLATFORM := linux
+        SHARED_EXT := .so*
+        LIB_PREFIX := lib
+        SED_FLAGS := \"\"
+        USER_ADD := pw user add -m -d /var/www/onlyoffice -n onlyoffice
+        USER_DEL := pw user del -n onlyoffice
     endif
     UNAME_M := $(shell uname -m)
     ifeq ($(UNAME_M),x86_64)
+        ARCHITECTURE := 64
+    endif
+    ifeq ($(UNAME_M),amd64)
         ARCHITECTURE := 64
     endif
     ifneq ($(filter %86,$(UNAME_M)),)
@@ -90,47 +104,47 @@ DEBUG = $(BRANDING_DIR)/debug.js
 all: $(SPELLCHECKER_DICTIONARIES) $(TOOLS) $(SCHEMA) $(CORE_FONTS) $(DOCUMENT_TEMPLATES) $(LICENSE) $(WELCOME) $(INFO) build-date
 
 build-date: $(GRUNT_FILES)
-	sed "s|\(const buildVersion = \).*|\1'${PRODUCT_VERSION}';|" -i $(COMMON_DEFINES_JS)
-	sed "s|\(const buildNumber = \).*|\1${BUILD_NUMBER};|" -i $(COMMON_DEFINES_JS)
-	sed "s|\(const buildDate = \).*|\1'$$(date +%F)';|" -i $(LICENSE_JS)
+	sed -e "s|\(const buildVersion = \).*|\1'${PRODUCT_VERSION}';|" -i$(SED_FLAGS) $(COMMON_DEFINES_JS)
+	sed -e "s|\(const buildNumber = \).*|\1${BUILD_NUMBER};|" -i$(SED_FLAGS) $(COMMON_DEFINES_JS)
+	sed -e "s|\(const buildDate = \).*|\1'$$(date +%F)';|" -i$(SED_FLAGS) $(LICENSE_JS)
 	test -e $(DEBUG) && \
 	cp $(DEBUG) $(OUTPUT)/Common/sources || true
 
 $(SPELLCHECKER_DICTIONARIES): $(GRUNT_FILES)
 	mkdir -p $(SPELLCHECKER_DICTIONARIES) && \
-		cp -r -t $(SPELLCHECKER_DICTIONARIES) $(SPELLCHECKER_DICTIONARY_FILES)
+		cp -r $(SPELLCHECKER_DICTIONARY_FILES) $(SPELLCHECKER_DICTIONARIES)
 
 $(SCHEMA):
 	mkdir -p $(SCHEMA) && \
-		cp -r -t $(SCHEMA) $(SCHEMA_FILES)
+		cp -r $(SCHEMA_FILES) $(SCHEMA)
 
 $(TOOLS):
 	mkdir -p $(TOOLS) && \
-		cp -r -t $(TOOLS) $(TOOLS_FILES)
+		cp -r $(TOOLS_FILES) $(TOOLS)
 
 $(LICENSE):
 	mkdir -p $(OUTPUT) && \
-		cp -r -t $(OUTPUT) $(LICENSE_FILES)
+		cp -r $(LICENSE_FILES) $(OUTPUT)
 
 $(GRUNT_FILES):
 	cd $(@D) && \
 		npm install && \
 		$(GRUNT_ENV) $(GRUNT) $(GRUNT_FLAGS)
 		mkdir -p $(OUTPUT)
-		cp -r -t $(OUTPUT) ./build/server/*
+		cp -r ./build/server/* $(OUTPUT)
 	echo "Done" > $@
 
 $(WELCOME):
 	mkdir -p $(WELCOME) && \
-		cp -r -t $(WELCOME) $(WELCOME_FILES)
+		cp -r $(WELCOME_FILES) $(WELCOME)
 
 $(INFO):
 	mkdir -p $(INFO) && \
-		cp -r -t $(INFO) $(INFO_FILES)
+		cp -r $(INFO_FILES) $(INFO)
 
 $(CORE_FONTS):
 	mkdir -p $(CORE_FONTS) && \
-		cp -r -t $(CORE_FONTS) $(CORE_FONTS_FILES)
+		cp -r $(CORE_FONTS_FILES) $(CORE_FONTS)
 
 $(DOCUMENT_TEMPLATES):
 	mkdir -p $(DOCUMENT_TEMPLATES) && \
@@ -141,19 +155,19 @@ clean:
 
 install:
 	mkdir -pv ${DESTDIR}/var/www/onlyoffice
-	if ! id -u onlyoffice > /dev/null 2>&1; then useradd -m -d /var/www/onlyoffice -r -U onlyoffice; fi
+	if ! id -u onlyoffice > /dev/null 2>&1; then $(USER_ADD); fi
 
 	mkdir -p ${DESTDIR}${DOCUMENT_ROOT}/fonts
 	mkdir -p ${DESTDIR}/var/log/onlyoffice/documentserver
 	mkdir -p ${DESTDIR}/var/lib/onlyoffice/documentserver/App_Data
 
-	cp -fr -t ${DESTDIR}${DOCUMENT_ROOT} build/* ../web-apps/deploy/*
+	cp -fr build/* ../web-apps/deploy/* ${DESTDIR}${DOCUMENT_ROOT}
 	mkdir -p ${DESTDIR}/etc/onlyoffice/documentserver
 	mv ${DESTDIR}${DOCUMENT_ROOT}/server/Common/config/* ${DESTDIR}/etc/onlyoffice/documentserver
 
-	chown onlyoffice:onlyoffice -R ${DESTDIR}/var/www/onlyoffice
-	chown onlyoffice:onlyoffice -R ${DESTDIR}/var/log/onlyoffice
-	chown onlyoffice:onlyoffice -R ${DESTDIR}/var/lib/onlyoffice
+	chown -R onlyoffice:onlyoffice ${DESTDIR}/var/www/onlyoffice
+	chown -R onlyoffice:onlyoffice ${DESTDIR}/var/log/onlyoffice
+	chown -R onlyoffice:onlyoffice ${DESTDIR}/var/lib/onlyoffice
 
 	# Make symlinks for shared libs
 	find \
@@ -161,6 +175,7 @@ install:
 		-maxdepth 1 \
 		-name *$(SHARED_EXT) \
 		-exec sh -c 'ln -sf {} ${DESTDIR}/lib/$$(basename {})' \;
+	ldconfig
 
 	sudo -u onlyoffice "${DESTDIR}${DOCUMENT_ROOT}/server/tools/allfontsgen"\
 		--input="${DESTDIR}${DOCUMENT_ROOT}/core-fonts"\
@@ -177,7 +192,7 @@ install:
 		--output="${DESTDIR}${DOCUMENT_ROOT}/sdkjs/common/Images"
 
 uninstall:
-	userdel onlyoffice
+	$(USER_DEL)
 
 	# Unlink installed shared libs
 	find /lib -type l | while IFS= read -r lnk; do if (readlink "$$lnk" | grep -q '^${DOCUMENT_ROOT}/server/FileConverter/bin/'); then rm "$$lnk"; fi; done
