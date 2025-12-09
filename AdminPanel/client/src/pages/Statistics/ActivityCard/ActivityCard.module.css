@@ -1,8 +1,8 @@
-.timePeriodCard {
+.tableCard {
   margin-bottom: 8px;
 }
 
-.timePeriodTitle {
+.tableTitle {
   font-weight: 700;
   font-size: 18px;
   line-height: 130%;
@@ -10,7 +10,7 @@
   margin: 0 0 4px 0;
 }
 
-.timePeriodDescription {
+.tableDescription {
   font-weight: 600;
   font-size: 14px;
   line-height: 150%;
@@ -21,13 +21,17 @@
 .valuesContainer {
   width: 100%;
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
+}
+
+.valueItemFirst {
+  text-align: right;
+  flex: 0 0 auto;
 }
 
 .valueItem {
   text-align: right;
-  flex: 0 0 auto;
+  flex: 1 1 0;
 }
 
 .value {
@@ -51,9 +55,9 @@
 @media (max-width: 1160px) {
   .valuesContainer {
     display: flex !important;
-    justify-content: space-between !important;
   }
 
+  .valueItemFirst,
   .valueItem {
     text-align: right !important;
   }

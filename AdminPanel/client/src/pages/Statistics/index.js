@@ -67,6 +67,7 @@ export default function Statistics() {
   // Check if open source to conditionally render content
   const licenseInfo = useMemo(() => data?.licenseInfo ?? {}, [data?.licenseInfo]);
   const isOpenSource = licenseInfo.packageType === 0;
+  const isUsersModel = licenseInfo.usersCount > 0;
   /**
    * Handle PDF download
    */
@@ -134,10 +135,13 @@ export default function Statistics() {
             </div>
           )}
           <Tabs tabs={statisticsTabs} activeTab={mode} onTabChange={setMode} />
-          <h2 className={styles.title}>Current connections</h2>
-          <p className={styles.description}>Real-time active sessions and remaining capacity before limit.</p>
+          <h2 className={styles.title}>{isUsersModel ? 'User activity' : 'Current connections'}</h2>
+          <p className={styles.description}>
+            {isUsersModel
+              ? 'User activity breakdown by type and remaining capacity before limit.'
+              : 'Real-time active sessions and remaining capacity before limit.'}
+          </p>
           <StatisticsContent data={data} mode={mode} />
-          <div className={styles.spacer} />
           <Button onClick={handleDownloadPdf} disableResult={true} className={styles.buttonNoWidth}>
             Download Report
           </Button>
