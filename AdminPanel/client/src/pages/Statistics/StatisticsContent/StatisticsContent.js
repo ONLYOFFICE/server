@@ -1,4 +1,3 @@
-import {useMemo} from 'react';
 import LimitCard from '../LimitCard/LimitCard';
 import ActivityCard from '../ActivityCard/ActivityCard';
 import MonthlyStatistics from '../MonthlyStatistics/MonthlyStatistics';
@@ -33,7 +32,8 @@ export default function StatisticsContent({data, mode}) {
   const limitEdit = isUsersModel ? licenseInfo.usersCount : licenseInfo.connections || 0;
   const limitView = isUsersModel ? licenseInfo.usersViewCount : licenseInfo.connectionsView || 0;
 
-  const userActivityData = useMemo(() => {
+  // User activity data (for users model)
+  const userActivityData = (() => {
     if (!isUsersModel) return null;
 
     const days = parseInt(licenseInfo.usersExpire / SECONDS_PER_DAY, 10) || 1;
@@ -70,15 +70,15 @@ export default function StatisticsContent({data, mode}) {
       viewer,
       caption: `User activity in the last ${days} ${days > 1 ? 'days' : 'day'}`
     };
-  }, [isUsersModel, licenseInfo, quota, limitEdit, limitView]);
+  })();
 
-  const activeEdit = quota?.edit?.connectionsCount || 0;
-  const activeView = quota?.view?.connectionsCount || 0;
-  const remainingEdit = limitEdit - activeEdit;
-  const remainingView = limitView - activeView;
+  const activeEditConn = quota?.edit?.connectionsCount || 0;
+  const activeViewConn = quota?.view?.connectionsCount || 0;
+  const remainingEditConn = limitEdit - activeEditConn;
+  const remainingViewConn = limitView - activeViewConn;
 
   // Calculate peak and average values (for connections model)
-  const {editorPeaks, viewerPeaks, editorAvr, viewerAvr} = useMemo(() => {
+  const {editorPeaks, viewerPeaks, editorAvr, viewerAvr} = (() => {
     if (isUsersModel) {
       return {editorPeaks: [], viewerPeaks: [], editorAvr: [], viewerAvr: []};
     }
@@ -105,7 +105,7 @@ export default function StatisticsContent({data, mode}) {
     });
 
     return {editorPeaks, viewerPeaks, editorAvr, viewerAvr};
-  }, [connectionsStat, isUsersModel, limitEdit, limitView]);
+  })();
 
   if (isUsersModel && userActivityData) {
     return (
@@ -133,20 +133,18 @@ export default function StatisticsContent({data, mode}) {
 
   return (
     <div className={styles.container}>
-      {(mode === 'all' || mode === 'edit' || mode === 'view') && (
-        <div className={styles.connectionsRow}>
-          {(mode === 'all' || mode === 'edit') && (
-            <div className={styles.connectionsCard}>
-              <LimitCard active={activeEdit} limit={limitEdit} remaining={remainingEdit} type='Editor' />
-            </div>
-          )}
-          {(mode === 'all' || mode === 'view') && (
-            <div className={styles.connectionsCard}>
-              <LimitCard active={activeView} limit={limitView} remaining={remainingView} type='Viewer' />
-            </div>
-          )}
-        </div>
-      )}
+      <div className={styles.connectionsRow}>
+        {(mode === 'all' || mode === 'edit') && (
+          <div className={styles.connectionsCard}>
+            <LimitCard active={activeEditConn} limit={limitEdit} remaining={remainingEditConn} type='Editor' />
+          </div>
+        )}
+        {(mode === 'all' || mode === 'view') && (
+          <div className={styles.connectionsCard}>
+            <LimitCard active={activeViewConn} limit={limitView} remaining={remainingViewConn} type='Viewer' />
+          </div>
+        )}
+      </div>
 
       <div className={styles.peakAverageRow}>
         <div className={styles.peakCard}>

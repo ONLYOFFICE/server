@@ -84,7 +84,12 @@ function Dashboard() {
 
     return (
       <TopBlock title='License'>
-        {startDateStr && <div style={isStartCritical ? {color: CRITICAL_COLOR} : undefined}>Start date: {startDateStr}</div>}
+        {startDateStr && (
+          <div>
+            <span>Start date: </span>
+            <span style={isStartCritical ? {color: CRITICAL_COLOR} : undefined}>{startDateStr}</span>
+          </div>
+        )}
         <div>
           <span>{licValidText}</span>
           <span style={licValidColor ? {color: licValidColor} : undefined}>{licEnd.toLocaleDateString()}</span>
