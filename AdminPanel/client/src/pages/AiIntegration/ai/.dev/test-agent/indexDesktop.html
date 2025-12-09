@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<title>ONLYOFFICE Desktop AI</title>
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			font-family: Arial, sans-serif;
+			background-color: #f9f9f9;
+		}
+
+		body {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.wrapper {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			padding: 40px 20px;
+			width: 100%;
+		}
+
+		h1 {
+			user-select: none;
+			font-size: 2rem;
+			margin-bottom: 40px;
+			color: #333;
+		}
+
+		.chat-container {
+			width: 100%;
+			max-width: 700px;
+			background: #ffffff;
+			border-radius: 16px;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+			padding: 20px;
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+		}
+
+		textarea {
+			width: 100%;
+			border: none;
+			resize: none;
+			outline: none;
+			font-size: 1rem;
+			padding: 12px;
+			border-radius: 12px;
+			background-color: #f1f1f1;
+			min-height: 60px;
+			line-height: 1.5;
+			box-sizing: border-box;
+		}
+
+		textarea:focus {
+			background-color: #e8e8e8;
+		}
+
+		button {
+			user-select: none;
+			align-self: flex-end;
+			padding: 10px 20px;
+			font-size: 1rem;
+			border: none;
+			border-radius: 8px;
+			background-color: #10a37f;
+			color: white;
+			cursor: pointer;
+			transition: background-color 0.2s;
+		}
+
+		button:hover {
+			background-color: #0e8c6c;
+		}
+
+		.loader-overlay {
+			position: absolute;
+			inset: 0; /* заменяет top/left/right/bottom: 0 */
+			background-color: rgba(255, 255, 255, 0.7);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 9999;
+		}
+
+		.loader {
+			border: 6px solid #f3f3f3;
+			border-top: 6px solid #10a37f;
+			border-radius: 50%;
+			width: 48px;
+			height: 48px;
+			animation: spin 1s linear infinite;
+		}
+
+		@keyframes spin {
+			to { transform: rotate(360deg); }
+		}
+	</style>
+	<script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"></script>
+
+	<script type="text/javascript" src="vendor/GPT-3-Encoder/encoder.js"></script>
+	
+	<script type="text/javascript" src="scripts/engine/storage.js"></script>
+	<script type="text/javascript" src="scripts/engine/local_storage.js"></script>
+	<script type="text/javascript" src="scripts/engine/providers/base.js"></script>
+	<script type="text/javascript" src="scripts/engine/providers/provider.js"></script>
+	<script type="text/javascript" src="scripts/engine/engine.js"></script>
+
+	<script type="text/javascript" src="vendor/md/markdown-it.js"></script>
+
+	<script type="text/javascript" src="codeDesktop.js"></script>
+</head>
+<body>
+	<div class="wrapper">
+		<h1 id="header">ONLYOFFICE AI Agent</h1>
+		<div class="chat-container">
+			<textarea id="chatInput" placeholder="Enter message..."></textarea>
+			<button id="goId">Go</button>
+		</div>
+	</div>
+	<div id="loaderOverlay" class="loader-overlay" style="display: none;">
+		<div id="loaderId" class="loader"></div>
+	</div>
+</body>
+</html>

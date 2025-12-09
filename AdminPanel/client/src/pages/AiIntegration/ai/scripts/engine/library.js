@@ -153,6 +153,147 @@
 			md.renderer.rules.latex_block = function(tokens, idx) {
 				return `<span class="oo-latex">${tokens[idx].content}</span>\n`;
 			};
+		},
+
+		forms: function(md) {
+			let fieldCounter = 1837335014;
+			let fieldKeyCounter = 1;
+
+			function parseField(state, silent) {
+				const start = state.pos;
+				const max = state.posMax;
+
+				if (state.src.charCodeAt(start) !== 0x7B/*{*/ ||
+					state.src.slice(start, start + 7) !== '{FIELD:') {
+					return false;
+				}
+
+				let pos = start + 7;
+				let depth = 1;
+				while (pos < max && depth > 0) {
+					if (state.src.charCodeAt(pos) === 0x7B) depth++;
+					if (state.src.charCodeAt(pos) === 0x7D) depth--;
+					pos++;
+				}
+
+				if (depth !== 0) return false;
+
+				const content = state.src.slice(start + 7, pos - 1);
+				
+				if (!silent) {
+					const token = state.push('field', '', 0);
+					token.content = content;
+					token.markup = '{FIELD:}';
+				}
+
+				state.pos = pos;
+				return true;
+			}
+
+			function parseParams(content) {
+				const params = {};
+				const regex = /(\w+)[:=](?:'([^']*)'|"([^"]*)"|([^,}]*))/g;
+				let match;
+
+				while ((match = regex.exec(content)) !== null) {
+					const key = match[1];
+					const value = match[2] || match[3] || match[4];
+					params[key] = value;
+				}
+
+				return params;
+			}
+
+			function renderField(tokens, idx) {
+				const params = parseParams(tokens[idx].content);
+				const type = params.type;
+
+				switch (type) {
+					case 'checkbox':
+						return renderCheckbox(params);
+					case 'radiobutton':
+						return renderRadiobutton(params);
+					case 'combobox':
+						return renderCombobox(params);
+					case 'textbox':
+						return renderTextbox(params);
+					case 'date':
+						return renderDate(params);
+					default:
+						return '';
+				}
+			}
+
+			function renderCheckbox(params) {
+				const checked = params.checked === 'true';
+				const symbolChecked = params.symbolChecked || '☑';
+				const symbolUnchecked = params.symbolUnchecked || '☐';
+				const key = params.key || ('Checkbox' + fieldKeyCounter++);
+				const text = params.text || '';
+				const displaySymbol = checked ? symbolChecked : symbolUnchecked;
+
+				return `<w:Sdt CheckBox="t" Form="t" CheckBoxValueChecked="${symbolChecked}" CheckBoxValueUnchecked="${symbolUnchecked}" Key="${key}" Text="${text}"/></w:Sdt>`;
+			}
+
+			function renderRadiobutton(params) {
+				const checked = params.checked === 'true';
+				const symbolChecked = params.symbolChecked || '◉';
+				const symbolUnchecked = params.symbolUnchecked || '○';
+				const groupKey = params.groupKey || params.GroupKey || 'Group 1';
+				const key = params.key || ('Radio' + fieldKeyCounter++);
+				const text = params.text || '';
+				const displaySymbol = checked ? symbolChecked : symbolUnchecked;
+
+				return `<w:Sdt CheckBox="t" Form="t" CheckBoxValueChecked="${symbolChecked}" CheckBoxValueUnchecked="${symbolUnchecked}" GroupKey="${groupKey}" Key="${key}" Text="${text}"></w:Sdt>`;
+			}
+
+			function renderCombobox(params) {
+				const items = params.items ? params.items.split(',') : [];
+				const selected = params.selected || '';
+				const key = params.key || ('Combobox' + fieldKeyCounter++);
+				const id = fieldCounter++;
+
+				let itemsHtml = items.map(item => {
+					const trimmed = item.trim();
+					return `<w:ListItem ListValue="${trimmed}" DataValue="${trimmed}"></w:ListItem>`;
+				}).join('');
+
+				return `<w:Sdt ComboBox="t" Form="t" Key="${key}" ID="${id}">${itemsHtml}\n</w:Sdt>`;
+			}
+
+			function renderTextbox(params) {
+				const key = params.key || ('Textbox' + fieldKeyCounter++);
+				const text = params.text || params.value || '';
+				const placeholder = params.placeholder || '';
+
+				if (placeholder === "" && text === "")
+					text = "empty";
+				
+				if (placeholder === "")
+					return `<w:Sdt Form="t" Key="${key}">${text}</w:Sdt>`;
+				else
+					return `<w:Sdt Form="t" Key="${key}" PlcHdr="${placeholder}" ShowingPlcHdr="t">${text}</w:Sdt>`;
+			}
+
+			function renderDate(params) {
+				const key = params.key || ('DatePicker' + fieldKeyCounter++);
+				const value = params.value || '';
+				
+				let isoDate = '';
+				let displayDate = value;
+			
+				if (value) {
+					const parts = value.split('.');
+					if (parts.length === 3) {
+						isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+						displayDate = value;
+					}
+				}
+				return `<w:Sdt Calendar="t" Form="t" MapToDateTime="t" CalendarType="Gregorian" Date="${isoDate}" DateFormat="dd.MM.yyyy" Key="${key}">${displayDate}</w:Sdt>`;
+			}
+
+			md.inline.ruler.before('emphasis', 'field', parseField);
+			md.renderer.rules.field = renderField;
 		}
 	};
 
@@ -234,9 +375,20 @@
 		});
 	};
 
+	Library.prototype.getHTMLFromMD = function(data, plugins)
+	{
+		return Asc.Library.ConvertMdToHTML(data, plugins);
+	};
+
 	Library.prototype.InsertAsMD = async function(data, plugins)
 	{
 		let htmlContent = Asc.Library.ConvertMdToHTML(data, plugins);
+
+		if (false) {
+			console.log("MD Content:\n" + data);
+			console.log("HTML Content:\n" + htmlContent);
+		}
+
 		return await Asc.Library.InsertAsHTML(htmlContent);
 	};
 

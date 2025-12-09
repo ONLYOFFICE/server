@@ -106,7 +106,7 @@ class Provider extends AI.Provider {
 
 		model.endpoints.push(AI.Endpoints.Types.v1.Chat_Completions);
 		return AI.CapabilitiesUI.Chat | AI.CapabilitiesUI.Vision;
-	};
+	}
 
 	getImageGeneration(message, model) {
 		let result = super.getImageGeneration(message, model);

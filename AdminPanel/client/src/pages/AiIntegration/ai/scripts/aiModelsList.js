@@ -30,6 +30,7 @@
  *
  */
 
+const externalModelPrefix = "[onlyoffice_external]";
 let aiModelsList = new ListView(document.getElementById('ai-models-list'), {
 	renderItem: function(model) {
 		var createdEl = document.createElement('div');
@@ -45,8 +46,16 @@ let aiModelsList = new ListView(document.getElementById('ai-models-list'), {
 });
 var scrollbarList = new PerfectScrollbar("#ai-models-list", {});
 aiModelsList.on('select', function() {
-	editBtnEl.removeAttribute('disabled');
-	deleteBtnEl.removeAttribute('disabled');
+	let model = aiModelsList.getSelected();
+
+	if (model.id.startsWith(externalModelPrefix)) {
+		editBtnEl.setAttribute('disabled', true);
+		deleteBtnEl.setAttribute('disabled', true);
+		return;
+	} else {
+		editBtnEl.removeAttribute('disabled');
+		deleteBtnEl.removeAttribute('disabled');
+	}
 });
 aiModelsList.on('deselect', function() {
 	editBtnEl.setAttribute('disabled', true);

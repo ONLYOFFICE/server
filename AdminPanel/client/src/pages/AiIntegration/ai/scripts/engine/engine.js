@@ -283,6 +283,7 @@ function fetchExternal(url, options, isStreaming) {
 					}
 				});
 			} else {
+				let requestUrl = message.url;
 				let request = {
 					method: message.method,
 					headers: message.headers
@@ -301,28 +302,39 @@ function fetchExternal(url, options, isStreaming) {
 							})
 						}
 						if (AI.serverSettings){
-							message.url = AI.serverSettings.proxy;
+							requestUrl = AI.serverSettings.proxy;
 							request["headers"] = {
 								"Authorization" : "Bearer " + Asc.plugin.info.jwt,
 							}
 						} else {
-							message.url = AI.PROXY_URL;
+							requestUrl = AI.PROXY_URL;
 						}
 					}
-				}				
-
+				}
+				
 				try {
 					let _fetch = fetch;
-					if (message.url.startsWith("[external]"))
+					if (requestUrl.startsWith("[external]"))
 						_fetch = fetchExternal;
-
-					_fetch(message.url, request)
+					
+					let fetchResponse;
+					_fetch(requestUrl, request)
 						.then(function(response) {
-							return response.json()
+							fetchResponse = response;
+							return response.text();
+						})
+						.then(function(text) {
+							try {
+								return JSON.parse(text)
+    						} catch {
+      							return { error : text };
+    						}
 						})
 						.then(function(data) {
 							if (data.error)
 								resolve({error: 1, message: data.error.message ? data.error.message : ((typeof data.error === "string") ? data.error : "")});
+							else if (fetchResponse && fetchResponse.status == 401 )
+								resolve({error: 1, message: fetchResponse.statusText ? fetchResponse.statusText : "Unauthorized"});	
 							else
 								resolve({error: 0, data: data.data ? data.data : data});
 						})
@@ -504,7 +516,7 @@ function fetchExternal(url, options, isStreaming) {
 	AI._extendBody = function(_provider, body) {
 		let provider = _provider.createInstance ? _provider : AI.Storage.getProvider(_provider.name);
 		if (!provider) provider = new AI.Provider();
-		let bodyPr = provider.getRequestBodyOptions();
+		let bodyPr = provider.getRequestBodyOptions(body);
 
 		if (provider.isUseProxy())
 			bodyPr.target = provider.url;
@@ -549,6 +561,7 @@ function fetchExternal(url, options, isStreaming) {
 			function resolveRequest(data) {
 				if (data.error)
 					resolve({
+						provider: provider.name,
 						error : 1,
 						message : data.message,
 						models : []
@@ -579,6 +592,7 @@ function fetchExternal(url, options, isStreaming) {
 					}
 
 					resolve({
+						provider: provider.name,
 						error : 0,
 						message : "",
 						models : AI.TmpProviderForModels.modelsUI
@@ -596,9 +610,10 @@ function fetchExternal(url, options, isStreaming) {
 				return;
 			}
 
+			let url = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models);
 			let headers = AI._getHeaders(provider);
 			requestWrapper({
-				url : AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Models),
+				url : url,
 				headers : headers,
 				method : "GET"
 			}).then(function(data) {
@@ -611,6 +626,11 @@ function fetchExternal(url, options, isStreaming) {
 		this.modelUI = model;
 		this.model = null;
 		this.errorHandler = null;
+
+		if (model.id.startsWith(AI.externalModelPrefix)) {
+			this.model = this.modelUI;
+			return;
+		}
 
 		if ("" !== model.provider) {
 			let provider = null;
@@ -782,7 +802,7 @@ function fetchExternal(url, options, isStreaming) {
 		let requestBody = {};
 		let model = this.model;
 		let processResult = function(data) {
-			let result = provider.getChatCompletionsResult(data, model);
+			let result = provider.getChatCompletionsResult(data, model, isStreaming ? false : true);
 			if (result.content.length === 0)
 				return "";
 
@@ -817,6 +837,8 @@ function fetchExternal(url, options, isStreaming) {
 				readerAsync = await requestWrapperStream(objRequest);
 
 			if (!readerAsync) {
+				if (isStreaming && objRequest.body.stream)
+					delete objRequest.body.stream;
 				let result = await requestWrapper(objRequest);
 				if (result.error) {
 					throw {
@@ -847,7 +869,8 @@ function fetchExternal(url, options, isStreaming) {
 					let resultObj = getStreamedResult(tail + readData.value);
 					tail = resultObj.tail;
 
-					let chunks = eval(resultObj.result);
+					//let chunks = eval(resultObj.result);
+					let chunks = JSON.parse(resultObj.result);
 
 					let errorObj = null;
 					try {
@@ -875,10 +898,9 @@ function fetchExternal(url, options, isStreaming) {
 						dataChunk += processResult(chunks[j]);
 
 						// TODO: MD support
-						dataChunk = dataChunk.replace(/\n\n/g, '\n');
+						//dataChunk = dataChunk.replace(/\n\n/g, '\n');
 					}
 
-					//console.log(dataChunk);
 					allChunks += dataChunk;
 
 					if (streamFunc)
@@ -1228,7 +1250,7 @@ function fetchExternal(url, options, isStreaming) {
 	};
 
 	function getStreamedResult(responseText) {
-		
+
 		let result = "[";
 
 		let isEscaped = false;
@@ -1270,7 +1292,7 @@ function fetchExternal(url, options, isStreaming) {
 						firstObject = false;
 						
 						
-						result += ("{ data : " + responseText.substring(curObjectStartPos, i) + "}");
+						result += ("{ \"data\" : " + responseText.substring(curObjectStartPos, i) + "}");
 
 						while (i < inputLen) {
 							char = responseText[i];
@@ -1291,6 +1313,7 @@ function fetchExternal(url, options, isStreaming) {
 		}
 
 		result += "]";
+
 		return {
 			result : result,
 			tail : (curObjectPos === inputLen) ? "" : responseText.substring(curObjectPos)

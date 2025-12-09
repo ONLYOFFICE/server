@@ -30,7 +30,7 @@
  *
  */
 
-function registerButtons(window, undefined)
+async function registerButtons(window, undefined)
 {
 	window.AI = window.AI || {};
 	var AI = window.AI;
@@ -136,6 +136,35 @@ function registerButtons(window, undefined)
 		chatWindow.show(variation);
 
 		window.chatWindow = chatWindow;
+	}
+
+	let editorVersion = await Asc.Library.GetEditorVersion();
+	if (editorVersion >= 9002000 && Asc.Editor.getType() !== "pdf")
+	{
+		let buttonSub = new Asc.ButtonContextMenu(buttonMain);
+		buttonSub.text = "Grammar & Spelling";
+		buttonSub.icons = getContextMenuButtonIcons("grammar");
+		buttonSub.editors = ["word"];
+		buttonSub.addCheckers("Target", "Selection");
+		
+		let buttonAll = new Asc.ButtonContextMenu(buttonSub);
+		buttonAll.text = "Check all";
+		buttonAll.editors = ["word"];
+		buttonAll.addCheckers("Target", "Selection");
+
+		buttonAll.attachOnClick(async function(data){
+			onCheckGrammarSpelling(false);
+		});
+
+		let buttonCurrent = new Asc.ButtonContextMenu(buttonSub);
+		buttonCurrent.text = "Check current text";
+		buttonCurrent.editors = ["word"];
+		buttonCurrent.addCheckers("Target", "Selection");
+
+		buttonCurrent.attachOnClick(async function(data){
+			onCheckGrammarSpelling(true);
+		});
+	
 	}
 
 	// Submenu summarize:
@@ -613,6 +642,27 @@ function registerButtons(window, undefined)
 			button2.icons = getToolBarButtonIcons("ocr");
 			button2.attachOnClick(on_click_ocr);
 		}
+		
+		if (editorVersion >= 9002000 && Asc.Editor.getType() === "word")
+		{
+			let buttonGS = new Asc.ButtonToolbar(buttonMainToolbar);
+			buttonGS.text = "Grammar & Spelling";
+			buttonGS.icons = getToolBarButtonIcons("grammar");
+			buttonGS.menu = [{
+				text: 'Check all',
+				id: 'sg10n-check-all',
+				onclick: () => onCheckGrammarSpelling(false)
+			}, 
+			{
+				text: 'Check current text',
+				id: 'sg10n-check-text',
+				onclick: () => onCheckGrammarSpelling(true)
+			}];
+			buttonGS.attachOnClick(async function(){
+				onCheckGrammarSpelling(true);
+			});
+			buttonGS.split = true;
+		}
 	}
 
 	// register actions
@@ -627,7 +677,7 @@ function registerButtons(window, undefined)
 		Vision           : "Vision"
 	};
 
-	AI.Actions = {};
+	AI.Actions = Object.create(null);
 
 	function ActionUI(name, icon, modelId, capabilities) {
 		this.name = name || "";
@@ -681,7 +731,21 @@ function registerButtons(window, undefined)
 	{
 		try
 		{
-			window.localStorage.setItem(actions_key, JSON.stringify(AI.Actions));			
+			// exclude external models
+			let excludeMap = Object.create(null);
+			for (let key in AI.Actions) {
+				if (AI.Actions[key].model.startsWith(AI.externalModelPrefix)) {
+					excludeMap[key] = AI.Actions[key].model;
+					AI.Actions[key].model = "";
+				}
+			}
+
+			window.localStorage.setItem(actions_key, JSON.stringify(AI.Actions));
+			
+			// restore excluded
+			for (let key in excludeMap) {
+				AI.Actions[key].model = excludeMap[key];
+			}
 			return true;
 		}
 		catch (e)
