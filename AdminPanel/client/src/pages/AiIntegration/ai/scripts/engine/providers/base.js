@@ -194,8 +194,6 @@
 		}
 
 		AI.onLoadInternalProviders();
-		if (Asc.plugin.sendEvent)
-			Asc.plugin.sendEvent("ai_onLoadInternalProviders");
 	};
 
 	AI.InternalCustomProvidersSources = {};

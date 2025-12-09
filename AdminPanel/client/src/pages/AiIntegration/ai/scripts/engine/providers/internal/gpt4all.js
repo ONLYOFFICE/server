@@ -38,7 +38,7 @@ class Provider extends AI.Provider {
 		super("GPT4All", "http://localhost:4891", "", "v1");
 	}
 
-	getRequestBodyOptions() {
+	getRequestBodyOptions(body) {
 		return {
 			max_tokens : 4096
 		};

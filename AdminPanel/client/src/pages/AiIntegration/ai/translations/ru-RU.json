@@ -28,6 +28,7 @@
 	"Name" : "Имя",
 	"URL" : "URL",
 	"Key" : "Ключ",
+	"e.g. abc123...": "e.g. abc123...",
 	"Update models list" : "Обновить список моделей",
 	"Use model for" : "Использовать модель для",
 	"All": "Все",
@@ -142,5 +143,15 @@
 	"Text to Image": "Текст в изображение",
 	"Image generation": "Генерирование изображений",
 	"OCR": "Оптическое распознавание символов",
-	"Vision": "Распознавание изображений"
+	"Vision": "Распознавание изображений",
+	
+	"Grammar & Spelling": "Орфография & Пунктуация",
+	"Accept": "Принять",
+	"Reject": "Отклонить",
+	"Spelling suggestion": "Орфография",
+	"Grammar suggestion": "Пунктуация",
+	"Check all": "Проверить все",
+	"Check current text": "Проверить текущий текст",
+	"Suggested correction": "Предложение",
+	"Explanation": "Объяснение"
 }

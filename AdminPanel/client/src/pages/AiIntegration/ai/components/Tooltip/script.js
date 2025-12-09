@@ -60,10 +60,10 @@ function Tooltip(targetEl, options) {
                     me.tooltipEl.innerText = me.options.text;
                 }
                 if (me.options.width) {
-                    me.tooltipEl.style.width = me.options.width + 'px';
+                    me.tooltipEl.style.maxWidth = me.options.width + 'px';
                     me.tooltipEl.style.whiteSpace = '';
                 } else {
-                    me.tooltipEl.style.width = '';
+                    me.tooltipEl.style.maxWidth = '';
                     me.tooltipEl.style.whiteSpace = 'nowrap';
                 }
 

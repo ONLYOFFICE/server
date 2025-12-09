@@ -38,6 +38,9 @@ let summarizationWindow = null;
 let translateSettingsWindow = null;
 let helperWindow = null;
 
+let spellchecker = null;
+let grammar = null;
+
 window.getActionsInfo = function() {
 	let actions = [];
 	for (const action in AI.ActionType) {
@@ -61,6 +64,10 @@ window.addSupportAgentMode = function(editorVersion) {
 	var is91 = editorVersion >= 9001000;
 
 	window.Asc.plugin.attachEditorEvent("onKeyDown", function(e) {
+		if (e.keyCode === 27 && textAnnotatorPopup) {
+			textAnnotatorPopup.close();
+		}
+
 		if (e.keyCode === 27 && helperWindow) {
 			helperWindow.close();
 			helperWindow = null;
@@ -264,7 +271,7 @@ async function initWithTranslate(counter) {
 	initCounter |= counter;
 	if (3 === initCounter) {
 		initCounter = 5;
-		registerButtons(window);
+		await registerButtons(window);
 		Asc.Buttons.registerContextMenu();
 		Asc.Buttons.registerToolbarMenu();
 
@@ -484,6 +491,24 @@ async function initWithTranslate(counter) {
 			}
 		}
 
+		if (editorVersion >= 9001000 && window.isEnableDocumentGenerate) {
+
+			if (window.AscDesktopEditor && Asc.Editor.getType() === "word") {
+
+				let buttonGenerate = new Asc.ButtonToolbar(null);
+				buttonGenerate.text = "Generate";
+				buttonGenerate.icons = window.getToolBarButtonIcons("ocr");
+				
+				buttonGenerate.attachOnClick(async function(){
+					let content = await getFormGenerationPrompt();
+					window.AscDesktopEditor.generateNew("docx", "ai", content);
+				});
+
+				Asc.Buttons.updateToolbarMenu(window.buttonMainToolbar.id, window.buttonMainToolbar.name, [buttonGenerate]);
+			}			
+
+		}
+
 		if (editorVersion >= 9000004)
 			window.addSupportAgentMode(editorVersion);
 	}
@@ -513,6 +538,28 @@ async function GetOldCustomFunctions() {
 	}
 	return obj;
 }
+
+var isPluginInit = false;
+var arrayResolveInit = [];
+
+window.waitInit = async function() {
+	if (isPluginInit)
+		return;	
+
+	return new Promise(resolve => {
+		arrayResolveInit.push(resolve);
+	});
+};
+
+window.setInit = function() {
+	if (isPluginInit)
+		return;
+	isPluginInit = true;
+	arrayResolveInit.forEach(resolve => {
+		resolve();
+	});
+	arrayResolveInit = [];
+};
 
 window.Asc.plugin.init = async function() {
 	// Check server settings
@@ -619,17 +666,56 @@ class Provider extends AI.Provider {\n\
 				AI.Storage.save();
 			
 		});
+		
+		spellchecker = new SpellChecker();
+		grammar = new GrammarChecker();
+
+		this.attachEditorEvent("onParagraphText", function(obj) {
+			if (!obj)
+				return;
+			
+			spellchecker.onChangeParagraph(obj["paragraphId"], obj["recalcId"], obj["text"], obj["annotations"]);
+			grammar.onChangeParagraph(obj["paragraphId"], obj["recalcId"], obj["text"], obj["annotations"]);
+		});
+
+		this.attachEditorEvent("onFocusAnnotation", function(obj) {
+			if (!obj)
+				return;
+		});
+
+		this.attachEditorEvent("onBlurAnnotation", function(obj) {
+			if (!obj)
+				return;
+
+			if ("spelling" === obj["name"])
+				spellchecker.onBlur();
+			else if ("grammar" === obj["name"]) 
+				grammar.onBlur();
+		});
+
+		this.attachEditorEvent("onClickAnnotation", function(obj) {
+			if (!obj)
+				return;
+
+			if ("grammar" === obj["name"])
+				grammar.onClick(obj["paragraphId"], obj["ranges"]);
+			else if ("spelling" === obj["name"])
+				spellchecker.onClick(obj["paragraphId"], obj["ranges"]);
+		});
+
 	}
 
 	await initWithTranslate(1 << 1);
-	clearChatState();	
+	clearChatState();
+
+	window.setInit();
 };
 
 window.Asc.plugin.onTranslate = async function() {
 	await initWithTranslate(1);
 };
 
-window.Asc.plugin.button = function(id, windowId) {
+window.Asc.plugin.button = async function(id, windowId) {
 	if (!windowId) {
 		return
 	}
@@ -638,6 +724,22 @@ window.Asc.plugin.button = function(id, windowId) {
 	{
 		clearChatState();
 		delete window.chatWindow;
+	}
+
+	if (textAnnotatorPopup && textAnnotatorPopup.popup && textAnnotatorPopup.popup.id === windowId)
+	{
+		switch (id) {
+			case 0:
+				await textAnnotatorPopup.popup.onAccept();
+				break;
+			case 1:
+				await textAnnotatorPopup.popup.onReject();
+				break;
+			default:
+				textAnnotatorPopup.close();
+				break;
+		}
+		return;
 	}
 
 	if (settingsWindow && windowId === settingsWindow.id) {
@@ -680,6 +782,9 @@ window.Asc.plugin.onThemeChanged = function(theme) {
 	customProvidersWindow && customProvidersWindow.command('onThemeChanged', theme);
 	window.chatWindow && window.chatWindow.command('onThemeChanged', theme);
 	helperWindow && helperWindow.command('onThemeChanged', theme);
+
+	if (textAnnotatorPopup && textAnnotatorPopup.popup)
+		textAnnotatorPopup.popup.command('onThemeChanged', theme);
 };
 
 /**
@@ -763,6 +868,40 @@ function onTranslateSettingsModal() {
 	translateSettingsWindow.show(variation);
 }
 
+async function onCheckGrammarSpelling(isCurrent)
+{
+	let paraIds = [];
+	
+	if (isCurrent)
+	{
+		paraIds = await Asc.Editor.callCommand(function(){
+			let result = [];
+			let range = Api.GetDocument().GetRangeBySelect();
+			if (!range)
+				return [];
+			
+			let paragraphs = range.GetAllParagraphs();
+			paragraphs.forEach(p => result.push(p.GetInternalId()));
+			return result;
+		});
+	}
+	else
+	{
+		paraIds = await Asc.Editor.callCommand(function(){
+			let result = [];
+			let paragraphs = Api.GetDocument().GetAllParagraphs();
+			paragraphs.forEach(p => result.push(p.GetInternalId()));
+			return result;
+		});
+	}
+	
+	if (spellchecker)
+		spellchecker.checkParagraphs(paraIds);
+	
+	if (grammar)
+		grammar.checkParagraphs(paraIds);
+}
+
 /**
  * MODELS WINDOW
  */
@@ -817,7 +956,22 @@ function onOpenEditModal(data) {
 	if (!aiModelEditWindow) {
 		aiModelEditWindow = new window.Asc.PluginWindow();
 		aiModelEditWindow.attachEvent("onChangeModel", function(model){
+			//Assign this model to actions without a model
+			const models = AI.Storage.serializeModels();
+			let needUpdateSettingsWindow = false;
+			AI.ActionsGetSorted().forEach(function(action) {
+				const hasModel = models.some(function(model) { return model.id == action.model });
+				if(!hasModel && (action.capabilities & model.capabilities) !== 0) {
+					AI.ActionsChange(action.id, model.id);
+					needUpdateSettingsWindow = true;
+				}
+			});
+			if(needUpdateSettingsWindow) {
+				updateActions();
+			}
+
 			AI.Storage.addModel(model);
+
 			aiModelEditWindow.close();
 			aiModelEditWindow = null;
 		});

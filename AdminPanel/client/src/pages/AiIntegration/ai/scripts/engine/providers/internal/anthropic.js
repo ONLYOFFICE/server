@@ -74,9 +74,19 @@ class Provider extends AI.Provider {
 		return super.getEndpointUrl(endpoint, model);
 	}
 
-	getRequestBodyOptions() {
+	getRequestBodyOptions(body) {
+		let max_output_tokens = 64000;
+		if (body.model) {
+			if (body.model.indexOf("-4-") != -1 || body.model.indexOf("-4-1-") != -1) {
+				max_output_tokens = 32000;
+			}
+			else if (body.model.indexOf("-3-5-") != -1) {
+				max_output_tokens = 8096;
+			}
+		}
+
 		return {
-			max_tokens : 4096
+			max_tokens : max_output_tokens
 		};
 	}
 

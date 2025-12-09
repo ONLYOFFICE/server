@@ -148,7 +148,7 @@
 		 * Don't override this method unless you know what you're doing.
 		 * @returns {Object}
 		 */
-		getRequestBodyOptions() {
+		getRequestBodyOptions(body) {
 			return {};
 		}
 
@@ -200,7 +200,7 @@
 		 */
 		getChatCompletions(message, model) {
 			return {
-				model : model.id,
+				model : this.correctModelId(model.id),
 				messages : message.messages
 			}
 		}
@@ -215,7 +215,7 @@
 		 */
 		getCompletions(message, model) {
 			return {
-				model : model.id,
+				model : this.correctModelId(model.id),
 				prompt : message.text
 			}
 		}
@@ -228,7 +228,7 @@
 		 *     content: ["Hello", "Hi"]
 		 * }
 		 */
-		getChatCompletionsResult(message, model) {
+		getChatCompletionsResult(message, model, isTrim) {
 			let result = {
 				content : []
 			};
@@ -260,17 +260,19 @@
 			if (choice.delta && choice.delta.text)
 				result.content.push(choice.delta.text);
 
-			let trimArray = ["\n".charCodeAt(0)];
-			for (let i = 0, len = result.content.length; i < len; i++) {
-				let iEnd = result.content[i].length - 1;
-				let iStart = 0;
-				while (iStart < iEnd && trimArray.includes(result.content[i].charCodeAt(iStart)))
-					iStart++;
-				while (iEnd > iStart && trimArray.includes(result.content[i].charCodeAt(iEnd)))
-					iEnd--;
+			if (isTrim !== false) {
+				let trimArray = ["\n".charCodeAt(0)];
+				for (let i = 0, len = result.content.length; i < len; i++) {
+					let iEnd = result.content[i].length - 1;
+					let iStart = 0;
+					while (iStart < iEnd && trimArray.includes(result.content[i].charCodeAt(iStart)))
+						iStart++;
+					while (iEnd > iStart && trimArray.includes(result.content[i].charCodeAt(iEnd)))
+						iEnd--;
 
-				if (iEnd > iStart && ((0 !== iStart) || ((result.content[i].length - 1) !== iEnd)))
-					result.content[i] = result.content[i].substring(iStart, iEnd + 1);
+					if (iEnd > iStart && ((0 !== iStart) || ((result.content[i].length - 1) !== iEnd)))
+						result.content[i] = result.content[i].substring(iStart, iEnd + 1);
+				}
 			}
 
 			return result;
@@ -317,7 +319,7 @@
 			let index = sizes.length - 1;
 
 			return {
-				model : model.id,
+				model : this.correctModelId(model.id),
 				width : message.width || sizes[index].w,
 				height : message.width || sizes[index].h,
 				n : 1,
@@ -366,8 +368,19 @@
 
 			if (!imageUrl) {
 				let candidates = getProp("candidates");
-				if (candidates && candidates[0] && candidates[0].content)
-					imageUrl = candidates[0].content;
+				if (candidates && candidates[0] && candidates[0].content) {
+					if (typeof(candidates[0].content) === "string") {
+						imageUrl = candidates[0].content;
+					} else if (Array.isArray(candidates[0].content.parts)) {
+						let parts = candidates[0].content.parts;
+						for (let i = 0, len = parts.length; i < len; i++) {
+							if (parts[i].inlineData) {
+								imageUrl = parts[i].inlineData.data;
+								break;
+							}
+						}
+					}
+				}
 			}
 
 			if (!imageUrl) {
@@ -427,7 +440,7 @@
 		 */
 		async getImageVision(message, model) {
 			return {
-				model : model.id,
+				model : this.correctModelId(model.id),
 				messages : [
 					{
 						role: "user",
@@ -481,6 +494,17 @@
 
 		getImageOCRResult(message, model) {
 			return this.getImageVisionResult(message, model);
+		}
+
+		/**
+		 * Is provider support AI tools.
+		 */
+		isSupportTools(model) {
+			return false;
+		}
+
+		addTools(message) {
+			return;
 		}
 
 		/**
@@ -581,8 +605,15 @@
 			return this.getChatCompletions(data, model);
 		}
 
+		correctModelId(id) {
+			if (id.startsWith(AI.externalModelPrefix))
+				return id.substring(AI.externalModelPrefix.length);
+			return id;
+		}
+
 	}
 	
+	window.AI.externalModelPrefix = "[onlyoffice_external]";
 	window.AI.Provider = Provider;
 	await AI.loadInternalProviders();	
 	

@@ -30,6 +30,7 @@
  *
  */
 
+var themeType = 'light';
 var type = 'add';
 var aiModel = null;
 var isModelCmbInit = true;
@@ -88,6 +89,10 @@ var modelNameValidator = new ValidatorWrapper({
 	}
 });
 $(modelNameCmbEl).select2({width: '100%'});
+
+var providerKeyInput = new MaskedInput({
+	el: providerKeyInputEl
+});
 
 
 $('#custom-providers-button label').click(function(e) {
@@ -220,7 +225,7 @@ window.Asc.plugin.init = function() {
 	window.Asc.plugin.attachEvent("onProvidersUpdate", onProvidersUpdate);
 	window.Asc.plugin.attachEvent("onGetModels", function(data) {
 		if(data.error == 1) {
-			rejectModels && rejectModels(data.message);
+			rejectModels && rejectModels(data);
 		} else {
 			modelsList = data.models;
 			let res = data.models.map(function(model) {
@@ -230,7 +235,9 @@ window.Asc.plugin.init = function() {
 				}
 			});
 			res.sort(function(a,b){ return (a.name < b.name) ? -1 : ((a.name === b.name) ? 0 : 1); });
-			resolveModels && resolveModels(res);
+
+			data.models = res;
+			resolveModels && resolveModels(data);
 		}
 	});
 
@@ -249,6 +256,8 @@ window.Asc.plugin.onTranslate = function () {
 		item.btn.setLabel(window.Asc.plugin.tr(item.btn.getLabel()));
 	}
 
+	providerKeyInputEl.setAttribute('placeholder', window.Asc.plugin.tr(providerKeyInputEl.getAttribute('placeholder')));
+
 	heightUpdateConditions.translateReady();
 };
 
@@ -258,7 +267,7 @@ onResize();
 function onThemeChanged(theme) {
 	window.Asc.plugin.onThemeChangedBase(theme);
 	
-	var themeType = theme.type || 'light';
+	themeType = theme.type || 'light';
 	updateBodyThemeClasses(theme.type, theme.name);
 	updateThemeVariables(theme);
 	
@@ -408,6 +417,8 @@ function onChangeProviderComboBox() {
 	if (providerUrlInputEl.value) {
 		updateModelsList();
 	}
+
+	providerKeyInput.setMasked(!!providerKeyInputEl.value);
 }
 
 function onOpenProviderComboBox() {
@@ -448,18 +459,18 @@ function onChangeProviderKeyInput() {
 }
 
 function onChangeModelComboBox() {
-	var modelObj = providerModelsList.filter(function(model) { return model.name == modelNameCmbEl.value })[0] || null;
-	if(modelObj && (type == 'add' || !isFirstLoadOfModels)) {
-		updateCapabilitiesBtns(modelObj.capabilities);
-	}
-
-	if (modelObj && modelObj.name) {
-		let providerObj = providersList.filter(function(provider) { return provider.id == providerNameCmbEl.value })[0] || null;
-		let providerName = providerObj ? providerObj.name : providerNameCmbEl.value;
-		if (providerName)
-			nameInputEl.value = providerName + ' [' + modelObj.name + ']';
-		else
-			nameInputEl.value = modelObj.name;
+	if(type == 'add' || !isFirstLoadOfModels)  {
+		var modelObj = providerModelsList.filter(function(model) { return model.name == modelNameCmbEl.value })[0] || null;
+		updateCapabilitiesBtns(modelObj ? modelObj.capabilities : 0);
+		
+		if (modelObj && modelObj.name) {
+			let providerObj = providersList.filter(function(provider) { return provider.id == providerNameCmbEl.value })[0] || null;
+			let providerName = providerObj ? providerObj.name : providerNameCmbEl.value;
+			if (providerName)
+				nameInputEl.value = providerName + ' [' + modelObj.name + ']';
+			else
+				nameInputEl.value = modelObj.name;
+		}
 	}
 }
 
@@ -491,6 +502,8 @@ function updateCapabilitiesBtns(capabilities) {
 		var itemProps = capabilitiesElements[key];
 		itemProps.btn.setValue((capabilities & itemProps.capabilities) !== 0);
 	}
+
+	onToggleCapability();
 }
 
 function updateModelsList() {
@@ -529,13 +542,17 @@ function updateModelsList() {
 		url : providerUrlInputEl.value, 
 		key: providerKeyInputEl.value
 	}).then(function(data) {
-		providerModelsList = data;
-		updateHtmlElements();
-		endLoader();
+		if (providerNameCmbEl.value == data.provider) {
+			providerModelsList = data.models;
+			updateHtmlElements();
+			endLoader();
+		}
 	}).catch(function(error) {
-		providerModelsList = [];
-		updateHtmlElements();
-		endLoader(error);
+		if (providerNameCmbEl.value == error.provider) {
+			providerModelsList = [];
+			updateHtmlElements();
+			endLoader(error.message);
+		}
 	});
 }
 
@@ -605,6 +622,71 @@ function fetchModelsForProvider(provider) {
 
 	});
 }
+
+function MaskedInput(options) {
+	this._init = function() {
+		// Default parameters
+		var defaults = {
+			el: null,		//HTML field element
+		};
+		// Merge user options with defaults
+		this.options = Object.assign({}, defaults, options);
+
+		// Masked state
+		this.isMasked = true;
+
+		if (this.options.el) {
+			var me = this;
+
+			// Create HTML elements
+			this.containerEl = document.createElement('div');
+			this.containerEl.style.display = 'flex';
+			this.containerEl.style.position = 'relative';
+			this.options.el.parentNode.insertBefore(this.containerEl, this.options.el);
+			this.options.el.style.paddingRight = '20px';
+			this.containerEl.appendChild(this.options.el);
+
+			this.iconEl = document.createElement('img');
+			this.iconEl.className = 'icon';
+			this.iconEl.style.position = 'absolute';
+			this.iconEl.style.width = '20px';
+			this.iconEl.style.height = '20px';
+			this.iconEl.style.top = '1px';
+			this.iconEl.style.right = '0px';
+			this.iconEl.style.display = 'block';
+			this.iconEl.style.cursor = 'pointer';
+			this.updateFieldView();
+			this.iconEl.addEventListener('click', function() {
+				me.setMasked(!me.isMasked);
+			});
+			this.containerEl.appendChild(this.iconEl);
+		} else {
+			console.error("Field not found.");
+		}
+	};
+
+	this.updateFieldView = function() {
+		this.iconEl.src = this.isMasked
+			? 'resources/icons/' + themeType + '/' + 'btn-password' + getZoomSuffixForImage() + '.png'
+			: 'resources/icons/' + themeType + '/' + 'btn-password-hide' + getZoomSuffixForImage() + '.png';
+
+		this.options.el.setAttribute(
+			'type',
+			this.isMasked ? 'password' : 'text'
+		);
+	};
+
+	this.getMasked = function() {
+		return this.isMasked;
+	};
+	this.setMasked = function(value) {
+		this.isMasked = !!value;
+		this.updateFieldView();
+	};
+
+	this._init();
+}
+
 
 function ValidatorWrapper(options) {
 	this._init = function() {
@@ -695,9 +777,11 @@ function ValidatorWrapper(options) {
 		if(this.state.value) {
 			this.errorIconEl.style.display = 'none';
 			borderedEl.style.borderColor = '';
+			this.options.fieldEl.style.paddingRight = '';
 		} else {
 			this.errorIconEl.style.display = 'block';
 			borderedEl.style.cssText += 'border-color: #f62211 !important;';
+			this.options.fieldEl.style.paddingRight = '20px';
 		}
 	};
 

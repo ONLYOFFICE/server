@@ -108,6 +108,8 @@ textarea {
 
 .error-description {
     line-height: 14px;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
 }
 
 #loader-wrapper {
