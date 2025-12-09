@@ -14,7 +14,6 @@
   box-sizing: border-box;
   vertical-align: top;
   min-width: 0;
-  margin-bottom: 56px;
 }
 
 .connectionsCard:first-child {
@@ -44,7 +43,6 @@
   padding-right: 28px;
   vertical-align: top;
   min-width: 0;
-  margin-bottom: 56px;
 }
 
 .averageCard {
@@ -54,7 +52,6 @@
   padding-left: 28px;
   vertical-align: top;
   min-width: 0;
-  margin-bottom: 56px;
 }
 
 /* Responsive: stack everything vertically on smaller screens */
