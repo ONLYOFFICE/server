@@ -9,6 +9,8 @@ const utils = require('../../../Common/sources/utils');
 const commonDefines = require('../../../Common/sources/commondefines');
 const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
+const path = require('path');
+const fs = require('fs');
 
 // Configuration values
 const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
@@ -51,12 +53,63 @@ function getLicenseNowUtc() {
 }
 
 /**
- * License info endpoint handler
- * @param {import('express').Request} req Express request
+ * Send license info response
  * @param {import('express').Response} res Express response
- * @param {Function} getConnections Function to get active connections
+ * @param {Object} output License info output data
+ * @param {boolean} isError Whether an error occurred
  */
-async function licenseInfo(req, res, getConnections = null) {
+function sendLicenseInfoResponse(res, output, isError) {
+  if (res.headersSent) {
+    return;
+  }
+  if (!isError) {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(output));
+  } else {
+    res.sendStatus(400);
+  }
+}
+
+// ============================================================================
+// FIXTURE TESTING SUPPORT
+// Set USE_FIXTURES to true to return mock data from tests/fixtures/info/*.json
+// Fixtures cycle per request for testing different license scenarios
+// ============================================================================
+const USE_FIXTURES = false;
+let fixtureFiles = [];
+let fixtureRequestCounter = 0;
+
+if (USE_FIXTURES) {
+  try {
+    const fixturesDir = path.join(__dirname, '../../../tests/fixtures/info');
+    const files = fs.readdirSync(fixturesDir);
+    fixtureFiles = files.filter(file => file.endsWith('.json'));
+  } catch {
+    // Fixtures directory doesn't exist
+  }
+}
+
+/**
+ * Build license info output data
+ * @param {Object} ctx Operation context
+ * @param {Function} getConnections Function to get active connections
+ * @returns {Promise<{output: Object, isError: boolean}>} Output data and error flag
+ */
+async function buildLicenseInfoOutput(ctx, getConnections = null) {
+  // Return fixture data if enabled and available
+  if (USE_FIXTURES && fixtureFiles.length > 0) {
+    fixtureRequestCounter++;
+    const fixtureIndex = (fixtureRequestCounter - 1) % fixtureFiles.length;
+    const fixturePath = path.join(__dirname, '../../../tests/fixtures/info', fixtureFiles[fixtureIndex]);
+    try {
+      const fixtureData = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+      ctx.logger.debug('licenseInfo: using fixture %s', fixtureFiles[fixtureIndex]);
+      return {output: fixtureData, isError: false};
+    } catch (e) {
+      ctx.logger.warn('licenseInfo: failed to load fixture %s', e.message);
+    }
+  }
+
   let isError = false;
   const serverDate = new Date();
   // Security risk of high-precision time
@@ -88,31 +141,13 @@ async function licenseInfo(req, res, getConnections = null) {
     }
   };
 
-  const ctx = new operationContext.Context();
   try {
-    ctx.initFromRequest(req);
-
-    const requestedTenant = req.query && req.query.tenant;
-    if (requestedTenant) {
-      const userTenant = req.user && req.user.tenant;
-      if (userTenant && requestedTenant !== userTenant) {
-        const defaultTenant = tenantManager.getDefautTenant();
-        if (userTenant !== defaultTenant) {
-          if (!res.headersSent) {
-            res.status(403).json({error: 'Forbidden'});
-          }
-          return;
-        }
-      }
-      ctx.setTenant(requestedTenant);
-    }
-    await ctx.initTenantCache();
     ctx.logger.debug('licenseInfo start');
 
     const tenantLicense = await tenantManager.getTenantLicense(ctx);
     if (tenantLicense && Array.isArray(tenantLicense) && tenantLicense.length > 0) {
-      const [licenseInfo] = tenantLicense;
-      Object.assign(output.licenseInfo, licenseInfo);
+      const [licenseData] = tenantLicense;
+      Object.assign(output.licenseInfo, licenseData);
     }
 
     const precisionSum = {};
@@ -234,16 +269,39 @@ async function licenseInfo(req, res, getConnections = null) {
   } catch (err) {
     isError = true;
     ctx.logger.error('licenseInfo error %s', err.stack);
-  } finally {
-    if (!res.headersSent) {
-      if (!isError) {
-        res.setHeader('Content-Type', 'application/json');
-        res.send(JSON.stringify(output));
-      } else {
-        res.sendStatus(400);
+  }
+
+  return {output, isError};
+}
+
+/**
+ * License info endpoint handler
+ * @param {import('express').Request} req Express request
+ * @param {import('express').Response} res Express response
+ * @param {Function} getConnections Function to get active connections
+ */
+async function licenseInfo(req, res, getConnections = null) {
+  const ctx = new operationContext.Context();
+  ctx.initFromRequest(req);
+
+  const requestedTenant = req.query && req.query.tenant;
+  if (requestedTenant) {
+    const userTenant = req.user && req.user.tenant;
+    if (userTenant && requestedTenant !== userTenant) {
+      const defaultTenant = tenantManager.getDefautTenant();
+      if (userTenant !== defaultTenant) {
+        if (!res.headersSent) {
+          res.status(403).json({error: 'Forbidden'});
+        }
+        return;
       }
     }
+    ctx.setTenant(requestedTenant);
   }
+  await ctx.initTenantCache();
+
+  const {output, isError} = await buildLicenseInfoOutput(ctx, getConnections);
+  sendLicenseInfoResponse(res, output, isError);
 }
 
 /**
