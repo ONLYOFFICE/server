@@ -21,13 +21,17 @@
 .valuesContainer {
   width: 100%;
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
+}
+
+.valueItemFirst {
+  text-align: right;
+  flex: 0 0 auto;
 }
 
 .valueItem {
   text-align: right;
-  flex: 0 0 auto;
+  flex: 1 1 0;
 }
 
 .value {
@@ -51,9 +55,9 @@
 @media (max-width: 1160px) {
   .valuesContainer {
     display: flex !important;
-    justify-content: space-between !important;
   }
 
+  .valueItemFirst,
   .valueItem {
     text-align: right !important;
   }

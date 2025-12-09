@@ -13,29 +13,33 @@ const TIME_LABELS = ['Last Hour', '24 Hours', 'Week', 'Month'];
  * @param {Array<number|Array>} props.viewerValues - Array of values for viewers (numbers or [value, status] tuples)
  * @param {string} props.mode - Display mode: 'all' | 'edit' | 'view'
  * @param {Array<string>} props.labels - Optional custom labels (defaults to TIME_LABELS)
+ * @param {number} props.columns - Number of columns (defaults to 4)
  */
-export default function ActivityCard({title, description, editorValues, viewerValues, mode, labels = TIME_LABELS}) {
+export default function ActivityCard({title, description, editorValues, viewerValues, mode, labels = TIME_LABELS, columns = 4}) {
   const renderTableCard = (cardTitle, cardDescription, values) => {
+    // Always display the specified number of columns, filling with empty values if needed
+    const displayItems = Array.from({length: columns}, (_, index) => {
+      const label = labels[index] || '';
+      const valueData = values[index];
+      const value = valueData !== undefined ? (Array.isArray(valueData) ? valueData[0] : valueData) : '';
+      const color = Array.isArray(valueData) ? valueData[1] : '';
+
+      return {label, value, color};
+    });
+
     return (
       <div className={styles.tableCard}>
         <h4 className={styles.tableTitle}>{cardTitle}</h4>
         <p className={styles.tableDescription}>{cardDescription}</p>
         <div className={styles.valuesContainer}>
-          {labels.map((label, index) => {
-            // Handle both number values and [value, color] tuples
-            const valueData = values[index];
-            const value = Array.isArray(valueData) ? valueData[0] : valueData || 0;
-            const color = Array.isArray(valueData) ? valueData[1] : '';
-
-            return (
-              <div key={index} className={styles.valueItem}>
-                <div className={styles.value} style={color ? {color} : undefined}>
-                  {value}
-                </div>
-                <div className={styles.label}>{label}</div>
+          {displayItems.map((item, index) => (
+            <div key={index} className={index === 0 ? styles.valueItemFirst : styles.valueItem}>
+              <div className={styles.value} style={item.color ? {color: item.color} : undefined}>
+                {item.value !== '' ? item.value : '\u00A0'}
               </div>
-            );
-          })}
+              <div className={styles.label}>{item.label}</div>
+            </div>
+          ))}
         </div>
       </div>
     );

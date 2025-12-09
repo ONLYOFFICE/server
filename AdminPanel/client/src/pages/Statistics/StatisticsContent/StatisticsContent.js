@@ -1,19 +1,20 @@
 import {useMemo} from 'react';
 import LimitCard from '../LimitCard/LimitCard';
 import ActivityCard from '../ActivityCard/ActivityCard';
+import MonthlyStatistics from '../MonthlyStatistics/MonthlyStatistics';
 import styles from './StatisticsContent.module.css';
 
 const TIME_PERIODS = ['hour', 'day', 'week', 'month'];
 const SECONDS_PER_DAY = 86400;
 const USER_ACTIVITY_LABELS = ['Active', 'Internal', 'External', 'Remaining'];
-
+const CRITICAL_COLOR = '#CB0000';
 /**
  * Helper function to get usage color based on percentage
  * @param {number} percent - Usage percentage (0-100)
  * @returns {string} Color hex code
  */
 const getUsageColor = percent => {
-  if (percent >= 90) return '#CB0000'; // Critical - Red
+  if (percent >= 90) return CRITICAL_COLOR; // Critical - Red
   if (percent >= 70) return '#FF6F3D'; // Warning - Orange
   return '#007B14'; // Normal - Green
 };
@@ -90,17 +91,21 @@ export default function StatisticsContent({data, mode}) {
     TIME_PERIODS.forEach((period, index) => {
       const item = connectionsStat?.[period];
       if (item?.edit) {
-        editorPeaks[index] = item.edit.max || 0;
-        editorAvr[index] = item.edit.avr || 0;
+        const peakValue = item.edit.max || 0;
+        const avrValue = item.edit.avr || 0;
+        editorPeaks[index] = peakValue >= limitEdit ? [peakValue, CRITICAL_COLOR] : peakValue;
+        editorAvr[index] = avrValue >= limitEdit ? [avrValue, CRITICAL_COLOR] : avrValue;
       }
       if (item?.liveview) {
-        viewerPeaks[index] = item.liveview.max || 0;
-        viewerAvr[index] = item.liveview.avr || 0;
+        const peakValue = item.liveview.max || 0;
+        const avrValue = item.liveview.avr || 0;
+        viewerPeaks[index] = peakValue >= limitView ? [peakValue, CRITICAL_COLOR] : peakValue;
+        viewerAvr[index] = avrValue >= limitView ? [avrValue, CRITICAL_COLOR] : avrValue;
       }
     });
 
     return {editorPeaks, viewerPeaks, editorAvr, viewerAvr};
-  }, [connectionsStat, isUsersModel]);
+  }, [connectionsStat, isUsersModel, limitEdit, limitView]);
 
   if (isUsersModel && userActivityData) {
     return (
@@ -115,6 +120,11 @@ export default function StatisticsContent({data, mode}) {
               mode={mode}
               labels={USER_ACTIVITY_LABELS}
             />
+          </div>
+        </div>
+        <div className={styles.connectionsRow}>
+          <div className={styles.connectionsCard}>
+            <MonthlyStatistics byMonth={quota?.byMonth} mode={mode} />
           </div>
         </div>
       </div>
