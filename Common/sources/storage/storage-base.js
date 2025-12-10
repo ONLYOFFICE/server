@@ -62,7 +62,18 @@ function getStorage(opt_specialDir) {
   return opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? persistentStorage : cacheStorage;
 }
 function getStorageCfg(ctx, opt_specialDir) {
-  return opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? cfgPersistentStorage : cfgCacheStorage;
+  const baseStorageCfg = opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? cfgPersistentStorage : cfgCacheStorage;
+
+  if (ctx && ctx.config) {
+    const tenantStorageCfg =
+      opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? ctx.getCfg('persistentStorage', null) : ctx.getCfg('storage', null);
+
+    if (tenantStorageCfg) {
+      return utils.deepMergeObjects({}, baseStorageCfg, tenantStorageCfg);
+    }
+  }
+
+  return baseStorageCfg;
 }
 function canCopyBetweenStorage(storageCfgSrc, storageCfgDst) {
   return storageCfgSrc.name === storageCfgDst.name && storageCfgSrc.endpoint === storageCfgDst.endpoint;
