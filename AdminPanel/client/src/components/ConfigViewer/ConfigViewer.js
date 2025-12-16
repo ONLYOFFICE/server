@@ -1,45 +1,42 @@
-import {useState, useEffect} from 'react';
+import {useMemo, useState} from 'react';
+import {useQuery} from '@tanstack/react-query';
 import {fetchConfiguration} from '../../api';
 import styles from './ConfigViewer.module.scss';
 
 const ConfigViewer = () => {
-  const [config, setConfig] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [jsonString, setJsonString] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
 
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchConfiguration();
-        setConfig(data);
-        setJsonString(JSON.stringify(data, null, 2));
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const {
+    data: config,
+    isLoading,
+    isError,
+    error
+  } = useQuery({
+    queryKey: ['configuration'],
+    queryFn: fetchConfiguration,
+    retry: false
+  });
 
-    loadConfig();
-  }, []);
+  const jsonString = useMemo(() => {
+    return config ? JSON.stringify(config, null, 2) : '';
+  }, [config]);
 
   const copyToClipboard = () => {
     if (jsonString) {
       navigator.clipboard.writeText(jsonString);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return <div className={styles.loading}>Loading configuration...</div>;
   }
 
-  if (error || !config) {
+  if (isError || !config) {
     return (
       <div className={styles.error}>
-        <p>Error loading configuration: {error}</p>
+        <p>Error loading configuration: {error?.message || 'Unknown error'}</p>
       </div>
     );
   }
@@ -51,7 +48,7 @@ const ConfigViewer = () => {
           Sensitive parameters (passwords, keys, secrets) are shown as <span className={styles.redactedBadge}>REDACTED</span>.
         </p>
         <button className={styles.copyButton} onClick={copyToClipboard}>
-          Copy JSON
+          {copySuccess ? '✓ Copied!' : 'Copy JSON'}
         </button>
       </div>
       <div className={styles.configContent}>

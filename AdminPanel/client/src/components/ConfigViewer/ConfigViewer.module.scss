@@ -43,6 +43,11 @@
   font-weight: 500;
   transition: background 0.2s;
   white-space: nowrap;
+  min-width: 110px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
   &:hover {
     background: #0056b3;
