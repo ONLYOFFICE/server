@@ -4,11 +4,12 @@ import Button from '../../components/Button/Button';
 import Section from '../../components/Section/Section';
 import ConfigViewer from '../../components/ConfigViewer/ConfigViewer';
 import Tabs from '../../components/Tabs/Tabs';
+import ShutdownTab from '../../components/ShutdownTab/ShutdownTab';
 import './Settings.scss';
 
 const settingsTabs = [
   {key: 'configuration', label: 'Configuration'},
-  {key: 'server-reload', label: 'Server Reload'}
+  {key: 'shutdown', label: 'Shutdown'}
 ];
 
 const Settings = () => {
@@ -43,8 +44,8 @@ const Settings = () => {
             </Section>
           </>
         );
-      case 'server-reload':
-        return null;
+      case 'shutdown':
+        return <ShutdownTab />;
       default:
         return null;
     }

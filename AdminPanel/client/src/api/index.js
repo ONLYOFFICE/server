@@ -193,6 +193,39 @@ export const checkHealth = async () => {
   return true;
 };
 
+export const getMaintenanceStatus = async () => {
+  const response = await safeFetch(`${DOCSERVICE_URL}/internal/cluster/inactive`, {
+    method: 'GET',
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to get maintenance status');
+  }
+  return response.json();
+};
+
+export const enterMaintenanceMode = async () => {
+  const response = await safeFetch(`${DOCSERVICE_URL}/internal/cluster/inactive`, {
+    method: 'PUT',
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to enter maintenance mode');
+  }
+  return response.json();
+};
+
+export const exitMaintenanceMode = async () => {
+  const response = await safeFetch(`${DOCSERVICE_URL}/internal/cluster/inactive`, {
+    method: 'DELETE',
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to exit maintenance mode');
+  }
+  return response.json();
+};
+
 export const resetConfiguration = async (paths = ['*']) => {
   const pathsArray = Array.isArray(paths) ? paths : [paths];
 

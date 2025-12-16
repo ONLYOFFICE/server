@@ -4785,6 +4785,25 @@ function getConnections() {
 }
 
 exports.getConnections = getConnections;
+
+/**
+ * Get shutdown status
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+exports.getShutdownStatus = function (req, res) {
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      shutdown: getIsShutdown()
+    });
+  } catch (err) {
+    ctx.logger.error('getShutdownStatus error %s', err.stack);
+    res.status(500).json({error: 'Internal server error'});
+  }
+};
 exports.getEditorConnectionsCount = function (req, res) {
   const ctx = new operationContext.Context();
   let count = 0;
