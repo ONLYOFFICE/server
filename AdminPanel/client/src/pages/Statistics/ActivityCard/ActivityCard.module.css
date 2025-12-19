@@ -11,7 +11,7 @@
 }
 
 .tableDescription {
-  font-weight: 600;
+  font-weight: 400;
   font-size: 14px;
   line-height: 150%;
   color: #666666;
@@ -35,14 +35,14 @@
 }
 
 .value {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 700;
   color: #333333;
   margin-bottom: 4px;
 }
 
 .label {
-  font-size: 12px;
+  font-size: 13px;
   color: #666666;
 }
 
