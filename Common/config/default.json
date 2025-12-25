@@ -451,7 +451,9 @@
         "pemStdTTL": "1h",
         "pemCheckPeriod": "10m",
         "updateVersionStatus": "5m",
-        "monthUniqueUsers": "1y"
+        "monthUniqueUsers": "1y",
+        "forgottenFiles": 604800,
+        "forgottenFilesCron": "00 30 */6 * * *"
       },
       "ipfilter": {
         "rules": [{"address": "*", "allowed": true}],

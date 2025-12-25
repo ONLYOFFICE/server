@@ -44,12 +44,15 @@ const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const operationContext = require('./../../Common/sources/operationContext');
 const pubsubService = require('./pubsubRabbitMQ');
 const sqlBase = require('./databaseConnectors/baseConnector');
+const storage = require('./../../Common/sources/storage');
 
 const cfgExpFilesCron = config.get('services.CoAuthoring.expire.filesCron');
 const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
 const cfgExpFiles = config.get('services.CoAuthoring.expire.files');
 const cfgExpFilesRemovedAtOnce = config.get('services.CoAuthoring.expire.filesremovedatonce');
 const cfgForceSaveStep = config.get('services.CoAuthoring.autoAssembly.step');
+const cfgExpForgottenFiles = config.get('services.CoAuthoring.expire.forgottenFiles');
+const cfgExpForgottenFilesCron = config.get('services.CoAuthoring.expire.forgottenFilesCron');
 
 function getCronStep(cronTime) {
   const cronJob = new cron.CronJob(cronTime, () => {});
@@ -58,6 +61,7 @@ function getCronStep(cronTime) {
 }
 const expFilesStep = getCronStep(cfgExpFilesCron);
 const expDocumentsStep = getCronStep(cfgExpDocumentsCron);
+const expForgottenFilesStep = getCronStep(cfgExpForgottenFilesCron);
 
 const checkFileExpire = function (expireSeconds) {
   return co(function* () {
@@ -267,11 +271,97 @@ const forceSaveTimeout = function () {
   });
 };
 
+/**
+ * Проверяет и удаляет устаревшие forgotten files
+ * @returns {Promise<void>}
+ */
+const checkForgottenFilesExpire = function () {
+  return co(function* () {
+    const ctx = new operationContext.Context();
+    let currentExpForgottenFilesStep;
+    try {
+      ctx.initDefault();
+      ctx.logger.info('checkForgottenFilesExpire start');
+      yield ctx.initTenantCache();
+
+      const expForgottenFiles = ctx.getCfg('services.CoAuthoring.expire.forgottenFiles', cfgExpForgottenFiles);
+      const currentForgottenFilesCron = ctx.getCfg('services.CoAuthoring.expire.forgottenFilesCron', cfgExpForgottenFilesCron);
+
+      currentExpForgottenFilesStep = getCronStep(currentForgottenFilesCron);
+
+      let removedCount = 0;
+      let checkedCount = 0;
+
+      // Получаем список устаревших документов из базы данных
+      const expiredDocs = yield taskResult.getExpired(ctx, 100, expForgottenFiles);
+
+      if (expiredDocs.length > 0) {
+        expiredDocs.sort((a, b) => a.tenant.localeCompare(b.tenant));
+        let currentTenant = null;
+
+        for (let i = 0; i < expiredDocs.length; ++i) {
+          const tenant = expiredDocs[i].tenant;
+          const docId = expiredDocs[i].id;
+          const shardKey = sqlBase.DocumentAdditional.prototype.getShardKey(expiredDocs[i].additional);
+          const wopiSrc = sqlBase.DocumentAdditional.prototype.getWopiSrc(expiredDocs[i].additional);
+
+          try {
+            if (currentTenant !== tenant) {
+              ctx.init(tenant, docId, ctx.userId, shardKey, wopiSrc);
+              yield ctx.initTenantCache();
+              currentTenant = tenant;
+            } else {
+              ctx.setDocId(docId);
+              ctx.setShardKey(shardKey);
+              ctx.setWopiSrc(wopiSrc);
+            }
+
+            const tenForgottenFiles = ctx.getCfg(
+              'services.CoAuthoring.server.forgottenfiles',
+              config.get('services.CoAuthoring.server.forgottenfiles')
+            );
+
+            // Проверяем существуют ли forgotten files для данного документа
+            const forgottenFilesList = yield storage.listObjects(ctx, docId, tenForgottenFiles);
+
+            if (forgottenFilesList.length > 0) {
+              checkedCount += forgottenFilesList.length;
+
+              // Удаляем forgotten files для устаревшего документа
+              yield storage.deletePath(ctx, docId, tenForgottenFiles);
+              removedCount++;
+
+              ctx.logger.debug(
+                'checkForgottenFilesExpire removed forgotten files for docId: %s, tenant: %s, count: %d',
+                docId,
+                tenant,
+                forgottenFilesList.length
+              );
+            }
+          } catch (docErr) {
+            ctx.logger.error('checkForgottenFilesExpire document error: %s, docId: %s, tenant: %s', docErr.stack, docId, tenant);
+          }
+        }
+      }
+
+      ctx.initDefault();
+      ctx.logger.info('checkForgottenFilesExpire end: checkedCount = %d, removedCount = %d', checkedCount, removedCount);
+    } catch (e) {
+      ctx.logger.error('checkForgottenFilesExpire error: %s', e.stack);
+      currentExpForgottenFilesStep = getCronStep(cfgExpForgottenFilesCron);
+    } finally {
+      setTimeout(checkForgottenFilesExpire, currentExpForgottenFilesStep || getCronStep(cfgExpForgottenFilesCron));
+    }
+  });
+};
+
 exports.startGC = function () {
   //runtime config is read on start
   setTimeout(checkDocumentExpire, expDocumentsStep);
   setTimeout(checkFileExpire, expFilesStep);
   setTimeout(forceSaveTimeout, ms(cfgForceSaveStep));
+  setTimeout(checkForgottenFilesExpire, expForgottenFilesStep);
 };
 exports.getCronStep = getCronStep;
 exports.checkFileExpire = checkFileExpire;
+exports.checkForgottenFilesExpire = checkForgottenFilesExpire;
