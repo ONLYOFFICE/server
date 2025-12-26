@@ -43,8 +43,8 @@
 .barContainer {
   width: 100%;
   height: 8px;
-  background-color: #F5F5F5;
-  border: 1px solid #E2E2E2;
+  background-color: #f5f5f5;
+  border: 1px solid #e2e2e2;
   border-radius: 8px;
   box-sizing: border-box;
   overflow: hidden;
