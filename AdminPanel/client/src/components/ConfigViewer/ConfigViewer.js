@@ -21,11 +21,14 @@ const ConfigViewer = () => {
     return config ? JSON.stringify(config, null, 2) : '';
   }, [config]);
 
-  const copyToClipboard = () => {
-    if (jsonString) {
-      navigator.clipboard.writeText(jsonString);
+  const copyToClipboard = async () => {
+    if (!jsonString) return;
+    try {
+      await navigator.clipboard.writeText(jsonString);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
+    } catch {
+      // Clipboard API may fail on HTTP or restricted contexts
     }
   };
 

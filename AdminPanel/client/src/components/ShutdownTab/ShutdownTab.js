@@ -21,14 +21,14 @@ const ShutdownTab = () => {
   const shutdownMutation = useMutation({
     mutationFn: enterMaintenanceMode,
     onSuccess: () => {
-      queryClient.setQueryData(['maintenanceStatus'], prev => ({...(prev || {}), shutdown: true}));
+      queryClient.invalidateQueries({queryKey: ['maintenanceStatus']});
     }
   });
 
   const resumeMutation = useMutation({
     mutationFn: exitMaintenanceMode,
     onSuccess: () => {
-      queryClient.setQueryData(['maintenanceStatus'], prev => ({...(prev || {}), shutdown: false}));
+      queryClient.invalidateQueries({queryKey: ['maintenanceStatus']});
     }
   });
 

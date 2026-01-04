@@ -233,9 +233,7 @@ function redactSensitiveParams(config, sensitivePaths) {
  */
 function getFullConfigRedacted(ctx) {
   const cfg = ctx.getFullCfg();
-  const configCopy = JSON.parse(JSON.stringify(cfg));
-
-  return redactSensitiveParams(configCopy, SENSITIVE_PARAM_PATHS);
+  return redactSensitiveParams(cfg, SENSITIVE_PARAM_PATHS);
 }
 
 module.exports = {validateScoped, getScopedBaseConfig, filterAdmin, getDiffFromBase, getFullConfigRedacted, getScopedConfig};
