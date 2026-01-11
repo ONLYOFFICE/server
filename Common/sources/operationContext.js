@@ -109,6 +109,12 @@ Context.prototype.initTenantCache = async function () {
     const runtimeConfig = await runtimeConfigManager.getConfig(this);
     const tenantConfig = await tenantManager.getTenantConfig(this);
     this.config = utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), runtimeConfig, tenantConfig);
+
+    // Merge persistentStorage with storage to support inheritance
+    if (this.config.persistentStorage && this.config.storage) {
+      this.config.persistentStorage = Context.normalizePersistentStorageCfg(this.config.storage, this.config.persistentStorage);
+    }
+
     configCache[this.tenant] = this.config;
   }
 
@@ -171,5 +177,17 @@ Context.prototype.getFullCfg = function () {
   return utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), this.config);
 };
 
+/**
+ * Merges storage config with persistentStorage config
+ * persistentStorage inherits all properties from storage and overrides them
+ * @param {Object} storageCfg - Base storage configuration
+ * @param {Object} persistentStorageCfg - Persistent storage overrides
+ * @returns {Object} Merged persistent storage configuration
+ */
+Context.normalizePersistentStorageCfg = function (storageCfg, persistentStorageCfg) {
+  return utils.deepMergeObjects({}, storageCfg, persistentStorageCfg);
+};
+
 exports.Context = Context;
 exports.global = new Context();
+exports.normalizePersistentStorageCfg = Context.normalizePersistentStorageCfg;
