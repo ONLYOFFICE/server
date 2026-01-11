@@ -48,7 +48,7 @@ const cfgStaticContent = config.has('services.CoAuthoring.server.static_content'
   ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content'))
   : {};
 const cfgCacheStorage = config.get('storage');
-const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
+const cfgPersistentStorage = operationContext.normalizePersistentStorageCfg(cfgCacheStorage, config.get('persistentStorage'));
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 
