@@ -507,6 +507,10 @@
       "themes": {
         "uri": "/web-apps/apps/common/main/resources/themes"
       },
+      "documentFormats": {
+        "path": "./document-formats/formats.json",
+        "cacheTTL": "5m"
+      },
       "editor": {
         "spellcheckerUrl": "",
         "reconnection": {
