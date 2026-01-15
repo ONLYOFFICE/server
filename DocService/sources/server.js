@@ -453,6 +453,44 @@ docsCoServer.install(server, app, () => {
       }
     });
   });
+  app.get('/formats.json', apicache.middleware('5 minutes'), (req, res) => {
+    return co(function* () {
+      let formats = null;
+      const ctx = new operationContext.Context();
+      try {
+        ctx.initFromRequest(req);
+        yield ctx.initTenantCache();
+        ctx.logger.info('formats.json start');
+
+        if (!config.has('services.CoAuthoring.documentFormats.path')) {
+          ctx.logger.warn('formats.json: documentFormats.path not configured');
+          res.sendStatus(404);
+          return;
+        }
+
+        const formatsPath = config.get('services.CoAuthoring.documentFormats.path');
+        const resolvedPath = path.resolve(__dirname, '../../..', formatsPath);
+
+        ctx.logger.debug('formats.json path:%s', resolvedPath);
+
+        const data = yield utils.readFile(resolvedPath, true);
+        const text = new TextDecoder('utf-8', {ignoreBOM: false}).decode(data);
+        formats = JSON.parse(text);
+
+        ctx.logger.debug('formats.json loaded successfully');
+      } catch (err) {
+        ctx.logger.error('formats.json error:%s', err.stack);
+      } finally {
+        if (formats) {
+          res.setHeader('Content-Type', 'application/json');
+          res.send(formats);
+        } else {
+          res.sendStatus(404);
+        }
+        ctx.logger.info('formats.json end');
+      }
+    });
+  });
   app.get('/document_editor_service_worker.js', apicache.middleware('5 min'), async (req, res) => {
     const staticContent = config.get('services.CoAuthoring.server.static_content');
     if (staticContent['/sdkjs']) {

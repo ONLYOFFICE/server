@@ -13,6 +13,7 @@
     "@eslint/js": "9.16.0",
     "@jest/globals": "29.7.0",
     "cross-env": "7.0.3",
+    "degit": "2.8.4",
     "eslint": "9.16.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-react": "^7.37.2",
@@ -31,6 +32,7 @@
     "format:check": "prettier . --check",
     "code:check": "run-s lint:check format:check",
     "code:fix": "run-s lint:fix format:fix",
+    "download:document-formats": "degit ONLYOFFICE/document-formats document-formats --force",
     "perf-expired": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/checkFileExpire.js",
     "unit tests": "cd ./DocService && jest unit --inject-globals=false --config=../tests/jest.config.js",
     "integration tests with server instance": "cd ./DocService && jest integration/withServerInstance --inject-globals=false --config=../tests/jest.config.js",
@@ -56,6 +58,6 @@
     "3d-party-lic-report:FileConverter": "run-s 3d-party-lic-json:FileConverter 3d-party-lic-downloader 3d-party-lic-md",
     "3d-party-lic-report:Metrics": "run-s 3d-party-lic-json:Metrics 3d-party-lic-downloader 3d-party-lic-md",
     "3d-party-lic-report": "run-s 3d-party-lic-md-header 3d-party-lic-report:*",
-    "build": "run-p install:*"
+    "build": "run-s download:document-formats && run-p install:*"
   }
 }
