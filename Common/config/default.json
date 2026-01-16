@@ -267,7 +267,7 @@
     "wordView": ["doc", "dotm", "dot", "fodt", "ott", "rtf", "mht", "mhtml", "html", "htm", "xml", "epub", "fb2", "sxw", "stw", "wps", "wpt", "pages", "docxf", "oform", "hwp", "hwpx", "md", "hml"],
     "wordEdit": ["docx", "dotx", "docm", "odt", "txt"],
     "cellView": ["xls", "xltm", "xlt", "fods", "ots", "sxc", "xml", "et", "ett", "numbers"],
-    "cellEdit": ["xlsx", "xlsb", "xltx", "xlsm", "ods", "csv"],
+    "cellEdit": ["xlsx", "xlsb", "xltx", "xlsm", "ods", "csv", "tsv"],
     "slideView": ["ppt", "ppsx", "ppsm", "pps", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt", "key", "odg"],
     "slideEdit": ["pptx", "potx", "pptm", "odp"],
     "diagramView": ["vsdx", "vstx", "vssx", "vsdm", "vstm", "vssm"],
