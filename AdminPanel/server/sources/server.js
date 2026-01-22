@@ -49,6 +49,7 @@ const infoRouter = require('../../../DocService/sources/routes/info');
 const configRouter = require('./routes/config/router');
 const adminpanelRouter = require('./routes/adminpanel/router');
 const wopiRouter = require('./routes/wopi/router');
+const docserviceRouter = require('./routes/docservice/router');
 const passwordManager = require('./passwordManager');
 const bootstrap = require('./bootstrap');
 const devProxy = require('./devProxy');
@@ -131,6 +132,7 @@ function disableCache(req, res, next) {
 // API routes under /admin prefix
 app.use('/admin/api/v1/config', disableCache, configRouter);
 app.use('/admin/api/v1/wopi', disableCache, wopiRouter);
+app.use('/admin/api/v1/docservice', disableCache, docserviceRouter);
 app.use('/admin/api/v1', disableCache, adminpanelRouter);
 app.get('/admin/api/v1/stat', disableCache, async (req, res) => {
   await infoRouter.licenseInfo(req, res);

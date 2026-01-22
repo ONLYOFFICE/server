@@ -39,10 +39,12 @@ const Button = forwardRef(({onClick, children = 'Save Changes', disabled = false
 
   const getButtonClass = () => {
     let buttonClass = styles.button;
+
     if (disabled && state === 'idle') buttonClass += ` ${styles['button--disabled']}`;
     if (state === 'loading') buttonClass += ` ${styles['button--loading']}`;
     if (state === 'success') buttonClass += ` ${styles['button--success']}`;
     if (state === 'error') buttonClass += ` ${styles['button--error']}`;
+
     if (className) buttonClass += ` ${className}`;
     return buttonClass;
   };

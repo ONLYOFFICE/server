@@ -32,32 +32,6 @@
   font-family: 'Courier New', monospace;
 }
 
-.copyButton {
-  background: #007bff;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background 0.2s;
-  white-space: nowrap;
-  min-width: 110px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover {
-    background: #0056b3;
-  }
-
-  &:active {
-    background: #004085;
-  }
-}
-
 .configContent {
   padding: 0;
   background: #fafafa;
@@ -98,10 +72,6 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
-  }
-
-  .copyButton {
-    width: 100%;
   }
 
   .jsonPre {

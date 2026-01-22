@@ -194,7 +194,7 @@ export const checkHealth = async () => {
 };
 
 export const getMaintenanceStatus = async () => {
-  const response = await safeFetch(`${DOCSERVICE_URL}/internal/cluster/inactive`, {
+  const response = await safeFetch(`${API_BASE_PATH}/docservice/shutdown`, {
     method: 'GET',
     credentials: 'include'
   });
@@ -205,7 +205,7 @@ export const getMaintenanceStatus = async () => {
 };
 
 export const enterMaintenanceMode = async () => {
-  const response = await safeFetch(`${DOCSERVICE_URL}/internal/cluster/inactive`, {
+  const response = await safeFetch(`${API_BASE_PATH}/docservice/shutdown`, {
     method: 'PUT',
     credentials: 'include'
   });
@@ -216,7 +216,7 @@ export const enterMaintenanceMode = async () => {
 };
 
 export const exitMaintenanceMode = async () => {
-  const response = await safeFetch(`${DOCSERVICE_URL}/internal/cluster/inactive`, {
+  const response = await safeFetch(`${API_BASE_PATH}/docservice/shutdown`, {
     method: 'DELETE',
     credentials: 'include'
   });

@@ -1,11 +1,10 @@
-import {useMemo, useState} from 'react';
+import {useMemo} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {fetchConfiguration} from '../../api';
+import Button from '../Button/Button';
 import styles from './ConfigViewer.module.scss';
 
 const ConfigViewer = () => {
-  const [copySuccess, setCopySuccess] = useState(false);
-
   const {
     data: config,
     isLoading,
@@ -23,13 +22,7 @@ const ConfigViewer = () => {
 
   const copyToClipboard = async () => {
     if (!jsonString) return;
-    try {
-      await navigator.clipboard.writeText(jsonString);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch {
-      // Clipboard API may fail on HTTP or restricted contexts
-    }
+    await navigator.clipboard.writeText(jsonString);
   };
 
   if (isLoading) {
@@ -50,9 +43,7 @@ const ConfigViewer = () => {
         <p className={styles.description}>
           Sensitive parameters (passwords, keys, secrets) are shown as <span className={styles.redactedBadge}>REDACTED</span>.
         </p>
-        <button className={styles.copyButton} onClick={copyToClipboard}>
-          {copySuccess ? '✓ Copied!' : 'Copy JSON'}
-        </button>
+        <Button onClick={copyToClipboard}>Copy JSON</Button>
       </div>
       <div className={styles.configContent}>
         <pre className={styles.jsonPre}>{jsonString}</pre>

@@ -3,11 +3,12 @@ import styles from './Note.module.scss';
 /**
  * Note component for displaying different types of messages
  * @param {Object} props - Component properties
- * @param {('note'|'warning'|'tip'|'important')} props.type - Type of note to display
+ * @param {('note'|'warning'|'tip'|'important'|'success')} props.type - Type of note to display
+ * @param {string} [props.title] - Optional custom title to override default type title
  * @param {React.ReactNode} props.children - Content to display in the note
  * @returns {JSX.Element} Note component
  */
-function Note({type = 'note', children}) {
+function Note({type = 'note', title, children}) {
   const typeConfig = {
     note: {
       title: 'Note',
@@ -61,16 +62,27 @@ function Note({type = 'note', children}) {
           />
         </svg>
       )
+    },
+    success: {
+      title: 'Success',
+      className: styles.success,
+      icon: (
+        <svg className={styles.icon} width='16' height='16' viewBox='0 0 16 16' fill='none'>
+          <circle cx='8' cy='8' r='7.25' stroke='#007B14' strokeWidth='1.5' />
+          <path d='M4.66667 8L6.66667 10L11.3333 5.33333' stroke='#007B14' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' />
+        </svg>
+      )
     }
   };
 
   const config = typeConfig[type] || typeConfig.note;
+  const displayTitle = title || config.title;
 
   return (
     <div className={`${styles.noteContainer} ${config.className}`}>
       <div className={styles.header}>
         {config.icon}
-        <span className={styles.title}>{config.title}</span>
+        <span className={styles.title}>{displayTitle}</span>
       </div>
       <div className={styles.content}>{children}</div>
     </div>

@@ -1,6 +1,7 @@
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import Button from '../Button/Button';
 import Section from '../Section/Section';
+import Note from '../Note/Note';
 import {enterMaintenanceMode, exitMaintenanceMode, getMaintenanceStatus} from '../../api';
 import styles from './ShutdownTab.module.scss';
 
@@ -11,11 +12,15 @@ const SHUTDOWN_DESCRIPTION =
 const ShutdownTab = () => {
   const queryClient = useQueryClient();
 
-  const {data: maintenanceStatus = {shutdown: false}, isLoading: statusLoading} = useQuery({
+  const {
+    data: maintenanceStatus,
+    isLoading: statusLoading,
+    isError: statusError,
+    error
+  } = useQuery({
     queryKey: ['maintenanceStatus'],
     queryFn: getMaintenanceStatus,
-    retry: false,
-    onError: () => {}
+    retry: false
   });
 
   const shutdownMutation = useMutation({
@@ -56,22 +61,33 @@ const ShutdownTab = () => {
     );
   }
 
+  if (statusError) {
+    return (
+      <Section title={SHUTDOWN_TITLE} description={SHUTDOWN_DESCRIPTION}>
+        <Note type='warning' title='Failed to Load Status'>
+          Unable to connect to DocService. {error?.message || 'Please check if the service is running.'}
+        </Note>
+      </Section>
+    );
+  }
+
   return (
     <Section title={SHUTDOWN_TITLE} description={SHUTDOWN_DESCRIPTION}>
       <div className={styles.container}>
-        <div className={`${styles.statusBadge} ${maintenanceStatus.shutdown ? styles.statusBadgeWarning : styles.statusBadgeSuccess}`}>
-          <div className={styles.statusTitle}>Current Status:</div>
-          <div className={styles.statusContent}>
-            {maintenanceStatus.shutdown ? (
-              <span className={styles.statusTextWarning}>⚠️ Shutdown Mode Active - New connections blocked</span>
-            ) : (
-              <span className={styles.statusTextSuccess}>✓ Normal Operation - Accepting new connections</span>
-            )}
-          </div>
+        <div className={styles.statusNote}>
+          {maintenanceStatus?.shutdown ? (
+            <Note type='warning' title='Shutdown Mode Active'>
+              New connections are blocked and existing sessions are being closed.
+            </Note>
+          ) : (
+            <Note type='success' title='Normal Operation'>
+              Server is accepting new connections.
+            </Note>
+          )}
         </div>
 
         <div>
-          <Button onClick={handleShutdown} disabled={maintenanceStatus.shutdown || shutdownMutation.isPending} disableResult={true}>
+          <Button onClick={handleShutdown} disabled={maintenanceStatus?.shutdown || shutdownMutation.isPending}>
             Shutdown
           </Button>
           <p className={styles.buttonDescription}>
@@ -79,7 +95,7 @@ const ShutdownTab = () => {
           </p>
         </div>
         <div>
-          <Button onClick={handleResume} disabled={!maintenanceStatus.shutdown || resumeMutation.isPending}>
+          <Button onClick={handleResume} disabled={!maintenanceStatus?.shutdown || resumeMutation.isPending}>
             Resume
           </Button>
           <p className={styles.buttonDescription}>Returns server to normal mode and allows new editor connections.</p>
