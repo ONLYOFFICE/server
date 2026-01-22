@@ -14,6 +14,13 @@ function ComboBox({value, onChange, options = [], placeholder = '', disabled = f
   const filteredOptions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
+
+    const hasExactMatch = options.some(o => String(o.label).toLowerCase() === q);
+
+    if (hasExactMatch) {
+      return options;
+    }
+
     return options.filter(o => String(o.label).toLowerCase().includes(q));
   }, [options, query]);
 
@@ -36,7 +43,6 @@ function ComboBox({value, onChange, options = [], placeholder = '', disabled = f
     setQuery(selectedOption ? String(selectedOption.label) : '');
     requestAnimationFrame(() => {
       inputRef.current?.focus();
-      inputRef.current?.select();
     });
   };
 
