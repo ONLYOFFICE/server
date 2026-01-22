@@ -71,7 +71,8 @@
       "fontDir": "/usr/share/fonts",
       "presentationThemesDir": "/var/www/onlyoffice/documentserver/sdkjs/slide/themes",
       "x2tPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/x2t",
-      "docbuilderPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/docbuilder"
+      "docbuilderPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/docbuilder",
+      "signingKeyStorePath": "/var/www/onlyoffice/documentserver/../Data/signing-keystore.p12"
     }
   },
   "SpellChecker": {

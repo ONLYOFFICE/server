@@ -563,6 +563,7 @@
       "presentationThemesDir": "null",
       "x2tPath": "null",
       "docbuilderPath": "null",
+      "signingKeyStorePath": "",
       "args": "",
       "spawnOptions": {},
       "errorfiles": "",

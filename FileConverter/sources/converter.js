@@ -69,6 +69,7 @@ const cfgSpawnOptions = config.util.cloneDeep(config.get('FileConverter.converte
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const cfgInputLimits = config.get('FileConverter.converter.inputLimits');
 const cfgStreamWriterBufferSize = config.get('FileConverter.converter.streamWriterBufferSize');
+const cfgSigningKeyStorePath = config.get('FileConverter.converter.signingKeyStorePath');
 //cfgMaxRequestChanges was obtained as a result of the test: 84408 changes - 5,16 MB
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
@@ -182,6 +183,12 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
+    if (this.formatTo === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF) {
+      const signingKeyStorePath = ctx.getCfg('FileConverter.converter.signingKeyStorePath', cfgSigningKeyStorePath);
+      if (signingKeyStorePath && fs.existsSync(signingKeyStorePath)) {
+        xml += this.serializeXmlProp('m_sSigningKeyStorePath', signingKeyStorePath);
+      }
+    }
     xml += this.serializeLimit(ctx);
     xml += this.serializeOptions(ctx, false, this.oformAsPdf);
     xml += '</TaskQueueDataConvert>';
