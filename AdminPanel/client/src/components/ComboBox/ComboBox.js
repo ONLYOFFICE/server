@@ -5,6 +5,7 @@ function ComboBox({value, onChange, options = [], placeholder = '', disabled = f
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [isSearching, setIsSearching] = useState(false); // User started editing after open
 
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
@@ -12,17 +13,13 @@ function ComboBox({value, onChange, options = [], placeholder = '', disabled = f
   const selectedOption = useMemo(() => options.find(o => o.value === value) || null, [options, value]);
 
   const filteredOptions = useMemo(() => {
+    // Show all options until user starts searching
+    if (!isSearching) return options;
+
     const q = query.trim().toLowerCase();
     if (!q) return options;
-
-    const hasExactMatch = options.some(o => String(o.label).toLowerCase() === q);
-
-    if (hasExactMatch) {
-      return options;
-    }
-
     return options.filter(o => String(o.label).toLowerCase().includes(q));
-  }, [options, query]);
+  }, [options, query, isSearching]);
 
   useEffect(() => {
     const handleClickOutside = event => {
@@ -39,21 +36,23 @@ function ComboBox({value, onChange, options = [], placeholder = '', disabled = f
     if (disabled) return;
     setIsOpen(true);
     setActiveIndex(-1);
-    // Initialize query with current selection label for quick refinement
+    setIsSearching(false);
+    // Show selected value, but don't filter yet
     setQuery(selectedOption ? String(selectedOption.label) : '');
     requestAnimationFrame(() => {
       inputRef.current?.focus();
+      inputRef.current?.select(); // Select text so user can immediately type to replace
     });
   };
 
   const closeDropdown = () => {
     setIsOpen(false);
     setActiveIndex(-1);
+    setIsSearching(false);
   };
 
   const handleSelect = option => {
     onChange(option.value);
-    setQuery(String(option.label));
     closeDropdown();
   };
 
@@ -107,7 +106,10 @@ function ComboBox({value, onChange, options = [], placeholder = '', disabled = f
           type='text'
           placeholder={placeholder}
           value={isOpen ? query : selectedOption?.label || ''}
-          onChange={e => setQuery(e.target.value)}
+          onChange={e => {
+            setIsSearching(true); // User started editing — enable filtering
+            setQuery(e.target.value);
+          }}
           onFocus={() => !isOpen && openDropdown()}
           readOnly={disabled}
         />
