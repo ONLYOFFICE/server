@@ -12,29 +12,8 @@
     }
   }
 
-  .errorMessage {
-    text-align: center;
-    padding: 60px 20px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border: 1px solid #e9ecef;
-
-    color: #dc3545;
-    font-size: 16px;
-  }
-
-  .emptyState {
-    text-align: center;
-    padding: 60px 20px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border: 1px solid #e9ecef;
-
-    p {
-      color: #666;
-      font-size: 16px;
-      margin: 0;
-    }
+  .errorNote {
+    margin-bottom: 16px;
   }
 
   .loadingState {

@@ -2,6 +2,7 @@ import {useState, useEffect} from 'react';
 import {getForgottenList, getForgotten} from '../../api';
 import DownloadIcon from '../../assets/Download.svg';
 import Spinner from '../../components/Spinner/Spinner';
+import Note from '../../components/Note/Note';
 import styles from './Forgotten.module.scss';
 
 const Forgotten = () => {
@@ -61,22 +62,17 @@ const Forgotten = () => {
     }
   };
 
-  if (error) {
-    return (
-      <div className={styles.forgottenPage}>
-        <div className={styles.pageHeader}>
-          <h1>Forgotten Files</h1>
-        </div>
-        <div className={styles.errorMessage}>{error}</div>
-      </div>
-    );
-  }
-
   return (
     <div className={styles.forgottenPage}>
       <div className={styles.pageHeader}>
         <h1>Forgotten Files</h1>
       </div>
+
+      {error && (
+        <Note type='warning' onDismiss={() => setError(null)} className={styles.errorNote}>
+          {error}
+        </Note>
+      )}
 
       <div className={styles.forgottenContent}>
         {loading ? (
@@ -84,11 +80,7 @@ const Forgotten = () => {
             <Spinner size={50} />
             <p>Loading...</p>
           </div>
-        ) : forgottenFiles.length === 0 ? (
-          <div className={styles.emptyState}>
-            <p>No forgotten files found.</p>
-          </div>
-        ) : (
+        ) : forgottenFiles.length > 0 ? (
           <div className={styles.filesList}>
             {forgottenFiles.map(file => (
               <div key={file.key} className={styles.fileRow}>
@@ -111,7 +103,9 @@ const Forgotten = () => {
               </div>
             ))}
           </div>
-        )}
+        ) : !error ? (
+          <Note type='note'>No forgotten files found.</Note>
+        ) : null}
       </div>
     </div>
   );

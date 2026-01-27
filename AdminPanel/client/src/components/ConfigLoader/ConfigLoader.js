@@ -34,31 +34,24 @@ const ConfigLoader = ({children}) => {
   const loading = configLoading || schemaLoading || baseConfigLoading;
   const error = configError || schemaError || baseConfigError;
 
+  // Split into separate effects to avoid unnecessary re-runs
   useEffect(() => {
     if (isAuthenticated && !config && !configLoading && !configError) {
       dispatch(fetchConfig());
     }
+  }, [isAuthenticated, config, configLoading, configError, dispatch]);
 
+  useEffect(() => {
     if (isAuthenticated && !schema && !schemaLoading && !schemaError) {
       dispatch(fetchSchema());
     }
+  }, [isAuthenticated, schema, schemaLoading, schemaError, dispatch]);
 
+  useEffect(() => {
     if (isAuthenticated && !baseConfig && !baseConfigLoading && !baseConfigError) {
       dispatch(fetchBaseConfig());
     }
-  }, [
-    config,
-    configLoading,
-    configError,
-    schema,
-    schemaLoading,
-    schemaError,
-    baseConfig,
-    baseConfigLoading,
-    baseConfigError,
-    isAuthenticated,
-    dispatch
-  ]);
+  }, [isAuthenticated, baseConfig, baseConfigLoading, baseConfigError, dispatch]);
 
   if (loading) {
     return (
