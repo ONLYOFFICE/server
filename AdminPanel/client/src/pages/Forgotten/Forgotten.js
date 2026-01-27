@@ -1,21 +1,27 @@
 import {useState, useEffect} from 'react';
 import {getForgottenList, getForgotten} from '../../api';
 import DownloadIcon from '../../assets/Download.svg';
+import Spinner from '../../components/Spinner/Spinner';
+import Note from '../../components/Note/Note';
 import styles from './Forgotten.module.scss';
 
 const Forgotten = () => {
   const [forgottenFiles, setForgottenFiles] = useState([]);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [downloadingFiles, setDownloadingFiles] = useState(new Set());
 
   const loadForgottenFiles = async () => {
     try {
+      setLoading(true);
       setError(null);
       const files = await getForgottenList();
       setForgottenFiles(files);
     } catch (err) {
       console.error('Error loading forgotten files:', err);
       setError(`Failed to load forgotten files: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -56,32 +62,28 @@ const Forgotten = () => {
     }
   };
 
-  if (error) {
-    return (
-      <div className={styles.forgottenPage}>
-        <div className={styles.pageHeader}>
-          <h1>Forgotten Files</h1>
-        </div>
-        Failed to load forgotten files
-      </div>
-    );
-  }
-
   return (
     <div className={styles.forgottenPage}>
       <div className={styles.pageHeader}>
         <h1>Forgotten Files</h1>
       </div>
 
+      {error && (
+        <Note type='warning' onDismiss={() => setError(null)} className={styles.errorNote}>
+          {error}
+        </Note>
+      )}
+
       <div className={styles.forgottenContent}>
-        {forgottenFiles.length === 0 ? (
-          <div className={styles.emptyState}>
-            <p>No forgotten files found.</p>
+        {loading ? (
+          <div className={styles.loadingState}>
+            <Spinner size={50} />
+            <p>Loading...</p>
           </div>
-        ) : (
+        ) : forgottenFiles.length > 0 ? (
           <div className={styles.filesList}>
-            {forgottenFiles.map((file, index) => (
-              <div key={index} className={styles.fileRow}>
+            {forgottenFiles.map(file => (
+              <div key={file.key} className={styles.fileRow}>
                 <span className={styles.fileName} title={file.name}>
                   {file.name}
                 </span>
@@ -101,7 +103,9 @@ const Forgotten = () => {
               </div>
             ))}
           </div>
-        )}
+        ) : !error ? (
+          <Note type='note'>No forgotten files found.</Note>
+        ) : null}
       </div>
     </div>
   );
