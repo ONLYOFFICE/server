@@ -193,6 +193,7 @@ export const checkHealth = async () => {
   return true;
 };
 
+// Maintenance mode functions (from feature/admin-config-reload)
 export const getMaintenanceStatus = async () => {
   const response = await safeFetch(`${API_BASE_PATH}/docservice/shutdown`, {
     method: 'GET',
@@ -274,6 +275,61 @@ const callCommandService = async body => {
     throw new Error(`Failed to execute ${JSON.stringify(body)}`);
   }
 
+  return response.json();
+};
+
+export const getSigningCertificateStatus = async () => {
+  const response = await safeFetch(`${API_BASE_PATH}/config/signing-certificate/status`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error('Failed to check certificate status');
+  }
+  return response.json();
+};
+
+export const uploadSigningCertificate = async file => {
+  const response = await safeFetch(`${API_BASE_PATH}/config/signing-certificate`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/octet-stream'
+    },
+    body: file
+  });
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
+    if (response.status === 403) throw new Error('Only admin can upload signing certificates');
+    let errorMessage = 'Failed to upload certificate';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch {
+      // JSON parsing failed, use default message
+    }
+    throw new Error(errorMessage);
+  }
+  return response.json();
+};
+
+export const deleteSigningCertificate = async () => {
+  const response = await safeFetch(`${API_BASE_PATH}/config/signing-certificate`, {
+    method: 'DELETE',
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
+    if (response.status === 403) throw new Error('Only admin can delete signing certificates');
+    let errorMessage = 'Failed to delete certificate';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch {
+      // JSON parsing failed, use default message
+    }
+    throw new Error(errorMessage);
+  }
   return response.json();
 };
 

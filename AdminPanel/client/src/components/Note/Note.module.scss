@@ -13,6 +13,18 @@
   flex-grow: 0;
 }
 
+/* Header row with title and optional dismiss button */
+.headerRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex: none;
+  order: 0;
+  flex-grow: 0;
+}
+
 /* Header with icon and title */
 .header {
   display: flex;
@@ -21,8 +33,24 @@
   padding: 0;
   gap: 8px;
   flex: none;
-  order: 0;
   flex-grow: 0;
+}
+
+/* Dismiss button */
+.dismissBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+  color: inherit;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+  }
 }
 
 /* Icon styling */

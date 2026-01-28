@@ -1,8 +1,22 @@
 import {useEffect} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {selectConfig, selectConfigLoading, selectConfigError, selectSchema, fetchConfig} from '../../store/slices/configSlice';
+import {
+  selectConfig,
+  selectConfigLoading,
+  selectConfigError,
+  selectSchema,
+  selectSchemaLoading,
+  selectSchemaError,
+  selectBaseConfig,
+  selectBaseConfigLoading,
+  selectBaseConfigError,
+  fetchConfig,
+  fetchSchema,
+  fetchBaseConfig
+} from '../../store/slices/configSlice';
 import {selectIsAuthenticated} from '../../store/slices/userSlice';
 import Button from '../Button/Button';
+import Spinner from '../Spinner/Spinner';
 
 const ConfigLoader = ({children}) => {
   const dispatch = useDispatch();
@@ -10,16 +24,34 @@ const ConfigLoader = ({children}) => {
   const configLoading = useSelector(selectConfigLoading);
   const configError = useSelector(selectConfigError);
   const schema = useSelector(selectSchema);
+  const schemaLoading = useSelector(selectSchemaLoading);
+  const schemaError = useSelector(selectSchemaError);
+  const baseConfig = useSelector(selectBaseConfig);
+  const baseConfigLoading = useSelector(selectBaseConfigLoading);
+  const baseConfigError = useSelector(selectBaseConfigError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
 
-  const loading = configLoading;
-  const error = configError;
+  const loading = configLoading || schemaLoading || baseConfigLoading;
+  const error = configError || schemaError || baseConfigError;
 
+  // Split into separate effects to avoid unnecessary re-runs
   useEffect(() => {
     if (isAuthenticated && !config && !configLoading && !configError) {
       dispatch(fetchConfig());
     }
-  }, [config, configLoading, configError, isAuthenticated, dispatch]);
+  }, [isAuthenticated, config, configLoading, configError, dispatch]);
+
+  useEffect(() => {
+    if (isAuthenticated && !schema && !schemaLoading && !schemaError) {
+      dispatch(fetchSchema());
+    }
+  }, [isAuthenticated, schema, schemaLoading, schemaError, dispatch]);
+
+  useEffect(() => {
+    if (isAuthenticated && !baseConfig && !baseConfigLoading && !baseConfigError) {
+      dispatch(fetchBaseConfig());
+    }
+  }, [isAuthenticated, baseConfig, baseConfigLoading, baseConfigError, dispatch]);
 
   if (loading) {
     return (
@@ -33,13 +65,8 @@ const ConfigLoader = ({children}) => {
           gap: '16px'
         }}
       >
-        <svg width='50' height='50' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg' style={{animation: 'spin 1s linear infinite'}}>
-          <path
-            d='M9.06812 15.75C5.29857 15.75 2.25568 12.735 2.25568 9C2.25568 5.265 5.29857 2.25 9.06812 2.25C10.8812 2.25 12.5247 2.97759 13.7397 4.12194C13.8255 4.20274 13.9152 4.2797 14.0198 4.33409C14.3161 4.48823 14.9843 4.74308 15.487 4.245C15.9865 3.75001 15.7356 3.09308 15.5798 2.79677C15.5233 2.6894 15.4438 2.59682 15.3556 2.51353C13.7181 0.967092 11.5151 0 9.06812 0C4.05719 0 0 4.035 0 9C0 13.965 4.05719 18 9.06812 18C13.0816 18 16.4798 15.4184 17.6694 11.8342C17.8962 11.1509 17.3444 10.5 16.6244 10.5C16.0825 10.5 15.6221 10.8784 15.4283 11.3844C14.4527 13.9315 11.9806 15.75 9.06812 15.75Z'
-            fill='#333'
-          />
-        </svg>
-        <p>Loading configuration...</p>
+        <Spinner size={50} />
+        <p>Loading...</p>
       </div>
     );
   }
@@ -75,7 +102,7 @@ const ConfigLoader = ({children}) => {
     );
   }
 
-  if (!config || !schema) {
+  if (!config || !schema || !baseConfig) {
     return null;
   }
 

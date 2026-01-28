@@ -1,5 +1,6 @@
 .settings-page {
   margin: 0 auto;
+  padding-bottom: 40px;
 
   .page-header {
     margin-bottom: 32px;
@@ -89,32 +90,91 @@
       }
     }
 
-    .error-message {
-      background: #f8d7da;
-      border: 1px solid #f5c6cb;
-      border-radius: 4px;
-      padding: 15px;
-      margin-bottom: 20px;
+    .form-row {
+      margin-bottom: 24px;
 
-      p {
-        margin: 0;
-        color: #721c24;
-        font-size: 14px;
+      &:last-child {
+        margin-bottom: 0;
       }
     }
 
-    .success-message {
-      background: #d4edda;
-      border: 1px solid #c3e6cb;
-      border-radius: 4px;
-      padding: 15px;
-      margin-bottom: 20px;
+    .certificate-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
 
-      p {
-        margin: 0;
-        color: #155724;
-        font-size: 14px;
+      .certificate-label {
+        font-weight: 500;
+        color: #333;
       }
+
+      .certificate-installed {
+        color: #007b14;
+        font-weight: 500;
+
+        &::before {
+          content: '✓ ';
+        }
+      }
+
+      .certificate-not-installed {
+        color: #666;
+      }
+    }
+
+    .file-input-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-start;
+
+      input[readonly] {
+        cursor: default;
+        background: #f5f5f5;
+      }
+
+      > div {
+        width: 100%;
+      }
+    }
+
+    .actions-section {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .delete-button {
+      background-color: #f5f5f5 !important;
+      color: #666 !important;
+      border: 1px solid #e0e0e0 !important;
+
+      &:hover {
+        background-color: #e8e8e8 !important;
+      }
+    }
+
+    .message-error {
+      color: #cb0000;
+      font-size: 13px;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #fef2f2;
+      border-radius: 4px;
+    }
+
+    .message-success {
+      color: #007b14;
+      font-size: 13px;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #f0fdf4;
+      border-radius: 4px;
     }
   }
 }

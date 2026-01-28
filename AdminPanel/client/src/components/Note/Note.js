@@ -6,9 +6,11 @@ import styles from './Note.module.scss';
  * @param {('note'|'warning'|'tip'|'important'|'success')} props.type - Type of note to display
  * @param {string} [props.title] - Optional custom title to override default type title
  * @param {React.ReactNode} props.children - Content to display in the note
+ * @param {Function} [props.onDismiss] - Optional callback to dismiss the note (shows close button when provided)
+ * @param {string} [props.className] - Optional additional CSS class name
  * @returns {JSX.Element} Note component
  */
-function Note({type = 'note', title, children}) {
+function Note({type = 'note', title, children, onDismiss, className}) {
   const typeConfig = {
     note: {
       title: 'Note',
@@ -79,10 +81,17 @@ function Note({type = 'note', title, children}) {
   const displayTitle = title || config.title;
 
   return (
-    <div className={`${styles.noteContainer} ${config.className}`}>
-      <div className={styles.header}>
-        {config.icon}
-        <span className={styles.title}>{displayTitle}</span>
+    <div className={`${styles.noteContainer} ${config.className}${className ? ` ${className}` : ''}`}>
+      <div className={styles.headerRow}>
+        <div className={styles.header}>
+          {config.icon}
+          <span className={styles.title}>{displayTitle}</span>
+        </div>
+        {onDismiss && (
+          <button className={styles.dismissBtn} onClick={onDismiss} title='Dismiss' aria-label='Dismiss'>
+            ×
+          </button>
+        )}
       </div>
       <div className={styles.content}>{children}</div>
     </div>

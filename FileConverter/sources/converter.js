@@ -69,6 +69,7 @@ const cfgSpawnOptions = config.util.cloneDeep(config.get('FileConverter.converte
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const cfgInputLimits = config.get('FileConverter.converter.inputLimits');
 const cfgStreamWriterBufferSize = config.get('FileConverter.converter.streamWriterBufferSize');
+const cfgSigningKeyStorePath = config.get('FileConverter.converter.signingKeyStorePath');
 //cfgMaxRequestChanges was obtained as a result of the test: 84408 changes - 5,16 MB
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
@@ -105,7 +106,6 @@ const exitCodesUpload = [
   constants.CONVERT_DRM_UNSUPPORTED
 ];
 const exitCodesCopyOrigin = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM];
-let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(ctx, task) {
   const cmd = task.getCmd();
@@ -147,6 +147,8 @@ function TaskQueueDataConvert(ctx, task) {
   this.noBase64 = cmd.getNoBase64();
   this.convertToOrigin = cmd.getConvertToOrigin();
   this.oformAsPdf = cmd.getOformAsPdf();
+  const forceSave = cmd.getForceSave();
+  this.forceSaveType = forceSave?.getType();
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
@@ -182,6 +184,12 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
+    if (this.formatTo === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF && commonDefines.c_oAscForceSaveTypes.Form === this.forceSaveType) {
+      const signingKeyStorePath = ctx.getCfg('FileConverter.converter.signingKeyStorePath', cfgSigningKeyStorePath);
+      if (signingKeyStorePath && fs.existsSync(signingKeyStorePath)) {
+        xml += this.serializeXmlProp('m_sSigningKeyStorePath', signingKeyStorePath);
+      }
+    }
     xml += this.serializeLimit(ctx);
     xml += this.serializeOptions(ctx, false, this.oformAsPdf);
     xml += '</TaskQueueDataConvert>';
@@ -284,31 +292,28 @@ TaskQueueDataConvert.prototype = {
     return xml;
   },
   serializeLimit(ctx) {
-    if (!inputLimitsXmlCache) {
-      let xml = '<m_oInputLimits>';
-      const tenInputLimits = ctx.getCfg('FileConverter.converter.inputLimits', cfgInputLimits);
-      for (let i = 0; i < tenInputLimits.length; ++i) {
-        const limit = tenInputLimits[i];
-        if (limit.type && limit.zip) {
-          xml += '<m_oInputLimit';
-          xml += this.serializeXmlAttr('type', limit.type);
-          xml += '>';
-          xml += '<m_oZip';
-          if (limit.zip.compressed) {
-            xml += this.serializeXmlAttr('compressed', bytes.parse(limit.zip.compressed));
-          }
-          if (limit.zip.uncompressed) {
-            xml += this.serializeXmlAttr('uncompressed', bytes.parse(limit.zip.uncompressed));
-          }
-          xml += this.serializeXmlAttr('template', limit.zip.template);
-          xml += '/>';
-          xml += '</m_oInputLimit>';
+    let xml = '<m_oInputLimits>';
+    const tenInputLimits = ctx.getCfg('FileConverter.converter.inputLimits', cfgInputLimits);
+    for (let i = 0; i < tenInputLimits.length; ++i) {
+      const limit = tenInputLimits[i];
+      if (limit.type && limit.zip) {
+        xml += '<m_oInputLimit';
+        xml += this.serializeXmlAttr('type', limit.type);
+        xml += '>';
+        xml += '<m_oZip';
+        if (limit.zip.compressed) {
+          xml += this.serializeXmlAttr('compressed', bytes.parse(limit.zip.compressed));
         }
+        if (limit.zip.uncompressed) {
+          xml += this.serializeXmlAttr('uncompressed', bytes.parse(limit.zip.uncompressed));
+        }
+        xml += this.serializeXmlAttr('template', limit.zip.template);
+        xml += '/>';
+        xml += '</m_oInputLimit>';
       }
-      xml += '</m_oInputLimits>';
-      inputLimitsXmlCache = xml;
     }
-    return inputLimitsXmlCache;
+    xml += '</m_oInputLimits>';
+    return xml;
   },
   serializeXmlProp(name, value) {
     let xml = '';

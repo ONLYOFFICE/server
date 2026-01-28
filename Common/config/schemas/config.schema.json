@@ -217,6 +217,28 @@
           "additionalProperties": false,
           "properties": {
             "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 10485760000, "x-scope": ["admin", "tenant"]},
+            "signingKeyStorePath": {
+              "type": "string",
+              "description": "Path to PKCS#12 (.p12/.pfx) keystore file for PDF document signing",
+              "x-scope": "admin"
+            },
+            "spawnOptions": {
+              "type": "object",
+              "additionalProperties": true,
+              "x-scope": "admin",
+              "properties": {
+                "env": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "SIGNING_KEYSTORE_PASSPHRASE": {
+                      "type": "string",
+                      "description": "Passphrase for the PKCS#12 keystore file"
+                    }
+                  }
+                }
+              }
+            },
             "inputLimits": {
               "type": "array",
               "x-scope": ["admin", "tenant"],
