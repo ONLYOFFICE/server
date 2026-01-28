@@ -147,6 +147,8 @@ function TaskQueueDataConvert(ctx, task) {
   this.noBase64 = cmd.getNoBase64();
   this.convertToOrigin = cmd.getConvertToOrigin();
   this.oformAsPdf = cmd.getOformAsPdf();
+  const forceSave = cmd.getForceSave();
+  this.forceSaveType = forceSave?.getType();
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
@@ -182,7 +184,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
-    if (this.formatTo === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF) {
+    if (this.formatTo === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF && commonDefines.c_oAscForceSaveTypes.Form === this.forceSaveType) {
       const signingKeyStorePath = ctx.getCfg('FileConverter.converter.signingKeyStorePath', cfgSigningKeyStorePath);
       if (signingKeyStorePath && fs.existsSync(signingKeyStorePath)) {
         xml += this.serializeXmlProp('m_sSigningKeyStorePath', signingKeyStorePath);
