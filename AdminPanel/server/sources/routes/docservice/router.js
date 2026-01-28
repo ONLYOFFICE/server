@@ -2,32 +2,15 @@
 
 const express = require('express');
 const http = require('http');
-const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const operationContext = require('../../../../../Common/sources/operationContext');
-const adminPanelJwtSecret = require('../../jwtSecret');
+const utils = require('../../../../../Common/sources/utils');
+const {requireAdmin} = require('../../middleware/auth');
 
 const router = express.Router();
 
 router.use(express.json());
 router.use(cookieParser());
-
-/**
- * Middleware to verify JWT token
- */
-function requireAuth(req, res, next) {
-  try {
-    const token = req.cookies?.accessToken;
-    if (!token) {
-      return res.status(401).json({error: 'Unauthorized'});
-    }
-    const decoded = jwt.verify(token, adminPanelJwtSecret);
-    req.user = decoded;
-    next();
-  } catch {
-    res.status(401).json({error: 'Unauthorized'});
-  }
-}
 
 /**
  * Get DocService connection config
@@ -69,7 +52,8 @@ function makeDocServiceRequest(options, ctx) {
       reject(err);
     });
 
-    req.setTimeout(120000, () => {
+    const timeout = utils.getConvertionTimeout(ctx);
+    req.setTimeout(timeout, () => {
       req.destroy();
       reject(new Error('Request timeout'));
     });
@@ -82,7 +66,7 @@ function makeDocServiceRequest(options, ctx) {
  * GET /shutdown - Get shutdown status
  * Proxies to DocService GET /internal/cluster/inactive
  */
-router.get('/shutdown', requireAuth, async (req, res) => {
+router.get('/shutdown', requireAdmin, async (req, res) => {
   const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
   const {host, port} = getDocServiceConfig(ctx);
@@ -110,7 +94,7 @@ router.get('/shutdown', requireAuth, async (req, res) => {
  * PUT /shutdown - Enter shutdown mode
  * Proxies to DocService PUT /internal/cluster/inactive
  */
-router.put('/shutdown', requireAuth, async (req, res) => {
+router.put('/shutdown', requireAdmin, async (req, res) => {
   const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
   const {host, port} = getDocServiceConfig(ctx);
@@ -140,7 +124,7 @@ router.put('/shutdown', requireAuth, async (req, res) => {
  * DELETE /shutdown - Exit shutdown mode
  * Proxies to DocService DELETE /internal/cluster/inactive
  */
-router.delete('/shutdown', requireAuth, async (req, res) => {
+router.delete('/shutdown', requireAdmin, async (req, res) => {
   const ctx = new operationContext.Context();
   ctx.initFromRequest(req);
   const {host, port} = getDocServiceConfig(ctx);
