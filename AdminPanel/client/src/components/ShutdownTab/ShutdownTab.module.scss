@@ -1,0 +1,21 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading {
+  padding: 16px;
+  text-align: center;
+  color: #666;
+}
+
+.statusNote {
+  margin-bottom: 8px;
+}
+
+.buttonDescription {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+}

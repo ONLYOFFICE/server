@@ -1,0 +1,81 @@
+.configViewer {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  gap: 16px;
+}
+
+.description {
+  margin: 0;
+  font-size: 14px;
+  color: #666666;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.redactedBadge {
+  color: #dc3545;
+  font-weight: 600;
+  background: #fff3cd;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+}
+
+.configContent {
+  padding: 0;
+  background: #fafafa;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.jsonPre {
+  margin: 0;
+  padding: 24px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #333;
+  white-space: pre;
+  overflow-x: auto;
+  background: #ffffff;
+}
+
+.loading,
+.error,
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+}
+
+@media (max-width: 767px) {
+  .toolbar {
+    padding: 12px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .jsonPre {
+    padding: 16px;
+    font-size: 12px;
+  }
+}

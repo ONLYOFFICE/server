@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase} = require('./config.service');
+const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase, getFullConfigRedacted} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
@@ -27,9 +27,9 @@ router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('config get start');
-    const filteredConfig = getScopedConfig(ctx);
+    const configRedacted = getFullConfigRedacted(ctx);
     res.setHeader('Content-Type', 'application/json');
-    res.json(filteredConfig);
+    res.json(configRedacted);
   } catch (error) {
     ctx.logger.error('Config get error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});

@@ -167,4 +167,73 @@ function getScopedBaseConfig(ctx) {
   return baseConfig;
 }
 
-module.exports = {validateScoped, getScopedConfig, getScopedBaseConfig, filterAdmin, getDiffFromBase};
+const SENSITIVE_PARAM_PATHS = [
+  'adminPanel.passwordHash',
+  'adminPanel.secret',
+  'email.smtpServerConfiguration.auth.pass',
+  'externalRequest.action.proxyUser.password',
+  'services.CoAuthoring.secret.browser.string',
+  'services.CoAuthoring.secret.browser.file',
+  'services.CoAuthoring.secret.inbox.string',
+  'services.CoAuthoring.secret.inbox.file',
+  'services.CoAuthoring.secret.outbox.string',
+  'services.CoAuthoring.secret.outbox.file',
+  'services.CoAuthoring.secret.session.string',
+  'services.CoAuthoring.secret.session.file',
+  'services.CoAuthoring.sql.dbPass',
+  'storage.fs.secretString',
+  'storage.accessKeyId',
+  'storage.secretAccessKey',
+  'openpgpjs.encrypt.passwords',
+  'openpgpjs.decrypt.passwords',
+  'aesEncrypt.secret',
+  'rabbitmq.url',
+  'wopi.privateKey',
+  'wopi.modulus',
+  'wopi.privateKeyOld',
+  'wopi.publicKeyOld',
+  'wopi.modulusOld',
+  'wopi.exponentOld'
+];
+
+/**
+ * Redacts sensitive values in configuration object by replacing them with 'REDACTED'
+ * @param {Object} config - Configuration object to redact
+ * @param {string[]} sensitivePaths - Array of dot-separated paths to redact
+ */
+function redactSensitiveParams(config, sensitivePaths) {
+  if (!config || typeof config !== 'object') return config;
+
+  const configCopy = JSON.parse(JSON.stringify(config));
+
+  sensitivePaths.forEach(path => {
+    const pathParts = path.split('.');
+    let current = configCopy;
+
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      if (current && typeof current === 'object' && current[pathParts[i]] !== undefined) {
+        current = current[pathParts[i]];
+      } else {
+        return;
+      }
+    }
+    const lastKey = pathParts[pathParts.length - 1];
+    if (current && typeof current === 'object' && current[lastKey] !== undefined) {
+      current[lastKey] = 'REDACTED';
+    }
+  });
+
+  return configCopy;
+}
+
+/**
+ * Gets full configuration without schema filtering, but with sensitive parameters redacted
+ * @param {operationContext} ctx - Operation context
+ * @returns {Object} Full configuration object with sensitive values redacted
+ */
+function getFullConfigRedacted(ctx) {
+  const cfg = ctx.getFullCfg();
+  return redactSensitiveParams(cfg, SENSITIVE_PARAM_PATHS);
+}
+
+module.exports = {validateScoped, getScopedBaseConfig, filterAdmin, getDiffFromBase, getFullConfigRedacted, getScopedConfig};

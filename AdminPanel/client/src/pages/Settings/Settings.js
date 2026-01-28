@@ -9,12 +9,22 @@ import Input from '../../components/Input/Input';
 import Section from '../../components/Section/Section';
 import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import Note from '../../components/Note/Note';
+import ConfigViewer from '../../components/ConfigViewer/ConfigViewer';
+import Tabs from '../../components/Tabs/Tabs';
+import ShutdownTab from '../../components/ShutdownTab/ShutdownTab';
 import './Settings.scss';
+
+const settingsTabs = [
+  {key: 'configuration', label: 'Configuration'},
+  {key: 'pdf-signing', label: 'PDF Signing'},
+  {key: 'shutdown', label: 'Shutdown'}
+];
 
 const Settings = () => {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
   const fileInputRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('configuration');
 
   // PDF Signing state
   const [certificateExists, setCertificateExists] = useState(false);
@@ -24,7 +34,7 @@ const Settings = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // Check certificate status on server
+  // Check certificate status on server (only when PDF Signing tab is active)
   const checkCertificateStatus = useCallback(async () => {
     try {
       const status = await getSigningCertificateStatus();
@@ -35,15 +45,21 @@ const Settings = () => {
     }
   }, []);
 
-  // Load config data and check certificate status
+  // Load passphrase from config when config changes
   useEffect(() => {
     if (config) {
       const passphrase = getNestedValue(config, 'FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE') || '';
       setSigningPassphrase(passphrase);
       setSavedPassphrase(passphrase);
+    }
+  }, [config]);
+
+  // Check certificate status only when switching to PDF Signing tab
+  useEffect(() => {
+    if (activeTab === 'pdf-signing') {
       checkCertificateStatus();
     }
-  }, [config, checkCertificateStatus]);
+  }, [activeTab, checkCertificateStatus]);
 
   const showSuccess = message => {
     setSuccessMessage(message);
@@ -56,6 +72,10 @@ const Settings = () => {
     }
 
     await resetConfiguration();
+  };
+
+  const handleTabChange = newTab => {
+    setActiveTab(newTab);
   };
 
   // Handle file selection - stores file in browser state
@@ -182,6 +202,92 @@ const Settings = () => {
   const hasChanges = selectedFile || signingPassphrase !== savedPassphrase;
   const canRemove = certificateExists || selectedFile;
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'configuration':
+        return (
+          <>
+            <Section title='Server Configuration' description='Full server configuration for monitoring purposes.'>
+              <ConfigViewer />
+            </Section>
+
+            <Section
+              title='Reset Configuration'
+              description='This will reset all configuration settings to their default values. This action cannot be undone.'
+            >
+              <Button onClick={handleResetConfig}>Reset</Button>
+            </Section>
+          </>
+        );
+      case 'pdf-signing':
+        return (
+          <Section title='PDF Digital Signature' description='Configure PKCS#12 (.p12/.pfx) certificate for digitally signing submitted PDF forms'>
+            <Note type='note'>
+              The signing certificate will be used to digitally sign PDF forms when they are submitted. Only submitted PDF forms will be signed, not
+              regular PDF conversions.
+            </Note>
+
+            <div className='form-row'>
+              <div className='certificate-status'>
+                <span className='certificate-label'>Certificate Status:</span>
+                {certificateExists ? (
+                  <span className='certificate-installed'>Certificate installed</span>
+                ) : (
+                  <span className='certificate-not-installed'>No certificate</span>
+                )}
+              </div>
+            </div>
+
+            <div className='form-row'>
+              <input ref={fileInputRef} type='file' accept='.p12,.pfx' onChange={handleFileSelect} style={{display: 'none'}} />
+              <div className='file-input-row'>
+                <Input
+                  label='Certificate File'
+                  value={selectedFile ? selectedFile.name : ''}
+                  onChange={() => {}}
+                  placeholder='No file selected'
+                  readOnly
+                />
+                <Button onClick={handleSelectFileClick} disableResult>
+                  Browse
+                </Button>
+              </div>
+            </div>
+
+            <div className='form-row'>
+              <PasswordInput
+                label='Certificate Passphrase'
+                value={signingPassphrase}
+                onChange={handlePassphraseChange}
+                placeholder='Leave empty if certificate is not encrypted'
+                description='Passphrase to unlock the PKCS#12 certificate. Leave empty if the certificate is not password-protected.'
+              />
+            </div>
+
+            <div className='form-row'>
+              <div className='actions-section'>
+                <Button onClick={handleSave} disabled={!hasChanges}>
+                  Save
+                </Button>
+                {canRemove && (
+                  <Button onClick={handleRemove} className='delete-button'>
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {error && <div className='message-error'>{error}</div>}
+            {successMessage && <div className='message-success'>{successMessage}</div>}
+          </Section>
+        );
+      case 'shutdown':
+        return <ShutdownTab />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className='settings-page'>
       <div className='page-header'>
@@ -189,72 +295,9 @@ const Settings = () => {
       </div>
 
       <div className='settings-content' title='Settings'>
-        <Section
-          title='Reset Configuration'
-          description='This will reset all configuration settings to their default values. This action cannot be undone.'
-        >
-          <Button onClick={handleResetConfig}>Reset</Button>
-        </Section>
-
-        <Section title='PDF Digital Signature' description='Configure PKCS#12 (.p12/.pfx) certificate for digitally signing submitted PDF forms'>
-          <Note type='note'>
-            The signing certificate will be used to digitally sign PDF forms when they are submitted. Only submitted PDF forms will be signed, not
-            regular PDF conversions.
-          </Note>
-
-          <div className='form-row'>
-            <div className='certificate-status'>
-              <span className='certificate-label'>Certificate Status:</span>
-              {certificateExists ? (
-                <span className='certificate-installed'>Certificate installed</span>
-              ) : (
-                <span className='certificate-not-installed'>No certificate</span>
-              )}
-            </div>
-          </div>
-
-          <div className='form-row'>
-            <input ref={fileInputRef} type='file' accept='.p12,.pfx' onChange={handleFileSelect} style={{display: 'none'}} />
-            <div className='file-input-row'>
-              <Input
-                label='Certificate File'
-                value={selectedFile ? selectedFile.name : ''}
-                onChange={() => {}}
-                placeholder='No file selected'
-                readOnly
-              />
-              <Button onClick={handleSelectFileClick} disableResult>
-                Browse
-              </Button>
-            </div>
-          </div>
-
-          <div className='form-row'>
-            <PasswordInput
-              label='Certificate Passphrase'
-              value={signingPassphrase}
-              onChange={handlePassphraseChange}
-              placeholder='Leave empty if certificate is not encrypted'
-              description='Passphrase to unlock the PKCS#12 certificate. Leave empty if the certificate is not password-protected.'
-            />
-          </div>
-
-          <div className='form-row'>
-            <div className='actions-section'>
-              <Button onClick={handleSave} disabled={!hasChanges}>
-                Save
-              </Button>
-              {canRemove && (
-                <Button onClick={handleRemove} className='delete-button'>
-                  Remove
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {error && <div className='message-error'>{error}</div>}
-          {successMessage && <div className='message-success'>{successMessage}</div>}
-        </Section>
+        <Tabs tabs={settingsTabs} activeTab={activeTab} onTabChange={handleTabChange}>
+          {renderTabContent()}
+        </Tabs>
       </div>
     </div>
   );
