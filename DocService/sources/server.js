@@ -463,6 +463,14 @@ docsCoServer.install(server, app, () => {
       res.sendStatus(404);
     }
   });
+  app.get('/meta/formats', apicache.middleware('5 min'), async (req, res) => {
+    const documentFormatsFolder = config.get('services.CoAuthoring.server.documentFormatsFolder');
+    if (documentFormatsFolder) {
+      res.sendFile(path.resolve(documentFormatsFolder + '/onlyoffice-docs-formats.json'));
+    } else {
+      res.sendStatus(404);
+    }
+  });
   app.use((err, req, res, _next) => {
     const ctx = new operationContext.Context();
     ctx.initFromRequest(req);
