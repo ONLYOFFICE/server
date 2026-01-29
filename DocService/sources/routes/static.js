@@ -83,6 +83,11 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
     }
 
     try {
+      const ctx = new operationContext.Context();
+      ctx.initFromRequest(req);
+      await ctx.initTenantCache();
+      const tenantStorageCfg = ctx.getCfg('storage', cfgStorage);
+
       const urlParsed = urlModule.parse(req.url, true);
       const {md5, expires} = urlParsed.query;
       const numericExpires = parseInt(expires);
@@ -111,7 +116,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
 
       const filename = urlParsed.pathname && decodeURIComponent(path.basename(urlParsed.pathname));
       let filePath = decodeURI(req.url.substring(1, index));
-      if (cfgStorage.name === 'storage-fs') {
+      if (tenantStorageCfg.name === 'storage-fs') {
         const sendFileOptions = {
           root: rootPath,
           dotfiles: 'deny',
@@ -127,10 +132,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
             res.status(400).end();
           }
         });
-      } else if (['storage-s3', 'storage-az'].includes(cfgStorage.name)) {
-        const ctx = new operationContext.Context();
-        ctx.initFromRequest(req);
-        await ctx.initTenantCache();
+      } else if (['storage-s3', 'storage-az'].includes(tenantStorageCfg.name)) {
         if (tenantManager.isMultitenantMode(ctx) && filePath.startsWith(ctx.tenant + '/')) {
           filePath = filePath.substring(ctx.tenant.length + 1);
         }
@@ -155,7 +157,7 @@ for (const i in cfgStaticContent) {
     router.use(i, express.static(cfgStaticContent[i]['path'], cfgStaticContent[i]['options']));
   }
 }
-if (storage.needServeStatic()) {
+if (storage.needServeStatic() || tenantManager.isMultitenantMode()) {
   initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName]);
 }
 if (storage.needServeStatic(cfgForgottenFiles)) {
