@@ -333,6 +333,39 @@ export const deleteSigningCertificate = async () => {
   return response.json();
 };
 
+// Let's Encrypt SSL Certificate functions
+export const getLetsEncryptStatus = async () => {
+  const response = await safeFetch(`${API_BASE_PATH}/letsencrypt/status`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error("Failed to check Let's Encrypt status");
+  }
+  return response.json();
+};
+
+export const installLetsEncryptCertificate = async ({email, domain}) => {
+  const response = await safeFetch(`${API_BASE_PATH}/letsencrypt/install`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({email, domain})
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('UNAUTHORIZED');
+    if (response.status === 403) throw new Error('Only admin can install SSL certificates');
+    throw new Error(data.error || 'Failed to install certificate');
+  }
+
+  return data;
+};
+
 export const getForgottenList = async () => {
   const result = await callCommandService({c: 'getForgottenList'});
   const files = result.keys || [];
