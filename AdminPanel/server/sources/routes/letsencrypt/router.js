@@ -76,12 +76,8 @@ function runInstallScript(email, domain, logger) {
       error ? reject(error) : resolve(result);
     };
 
-    // Use 'sh' for POSIX compatibility (works on Alpine, Debian, etc.)
-    // The script has #!/bin/bash shebang, so it will use bash if available
-    const proc = spawn('sh', [SCRIPT_PATH, email, domain], {
-      signal: ac.signal,
-      killSignal: 'SIGTERM'
-    });
+    // Execute script directly - shebang (#!/bin/bash) determines interpreter
+    const proc = spawn(SCRIPT_PATH, [email, domain], {signal: ac.signal});
 
     // Timeout - AbortController handles the kill
     const timeout = setTimeout(() => ac.abort(), INSTALL_TIMEOUT_MS);
@@ -156,8 +152,8 @@ router.post('/install', validateJWT, async (req, res) => {
     if (!email || !email.includes('@')) {
       return res.status(400).json({error: 'Valid email address required'});
     }
-    if (!domain || !domain.includes('.')) {
-      return res.status(400).json({error: 'Valid domain name required'});
+    if (!domain) {
+      return res.status(400).json({error: 'Domain name required'});
     }
     if (!fs.existsSync(SCRIPT_PATH)) {
       return res.status(400).json({error: 'Installation script not found'});

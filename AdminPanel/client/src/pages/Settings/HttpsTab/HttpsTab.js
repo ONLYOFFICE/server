@@ -57,7 +57,7 @@ const HttpsTab = () => {
       setError('Please enter an email address');
       return;
     }
-    if (!domain || !domain.includes('.')) {
+    if (!domain) {
       setError('Please enter a domain name');
       return;
     }
