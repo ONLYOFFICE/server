@@ -44,7 +44,10 @@ export default function Statistics() {
   const {data, isLoading, error} = useQuery({
     queryKey: ['statistics', selectedTenant],
     queryFn: () => fetchStatistics(selectedTenant),
-    enabled: !!selectedTenant
+    enabled: !!selectedTenant,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true
   });
 
   const [mode, setMode] = useState(() => {

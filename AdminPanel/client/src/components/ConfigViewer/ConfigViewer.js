@@ -13,7 +13,9 @@ const ConfigViewer = () => {
   } = useQuery({
     queryKey: ['configuration'],
     queryFn: fetchConfiguration,
-    retry: false
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true
   });
 
   const jsonString = useMemo(() => {
