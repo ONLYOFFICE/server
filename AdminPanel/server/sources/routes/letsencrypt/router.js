@@ -3,6 +3,7 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const fs = require('fs');
+const path = require('path');
 const tls = require('tls');
 const {spawn} = require('child_process');
 const {validateJWT} = require('../../middleware/auth');
@@ -12,8 +13,10 @@ const router = express.Router();
 router.use(cookieParser());
 router.use(express.json());
 
-const SCRIPT_PATH = '/usr/bin/documentserver-letsencrypt.sh';
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes (certbot can be slow)
+const SCRIPT_NAME = 'documentserver-letsencrypt';
+const SCRIPT_SEARCH_PATHS = ['/usr/bin', path.resolve(process.cwd(), '../../bin')];
+const SCRIPT_EXTENSIONS = ['.sh', '.ps1', '.bat'];
 
 /**
  * Installation error with details
@@ -23,6 +26,65 @@ class InstallError extends Error {
     super(message);
     this.details = details;
   }
+}
+
+/**
+ * Find Let's Encrypt script in known locations
+ * @returns {string|null} Script path or null if not found
+ */
+function findLetsEncryptScript() {
+  for (const searchPath of SCRIPT_SEARCH_PATHS) {
+    for (const ext of SCRIPT_EXTENSIONS) {
+      const scriptPath = path.join(searchPath, SCRIPT_NAME + ext);
+      if (fs.existsSync(scriptPath)) {
+        return scriptPath;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Check if script has executable permissions (Unix-like systems only)
+ * @param {Object} ctx - Operation context
+ * @param {string} scriptPath - Full path to script
+ * @returns {boolean} True if executable or on Windows
+ */
+function isScriptExecutable(ctx, scriptPath) {
+  try {
+    if (process.platform === 'win32') {
+      return true;
+    }
+    const stats = fs.statSync(scriptPath);
+    return !!(stats.mode & fs.constants.S_IXUSR);
+  } catch (e) {
+    ctx.logger.error('Failed to check script permissions: %s', e.message);
+    return false;
+  }
+}
+
+/**
+ * Get spawn arguments for script execution
+ * @param {string} scriptPath - Full path to script
+ * @param {string[]} args - Script arguments
+ * @returns {{command: string, args: string[], options: object}}
+ */
+function getSpawnArgs(scriptPath, args) {
+  const ext = path.extname(scriptPath);
+
+  if (ext === '.ps1') {
+    return {
+      command: 'powershell.exe',
+      args: ['-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args],
+      options: {}
+    };
+  }
+
+  return {
+    command: scriptPath,
+    args,
+    options: {}
+  };
 }
 
 /**
@@ -62,8 +124,12 @@ function getCertificate(hostname) {
 /**
  * Run installation script with timeout and proper cleanup
  * Uses AbortController (Node.js 15+) for clean cancellation
+ * @param {string} scriptPath - Full path to script
+ * @param {string} email - Email for Let's Encrypt
+ * @param {string} domain - Domain name
+ * @param {object} logger - Logger instance
  */
-function runInstallScript(email, domain, logger) {
+function runInstallScript(scriptPath, email, domain, logger) {
   return new Promise((resolve, reject) => {
     const ac = new AbortController();
     let stderr = '';
@@ -76,8 +142,13 @@ function runInstallScript(email, domain, logger) {
       error ? reject(error) : resolve(result);
     };
 
-    // Execute script directly - shebang (#!/bin/bash) determines interpreter
-    const proc = spawn(SCRIPT_PATH, [email, domain], {signal: ac.signal});
+    const spawnConfig = getSpawnArgs(scriptPath, [email, domain]);
+    logger.debug('Executing: %s %s', spawnConfig.command, spawnConfig.args.join(' '));
+
+    const proc = spawn(spawnConfig.command, spawnConfig.args, {
+      ...spawnConfig.options,
+      signal: ac.signal
+    });
 
     // Timeout - AbortController handles the kill
     const timeout = setTimeout(() => ac.abort(), INSTALL_TIMEOUT_MS);
@@ -116,14 +187,15 @@ function runInstallScript(email, domain, logger) {
 // GET /status
 router.get('/status', validateJWT, async (req, res) => {
   const ctx = req.ctx;
+  ctx.logger.info("Let's Encrypt status request");
 
   try {
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
       return res.status(403).json({error: 'Admin only'});
     }
 
-    const available = fs.existsSync(SCRIPT_PATH);
-    if (!available) {
+    const scriptPath = findLetsEncryptScript();
+    if (!scriptPath || !isScriptExecutable(ctx, scriptPath)) {
       return res.json({available: false});
     }
 
@@ -140,13 +212,13 @@ router.get('/status', validateJWT, async (req, res) => {
 // POST /install
 router.post('/install', validateJWT, async (req, res) => {
   const ctx = req.ctx;
+  const {email, domain} = req.body;
+  ctx.logger.info("Let's Encrypt install request: domain=%s email=%s", domain, email);
 
   try {
     if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
       return res.status(403).json({error: 'Admin only'});
     }
-
-    const {email, domain} = req.body;
 
     // Basic validation (script does thorough validation)
     if (!email || !email.includes('@')) {
@@ -155,13 +227,13 @@ router.post('/install', validateJWT, async (req, res) => {
     if (!domain) {
       return res.status(400).json({error: 'Domain name required'});
     }
-    if (!fs.existsSync(SCRIPT_PATH)) {
+
+    const scriptPath = findLetsEncryptScript();
+    if (!scriptPath) {
       return res.status(400).json({error: 'Installation script not found'});
     }
 
-    ctx.logger.info("Starting Let's Encrypt installation: domain=%s email=%s", domain, email);
-
-    await runInstallScript(email, domain, ctx.logger);
+    await runInstallScript(scriptPath, email, domain, ctx.logger);
 
     ctx.logger.info('Certificate installed successfully for %s', domain);
     res.json({success: true});
