@@ -58,6 +58,7 @@ const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const infoRouter = require('./routes/info');
+const metaRouter = require('./routes/meta');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
@@ -463,14 +464,7 @@ docsCoServer.install(server, app, () => {
       res.sendStatus(404);
     }
   });
-  app.get('/meta/formats', apicache.middleware('5 min'), async (req, res) => {
-    const documentFormatsFolder = config.get('services.CoAuthoring.server.documentFormatsFolder');
-    if (documentFormatsFolder) {
-      res.sendFile(path.resolve(documentFormatsFolder + '/onlyoffice-docs-formats.json'));
-    } else {
-      res.sendStatus(404);
-    }
-  });
+  app.use('/meta', metaRouter);
   app.use((err, req, res, _next) => {
     const ctx = new operationContext.Context();
     ctx.initFromRequest(req);
