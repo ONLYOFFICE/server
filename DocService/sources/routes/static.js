@@ -86,7 +86,8 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
       const ctx = new operationContext.Context();
       ctx.initFromRequest(req);
       await ctx.initTenantCache();
-      const tenantStorageCfg = ctx.getCfg('storage', cfgStorage);
+      const configKey = rout === cfgForgottenFiles || rout === cfgErrorFiles ? 'persistentStorage' : 'storage';
+      const tenantStorageCfg = ctx.getCfg(configKey, cfgStorage);
 
       const urlParsed = urlModule.parse(req.url, true);
       const {md5, expires} = urlParsed.query;
@@ -160,7 +161,7 @@ for (const i in cfgStaticContent) {
 if (storage.needServeStatic() || tenantManager.isMultitenantMode()) {
   initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName]);
 }
-if (storage.needServeStatic(cfgForgottenFiles)) {
+if (storage.needServeStatic(cfgForgottenFiles) || tenantManager.isMultitenantMode()) {
   let persistentRouts = [cfgForgottenFiles, cfgErrorFiles];
   persistentRouts = persistentRouts.filter(rout => {
     return rout && rout.length > 0;
