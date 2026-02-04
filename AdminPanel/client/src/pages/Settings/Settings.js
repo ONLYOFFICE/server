@@ -1,7 +1,7 @@
 import {useState, useEffect, useRef, useCallback} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {resetConfiguration, uploadSigningCertificate, deleteSigningCertificate, getSigningCertificateStatus, getLetsEncryptStatus} from '../../api';
-import {saveConfig, selectConfig} from '../../store/slices/configSlice';
+import {uploadSigningCertificate, deleteSigningCertificate, getSigningCertificateStatus, getLetsEncryptStatus} from '../../api';
+import {saveConfig, resetConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
 import Button from '../../components/Button/Button';
@@ -98,10 +98,10 @@ const Settings = () => {
 
   const handleResetConfig = async () => {
     if (!window.confirm('Are you sure you want to reset the configuration? This action cannot be undone.')) {
-      throw new Error('Operation cancelled');
+      return;
     }
 
-    await resetConfiguration();
+    await dispatch(resetConfig(['*'])).unwrap();
   };
 
   const handleTabChange = newTab => {
@@ -157,7 +157,7 @@ const Settings = () => {
         await dispatch(saveConfig(mergedConfig)).unwrap();
       } else if (passphraseChanged) {
         // Empty passphrase means remove the key from config (only if changed)
-        await resetConfiguration(['FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE']);
+        await dispatch(resetConfig(['FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE'])).unwrap();
       }
 
       if (fileUploaded) {
@@ -207,7 +207,7 @@ const Settings = () => {
 
       // Reset passphrase in config only if it was set
       if (savedPassphrase) {
-        await resetConfiguration(['FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE']);
+        await dispatch(resetConfig(['FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE'])).unwrap();
       }
 
       setSelectedFile(null);
