@@ -31,8 +31,6 @@ const Forgotten = () => {
 
   const handleDownload = async file => {
     try {
-      console.log('Downloading file:', file.name);
-
       setDownloadingFiles(prev => new Set(prev).add(file.key));
 
       const result = await getForgotten(file.key);
