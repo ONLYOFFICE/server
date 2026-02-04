@@ -1,22 +1,13 @@
 import {useMemo} from 'react';
-import {useQuery} from '@tanstack/react-query';
-import {fetchConfiguration} from '../../api';
+import {useSelector} from 'react-redux';
+import {selectConfig, selectConfigLoading, selectConfigError} from '../../store/slices/configSlice';
 import Button from '../Button/Button';
 import styles from './ConfigViewer.module.scss';
 
 const ConfigViewer = () => {
-  const {
-    data: config,
-    isLoading,
-    isError,
-    error
-  } = useQuery({
-    queryKey: ['configuration'],
-    queryFn: fetchConfiguration,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: true
-  });
+  const config = useSelector(selectConfig);
+  const isLoading = useSelector(selectConfigLoading);
+  const error = useSelector(selectConfigError);
 
   const jsonString = useMemo(() => {
     return config ? JSON.stringify(config, null, 2) : '';
@@ -31,10 +22,10 @@ const ConfigViewer = () => {
     return <div className={styles.loading}>Loading configuration...</div>;
   }
 
-  if (isError || !config) {
+  if (error || !config) {
     return (
       <div className={styles.error}>
-        <p>Error loading configuration: {error?.message || 'Unknown error'}</p>
+        <p>Error loading configuration: {typeof error === 'string' ? error : error?.message || 'Unknown error'}</p>
       </div>
     );
   }

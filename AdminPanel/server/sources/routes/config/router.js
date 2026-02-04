@@ -149,11 +149,12 @@ router.post('/reset', validateJWT, rawFileParser, async (req, res) => {
       await runtimeConfigManager.replaceConfig(ctx, resetConfig);
     }
 
-    delete resetConfig.adminPanel;
     ctx.logger.info('Configuration reset successfully for paths: %j', paths);
-    const filteredMergedConfig = getScopedBaseConfig(ctx);
+    ctx.cleanTenantConfigCache(ctx.tenant);
+    await ctx.initTenantCache();
 
-    res.status(200).json(utils.deepMergeObjects({}, filteredMergedConfig, resetConfig));
+    const configRedacted = getFullConfigRedacted(ctx);
+    res.status(200).json(configRedacted);
   } catch (error) {
     ctx.logger.error('Configuration reset error: %s', error.stack);
     res.status(500).json({error: 'Internal server error', details: error.message});
