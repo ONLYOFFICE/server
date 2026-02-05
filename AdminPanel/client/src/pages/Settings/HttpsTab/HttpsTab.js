@@ -6,11 +6,39 @@ import Note from '../../../components/Note/Note';
 import {getLetsEncryptStatus, installLetsEncryptCertificate} from '../../../api';
 import styles from './HttpsTab.module.scss';
 
+// Documentation links for manual HTTPS configuration
+const HTTPS_DOCS = {
+  linux: 'https://helpcenter.onlyoffice.com/docs/installation/docs-community-https-linux.aspx',
+  windows: 'https://helpcenter.onlyoffice.com/docs/installation/docs-community-https-windows.aspx',
+  kubernetes: 'https://github.com/ONLYOFFICE/Kubernetes-Docs-Shards?tab=readme-ov-file#5322-expose-onlyoffice-docs-shards-via-http'
+};
+
+/**
+ * Check if a string is an IP address (IPv4 or IPv6)
+ * @param {string} str - String to check
+ * @returns {boolean} True if IP address
+ */
+const isIPAddress = str => {
+  if (!str) return false;
+  // IPv4: digits and dots only (e.g., 192.168.1.1)
+  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+  // IPv6: hex digits and colons, optionally with brackets (e.g., ::1, [::1])
+  const ipv6Pattern = /^(\[)?([0-9a-fA-F:]+)(])?$/;
+  return ipv4Pattern.test(str) || ipv6Pattern.test(str);
+};
+
 const HttpsTab = () => {
+  // Check if user accessed the page by IP address
+  const currentHostname = window.location.hostname;
+  const accessedByIP = isIPAddress(currentHostname);
+
+  const [available, setAvailable] = useState(null); // null = loading
   const [certInfo, setCertInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
-  const [domain, setDomain] = useState(window.location.hostname);
+  // Don't pre-fill domain if accessed by IP - Let's Encrypt requires domain names
+  const [domain, setDomain] = useState(accessedByIP ? '' : currentHostname);
+  const [domainInitialized, setDomainInitialized] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState(null);
   const [errorDetails, setErrorDetails] = useState(null);
@@ -19,13 +47,18 @@ const HttpsTab = () => {
   // Current HTTPS status from browser
   const isHttps = window.location.protocol === 'https:';
 
-  // Load certificate details from server
+  // Validation: check if entered domain is an IP address
+  const domainIsIP = isIPAddress(domain);
+
+  // Load certificate details and availability from server
   const loadCertInfo = useCallback(async () => {
     try {
       const result = await getLetsEncryptStatus();
+      setAvailable(result.available);
       setCertInfo(result.certificate || null);
     } catch (err) {
       console.error('Failed to load certificate info:', err);
+      setAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -34,6 +67,14 @@ const HttpsTab = () => {
   useEffect(() => {
     loadCertInfo();
   }, [loadCertInfo]);
+
+  // Pre-fill domain from certificate info when available (higher priority than hostname)
+  useEffect(() => {
+    if (!domainInitialized && certInfo?.domain) {
+      setDomain(certInfo.domain);
+      setDomainInitialized(true);
+    }
+  }, [certInfo, domainInitialized]);
 
   // Calculate certificate health
   const getCertHealth = () => {
@@ -59,6 +100,10 @@ const HttpsTab = () => {
     }
     if (!domain) {
       setError('Please enter a domain name');
+      return;
+    }
+    if (domainIsIP) {
+      setError("Let's Encrypt does not issue certificates for IP addresses. Please enter a domain name.");
       return;
     }
 
@@ -94,6 +139,35 @@ const HttpsTab = () => {
   };
 
   const certHealth = getCertHealth();
+
+  // Fallback when Let's Encrypt script is not available
+  if (available === false) {
+    return (
+      <Section title='HTTPS Certificate' description='Configure SSL/TLS certificate manually'>
+        <Note type='note'>
+          Automatic HTTPS configuration via Let's Encrypt is not available for this installation. Please follow the manual configuration instructions
+          for your platform:
+          <ul>
+            <li>
+              <a href={HTTPS_DOCS.linux} target='_blank' rel='noopener noreferrer'>
+                Linux installation guide
+              </a>
+            </li>
+            <li>
+              <a href={HTTPS_DOCS.windows} target='_blank' rel='noopener noreferrer'>
+                Windows installation guide
+              </a>
+            </li>
+            <li>
+              <a href={HTTPS_DOCS.kubernetes} target='_blank' rel='noopener noreferrer'>
+                Kubernetes configuration
+              </a>
+            </li>
+          </ul>
+        </Note>
+      </Section>
+    );
+  }
 
   return (
     <Section title="HTTPS Certificate (Let's Encrypt)" description="Install a free SSL/TLS certificate from Let's Encrypt to enable HTTPS">
@@ -167,6 +241,7 @@ const HttpsTab = () => {
           placeholder='docs.example.com'
           description='Domain name for the SSL certificate. Must resolve to this server.'
           disabled={installing}
+          error={domainIsIP ? "Let's Encrypt does not issue certificates for IP addresses" : null}
         />
 
         <Input
@@ -179,7 +254,7 @@ const HttpsTab = () => {
         />
 
         <div className={styles.actions}>
-          <Button onClick={handleInstall} disabled={installing || !email || !domain}>
+          <Button onClick={handleInstall} disabled={installing || !email || !domain || domainIsIP}>
             {installing ? 'Installing... Please wait' : isHttps ? 'Renew Certificate' : 'Install Certificate'}
           </Button>
         </div>

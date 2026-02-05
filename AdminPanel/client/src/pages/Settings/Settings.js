@@ -1,6 +1,6 @@
 import {useState, useEffect, useRef, useCallback} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {uploadSigningCertificate, deleteSigningCertificate, getSigningCertificateStatus, getLetsEncryptStatus} from '../../api';
+import {uploadSigningCertificate, deleteSigningCertificate, getSigningCertificateStatus} from '../../api';
 import {saveConfig, resetConfig, selectConfig} from '../../store/slices/configSlice';
 import {getNestedValue} from '../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../utils/mergeNestedObjects';
@@ -19,6 +19,7 @@ import './Settings.scss';
 const baseTabs = [
   {key: 'configuration', label: 'Configuration'},
   {key: 'pdf-signing', label: 'PDF Signing'},
+  {key: 'https', label: 'HTTPS / SSL'},
   {key: 'shutdown', label: 'Shutdown'}
 ];
 
@@ -35,34 +36,6 @@ const Settings = () => {
   const [savedPassphrase, setSavedPassphrase] = useState('');
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-
-  // Dynamic tabs based on feature availability
-  const [settingsTabs, setSettingsTabs] = useState(baseTabs);
-
-  // Check Let's Encrypt availability on mount
-  useEffect(() => {
-    const checkHttpsAvailability = async () => {
-      try {
-        const status = await getLetsEncryptStatus();
-
-        // Add HTTPS tab if feature is available
-        if (status.available) {
-          setSettingsTabs(prev => {
-            if (prev.some(tab => tab.key === 'https')) return prev;
-            // Insert HTTPS tab after PDF Signing
-            const pdfSigningIndex = prev.findIndex(tab => tab.key === 'pdf-signing');
-            const newTabs = [...prev];
-            newTabs.splice(pdfSigningIndex + 1, 0, {key: 'https', label: 'HTTPS / SSL'});
-            return newTabs;
-          });
-        }
-      } catch (err) {
-        console.error('Failed to check HTTPS availability:', err);
-      }
-    };
-
-    checkHttpsAvailability();
-  }, []);
 
   // Check certificate status on server (only when PDF Signing tab is active)
   const checkCertificateStatus = useCallback(async () => {
@@ -327,7 +300,7 @@ const Settings = () => {
       </div>
 
       <div className='settings-content' title='Settings'>
-        <Tabs tabs={settingsTabs} activeTab={activeTab} onTabChange={handleTabChange}>
+        <Tabs tabs={baseTabs} activeTab={activeTab} onTabChange={handleTabChange}>
           {renderTabContent()}
         </Tabs>
       </div>

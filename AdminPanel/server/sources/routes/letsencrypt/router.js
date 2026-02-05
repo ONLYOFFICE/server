@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const fs = require('fs');
 const path = require('path');
 const tls = require('tls');
+const net = require('net');
 const {spawn} = require('child_process');
 const {validateJWT} = require('../../middleware/auth');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
@@ -97,7 +98,7 @@ function getCertificate(hostname) {
         host: hostname,
         port: 443,
         rejectUnauthorized: false,
-        servername: hostname,
+        servername: net.isIP(hostname) ? undefined : hostname,
         timeout: 2000
       },
       () => {
