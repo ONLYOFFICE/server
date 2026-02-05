@@ -36,7 +36,6 @@ const express = require('express');
 const path = require('path');
 const apicache = require('apicache');
 const config = require('config');
-const utils = require('../../../Common/sources/utils');
 const operationContext = require('../../../Common/sources/operationContext');
 
 const router = express.Router();
@@ -65,17 +64,16 @@ router.get('/config', async (req, res) => {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
 
-    const baseUrl = utils.checkBaseUrl(ctx, utils.getBaseUrlByRequest(ctx, req));
     const clientConfig = {
       authorization: {
         header: ctx.config?.services?.CoAuthoring?.token?.inbox?.header,
         prefix: ctx.config?.services?.CoAuthoring?.token?.inbox?.prefix
       },
       urls: {
-        api: `${baseUrl}/web-apps/apps/api/documents/api.js`,
-        command: `${baseUrl}/command`,
-        converter: `${baseUrl}/converter`,
-        docbuilder: `${baseUrl}/docbuilder`
+        api: `/web-apps/apps/api/documents/api.js`,
+        command: `/command`,
+        converter: `/converter`,
+        docbuilder: `/docbuilder`
       },
       limits: {
         maxFileSize: ctx.config?.FileConverter?.converter?.maxDownloadBytes
