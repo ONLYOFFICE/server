@@ -289,13 +289,22 @@ export const getSigningCertificateStatus = async () => {
   return response.json();
 };
 
-export const uploadSigningCertificate = async file => {
+export const uploadSigningCertificate = async (file, passphrase) => {
+  const headers = {
+    'Content-Type': 'application/octet-stream'
+  };
+
+  // Encode passphrase in Base64 to safely handle UTF-8/special characters
+  if (passphrase !== undefined && passphrase !== null) {
+    const encoder = new TextEncoder();
+    const passphraseBytes = encoder.encode(passphrase);
+    headers['X-Certificate-Passphrase'] = btoa(String.fromCharCode(...passphraseBytes));
+  }
+
   const response = await safeFetch(`${API_BASE_PATH}/config/signing-certificate`, {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/octet-stream'
-    },
+    headers,
     body: file
   });
   if (!response.ok) {

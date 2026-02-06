@@ -111,9 +111,9 @@ const Settings = () => {
 
       let fileUploaded = false;
 
-      // If file is selected, upload it first
+      // If file is selected, upload it first (with passphrase for validation)
       if (selectedFile) {
-        await uploadSigningCertificate(selectedFile);
+        await uploadSigningCertificate(selectedFile, signingPassphrase);
         fileUploaded = true;
       }
 
@@ -160,6 +160,7 @@ const Settings = () => {
       showSuccess(message);
     } catch (err) {
       setError(err.message || 'Failed to save');
+      throw err;
     }
   };
 
@@ -197,6 +198,7 @@ const Settings = () => {
       showSuccess('Certificate removed successfully');
     } catch (err) {
       setError(err.message || 'Failed to remove certificate');
+      throw err;
     }
   };
 

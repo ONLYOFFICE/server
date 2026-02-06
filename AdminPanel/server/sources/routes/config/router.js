@@ -4,6 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
+const tls = require('tls');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
 const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase, getFullConfigRedacted} = require('./config.service');
@@ -168,6 +169,25 @@ function getSigningCertPath() {
   return config.get('FileConverter.converter.signingKeyStorePath') || '';
 }
 
+// Validate P12/PFX certificate with passphrase
+function validateCertificate(certBuffer, passphrase) {
+  try {
+    tls.createSecureContext({pfx: certBuffer, passphrase: passphrase || ''});
+    return {valid: true};
+  } catch (error) {
+    const errorMsg = error.message.toLowerCase();
+
+    if (errorMsg.includes('mac verify') || errorMsg.includes('bad decrypt')) {
+      if (!passphrase) {
+        return {valid: false, error: 'Certificate passphrase is required'};
+      }
+      return {valid: false, error: 'Invalid certificate passphrase'};
+    }
+
+    return {valid: false, error: 'Invalid certificate file format'};
+  }
+}
+
 // Check signing certificate status (does file exist on disk)
 router.get('/signing-certificate/status', validateJWT, async (req, res) => {
   const ctx = req.ctx;
@@ -212,6 +232,21 @@ router.post('/signing-certificate', validateJWT, rawFileParser, async (req, res)
     if (req.body.length > MAX_CERT_SIZE) {
       return res.status(400).json({error: 'File too large. Certificate files should be less than 1MB'});
     }
+
+    // Get passphrase from header (Base64 encoded to handle UTF-8/special chars)
+    let passphrase = req.headers['x-certificate-passphrase'];
+    if (passphrase) {
+      passphrase = Buffer.from(passphrase, 'base64').toString('utf8');
+    }
+
+    // Validate certificate with passphrase before saving
+    const validation = validateCertificate(req.body, passphrase);
+    if (!validation.valid) {
+      ctx.logger.warn('Certificate validation failed: %s', validation.error);
+      return res.status(400).json({error: validation.error});
+    }
+
+    ctx.logger.info('Certificate validated successfully');
 
     const certPath = getSigningCertPath();
     if (!certPath) {
