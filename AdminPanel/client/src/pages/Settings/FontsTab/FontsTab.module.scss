@@ -1,0 +1,307 @@
+// Status Section
+.statusSection {
+  margin-bottom: 24px;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 12px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.statusLabel {
+  font-weight: 500;
+  color: #333;
+  min-width: 140px;
+}
+
+.statusValue {
+  color: #333;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+}
+
+// Upload Section
+.uploadSection {
+  margin-top: 24px;
+  padding: 20px;
+  background: #fafafa;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+}
+
+.uploadSectionDragging {
+  border-color: #ff6f3d;
+  background: #fff7f5;
+}
+
+.fileInputRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.selectedFiles {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.selectedFile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.fileName {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  color: #333;
+}
+
+.fileSize {
+  font-size: 12px;
+  color: #666;
+}
+
+.removeFile {
+  background: none;
+  border: none;
+  color: #cb0000;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 12px;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.uploadActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+// Generation Progress
+.generationProgress {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+}
+
+.progressHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.progressTitle {
+  font-weight: 500;
+  color: #0369a1;
+}
+
+.progressStatus {
+  font-size: 13px;
+  color: #0369a1;
+  margin-top: 8px;
+}
+
+// Fonts Table
+.tableSection {
+  margin-top: 24px;
+}
+
+.tableControls {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: flex-end;
+}
+
+.filterInput {
+  flex: 1;
+  max-width: 300px;
+}
+
+.sourceFilter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fontsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.fontsTable th,
+.fontsTable td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.fontsTable th {
+  background: #f8f9fa;
+  font-weight: 500;
+  color: #333;
+}
+
+.fontsTable tr:hover {
+  background: #fafafa;
+}
+
+.fontName {
+  font-weight: 500;
+}
+
+.fontSource {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.sourceCustom {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.sourceSystem {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.styleIndicator {
+  display: inline-block;
+  width: 24px;
+  text-align: center;
+}
+
+.styleYes {
+  color: #007b14;
+  font-weight: bold;
+}
+
+.styleNo {
+  color: #d1d5db;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+// Pending delete row
+.pendingDeleteRow {
+  opacity: 0.5;
+
+  td {
+    text-decoration: line-through;
+  }
+}
+
+// Delete icon button (inline with font name)
+.deleteFont {
+  background: none;
+  border: none;
+  color: #cb0000;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 6px 0 0;
+  opacity: 0.4;
+  vertical-align: middle;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  &:disabled {
+    opacity: 0.15;
+    cursor: default;
+  }
+}
+
+// Undo icon button (inline with font name)
+.undoDelete {
+  background: none;
+  border: none;
+  color: #0369a1;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 6px 0 0;
+  vertical-align: middle;
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
+// Pending changes summary
+.pendingSummary {
+  font-size: 13px;
+  color: #0369a1;
+  padding: 8px 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 4px;
+  margin-top: 16px;
+}
+
+// Messages
+.messageError {
+  color: #b91c1c;
+  font-size: 13px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+}
+
+.messageSuccess {
+  color: #15803d;
+  font-size: 13px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+}
+
+// Loading state
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  color: #666;
+}

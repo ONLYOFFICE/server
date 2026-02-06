@@ -13,6 +13,7 @@ import ConfigViewer from '../../components/ConfigViewer/ConfigViewer';
 import Tabs from '../../components/Tabs/Tabs';
 import ShutdownTab from '../../components/ShutdownTab/ShutdownTab';
 import HttpsTab from './HttpsTab/HttpsTab';
+import FontsTab from './FontsTab/FontsTab';
 import './Settings.scss';
 
 // Base tabs that are always shown
@@ -20,6 +21,7 @@ const baseTabs = [
   {key: 'configuration', label: 'Configuration'},
   {key: 'pdf-signing', label: 'PDF Signing'},
   {key: 'https', label: 'HTTPS / SSL'},
+  {key: 'fonts', label: 'Fonts'},
   {key: 'shutdown', label: 'Shutdown'}
 ];
 
@@ -286,6 +288,8 @@ const Settings = () => {
         );
       case 'https':
         return <HttpsTab />;
+      case 'fonts':
+        return <FontsTab />;
       case 'shutdown':
         return <ShutdownTab />;
       default:
