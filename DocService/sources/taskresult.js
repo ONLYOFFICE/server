@@ -384,6 +384,40 @@ function removeIf(ctx, mask) {
   });
 }
 
+/**
+ * Resets document statuses Ok -> ErrToReload for all tenants when file limits config changed.
+ * status_info is set to CONVERT_LIMITS (-93) so the client shows "file size exceeds" instead of "Error code: 0". On next open cleanupErrToReload runs and conversion re-checks limits.
+ * @param {operationContext} ctx - Operation context (for DB and logger)
+ */
+async function resetDocumentStatusesForFileLimits(ctx) {
+  ctx.logger.info('File limits changed, resetting document statuses to force re-check');
+  try {
+    const values = [];
+    const pStatusTo = addSqlParam(commonDefines.FileStatus.ErrToReload, values);
+    const pStatusInfoTo = addSqlParam(constants.CONVERT_LIMITS, values);
+    const pOk = addSqlParam(commonDefines.FileStatus.Ok, values);
+    const sqlCommand = `UPDATE ${cfgTableResult} SET status=${pStatusTo}, status_info=${pStatusInfoTo} WHERE status=${pOk};`;
+
+    const updateResult = await new Promise((resolve, reject) => {
+      sqlBase.sqlQuery(
+        ctx,
+        sqlCommand,
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        },
+        undefined,
+        undefined,
+        values
+      );
+    });
+    const affectedRows = updateResult.affectedRows || 0;
+    ctx.logger.info('Reset document statuses: %d documents affected', affectedRows);
+  } catch (error) {
+    ctx.logger.error('Error resetting document statuses: %s', error.stack);
+  }
+}
+
 exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
 exports.select = select;
@@ -395,3 +429,4 @@ exports.addRandomKeyTask = addRandomKeyTask;
 exports.remove = remove;
 exports.removeIf = removeIf;
 exports.getExpired = sqlBase.getExpired;
+exports.resetDocumentStatusesForFileLimits = resetDocumentStatusesForFileLimits;
