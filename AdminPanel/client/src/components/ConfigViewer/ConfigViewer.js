@@ -1,6 +1,7 @@
 import {useMemo} from 'react';
 import {useSelector} from 'react-redux';
 import {selectConfig, selectConfigLoading, selectConfigError} from '../../store/slices/configSlice';
+import {copyToClipboard} from '../../utils/copyToClipboard';
 import Button from '../Button/Button';
 import styles from './ConfigViewer.module.scss';
 
@@ -13,10 +14,7 @@ const ConfigViewer = () => {
     return config ? JSON.stringify(config, null, 2) : '';
   }, [config]);
 
-  const copyToClipboard = async () => {
-    if (!jsonString) return;
-    await navigator.clipboard.writeText(jsonString);
-  };
+  const handleCopy = () => copyToClipboard(jsonString);
 
   if (isLoading) {
     return <div className={styles.loading}>Loading configuration...</div>;
@@ -36,7 +34,7 @@ const ConfigViewer = () => {
         <p className={styles.description}>
           Sensitive parameters (passwords, keys, secrets) are shown as <span className={styles.redactedBadge}>REDACTED</span>.
         </p>
-        <Button onClick={copyToClipboard}>Copy JSON</Button>
+        <Button onClick={handleCopy}>Copy JSON</Button>
       </div>
       <div className={styles.configContent}>
         <pre className={styles.jsonPre}>{jsonString}</pre>
