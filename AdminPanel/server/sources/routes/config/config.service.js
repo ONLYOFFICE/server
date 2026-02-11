@@ -193,7 +193,11 @@ const SENSITIVE_PARAM_PATHS = [
   'wopi.privateKeyOld',
   'wopi.publicKeyOld',
   'wopi.modulusOld',
-  'wopi.exponentOld'
+  'wopi.exponentOld',
+  //'FileConverter.converter.signing.awsKms.secretAccessKey',
+  'FileConverter.converter.signing.csc.clientSecret',
+  'FileConverter.converter.signing.csc.pin',
+  'FileConverter.converter.signing.azureKeyVault.clientSecret'
 ];
 
 /**

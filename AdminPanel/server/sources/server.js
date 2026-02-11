@@ -52,6 +52,7 @@ const wopiRouter = require('./routes/wopi/router');
 const docserviceRouter = require('./routes/docservice/router');
 const letsencryptRouter = require('./routes/letsencrypt/router');
 const fontsRouter = require('./routes/fonts/router');
+const signingRouter = require('./routes/config/signingRouter');
 const passwordManager = require('./passwordManager');
 const bootstrap = require('./bootstrap');
 const devProxy = require('./devProxy');
@@ -137,6 +138,7 @@ app.use('/admin/api/v1/wopi', disableCache, wopiRouter);
 app.use('/admin/api/v1/docservice', disableCache, docserviceRouter);
 app.use('/admin/api/v1/letsencrypt', disableCache, letsencryptRouter);
 app.use('/admin/api/v1/fonts', disableCache, fontsRouter);
+app.use('/admin/api/v1/config/signing-certificate', disableCache, signingRouter);
 app.use('/admin/api/v1', disableCache, adminpanelRouter);
 app.get('/admin/api/v1/stat', disableCache, async (req, res) => {
   await infoRouter.licenseInfo(req, res);
