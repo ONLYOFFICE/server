@@ -182,18 +182,14 @@ const SENSITIVE_PARAM_PATHS = [
   'services.CoAuthoring.secret.session.file',
   'services.CoAuthoring.sql.dbPass',
   'storage.fs.secretString',
+  'persistentStorage.fs.secretString',
   'storage.accessKeyId',
   'storage.secretAccessKey',
   'openpgpjs.encrypt.passwords',
   'openpgpjs.decrypt.passwords',
   'aesEncrypt.secret',
-  'rabbitmq.url',
   'wopi.privateKey',
-  'wopi.modulus',
-  'wopi.privateKeyOld',
-  'wopi.publicKeyOld',
-  'wopi.modulusOld',
-  'wopi.exponentOld'
+  'wopi.privateKeyOld'
 ];
 
 /**

@@ -35,8 +35,9 @@ export const fetchTenants = async () => {
   return response.json();
 };
 
-export const fetchConfiguration = async () => {
-  const response = await safeFetch(`${API_BASE_PATH}/config`, {credentials: 'include'});
+export const fetchConfiguration = async (full = false) => {
+  const url = full ? `${API_BASE_PATH}/config?full=true` : `${API_BASE_PATH}/config`;
+  const response = await safeFetch(url, {credentials: 'include'});
   if (response.status === 401) throw new Error('UNAUTHORIZED');
   if (!response.ok) throw new Error('Failed to fetch configuration');
   return response.json();

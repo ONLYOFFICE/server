@@ -28,9 +28,9 @@ router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('config get start');
-    const configRedacted = getFullConfigRedacted(ctx);
+    const data = req.query.full === 'true' ? ctx.getFullCfg() : getFullConfigRedacted(ctx);
     res.setHeader('Content-Type', 'application/json');
-    res.json(configRedacted);
+    res.json(data);
   } catch (error) {
     ctx.logger.error('Config get error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});
