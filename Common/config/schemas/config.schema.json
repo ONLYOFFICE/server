@@ -219,8 +219,57 @@
             "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 10485760000, "x-scope": ["admin", "tenant"]},
             "signingKeyStorePath": {
               "type": "string",
-              "description": "Path to PKCS#12 (.p12/.pfx) keystore file for PDF document signing",
+              "description": "Legacy. Path to signing certificate file. Use signing.keyStorePath instead.",
               "x-scope": "admin"
+            },
+            "signing": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": "admin",
+              "description": "Signing settings. keyStorePath takes priority over legacy signingKeyStorePath. Cloud provider detected by awsKms.keyId.",
+              "properties": {
+                "keyStorePath": {
+                  "type": "string",
+                  "description": "Path to signing certificate. P12/PFX for local x2t, PEM chain for cloud signing."
+                },
+                "awsKms": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "AWS KMS (or compatible) settings. Set keyId to enable.",
+                  "properties": {
+                    "endpoint": {"type": "string", "description": "KMS endpoint URL. Allows alternative KMS-compatible services."},
+                    "keyId": {"type": "string", "description": "KMS key ID or ARN. If set, AWS KMS signing is active."},
+                    "accessKeyId": {"type": "string", "description": "AWS access key. Empty = default credential chain."},
+                    "secretAccessKey": {"type": "string", "description": "AWS secret access key."}
+                  }
+                },
+                "csc": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "CSC API v1 settings. Set baseUrl to enable.",
+                  "properties": {
+                    "baseUrl": {"type": "string", "description": "CSC API base URL. If set, CSC signing is active."},
+                    "tokenUrl": {"type": "string", "description": "OAuth2 token endpoint."},
+                    "credentialId": {"type": "string", "description": "Signing credential ID at the CSC provider."},
+                    "clientId": {"type": "string", "description": "OAuth2 client ID."},
+                    "clientSecret": {"type": "string", "description": "OAuth2 client secret."},
+                    "pin": {"type": "string", "description": "User PIN for credential authorization. Optional."}
+                  }
+                },
+                "azureKeyVault": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "Azure Key Vault settings. Set vaultUrl to enable.",
+                  "properties": {
+                    "vaultUrl": {"type": "string", "description": "Key Vault URL. If set, Azure KV signing is active."},
+                    "keyName": {"type": "string", "description": "Signing key name in the vault."},
+                    "keyVersion": {"type": "string", "description": "Key version. Empty = latest."},
+                    "tenantId": {"type": "string", "description": "Azure AD tenant ID for service principal auth."},
+                    "clientId": {"type": "string", "description": "Azure AD application (client) ID."},
+                    "clientSecret": {"type": "string", "description": "Azure AD client secret."}
+                  }
+                }
+              }
             },
             "spawnOptions": {
               "type": "object",

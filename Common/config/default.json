@@ -565,6 +565,31 @@
       "x2tPath": "null",
       "docbuilderPath": "null",
       "signingKeyStorePath": "",
+      "signing": {
+        "keyStorePath": "",
+        "awsKms": {
+          "endpoint": "",
+          "keyId": "",
+          "accessKeyId": "",
+          "secretAccessKey": ""
+        },
+        "csc": {
+          "baseUrl": "",
+          "tokenUrl": "",
+          "credentialId": "",
+          "clientId": "",
+          "clientSecret": "",
+          "pin": ""
+        },
+        "azureKeyVault": {
+          "vaultUrl": "",
+          "keyName": "",
+          "keyVersion": "",
+          "tenantId": "",
+          "clientId": "",
+          "clientSecret": ""
+        }
+      },
       "args": "",
       "spawnOptions": {},
       "errorfiles": "",
