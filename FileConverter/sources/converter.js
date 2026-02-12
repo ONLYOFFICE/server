@@ -55,6 +55,8 @@ const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const formatChecker = require('./../../Common/sources/formatchecker');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
+const {detectCertType} = require('./signing/pdfSigningCore');
+const {signPdfFile} = require('./signing/pdfAwsKmsSigner');
 
 const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
@@ -69,7 +71,56 @@ const cfgSpawnOptions = config.util.cloneDeep(config.get('FileConverter.converte
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const cfgInputLimits = config.get('FileConverter.converter.inputLimits');
 const cfgStreamWriterBufferSize = config.get('FileConverter.converter.streamWriterBufferSize');
-const cfgSigningKeyStorePath = config.get('FileConverter.converter.signingKeyStorePath');
+const cfgSigningKeyStorePath =
+  config.get('FileConverter.converter.signing.keyStorePath') || config.get('FileConverter.converter.signingKeyStorePath');
+const cfgSigning = config.get('FileConverter.converter.signing');
+
+/**
+ * @param {Object} ctx
+ * @returns {string} resolved signing certificate path (new or legacy)
+ */
+function resolveSigningPath(ctx) {
+  return (
+    ctx.getCfg('FileConverter.converter.signing.keyStorePath', null) ||
+    ctx.getCfg('FileConverter.converter.signingKeyStorePath', cfgSigningKeyStorePath) ||
+    ''
+  );
+}
+
+/**
+ * @param {string} certPath - resolved signing certificate path
+ * @param {Object} signingCfg - FileConverter.converter.signing config
+ * @returns {{isCloud: boolean, certPath: string}}
+ */
+function getCloudSigningMode(certPath, signingCfg) {
+  if (!certPath || !fs.existsSync(certPath)) return {isCloud: false, certPath};
+  const hasCloudProvider = !!signingCfg?.awsKms?.keyId;
+  if (!hasCloudProvider) return {isCloud: false, certPath};
+
+  return {isCloud: detectCertType(certPath) === 'pem', certPath};
+}
+
+/**
+ * @param {Object} ctx
+ * @param {string} outputPath - PDF file to sign
+ * @param {string} certPath - PEM chain path
+ * @param {Object} signingCfg - FileConverter.converter.signing config
+ * @returns {Promise<void>}
+ */
+function performCloudSigning(ctx, outputPath, certPath, signingCfg) {
+  const awsCfg = signingCfg?.awsKms || {};
+  if (awsCfg.keyId) {
+    ctx.logger.info('Cloud signing (AWS KMS) start: %s', outputPath);
+    return signPdfFile(outputPath, null, {
+      keyId: awsCfg.keyId,
+      endpoint: awsCfg.endpoint,
+      accessKeyId: awsCfg.accessKeyId,
+      secretAccessKey: awsCfg.secretAccessKey,
+      certificateChainPath: certPath
+    });
+  }
+  return Promise.reject(new Error('No cloud signing provider configured'));
+}
 //cfgMaxRequestChanges was obtained as a result of the test: 84408 changes - 5,16 MB
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
@@ -185,9 +236,16 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
     if (this.formatTo === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF && commonDefines.c_oAscForceSaveTypes.Form === this.forceSaveType) {
-      const signingKeyStorePath = ctx.getCfg('FileConverter.converter.signingKeyStorePath', cfgSigningKeyStorePath);
-      if (signingKeyStorePath && fs.existsSync(signingKeyStorePath)) {
-        xml += this.serializeXmlProp('m_sSigningKeyStorePath', signingKeyStorePath);
+      const signingPath = resolveSigningPath(ctx);
+      const signingCfg = ctx.getCfg('FileConverter.converter.signing', cfgSigning);
+      const {isCloud, certPath} = getCloudSigningMode(signingPath, signingCfg);
+      if (certPath && fs.existsSync(certPath)) {
+        if (isCloud) {
+          xml += this.serializeXmlProp('m_sSigningKeyStorePath', '_placeholder_');
+          this._cloudSigningCertPath = certPath;
+        } else {
+          xml += this.serializeXmlProp('m_sSigningKeyStorePath', certPath);
+        }
       }
     }
     xml += this.serializeLimit(ctx);
@@ -974,6 +1032,16 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
       if (!fs.existsSync(dataConvert.fileTo)) {
         fs.copyFileSync(dataConvert.fileFrom, originPath);
         ctx.logger.debug('copyOrigin complete');
+      }
+    }
+    // Cloud signing: replace x2t placeholder with real KMS signature before upload
+    if (dataConvert._cloudSigningCertPath) {
+      try {
+        const signingCfg = ctx.getCfg('FileConverter.converter.signing', cfgSigning);
+        yield performCloudSigning(ctx, dataConvert.fileTo, dataConvert._cloudSigningCertPath, signingCfg);
+        ctx.logger.info('Cloud signing complete');
+      } catch (cloudErr) {
+        ctx.logger.error('Cloud signing failed: %s', cloudErr.stack);
       }
     }
     //todo clarify calcChecksum conditions

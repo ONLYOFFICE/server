@@ -199,7 +199,10 @@ const SENSITIVE_PARAM_PATHS = [
   'openpgpjs.decrypt.passwords',
   'aesEncrypt.secret',
   'wopi.privateKey',
-  'wopi.privateKeyOld'
+  'wopi.privateKeyOld',
+  'FileConverter.converter.signing.csc.clientSecret',
+  'FileConverter.converter.signing.csc.pin',
+  'FileConverter.converter.signing.azureKeyVault.clientSecret'
 ];
 
 /**

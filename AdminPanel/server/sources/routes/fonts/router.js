@@ -104,7 +104,14 @@ function getSpawnArgs(scriptPath, args) {
     };
   }
 
-  // For .sh, .bat, .exe and others - run directly
+  if (ext === '.bat' || ext === '.cmd') {
+    return {
+      command: process.env.ComSpec || 'cmd.exe',
+      args: ['/c', scriptPath, ...args]
+    };
+  }
+
+  // For .sh, .exe and others - run directly
   return {
     command: scriptPath,
     args
@@ -156,7 +163,6 @@ function getGenerationStatus() {
  */
 function runGenerator(ctx, config) {
   return new Promise((resolve, reject) => {
-    const ac = new AbortController();
     let done = false;
 
     const finish = error => {
@@ -167,20 +173,19 @@ function runGenerator(ctx, config) {
       else resolve();
     };
 
-    const timeout = setTimeout(() => {
-      ac.abort();
-      finish(new Error('Font generation timed out after 10 minutes'));
-    }, GENERATION_TIMEOUT_MS);
-
     const {command, args} = getSpawnArgs(config.path, config.args);
 
     ctx.logger.debug('Spawning: %s %s (cwd: %s)', command, args.join(' '), config.cwd);
 
     const proc = spawn(command, args, {
-      signal: ac.signal,
       cwd: config.cwd,
       windowsHide: true
     });
+
+    const timeout = setTimeout(() => {
+      proc.kill();
+      finish(new Error('Font generation timed out after 10 minutes'));
+    }, GENERATION_TIMEOUT_MS);
 
     proc.stdout.on('data', data => {
       ctx.logger.info('allfontsgen: %s', data.toString().trim());
@@ -191,11 +196,7 @@ function runGenerator(ctx, config) {
     });
 
     proc.on('error', err => {
-      if (err.name === 'AbortError') {
-        finish(new Error('Font generation timed out after 10 minutes'));
-      } else {
-        finish(new Error(`Failed to start generator: ${err.message}`));
-      }
+      finish(new Error(`Failed to start generator: ${err.message}`));
     });
 
     proc.on('close', (code, signal) => {
