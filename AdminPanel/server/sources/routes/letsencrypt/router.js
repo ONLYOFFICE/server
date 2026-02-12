@@ -71,12 +71,20 @@ function isScriptExecutable(ctx, scriptPath) {
  * @returns {{command: string, args: string[], options: object}}
  */
 function getSpawnArgs(scriptPath, args) {
-  const ext = path.extname(scriptPath);
+  const ext = path.extname(scriptPath).toLowerCase();
 
   if (ext === '.ps1') {
     return {
       command: 'powershell.exe',
       args: ['-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args],
+      options: {}
+    };
+  }
+
+  if (ext === '.bat' || ext === '.cmd') {
+    return {
+      command: process.env.ComSpec || 'cmd.exe',
+      args: ['/c', scriptPath, ...args],
       options: {}
     };
   }
@@ -124,7 +132,6 @@ function getCertificate(hostname) {
 
 /**
  * Run installation script with timeout and proper cleanup
- * Uses AbortController (Node.js 15+) for clean cancellation
  * @param {string} scriptPath - Full path to script
  * @param {string} email - Email for Let's Encrypt
  * @param {string} domain - Domain name
@@ -132,7 +139,6 @@ function getCertificate(hostname) {
  */
 function runInstallScript(scriptPath, email, domain, logger) {
   return new Promise((resolve, reject) => {
-    const ac = new AbortController();
     let stderr = '';
     let done = false;
 
@@ -147,12 +153,14 @@ function runInstallScript(scriptPath, email, domain, logger) {
     logger.debug('Executing: %s %s', spawnConfig.command, spawnConfig.args.join(' '));
 
     const proc = spawn(spawnConfig.command, spawnConfig.args, {
-      ...spawnConfig.options,
-      signal: ac.signal
+      ...spawnConfig.options
     });
 
-    // Timeout - AbortController handles the kill
-    const timeout = setTimeout(() => ac.abort(), INSTALL_TIMEOUT_MS);
+    const timeout = setTimeout(() => {
+      proc.kill();
+      const details = stderr.slice(-2048).trim();
+      finish(new InstallError('Installation timed out after 5 minutes', details));
+    }, INSTALL_TIMEOUT_MS);
 
     proc.stdout.on('data', data => {
       logger.info('letsencrypt: %s', data.toString().trim());
@@ -165,16 +173,11 @@ function runInstallScript(scriptPath, email, domain, logger) {
 
     proc.on('error', err => {
       const details = stderr.slice(-2048).trim();
-      if (err.name === 'AbortError') {
-        finish(new InstallError('Installation timed out after 5 minutes', details));
-      } else {
-        finish(new InstallError(`Failed to start script: ${err.message}`, details));
-      }
+      finish(new InstallError(`Failed to start script: ${err.message}`, details));
     });
 
     proc.on('close', (code, signal) => {
       if (signal) {
-        // Killed by external signal (not our timeout - that's handled in 'error')
         finish(new InstallError(`Process killed by ${signal}`, stderr.slice(-2048).trim()));
       } else if (code === 0) {
         finish(null);
