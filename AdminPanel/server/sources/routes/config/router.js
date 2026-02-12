@@ -7,7 +7,7 @@ const fs = require('fs');
 const tls = require('tls');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase, getFullConfigRedacted} = require('./config.service');
+const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase, getFullConfigRedacted, getFullConfig} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
@@ -28,7 +28,7 @@ router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('config get start');
-    const data = req.query.full === 'true' ? ctx.getFullCfg() : getFullConfigRedacted(ctx);
+    const data = req.query.full === 'true' ? getFullConfig(ctx) : getFullConfigRedacted(ctx);
     res.setHeader('Content-Type', 'application/json');
     res.json(data);
   } catch (error) {

@@ -95,6 +95,19 @@ function removeEmptyObjects(obj) {
   }
   return result;
 }
+/**
+ * Adds log.options from merged logger config (so logger level etc. is always present).
+ * @param {Object} cfg - Config object to enrich
+ * @returns {Object} Same object with log.options set
+ */
+function addLogOptions(cfg) {
+  if (!cfg) return cfg;
+  if (!cfg.log) {
+    cfg.log = {};
+  }
+  cfg.log.options = logger.getLoggerConfig();
+  return cfg;
+}
 
 /**
  * Merges current runtime config with incoming config and returns only differences from base config.
@@ -139,10 +152,7 @@ function getScopedConfig(ctx) {
   const configCopy = JSON.parse(JSON.stringify(cfg));
 
   // Add log config. getLoggerConfig return merged config
-  if (!configCopy.log) {
-    configCopy.log = {};
-  }
-  configCopy.log.options = logger.getLoggerConfig();
+  addLogOptions(configCopy);
 
   const filter = isAdminScope(ctx) ? filterAdmin : filterTenant;
   filter(configCopy);
@@ -223,13 +233,26 @@ function redactSensitiveParams(config, sensitivePaths) {
 }
 
 /**
- * Gets full configuration without schema filtering, but with sensitive parameters redacted
+ * Gets full configuration without schema filtering, but with sensitive parameters redacted.
+ * Ensures log.options (logger level etc.) is present from merged logger config.
  * @param {operationContext} ctx - Operation context
  * @returns {Object} Full configuration object with sensitive values redacted
  */
 function getFullConfigRedacted(ctx) {
   const cfg = ctx.getFullCfg();
-  return redactSensitiveParams(cfg, SENSITIVE_PARAM_PATHS);
+  const result = redactSensitiveParams(cfg, SENSITIVE_PARAM_PATHS);
+  return addLogOptions(result);
 }
 
-module.exports = {validateScoped, getScopedBaseConfig, filterAdmin, getDiffFromBase, getFullConfigRedacted, getScopedConfig};
+/**
+ * Gets full configuration (unredacted) with log.options ensured.
+ * @param {operationContext} ctx - Operation context
+ * @returns {Object} Full configuration object
+ */
+function getFullConfig(ctx) {
+  const cfg = ctx.getFullCfg();
+  const fullCfg = JSON.parse(JSON.stringify(cfg));
+  return addLogOptions(fullCfg);
+}
+
+module.exports = {validateScoped, getScopedBaseConfig, filterAdmin, getDiffFromBase, getFullConfigRedacted, getFullConfig, getScopedConfig};
