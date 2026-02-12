@@ -1,32 +1,13 @@
 import {getApiBasePath} from '../utils/paths';
+import {safeFetch} from './safeFetch';
 
 const API_BASE_PATH = getApiBasePath();
-
-const isNetworkError = error => {
-  if (!error) return false;
-  if (error instanceof TypeError && error.message.includes('Failed to fetch')) return true;
-  if (error.message?.toLowerCase().includes('network')) return true;
-  if (error.message?.includes('ECONNREFUSED') || error.message?.includes('timeout')) return true;
-  return false;
-};
-
-const safeFetch = async (url, options = {}) => {
-  try {
-    return await fetch(url, options);
-  } catch (error) {
-    if (isNetworkError(error)) {
-      throw new Error('SERVER_UNAVAILABLE');
-    }
-    throw error;
-  }
-};
 
 export const getFontsStatus = async () => {
   const response = await safeFetch(`${API_BASE_PATH}/fonts/status`, {
     credentials: 'include'
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     if (response.status === 403) throw new Error('Only admin can manage fonts');
     throw new Error('Failed to check fonts status');
   }
@@ -43,7 +24,6 @@ export const getFontsList = async (filter = '', source = 'all') => {
     credentials: 'include'
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     if (response.status === 403) throw new Error('Only admin can manage fonts');
     throw new Error('Failed to get fonts list');
   }
@@ -72,7 +52,6 @@ export const uploadFonts = async files => {
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 401) throw new Error('UNAUTHORIZED');
         if (response.status === 403) throw new Error('Only admin can upload fonts');
         failed.push({filename: file.name, error: data.message || data.error || 'Upload failed'});
       } else {
@@ -93,7 +72,6 @@ export const deleteFont = async filename => {
     credentials: 'include'
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     if (response.status === 403) throw new Error('Only admin can delete fonts');
     if (response.status === 404) throw new Error('Font file not found');
     const data = await response.json();
@@ -111,7 +89,6 @@ export const applyFontsChanges = async () => {
   const data = await response.json();
 
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     if (response.status === 403) throw new Error('Only admin can apply font changes');
     if (response.status === 409) throw new Error(data.message || 'Generation already in progress');
     throw new Error(data.error || 'Failed to start font generation');
@@ -125,7 +102,6 @@ export const getFontsApplyStatus = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error('Failed to get generation status');
   }
   return response.json();

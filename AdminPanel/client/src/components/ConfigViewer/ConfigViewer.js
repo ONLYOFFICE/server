@@ -1,7 +1,8 @@
 import {useMemo, useState, useEffect} from 'react';
-import {useSelector} from 'react-redux';
+import {useSelector, useDispatch} from 'react-redux';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {selectConfig, selectConfigLoading, selectConfigError} from '../../store/slices/configSlice';
+import {setGlobalError} from '../../store/slices/globalErrorSlice';
 import {fetchConfiguration} from '../../api';
 import {copyToClipboard} from '../../utils/copyToClipboard';
 import Button from '../Button/Button';
@@ -9,6 +10,7 @@ import ToggleSwitch from '../ToggleSwitch/ToggleSwitch';
 import styles from './ConfigViewer.module.scss';
 
 const ConfigViewer = () => {
+  const dispatch = useDispatch();
   const queryClient = useQueryClient();
   const config = useSelector(selectConfig);
   const isLoading = useSelector(selectConfigLoading);
@@ -26,14 +28,18 @@ const ConfigViewer = () => {
     enabled: !hideSensitiveValues
   });
 
-  const fullConfigError = fullConfigQueryError?.message || null;
-
   useEffect(() => {
     if (config) {
       setHideSensitiveValues(true);
       queryClient.invalidateQueries({queryKey: ['config', 'full']});
     }
   }, [config, queryClient]);
+
+  useEffect(() => {
+    if (fullConfigQueryError && fullConfigQueryError?.message !== 'UNAUTHORIZED') {
+      dispatch(setGlobalError('UNKNOWN'));
+    }
+  }, [fullConfigQueryError, dispatch]);
 
   const handleHideSensitiveChange = checked => {
     setHideSensitiveValues(checked);
@@ -80,11 +86,6 @@ const ConfigViewer = () => {
           Copy JSON
         </Button>
       </div>
-      {fullConfigError && !hideSensitiveValues && (
-        <div className={styles.error}>
-          <p>{fullConfigError}</p>
-        </div>
-      )}
       <div className={styles.configContent}>
         {isContentLoading ? <div className={styles.loading}>Loading configuration...</div> : <pre className={styles.jsonPre}>{jsonString}</pre>}
       </div>

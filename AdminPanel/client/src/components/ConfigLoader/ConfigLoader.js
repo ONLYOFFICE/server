@@ -15,7 +15,7 @@ import {
   fetchBaseConfig
 } from '../../store/slices/configSlice';
 import {selectIsAuthenticated} from '../../store/slices/userSlice';
-import Button from '../Button/Button';
+import {setGlobalError} from '../../store/slices/globalErrorSlice';
 import Spinner from '../Spinner/Spinner';
 
 const ConfigLoader = ({children}) => {
@@ -72,34 +72,9 @@ const ConfigLoader = ({children}) => {
   }
 
   if (error) {
-    const errorMessage = typeof error === 'string' ? error : error?.message || 'Unknown error';
     const isUnauthorized = error === 'UNAUTHORIZED' || error?.message === 'UNAUTHORIZED';
-
-    return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          flexDirection: 'column',
-          gap: '2px'
-        }}
-      >
-        {isUnauthorized ? (
-          <>
-            <p style={{color: '#d32f2f', fontSize: '18px', fontWeight: '500', margin: '0 0 8px 0'}}>Session expired</p>
-            <p style={{color: '#666', fontSize: '14px', margin: '0 0 16px 0'}}>Please log in again to continue</p>
-            <Button onClick={() => window.location.reload()}>Login</Button>
-          </>
-        ) : (
-          <>
-            <p style={{color: 'red'}}>Error loading configuration: {errorMessage}</p>
-            <Button onClick={() => window.location.reload()}>Login</Button>
-          </>
-        )}
-      </div>
-    );
+    if (!isUnauthorized) dispatch(setGlobalError('UNKNOWN'));
+    return null;
   }
 
   if (!config || !schema || !baseConfig) {
