@@ -2,17 +2,20 @@ import {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {fetchUser, selectUser, selectUserLoading, selectIsAuthenticated} from '../../store/slices/userSlice';
 import {setPasswordSchema} from '../../store/slices/configSlice';
+import {selectGlobalError} from '../../store/slices/globalErrorSlice';
 import {checkSetupRequired} from '../../api';
 import Spinner from '../../assets/Spinner.svg';
 import Login from '../../pages/Login/LoginPage';
 import Setup from '../../pages/Setup/SetupPage';
 import ServerUnavailable from '../ServerUnavailable/ServerUnavailable';
+import GlobalErrorScreen from '../GlobalErrorScreen/GlobalErrorScreen';
 
 export default function AuthWrapper({children}) {
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
   const loading = useSelector(selectUserLoading);
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const globalError = useSelector(selectGlobalError);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [setupRequired, setSetupRequired] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
@@ -98,6 +101,11 @@ export default function AuthWrapper({children}) {
   // Show login page if not authenticated
   if (!isAuthenticated || !user) {
     return <Login />;
+  }
+
+  // Global error screen (e.g. session expired, unknown error)
+  if (globalError) {
+    return <GlobalErrorScreen />;
   }
 
   // Show the main app content if user is authenticated

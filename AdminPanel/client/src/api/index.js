@@ -1,26 +1,8 @@
 import {getApiBasePath, getDocServicePath} from '../utils/paths';
+import {safeFetch} from './safeFetch';
 
 const API_BASE_PATH = getApiBasePath();
 const DOCSERVICE_URL = getDocServicePath();
-
-const isNetworkError = error => {
-  if (!error) return false;
-  if (error instanceof TypeError && error.message.includes('Failed to fetch')) return true;
-  if (error.message?.toLowerCase().includes('network')) return true;
-  if (error.message?.includes('ECONNREFUSED') || error.message?.includes('timeout')) return true;
-  return false;
-};
-
-const safeFetch = async (url, options = {}) => {
-  try {
-    return await fetch(url, options);
-  } catch (error) {
-    if (isNetworkError(error)) {
-      throw new Error('SERVER_UNAVAILABLE');
-    }
-    throw error;
-  }
-};
 
 export const fetchStatistics = async tenant => {
   const url = tenant ? `${API_BASE_PATH}/stat?tenant=${encodeURIComponent(tenant)}` : `${API_BASE_PATH}/stat`;
@@ -38,7 +20,6 @@ export const fetchTenants = async () => {
 export const fetchConfiguration = async (full = false) => {
   const url = full ? `${API_BASE_PATH}/config?full=true` : `${API_BASE_PATH}/config`;
   const response = await safeFetch(url, {credentials: 'include'});
-  if (response.status === 401) throw new Error('UNAUTHORIZED');
   if (!response.ok) throw new Error('Failed to fetch configuration');
   return response.json();
 };
@@ -51,7 +32,6 @@ export const fetchConfigurationSchema = async () => {
 
 export const fetchBaseConfiguration = async () => {
   const response = await safeFetch(`${API_BASE_PATH}/config/baseconfig`, {credentials: 'include'});
-  if (response.status === 401) throw new Error('UNAUTHORIZED');
   if (!response.ok) throw new Error('Failed to fetch base configuration');
   return response.json();
 };
@@ -64,7 +44,6 @@ export const updateConfiguration = async configData => {
     body: JSON.stringify(configData)
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     let errorMessage = 'Configuration update failed';
     try {
       const errorData = await response.json();
@@ -117,7 +96,8 @@ export const login = async password => {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     credentials: 'include',
-    body: JSON.stringify({password})
+    body: JSON.stringify({password}),
+    _skip401Handler: true
   });
   if (!response.ok) {
     if (response.status === 401) throw new Error('Invalid password');
@@ -143,7 +123,6 @@ export const changePassword = async ({currentPassword, newPassword}) => {
     body: JSON.stringify({currentPassword, newPassword})
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     let errorMessage = 'Password change failed';
     try {
       const errorData = await response.json();
@@ -173,7 +152,6 @@ export const rotateWopiKeys = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     let errorMessage = 'Failed to rotate WOPI keys';
     try {
       const errorData = await response.json();
@@ -238,7 +216,6 @@ export const resetConfiguration = async (paths = ['*']) => {
     body: JSON.stringify({paths: pathsArray})
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error('Failed to reset configuration');
   }
   const result = await response.json();
@@ -284,7 +261,6 @@ export const getSigningCertificateStatus = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error('Failed to check certificate status');
   }
   return response.json();
@@ -309,7 +285,6 @@ export const uploadSigningCertificate = async (file, passphrase) => {
     body: file
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     if (response.status === 403) throw new Error('Only admin can upload signing certificates');
     let errorMessage = 'Failed to upload certificate';
     try {
@@ -329,7 +304,6 @@ export const deleteSigningCertificate = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     if (response.status === 403) throw new Error('Only admin can delete signing certificates');
     let errorMessage = 'Failed to delete certificate';
     try {
@@ -349,7 +323,6 @@ export const getLetsEncryptStatus = async () => {
     credentials: 'include'
   });
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error("Failed to check Let's Encrypt status");
   }
   return response.json();
@@ -368,7 +341,6 @@ export const installLetsEncryptCertificate = async ({email, domain}) => {
   const data = await response.json();
 
   if (!response.ok) {
-    if (response.status === 401) throw new Error('UNAUTHORIZED');
     if (response.status === 403) throw new Error('Only admin can install SSL certificates');
     throw new Error(data.error || 'Failed to install certificate');
   }
