@@ -10,7 +10,10 @@ import styles from './HttpsTab.module.scss';
 const HTTPS_DOCS = {
   linux: 'https://helpcenter.onlyoffice.com/docs/installation/docs-community-https-linux.aspx',
   windows: 'https://helpcenter.onlyoffice.com/docs/installation/docs-community-https-windows.aspx',
-  kubernetes: 'https://github.com/ONLYOFFICE/Kubernetes-Docs-Shards?tab=readme-ov-file#5322-expose-onlyoffice-docs-shards-via-http'
+  docker: 'https://helpcenter.onlyoffice.com/docs/installation/docs-community-install-docker.aspx',
+  kubernetes: 'https://github.com/ONLYOFFICE/Kubernetes-Docs?tab=readme-ov-file#5323-expose-onlyoffice-docs-via-https',
+  kubernetesShards: 'https://github.com/ONLYOFFICE/Kubernetes-Docs-Shards?tab=readme-ov-file#5322-expose-onlyoffice-docs-shards-via-http',
+  snap: 'https://github.com/ONLYOFFICE/snap-documentserver?tab=readme-ov-file#-running-onlyoffice-document-server-using-https'
 };
 
 /**
@@ -150,17 +153,32 @@ const HttpsTab = () => {
           <ul>
             <li>
               <a href={HTTPS_DOCS.linux} target='_blank' rel='noopener noreferrer'>
-                Linux installation guide
+                Linux guide
               </a>
             </li>
             <li>
               <a href={HTTPS_DOCS.windows} target='_blank' rel='noopener noreferrer'>
-                Windows installation guide
+                Windows guide
+              </a>
+            </li>
+            <li>
+              <a href={HTTPS_DOCS.docker} target='_blank' rel='noopener noreferrer'>
+                Docker guide
               </a>
             </li>
             <li>
               <a href={HTTPS_DOCS.kubernetes} target='_blank' rel='noopener noreferrer'>
-                Kubernetes configuration
+                Kubernetes-Docs guide
+              </a>
+            </li>
+            <li>
+              <a href={HTTPS_DOCS.kubernetesShards} target='_blank' rel='noopener noreferrer'>
+                Kubernetes-Docs-Shards guide
+              </a>
+            </li>
+            <li>
+              <a href={HTTPS_DOCS.snap} target='_blank' rel='noopener noreferrer'>
+                Snap guide
               </a>
             </li>
           </ul>
