@@ -49,6 +49,11 @@ const OID = {
   sha384WithRSA: '1.2.840.113549.1.1.12',
   sha512WithRSA: '1.2.840.113549.1.1.13',
 
+  ecPublicKey: '1.2.840.10045.2.1',
+  ecdsaWithSHA256: '1.2.840.10045.4.3.2',
+  ecdsaWithSHA384: '1.2.840.10045.4.3.3',
+  ecdsaWithSHA512: '1.2.840.10045.4.3.4',
+
   data: '1.2.840.113549.1.7.1',
   signedData: '1.2.840.113549.1.7.2',
 
@@ -68,6 +73,12 @@ const SIG_OID = {
   sha256: OID.sha256WithRSA,
   sha384: OID.sha384WithRSA,
   sha512: OID.sha512WithRSA
+};
+
+const SIG_OID_EC = {
+  sha256: OID.ecdsaWithSHA256,
+  sha384: OID.ecdsaWithSHA384,
+  sha512: OID.ecdsaWithSHA512
 };
 
 // =============================================================================
@@ -230,6 +241,11 @@ function asn1AlgId(oid) {
   return asn1Seq([new asn1js.ObjectIdentifier({value: oid}), new asn1js.Null()]);
 }
 
+/** @param {string} oid - AlgorithmIdentifier without NULL params (required for ECDSA per RFC 5754) */
+function asn1AlgIdNoParams(oid) {
+  return asn1Seq([new asn1js.ObjectIdentifier({value: oid})]);
+}
+
 /**
  * @param {string} oid
  * @param {Array} values
@@ -266,8 +282,18 @@ class PadesCmsBuilder {
       throw new Error(`Unsupported hash algorithm: ${hashAlgorithm}`);
     }
 
-    // pkijs used only for issuer/serialNumber extraction
+    // pkijs used only for issuer/serialNumber extraction and key type detection
     this.signerCert = parsePkijsCert(certsDer[0]);
+
+    // Auto-detect RSA vs EC from certificate SubjectPublicKeyInfo
+    const spkiOid = this.signerCert.subjectPublicKeyInfo.algorithm.algorithmId;
+    this.isEc = spkiOid === OID.ecPublicKey;
+    if (this.isEc) {
+      this.sigOid = SIG_OID_EC[hashAlgorithm];
+      if (!this.sigOid) {
+        throw new Error(`Unsupported EC hash algorithm: ${hashAlgorithm}`);
+      }
+    }
   }
 
   /**
@@ -308,7 +334,7 @@ class PadesCmsBuilder {
       asn1Seq([this.signerCert.issuer.toSchema(), this.signerCert.serialNumber]),
       asn1AlgId(this.hashOid),
       attrsNode,
-      asn1AlgId(this.sigOid),
+      this.isEc ? asn1AlgIdNoParams(this.sigOid) : asn1AlgId(this.sigOid),
       asn1Octet(signatureValue)
     ]);
 
@@ -454,5 +480,6 @@ module.exports = {
   OID,
   HASH_OID,
   SIG_OID,
+  SIG_OID_EC,
   BYTERANGE_PLACEHOLDER
 };

@@ -27,13 +27,18 @@ const {
   embedCms,
   pemToDer,
   parseCertificateDer,
-  OID
+  OID,
+  SIG_OID_EC
 } = require('../../FileConverter/sources/signing/pdfSigningCore');
+const {CscSigner} = require('../../FileConverter/sources/signing/pdfCscSigner');
 
-// Generate a self-signed cert once for all tests
+// Generate self-signed certs once for all tests
 let testCertPem;
 let testKeyPem;
 let testCertDer;
+let testEcCertPem;
+let testEcKeyPem;
+let testEcCertDer;
 
 beforeAll(() => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-sign-test-'));
@@ -46,9 +51,20 @@ beforeAll(() => {
   testKeyPem = fs.readFileSync(keyPath, 'utf8');
   testCertDer = pemToDer(testCertPem);
 
+  // Generate EC cert
+  const ecKeyPath = path.join(tmpDir, 'ec-key.pem');
+  const ecCertPath = path.join(tmpDir, 'ec-cert.pem');
+  execSync(`openssl ecparam -genkey -name prime256v1 -out "${ecKeyPath}"`, {stdio: 'pipe'});
+  execSync(`openssl req -x509 -new -key "${ecKeyPath}" -out "${ecCertPath}" -days 1 -subj "/CN=TestEC/O=TestOrg"`, {stdio: 'pipe'});
+  testEcCertPem = fs.readFileSync(ecCertPath, 'utf8');
+  testEcKeyPem = fs.readFileSync(ecKeyPath, 'utf8');
+  testEcCertDer = pemToDer(testEcCertPem);
+
   // Cleanup
   fs.unlinkSync(keyPath);
   fs.unlinkSync(certPath);
+  fs.unlinkSync(ecKeyPath);
+  fs.unlinkSync(ecCertPath);
   fs.rmdirSync(tmpDir);
 });
 
@@ -244,6 +260,106 @@ describe('PadesCmsBuilder', () => {
   });
 });
 
+describe('PadesCmsBuilder EC support', () => {
+  test('auto-detects EC key from certificate', () => {
+    const cms = new PadesCmsBuilder([testEcCertDer]);
+    expect(cms.isEc).toBe(true);
+    expect(cms.sigOid).toBe(SIG_OID_EC.sha256);
+  });
+
+  test('RSA cert sets isEc to false', () => {
+    const cms = new PadesCmsBuilder([testCertDer]);
+    expect(cms.isEc).toBe(false);
+    expect(cms.sigOid).toBe(OID.sha256WithRSA);
+  });
+
+  test('EC getSignedAttributesDigest returns 32-byte hash', () => {
+    const cms = new PadesCmsBuilder([testEcCertDer]);
+    const docHash = crypto.createHash('sha256').update('ec-test').digest();
+    const digest = cms.getSignedAttributesDigest(docHash);
+    expect(digest).toBeInstanceOf(Buffer);
+    expect(digest.length).toBe(32);
+  });
+
+  test('EC build produces valid CMS with ECDSA OID', () => {
+    const cms = new PadesCmsBuilder([testEcCertDer]);
+    const docHash = crypto.createHash('sha256').update('ec-test').digest();
+    const signingTime = new Date();
+    const attrDigest = cms.getSignedAttributesDigest(docHash, signingTime);
+
+    const sig = crypto.sign('SHA256', attrDigest, {
+      key: testEcKeyPem,
+      dsaEncoding: 'der'
+    });
+
+    const cmsBytes = cms.build(docHash, sig, signingTime);
+    expect(cmsBytes).toBeInstanceOf(Buffer);
+    expect(cmsBytes[0]).toBe(0x30);
+
+    // ECDSA OID (1.2.840.10045.4.3.2) should be present
+    const ecdsaOidHex = '2a8648ce3d040302';
+    expect(cmsBytes.toString('hex')).toContain(ecdsaOidHex);
+  });
+
+  test('EC full sign pipeline: prepare → CMS → embed', () => {
+    const pdfBytes = createTestPdf();
+    const {pdf, documentHash, contentsStart, placeholderSize} = preparePdfForSigning(pdfBytes);
+
+    const cms = new PadesCmsBuilder([testEcCertDer]);
+    const signingTime = new Date();
+    const attrDigest = cms.getSignedAttributesDigest(documentHash, signingTime);
+
+    const sig = crypto.sign('SHA256', attrDigest, {
+      key: testEcKeyPem,
+      dsaEncoding: 'der'
+    });
+
+    const cmsBytes = cms.build(documentHash, sig, signingTime);
+    const signedPdf = embedCms(pdf, contentsStart, placeholderSize, cmsBytes);
+
+    expect(signedPdf).toBeInstanceOf(Buffer);
+    expect(signedPdf.length).toBe(pdf.length);
+  });
+});
+
+describe('CscSigner validation', () => {
+  test('constructor requires baseUrl', () => {
+    expect(() => new CscSigner({baseUrl: '', credentialId: 'cred'})).toThrow('baseUrl is required');
+  });
+
+  test('constructor requires credentialId', () => {
+    expect(() => new CscSigner({baseUrl: 'https://csc.example.com', credentialId: ''})).toThrow('credentialId is required');
+  });
+
+  test('constructor accepts minimal config', () => {
+    const signer = new CscSigner({baseUrl: 'https://csc.example.com/v2', credentialId: 'my-cred'});
+    expect(signer.baseUrl).toBe('https://csc.example.com/v2');
+    expect(signer.credentialId).toBe('my-cred');
+    expect(signer.hashAlgorithm).toBe('sha256');
+  });
+
+  test('constructor strips trailing slash from baseUrl', () => {
+    const signer = new CscSigner({baseUrl: 'https://csc.example.com/v2/', credentialId: 'cred'});
+    expect(signer.baseUrl).toBe('https://csc.example.com/v2');
+  });
+
+  test('getAccessToken returns null without tokenUrl', async () => {
+    const signer = new CscSigner({baseUrl: 'https://csc.example.com', credentialId: 'cred'});
+    const token = await signer.getAccessToken();
+    expect(token).toBeNull();
+  });
+
+  test('getAccessToken returns pre-obtained token', async () => {
+    const signer = new CscSigner({
+      baseUrl: 'https://csc.example.com',
+      credentialId: 'cred',
+      accessToken: 'pre-obtained-token'
+    });
+    const token = await signer.getAccessToken();
+    expect(token).toBe('pre-obtained-token');
+  });
+});
+
 describe('OID Constants', () => {
   test('all required OIDs are defined', () => {
     expect(OID.sha256).toBe('2.16.840.1.101.3.4.2.1');
@@ -252,5 +368,18 @@ describe('OID Constants', () => {
     expect(OID.messageDigest).toBe('1.2.840.113549.1.9.4');
     expect(OID.signingTime).toBe('1.2.840.113549.1.9.5');
     expect(OID.signingCertificateV2).toBe('1.2.840.113549.1.9.16.2.47');
+  });
+
+  test('EC OIDs are defined', () => {
+    expect(OID.ecPublicKey).toBe('1.2.840.10045.2.1');
+    expect(OID.ecdsaWithSHA256).toBe('1.2.840.10045.4.3.2');
+    expect(OID.ecdsaWithSHA384).toBe('1.2.840.10045.4.3.3');
+    expect(OID.ecdsaWithSHA512).toBe('1.2.840.10045.4.3.4');
+  });
+
+  test('SIG_OID_EC maps are correct', () => {
+    expect(SIG_OID_EC.sha256).toBe(OID.ecdsaWithSHA256);
+    expect(SIG_OID_EC.sha384).toBe(OID.ecdsaWithSHA384);
+    expect(SIG_OID_EC.sha512).toBe(OID.ecdsaWithSHA512);
   });
 });

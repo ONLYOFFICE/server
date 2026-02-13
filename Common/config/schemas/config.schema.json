@@ -232,6 +232,17 @@
                   "type": "string",
                   "description": "Path to signing certificate. P12/PFX for local x2t, PEM chain for cloud signing."
                 },
+                "meta": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "Signature metadata fields embedded in the PDF digital signature.",
+                  "properties": {
+                    "reason": {"type": "string", "description": "Purpose of signing (e.g. Approved)."},
+                    "name": {"type": "string", "description": "Signer name."},
+                    "location": {"type": "string", "description": "Signing location."},
+                    "contactInfo": {"type": "string", "description": "Contact details (URL or email)."}
+                  }
+                },
                 "awsKms": {
                   "type": "object",
                   "additionalProperties": false,
@@ -246,7 +257,7 @@
                 "csc": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "CSC API v1 settings. Set baseUrl to enable.",
+                  "description": "CSC API v2 (ETSI TS 119 432) settings. Set baseUrl to enable.",
                   "properties": {
                     "baseUrl": {"type": "string", "description": "CSC API base URL. If set, CSC signing is active."},
                     "tokenUrl": {"type": "string", "description": "OAuth2 token endpoint."},
@@ -254,19 +265,6 @@
                     "clientId": {"type": "string", "description": "OAuth2 client ID."},
                     "clientSecret": {"type": "string", "description": "OAuth2 client secret."},
                     "pin": {"type": "string", "description": "User PIN for credential authorization. Optional."}
-                  }
-                },
-                "azureKeyVault": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "description": "Azure Key Vault settings. Set vaultUrl to enable.",
-                  "properties": {
-                    "vaultUrl": {"type": "string", "description": "Key Vault URL. If set, Azure KV signing is active."},
-                    "keyName": {"type": "string", "description": "Signing key name in the vault."},
-                    "keyVersion": {"type": "string", "description": "Key version. Empty = latest."},
-                    "tenantId": {"type": "string", "description": "Azure AD tenant ID for service principal auth."},
-                    "clientId": {"type": "string", "description": "Azure AD application (client) ID."},
-                    "clientSecret": {"type": "string", "description": "Azure AD client secret."}
                   }
                 }
               }
