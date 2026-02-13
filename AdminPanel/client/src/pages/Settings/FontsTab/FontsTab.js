@@ -12,7 +12,9 @@ import styles from './FontsTab.module.scss';
 const FONTS_DOCS = {
   linux: 'https://helpcenter.onlyoffice.com/docs/installation/docs-community-install-fonts-linux.aspx',
   windows: 'https://helpcenter.onlyoffice.com/docs/installation/docs-community-install-fonts-windows.aspx',
-  kubernetes: 'https://github.com/ONLYOFFICE/Kubernetes-Docs-Shards?tab=readme-ov-file#6-add-custom-fonts'
+  docker: 'https://helpcenter.onlyoffice.com/docs/installation/docs-install-fonts-docker.aspx',
+  kubernetes: 'https://github.com/ONLYOFFICE/Kubernetes-Docs?tab=readme-ov-file#8-add-custom-fonts',
+  kubernetesShards: 'https://github.com/ONLYOFFICE/Kubernetes-Docs-Shards?tab=readme-ov-file#6-add-custom-fonts'
 };
 
 // Supported font file extensions
@@ -296,17 +298,27 @@ const FontsTab = () => {
           <ul>
             <li>
               <a href={FONTS_DOCS.linux} target='_blank' rel='noopener noreferrer'>
-                Linux installation guide
+                Linux guide
               </a>
             </li>
             <li>
               <a href={FONTS_DOCS.windows} target='_blank' rel='noopener noreferrer'>
-                Windows installation guide
+                Windows guide
+              </a>
+            </li>
+            <li>
+              <a href={FONTS_DOCS.docker} target='_blank' rel='noopener noreferrer'>
+                Docker guide
               </a>
             </li>
             <li>
               <a href={FONTS_DOCS.kubernetes} target='_blank' rel='noopener noreferrer'>
-                Kubernetes configuration
+                Kubernetes-Docs guide
+              </a>
+            </li>
+            <li>
+              <a href={FONTS_DOCS.kubernetesShards} target='_blank' rel='noopener noreferrer'>
+                Kubernetes-Docs-Shards guide
               </a>
             </li>
           </ul>
