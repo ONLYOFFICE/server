@@ -594,6 +594,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
   }
 }
 
+exports.axios = axios;
 exports.httpRequest = httpRequest;
 exports.postRequestPromise = postRequestPromise;
 exports.downloadUrlPromise = downloadUrlPromise;

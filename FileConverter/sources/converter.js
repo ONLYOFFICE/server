@@ -56,7 +56,8 @@ const formatChecker = require('./../../Common/sources/formatchecker');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const {detectCertType} = require('./signing/pdfSigningCore');
-const {signPdfFile} = require('./signing/pdfAwsKmsSigner');
+const {signPdfFile: signPdfFileKms} = require('./signing/pdfAwsKmsSigner');
+const {signPdfFile: signPdfFileCsc} = require('./signing/pdfCscSigner');
 
 const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
@@ -88,13 +89,27 @@ function resolveSigningPath(ctx) {
 }
 
 /**
+ * Merge signing metadata from config into jsonParams as pdfLayout.signature.
+ * @param {Object} signingCfg - FileConverter.converter.signing config
+ * @param {string} jsonParams - existing JSON-encoded params (may be empty/null)
+ * @returns {string} updated JSON-encoded params
+ */
+function mergeSigningMeta(signingCfg, jsonParams) {
+  const meta = signingCfg?.meta;
+  if (!meta || (!meta.reason && !meta.name && !meta.location && !meta.contactInfo)) return jsonParams;
+  const parsed = jsonParams ? JSON.parse(jsonParams) : {};
+  parsed.pdfLayout = {...parsed.pdfLayout, signature: meta};
+  return JSON.stringify(parsed);
+}
+
+/**
  * @param {string} certPath - resolved signing certificate path
  * @param {Object} signingCfg - FileConverter.converter.signing config
  * @returns {{isCloud: boolean, certPath: string}}
  */
 function getCloudSigningMode(certPath, signingCfg) {
   if (!certPath || !fs.existsSync(certPath)) return {isCloud: false, certPath};
-  const hasCloudProvider = !!signingCfg?.awsKms?.keyId;
+  const hasCloudProvider = !!(signingCfg?.awsKms?.keyId || signingCfg?.csc?.baseUrl);
   if (!hasCloudProvider) return {isCloud: false, certPath};
 
   return {isCloud: detectCertType(certPath) === 'pem', certPath};
@@ -108,14 +123,27 @@ function getCloudSigningMode(certPath, signingCfg) {
  * @returns {Promise<void>}
  */
 function performCloudSigning(ctx, outputPath, certPath, signingCfg) {
-  const awsCfg = signingCfg?.awsKms || {};
-  if (awsCfg.keyId) {
+  const awsKmsCfg = signingCfg?.awsKms || {};
+  if (awsKmsCfg.keyId) {
     ctx.logger.info('Cloud signing (AWS KMS) start: %s', outputPath);
-    return signPdfFile(outputPath, null, {
-      keyId: awsCfg.keyId,
-      endpoint: awsCfg.endpoint,
-      accessKeyId: awsCfg.accessKeyId,
-      secretAccessKey: awsCfg.secretAccessKey,
+    return signPdfFileKms(outputPath, null, {
+      keyId: awsKmsCfg.keyId,
+      endpoint: awsKmsCfg.endpoint,
+      accessKeyId: awsKmsCfg.accessKeyId,
+      secretAccessKey: awsKmsCfg.secretAccessKey,
+      certificateChainPath: certPath
+    });
+  }
+  const cscCfg = signingCfg?.csc || {};
+  if (cscCfg.baseUrl) {
+    ctx.logger.info('Cloud signing (CSC) start: %s', outputPath);
+    return signPdfFileCsc(outputPath, null, {
+      baseUrl: cscCfg.baseUrl,
+      tokenUrl: cscCfg.tokenUrl,
+      credentialId: cscCfg.credentialId,
+      clientId: cscCfg.clientId,
+      clientSecret: cscCfg.clientSecret,
+      pin: cscCfg.pin,
       certificateChainPath: certPath
     });
   }
@@ -230,7 +258,7 @@ TaskQueueDataConvert.prototype = {
     if (this.textParams) {
       xml += this.serializeTextParams(this.textParams);
     }
-    xml += this.serializeXmlProp('m_sJsonParams', this.jsonParams);
+    let jsonParams = this.jsonParams;
     xml += this.serializeXmlProp('m_nLcid', this.lcid);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
@@ -246,8 +274,10 @@ TaskQueueDataConvert.prototype = {
         } else {
           xml += this.serializeXmlProp('m_sSigningKeyStorePath', certPath);
         }
+        jsonParams = mergeSigningMeta(signingCfg, jsonParams);
       }
     }
+    xml += this.serializeXmlProp('m_sJsonParams', jsonParams);
     xml += this.serializeLimit(ctx);
     xml += this.serializeOptions(ctx, false, this.oformAsPdf);
     xml += '</TaskQueueDataConvert>';
@@ -1034,7 +1064,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
         ctx.logger.debug('copyOrigin complete');
       }
     }
-    // Cloud signing: replace x2t placeholder with real KMS signature before upload
+    // Cloud signing: replace x2t placeholder with real signature (KMS/CloudHSM/CSC) before upload
     if (dataConvert._cloudSigningCertPath) {
       try {
         const signingCfg = ctx.getCfg('FileConverter.converter.signing', cfgSigning);

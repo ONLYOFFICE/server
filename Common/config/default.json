@@ -567,6 +567,12 @@
       "signingKeyStorePath": "",
       "signing": {
         "keyStorePath": "",
+        "meta": {
+          "reason": "",
+          "name": "",
+          "location": "",
+          "contactInfo": ""
+        },
         "awsKms": {
           "endpoint": "",
           "keyId": "",
@@ -580,14 +586,6 @@
           "clientId": "",
           "clientSecret": "",
           "pin": ""
-        },
-        "azureKeyVault": {
-          "vaultUrl": "",
-          "keyName": "",
-          "keyVersion": "",
-          "tenantId": "",
-          "clientId": "",
-          "clientSecret": ""
         }
       },
       "args": "",
