@@ -195,8 +195,7 @@ const SENSITIVE_PARAM_PATHS = [
   'wopi.modulusOld',
   'wopi.exponentOld'
   //'FileConverter.converter.signing.awsKms.secretAccessKey', // <-- to show in input field
-  //'FileConverter.converter.signing.csc.clientSecret', // <-- to show in input field
-  //'FileConverter.converter.signing.csc.pin' // <-- to show in input field
+  //'FileConverter.converter.signing.csc.clientSecret' // <-- to show in input field
 ];
 
 /**

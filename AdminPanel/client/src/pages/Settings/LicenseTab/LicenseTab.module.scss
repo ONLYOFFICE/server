@@ -1,0 +1,171 @@
+// TopBlock-style license info cards
+.infoBlocks {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.infoBlock {
+  flex: 1;
+  min-width: 180px;
+
+  .infoBlockTitle {
+    font-weight: 400;
+    font-size: 18px;
+    border-bottom: 1px solid #ddd;
+    padding: 0 0 5px 10px;
+  }
+
+  .infoBlockContent {
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 16px;
+    padding-left: 10px;
+  }
+}
+
+.criticalColor {
+  color: #ff0000;
+}
+
+// Status Section (compact rows)
+.statusSection {
+  margin-bottom: 24px;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 12px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.statusLabel {
+  font-weight: 500;
+  color: #333;
+  min-width: 130px;
+}
+
+.statusValue {
+  color: #333;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+}
+
+.statusActive {
+  color: #007b14;
+  font-weight: 500;
+
+  &::before {
+    content: '\2713\0020';
+  }
+}
+
+.statusExpired {
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.statusError {
+  color: #b91c1c;
+}
+
+.statusLoading {
+  color: #666;
+  font-style: italic;
+}
+
+// File row with Browse
+.fileInputRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.fileInputRow > *:first-child {
+  flex: 1;
+}
+
+// Form Section (also serves as the drag & drop target)
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  padding: 16px;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.formSectionDragActive {
+  border-color: #1a56db;
+  background: #e8f0fe;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+// Preview Section
+.previewSection {
+  margin-top: 8px;
+  padding: 16px;
+  background: #f0f7ff;
+  border: 1px solid #b3d4fc;
+  border-radius: 6px;
+
+  .statusSection {
+    margin-bottom: 0;
+  }
+
+  .statusRow {
+    background: #fff;
+    border-color: #d0e3f7;
+  }
+}
+
+.previewHeader {
+  font-weight: 500;
+  color: #1a56db;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+// Messages
+.messageError {
+  color: #b91c1c;
+  font-size: 13px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+}
+
+.messageSuccess {
+  color: #15803d;
+  font-size: 13px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+}
