@@ -25,7 +25,7 @@ const SIGNING_TABS = [
 const cfgVal = (prefix, config, key) => getNestedValue(config, `${prefix}.${key}`) || '';
 
 const emptyAws = {endpoint: '', keyId: '', accessKeyId: '', secretAccessKey: ''};
-const emptyCsc = {baseUrl: '', tokenUrl: '', credentialId: '', clientId: '', clientSecret: '', pin: ''};
+const emptyCsc = {baseUrl: '', tokenUrl: '', clientId: '', clientSecret: ''};
 
 const SigningTab = () => {
   const dispatch = useDispatch();
@@ -104,10 +104,8 @@ const SigningTab = () => {
     const c = {
       baseUrl: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'baseUrl'),
       tokenUrl: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'tokenUrl'),
-      credentialId: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'credentialId'),
       clientId: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'clientId'),
-      clientSecret: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'clientSecret'),
-      pin: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'pin')
+      clientSecret: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'clientSecret')
     };
     setCsc(c);
     setSavedCscBaseUrl(c.baseUrl);
@@ -337,21 +335,9 @@ const SigningTab = () => {
                 placeholder='https://csc.example.com/oauth2/token'
                 description='OAuth2 token endpoint.'
               />
-              <Input
-                label='Credential ID'
-                {...cscField('credentialId')}
-                placeholder='credential-id'
-                description='Signing credential ID at the CSC provider.'
-              />
               <Input label='Client ID' {...cscField('clientId')} placeholder='client-id' description='OAuth2 client ID.' />
-              <PasswordInput label='Client Secret' {...cscField('clientSecret')} placeholder='client-secret' description='OAuth2 client secret.' />
               <div className={styles.fieldWithSpacing}>
-                <PasswordInput
-                  label='PIN'
-                  {...cscField('pin')}
-                  placeholder='Optional'
-                  description='Optional. User PIN for credential authorization.'
-                />
+                <PasswordInput label='Client Secret' {...cscField('clientSecret')} placeholder='client-secret' description='OAuth2 client secret.' />
               </div>
             </>
           )}

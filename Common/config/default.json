@@ -582,10 +582,11 @@
         "csc": {
           "baseUrl": "",
           "tokenUrl": "",
-          "credentialId": "",
           "clientId": "",
           "clientSecret": "",
-          "pin": ""
+          "credentialId": "",
+          "scope": "",
+          "audience": ""
         }
       },
       "args": "",

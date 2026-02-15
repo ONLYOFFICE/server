@@ -261,10 +261,12 @@
                   "properties": {
                     "baseUrl": {"type": "string", "description": "CSC API base URL. If set, CSC signing is active."},
                     "tokenUrl": {"type": "string", "description": "OAuth2 token endpoint."},
-                    "credentialId": {"type": "string", "description": "Signing credential ID at the CSC provider."},
                     "clientId": {"type": "string", "description": "OAuth2 client ID."},
                     "clientSecret": {"type": "string", "description": "OAuth2 client secret."},
-                    "pin": {"type": "string", "description": "User PIN for credential authorization. Optional."}
+                    "credentialId": {"type": "string", "description": "Optional. Signing credential ID. Auto-discovered via credentials/list when empty."},
+                    "scope": {"type": "string", "description": "Optional. OAuth2 scope (e.g. 'service')."},
+                    "audience": {"type": "string", "description": "Optional. OAuth2 audience parameter."},
+                    "clientData": {"type": "string", "description": "Optional. Provider-specific clientData for credentials/list (e.g. DS_ESEAL for SSL.com)."}
                   }
                 }
               }

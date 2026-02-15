@@ -131,20 +131,15 @@ function performCloudSigning(ctx, outputPath, certPath, signingCfg) {
       endpoint: awsKmsCfg.endpoint,
       accessKeyId: awsKmsCfg.accessKeyId,
       secretAccessKey: awsKmsCfg.secretAccessKey,
-      certificateChainPath: certPath
+      keyStorePath: certPath
     });
   }
   const cscCfg = signingCfg?.csc || {};
   if (cscCfg.baseUrl) {
     ctx.logger.info('Cloud signing (CSC) start: %s', outputPath);
     return signPdfFileCsc(outputPath, null, {
-      baseUrl: cscCfg.baseUrl,
-      tokenUrl: cscCfg.tokenUrl,
-      credentialId: cscCfg.credentialId,
-      clientId: cscCfg.clientId,
-      clientSecret: cscCfg.clientSecret,
-      pin: cscCfg.pin,
-      certificateChainPath: certPath
+      ...cscCfg,
+      keyStorePath: certPath
     });
   }
   return Promise.reject(new Error('No cloud signing provider configured'));
