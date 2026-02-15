@@ -9,13 +9,15 @@ import ShutdownTab from '../../components/ShutdownTab/ShutdownTab';
 import HttpsTab from './HttpsTab/HttpsTab';
 import FontsTab from './FontsTab/FontsTab';
 import SigningTab from './SigningTab/SigningTab';
+import LicenseTab from './LicenseTab/LicenseTab';
 import './Settings.scss';
 
 // Base tabs that are always shown
 const baseTabs = [
   {key: 'configuration', label: 'Configuration'},
-  {key: 'pdf-signing', label: 'PDF Signing'},
+  {key: 'license', label: 'License'},
   {key: 'https', label: 'HTTPS / SSL'},
+  {key: 'pdf-signing', label: 'PDF Signing'},
   {key: 'fonts', label: 'Fonts'},
   {key: 'shutdown', label: 'Shutdown'}
 ];
@@ -54,6 +56,8 @@ const Settings = () => {
         );
       case 'pdf-signing':
         return <SigningTab />;
+      case 'license':
+        return <LicenseTab />;
       case 'https':
         return <HttpsTab />;
       case 'fonts':
