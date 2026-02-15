@@ -324,27 +324,28 @@ describe('PadesCmsBuilder EC support', () => {
 
 describe('CscSigner validation', () => {
   test('constructor requires baseUrl', () => {
-    expect(() => new CscSigner({baseUrl: '', credentialId: 'cred'})).toThrow('baseUrl is required');
+    expect(() => new CscSigner({baseUrl: ''})).toThrow('baseUrl is required');
   });
 
-  test('constructor requires credentialId', () => {
-    expect(() => new CscSigner({baseUrl: 'https://csc.example.com', credentialId: ''})).toThrow('credentialId is required');
+  test('constructor accepts minimal config (baseUrl only)', () => {
+    const signer = new CscSigner({baseUrl: 'https://csc.example.com/v2'});
+    expect(signer.cfg.baseUrl).toBe('https://csc.example.com/v2');
+    expect(signer.cfg.hashAlgorithm).toBe('sha256');
+    expect(signer.cfg.credential.id).toBe('');
   });
 
-  test('constructor accepts minimal config', () => {
+  test('constructor accepts credentialId via flat config', () => {
     const signer = new CscSigner({baseUrl: 'https://csc.example.com/v2', credentialId: 'my-cred'});
-    expect(signer.baseUrl).toBe('https://csc.example.com/v2');
-    expect(signer.credentialId).toBe('my-cred');
-    expect(signer.hashAlgorithm).toBe('sha256');
+    expect(signer.cfg.credential.id).toBe('my-cred');
   });
 
   test('constructor strips trailing slash from baseUrl', () => {
-    const signer = new CscSigner({baseUrl: 'https://csc.example.com/v2/', credentialId: 'cred'});
-    expect(signer.baseUrl).toBe('https://csc.example.com/v2');
+    const signer = new CscSigner({baseUrl: 'https://csc.example.com/v2/'});
+    expect(signer.cfg.baseUrl).toBe('https://csc.example.com/v2');
   });
 
   test('getAccessToken returns null without tokenUrl', async () => {
-    const signer = new CscSigner({baseUrl: 'https://csc.example.com', credentialId: 'cred'});
+    const signer = new CscSigner({baseUrl: 'https://csc.example.com'});
     const token = await signer.getAccessToken();
     expect(token).toBeNull();
   });
@@ -352,11 +353,32 @@ describe('CscSigner validation', () => {
   test('getAccessToken returns pre-obtained token', async () => {
     const signer = new CscSigner({
       baseUrl: 'https://csc.example.com',
-      credentialId: 'cred',
       accessToken: 'pre-obtained-token'
     });
     const token = await signer.getAccessToken();
     expect(token).toBe('pre-obtained-token');
+  });
+
+  test('constructor accepts nested {csc: {...}} config', () => {
+    const signer = new CscSigner({
+      csc: {baseUrl: 'https://csc.example.com/v2', clientId: 'id', scope: 'service'},
+      keyStorePath: '/path/to/chain.pem'
+    });
+    expect(signer.cfg.baseUrl).toBe('https://csc.example.com/v2');
+    expect(signer.cfg.oauth.clientId).toBe('id');
+    expect(signer.cfg.oauth.scope).toBe('service');
+    expect(signer.cfg.keyStorePath).toBe('/path/to/chain.pem');
+  });
+
+  test('constructor normalizes scope and audience', () => {
+    const signer = new CscSigner({baseUrl: 'https://csc.example.com', scope: 'service', audience: 'aud'});
+    expect(signer.cfg.oauth.scope).toBe('service');
+    expect(signer.cfg.oauth.audience).toBe('aud');
+  });
+
+  test('token cache has expiry field initialized', () => {
+    const signer = new CscSigner({baseUrl: 'https://csc.example.com'});
+    expect(signer._cachedTokenExp).toBe(0);
   });
 });
 

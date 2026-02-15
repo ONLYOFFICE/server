@@ -406,17 +406,54 @@ class PadesCmsBuilder {
  */
 function parsePemChain(pemPath) {
   const content = fs.readFileSync(pemPath, 'utf8');
+  return parsePemChainContent(content, pemPath);
+}
+
+/**
+ * Parse a PEM bundle string and return DER buffers for each certificate.
+ * First cert = leaf, rest = intermediates.
+ *
+ * @param {string} content - PEM content
+ * @param {string} [debugName='pem']
+ * @returns {Buffer[]} DER-encoded certificate buffers
+ */
+function parsePemChainContent(content, debugName = 'pem') {
   const blocks = content.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g);
   if (!blocks || blocks.length === 0) {
-    throw new Error(`No PEM certificates found in ${pemPath}`);
+    throw new Error(`No certificate blocks found in ${debugName}`);
   }
-  return blocks.map(block => {
-    const b64 = block
-      .replace(/-----BEGIN CERTIFICATE-----/, '')
-      .replace(/-----END CERTIFICATE-----/, '')
-      .replace(/\s/g, '');
-    return Buffer.from(b64, 'base64');
-  });
+  return blocks.map(block => pemToDer(block));
+}
+
+/**
+ * Resolve certificate chain for CMS building.
+ * Accepts one of:
+ *  - opts.certificateChainDer: Buffer[]
+ *  - opts.certificateChainPem: string
+ *  - opts.certificateChainPath: string
+ *
+ * @param {Object} opts
+ * @returns {Buffer[]}
+ */
+function resolveCertificateChain(opts) {
+  if (Array.isArray(opts.certificateChainDer) && opts.certificateChainDer.length > 0) {
+    return opts.certificateChainDer;
+  }
+  if (typeof opts.certificateChainPem === 'string' && opts.certificateChainPem.trim()) {
+    return parsePemChainContent(opts.certificateChainPem, 'certificateChainPem');
+  }
+  // Back-compat / alias: many configs use keyStorePath to point to a PEM bundle with cert chain.
+  const chainPath =
+    typeof opts.certificateChainPath === 'string' && opts.certificateChainPath
+      ? opts.certificateChainPath
+      : typeof opts.keyStorePath === 'string' && opts.keyStorePath
+        ? opts.keyStorePath
+        : '';
+
+  if (chainPath) {
+    return parsePemChain(chainPath);
+  }
+  throw new Error('Certificate chain is required: provide certificateChainDer, certificateChainPem, certificateChainPath, or keyStorePath');
 }
 
 /**
@@ -447,7 +484,7 @@ async function signPdfWithSigner(inputPath, outputPath, opts, signerFn) {
 
   const hashAlgorithm = opts.hashAlgorithm || 'sha256';
   const signingTime = new Date();
-  const certsDer = parsePemChain(opts.certificateChainPath);
+  const certsDer = resolveCertificateChain(opts);
 
   const pdfBytes = fs.readFileSync(inputPath);
   const {pdf, documentHash, contentsStart, placeholderSize} = preparePdfForSigning(pdfBytes, hashAlgorithm);
@@ -475,6 +512,8 @@ module.exports = {
   parsePkijsCert,
   toArrayBuffer,
   parsePemChain,
+  parsePemChainContent,
+  resolveCertificateChain,
   detectCertType,
   signPdfWithSigner,
   OID,
