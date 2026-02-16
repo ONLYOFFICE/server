@@ -74,16 +74,20 @@ export default function Statistics() {
 
   const canDownloadReport = typeof Blob !== 'undefined' && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function';
 
-  /** Download report as TXT; Button shows success/error state */
-  const handleDownloadReport = async () => {
+  const isMultitenant = tenantsData?.tenants?.length > 0;
+
+  /** Download report as TXT */
+  const handleDownloadReport = () => {
     if (!data) return;
-    const textContent = generateStatisticsTxt(data, mode);
+    const tenant = isMultitenant ? selectedTenant : undefined;
+    const textContent = generateStatisticsTxt(data, mode, tenant);
     const blob = new Blob([textContent], {type: 'text/plain;charset=utf-8'});
     const url = window.URL.createObjectURL(blob);
     try {
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'statistics.txt';
+      const date = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      link.download = `statistics${tenant ? '-' + tenant : ''}-${date}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -113,7 +117,7 @@ export default function Statistics() {
       )}
       {tenantsData && !isOpenSource && (
         <>
-          {tenantsData.tenants.length > 0 && (
+          {isMultitenant && (
             <div className={styles.tenantGroup}>
               <label htmlFor='tenant-combobox' className={styles.tenantLabel}>
                 Tenant:

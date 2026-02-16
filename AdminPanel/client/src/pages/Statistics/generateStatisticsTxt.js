@@ -2,9 +2,10 @@
  * Generate plain text report from statistics data
  * @param {Object} data - Statistics data object
  * @param {string} mode - Display mode: 'all' | 'edit' | 'view'
+ * @param {string} [tenant] - Tenant name (only in multitenant mode)
  * @returns {string} Plain text report
  */
-export function generateStatisticsTxt(data, mode = 'all') {
+export function generateStatisticsTxt(data, mode = 'all', tenant) {
   const {licenseInfo = {}, quota = {}, connectionsStat = {}} = data;
 
   const isUsersModel = licenseInfo.usersCount > 0;
@@ -12,6 +13,13 @@ export function generateStatisticsTxt(data, mode = 'all') {
   const limitView = isUsersModel ? licenseInfo.usersViewCount : licenseInfo.connectionsView || 0;
 
   const lines = [];
+
+  const tz = new Date().getTimezoneOffset() * 60000;
+  lines.push(`Generated: ${new Date(Date.now() - tz).toISOString().replace('T', ' ').slice(0, 19)}`);
+  if (tenant) {
+    lines.push(`Tenant: ${tenant}`);
+  }
+  lines.push('');
 
   if (isUsersModel) {
     const SECONDS_PER_DAY = 86400;
@@ -62,14 +70,14 @@ export function generateStatisticsTxt(data, mode = 'all') {
     lines.push('Peak Concurrent Sessions');
     if (mode === 'all' || mode === 'edit') {
       const editorPeaks = timePeriods.map((period, index) => {
-        const value = connectionsStat?.[period]?.edit?.max ?? 0;
+        const value = connectionsStat?.[period]?.edit?.max || 0;
         return `${timeLabels[index]}: ${value}`;
       });
       lines.push('Editors: ' + editorPeaks.join(', '));
     }
     if (mode === 'all' || mode === 'view') {
       const viewerPeaks = timePeriods.map((period, index) => {
-        const value = connectionsStat?.[period]?.liveview?.max ?? 0;
+        const value = connectionsStat?.[period]?.liveview?.max || 0;
         return `${timeLabels[index]}: ${value}`;
       });
       lines.push('Live Viewer: ' + viewerPeaks.join(', '));
@@ -79,19 +87,19 @@ export function generateStatisticsTxt(data, mode = 'all') {
     lines.push('Average Concurrent Sessions');
     if (mode === 'all' || mode === 'edit') {
       const editorAvr = timePeriods.map((period, index) => {
-        const value = connectionsStat?.[period]?.edit?.avr ?? 0;
+        const value = connectionsStat?.[period]?.edit?.avr || 0;
         return `${timeLabels[index]}: ${value}`;
       });
       lines.push('Editors: ' + editorAvr.join(', '));
     }
     if (mode === 'all' || mode === 'view') {
       const viewerAvr = timePeriods.map((period, index) => {
-        const value = connectionsStat?.[period]?.liveview?.avr ?? 0;
+        const value = connectionsStat?.[period]?.liveview?.avr || 0;
         return `${timeLabels[index]}: ${value}`;
       });
       lines.push('Live Viewer: ' + viewerAvr.join(', '));
     }
   }
 
-  return lines.join('\r\n');
+  return lines.join('\n');
 }
