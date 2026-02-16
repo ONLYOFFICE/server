@@ -193,7 +193,7 @@ router.post('/', validateJWT, rawFileParser, async (req, res) => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Re-read and validate the new license
-      const [newLicenseData] = await license.readLicense(licPath);
+      const [newLicenseData, newLicenseOriginal] = await license.readLicense(licPath);
 
       if (!isLicenseValid(newLicenseData)) {
         // Rollback: restore backup
@@ -213,7 +213,7 @@ router.post('/', validateJWT, rawFileParser, async (req, res) => {
       }
 
       // Update in-memory license for AdminPanel
-      tenantManager.setDefLicense(newLicenseData, null);
+      tenantManager.setDefLicense(newLicenseData, newLicenseOriginal);
       ctx.logger.info('License updated successfully');
 
       const bakPath = licPath + '.bak';
@@ -286,8 +286,8 @@ router.post('/revert', validateJWT, async (req, res) => {
       // Wait for fs.watchFile
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const [revertedData] = await license.readLicense(licPath);
-      tenantManager.setDefLicense(revertedData, null);
+      const [revertedData, revertedOriginal] = await license.readLicense(licPath);
+      tenantManager.setDefLicense(revertedData, revertedOriginal);
       ctx.logger.info('License revert completed');
 
       const info = buildLicenseResponse(revertedData);
