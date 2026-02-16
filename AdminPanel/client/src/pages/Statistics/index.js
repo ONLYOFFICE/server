@@ -4,11 +4,11 @@ import Tabs from '../../components/Tabs/Tabs';
 import Note from '../../components/Note/Note';
 import styles from './styles.module.css';
 import ComboBox from '../../components/ComboBox/ComboBox';
-import {fetchTenants, fetchStatistics, convertHtmlToPdf} from '../../api';
+import {fetchTenants, fetchStatistics} from '../../api';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import PageDescription from '../../components/PageDescription/PageDescription';
 import Button from '../../components/Button/Button';
-import {generateStatisticsHtml} from './generateStatisticsHtml';
+import {generateStatisticsTxt} from './generateStatisticsTxt';
 import StatisticsContent from './StatisticsContent/StatisticsContent';
 
 const statisticsTabs = [
@@ -71,32 +71,26 @@ export default function Statistics() {
   const licenseInfo = useMemo(() => data?.licenseInfo ?? {}, [data?.licenseInfo]);
   const isOpenSource = licenseInfo.packageType === 0;
   const isUsersModel = licenseInfo.usersCount > 0;
-  /**
-   * Handle PDF download
-   */
-  const handleDownloadPdf = async () => {
-    try {
-      if (!data) return;
-      const htmlContent = generateStatisticsHtml(data, mode);
-      const pdfBlob = await convertHtmlToPdf(htmlContent);
 
-      // Create download link
-      const url = window.URL.createObjectURL(pdfBlob);
+  const canDownloadReport = typeof Blob !== 'undefined' && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function';
+
+  /** Download report as TXT; Button shows success/error state */
+  const handleDownloadReport = async () => {
+    if (!data) return;
+    const textContent = generateStatisticsTxt(data, mode);
+    const blob = new Blob([textContent], {type: 'text/plain;charset=utf-8'});
+    const url = window.URL.createObjectURL(blob);
+    try {
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'statistics.pdf';
+      link.download = 'statistics.txt';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    } finally {
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Failed to download PDF:', error);
-      alert('Failed to download PDF: ' + error.message);
     }
   };
-
-  // Use React components for browser display instead of HTML string
-  // generateStatisticsHtml is now only used for PDF generation
 
   // Show loading/error states
   if (error) {
@@ -145,9 +139,11 @@ export default function Statistics() {
               : 'Real-time active sessions and remaining capacity before limit.'}
           </p>
           <StatisticsContent data={data} mode={mode} />
-          <Button onClick={handleDownloadPdf} disableResult={true} className={styles.buttonNoWidth}>
-            Download Report
-          </Button>
+          {canDownloadReport && (
+            <Button onClick={handleDownloadReport} errorText='Download failed' className={styles.buttonNoWidth}>
+              Download Report
+            </Button>
+          )}
         </>
       )}
     </>
