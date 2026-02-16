@@ -25,7 +25,11 @@ router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('config get start');
-    const data = req.query.full === 'true' ? getFullConfig(ctx) : getFullConfigRedacted(ctx);
+    const requestFullConfig = req.query.full === 'true';
+    if (requestFullConfig && !req.user?.isAdmin) {
+      return res.status(403).json({error: 'Admin access required for full config'});
+    }
+    const data = requestFullConfig ? getFullConfig(ctx) : getFullConfigRedacted(ctx);
     res.setHeader('Content-Type', 'application/json');
     res.json(data);
   } catch (error) {
