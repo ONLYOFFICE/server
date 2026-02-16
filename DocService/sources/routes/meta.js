@@ -45,17 +45,22 @@ const cfgDocumentFormatsFile = config.get('services.CoAuthoring.server.documentF
 
 const LOCALE_SUBDIR = path.join('apps', 'documenteditor', 'main', 'locale');
 
+let cachedLocales = null;
+
 /**
- * Returns list of supported UI locale codes from documenteditor locale JSON files
+ * Returns list of supported UI locale codes from documenteditor locale JSON files.
+ * Result is cached for the lifetime of the process (locale files only change on product upgrade).
  * @param {string} webAppsPath - Resolved path to web-apps root
  * @returns {Promise<string[]>} Sorted list of locale codes (e.g. ['de', 'en', 'ru'])
  */
 async function getSupportedLocales(webAppsPath) {
+  if (cachedLocales) return cachedLocales;
   const localeDir = path.resolve(webAppsPath, LOCALE_SUBDIR);
   try {
     const entries = await fs.readdir(localeDir, {withFileTypes: true});
-    const locales = entries.filter(e => e.isFile() && e.name.endsWith('.json')).map(e => path.basename(e.name, '.json'));
-    return locales.sort((a, b) => a.localeCompare(b));
+    cachedLocales = entries.filter(e => e.isFile() && e.name.endsWith('.json')).map(e => path.basename(e.name, '.json'));
+    cachedLocales.sort((a, b) => a.localeCompare(b));
+    return cachedLocales;
   } catch {
     return [];
   }
