@@ -33,6 +33,7 @@
 'use strict';
 
 const express = require('express');
+const fs = require('fs').promises;
 const path = require('path');
 const apicache = require('apicache');
 const config = require('config');
@@ -41,6 +42,29 @@ const operationContext = require('../../../Common/sources/operationContext');
 const router = express.Router();
 
 const cfgDocumentFormatsFile = config.get('services.CoAuthoring.server.documentFormatsFile');
+
+const LOCALE_SUBDIR = path.join('apps', 'documenteditor', 'main', 'locale');
+
+let cachedLocales = null;
+
+/**
+ * Returns list of supported UI locale codes from documenteditor locale JSON files.
+ * Result is cached for the lifetime of the process (locale files only change on product upgrade).
+ * @param {string} webAppsPath - Resolved path to web-apps root
+ * @returns {Promise<string[]>} Sorted list of locale codes (e.g. ['de', 'en', 'ru'])
+ */
+async function getSupportedLocales(webAppsPath) {
+  if (cachedLocales) return cachedLocales;
+  const localeDir = path.resolve(webAppsPath, LOCALE_SUBDIR);
+  try {
+    const entries = await fs.readdir(localeDir, {withFileTypes: true});
+    cachedLocales = entries.filter(e => e.isFile() && e.name.endsWith('.json')).map(e => path.basename(e.name, '.json'));
+    cachedLocales.sort((a, b) => a.localeCompare(b));
+    return cachedLocales;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Returns supported document formats from JSON file
@@ -64,6 +88,9 @@ router.get('/config', async (req, res) => {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
 
+    const webAppsPath = ctx.config?.services?.CoAuthoring?.server?.static_content?.['/web-apps']?.path;
+    const langs = webAppsPath ? await getSupportedLocales(webAppsPath) : [];
+
     const clientConfig = {
       authorization: {
         header: ctx.config?.services?.CoAuthoring?.token?.inbox?.header,
@@ -77,7 +104,8 @@ router.get('/config', async (req, res) => {
       },
       limits: {
         maxFileSize: ctx.config?.FileConverter?.converter?.maxDownloadBytes
-      }
+      },
+      langs
     };
 
     res.json(clientConfig);

@@ -3,6 +3,8 @@ import {useState} from 'react';
 import {Routes, Route, Navigate, BrowserRouter, useLocation} from 'react-router-dom';
 import './App.css';
 import {store} from './store';
+import {setGlobalError} from './store/slices/globalErrorSlice';
+import {setOn401} from './api/safeFetch';
 import AuthWrapper from './components/AuthWrapper/AuthWrapper';
 import ConfigLoader from './components/ConfigLoader/ConfigLoader';
 import Menu from './components/Menu/Menu';
@@ -10,6 +12,8 @@ import MobileHeader from './components/MobileHeader/MobileHeader';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 import {menuItems} from './config/menuItems';
 import {getBasename} from './utils/paths';
+
+setOn401(() => store.dispatch(setGlobalError('UNAUTHORIZED')));
 
 /**
  * ConditionalConfigLoader wraps routes with ConfigLoader only if the route requires config.

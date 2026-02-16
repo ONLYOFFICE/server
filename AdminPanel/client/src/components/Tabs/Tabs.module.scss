@@ -6,6 +6,15 @@
   display: flex;
   border-bottom: 1px solid #e2e2e2;
   margin-bottom: 32px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tabsHeader::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
@@ -15,6 +24,7 @@
   line-height: 150%;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  flex-shrink: 0;
   background: none;
   border: none;
   padding-bottom: 4px;
