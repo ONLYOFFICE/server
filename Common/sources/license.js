@@ -45,7 +45,7 @@ exports.readLicense = async function () {
     {
       count: 1,
       type: c_LR.Success,
-      packageType: constants.PACKAGE_TYPE_OS,
+      packageType: constants.PACKAGE_TYPE_DE,
       mode: constants.LICENSE_MODE.None,
       branding: false,
       connections: constants.LICENSE_CONNECTIONS,

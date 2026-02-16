@@ -15,27 +15,11 @@
   gap: 16px;
 }
 
-.description {
-  margin: 0;
-  font-size: 14px;
-  color: #666666;
-  line-height: 1.5;
-  flex: 1;
-}
-
-.redactedBadge {
-  color: #dc3545;
-  font-weight: 600;
-  background: #fff3cd;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-}
-
 .configContent {
   padding: 0;
   background: #fafafa;
-  max-height: 60vh;
+  height: 60vh;
+  min-height: 60vh;
   overflow: auto;
 }
 

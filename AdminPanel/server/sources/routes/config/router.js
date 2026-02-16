@@ -4,7 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
 const runtimeConfigManager = require('../../../../../Common/sources/runtimeConfigManager');
-const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase, getFullConfigRedacted} = require('./config.service');
+const {getScopedConfig, getScopedBaseConfig, validateScoped, getDiffFromBase, getFullConfigRedacted, getFullConfig} = require('./config.service');
 const {validateJWT} = require('../../middleware/auth');
 const cookieParser = require('cookie-parser');
 const utils = require('../../../../../Common/sources/utils');
@@ -25,9 +25,13 @@ router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('config get start');
-    const configRedacted = getFullConfigRedacted(ctx);
+    const requestFullConfig = req.query.full === 'true';
+    if (requestFullConfig && !req.user?.isAdmin) {
+      return res.status(403).json({error: 'Admin access required for full config'});
+    }
+    const data = requestFullConfig ? getFullConfig(ctx) : getFullConfigRedacted(ctx);
     res.setHeader('Content-Type', 'application/json');
-    res.json(configRedacted);
+    res.json(data);
   } catch (error) {
     ctx.logger.error('Config get error: %s', error.stack);
     res.status(500).json({error: 'Internal server error'});
