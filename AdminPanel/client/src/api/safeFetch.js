@@ -14,17 +14,18 @@ const isNetworkError = error => {
 
 export const safeFetch = async (url, options = {}) => {
   const {_skip401Handler, ...fetchOptions} = options;
+  let response;
   try {
-    const response = await fetch(url, fetchOptions);
-    if (response.status === 401 && !_skip401Handler) {
-      on401();
-      throw new Error('UNAUTHORIZED');
-    }
-    return response;
+    response = await fetch(url, fetchOptions);
   } catch (error) {
     if (isNetworkError(error)) {
       throw new Error('SERVER_UNAVAILABLE');
     }
     throw error;
   }
+  if (response.status === 401 && !_skip401Handler) {
+    on401();
+    throw new Error('UNAUTHORIZED');
+  }
+  return response;
 };

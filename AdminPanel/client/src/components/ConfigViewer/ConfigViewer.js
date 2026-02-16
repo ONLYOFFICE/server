@@ -69,19 +69,18 @@ const ConfigViewer = () => {
   return (
     <div className={styles.configViewer}>
       <div className={styles.toolbar}>
-        <div className={fullConfigLoading ? styles.toggleDisabled : undefined}>
-          <ToggleSwitch
-            label={
-              <>
-                Hide sensitive values
-                <br />
-                (shown as redacted)
-              </>
-            }
-            checked={hideSensitiveValues}
-            onChange={handleHideSensitiveChange}
-          />
-        </div>
+        <ToggleSwitch
+          label={
+            <>
+              Hide sensitive values
+              <br />
+              (shown as redacted)
+            </>
+          }
+          checked={hideSensitiveValues}
+          onChange={handleHideSensitiveChange}
+          disabled={fullConfigLoading}
+        />
         <Button onClick={handleCopy} disabled={!jsonString}>
           Copy JSON
         </Button>
