@@ -53,3 +53,8 @@
   background: #8bb825;
   border: 1px solid #8bb825;
 }
+
+.switch--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

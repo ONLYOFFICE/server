@@ -53,6 +53,12 @@ const ConfigLoader = ({children}) => {
     }
   }, [isAuthenticated, baseConfig, baseConfigLoading, baseConfigError, dispatch]);
 
+  useEffect(() => {
+    if (error && error !== 'UNAUTHORIZED' && error?.message !== 'UNAUTHORIZED') {
+      dispatch(setGlobalError('UNKNOWN'));
+    }
+  }, [error, dispatch]);
+
   if (loading) {
     return (
       <div
@@ -72,8 +78,6 @@ const ConfigLoader = ({children}) => {
   }
 
   if (error) {
-    const isUnauthorized = error === 'UNAUTHORIZED' || error?.message === 'UNAUTHORIZED';
-    if (!isUnauthorized) dispatch(setGlobalError('UNKNOWN'));
     return null;
   }
 
