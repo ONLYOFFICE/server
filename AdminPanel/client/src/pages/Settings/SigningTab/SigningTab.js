@@ -55,17 +55,42 @@ const SigningTab = () => {
   const [savedAwsKeyId, setSavedAwsKeyId] = useState('');
   const [savedCscBaseUrl, setSavedCscBaseUrl] = useState('');
 
-  // UI
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
+  // UI — separate feedback for each section
+  const [signingError, setSigningError] = useState(null);
+  const [signingSuccess, setSigningSuccess] = useState(null);
+  const [metaError, setMetaError] = useState(null);
+  const [metaSuccess, setMetaSuccess] = useState(null);
 
-  const showSuccess = msg => {
-    setSuccessMessage(msg);
-    setTimeout(() => setSuccessMessage(null), 3000);
+  const showSigningSuccess = msg => {
+    setSigningSuccess(msg);
+    setTimeout(() => setSigningSuccess(null), 3000);
+  };
+  const showMetaSuccess = msg => {
+    setMetaSuccess(msg);
+    setTimeout(() => setMetaSuccess(null), 3000);
   };
 
   const activeProvider = savedAwsKeyId ? 'AWS KMS' : savedCscBaseUrl ? 'CSC' : null;
   const isCloudMode = signingMode !== 'local';
+
+  // Reset other providers when switching tabs
+  const handleTabChange = newMode => {
+    setSigningMode(newMode);
+    setSigningError(null);
+    setSigningSuccess(null);
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (newMode === 'awsKms') {
+      setCsc({...emptyCsc});
+      setPassphrase('');
+    } else if (newMode === 'csc') {
+      setAws({...emptyAws});
+      setPassphrase('');
+    } else if (newMode === 'local') {
+      setAws({...emptyAws});
+      setCsc({...emptyCsc});
+    }
+  };
 
   // ─── Load status & config ─────────────────────────────────────────────────
 
@@ -135,7 +160,7 @@ const SigningTab = () => {
 
   const handleMetaSave = async () => {
     try {
-      setError(null);
+      setMetaError(null);
       await dispatch(
         saveConfig(
           mergeNestedObjects([
@@ -149,9 +174,10 @@ const SigningTab = () => {
         )
       ).unwrap();
       setSavedMeta({...meta});
-      showSuccess('Signature metadata saved');
+      showMetaSuccess('Signature metadata saved');
     } catch (err) {
-      setError(err.message || 'Failed to save');
+      setMetaError(err.message || 'Failed to save');
+      throw err;
     }
   };
 
@@ -159,25 +185,50 @@ const SigningTab = () => {
 
   const handleSave = async () => {
     try {
-      setError(null);
+      setSigningError(null);
+      const keysToReset = [];
 
-      if (signingMode === 'awsKms' && aws.keyId) {
-        await dispatch(saveConfig(mergeNestedObjects([{[`${CLOUD_PREFIX}.awsKms`]: aws}]))).unwrap();
-        setSavedAwsKeyId(aws.keyId);
-        if (savedCscBaseUrl) {
-          await dispatch(resetConfig([`${CLOUD_PREFIX}.csc`])).unwrap();
-          setCsc({...emptyCsc});
-          setSavedCscBaseUrl('');
+      if (signingMode === 'awsKms') {
+        if (aws.keyId) {
+          await dispatch(saveConfig(mergeNestedObjects([{[`${CLOUD_PREFIX}.awsKms`]: aws}]))).unwrap();
+          setSavedAwsKeyId(aws.keyId);
         }
-      } else if (signingMode === 'csc' && csc.baseUrl) {
-        await dispatch(saveConfig(mergeNestedObjects([{[`${CLOUD_PREFIX}.csc`]: csc}]))).unwrap();
-        setSavedCscBaseUrl(csc.baseUrl);
-        if (savedAwsKeyId) {
-          await dispatch(resetConfig([`${CLOUD_PREFIX}.awsKms`])).unwrap();
-          setAws({...emptyAws});
-          setSavedAwsKeyId('');
+        if (savedCscBaseUrl) keysToReset.push(`${CLOUD_PREFIX}.csc`);
+        setCsc({...emptyCsc});
+        setSavedCscBaseUrl('');
+        if (savedPassphrase) keysToReset.push('FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE');
+        setPassphrase('');
+        setSavedPassphrase('');
+      } else if (signingMode === 'csc') {
+        if (csc.baseUrl) {
+          await dispatch(saveConfig(mergeNestedObjects([{[`${CLOUD_PREFIX}.csc`]: csc}]))).unwrap();
+          setSavedCscBaseUrl(csc.baseUrl);
         }
+        if (savedAwsKeyId) keysToReset.push(`${CLOUD_PREFIX}.awsKms`);
+        setAws({...emptyAws});
+        setSavedAwsKeyId('');
+        if (savedPassphrase) keysToReset.push('FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE');
+        setPassphrase('');
+        setSavedPassphrase('');
+      } else if (signingMode === 'local') {
+        const ppChanged = passphrase !== savedPassphrase;
+        if (passphrase) {
+          await dispatch(
+            saveConfig(mergeNestedObjects([{'FileConverter.converter.spawnOptions': {env: {SIGNING_KEYSTORE_PASSPHRASE: passphrase}}}]))
+          ).unwrap();
+        } else if (ppChanged) {
+          keysToReset.push('FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE');
+        }
+        setSavedPassphrase(passphrase);
+        if (savedAwsKeyId) keysToReset.push(`${CLOUD_PREFIX}.awsKms`);
+        setAws({...emptyAws});
+        setSavedAwsKeyId('');
+        if (savedCscBaseUrl) keysToReset.push(`${CLOUD_PREFIX}.csc`);
+        setCsc({...emptyCsc});
+        setSavedCscBaseUrl('');
       }
+
+      if (keysToReset.length) await dispatch(resetConfig(keysToReset)).unwrap();
 
       if (selectedFile) {
         const result = await uploadSigningCertificate(selectedFile, passphrase);
@@ -186,30 +237,19 @@ const SigningTab = () => {
         setCertExists(true);
       }
 
-      if (signingMode === 'local') {
-        const ppChanged = passphrase !== savedPassphrase;
-        if (passphrase) {
-          await dispatch(
-            saveConfig(mergeNestedObjects([{'FileConverter.converter.spawnOptions': {env: {SIGNING_KEYSTORE_PASSPHRASE: passphrase}}}]))
-          ).unwrap();
-        } else if (ppChanged) {
-          await dispatch(resetConfig(['FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE'])).unwrap();
-        }
-        setSavedPassphrase(passphrase);
-      }
-
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      showSuccess('Settings saved');
+      showSigningSuccess('Settings saved');
     } catch (err) {
-      setError(err.message || 'Failed to save');
+      setSigningError(err.message || 'Failed to save');
+      throw err;
     }
   };
 
   const handleReset = async () => {
     if (!window.confirm('Remove certificate, clear passphrase and cloud signing settings?')) return;
     try {
-      setError(null);
+      setSigningError(null);
       if (certExists) await deleteSigningCertificate();
       const keysToReset = [];
       if (savedPassphrase) keysToReset.push('FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE');
@@ -227,9 +267,10 @@ const SigningTab = () => {
       setSavedAwsKeyId('');
       setSavedCscBaseUrl('');
       if (fileInputRef.current) fileInputRef.current.value = '';
-      showSuccess('Signing settings cleared');
+      showSigningSuccess('Signing settings cleared');
     } catch (err) {
-      setError(err.message || 'Failed to clear');
+      setSigningError(err.message || 'Failed to clear');
+      throw err;
     }
   };
 
@@ -239,11 +280,11 @@ const SigningTab = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!/\.(p12|pfx|pem|crt|cer)$/i.test(file.name)) {
-      setError('Accepted: .p12, .pfx, .pem, .crt, .cer');
+      setSigningError('Accepted: .p12, .pfx, .pem, .crt, .cer');
       setSelectedFile(null);
       return;
     }
-    setError(null);
+    setSigningError(null);
     setSelectedFile(file);
   };
 
@@ -295,7 +336,7 @@ const SigningTab = () => {
           </div>
         </div>
 
-        <Tabs tabs={SIGNING_TABS} activeTab={signingMode} onTabChange={setSigningMode}>
+        <Tabs tabs={SIGNING_TABS} activeTab={signingMode} onTabChange={handleTabChange}>
           {signingMode === 'awsKms' && (
             <>
               <Input label='Key ID' {...awsField('keyId')} placeholder='arn:aws:kms:...' description='Asymmetric RSA key ARN or ID.' />
@@ -378,6 +419,9 @@ const SigningTab = () => {
             )}
           </div>
         </div>
+
+        {signingError && <div className='message-error'>{signingError}</div>}
+        {signingSuccess && <div className='message-success'>{signingSuccess}</div>}
       </Section>
 
       <hr className={styles.sectionDivider} />
@@ -397,10 +441,10 @@ const SigningTab = () => {
             </Button>
           </div>
         </div>
-      </Section>
 
-      {error && <div className='message-error'>{error}</div>}
-      {successMessage && <div className='message-success'>{successMessage}</div>}
+        {metaError && <div className='message-error'>{metaError}</div>}
+        {metaSuccess && <div className='message-success'>{metaSuccess}</div>}
+      </Section>
     </>
   );
 };

@@ -27,15 +27,6 @@
   }
 }
 
-.criticalColor {
-  color: #ff0000;
-}
-
-// Status Section (compact rows)
-.statusSection {
-  margin-bottom: 24px;
-}
-
 .statusRow {
   display: flex;
   align-items: center;
@@ -49,32 +40,6 @@
   &:last-child {
     margin-bottom: 0;
   }
-}
-
-.statusLabel {
-  font-weight: 500;
-  color: #333;
-  min-width: 130px;
-}
-
-.statusValue {
-  color: #333;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 13px;
-}
-
-.statusActive {
-  color: #007b14;
-  font-weight: 500;
-
-  &::before {
-    content: '\2713\0020';
-  }
-}
-
-.statusExpired {
-  color: #b91c1c;
-  font-weight: 500;
 }
 
 .statusError {
@@ -131,15 +96,6 @@
   background: #f0f7ff;
   border: 1px solid #b3d4fc;
   border-radius: 6px;
-
-  .statusSection {
-    margin-bottom: 0;
-  }
-
-  .statusRow {
-    background: #fff;
-    border-color: #d0e3f7;
-  }
 }
 
 .previewHeader {
