@@ -89,6 +89,14 @@ function getSpawnArgs(scriptPath, args) {
     };
   }
 
+  if (ext === '.sh') {
+    return {
+      command: 'sudo',
+      args: [scriptPath, ...args],
+      options: {}
+    };
+  }
+
   return {
     command: scriptPath,
     args,
