@@ -16,7 +16,7 @@ router.use(express.json());
 
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes (certbot can be slow)
 const SCRIPT_NAME = 'documentserver-letsencrypt';
-const SCRIPT_SEARCH_PATHS = ['/usr/bin', path.resolve(process.cwd(), '../../bin')];
+const SCRIPT_SEARCH_PATHS = ['/usr/bin'];
 const SCRIPT_EXTENSIONS = ['.sh', '.ps1', '.bat'];
 
 /**
@@ -46,29 +46,10 @@ function findLetsEncryptScript() {
 }
 
 /**
- * Check if script has executable permissions (Unix-like systems only)
- * @param {Object} ctx - Operation context
- * @param {string} scriptPath - Full path to script
- * @returns {boolean} True if executable or on Windows
- */
-function isScriptExecutable(ctx, scriptPath) {
-  try {
-    if (process.platform === 'win32') {
-      return true;
-    }
-    const stats = fs.statSync(scriptPath);
-    return !!(stats.mode & fs.constants.S_IXUSR);
-  } catch (e) {
-    ctx.logger.error('Failed to check script permissions: %s', e.message);
-    return false;
-  }
-}
-
-/**
  * Get spawn arguments for script execution
  * @param {string} scriptPath - Full path to script
  * @param {string[]} args - Script arguments
- * @returns {{command: string, args: string[], options: object}}
+ * @returns {{command: string, args: string[]}}
  */
 function getSpawnArgs(scriptPath, args) {
   const ext = path.extname(scriptPath).toLowerCase();
@@ -76,23 +57,27 @@ function getSpawnArgs(scriptPath, args) {
   if (ext === '.ps1') {
     return {
       command: 'powershell.exe',
-      args: ['-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args],
-      options: {}
+      args: ['-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]
     };
   }
 
   if (ext === '.bat' || ext === '.cmd') {
     return {
       command: process.env.ComSpec || 'cmd.exe',
-      args: ['/c', scriptPath, ...args],
-      options: {}
+      args: ['/c', scriptPath, ...args]
+    };
+  }
+
+  if (ext === '.sh') {
+    return {
+      command: 'sudo',
+      args: ['-n', scriptPath, ...args]
     };
   }
 
   return {
     command: scriptPath,
-    args,
-    options: {}
+    args
   };
 }
 
@@ -152,9 +137,7 @@ function runInstallScript(scriptPath, email, domain, logger) {
     const spawnConfig = getSpawnArgs(scriptPath, [email, domain]);
     logger.debug('Executing: %s %s', spawnConfig.command, spawnConfig.args.join(' '));
 
-    const proc = spawn(spawnConfig.command, spawnConfig.args, {
-      ...spawnConfig.options
-    });
+    const proc = spawn(spawnConfig.command, spawnConfig.args, {windowsHide: true});
 
     const timeout = setTimeout(() => {
       proc.kill();
@@ -199,7 +182,7 @@ router.get('/status', validateJWT, async (req, res) => {
     }
 
     const scriptPath = findLetsEncryptScript();
-    if (!scriptPath || !isScriptExecutable(ctx, scriptPath)) {
+    if (!scriptPath) {
       return res.json({available: false});
     }
 

@@ -584,8 +584,14 @@
           "tokenUrl": "",
           "clientId": "",
           "clientSecret": "",
+          "grantType": "",
+          "clientAuth": "",
+          "tokenBodyFormat": "",
+          "username": "",
+          "password": "",
           "credentialId": "",
-          "scope": "",
+          "clientData": "",
+          "scope": "service",
           "audience": ""
         }
       },

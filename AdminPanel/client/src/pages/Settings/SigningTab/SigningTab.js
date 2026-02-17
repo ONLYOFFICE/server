@@ -1,6 +1,13 @@
 import {useState, useEffect, useRef, useCallback} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
-import {uploadSigningCertificate, deleteSigningCertificate, getSigningCertificateStatus} from '../../../api';
+import {useQuery} from '@tanstack/react-query';
+import {
+  uploadSigningCertificate,
+  deleteSigningCertificate,
+  getSigningCertificateStatus,
+  validateSigningConfig,
+  fetchConfiguration
+} from '../../../api';
 import {saveConfig, resetConfig, selectConfig} from '../../../store/slices/configSlice';
 import {getNestedValue} from '../../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../../utils/mergeNestedObjects';
@@ -25,12 +32,36 @@ const SIGNING_TABS = [
 const cfgVal = (prefix, config, key) => getNestedValue(config, `${prefix}.${key}`) || '';
 
 const emptyAws = {endpoint: '', keyId: '', accessKeyId: '', secretAccessKey: ''};
-const emptyCsc = {baseUrl: '', tokenUrl: '', clientId: '', clientSecret: ''};
+const emptyCsc = {
+  baseUrl: '',
+  tokenUrl: '',
+  clientId: '',
+  clientSecret: '',
+  grantType: '',
+  clientAuth: '',
+  tokenBodyFormat: '',
+  username: '',
+  password: '',
+  credentialId: '',
+  clientData: '',
+  scope: '',
+  audience: ''
+};
 
 const SigningTab = () => {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
   const fileInputRef = useRef(null);
+
+  // Fetch full config with secrets (not redacted)
+  const {data: fullConfig} = useQuery({
+    queryKey: ['config', 'full'],
+    queryFn: () => fetchConfiguration(true),
+    staleTime: 30000
+  });
+
+  // Use full config for loading secrets, fallback to regular config
+  const configWithSecrets = fullConfig || config;
 
   // Signing mode tab
   const [signingMode, setSigningMode] = useState('awsKms');
@@ -58,6 +89,7 @@ const SigningTab = () => {
   // UI — separate feedback for each section
   const [signingError, setSigningError] = useState(null);
   const [signingSuccess, setSigningSuccess] = useState(null);
+  const [validating, setValidating] = useState(false);
   const [metaError, setMetaError] = useState(null);
   const [metaSuccess, setMetaSuccess] = useState(null);
 
@@ -110,27 +142,36 @@ const SigningTab = () => {
   }, [checkCertStatus]);
 
   useEffect(() => {
-    if (!config) return;
-    const pp = getNestedValue(config, 'FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE') || '';
+    if (!fullConfig) return;
+    const pp = getNestedValue(configWithSecrets, 'FileConverter.converter.spawnOptions.env.SIGNING_KEYSTORE_PASSPHRASE') || '';
     setPassphrase(pp);
     setSavedPassphrase(pp);
 
     // AWS KMS
     const a = {
-      endpoint: cfgVal(`${CLOUD_PREFIX}.awsKms`, config, 'endpoint'),
-      keyId: cfgVal(`${CLOUD_PREFIX}.awsKms`, config, 'keyId'),
-      accessKeyId: cfgVal(`${CLOUD_PREFIX}.awsKms`, config, 'accessKeyId'),
-      secretAccessKey: cfgVal(`${CLOUD_PREFIX}.awsKms`, config, 'secretAccessKey')
+      endpoint: cfgVal(`${CLOUD_PREFIX}.awsKms`, configWithSecrets, 'endpoint'),
+      keyId: cfgVal(`${CLOUD_PREFIX}.awsKms`, configWithSecrets, 'keyId'),
+      accessKeyId: cfgVal(`${CLOUD_PREFIX}.awsKms`, configWithSecrets, 'accessKeyId'),
+      secretAccessKey: cfgVal(`${CLOUD_PREFIX}.awsKms`, configWithSecrets, 'secretAccessKey')
     };
     setAws(a);
     setSavedAwsKeyId(a.keyId);
 
     // CSC
     const c = {
-      baseUrl: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'baseUrl'),
-      tokenUrl: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'tokenUrl'),
-      clientId: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'clientId'),
-      clientSecret: cfgVal(`${CLOUD_PREFIX}.csc`, config, 'clientSecret')
+      baseUrl: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'baseUrl'),
+      tokenUrl: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'tokenUrl'),
+      clientId: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'clientId'),
+      clientSecret: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'clientSecret'),
+      grantType: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'grantType'),
+      clientAuth: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'clientAuth'),
+      tokenBodyFormat: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'tokenBodyFormat'),
+      username: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'username'),
+      password: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'password'),
+      credentialId: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'credentialId'),
+      clientData: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'clientData'),
+      scope: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'scope'),
+      audience: cfgVal(`${CLOUD_PREFIX}.csc`, configWithSecrets, 'audience')
     };
     setCsc(c);
     setSavedCscBaseUrl(c.baseUrl);
@@ -138,8 +179,11 @@ const SigningTab = () => {
     // Auto-select active tab
     if (a.keyId) setSigningMode('awsKms');
     else if (c.baseUrl) setSigningMode('csc');
+  }, [configWithSecrets]);
 
-    // Metadata
+  // Load metadata (non-sensitive, use regular config)
+  useEffect(() => {
+    if (!config) return;
     const m = {
       reason: cfgVal(META_PREFIX, config, 'reason'),
       name: cfgVal(META_PREFIX, config, 'name'),
@@ -186,6 +230,7 @@ const SigningTab = () => {
   const handleSave = async () => {
     try {
       setSigningError(null);
+
       const keysToReset = [];
 
       if (signingMode === 'awsKms') {
@@ -200,10 +245,29 @@ const SigningTab = () => {
         setPassphrase('');
         setSavedPassphrase('');
       } else if (signingMode === 'csc') {
-        if (csc.baseUrl) {
-          await dispatch(saveConfig(mergeNestedObjects([{[`${CLOUD_PREFIX}.csc`]: csc}]))).unwrap();
-          setSavedCscBaseUrl(csc.baseUrl);
+        // Validate required fields
+        if (!csc.baseUrl || !csc.tokenUrl || !csc.clientId || !csc.clientSecret) {
+          setSigningError('Base URL, Token URL, Client ID, and Client Secret are required for CSC signing');
+          return;
         }
+
+        // Pre-save validation (OAuth token endpoint check)
+        setValidating(true);
+        try {
+          const result = await validateSigningConfig('csc', csc);
+          if (!result.valid) {
+            setSigningError(`Validation failed: ${result.error}`);
+            return;
+          }
+        } catch (err) {
+          setSigningError(`Validation error: ${err.message}`);
+          return;
+        } finally {
+          setValidating(false);
+        }
+
+        await dispatch(saveConfig(mergeNestedObjects([{[`${CLOUD_PREFIX}.csc`]: csc}]))).unwrap();
+        setSavedCscBaseUrl(csc.baseUrl);
         if (savedAwsKeyId) keysToReset.push(`${CLOUD_PREFIX}.awsKms`);
         setAws({...emptyAws});
         setSavedAwsKeyId('');
@@ -365,20 +429,74 @@ const SigningTab = () => {
           {signingMode === 'csc' && (
             <>
               <Input
-                label='Base URL'
+                label='Base URL *'
                 {...cscField('baseUrl')}
                 placeholder='https://csc.example.com/csc/v2'
-                description='CSC API base URL (ETSI TS 119 432).'
+                description='Required. CSC API base URL (ETSI TS 119 432).'
               />
               <Input
-                label='Token URL'
+                label='Token URL *'
                 {...cscField('tokenUrl')}
                 placeholder='https://csc.example.com/oauth2/token'
-                description='OAuth2 token endpoint.'
+                description='Required. OAuth2 token endpoint.'
               />
-              <Input label='Client ID' {...cscField('clientId')} placeholder='client-id' description='OAuth2 client ID.' />
+              <Input label='Client ID *' {...cscField('clientId')} placeholder='client-id' description='Required. OAuth2 client ID.' />
+              <PasswordInput
+                label='Client Secret *'
+                {...cscField('clientSecret')}
+                placeholder='client-secret'
+                description='Required. OAuth2 client secret.'
+              />
+              <Input
+                label='Credential ID'
+                {...cscField('credentialId')}
+                placeholder='credential-uuid-1234'
+                description='Optional. Auto-discovered via credentials/list when empty.'
+              />
+              <Input
+                label='Grant Type'
+                {...cscField('grantType')}
+                placeholder='client_credentials'
+                description="Optional. Empty = auto-detect; or 'password', 'client_credentials'."
+              />
+              <Input
+                label='Username'
+                {...cscField('username')}
+                placeholder='user@example.com'
+                description='Optional. Username for password grant type.'
+              />
+              <PasswordInput
+                label='Password'
+                {...cscField('password')}
+                placeholder='••••••••'
+                description='Optional. Password for password grant type.'
+              />
+              <Input label='Scope' {...cscField('scope')} placeholder='service' description='Optional. OAuth2 scope.' />
+              <Input
+                label='Client Auth'
+                {...cscField('clientAuth')}
+                placeholder='body'
+                description="Optional. Empty = body; or 'basic', 'body', 'both'."
+              />
+              <Input
+                label='Token Body Format'
+                {...cscField('tokenBodyFormat')}
+                placeholder='form'
+                description="Optional. Empty = form (RFC 6749); or 'form', 'json'."
+              />
+              <Input
+                label='Client Data'
+                {...cscField('clientData')}
+                placeholder='{"type":"eSeal"}'
+                description='Optional. Provider-specific clientData for credentials/list.'
+              />
               <div className={styles.fieldWithSpacing}>
-                <PasswordInput label='Client Secret' {...cscField('clientSecret')} placeholder='client-secret' description='OAuth2 client secret.' />
+                <Input
+                  label='Audience'
+                  {...cscField('audience')}
+                  placeholder='https://api.example.com'
+                  description='Optional. OAuth2 audience parameter.'
+                />
               </div>
             </>
           )}
@@ -409,8 +527,8 @@ const SigningTab = () => {
 
         <div className='form-row'>
           <div className='actions-section'>
-            <Button onClick={handleSave} disabled={saveDisabled}>
-              Save
+            <Button onClick={handleSave} disabled={saveDisabled || validating}>
+              {validating ? 'Validating...' : 'Save'}
             </Button>
             {hasAnySaved && (
               <Button onClick={handleReset} className='delete-button'>

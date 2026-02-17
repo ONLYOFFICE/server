@@ -125,7 +125,7 @@ function getCloudSigningMode(certPath, signingCfg) {
 function performCloudSigning(ctx, outputPath, certPath, signingCfg) {
   const awsKmsCfg = signingCfg?.awsKms || {};
   if (awsKmsCfg.keyId) {
-    ctx.logger.info('Cloud signing (AWS KMS) start: %s', outputPath);
+    ctx.logger.debug('Cloud signing (AWS KMS) start');
     return signPdfFileKms(outputPath, null, {
       keyId: awsKmsCfg.keyId,
       endpoint: awsKmsCfg.endpoint,
@@ -136,7 +136,7 @@ function performCloudSigning(ctx, outputPath, certPath, signingCfg) {
   }
   const cscCfg = signingCfg?.csc || {};
   if (cscCfg.baseUrl) {
-    ctx.logger.info('Cloud signing (CSC) start: %s', outputPath);
+    ctx.logger.debug('Cloud signing (CSC) start');
     return signPdfFileCsc(outputPath, null, {
       ...cscCfg,
       keyStorePath: certPath
@@ -1064,7 +1064,7 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
       try {
         const signingCfg = ctx.getCfg('FileConverter.converter.signing', cfgSigning);
         yield performCloudSigning(ctx, dataConvert.fileTo, dataConvert._cloudSigningCertPath, signingCfg);
-        ctx.logger.info('Cloud signing complete');
+        ctx.logger.debug('Cloud signing complete');
       } catch (cloudErr) {
         ctx.logger.error('Cloud signing failed: %s', cloudErr.stack);
       }

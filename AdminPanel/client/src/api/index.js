@@ -298,6 +298,25 @@ export const uploadSigningCertificate = async (file, passphrase) => {
   return response.json();
 };
 
+/**
+ * @param {'csc'|'awsKms'} provider
+ * @param {Object} config - provider config fields
+ * @returns {Promise<{valid: boolean, error?: string, message?: string}>}
+ */
+export const validateSigningConfig = async (provider, config) => {
+  const response = await safeFetch(`${API_BASE_PATH}/config/signing-certificate/validate`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({provider, config})
+  });
+  const data = await response.json();
+  if (!response.ok && !data.error) {
+    throw new Error('Validation request failed');
+  }
+  return data;
+};
+
 export const deleteSigningCertificate = async () => {
   const response = await safeFetch(`${API_BASE_PATH}/config/signing-certificate`, {
     method: 'DELETE',
