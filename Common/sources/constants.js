@@ -88,8 +88,8 @@ exports.LICENSE_RESULT = {
   NotBefore: 16
 };
 
-exports.LICENSE_CONNECTIONS = 20;
-exports.LICENSE_USERS = 3;
+exports.LICENSE_CONNECTIONS = 99999;
+exports.LICENSE_USERS = 99999;
 exports.LICENSE_EXPIRE_USERS_ONE_DAY = 24 * 60 * 60; // day in seconds
 
 exports.AVS_OFFICESTUDIO_FILE_UNKNOWN = 0x0000;
