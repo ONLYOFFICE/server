@@ -111,7 +111,14 @@ function getSpawnArgs(scriptPath, args) {
     };
   }
 
-  // For .sh, .exe and others - run directly
+  if (ext === '.sh') {
+    return {
+      command: 'sudo',
+      args: ['-n', scriptPath, ...args]
+    };
+  }
+
+  // For .exe and others - run directly
   return {
     command: scriptPath,
     args
