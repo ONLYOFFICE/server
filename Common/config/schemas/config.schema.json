@@ -263,10 +263,15 @@
                     "tokenUrl": {"type": "string", "description": "OAuth2 token endpoint."},
                     "clientId": {"type": "string", "description": "OAuth2 client ID."},
                     "clientSecret": {"type": "string", "description": "OAuth2 client secret."},
+                    "grantType": {"type": "string", "description": "Optional. OAuth2 grant type: '' (auto-detect), 'password', or 'client_credentials'. Empty selects based on presence of username/password."},
+                    "clientAuth": {"type": "string", "description": "Optional. How client authenticates to token endpoint: '' (body), 'basic', 'body', or 'both'."},
+                    "tokenBodyFormat": {"type": "string", "description": "Optional. Token request body format: 'form' (default, RFC 6749) or 'json'."},
+                    "username": {"type": "string", "description": "Optional. Username for password grant type."},
+                    "password": {"type": "string", "description": "Optional. Password for password grant type."},
                     "credentialId": {"type": "string", "description": "Optional. Signing credential ID. Auto-discovered via credentials/list when empty."},
+                    "clientData": {"type": "string", "description": "Optional. Provider-specific clientData for credentials/list (e.g. eSeal credential type)."},
                     "scope": {"type": "string", "description": "Optional. OAuth2 scope (e.g. 'service')."},
-                    "audience": {"type": "string", "description": "Optional. OAuth2 audience parameter."},
-                    "clientData": {"type": "string", "description": "Optional. Provider-specific clientData for credentials/list (e.g. DS_ESEAL for SSL.com)."}
+                    "audience": {"type": "string", "description": "Optional. OAuth2 audience parameter."}
                   }
                 }
               }
