@@ -16,7 +16,7 @@ router.use(express.json());
 
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes (certbot can be slow)
 const SCRIPT_NAME = 'documentserver-letsencrypt';
-const SCRIPT_SEARCH_PATHS = ['/usr/bin', path.resolve(process.cwd(), '../../bin')];
+const SCRIPT_SEARCH_PATHS = ['/usr/bin'];
 const SCRIPT_EXTENSIONS = ['.sh', '.ps1', '.bat'];
 
 /**
