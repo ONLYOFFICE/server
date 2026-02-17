@@ -200,6 +200,7 @@ const SENSITIVE_PARAM_PATHS = [
   'aesEncrypt.secret',
   'wopi.privateKey',
   'wopi.privateKeyOld',
+  'rabbitmq.url',
   'FileConverter.converter.signing.awsKms.secretAccessKey',
   'FileConverter.converter.signing.csc.password',
   'FileConverter.converter.signing.csc.clientSecret'
