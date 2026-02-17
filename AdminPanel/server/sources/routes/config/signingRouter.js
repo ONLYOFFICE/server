@@ -132,6 +132,36 @@ router.post('/', validateJWT, rawFileParser, async (req, res) => {
   }
 });
 
+// POST /validate — minimal CSC config check (OAuth token request) before save
+router.post('/validate', validateJWT, express.json(), async (req, res) => {
+  const ctx = req.ctx;
+  try {
+    if (!requireAdmin(ctx, res)) return;
+    const {provider, config: cfg} = req.body || {};
+    if (!provider || !cfg) return res.status(400).json({valid: false, error: 'Missing provider or config'});
+
+    if (provider !== 'csc') return res.status(400).json({valid: false, error: `Validation not supported for: ${provider}`});
+
+    if (!cfg.baseUrl) return res.json({valid: false, error: 'Base URL is required'});
+    if (!cfg.tokenUrl) return res.json({valid: false, error: 'Token URL is required'});
+    if (!cfg.clientId) return res.json({valid: false, error: 'Client ID is required'});
+    if (!cfg.clientSecret) return res.json({valid: false, error: 'Client Secret is required'});
+
+    const {fetchOAuthToken} = require('../../../../../Common/sources/signing/cscOAuth');
+    const data = await fetchOAuthToken(cfg);
+    if (data?.access_token) {
+      return res.json({valid: true, message: 'OAuth token obtained successfully'});
+    }
+    return res.json({valid: false, error: 'Token endpoint returned no access_token'});
+  } catch (error) {
+    ctx.logger.error('CSC config validation error: %s', error.message);
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+    const msg = data?.error_description || data?.error || data?.message || error.message;
+    res.json({valid: false, error: `Token request failed (HTTP ${status || 'N/A'}): ${msg}`});
+  }
+});
+
 // DELETE / — delete signing certificate
 router.delete('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
