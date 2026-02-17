@@ -199,7 +199,8 @@ const SENSITIVE_PARAM_PATHS = [
   'openpgpjs.decrypt.passwords',
   'aesEncrypt.secret',
   'wopi.privateKey',
-  'wopi.privateKeyOld'
+  'wopi.privateKeyOld',
+  'rabbitmq.url'
   //'FileConverter.converter.signing.awsKms.secretAccessKey', // <-- to show in input field
   //'FileConverter.converter.signing.csc.clientSecret' // <-- to show in input field
 ];
