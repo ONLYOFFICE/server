@@ -39,7 +39,7 @@
  *   await signPdfFile('input.pdf', 'signed.pdf', {
  *     baseUrl: 'https://cs.example.com/csc/v2',
  *
- *     // You can either provide a token, or let the signer fetch it (client_credentials)
+ *     // You can either provide a token, or let the signer fetch it via OAuth
  *     oauth: {
  *       tokenUrl: 'https://login.example.com/oauth2/token',
  *       clientId: '...',
@@ -47,18 +47,16 @@
  *     },
  *
  *     // Optional: omit to auto-pick first credential from credentials/list
- *     credential: { id: '' },
- *
- *     // Optional: second factor is typically per-request
- *     auth: { kind: 'otp', getValue: async () => process.env.CSC_OTP }
+ *     credential: { id: '' }
  *   });
  */
 
 const {signPdfWithSigner, OID, HASH_OID, parsePemChain, parsePemChainContent} = require('./pdfSigningCore');
 const {axios} = require('./../../../Common/sources/utils');
+const {fetchOAuthToken} = require('./../../../Common/sources/signing/cscOAuth');
 const crypto = require('crypto');
 
-const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 60000;
 const DEFAULT_TOKEN_CACHE_MS = 55 * 60 * 1000; // 55 minutes
 
 // =============================================================================
@@ -84,38 +82,55 @@ function pick(obj, keys) {
   return undefined;
 }
 
+/**
+ * Normalize provider config from flat or nested shape into internal structure.
+ * Supports both flat config (from JSON file) and nested config (programmatic).
+ *
+ * @param {Object} config
+ * @returns {Object} normalized config
+ */
 function normalizeProviderConfig(config) {
   const root = config || {};
   // Support both shapes:
   //  - { csc: {...}, keyStorePath: "..." }  (app-level config from converter)
   //  - { baseUrl, tokenUrl, clientId, ... }  (flat signer-level config)
-  const csc = root.csc ? {...root.csc} : root;
+  const csc = root.csc ? {...root.csc} : {...root};
 
   const keyStorePath = root.keyStorePath || csc.keyStorePath || '';
 
-  const oauth = csc.oauth || {
-    tokenUrl: csc.tokenUrl,
-    clientId: csc.clientId,
-    clientSecret: csc.clientSecret,
-    accessToken: csc.accessToken,
-    tokenProvider: csc.tokenProvider,
-    grantType: csc.grantType,
-    scope: csc.scope,
-    audience: csc.audience
+  // OAuth (prefer nested oauth block, fallback to flat fields)
+  const oauthSrc = csc.oauth || {};
+  const oauth = {
+    tokenUrl: pick(oauthSrc, ['tokenUrl']) ?? csc.tokenUrl,
+    clientId: pick(oauthSrc, ['clientId']) ?? csc.clientId,
+    clientSecret: pick(oauthSrc, ['clientSecret']) ?? csc.clientSecret,
+    accessToken: pick(oauthSrc, ['accessToken']) ?? csc.accessToken,
+    tokenProvider: pick(oauthSrc, ['tokenProvider']) ?? csc.tokenProvider,
+    grantType: pick(oauthSrc, ['grantType']) ?? csc.grantType ?? '',
+    clientAuth: pick(oauthSrc, ['clientAuth']) ?? csc.clientAuth ?? '',
+    tokenBodyFormat: pick(oauthSrc, ['tokenBodyFormat']) ?? csc.tokenBodyFormat ?? '',
+    scope: pick(oauthSrc, ['scope']) ?? csc.scope,
+    audience: pick(oauthSrc, ['audience']) ?? csc.audience,
+    // Only for grant_type=password
+    username: pick(oauthSrc, ['username']) ?? csc.username,
+    password: pick(oauthSrc, ['password']) ?? csc.password
   };
 
-  const credential = csc.credential || {
-    id: csc.credentialId,
-    userId: csc.userId,
-    select: csc.credentialSelect,
-    clientData: csc.clientData
+  const credentialSrc = csc.credential || {};
+  const credential = {
+    id: pick(credentialSrc, ['id']) ?? csc.credentialId,
+    userId: pick(credentialSrc, ['userId']) ?? csc.userId,
+    select: pick(credentialSrc, ['select']) ?? csc.credentialSelect,
+    // Provider-specific hint for credentials/list (e.g. eSeal credential type)
+    clientData: pick(credentialSrc, ['clientData']) ?? csc.clientData
   };
 
-  const auth = csc.auth || {
-    // Non-interactive default: do not require user input.
-    // Override via custom config auth block if you ever need OTP/PIN.
-    kind: csc.authKind || 'none',
-    value: ''
+  const authSrc = csc.auth || {};
+  const auth = {
+    // Non-interactive default: no OTP/PIN required
+    kind: pick(authSrc, ['kind']) ?? csc.authKind ?? 'none',
+    value: pick(authSrc, ['value']) ?? '',
+    getValue: pick(authSrc, ['getValue'])
   };
 
   return {
@@ -123,13 +138,8 @@ function normalizeProviderConfig(config) {
     timeoutMs: csc.timeoutMs || root.timeoutMs || DEFAULT_TIMEOUT_MS,
 
     hashAlgorithm: csc.hashAlgorithm || 'sha256',
+    authorizeHashEncoding: csc.authorizeHashEncoding || 'base64',
 
-    // How to encode the hash in credentials/authorize.
-    // Some vendors are stricter; default is standard base64.
-    authorizeHashEncoding: csc.authorizeHashEncoding || 'base64', // 'base64' | 'base64url'
-
-    // If set, overrides what we send as signAlgo / hashAlgo.
-    // Otherwise we try to infer them.
     signAlgo: csc.signAlgo || '',
     hashAlgo: csc.hashAlgo || '',
 
@@ -138,32 +148,30 @@ function normalizeProviderConfig(config) {
       clientId: oauth?.clientId || '',
       clientSecret: oauth?.clientSecret || '',
       accessToken: oauth?.accessToken || '',
-      grantType: oauth?.grantType || 'client_credentials',
+      grantType: oauth?.grantType || '',
+      clientAuth: oauth?.clientAuth || '',
+      tokenBodyFormat: oauth?.tokenBodyFormat || '',
       scope: oauth?.scope || '',
       audience: oauth?.audience || '',
-      // Optional hook for non-standard auth flows (auth_code, device flow, etc.)
+      username: oauth?.username || '',
+      password: oauth?.password || '',
       tokenProvider: oauth?.tokenProvider
     },
 
     credential: {
       id: credential?.id || '',
       userId: credential?.userId,
-      // Function (ids, rawResponse) => chosenId; otherwise first ID is used.
       select: credential?.select,
-      // Provider-specific hint for credentials/list (e.g. SSL.com DS_ESEAL)
       clientData: credential?.clientData
     },
 
     auth: {
-      // 'otp' | 'pin' | 'none'. Some providers accept both fields, some reject unknown ones.
       kind: auth?.kind || 'none',
       value: auth?.value || '',
       getValue: auth?.getValue
     },
 
-    // You can inject fixed chain to skip credentials/info (e.g. in offline tests).
     certificateChainDer: csc.certificateChainDer || root.certificateChainDer,
-    // Fallback chain sources (used when credentials/info doesn't return certs).
     certificateChainPem: csc.certificateChainPem || root.certificateChainPem || '',
     keyStorePath: keyStorePath || ''
   };
@@ -197,14 +205,17 @@ function detectKeyTypeFromDer(leafDer) {
   }
 }
 
-function defaultSignAlgoFromKeyType(keyType) {
-  // Many CSC providers expect key algorithm OID in signAlgo and hashAlgo separately.
-  // Example: RSA -> 1.2.840.113549.1.1.1, EC -> 1.2.840.10045.2.1
-  if (!keyType) return OID.rsaEncryption;
-  if (keyType === 'rsa' || keyType === 'rsa-pss') return OID.rsaEncryption;
-  if (keyType === 'ec') return OID.ecPublicKey;
-  // Unknown: fall back to RSA (most common for interoperability)
-  return OID.rsaEncryption;
+function defaultSignAlgoFromKeyType(keyType, hashAlgorithm) {
+  // CSC providers typically expect the combined signature algorithm OID
+  // (e.g. ecdsaWithSHA256), not just the key algorithm OID (e.g. ecPublicKey).
+  const hash = hashAlgorithm || 'sha256';
+  if (keyType === 'ec') {
+    const map = {sha256: OID.ecdsaWithSHA256, sha384: OID.ecdsaWithSHA384, sha512: OID.ecdsaWithSHA512};
+    return map[hash] || OID.ecdsaWithSHA256;
+  }
+  // RSA: use sha*WithRSA
+  const map = {sha256: OID.sha256WithRSA, sha384: OID.sha384WithRSA, sha512: OID.sha512WithRSA};
+  return map[hash] || OID.sha256WithRSA;
 }
 
 function defaultHashAlgoOid(hashAlgorithm) {
@@ -223,26 +234,14 @@ function defaultHashAlgoOid(hashAlgorithm) {
  *
  * Notes for interoperability:
  * - Always send both hashAlgo + signAlgo in signatures/signHash, because many providers require them.
- * - Do NOT persist OTP/PIN; accept it as a per-request value (hook).
+ * - Non-interactive only: OTP/PIN/SMS flows are not supported.
  */
-function inferDefaultClientData(cfg) {
-  // SSL.com uses clientData=DS_ESEAL to list eSeal credentials for non-interactive mode.
-  try {
-    const s = String(cfg?.baseUrl || '');
-    if (/\.ssl\.com\b/i.test(s)) return 'DS_ESEAL';
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
 class CscSigner {
   /**
    * @param {Object} config - see normalizeProviderConfig()
    */
   constructor(config) {
     this.cfg = normalizeProviderConfig(config);
-
     if (!this.cfg.baseUrl) throw new Error('CSC baseUrl is required');
 
     // Caches
@@ -253,15 +252,38 @@ class CscSigner {
     this._cachedCertChainDer = null;
   }
 
-  // ----------------------------
-  // Low-level HTTP
-  // ----------------------------
+  /**
+   * Extract structured error info from HTTP response (no credentials, no full bodies).
+   * @param {*} respData
+   * @returns {string}
+   */
+  _formatErrorDetail(respData) {
+    if (respData == null) return '';
+    if (typeof respData === 'object') {
+      return respData.error_description || respData.error || respData.message || respData.detail || respData.code || '';
+    }
+    const s = String(respData).trim();
+    if (s.startsWith('<!DOCTYPE') || s.startsWith('<html')) return 'HTML response (check URL)';
+    return '';
+  }
 
   async _post(path, token, body) {
     const headers = {'Content-Type': 'application/json'};
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const url = `${this.cfg.baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
-    return axios.post(url, body, {headers, timeout: this.cfg.timeoutMs});
+    try {
+      return await axios.post(url, body, {headers, timeout: this.cfg.timeoutMs});
+    } catch (e) {
+      const status = e?.response?.status;
+      const respData = e?.response?.data;
+      const detail = this._formatErrorDetail(respData);
+      const msg = `CSC ${path} failed (HTTP ${status || 'N/A'}): ${detail} — url=${url}`;
+      const wrapped = new Error(msg);
+      wrapped.cause = e;
+      wrapped.status = status;
+      wrapped.responseData = respData;
+      throw wrapped;
+    }
   }
 
   // ----------------------------
@@ -293,33 +315,34 @@ class CscSigner {
 
     if (!this.cfg.oauth.tokenUrl || !this.cfg.oauth.clientId) return null;
 
-    // Default: OAuth2 client_credentials with form body
-    if (this.cfg.oauth.grantType !== 'client_credentials') {
-      throw new Error(
-        `Unsupported OAuth grantType in default flow: ${this.cfg.oauth.grantType}. Provide oauth.tokenProvider or pre-set oauth.accessToken.`
-      );
+    // Check module-level token cache (survives across CscSigner instances)
+    const cacheKey = _tokenCacheKey(this.cfg.oauth);
+    const cached = _tokenCache.get(cacheKey);
+    if (cached) {
+      if (cached.exp > now) {
+        this._cachedToken = cached.token;
+        this._cachedTokenExp = cached.exp;
+        return cached.token;
+      }
+      _tokenCache.delete(cacheKey);
     }
 
-    const params = new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: this.cfg.oauth.clientId,
-      client_secret: this.cfg.oauth.clientSecret
-    });
-    if (this.cfg.oauth.scope) params.set('scope', this.cfg.oauth.scope);
-    if (this.cfg.oauth.audience) params.set('audience', this.cfg.oauth.audience);
+    try {
+      const data = await fetchOAuthToken({...this.cfg.oauth, timeout: this.cfg.timeoutMs});
+      const token = data?.access_token;
+      if (!token) throw new Error('Token endpoint returned no access_token');
 
-    const resp = await axios.post(this.cfg.oauth.tokenUrl, params, {
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      timeout: this.cfg.timeoutMs
-    });
-
-    const token = resp?.data?.access_token;
-    if (!token) throw new Error('OAuth token endpoint returned no access_token');
-
-    const expiresIn = Number(resp?.data?.expires_in || 0);
-    this._cachedToken = token;
-    this._cachedTokenExp = expiresIn ? now + expiresIn * 1000 - 5000 : now + DEFAULT_TOKEN_CACHE_MS;
-    return token;
+      const expiresIn = Number(data.expires_in || 0);
+      this._cachedToken = String(token);
+      this._cachedTokenExp = expiresIn ? now + expiresIn * 1000 - 5000 : now + DEFAULT_TOKEN_CACHE_MS;
+      _tokenCache.set(cacheKey, {token: this._cachedToken, exp: this._cachedTokenExp});
+      return this._cachedToken;
+    } catch (e) {
+      const status = e?.response?.status;
+      const detail = this._formatErrorDetail(e?.response?.data);
+      const netErr = !status ? ` cause=${e?.code || e?.message || 'unknown'}` : '';
+      throw new Error(`OAuth token request failed (HTTP ${status || 'N/A'}): ${detail}${netErr} — url=${this.cfg.oauth.tokenUrl}`);
+    }
   }
 
   // ----------------------------
@@ -334,9 +357,8 @@ class CscSigner {
     // CSC allows optional userID depending on the auth model; keep if userId provided.
     if (this.cfg.credential.userId) body.userID = this.cfg.credential.userId;
 
-    // Provider-specific hint (e.g. SSL.com eSealing / DS_ESEAL). Safe no-op for others.
-    const clientData = this.cfg.credential.clientData || inferDefaultClientData(this.cfg);
-    if (clientData) body.clientData = clientData;
+    // Provider-specific hint for credentials/list (e.g. eSeal credential type)
+    if (this.cfg.credential.clientData) body.clientData = this.cfg.credential.clientData;
 
     const resp = await this._post('/credentials/list', token, body);
 
@@ -465,8 +487,8 @@ class CscSigner {
     try {
       resp = await this._post('/credentials/authorize', token, payload);
     } catch (e) {
-      const status = e?.response?.status;
-      const data = e?.response?.data;
+      const status = e?.status || e?.response?.status;
+      const data = e?.responseData || e?.response?.data;
       const msg = String(data?.error_description || data?.error || data?.message || e?.message || '');
       if (/otp|pin|2fa|second\s*factor/i.test(msg)) {
         throw new Error('CSC provider requires OTP/PIN (interactive 2FA). This integration is configured for non-interactive signing only.');
@@ -510,11 +532,11 @@ class CscSigner {
       const chain = parseCertificatesFromCredentialsInfo(info);
       const leaf = chain[0];
       const keyType = detectKeyTypeFromDer(leaf);
-      const signAlgo = defaultSignAlgoFromKeyType(keyType);
+      const signAlgo = defaultSignAlgoFromKeyType(keyType, this.cfg.hashAlgorithm);
       return {hashAlgo, signAlgo};
     } catch {
-      // Fallback to RSA
-      return {hashAlgo, signAlgo: OID.rsaEncryption};
+      // Fallback to RSA with SHA-256
+      return {hashAlgo, signAlgo: OID.sha256WithRSA};
     }
   }
 
@@ -547,6 +569,25 @@ class CscSigner {
  * @param {Object} config - CscSigner config + signPdfWithSigner options
  * @returns {Promise<void>}
  */
+// Module-level OAuth token cache: avoids re-fetching tokens on every signPdfFile call.
+// Keyed by JSON of all oauth-relevant fields so config changes invalidate the cache.
+const _tokenCache = new Map();
+
+function _tokenCacheKey(oauth) {
+  return JSON.stringify({
+    tokenUrl: oauth.tokenUrl,
+    clientId: oauth.clientId,
+    clientSecret: oauth.clientSecret,
+    grantType: oauth.grantType,
+    clientAuth: oauth.clientAuth,
+    tokenBodyFormat: oauth.tokenBodyFormat,
+    username: oauth.username,
+    password: oauth.password,
+    scope: oauth.scope,
+    audience: oauth.audience
+  });
+}
+
 async function signPdfFile(inputPath, outputPath, config) {
   const signer = new CscSigner(config);
   const certificateChainDer = await signer.getCertificateChainDer();
