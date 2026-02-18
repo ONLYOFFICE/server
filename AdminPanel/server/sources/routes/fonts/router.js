@@ -4,12 +4,11 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const fs = require('fs');
-const {spawn} = require('child_process');
 const path = require('path');
 const crypto = require('crypto');
-const tenantManager = require('../../../../../Common/sources/tenantManager');
 const {validateJWT} = require('../../middleware/auth');
 const fontService = require('./fontService');
+const {findScript, runScript} = require('../../utils/scriptRunner');
 
 const router = express.Router();
 
@@ -17,10 +16,9 @@ const router = express.Router();
 const GENERATION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 let currentGeneration = null;
 
-// Script search configuration (production mode - like letsencrypt)
+// Script search configuration (production mode)
 const SCRIPT_NAME = 'documentserver-generate-allfonts';
 const SCRIPT_SEARCH_PATHS = ['/usr/bin', path.resolve(process.cwd(), '../../bin')];
-const SCRIPT_EXTENSIONS = ['.sh', '.ps1', '.bat'];
 
 // Development mode: direct allfontsgen.exe path and arguments
 const DEV_ALLFONTSGEN_PATH = path.resolve(process.cwd(), '../FileConverter/bin/allfontsgen.exe');
@@ -43,22 +41,6 @@ function isDevelopmentMode() {
 }
 
 /**
- * Find generate-allfonts script in known locations (production mode)
- * @returns {string|null} Script path or null if not found
- */
-function findGenerateScript() {
-  for (const searchPath of SCRIPT_SEARCH_PATHS) {
-    for (const ext of SCRIPT_EXTENSIONS) {
-      const scriptPath = path.join(searchPath, SCRIPT_NAME + ext);
-      if (fs.existsSync(scriptPath)) {
-        return scriptPath;
-      }
-    }
-  }
-  return null;
-}
-
-/**
  * Get generator configuration based on environment
  * @returns {{available: boolean, path?: string, args?: string[], cwd?: string}}
  */
@@ -76,7 +58,7 @@ function getGeneratorConfig() {
   }
 
   // Production mode
-  const scriptPath = findGenerateScript();
+  const scriptPath = findScript(SCRIPT_NAME, SCRIPT_SEARCH_PATHS);
   if (scriptPath) {
     return {
       available: true,
@@ -88,42 +70,6 @@ function getGeneratorConfig() {
   return {available: false};
 }
 
-/**
- * Get spawn arguments for script execution
- * @param {string} scriptPath - Full path to script
- * @param {string[]} args - Script arguments
- * @returns {{command: string, args: string[]}}
- */
-function getSpawnArgs(scriptPath, args) {
-  const ext = path.extname(scriptPath).toLowerCase();
-
-  if (ext === '.ps1') {
-    return {
-      command: 'powershell.exe',
-      args: ['-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]
-    };
-  }
-
-  if (ext === '.bat' || ext === '.cmd') {
-    return {
-      command: process.env.ComSpec || 'cmd.exe',
-      args: ['/c', scriptPath, ...args]
-    };
-  }
-
-  if (ext === '.sh') {
-    return {
-      command: 'sudo',
-      args: ['-n', scriptPath, ...args]
-    };
-  }
-
-  // For .exe and others - run directly
-  return {
-    command: scriptPath,
-    args
-  };
-}
 router.use(cookieParser());
 router.use(express.json());
 
@@ -139,9 +85,9 @@ const rawFileParser = bodyParser.raw({
 /**
  * Check admin-only access
  */
-function requireAdmin(ctx, res) {
-  if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-    res.status(403).json({error: 'Only admin can manage fonts'});
+function requireAdmin(req, res) {
+  if (!req.user || !req.user.isAdmin) {
+    res.status(403).json({error: 'Admin access required'});
     return false;
   }
   return true;
@@ -169,52 +115,13 @@ function getGenerationStatus() {
  * @param {Object} config - Generator config from getGeneratorConfig()
  */
 function runGenerator(ctx, config) {
-  return new Promise((resolve, reject) => {
-    let done = false;
-
-    const finish = error => {
-      if (done) return;
-      done = true;
-      clearTimeout(timeout);
-      if (error) reject(error);
-      else resolve();
-    };
-
-    const {command, args} = getSpawnArgs(config.path, config.args);
-
-    ctx.logger.debug('Spawning: %s %s (cwd: %s)', command, args.join(' '), config.cwd);
-
-    const proc = spawn(command, args, {
-      cwd: config.cwd,
-      windowsHide: true
-    });
-
-    const timeout = setTimeout(() => {
-      proc.kill();
-      finish(new Error('Font generation timed out after 10 minutes'));
-    }, GENERATION_TIMEOUT_MS);
-
-    proc.stdout.on('data', data => {
-      ctx.logger.info('allfontsgen: %s', data.toString().trim());
-    });
-
-    proc.stderr.on('data', data => {
-      ctx.logger.warn('allfontsgen stderr: %s', data.toString().trim());
-    });
-
-    proc.on('error', err => {
-      finish(new Error(`Failed to start generator: ${err.message}`));
-    });
-
-    proc.on('close', (code, signal) => {
-      if (signal) {
-        finish(new Error(`Process killed by ${signal}`));
-      } else if (code === 0) {
-        finish(null);
-      } else {
-        finish(new Error(`Font generation failed with exit code ${code}`));
-      }
-    });
+  return runScript({
+    scriptPath: config.path,
+    args: config.args,
+    cwd: config.cwd,
+    timeoutMs: GENERATION_TIMEOUT_MS,
+    label: 'allfontsgen',
+    logger: ctx.logger
   });
 }
 
@@ -225,7 +132,7 @@ function runGenerator(ctx, config) {
 router.get('/status', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const status = fontService.getStatus();
     const generatorConfig = getGeneratorConfig();
@@ -251,7 +158,7 @@ router.get('/status', validateJWT, async (req, res) => {
 router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const {filter, source} = req.query;
     let {fonts} = fontService.parseAllFonts();
@@ -289,7 +196,7 @@ router.get('/', validateJWT, async (req, res) => {
 router.post('/upload', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     // Get filename from header
     let filename = req.headers['x-filename'];
@@ -351,7 +258,7 @@ router.post('/upload', validateJWT, rawFileParser, async (req, res) => {
 router.delete('/:filename', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const filename = req.params.filename;
     if (!filename) {
@@ -385,7 +292,7 @@ router.delete('/:filename', validateJWT, async (req, res) => {
 router.post('/apply', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     if (currentGeneration && currentGeneration.status === 'running') {
       return res.status(409).json({
@@ -456,7 +363,7 @@ router.post('/apply', validateJWT, async (req, res) => {
 router.get('/apply/status', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     res.json(getGenerationStatus());
   } catch (error) {

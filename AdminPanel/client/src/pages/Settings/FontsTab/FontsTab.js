@@ -1,10 +1,12 @@
-import {useState, useEffect, useCallback, useRef} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import Button from '../../../components/Button/Button';
+import FilePickerInput from '../../../components/FilePickerInput/FilePickerInput';
 import Input from '../../../components/Input/Input';
 import Section from '../../../components/Section/Section';
 import Note from '../../../components/Note/Note';
 import Checkbox from '../../../components/Checkbox/Checkbox';
 import Spinner from '../../../components/Spinner/Spinner';
+import useFileDrop from '../../../hooks/useFileDrop';
 import {getFontsStatus, getFontsList, uploadFonts, deleteFont, applyFontsChanges, getFontsApplyStatus} from '../../../api/fonts';
 import styles from './FontsTab.module.scss';
 
@@ -35,9 +37,6 @@ const FontsTab = () => {
   // Upload state
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [dragging, setDragging] = useState(false);
-  const fileInputRef = useRef(null);
-  const dragCounter = useRef(0);
 
   // Pending deletions state
   const [pendingDeletions, setPendingDeletions] = useState(new Set());
@@ -118,44 +117,12 @@ const FontsTab = () => {
     setError(null);
   };
 
-  // File selection via browse
-  const handleFileSelect = event => {
-    addFiles(Array.from(event.target.files || []));
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleBrowseClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  // Drag & drop handlers
-  const handleDragEnter = e => {
-    e.preventDefault();
-    dragCounter.current++;
-    setDragging(true);
-  };
-
-  const handleDragLeave = e => {
-    e.preventDefault();
-    dragCounter.current--;
-    if (dragCounter.current === 0) {
-      setDragging(false);
-    }
-  };
-
-  const handleDragOver = e => {
-    e.preventDefault();
-  };
-
-  const handleDrop = e => {
-    e.preventDefault();
-    dragCounter.current = 0;
-    setDragging(false);
-    if (uploading || generating) return;
-    addFiles(Array.from(e.dataTransfer.files || []));
-  };
+  const {isDragActive, dropZoneProps} = useFileDrop({
+    onDrop: addFiles,
+    accept: FONT_EXTENSIONS,
+    multiple: true,
+    disabled: uploading || generating
+  });
 
   const handleRemoveFile = fileName => {
     setSelectedFiles(prev => prev.filter(f => f.name !== fileName));
@@ -357,31 +324,21 @@ const FontsTab = () => {
       )}
 
       {/* Upload Section */}
-      <div
-        className={`${styles.uploadSection} ${dragging ? styles.uploadSectionDragging : ''}`}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
+      <div className={`${styles.uploadSection} ${isDragActive ? styles.uploadSectionDragging : ''}`} {...dropZoneProps}>
         <Note type='note'>
           Upload font files (TTF, TTE, OTF, OTC, TTC, WOFF, WOFF2) to add custom fonts. You can also drag and drop files here. Document Server must be
           restarted to use the new fonts.
         </Note>
 
-        <input ref={fileInputRef} type='file' accept={FONT_EXTENSIONS} multiple onChange={handleFileSelect} style={{display: 'none'}} />
-
-        <div className={styles.fileInputRow}>
-          <Input
-            label='Select Font Files'
-            value={selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : ''}
-            readOnly
-            placeholder='No files selected'
-          />
-          <Button onClick={handleBrowseClick} disableResult disabled={uploading || generating}>
-            Browse
-          </Button>
-        </div>
+        <FilePickerInput
+          label='Select Font Files'
+          accept={FONT_EXTENSIONS}
+          multiple
+          value={selectedFiles}
+          onFileSelect={addFiles}
+          disabled={uploading || generating}
+          placeholder='No files selected'
+        />
 
         {selectedFiles.length > 0 && (
           <div className={styles.selectedFiles}>

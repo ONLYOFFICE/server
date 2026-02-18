@@ -29,9 +29,9 @@ const rawFileParser = bodyParser.raw({
   }
 });
 
-function requireAdmin(ctx, res) {
-  if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-    res.status(403).json({error: 'Only admin can manage license'});
+function requireAdmin(req, res) {
+  if (!req.user || !req.user.isAdmin) {
+    res.status(403).json({error: 'Admin access required'});
     return false;
   }
   return true;
@@ -61,7 +61,7 @@ function buildLicenseResponse(licenseData) {
 router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const licPath = getLicenseFilePath();
     const bakPath = licPath ? licPath + '.bak' : '';
@@ -102,7 +102,7 @@ router.get('/', validateJWT, async (req, res) => {
 router.post('/validate', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     if (!req.body || req.body.length === 0) {
       return res.status(400).json({error: 'No file uploaded'});
@@ -149,7 +149,7 @@ router.post('/validate', validateJWT, rawFileParser, async (req, res) => {
 router.post('/', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const licPath = getLicenseFilePath();
     if (!licPath) {
@@ -249,7 +249,7 @@ router.post('/', validateJWT, rawFileParser, async (req, res) => {
 router.post('/revert', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const licPath = getLicenseFilePath();
     if (!licPath) {
