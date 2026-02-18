@@ -2,13 +2,11 @@
 
 const express = require('express');
 const cookieParser = require('cookie-parser');
-const fs = require('fs');
-const path = require('path');
 const tls = require('tls');
 const net = require('net');
-const {spawn} = require('child_process');
 const {validateJWT} = require('../../middleware/auth');
 const tenantManager = require('../../../../../Common/sources/tenantManager');
+const {findScript, runScript} = require('../../utils/scriptRunner');
 
 const router = express.Router();
 router.use(cookieParser());
@@ -17,69 +15,6 @@ router.use(express.json());
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes (certbot can be slow)
 const SCRIPT_NAME = 'documentserver-letsencrypt';
 const SCRIPT_SEARCH_PATHS = ['/usr/bin'];
-const SCRIPT_EXTENSIONS = ['.sh', '.ps1', '.bat'];
-
-/**
- * Installation error with details
- */
-class InstallError extends Error {
-  constructor(message, details = '') {
-    super(message);
-    this.details = details;
-  }
-}
-
-/**
- * Find Let's Encrypt script in known locations
- * @returns {string|null} Script path or null if not found
- */
-function findLetsEncryptScript() {
-  for (const searchPath of SCRIPT_SEARCH_PATHS) {
-    for (const ext of SCRIPT_EXTENSIONS) {
-      const scriptPath = path.join(searchPath, SCRIPT_NAME + ext);
-      if (fs.existsSync(scriptPath)) {
-        return scriptPath;
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Get spawn arguments for script execution
- * @param {string} scriptPath - Full path to script
- * @param {string[]} args - Script arguments
- * @returns {{command: string, args: string[]}}
- */
-function getSpawnArgs(scriptPath, args) {
-  const ext = path.extname(scriptPath).toLowerCase();
-
-  if (ext === '.ps1') {
-    return {
-      command: 'powershell.exe',
-      args: ['-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]
-    };
-  }
-
-  if (ext === '.bat' || ext === '.cmd') {
-    return {
-      command: process.env.ComSpec || 'cmd.exe',
-      args: ['/c', scriptPath, ...args]
-    };
-  }
-
-  if (ext === '.sh') {
-    return {
-      command: 'sudo',
-      args: ['-n', scriptPath, ...args]
-    };
-  }
-
-  return {
-    command: scriptPath,
-    args
-  };
-}
 
 /**
  * Get certificate info via TLS connection
@@ -115,62 +50,6 @@ function getCertificate(hostname) {
   });
 }
 
-/**
- * Run installation script with timeout and proper cleanup
- * @param {string} scriptPath - Full path to script
- * @param {string} email - Email for Let's Encrypt
- * @param {string} domain - Domain name
- * @param {object} logger - Logger instance
- */
-function runInstallScript(scriptPath, email, domain, logger) {
-  return new Promise((resolve, reject) => {
-    let stderr = '';
-    let done = false;
-
-    const finish = (error, result) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timeout);
-      error ? reject(error) : resolve(result);
-    };
-
-    const spawnConfig = getSpawnArgs(scriptPath, [email, domain]);
-    logger.debug('Executing: %s %s', spawnConfig.command, spawnConfig.args.join(' '));
-
-    const proc = spawn(spawnConfig.command, spawnConfig.args, {windowsHide: true});
-
-    const timeout = setTimeout(() => {
-      proc.kill();
-      const details = stderr.slice(-2048).trim();
-      finish(new InstallError('Installation timed out after 5 minutes', details));
-    }, INSTALL_TIMEOUT_MS);
-
-    proc.stdout.on('data', data => {
-      logger.info('letsencrypt: %s', data.toString().trim());
-    });
-
-    proc.stderr.on('data', data => {
-      stderr += data.toString();
-      logger.warn('letsencrypt: %s', data.toString().trim());
-    });
-
-    proc.on('error', err => {
-      const details = stderr.slice(-2048).trim();
-      finish(new InstallError(`Failed to start script: ${err.message}`, details));
-    });
-
-    proc.on('close', (code, signal) => {
-      if (signal) {
-        finish(new InstallError(`Process killed by ${signal}`, stderr.slice(-2048).trim()));
-      } else if (code === 0) {
-        finish(null);
-      } else {
-        finish(new InstallError(`Installation failed (exit code ${code})`, stderr.slice(-2048).trim()));
-      }
-    });
-  });
-}
-
 // GET /status
 router.get('/status', validateJWT, async (req, res) => {
   const ctx = req.ctx;
@@ -181,7 +60,7 @@ router.get('/status', validateJWT, async (req, res) => {
       return res.status(403).json({error: 'Admin only'});
     }
 
-    const scriptPath = findLetsEncryptScript();
+    const scriptPath = findScript(SCRIPT_NAME, SCRIPT_SEARCH_PATHS);
     if (!scriptPath) {
       return res.json({available: false});
     }
@@ -215,12 +94,18 @@ router.post('/install', validateJWT, async (req, res) => {
       return res.status(400).json({error: 'Domain name required'});
     }
 
-    const scriptPath = findLetsEncryptScript();
+    const scriptPath = findScript(SCRIPT_NAME, SCRIPT_SEARCH_PATHS);
     if (!scriptPath) {
       return res.status(400).json({error: 'Installation script not found'});
     }
 
-    await runInstallScript(scriptPath, email, domain, ctx.logger);
+    await runScript({
+      scriptPath,
+      args: [email, domain],
+      timeoutMs: INSTALL_TIMEOUT_MS,
+      label: 'letsencrypt',
+      logger: ctx.logger
+    });
 
     ctx.logger.info('Certificate installed successfully for %s', domain);
     res.json({success: true});
@@ -228,8 +113,7 @@ router.post('/install', validateJWT, async (req, res) => {
     ctx.logger.error('Installation failed: %s', error.message);
     res.status(400).json({
       success: false,
-      error: error.message,
-      details: error.details || null // Full stderr for debugging
+      error: error.message
     });
   }
 });
