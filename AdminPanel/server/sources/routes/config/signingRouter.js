@@ -5,7 +5,6 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
 const tls = require('tls');
-const tenantManager = require('../../../../../Common/sources/tenantManager');
 const {validateJWT} = require('../../middleware/auth');
 
 const router = express.Router();
@@ -58,13 +57,13 @@ function validateCertificate(certBuffer, passphrase) {
 }
 
 /**
- * @param {Object} ctx
+ * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @returns {boolean}
  */
-function requireAdmin(ctx, res) {
-  if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-    res.status(403).json({error: 'Only admin can manage signing certificates'});
+function requireAdmin(req, res) {
+  if (!req.user || !req.user.isAdmin) {
+    res.status(403).json({error: 'Admin access required'});
     return false;
   }
   return true;
@@ -74,7 +73,7 @@ function requireAdmin(ctx, res) {
 router.get('/status', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
     const certPath = getSigningCertPath();
     if (!certPath) return res.status(200).json({exists: false, configured: false});
     if (!fs.existsSync(certPath)) return res.status(200).json({exists: false, configured: true});
@@ -105,7 +104,7 @@ router.post('/', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
     ctx.logger.info('signing certificate upload start');
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
     if (!req.body || req.body.length === 0) return res.status(400).json({error: 'No file uploaded'});
     if (req.body.length > 1024 * 1024) return res.status(400).json({error: 'File too large (max 1MB)'});
 
@@ -136,7 +135,7 @@ router.post('/', validateJWT, rawFileParser, async (req, res) => {
 router.post('/validate', validateJWT, express.json(), async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
     const {provider, config: cfg} = req.body || {};
     if (!provider || !cfg) return res.status(400).json({valid: false, error: 'Missing provider or config'});
 
@@ -166,7 +165,7 @@ router.post('/validate', validateJWT, express.json(), async (req, res) => {
 router.delete('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
     const certPath = getSigningCertPath();
     if (!certPath) return res.status(404).json({error: 'signingKeyStorePath is not configured'});
     if (fs.existsSync(certPath)) {

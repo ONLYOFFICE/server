@@ -5,15 +5,27 @@
   margin: 32px 0;
 }
 
-// Extra bottom spacing after a field (e.g. before buttons)
-.fieldWithSpacing {
-  margin-bottom: 16px;
+// Vertical spacing between consecutive form fields
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-// File input + Browse button inline row (same as FontsTab)
-.fileInputRow {
+// Certificate upload drop zone
+.certSection {
   display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 16px;
+  flex-direction: column;
+  gap: 16px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  padding: 16px;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.certSectionDragActive {
+  border-color: #ff6f3d;
+  background: #fff7f5;
 }
