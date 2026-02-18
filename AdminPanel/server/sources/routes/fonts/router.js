@@ -6,7 +6,6 @@ const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const tenantManager = require('../../../../../Common/sources/tenantManager');
 const {validateJWT} = require('../../middleware/auth');
 const fontService = require('./fontService');
 const {findScript, runScript} = require('../../utils/scriptRunner');
@@ -86,9 +85,9 @@ const rawFileParser = bodyParser.raw({
 /**
  * Check admin-only access
  */
-function requireAdmin(ctx, res) {
-  if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
-    res.status(403).json({error: 'Only admin can manage fonts'});
+function requireAdmin(req, res) {
+  if (!req.user || !req.user.isAdmin) {
+    res.status(403).json({error: 'Admin access required'});
     return false;
   }
   return true;
@@ -133,7 +132,7 @@ function runGenerator(ctx, config) {
 router.get('/status', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const status = fontService.getStatus();
     const generatorConfig = getGeneratorConfig();
@@ -159,7 +158,7 @@ router.get('/status', validateJWT, async (req, res) => {
 router.get('/', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const {filter, source} = req.query;
     let {fonts} = fontService.parseAllFonts();
@@ -197,7 +196,7 @@ router.get('/', validateJWT, async (req, res) => {
 router.post('/upload', validateJWT, rawFileParser, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     // Get filename from header
     let filename = req.headers['x-filename'];
@@ -259,7 +258,7 @@ router.post('/upload', validateJWT, rawFileParser, async (req, res) => {
 router.delete('/:filename', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const filename = req.params.filename;
     if (!filename) {
@@ -293,7 +292,7 @@ router.delete('/:filename', validateJWT, async (req, res) => {
 router.post('/apply', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     if (currentGeneration && currentGeneration.status === 'running') {
       return res.status(409).json({
@@ -364,7 +363,7 @@ router.post('/apply', validateJWT, async (req, res) => {
 router.get('/apply/status', validateJWT, async (req, res) => {
   const ctx = req.ctx;
   try {
-    if (!requireAdmin(ctx, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     res.json(getGenerationStatus());
   } catch (error) {

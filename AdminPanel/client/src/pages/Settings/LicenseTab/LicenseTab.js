@@ -1,8 +1,9 @@
-import {useState, useEffect, useCallback, useRef} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import Button from '../../../components/Button/Button';
-import Input from '../../../components/Input/Input';
+import FilePickerInput from '../../../components/FilePickerInput/FilePickerInput';
 import Section from '../../../components/Section/Section';
 import Note from '../../../components/Note/Note';
+import useFileDrop from '../../../hooks/useFileDrop';
 import {getLicenseInfo, uploadLicense, revertLicense, validateLicense} from '../../../api/license';
 import styles from './LicenseTab.module.scss';
 
@@ -126,8 +127,6 @@ const renderInfoBlocks = (data, {preview} = {}) => {
 };
 
 const LicenseTab = () => {
-  const fileInputRef = useRef(null);
-
   const [loading, setLoading] = useState(true);
   const [licenseData, setLicenseData] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -137,7 +136,6 @@ const LicenseTab = () => {
   const [reverting, setReverting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [dragActive, setDragActive] = useState(false);
 
   const loadLicenseInfo = useCallback(async () => {
     try {
@@ -180,35 +178,11 @@ const LicenseTab = () => {
     }
   };
 
-  const handleFileSelect = event => {
-    const file = event.target.files?.[0];
-    if (file) processFile(file);
-  };
-
-  const handleBrowseClick = () => fileInputRef.current?.click();
-
-  // Drag & Drop handlers
-  const handleDragOver = e => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  const handleDragEnter = e => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(true);
-  };
-  const handleDragLeave = e => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-  };
-  const handleDrop = e => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    const file = e.dataTransfer?.files?.[0];
-    if (file) processFile(file);
-  };
+  const {isDragActive, dropZoneProps} = useFileDrop({
+    onDrop: files => processFile(files[0]),
+    accept: '.lic,.json',
+    disabled: uploading || reverting
+  });
 
   const handleUpload = async () => {
     if (!selectedFile) return;
@@ -221,7 +195,6 @@ const LicenseTab = () => {
       setLicenseData(data);
       setSelectedFile(null);
       setPreviewData(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
       showSuccess('License updated successfully');
     } catch (err) {
       setError(err.message || 'Failed to upload license');
@@ -252,24 +225,18 @@ const LicenseTab = () => {
    */
   const renderUploadForm = () => {
     const disabled = uploading || reverting;
-    const formClass = [styles.formSection, dragActive ? styles.formSectionDragActive : ''].filter(Boolean).join(' ');
+    const formClass = [styles.formSection, isDragActive ? styles.formSectionDragActive : ''].filter(Boolean).join(' ');
 
     return (
-      <div
-        className={formClass}
-        onDragEnter={disabled ? handleDragOver : handleDragEnter}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={disabled ? handleDragOver : handleDrop}
-      >
-        <input ref={fileInputRef} type='file' accept='.lic,.json' onChange={handleFileSelect} style={{display: 'none'}} />
-
-        <div className={styles.fileInputRow}>
-          <Input value={selectedFile ? selectedFile.name : ''} onChange={() => {}} placeholder='No file selected' readOnly label='License File' />
-          <Button onClick={handleBrowseClick} disableResult disabled={disabled}>
-            Browse
-          </Button>
-        </div>
+      <div className={formClass} {...dropZoneProps}>
+        <FilePickerInput
+          label='License File'
+          accept='.lic,.json'
+          value={selectedFile}
+          onFileSelect={files => processFile(files[0])}
+          disabled={disabled}
+          placeholder='No file selected'
+        />
 
         {validating && (
           <div className={styles.statusRow}>
@@ -278,11 +245,10 @@ const LicenseTab = () => {
         )}
 
         {previewData && (
-          <div className={styles.previewSection}>
-            <div className={styles.previewHeader}>Selected file info:</div>
+          <Note type={previewData.valid ? 'note' : 'warning'} title='Selected file info'>
             {renderInfoBlocks(previewData, {preview: true})}
             {!previewData.valid && <div className={styles.messageError}>This license file is invalid or expired and cannot be applied.</div>}
-          </div>
+          </Note>
         )}
 
         <div className={styles.actions}>

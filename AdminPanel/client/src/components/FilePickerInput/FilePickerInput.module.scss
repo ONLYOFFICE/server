@@ -1,0 +1,10 @@
+.filePickerRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+
+  // Reset browser default margin on <input> so it aligns flush with the button
+  input {
+    margin: 0;
+  }
+}
