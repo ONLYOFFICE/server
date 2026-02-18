@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef, useCallback} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
 import {useQuery} from '@tanstack/react-query';
 import {
@@ -12,15 +12,19 @@ import {saveConfig, resetConfig, selectConfig} from '../../../store/slices/confi
 import {getNestedValue} from '../../../utils/getNestedValue';
 import {mergeNestedObjects} from '../../../utils/mergeNestedObjects';
 import Button from '../../../components/Button/Button';
+import FilePickerInput from '../../../components/FilePickerInput/FilePickerInput';
 import Input from '../../../components/Input/Input';
 import Section from '../../../components/Section/Section';
 import PasswordInput from '../../../components/PasswordInput/PasswordInput';
 import Note from '../../../components/Note/Note';
 import Tabs from '../../../components/Tabs/Tabs';
+import useFileDrop from '../../../hooks/useFileDrop';
 import styles from './SigningTab.module.scss';
 
 const CLOUD_PREFIX = 'FileConverter.converter.signing';
 const META_PREFIX = `${CLOUD_PREFIX}.meta`;
+
+const CERT_ACCEPT = '.p12,.pfx,.pem,.crt,.cer';
 
 const SIGNING_TABS = [
   {key: 'awsKms', label: 'AWS KMS'},
@@ -51,7 +55,6 @@ const emptyCsc = {
 const SigningTab = () => {
   const dispatch = useDispatch();
   const config = useSelector(selectConfig);
-  const fileInputRef = useRef(null);
 
   // Fetch full config with secrets (not redacted)
   const {data: fullConfig} = useQuery({
@@ -105,13 +108,30 @@ const SigningTab = () => {
   const activeProvider = savedAwsKeyId ? 'AWS KMS' : savedCscBaseUrl ? 'CSC' : null;
   const isCloudMode = signingMode !== 'local';
 
+  // ─── Certificate file handler (shared by Browse and D&D) ──────────────────
+
+  const handleCertificateFiles = files => {
+    const file = files[0];
+    if (!/\.(p12|pfx|pem|crt|cer)$/i.test(file.name)) {
+      setSigningError('Accepted: .p12, .pfx, .pem, .crt, .cer');
+      setSelectedFile(null);
+      return;
+    }
+    setSigningError(null);
+    setSelectedFile(file);
+  };
+
+  const {isDragActive, dropZoneProps} = useFileDrop({
+    onDrop: handleCertificateFiles,
+    accept: CERT_ACCEPT
+  });
+
   // Reset other providers when switching tabs
   const handleTabChange = newMode => {
     setSigningMode(newMode);
     setSigningError(null);
     setSigningSuccess(null);
     setSelectedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
     if (newMode === 'awsKms') {
       setCsc({...emptyCsc});
       setPassphrase('');
@@ -302,7 +322,6 @@ const SigningTab = () => {
       }
 
       setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
       showSigningSuccess('Settings saved');
     } catch (err) {
       setSigningError(err.message || 'Failed to save');
@@ -330,26 +349,11 @@ const SigningTab = () => {
       setCsc({...emptyCsc});
       setSavedAwsKeyId('');
       setSavedCscBaseUrl('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
       showSigningSuccess('Signing settings cleared');
     } catch (err) {
       setSigningError(err.message || 'Failed to clear');
       throw err;
     }
-  };
-
-  // ─── Certificate Handlers ─────────────────────────────────────────────────
-
-  const handleFileSelect = e => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!/\.(p12|pfx|pem|crt|cer)$/i.test(file.name)) {
-      setSigningError('Accepted: .p12, .pfx, .pem, .crt, .cer');
-      setSelectedFile(null);
-      return;
-    }
-    setSigningError(null);
-    setSelectedFile(file);
   };
 
   // ─── Render helpers ───────────────────────────────────────────────────────
@@ -381,6 +385,8 @@ const SigningTab = () => {
 
   const hasAnySaved = certExists || !!savedAwsKeyId || !!savedCscBaseUrl;
 
+  const certSectionClass = [styles.certSection, isDragActive ? styles.certSectionDragActive : ''].filter(Boolean).join(' ');
+
   return (
     <>
       {/* ── PDF Signing ────────────────────────────────────────────── */}
@@ -402,7 +408,7 @@ const SigningTab = () => {
 
         <Tabs tabs={SIGNING_TABS} activeTab={signingMode} onTabChange={handleTabChange}>
           {signingMode === 'awsKms' && (
-            <>
+            <div className={styles.formFields}>
               <Input label='Key ID' {...awsField('keyId')} placeholder='arn:aws:kms:...' description='Asymmetric RSA key ARN or ID.' />
               <Input
                 label='Access Key ID'
@@ -416,18 +422,16 @@ const SigningTab = () => {
                 placeholder='Default credential chain'
                 description='Optional. Uses the default credential chain when empty.'
               />
-              <div className={styles.fieldWithSpacing}>
-                <Input
-                  label='Endpoint'
-                  {...awsField('endpoint')}
-                  placeholder='https://kms.eu-west-1.amazonaws.com'
-                  description='Optional. KMS-compatible endpoint URL. Empty = default AWS.'
-                />
-              </div>
-            </>
+              <Input
+                label='Endpoint'
+                {...awsField('endpoint')}
+                placeholder='https://kms.eu-west-1.amazonaws.com'
+                description='Optional. KMS-compatible endpoint URL. Empty = default AWS.'
+              />
+            </div>
           )}
           {signingMode === 'csc' && (
-            <>
+            <div className={styles.formFields}>
               <Input
                 label='Base URL *'
                 {...cscField('baseUrl')}
@@ -490,15 +494,13 @@ const SigningTab = () => {
                 placeholder='{"type":"eSeal"}'
                 description='Optional. Provider-specific clientData for credentials/list.'
               />
-              <div className={styles.fieldWithSpacing}>
-                <Input
-                  label='Audience'
-                  {...cscField('audience')}
-                  placeholder='https://api.example.com'
-                  description='Optional. OAuth2 audience parameter.'
-                />
-              </div>
-            </>
+              <Input
+                label='Audience'
+                {...cscField('audience')}
+                placeholder='https://api.example.com'
+                description='Optional. OAuth2 audience parameter.'
+              />
+            </div>
           )}
           {signingMode === 'local' && (
             <Note type='note'>
@@ -508,24 +510,22 @@ const SigningTab = () => {
           )}
         </Tabs>
 
-        {/* ── Certificate upload ──────────────────────────────────── */}
-        {isCloudMode && <Note type='note'>Upload a PEM file with the certificate chain (leaf + intermediates concatenated).</Note>}
+        {/* ── Certificate upload (drop zone) ──────────────────────── */}
+        <div className={certSectionClass} {...dropZoneProps}>
+          {isCloudMode && <Note type='note'>Upload a PEM file with the certificate chain (leaf + intermediates concatenated).</Note>}
 
-        <input ref={fileInputRef} type='file' accept='.p12,.pfx,.pem,.crt,.cer' onChange={handleFileSelect} style={{display: 'none'}} />
-        <div className={styles.fileInputRow}>
-          <Input label='Certificate File' value={selectedFile ? selectedFile.name : ''} onChange={() => {}} placeholder='No file selected' readOnly />
-          <Button onClick={() => fileInputRef.current?.click()} disableResult>
-            Browse
-          </Button>
-        </div>
+          <FilePickerInput
+            label='Certificate File'
+            accept={CERT_ACCEPT}
+            value={selectedFile}
+            onFileSelect={handleCertificateFiles}
+            placeholder='No file selected'
+          />
 
-        {signingMode === 'local' && (
-          <div className='form-row'>
+          {signingMode === 'local' && (
             <PasswordInput label='Passphrase' value={passphrase} onChange={setPassphrase} placeholder='Leave empty if not encrypted' />
-          </div>
-        )}
+          )}
 
-        <div className='form-row'>
           <div className='actions-section'>
             <Button onClick={handleSave} disabled={saveDisabled || validating}>
               {validating ? 'Validating...' : 'Save'}
@@ -536,23 +536,21 @@ const SigningTab = () => {
               </Button>
             )}
           </div>
-        </div>
 
-        {signingError && <div className='message-error'>{signingError}</div>}
-        {signingSuccess && <div className='message-success'>{signingSuccess}</div>}
+          {signingError && <div className='message-error'>{signingError}</div>}
+          {signingSuccess && <div className='message-success'>{signingSuccess}</div>}
+        </div>
       </Section>
 
       <hr className={styles.sectionDivider} />
 
       {/* ── Signature Metadata ─────────────────────────────────────── */}
       <Section title='Signature Metadata' description='Fields embedded in the PDF digital signature.'>
-        <Input label='Reason' {...metaField('reason')} placeholder='e.g. Signed after form completion' />
-        <Input label='Name' {...metaField('name')} placeholder='e.g. Document Signing Service' />
-        <Input label='Location' {...metaField('location')} placeholder='e.g. Online' />
-        <div className={styles.fieldWithSpacing}>
+        <div className={styles.formFields}>
+          <Input label='Reason' {...metaField('reason')} placeholder='e.g. Signed after form completion' />
+          <Input label='Name' {...metaField('name')} placeholder='e.g. Document Signing Service' />
+          <Input label='Location' {...metaField('location')} placeholder='e.g. Online' />
           <Input label='Contact Info' {...metaField('contactInfo')} placeholder='e.g. https://example.com' />
-        </div>
-        <div className='form-row'>
           <div className='actions-section'>
             <Button onClick={handleMetaSave} disabled={!metaChanged}>
               Save

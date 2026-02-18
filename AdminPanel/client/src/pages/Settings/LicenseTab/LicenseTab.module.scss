@@ -51,18 +51,6 @@
   font-style: italic;
 }
 
-// File row with Browse
-.fileInputRow {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.fileInputRow > *:first-child {
-  flex: 1;
-}
-
 // Form Section (also serves as the drag & drop target)
 .formSection {
   display: flex;
@@ -78,8 +66,8 @@
 }
 
 .formSectionDragActive {
-  border-color: #1a56db;
-  background: #e8f0fe;
+  border-color: #ff6f3d;
+  background: #fff7f5;
 }
 
 .actions {
@@ -87,22 +75,6 @@
   gap: 12px;
   align-items: center;
   margin-top: 4px;
-}
-
-// Preview Section
-.previewSection {
-  margin-top: 8px;
-  padding: 16px;
-  background: #f0f7ff;
-  border: 1px solid #b3d4fc;
-  border-radius: 6px;
-}
-
-.previewHeader {
-  font-weight: 500;
-  color: #1a56db;
-  margin-bottom: 12px;
-  font-size: 13px;
 }
 
 // Messages
