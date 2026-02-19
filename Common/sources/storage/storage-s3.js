@@ -45,10 +45,25 @@ const config = require('config');
 const utils = require('../utils');
 const ms = require('ms');
 const commonDefines = require('../commondefines');
+const operationContext = require('../operationContext');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
-const cfgRequestDefaults = config.util.cloneDeep(config.get('services.CoAuthoring.requestDefaults'));
+let cfgRequestDefaults = config.util.cloneDeep(config.get('services.CoAuthoring.requestDefaults'));
 const cfgCacheStorage = config.get('storage');
+
+async function updateS3ClientsOnRejectUnauthorizedChange() {
+  const ctx = new operationContext.Context();
+  await ctx.initTenantCache();
+  const newRejectUnauthorized = ctx.getCfg('services.CoAuthoring.requestDefaults.rejectUnauthorized', cfgRequestDefaults.rejectUnauthorized);
+  if (newRejectUnauthorized === cfgRequestDefaults.rejectUnauthorized) {
+    return;
+  }
+  cfgRequestDefaults = {...cfgRequestDefaults, rejectUnauthorized: newRejectUnauthorized};
+  for (const key of Object.keys(clients)) {
+    delete clients[key];
+  }
+  ctx.logger.info('RejectUnauthorized changed');
+}
 
 //This operation enables you to delete multiple objects from a bucket using a single HTTP request. You may specify up to 1000 keys.
 const MAX_DELETE_OBJECTS = 1000;
@@ -299,5 +314,6 @@ module.exports = {
   deleteObject,
   deletePath,
   getDirectSignedUrl,
-  needServeStatic
+  needServeStatic,
+  updateS3ClientsOnRejectUnauthorizedChange
 };

@@ -130,6 +130,18 @@
                 }
               }
             },
+            "requestDefaults": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin"],
+              "description": "Default options for outgoing HTTP/HTTPS requests",
+              "properties": {
+                "rejectUnauthorized": {
+                  "type": "boolean",
+                  "description": "When true, TLS certificates are verified; set false only for diagnostics with self-signed or invalid certificates"
+                }
+              }
+            },
             "autoAssembly": {
               "type": "object",
               "additionalProperties": false,

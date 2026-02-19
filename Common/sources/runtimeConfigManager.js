@@ -39,6 +39,7 @@ const NodeCache = require('node-cache');
 const operationContext = require('./operationContext');
 const utils = require('./utils');
 const logger = require('./logger');
+const storageS3 = require('./storage/storage-s3');
 
 const cfgRuntimeConfig = config.get('runtimeConfig');
 const configFilePath = cfgRuntimeConfig.filePath;
@@ -151,6 +152,7 @@ function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
         getConfig(operationContext.global)
           .then(config => {
             logger.configureLogger(config?.log?.options);
+            storageS3.updateS3ClientsOnRejectUnauthorizedChange();
           })
           .catch(err => {
             operationContext.global.logger.error(`handleConfigFileChange reload error: ${err.message}`);
