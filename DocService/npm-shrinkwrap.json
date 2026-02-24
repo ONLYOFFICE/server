@@ -840,9 +840,9 @@
       }
     },
     "dmdb": {
-      "version": "1.0.43524",
-      "resolved": "https://registry.npmjs.org/dmdb/-/dmdb-1.0.43524.tgz",
-      "integrity": "sha512-jPL4qg5uVtHMCKmpD0lo2Y+K2pRt7/XzX0k9jS5ZN9mQFHhn0+9QLIrNhSrR8kfsQkVm7z+rb9p6c08xpBKV6A==",
+      "version": "1.0.46190",
+      "resolved": "https://registry.npmjs.org/dmdb/-/dmdb-1.0.46190.tgz",
+      "integrity": "sha512-BNAMuXnt9R6NA/6gGtGhni11HNzoRjta2Uv3EThwM31h0AZ7jWV53pMzq2iRDpPPlb/u32HxGPnHWtk3kc75fA==",
       "requires": {
         "iconv-lite": "^0.5.1"
       },
