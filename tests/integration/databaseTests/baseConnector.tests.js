@@ -82,6 +82,8 @@ const insertCases = {
   10000: 'baseConnector-insert()-tester-10000-rows'
 };
 const largeChangeCase = 'baseConnector-insert()-tester-large-change';
+const mediumChangeCase = 'baseConnector-insert()-tester-medium-change';
+const xlargeChangeCase = 'baseConnector-insert()-tester-xlarge-change';
 const changesCases = {
   range: 'baseConnector-getChangesPromise()-tester',
   index: 'baseConnector-getChangesIndexPromise()-tester',
@@ -211,7 +213,15 @@ afterAll(async () => {
   const upsertIds = Object.values(upsertCases);
   const updateIfIds = Object.values(updateIfCases);
 
-  const tableChangesIds = [...emptyCallbacksCase, ...documentsWithChangesCase, ...changesIds, ...insertIds, largeChangeCase];
+  const tableChangesIds = [
+    ...emptyCallbacksCase,
+    ...documentsWithChangesCase,
+    ...changesIds,
+    ...insertIds,
+    largeChangeCase,
+    mediumChangeCase,
+    xlargeChangeCase
+  ];
   const tableResultIds = [
     ...emptyCallbacksCase,
     ...documentsWithChangesCase,
@@ -324,8 +334,9 @@ describe('Base database connector', () => {
 
     test('Insert change with large change_data (> 8188 bytes)', async () => {
       const docId = largeChangeCase;
-      // Create string > 8188 bytes to trigger CLOB handling in Dameng
-      // VARCHAR_PREC in dmdb is 8188 bytes, strings longer than this are treated as CLOB
+      // 10 000 ASCII chars — below the new dmdb VARCHAR_PREC threshold (32767), sent as VARCHAR2.
+      // Regression for bug 79123: dmdb <= 1.0.43524 inferred CLOB type for plain :N || :M params
+      // causing "Bind param data failed by invalid param data type". Fixed by dmdb >= 1.0.45146.
       const largeString = 'A'.repeat(10000);
       const objChanges = [
         {
@@ -340,9 +351,74 @@ describe('Base database connector', () => {
       await noRowsExistenceCheck(cfgTableChanges, docId);
 
       await baseConnector.insertChangesPromise(ctx, objChanges, docId, index, user);
-      const result = await getRowsCountById(cfgTableChanges, docId);
+      const rowCount = await getRowsCountById(cfgTableChanges, docId);
+      expect(rowCount).toEqual(1);
 
-      expect(result).toEqual(1);
+      // Verify full content round-trip: data must be stored and retrieved without truncation.
+      const changes = await baseConnector.getChangesPromise(ctx, docId, index, 1);
+      expect(changes.length).toEqual(1);
+      expect(changes[0].change_data).toEqual(largeString);
+    });
+
+    test('Insert change with realistic XLSX change_data (~3450 chars, below 8188 threshold)', async () => {
+      const docId = mediumChangeCase;
+      // Realistic ONLYOFFICE change format: "changeId;base64EncodedPayload".
+      // A typical XLSX operation produces a payload of ~2500 raw bytes → ~3400 base64 chars.
+      // Bug 79123: dmdb <= 1.0.43524 failed to bind medium-sized strings to CLOB columns
+      // with "Bind param data failed by invalid param data type" because DM enforced
+      // TYPE_FLAG_EXACT (CLOB) for the parameter while the driver sent VARCHAR encoding.
+      // Fixed by updating dmdb to >= 1.0.45146.
+      const rawPayload = Buffer.alloc(2588, 0xa7); // 2588 bytes → 3452 base64 chars
+      const changeString = `3450;${rawPayload.toString('base64')}`; // total ~3457 chars
+      const objChanges = [
+        {
+          docid: docId,
+          change: changeString,
+          time: date,
+          user: 'uid-medium',
+          useridoriginal: 'uid-medium-orig'
+        }
+      ];
+
+      await noRowsExistenceCheck(cfgTableChanges, docId);
+
+      await baseConnector.insertChangesPromise(ctx, objChanges, docId, index, user);
+      const rowCount = await getRowsCountById(cfgTableChanges, docId);
+      expect(rowCount).toEqual(1);
+
+      const changes = await baseConnector.getChangesPromise(ctx, docId, index, 1);
+      expect(changes.length).toEqual(1);
+      expect(changes[0].change_data).toEqual(changeString);
+    });
+
+    test('Insert change with xlarge change_data (>= 32767 chars, CLOB off-row path)', async () => {
+      const docId = xlargeChangeCase;
+      // Strings >= 32767 chars cross dmdb's VARCHAR_PREC threshold (dbtype.js) and are typed
+      // as CLOB. dmdb encodes them to a buffer and sends via OffRowBufferBinder (off-row LOB
+      // protocol) when the buffer exceeds lobOffRowLen (16384 bytes by default).
+      // This test verifies the full CLOB write+read round-trip for very large change_data.
+      const rawPayload = Buffer.alloc(25000, 0xa7); // 25000 bytes → 33336 base64 chars
+      const xlargeString = `3450;${rawPayload.toString('base64')}`; // ~33341 chars > 32767
+      const objChanges = [
+        {
+          docid: docId,
+          change: xlargeString,
+          time: date,
+          user: 'uid-xlarge',
+          useridoriginal: 'uid-xlarge-orig'
+        }
+      ];
+
+      await noRowsExistenceCheck(cfgTableChanges, docId);
+
+      await baseConnector.insertChangesPromise(ctx, objChanges, docId, index, user);
+      const rowCount = await getRowsCountById(cfgTableChanges, docId);
+      expect(rowCount).toEqual(1);
+
+      // Verify full content round-trip: data must be stored and retrieved without truncation.
+      const changes = await baseConnector.getChangesPromise(ctx, docId, index, 1);
+      expect(changes.length).toEqual(1);
+      expect(changes[0].change_data).toEqual(xlargeString);
     });
 
     describe('Get and delete changes', () => {
