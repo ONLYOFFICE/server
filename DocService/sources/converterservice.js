@@ -323,8 +323,13 @@ function convertRequest(req, res, isJson) {
       let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
 
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage] || commonDefines.c_oAscCodePageUtf8);
-      cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
-      if (undefined != params.delimiterChar) cmd.setDelimiterChar(params.delimiterChar);
+      if ('tsv' === filetype) {
+        // TSV format strictly requires Tab delimiter by definition
+        cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Tab);
+      } else {
+        cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
+        if (undefined != params.delimiterChar) cmd.setDelimiterChar(params.delimiterChar);
+      }
       if (params.region) {
         cmd.setLCID(utilsDocService.localeToLCID(params.region));
       }
@@ -581,7 +586,7 @@ function convertTo(req, res) {
         cmd.setFormat(filetype);
         cmd.setOutputFormat(outputFormat);
         cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
-        cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Comma);
+        cmd.setDelimiter('tsv' === filetype ? commonDefines.c_oAscCsvDelimiter.Tab : commonDefines.c_oAscCsvDelimiter.Comma);
         if (lang) {
           cmd.setLCID(utilsDocService.localeToLCID(lang));
         }

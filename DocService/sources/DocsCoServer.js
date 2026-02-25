@@ -3225,6 +3225,9 @@ exports.install = function (server, app, callbackFunction) {
         const forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
         hasForgotten = forgotten.length > 0;
         ctx.logger.debug('endAuth hasForgotten %s', hasForgotten);
+        if (hasForgotten) {
+          sendDataWarning(ctx, conn, constants.FILE_NOT_ASSEMBLED, 'File not assembled');
+        }
       }
     }
 
@@ -4785,6 +4788,25 @@ function getConnections() {
 }
 
 exports.getConnections = getConnections;
+
+/**
+ * Get shutdown status
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+exports.getShutdownStatus = function (req, res) {
+  const ctx = new operationContext.Context();
+  try {
+    ctx.initFromRequest(req);
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      shutdown: getIsShutdown()
+    });
+  } catch (err) {
+    ctx.logger.error('getShutdownStatus error %s', err.stack);
+    res.status(500).json({error: 'Internal server error'});
+  }
+};
 exports.getEditorConnectionsCount = function (req, res) {
   const ctx = new operationContext.Context();
   let count = 0;

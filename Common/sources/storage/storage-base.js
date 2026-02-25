@@ -40,17 +40,19 @@ const utils = require('../utils');
 const commonDefines = require('../commondefines');
 const constants = require('../constants');
 const ms = require('ms');
+const tenantManager = require('../tenantManager');
+const operationContext = require('../operationContext');
+const storageFs = require('./storage-fs');
+const storageS3 = require('./storage-s3');
+const storageAz = require('./storage-az');
+
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const cfgCacheStorage = config.get('storage');
-const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
+const cfgPersistentStorage = operationContext.normalizePersistentStorageCfg(cfgCacheStorage, config.get('persistentStorage'));
 
 // Stubs are needed until integrators pass these parameters to all requests
 let shardKeyCached;
 let wopiSrcCached;
-
-const cacheStorage = require('./' + cfgCacheStorage.name);
-const persistentStorage = require('./' + cfgPersistentStorage.name);
-const tenantManager = require('../tenantManager');
 
 const HEALTH_CHECK_KEY_MAX = 10000;
 
@@ -58,11 +60,21 @@ function getStoragePath(ctx, strPath, opt_specialDir) {
   opt_specialDir = opt_specialDir || cfgCacheStorage.cacheFolderName;
   return opt_specialDir + '/' + tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/');
 }
-function getStorage(opt_specialDir) {
-  return opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? persistentStorage : cacheStorage;
+function getStorage(storageCfg) {
+  switch (storageCfg.name) {
+    case 'storage-s3':
+      return storageS3;
+    case 'storage-az':
+      return storageAz;
+    case 'storage-fs':
+    default:
+      return storageFs;
+  }
 }
 function getStorageCfg(ctx, opt_specialDir) {
-  return opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? cfgPersistentStorage : cfgCacheStorage;
+  const configKey = opt_specialDir && opt_specialDir !== cfgCacheStorage.cacheFolderName ? 'persistentStorage' : 'storage';
+  const defaultCfg = configKey === 'persistentStorage' ? cfgPersistentStorage : cfgCacheStorage;
+  return ctx ? ctx.getCfg(configKey, defaultCfg) : defaultCfg;
 }
 function canCopyBetweenStorage(storageCfgSrc, storageCfgDst) {
   return storageCfgSrc.name === storageCfgDst.name && storageCfgSrc.endpoint === storageCfgDst.endpoint;
@@ -72,40 +84,40 @@ function isDifferentPersistentStorage() {
 }
 
 async function headObject(ctx, strPath, opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   return await storage.headObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function getObject(ctx, strPath, opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   return await storage.getObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function createReadStream(ctx, strPath, opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   return await storage.createReadStream(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function putObject(ctx, strPath, buffer, contentLength, opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   return await storage.putObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir), buffer, contentLength);
 }
 async function uploadObject(ctx, strPath, filePath, opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   return await storage.uploadObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir), filePath);
 }
 async function copyObject(ctx, sourceKey, destinationKey, opt_specialDirSrc, opt_specialDirDst) {
-  const storageSrc = getStorage(opt_specialDirSrc);
-  const storagePathSrc = getStoragePath(ctx, sourceKey, opt_specialDirSrc);
-  const storagePathDst = getStoragePath(ctx, destinationKey, opt_specialDirDst);
   const storageCfgSrc = getStorageCfg(ctx, opt_specialDirSrc);
   const storageCfgDst = getStorageCfg(ctx, opt_specialDirDst);
+  const storageSrc = getStorage(storageCfgSrc);
+  const storagePathSrc = getStoragePath(ctx, sourceKey, opt_specialDirSrc);
+  const storagePathDst = getStoragePath(ctx, destinationKey, opt_specialDirDst);
   if (canCopyBetweenStorage(storageCfgSrc, storageCfgDst)) {
     return await storageSrc.copyObject(storageCfgSrc, storageCfgDst, storagePathSrc, storagePathDst);
   } else {
-    const storageDst = getStorage(opt_specialDirDst);
+    const storageDst = getStorage(storageCfgDst);
     //todo stream
     const buffer = await storageSrc.getObject(storageCfgSrc, storagePathSrc);
     return await storageDst.putObject(storageCfgDst, storagePathDst, buffer, buffer.length);
@@ -120,8 +132,8 @@ async function copyPath(ctx, sourcePath, destinationPath, opt_specialDirSrc, opt
   );
 }
 async function listObjects(ctx, strPath, opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   const prefix = getStoragePath(ctx, '', opt_specialDir);
   try {
     const list = await storage.listObjects(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
@@ -134,18 +146,18 @@ async function listObjects(ctx, strPath, opt_specialDir) {
   }
 }
 async function deleteObject(ctx, strPath, opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   return await storage.deleteObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function deletePath(ctx, strPath, opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   return await storage.deletePath(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir, useDirectStorageUrls) {
-  const storage = getStorage(opt_specialDir);
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
   const storagePath = getStoragePath(ctx, strPath, opt_specialDir);
   const directUrlsEnabled = useDirectStorageUrls ?? storageCfg.useDirectStorageUrls;
 
@@ -244,7 +256,8 @@ async function healthCheck(ctx, opt_specialDir) {
   }
 }
 function needServeStatic(opt_specialDir) {
-  const storage = getStorage(opt_specialDir);
+  const storageCfg = getStorageCfg(null, opt_specialDir);
+  const storage = getStorage(storageCfg);
   return storage.needServeStatic();
 }
 

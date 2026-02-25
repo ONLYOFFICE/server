@@ -67,7 +67,8 @@
       "fontDir": "",
       "presentationThemesDir": "../../sdkjs/slide/themes",
       "x2tPath": "../FileConverter/bin/x2t.exe",
-      "docbuilderPath": "../FileConverter/bin/docbuilder.exe"
+      "docbuilderPath": "../FileConverter/bin/docbuilder.exe",
+      "signingKeyStorePath": "./../signing-keystore.p12"
     }
   },
   "SpellChecker": {

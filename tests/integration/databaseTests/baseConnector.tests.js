@@ -81,6 +81,7 @@ const insertCases = {
   5000: 'baseConnector-insert()-tester-5000-rows',
   10000: 'baseConnector-insert()-tester-10000-rows'
 };
+const largeChangeCase = 'baseConnector-insert()-tester-large-change';
 const changesCases = {
   range: 'baseConnector-getChangesPromise()-tester',
   index: 'baseConnector-getChangesIndexPromise()-tester',
@@ -210,7 +211,7 @@ afterAll(async () => {
   const upsertIds = Object.values(upsertCases);
   const updateIfIds = Object.values(updateIfCases);
 
-  const tableChangesIds = [...emptyCallbacksCase, ...documentsWithChangesCase, ...changesIds, ...insertIds];
+  const tableChangesIds = [...emptyCallbacksCase, ...documentsWithChangesCase, ...changesIds, ...insertIds, largeChangeCase];
   const tableResultIds = [
     ...emptyCallbacksCase,
     ...documentsWithChangesCase,
@@ -319,6 +320,29 @@ describe('Base database connector', () => {
           timeout
         );
       }
+    });
+
+    test('Insert change with large change_data (> 8188 bytes)', async () => {
+      const docId = largeChangeCase;
+      // Create string > 8188 bytes to trigger CLOB handling in Dameng
+      // VARCHAR_PREC in dmdb is 8188 bytes, strings longer than this are treated as CLOB
+      const largeString = 'A'.repeat(10000);
+      const objChanges = [
+        {
+          docid: docId,
+          change: largeString,
+          time: date,
+          user: 'uid-large',
+          useridoriginal: 'uid-large-orig'
+        }
+      ];
+
+      await noRowsExistenceCheck(cfgTableChanges, docId);
+
+      await baseConnector.insertChangesPromise(ctx, objChanges, docId, index, user);
+      const result = await getRowsCountById(cfgTableChanges, docId);
+
+      expect(result).toEqual(1);
     });
 
     describe('Get and delete changes', () => {

@@ -217,6 +217,82 @@
           "additionalProperties": false,
           "properties": {
             "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 10485760000, "x-scope": ["admin", "tenant"]},
+            "signingKeyStorePath": {
+              "type": "string",
+              "description": "Legacy. Path to signing certificate file. Use signing.keyStorePath instead.",
+              "x-scope": "admin"
+            },
+            "signing": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": "admin",
+              "description": "Signing settings. keyStorePath takes priority over legacy signingKeyStorePath. Cloud provider detected by awsKms.keyId.",
+              "properties": {
+                "keyStorePath": {
+                  "type": "string",
+                  "description": "Path to signing certificate. P12/PFX for local x2t, PEM chain for cloud signing."
+                },
+                "meta": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "Signature metadata fields embedded in the PDF digital signature.",
+                  "properties": {
+                    "reason": {"type": "string", "description": "Purpose of signing (e.g. Approved)."},
+                    "name": {"type": "string", "description": "Signer name."},
+                    "location": {"type": "string", "description": "Signing location."},
+                    "contactInfo": {"type": "string", "description": "Contact details (URL or email)."}
+                  }
+                },
+                "awsKms": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "AWS KMS (or compatible) settings. Set keyId to enable.",
+                  "properties": {
+                    "endpoint": {"type": "string", "description": "KMS endpoint URL. Allows alternative KMS-compatible services."},
+                    "keyId": {"type": "string", "description": "KMS key ID or ARN. If set, AWS KMS signing is active."},
+                    "accessKeyId": {"type": "string", "description": "AWS access key. Empty = default credential chain."},
+                    "secretAccessKey": {"type": "string", "description": "AWS secret access key."}
+                  }
+                },
+                "csc": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "CSC API v2 (ETSI TS 119 432) settings. Set baseUrl to enable.",
+                  "properties": {
+                    "baseUrl": {"type": "string", "description": "CSC API base URL. If set, CSC signing is active."},
+                    "tokenUrl": {"type": "string", "description": "OAuth2 token endpoint."},
+                    "clientId": {"type": "string", "description": "OAuth2 client ID."},
+                    "clientSecret": {"type": "string", "description": "OAuth2 client secret."},
+                    "grantType": {"type": "string", "description": "Optional. OAuth2 grant type: '' (auto-detect), 'password', or 'client_credentials'. Empty selects based on presence of username/password."},
+                    "clientAuth": {"type": "string", "description": "Optional. How client authenticates to token endpoint: '' (body), 'basic', 'body', or 'both'."},
+                    "tokenBodyFormat": {"type": "string", "description": "Optional. Token request body format: 'form' (default, RFC 6749) or 'json'."},
+                    "username": {"type": "string", "description": "Optional. Username for password grant type."},
+                    "password": {"type": "string", "description": "Optional. Password for password grant type."},
+                    "credentialId": {"type": "string", "description": "Optional. Signing credential ID. Auto-discovered via credentials/list when empty."},
+                    "clientData": {"type": "string", "description": "Optional. Provider-specific clientData for credentials/list (e.g. eSeal credential type)."},
+                    "scope": {"type": "string", "description": "Optional. OAuth2 scope (e.g. 'service')."},
+                    "audience": {"type": "string", "description": "Optional. OAuth2 audience parameter."}
+                  }
+                }
+              }
+            },
+            "spawnOptions": {
+              "type": "object",
+              "additionalProperties": true,
+              "x-scope": "admin",
+              "properties": {
+                "env": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "SIGNING_KEYSTORE_PASSPHRASE": {
+                      "type": "string",
+                      "description": "Passphrase for the PKCS#12 keystore file"
+                    }
+                  }
+                }
+              }
+            },
             "inputLimits": {
               "type": "array",
               "x-scope": ["admin", "tenant"],

@@ -64,7 +64,7 @@ const config = require('../../../Common/node_modules/config');
 const staticRouter = require('../../../DocService/sources/routes/static');
 
 const cfgCacheStorage = config.get('storage');
-const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
+const cfgPersistentStorage = operationContext.normalizePersistentStorageCfg(cfgCacheStorage, config.get('persistentStorage'));
 
 const ctx = operationContext.global;
 const PORT = 3457;

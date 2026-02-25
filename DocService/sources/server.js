@@ -58,6 +58,7 @@ const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const infoRouter = require('./routes/info');
+const metaRouter = require('./routes/meta');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
@@ -274,6 +275,7 @@ docsCoServer.install(server, app, () => {
   app.use('/info', infoRouter(docsCoServer.getConnections));
   app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
   app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
+  app.get('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.getShutdownStatus);
   app.put('/internal/cluster/pre-stop', utils.checkClientIp, docsCoServer.preStop);
   app.delete('/internal/cluster/pre-stop', utils.checkClientIp, docsCoServer.preStop);
 
@@ -462,6 +464,7 @@ docsCoServer.install(server, app, () => {
       res.sendStatus(404);
     }
   });
+  app.use('/meta', metaRouter);
   app.use((err, req, res, _next) => {
     const ctx = new operationContext.Context();
     ctx.initFromRequest(req);

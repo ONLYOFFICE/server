@@ -86,6 +86,7 @@
       "presentationThemesDir": "../../sdkjs/slide/themes",
       "x2tPath": "../FileConverter/bin/x2t",
       "docbuilderPath": "../FileConverter/Bin/docbuilder",
+      "signingKeyStorePath": "./../signing-keystore.p12",
       "spawnOptions": {
         "env": {
           "X2T_MEMORY_LIMIT": "16GB"

@@ -74,7 +74,10 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
         messageTtl: cfgQueueRetentionPeriod * 1000,
         deadLetterExchange: cfgRabbitExchangeConvertDead.name
       };
-      const optionsTaskQueue = {...optionsTaskQueueDefault, ...cfgRabbitQueueConvertTask.options};
+      const optionsTaskQueue = rabbitMQCore.filterQueueOptions(
+        {...optionsTaskQueueDefault, ...cfgRabbitQueueConvertTask.options},
+        cfgRabbitQueueConvertTask.name
+      );
       if (isAddTask) {
         taskqueue.channelConvertTask = yield rabbitMQCore.createConfirmChannelPromise(conn);
         yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertTask, cfgRabbitQueueConvertTask.name, optionsTaskQueue);
@@ -83,11 +86,11 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
       let bAssertResponseQueue = false;
       if (isAddResponse) {
         taskqueue.channelConvertResponse = yield rabbitMQCore.createConfirmChannelPromise(conn);
-        yield rabbitMQCore.assertQueuePromise(
-          taskqueue.channelConvertResponse,
-          cfgRabbitQueueConvertResponse.name,
-          cfgRabbitQueueConvertResponse.options
+        const filteredResponseOptions = rabbitMQCore.filterQueueOptions(
+          {...cfgRabbitQueueConvertResponse.options},
+          cfgRabbitQueueConvertResponse.name
         );
+        yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertResponse, cfgRabbitQueueConvertResponse.name, filteredResponseOptions);
         bAssertResponseQueue = true;
       }
       const optionsReceive = {noAck: false};
@@ -119,11 +122,11 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
       if (isAddResponseReceive) {
         taskqueue.channelConvertResponseReceive = yield rabbitMQCore.createChannelPromise(conn);
         if (!bAssertResponseQueue) {
-          yield rabbitMQCore.assertQueuePromise(
-            taskqueue.channelConvertResponseReceive,
-            cfgRabbitQueueConvertResponse.name,
-            cfgRabbitQueueConvertResponse.options
+          const filteredResponseOptions = rabbitMQCore.filterQueueOptions(
+            {...cfgRabbitQueueConvertResponse.options},
+            cfgRabbitQueueConvertResponse.name
           );
+          yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertResponseReceive, cfgRabbitQueueConvertResponse.name, filteredResponseOptions);
         }
         yield rabbitMQCore.consumePromise(
           taskqueue.channelConvertResponseReceive,
@@ -142,7 +145,10 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
         const optionsDelayedQueueDefault = {
           deadLetterExchange: cfgRabbitExchangeConvertDead.name
         };
-        const optionsDelayedQueue = {...optionsDelayedQueueDefault, ...cfgRabbitQueueDelayed.options};
+        const optionsDelayedQueue = rabbitMQCore.filterQueueOptions(
+          {...optionsDelayedQueueDefault, ...cfgRabbitQueueDelayed.options},
+          cfgRabbitQueueDelayed.name
+        );
         taskqueue.channelDelayed = yield rabbitMQCore.createConfirmChannelPromise(conn);
         yield rabbitMQCore.assertQueuePromise(taskqueue.channelDelayed, cfgRabbitQueueDelayed.name, optionsDelayedQueue);
       }
@@ -154,11 +160,8 @@ function initRabbit(taskqueue, isAddTask, isAddResponse, isAddTaskReceive, isAdd
           'fanout',
           cfgRabbitExchangeConvertDead.options
         );
-        const queue = yield rabbitMQCore.assertQueuePromise(
-          taskqueue.channelConvertDead,
-          cfgRabbitQueueConvertDead.name,
-          cfgRabbitQueueConvertDead.options
-        );
+        const filteredDeadOptions = rabbitMQCore.filterQueueOptions({...cfgRabbitQueueConvertDead.options}, cfgRabbitQueueConvertDead.name);
+        const queue = yield rabbitMQCore.assertQueuePromise(taskqueue.channelConvertDead, cfgRabbitQueueConvertDead.name, filteredDeadOptions);
 
         taskqueue.channelConvertDead.bindQueue(queue, cfgRabbitExchangeConvertDead.name, '');
         yield rabbitMQCore.consumePromise(

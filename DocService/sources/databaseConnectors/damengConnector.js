@@ -46,6 +46,9 @@ const cfgTableResult = configSql.get('tableResult');
 const cfgDamengExtraOptions = config.util.cloneDeep(configSql.get('damengExtraOptions'));
 const forceClosingCountdownMs = 2000;
 
+// dmdb VARCHAR limit - strings >= this need TO_CLOB chunking
+const VARCHAR_PREC = 8188;
+
 // dmdb driver separates PoolAttributes and ConnectionAttributes.
 // For some reason if you use pool you must define connection attributes in connectString, they are not included in config object, and pool.getConnection() can't configure it.
 const poolHostInfo = `dm://${cfgDbUser}:${cfgDbPass}@${cfgDbHost}:${cfgDbPort}`;
@@ -147,8 +150,38 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
 function closePool() {
   return pool.close(forceClosingCountdownMs);
 }
-
+/**
+ * @param {any} val - value to bind
+ * @param {Array} values - bind parameters array
+ * @returns {string} placeholder like :1, :2, etc.
+ */
 function addSqlParameter(val, values) {
+  if (typeof val === 'string') {
+    const len = val.length;
+    // 2000 chars * 4 bytes (max utf8) = 8000 < 8188. Safe for all.
+    if (len >= 2000) {
+      if (len >= VARCHAR_PREC || Buffer.byteLength(val, 'utf8') >= VARCHAR_PREC) {
+        // Workaround for dmdb 8188 byte limit.
+        // Tried: {type: db.CLOB} (failed), TO_CLOB wrappers (verbose).
+        // Implemented: Split into 2000-char chunks and concatenate (:1 || :2).
+        // Future: Use native CLOB binding when driver support improves.
+        const CHUNK_SIZE = 2000;
+        const placeholders = [];
+        for (let i = 0; i < len; i += CHUNK_SIZE) {
+          const chunk = val.slice(i, i + CHUNK_SIZE);
+          values.push({val: chunk});
+          placeholders.push(`:${values.length}`);
+        }
+
+        if (placeholders.length === 1) {
+          return placeholders[0];
+        }
+
+        return placeholders.join(' || ');
+      }
+    }
+  }
+
   values.push({val});
   return `:${values.length}`;
 }

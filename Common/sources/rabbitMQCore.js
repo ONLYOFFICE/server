@@ -99,6 +99,56 @@ function assertExchangePromise(channel, exchange, type, options) {
     });
   });
 }
+
+/**
+ * Filters queue options based on queue type to prevent RabbitMQ PRECONDITION_FAILED errors.
+ * Different queue types support different parameters:
+ * - Classic queues: support all parameters including maxPriority, messageTtl, deadLetterExchange
+ * - Quorum queues: do NOT support maxPriority (x-max-priority)
+ * - Stream queues: do NOT support maxPriority, messageTtl, deadLetterExchange
+ *
+ * @param {Object} options - Queue options to filter
+ * @param {string} queueName - Queue name for logging
+ * @returns {Object} Filtered options compatible with queue type
+ */
+function filterQueueOptions(options, queueName) {
+  if (!options) {
+    return options;
+  }
+
+  const queueType = options.arguments && options.arguments['x-queue-type'];
+  const unsupportedParams = {
+    quorum: ['maxPriority'],
+    stream: ['maxPriority', 'messageTtl', 'deadLetterExchange']
+  };
+
+  const paramsToRemove = unsupportedParams[queueType];
+  if (!paramsToRemove) {
+    return options;
+  }
+
+  const filteredOptions = {...options};
+  const removedParams = [];
+
+  for (const param of paramsToRemove) {
+    if (filteredOptions[param] !== undefined) {
+      delete filteredOptions[param];
+      removedParams.push(param === 'maxPriority' ? 'maxPriority (x-max-priority)' : param);
+    }
+  }
+
+  if (removedParams.length > 0) {
+    operationContext.global.logger.info(
+      'RabbitMQ %s queue "%s" does not require: %s. Parameters removed (RabbitMQ 4.0+ ignores these automatically, removed for compatibility with 3.x).',
+      queueType,
+      queueName,
+      removedParams.join(', ')
+    );
+  }
+
+  return filteredOptions;
+}
+
 function assertQueuePromise(channel, queue, options) {
   return new Promise((resolve, reject) => {
     channel.assertQueue(queue, options, (err, ok) => {
@@ -137,6 +187,7 @@ module.exports.connetPromise = connetPromise;
 module.exports.createChannelPromise = createChannelPromise;
 module.exports.createConfirmChannelPromise = createConfirmChannelPromise;
 module.exports.assertExchangePromise = assertExchangePromise;
+module.exports.filterQueueOptions = filterQueueOptions;
 module.exports.assertQueuePromise = assertQueuePromise;
 module.exports.consumePromise = consumePromise;
 module.exports.closePromise = closePromise;

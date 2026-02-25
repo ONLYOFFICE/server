@@ -594,6 +594,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
   }
 }
 
+exports.axios = axios;
 exports.httpRequest = httpRequest;
 exports.postRequestPromise = postRequestPromise;
 exports.downloadUrlPromise = downloadUrlPromise;
@@ -832,8 +833,10 @@ function getDomain(hostHeader, forwardedHostHeader) {
 }
 function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHeader, forwardedPrefixHeader) {
   let url = '';
-  if (forwardedProtoHeader && constants.ALLOWED_PROTO.test(forwardedProtoHeader)) {
-    url += forwardedProtoHeader;
+  // Handle comma-separated values, take first value (original proto per RFC 7239)
+  const proto = forwardedProtoHeader ? forwardedProtoHeader.split(',')[0].trim() : null;
+  if (proto && constants.ALLOWED_PROTO.test(proto)) {
+    url += proto;
   } else if (protocol && constants.ALLOWED_PROTO.test(protocol)) {
     url += protocol;
   } else {
@@ -842,7 +845,8 @@ function getBaseUrl(protocol, hostHeader, forwardedProtoHeader, forwardedHostHea
   url += '://';
   url += getDomain(hostHeader, forwardedHostHeader);
   if (forwardedPrefixHeader) {
-    url += forwardedPrefixHeader;
+    // Handle comma-separated values, take first value (original prefix per RFC 7239)
+    url += forwardedPrefixHeader.split(',')[0].trim();
   }
   return url;
 }

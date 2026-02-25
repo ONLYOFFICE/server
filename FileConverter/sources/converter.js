@@ -55,6 +55,9 @@ const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
 const formatChecker = require('./../../Common/sources/formatchecker');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
+const {detectCertType} = require('./signing/pdfSigningCore');
+const {signPdfFile: signPdfFileKms} = require('./signing/pdfAwsKmsSigner');
+const {signPdfFile: signPdfFileCsc} = require('./signing/pdfCscSigner');
 
 const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgDownloadTimeout = config.get('FileConverter.converter.downloadTimeout');
@@ -69,6 +72,78 @@ const cfgSpawnOptions = config.util.cloneDeep(config.get('FileConverter.converte
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 const cfgInputLimits = config.get('FileConverter.converter.inputLimits');
 const cfgStreamWriterBufferSize = config.get('FileConverter.converter.streamWriterBufferSize');
+const cfgSigningKeyStorePath =
+  config.get('FileConverter.converter.signing.keyStorePath') || config.get('FileConverter.converter.signingKeyStorePath');
+const cfgSigning = config.get('FileConverter.converter.signing');
+
+/**
+ * @param {Object} ctx
+ * @returns {string} resolved signing certificate path (new or legacy)
+ */
+function resolveSigningPath(ctx) {
+  return (
+    ctx.getCfg('FileConverter.converter.signing.keyStorePath', null) ||
+    ctx.getCfg('FileConverter.converter.signingKeyStorePath', cfgSigningKeyStorePath) ||
+    ''
+  );
+}
+
+/**
+ * Merge signing metadata from config into jsonParams as pdfLayout.signature.
+ * @param {Object} signingCfg - FileConverter.converter.signing config
+ * @param {string} jsonParams - existing JSON-encoded params (may be empty/null)
+ * @returns {string} updated JSON-encoded params
+ */
+function mergeSigningMeta(signingCfg, jsonParams) {
+  const meta = signingCfg?.meta;
+  if (!meta || (!meta.reason && !meta.name && !meta.location && !meta.contactInfo)) return jsonParams;
+  const parsed = jsonParams ? JSON.parse(jsonParams) : {};
+  parsed.pdfLayout = {...parsed.pdfLayout, signature: meta};
+  return JSON.stringify(parsed);
+}
+
+/**
+ * @param {string} certPath - resolved signing certificate path
+ * @param {Object} signingCfg - FileConverter.converter.signing config
+ * @returns {{isCloud: boolean, certPath: string}}
+ */
+function getCloudSigningMode(certPath, signingCfg) {
+  if (!certPath || !fs.existsSync(certPath)) return {isCloud: false, certPath};
+  const hasCloudProvider = !!(signingCfg?.awsKms?.keyId || signingCfg?.csc?.baseUrl);
+  if (!hasCloudProvider) return {isCloud: false, certPath};
+
+  return {isCloud: detectCertType(certPath) === 'pem', certPath};
+}
+
+/**
+ * @param {Object} ctx
+ * @param {string} outputPath - PDF file to sign
+ * @param {string} certPath - PEM chain path
+ * @param {Object} signingCfg - FileConverter.converter.signing config
+ * @returns {Promise<void>}
+ */
+function performCloudSigning(ctx, outputPath, certPath, signingCfg) {
+  const awsKmsCfg = signingCfg?.awsKms || {};
+  if (awsKmsCfg.keyId) {
+    ctx.logger.debug('Cloud signing (AWS KMS) start');
+    return signPdfFileKms(outputPath, null, {
+      keyId: awsKmsCfg.keyId,
+      endpoint: awsKmsCfg.endpoint,
+      accessKeyId: awsKmsCfg.accessKeyId,
+      secretAccessKey: awsKmsCfg.secretAccessKey,
+      keyStorePath: certPath
+    });
+  }
+  const cscCfg = signingCfg?.csc || {};
+  if (cscCfg.baseUrl) {
+    ctx.logger.debug('Cloud signing (CSC) start');
+    return signPdfFileCsc(outputPath, null, {
+      ...cscCfg,
+      keyStorePath: certPath
+    });
+  }
+  return Promise.reject(new Error('No cloud signing provider configured'));
+}
 //cfgMaxRequestChanges was obtained as a result of the test: 84408 changes - 5,16 MB
 const cfgMaxRequestChanges = config.get('services.CoAuthoring.server.maxRequestChanges');
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
@@ -105,7 +180,6 @@ const exitCodesUpload = [
   constants.CONVERT_DRM_UNSUPPORTED
 ];
 const exitCodesCopyOrigin = [constants.CONVERT_NEED_PARAMS, constants.CONVERT_DRM];
-let inputLimitsXmlCache;
 
 function TaskQueueDataConvert(ctx, task) {
   const cmd = task.getCmd();
@@ -147,6 +221,8 @@ function TaskQueueDataConvert(ctx, task) {
   this.noBase64 = cmd.getNoBase64();
   this.convertToOrigin = cmd.getConvertToOrigin();
   this.oformAsPdf = cmd.getOformAsPdf();
+  const forceSave = cmd.getForceSave();
+  this.forceSaveType = forceSave?.getType();
   this.timestamp = new Date();
 }
 TaskQueueDataConvert.prototype = {
@@ -177,11 +253,26 @@ TaskQueueDataConvert.prototype = {
     if (this.textParams) {
       xml += this.serializeTextParams(this.textParams);
     }
-    xml += this.serializeXmlProp('m_sJsonParams', this.jsonParams);
+    let jsonParams = this.jsonParams;
     xml += this.serializeXmlProp('m_nLcid', this.lcid);
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
+    if (this.formatTo === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF && commonDefines.c_oAscForceSaveTypes.Form === this.forceSaveType) {
+      const signingPath = resolveSigningPath(ctx);
+      const signingCfg = ctx.getCfg('FileConverter.converter.signing', cfgSigning);
+      const {isCloud, certPath} = getCloudSigningMode(signingPath, signingCfg);
+      if (certPath && fs.existsSync(certPath)) {
+        if (isCloud) {
+          xml += this.serializeXmlProp('m_sSigningKeyStorePath', '_placeholder_');
+          this._cloudSigningCertPath = certPath;
+        } else {
+          xml += this.serializeXmlProp('m_sSigningKeyStorePath', certPath);
+        }
+        jsonParams = mergeSigningMeta(signingCfg, jsonParams);
+      }
+    }
+    xml += this.serializeXmlProp('m_sJsonParams', jsonParams);
     xml += this.serializeLimit(ctx);
     xml += this.serializeOptions(ctx, false, this.oformAsPdf);
     xml += '</TaskQueueDataConvert>';
@@ -284,31 +375,28 @@ TaskQueueDataConvert.prototype = {
     return xml;
   },
   serializeLimit(ctx) {
-    if (!inputLimitsXmlCache) {
-      let xml = '<m_oInputLimits>';
-      const tenInputLimits = ctx.getCfg('FileConverter.converter.inputLimits', cfgInputLimits);
-      for (let i = 0; i < tenInputLimits.length; ++i) {
-        const limit = tenInputLimits[i];
-        if (limit.type && limit.zip) {
-          xml += '<m_oInputLimit';
-          xml += this.serializeXmlAttr('type', limit.type);
-          xml += '>';
-          xml += '<m_oZip';
-          if (limit.zip.compressed) {
-            xml += this.serializeXmlAttr('compressed', bytes.parse(limit.zip.compressed));
-          }
-          if (limit.zip.uncompressed) {
-            xml += this.serializeXmlAttr('uncompressed', bytes.parse(limit.zip.uncompressed));
-          }
-          xml += this.serializeXmlAttr('template', limit.zip.template);
-          xml += '/>';
-          xml += '</m_oInputLimit>';
+    let xml = '<m_oInputLimits>';
+    const tenInputLimits = ctx.getCfg('FileConverter.converter.inputLimits', cfgInputLimits);
+    for (let i = 0; i < tenInputLimits.length; ++i) {
+      const limit = tenInputLimits[i];
+      if (limit.type && limit.zip) {
+        xml += '<m_oInputLimit';
+        xml += this.serializeXmlAttr('type', limit.type);
+        xml += '>';
+        xml += '<m_oZip';
+        if (limit.zip.compressed) {
+          xml += this.serializeXmlAttr('compressed', bytes.parse(limit.zip.compressed));
         }
+        if (limit.zip.uncompressed) {
+          xml += this.serializeXmlAttr('uncompressed', bytes.parse(limit.zip.uncompressed));
+        }
+        xml += this.serializeXmlAttr('template', limit.zip.template);
+        xml += '/>';
+        xml += '</m_oInputLimit>';
       }
-      xml += '</m_oInputLimits>';
-      inputLimitsXmlCache = xml;
     }
-    return inputLimitsXmlCache;
+    xml += '</m_oInputLimits>';
+    return xml;
   },
   serializeXmlProp(name, value) {
     let xml = '';
@@ -963,27 +1051,13 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     writeProcessOutputToLog(ctx, childRes, true);
     ctx.logger.debug('ExitCode (code=%d;signal=%s;error:%d)', exitCode, exitSignal, error);
   }
-  if (-1 !== exitCodesUpload.indexOf(error)) {
-    if (-1 !== exitCodesCopyOrigin.indexOf(error)) {
-      const originPath = path.join(path.dirname(dataConvert.fileTo), 'origin' + path.extname(dataConvert.fileFrom));
-      if (!fs.existsSync(dataConvert.fileTo)) {
-        fs.copyFileSync(dataConvert.fileFrom, originPath);
-        ctx.logger.debug('copyOrigin complete');
-      }
-    }
-    //todo clarify calcChecksum conditions
-    const calcChecksum = 0 === (constants.AVS_OFFICESTUDIO_FILE_CANVAS & cmd.getOutputFormat());
-    yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key, calcChecksum);
-    ctx.logger.debug('processUploadToStorage complete');
-  }
-  cmd.setStatusInfo(error);
   let existFile = false;
   try {
     existFile = fs.lstatSync(dataConvert.fileTo).isFile();
   } catch (_err) {
     existFile = false;
   }
-  if (!existFile) {
+  if (!existFile && dataConvert.fileTo) {
     //todo review. the stub in the case of AVS_OFFICESTUDIO_FILE_OTHER_OOXML x2t changes the file extension.
     const fileToBasename = path.basename(dataConvert.fileTo, path.extname(dataConvert.fileTo));
     const fileToDir = path.dirname(dataConvert.fileTo);
@@ -992,10 +1066,42 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
       const fileCur = files[i];
       if (0 == fileCur.indexOf(fileToBasename)) {
         dataConvert.fileTo = path.join(fileToDir, fileCur);
+        existFile = true;
         break;
       }
     }
+    // todo: breaks open-pdf (no output file is valid); uncomment when fixed
+    // if (constants.NO_ERROR === error && !existFile) {
+    //   //return CONVERT error so canvasservice treats this as a failed conversion,
+    //   //not as missing cache (empty storage), which would trigger an infinite retry loop
+    //   ctx.logger.error('Conversion produced no output file');
+    //   error = constants.CONVERT;
+    // }
   }
+  if (-1 !== exitCodesUpload.indexOf(error)) {
+    if (-1 !== exitCodesCopyOrigin.indexOf(error)) {
+      const originPath = path.join(path.dirname(dataConvert.fileTo), 'origin' + path.extname(dataConvert.fileFrom));
+      if (!fs.existsSync(dataConvert.fileTo)) {
+        fs.copyFileSync(dataConvert.fileFrom, originPath);
+        ctx.logger.debug('copyOrigin complete');
+      }
+    }
+    // Cloud signing: replace x2t placeholder with real signature (KMS/CloudHSM/CSC) before upload
+    if (dataConvert._cloudSigningCertPath) {
+      try {
+        const signingCfg = ctx.getCfg('FileConverter.converter.signing', cfgSigning);
+        yield performCloudSigning(ctx, dataConvert.fileTo, dataConvert._cloudSigningCertPath, signingCfg);
+        ctx.logger.debug('Cloud signing complete');
+      } catch (cloudErr) {
+        ctx.logger.error('Cloud signing failed: %s', cloudErr.stack);
+      }
+    }
+    //todo clarify calcChecksum conditions
+    const calcChecksum = 0 === (constants.AVS_OFFICESTUDIO_FILE_CANVAS & cmd.getOutputFormat());
+    yield* processUploadToStorage(ctx, tempDirs.result, dataConvert.key, calcChecksum);
+    ctx.logger.debug('processUploadToStorage complete');
+  }
+  cmd.setStatusInfo(error);
   cmd.setOutputPath(path.basename(dataConvert.fileTo));
   if (!cmd.getTitle()) {
     cmd.setTitle(cmd.getOutputPath());

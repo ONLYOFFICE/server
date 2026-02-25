@@ -48,33 +48,28 @@ const cfgStaticContent = config.has('services.CoAuthoring.server.static_content'
   ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content'))
   : {};
 const cfgCacheStorage = config.get('storage');
-const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
+const cfgPersistentStorage = operationContext.normalizePersistentStorageCfg(cfgCacheStorage, config.get('persistentStorage'));
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 
 const router = express.Router();
 
-function initCacheRouter(cfgStorage, routs) {
-  const {
-    storageFolderName,
-    fs: {folderPath, secretString: secret}
-  } = cfgStorage;
+function initCacheRouter(cfgStorage, routs, configKey) {
+  const {storageFolderName} = cfgStorage;
 
   routs.forEach(rout => {
     if (!rout) {
       return;
     }
 
-    const rootPath = path.join(folderPath, rout);
-
     ['cache', 'storage-cache'].forEach(prefix => {
       const route = `/${prefix}/${storageFolderName}/${rout}`;
-      router.use(route, createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout));
+      router.use(route, createCacheMiddleware(prefix, cfgStorage, rout, configKey));
     });
   });
 }
 
-function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
+function createCacheMiddleware(prefix, cfgStorage, rout, configKey) {
   return async (req, res) => {
     const index = req.url.lastIndexOf('/');
     if (req.method !== 'GET' || index <= 0) {
@@ -83,6 +78,14 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
     }
 
     try {
+      const ctx = new operationContext.Context();
+      ctx.initFromRequest(req);
+      await ctx.initTenantCache();
+      const tenantStorageCfg = ctx.getCfg(configKey, cfgStorage);
+      // todo storageFolderName is intentionally kept the same across all tenants for simplicity
+      const tenantSecret = tenantStorageCfg.fs.secretString;
+      const tenantRootPath = path.join(tenantStorageCfg.fs.folderPath, rout);
+
       const urlParsed = urlModule.parse(req.url, true);
       const {md5, expires} = urlParsed.query;
       const numericExpires = parseInt(expires);
@@ -100,7 +103,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
 
       const uri = req.url.split('?')[0];
       const fullPath = `/${prefix}/${cfgStorage.storageFolderName}/${rout}${uri}`;
-      const signatureData = numericExpires + decodeURIComponent(fullPath) + secret;
+      const signatureData = numericExpires + decodeURIComponent(fullPath) + tenantSecret;
 
       const expectedMd5 = crypto.createHash('md5').update(signatureData).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
@@ -111,9 +114,9 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
 
       const filename = urlParsed.pathname && decodeURIComponent(path.basename(urlParsed.pathname));
       let filePath = decodeURI(req.url.substring(1, index));
-      if (cfgStorage.name === 'storage-fs') {
+      if (tenantStorageCfg.name === 'storage-fs') {
         const sendFileOptions = {
-          root: rootPath,
+          root: tenantRootPath,
           dotfiles: 'deny',
           headers: {
             'Content-Disposition': 'attachment',
@@ -127,10 +130,7 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
             res.status(400).end();
           }
         });
-      } else if (['storage-s3', 'storage-az'].includes(cfgStorage.name)) {
-        const ctx = new operationContext.Context();
-        ctx.initFromRequest(req);
-        await ctx.initTenantCache();
+      } else if (['storage-s3', 'storage-az'].includes(tenantStorageCfg.name)) {
         if (tenantManager.isMultitenantMode(ctx) && filePath.startsWith(ctx.tenant + '/')) {
           filePath = filePath.substring(ctx.tenant.length + 1);
         }
@@ -155,16 +155,16 @@ for (const i in cfgStaticContent) {
     router.use(i, express.static(cfgStaticContent[i]['path'], cfgStaticContent[i]['options']));
   }
 }
-if (storage.needServeStatic()) {
-  initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName]);
+if (storage.needServeStatic() || tenantManager.isMultitenantMode()) {
+  initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName], 'storage');
 }
-if (storage.needServeStatic(cfgForgottenFiles)) {
+if (storage.needServeStatic(cfgForgottenFiles) || tenantManager.isMultitenantMode()) {
   let persistentRouts = [cfgForgottenFiles, cfgErrorFiles];
   persistentRouts = persistentRouts.filter(rout => {
     return rout && rout.length > 0;
   });
   if (persistentRouts.length > 0) {
-    initCacheRouter(cfgPersistentStorage, persistentRouts);
+    initCacheRouter(cfgPersistentStorage, persistentRouts, 'persistentStorage');
   }
 }
 

@@ -263,6 +263,22 @@ async function getOutputData(ctx, cmd, outputData, key, optConn, optAdditionalOu
         } else if (optConn) {
           outputData.setOpenedAt(openedAt);
           outputData.setData(await storage.getSignedUrls(ctx, optConn.baseUrl, key, commonDefines.c_oAscUrlTypes.Session, creationDate));
+          if (Object.keys(outputData.getData()).length === 0) {
+            ctx.logger.warn('getOutputData empty storage');
+            const updateMask = new taskResult.TaskResultData();
+            updateMask.tenant = ctx.tenant;
+            updateMask.key = key;
+            updateMask.status = status;
+            updateMask.statusInfo = statusInfo;
+            const updateTask = new taskResult.TaskResultData();
+            updateTask.status = commonDefines.FileStatus.None;
+            updateTask.statusInfo = constants.NO_ERROR;
+            const updateIfRes = await taskResult.updateIf(ctx, updateTask, updateMask);
+            if (updateIfRes.affectedRows > 0) {
+              status = commonDefines.FileStatus.None;
+              outputData.setStatus(undefined);
+            }
+          }
         } else if (optAdditionalOutput) {
           optAdditionalOutput.needUrlKey = key;
           optAdditionalOutput.needUrlMethod = 0;
