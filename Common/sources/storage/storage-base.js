@@ -86,27 +86,27 @@ function isDifferentPersistentStorage() {
 async function headObject(ctx, strPath, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
-  return await storage.headObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
+  return await storage.headObject(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function getObject(ctx, strPath, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
-  return await storage.getObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
+  return await storage.getObject(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function createReadStream(ctx, strPath, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
-  return await storage.createReadStream(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
+  return await storage.createReadStream(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function putObject(ctx, strPath, buffer, contentLength, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
-  return await storage.putObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir), buffer, contentLength);
+  return await storage.putObject(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir), buffer, contentLength);
 }
 async function uploadObject(ctx, strPath, filePath, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
-  return await storage.uploadObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir), filePath);
+  return await storage.uploadObject(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir), filePath);
 }
 async function copyObject(ctx, sourceKey, destinationKey, opt_specialDirSrc, opt_specialDirDst) {
   const storageCfgSrc = getStorageCfg(ctx, opt_specialDirSrc);
@@ -115,12 +115,12 @@ async function copyObject(ctx, sourceKey, destinationKey, opt_specialDirSrc, opt
   const storagePathSrc = getStoragePath(ctx, sourceKey, opt_specialDirSrc);
   const storagePathDst = getStoragePath(ctx, destinationKey, opt_specialDirDst);
   if (canCopyBetweenStorage(storageCfgSrc, storageCfgDst)) {
-    return await storageSrc.copyObject(storageCfgSrc, storageCfgDst, storagePathSrc, storagePathDst);
+    return await storageSrc.copyObject(ctx, storageCfgSrc, storageCfgDst, storagePathSrc, storagePathDst);
   } else {
     const storageDst = getStorage(storageCfgDst);
     //todo stream
-    const buffer = await storageSrc.getObject(storageCfgSrc, storagePathSrc);
-    return await storageDst.putObject(storageCfgDst, storagePathDst, buffer, buffer.length);
+    const buffer = await storageSrc.getObject(ctx, storageCfgSrc, storagePathSrc);
+    return await storageDst.putObject(ctx, storageCfgDst, storagePathDst, buffer, buffer.length);
   }
 }
 async function copyPath(ctx, sourcePath, destinationPath, opt_specialDirSrc, opt_specialDirDst) {
@@ -136,7 +136,7 @@ async function listObjects(ctx, strPath, opt_specialDir) {
   const storage = getStorage(storageCfg);
   const prefix = getStoragePath(ctx, '', opt_specialDir);
   try {
-    const list = await storage.listObjects(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
+    const list = await storage.listObjects(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
     return list.map(currentValue => {
       return currentValue.substring(prefix.length);
     });
@@ -148,12 +148,12 @@ async function listObjects(ctx, strPath, opt_specialDir) {
 async function deleteObject(ctx, strPath, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
-  return await storage.deleteObject(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
+  return await storage.deleteObject(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function deletePath(ctx, strPath, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
-  return await storage.deletePath(storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
+  return await storage.deletePath(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
 }
 async function getSignedUrl(ctx, baseUrl, strPath, urlType, optFilename, opt_creationDate, opt_specialDir, useDirectStorageUrls) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);

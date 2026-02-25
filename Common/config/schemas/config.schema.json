@@ -138,6 +138,7 @@
               "properties": {
                 "rejectUnauthorized": {
                   "type": "boolean",
+                  "default": true,
                   "description": "When true, TLS certificates are verified; set false only for diagnostics with self-signed or invalid certificates"
                 }
               }
