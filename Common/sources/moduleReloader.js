@@ -33,6 +33,7 @@
 'use strict';
 
 const fs = require('fs');
+const {resolveConfigPath} = require('./pathUtils');
 
 /**
  * Reloads an NPM module by clearing it from require.cache and re-requiring it
@@ -76,7 +77,7 @@ function requireConfigWithRuntime(opt_additionalConfig) {
     // Save base config before reloading with runtime modifications
     baseConfigSnapshot = config.util.toObject();
 
-    const configFilePath = config.get('runtimeConfig.filePath');
+    const configFilePath = resolveConfigPath(config.get('runtimeConfig.filePath'));
     if (configFilePath) {
       const configData = fs.readFileSync(configFilePath, 'utf8');
 

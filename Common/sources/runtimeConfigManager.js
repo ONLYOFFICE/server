@@ -40,8 +40,9 @@ const operationContext = require('./operationContext');
 const utils = require('./utils');
 const logger = require('./logger');
 
+const {resolveConfigPath} = require('./pathUtils');
 const cfgRuntimeConfig = config.get('runtimeConfig');
-const configFilePath = cfgRuntimeConfig.filePath;
+const configFilePath = resolveConfigPath(cfgRuntimeConfig.filePath);
 const configFileName = path.basename(configFilePath);
 
 // Initialize cache with TTL and check for expired keys every minute

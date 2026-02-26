@@ -62,6 +62,7 @@ const metaRouter = require('./routes/meta');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
+const {resolveConfigPath} = require('./../../Common/sources/pathUtils');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
@@ -69,7 +70,7 @@ const cfgHtmlTemplate = config.get('wopi.htmlTemplate');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
-const cfgLicenseFile = config.get('license.license_file');
+const cfgLicenseFile = resolveConfigPath(config.get('license.license_file'));
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 
 // if (false) {

@@ -38,7 +38,8 @@ const fs = require('fs');
 
 const log4js = require('log4js');
 const layouts = require('log4js/lib/layouts');
-const logConfigPath = config.get('log.filePath');
+const {resolveConfigPath} = require('./pathUtils');
+const logConfigPath = resolveConfigPath(config.get('log.filePath'));
 const logOptions = config.get('log.options');
 
 // https://stackoverflow.com/a/36643588
