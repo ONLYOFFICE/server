@@ -142,19 +142,17 @@ function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
         clearTimeout(reloadTimer);
       }
 
-      reloadTimer = setTimeout(() => {
+      reloadTimer = setTimeout(async () => {
         reloadTimer = null;
         nodeCache.del(configFileName);
         operationContext.global.logger.info(`handleConfigFileChange reloading config: ${configFileName}`);
-
         operationContext.global.cleanRuntimeConfigCache();
-        getConfig(operationContext.global)
-          .then(config => {
-            logger.configureLogger(config?.log?.options);
-          })
-          .catch(err => {
-            operationContext.global.logger.error(`handleConfigFileChange reload error: ${err.message}`);
-          });
+        try {
+          const config = await getConfig(operationContext.global);
+          logger.configureLogger(config?.log?.options);
+        } catch (err) {
+          operationContext.global.logger.error(`handleConfigFileChange reload error: ${err.message}`);
+        }
       }, RELOAD_DEBOUNCE_MS);
     }
   } catch (err) {

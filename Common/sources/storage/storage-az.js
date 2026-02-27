@@ -109,20 +109,20 @@ async function deleteObjectsHelp(storageCfg, aKeys) {
   );
 }
 
-async function headObject(storageCfg, strPath) {
+async function headObject(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const properties = await blobClient.getProperties();
   return {ContentLength: properties.contentLength};
 }
 
-async function getObject(storageCfg, strPath) {
+async function getObject(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const options = applyCommandOptions({}, storageCfg, 'download');
   const response = await blobClient.download(options);
   return await utils.stream2Buffer(response.readableStreamBody);
 }
 
-async function createReadStream(storageCfg, strPath) {
+async function createReadStream(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const options = applyCommandOptions({}, storageCfg, 'download');
   const response = await blobClient.download(options);
@@ -132,7 +132,7 @@ async function createReadStream(storageCfg, strPath) {
   };
 }
 
-async function putObject(storageCfg, strPath, buffer, _contentLength) {
+async function putObject(_ctx, storageCfg, strPath, buffer, _contentLength) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
 
   const baseOptions = {
@@ -152,7 +152,7 @@ async function putObject(storageCfg, strPath, buffer, _contentLength) {
   }
 }
 
-async function uploadObject(storageCfg, strPath, filePath) {
+async function uploadObject(_ctx, storageCfg, strPath, filePath) {
   const blockBlobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const uploadStream = fs.createReadStream(filePath);
 
@@ -167,7 +167,7 @@ async function uploadObject(storageCfg, strPath, filePath) {
   await blockBlobClient.uploadStream(uploadStream, undefined, undefined, finalOptions);
 }
 
-async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
+async function copyObject(_ctx, storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
   const sourceBlobClient = getBlobClient(storageCfgSrc, getFilePath(storageCfgSrc, sourceKey));
   const destBlobClient = getBlobClient(storageCfgDst, getFilePath(storageCfgDst, destinationKey));
   const sasToken = generateBlobSASQueryParameters(
@@ -185,25 +185,25 @@ async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKe
   await destBlobClient.syncCopyFromURL(`${sourceBlobClient.url}?${sasToken}`, copyOptions);
 }
 
-async function listObjects(storageCfg, strPath) {
+async function listObjects(_ctx, storageCfg, strPath) {
   return await listObjectsExec(storageCfg, strPath);
 }
 
-async function deleteObject(storageCfg, strPath) {
+async function deleteObject(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const options = applyCommandOptions({}, storageCfg, 'deleteBlob');
   await blobClient.delete(options);
 }
 
 async function deleteObjects(storageCfg, strPaths) {
-  const aKeys = strPaths.map(path => ({Key: getFilePath(storageCfg, path)}));
+  const aKeys = strPaths.map(p => ({Key: getFilePath(storageCfg, p)}));
   for (let i = 0; i < aKeys.length; i += MAX_DELETE_OBJECTS) {
     await deleteObjectsHelp(storageCfg, aKeys.slice(i, i + MAX_DELETE_OBJECTS));
   }
 }
 
-async function deletePath(storageCfg, strPath) {
-  const list = await listObjects(storageCfg, strPath);
+async function deletePath(_ctx, storageCfg, strPath) {
+  const list = await listObjectsExec(storageCfg, strPath);
   await deleteObjects(storageCfg, list);
 }
 
