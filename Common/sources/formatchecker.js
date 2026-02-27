@@ -358,8 +358,11 @@ exports.getFormatFromString = function (ext) {
     case 'ods':
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_ODS;
     case 'csv':
-    case 'tsv':
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_CSV;
+    case 'tsv':
+      return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_TSV;
+    case 'scsv':
+      return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_SCSV;
     case 'xlsm':
       return constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM;
     case 'xltx':
@@ -541,6 +544,10 @@ exports.getStringFromFormat = function (format) {
       return 'ods';
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_CSV:
       return 'csv';
+    case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_TSV:
+      return 'tsv';
+    case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_SCSV:
+      return 'scsv';
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLSM:
       return 'xlsm';
     case constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_XLTX:
