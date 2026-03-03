@@ -347,7 +347,7 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
  * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
  * @param {object} opt_headers - Optional headers to include in the request.
  * @param {boolean} opt_returnStream - Optional flag to return stream.
- * @returns {Promise<{response: axios.AxiosResponse, sha256: string|null, body: Buffer|null, stream: NodeJS.ReadableStream|null}>} - A promise that resolves to object containing response, sha256 hash, and body (null if opt_streamWriter is provided).
+ * @returns {Promise<{response: axios.AxiosResponse, body: Buffer|null, stream: NodeJS.ReadableStream|null}>} - A promise that resolves to object containing response and body, or stream if opt_returnStream is true.
  */
 async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_returnStream) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
@@ -408,14 +408,11 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     }
     const limitedStream = new SizeLimitStream(optLimit);
     if (opt_returnStream) {
-      // When returning a stream, we'll return the response for the caller to handle streaming
-      // The content-length check is already done above
-      return {response, sha256: null, body: null, stream: response.data.pipe(limitedStream)};
+      return {response, body: null, stream: response.data.pipe(limitedStream)};
     }
 
     const body = await pipeline(response.data, limitedStream, buffer);
-    const sha256 = crypto.createHash('sha256').update(body).digest('hex');
-    return {response, sha256, body, stream: null};
+    return {response, body, stream: null};
   } catch (err) {
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
@@ -1379,6 +1376,24 @@ class SizeLimitStream extends Transform {
     callback(null, chunk);
   }
 }
+
+class HashSizeStream extends Transform {
+  constructor() {
+    super();
+    this._hash = crypto.createHash('sha256');
+    this.byteCount = 0;
+  }
+  _transform(chunk, _encoding, callback) {
+    this._hash.update(chunk);
+    this.byteCount += chunk.length;
+    callback(null, chunk);
+  }
+  get sha256() {
+    return this._hash.digest('hex');
+  }
+}
+exports.HashSizeStream = HashSizeStream;
+
 exports.getLicensePeriod = function (startDate, now) {
   startDate = new Date(startDate.getTime()); //clone
   startDate.addMonths(getMonthDiff(startDate, now));

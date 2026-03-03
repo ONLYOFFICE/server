@@ -513,8 +513,6 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
   const tenDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
   const tenDownloadAttemptDelay = ctx.getCfg('FileConverter.converter.downloadAttemptDelay', cfgDownloadAttemptDelay);
   let res = constants.CONVERT_DOWNLOAD;
-  let data = null;
-  let sha256 = null;
   let downloadAttemptCount = 0;
   const urlParsed = url.parse(uri);
   const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
@@ -526,9 +524,19 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
         }
-        const getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, tenMaxDownloadBytes, authorization, isInJwtToken, opt_headers);
-        data = getRes.body;
-        sha256 = getRes.sha256;
+        const {stream} = yield utils.downloadUrlPromise(
+          ctx,
+          uri,
+          tenDownloadTimeout,
+          tenMaxDownloadBytes,
+          authorization,
+          isInJwtToken,
+          opt_headers,
+          true
+        );
+        const hashStream = new utils.HashSizeStream();
+        yield pipeline(stream, hashStream, fs.createWriteStream(fileFrom));
+        ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', hashStream.byteCount, hashStream.sha256);
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
@@ -543,10 +551,6 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
           yield utils.sleep(tenDownloadAttemptDelay);
         }
       }
-    }
-    if (constants.NO_ERROR === res) {
-      ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', data.length, sha256);
-      fs.writeFileSync(fileFrom, data);
     }
   } else {
     ctx.logger.error('checkIpFilter error:url=%s;code:%s;', uri, filterStatus);
@@ -582,8 +586,9 @@ function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
   for (let i = 0; i < list.length; ++i) {
     const file = list[i];
     const fileRel = storage.getRelativePath(strPath, file);
-    const data = yield storage.getObject(ctx, file, opt_specialDir);
-    fs.writeFileSync(path.join(dir, fileRel), data);
+    const {readStream} = yield storage.createReadStream(ctx, file, opt_specialDir);
+    const writeStream = fs.createWriteStream(path.join(dir, fileRel));
+    yield pipeline(readStream, writeStream);
   }
   return list.length;
 }
