@@ -304,12 +304,7 @@ describe('HTTP Request Unit Tests', () => {
         await utils.downloadUrlPromise(
           ctx,
           `${BASE_URL}/api/slow-headers`,
-          {connectionAndInactivity: '100ms'}, // connectionAndInactivity shorter than the server delay
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
+          {timeout: {connectionAndInactivity: '100ms'}, limit: 1024 * 1024} // connectionAndInactivity shorter than the server delay
         );
         throw new Error('Expected an error to be thrown');
       } catch (error) {
@@ -322,12 +317,7 @@ describe('HTTP Request Unit Tests', () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/slow-headers`,
-        {connectionAndInactivity: '300ms'}, // connectionAndInactivity longer than the server delay (200ms)
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
+        {timeout: {connectionAndInactivity: '300ms'}, limit: 1024 * 1024} // connectionAndInactivity longer than the server delay (200ms)
       );
 
       expect(result).toBeDefined();
@@ -340,12 +330,7 @@ describe('HTTP Request Unit Tests', () => {
         await utils.downloadUrlPromise(
           ctx,
           `${BASE_URL}/api/partial-response`,
-          {wholeCycle: '1s'}, // wholeCycle shorter than time needed for response
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
+          {timeout: {wholeCycle: '1s'}, limit: 1024 * 1024} // wholeCycle shorter than time needed for response
         );
         throw new Error('Expected an error to be thrown');
       } catch (error) {
@@ -358,12 +343,7 @@ describe('HTTP Request Unit Tests', () => {
         await utils.downloadUrlPromise(
           ctx,
           `${BASE_URL}/api/slow-body`,
-          {connectionAndInactivity: '150ms'}, // connectionAndInactivity shorter than the second delay
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
+          {timeout: {connectionAndInactivity: '150ms'}, limit: 1024 * 1024} // connectionAndInactivity shorter than the second delay
         );
         throw new Error('Expected an error to be thrown');
       } catch (error) {
@@ -376,12 +356,7 @@ describe('HTTP Request Unit Tests', () => {
       const result = await utils.downloadUrlPromise(
         ctx,
         `${BASE_URL}/api/slow-body`,
-        {connectionAndInactivity: '250ms'}, // connectionAndInactivity longer than the longest delay (2s)
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
+        {timeout: {connectionAndInactivity: '250ms'}, limit: 1024 * 1024} // connectionAndInactivity longer than the longest delay (2s)
       );
 
       expect(result).toBeDefined();
@@ -394,7 +369,7 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     test.concurrent('wholeCycle does not trigger when longer than total response time', async () => {
-      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/slow-body`, {wholeCycle: '1s'}, 1024 * 1024, null, false, null, null);
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/slow-body`, {timeout: {wholeCycle: '1s'}, limit: 1024 * 1024});
 
       expect(result).toBeDefined();
       expect(getStatusCode(result.response)).toBe(200);
@@ -408,16 +383,10 @@ describe('HTTP Request Unit Tests', () => {
 
   describe('downloadUrlPromise', () => {
     test.concurrent('successfully downloads JSON data', async () => {
-      const result = await utils.downloadUrlPromise(
-        ctx,
-        `${BASE_URL}/api/data`,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
-      );
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/data`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
 
       expect(result).toBeDefined();
       expect(getStatusCode(result.response)).toBe(200);
@@ -426,16 +395,10 @@ describe('HTTP Request Unit Tests', () => {
 
     test.concurrent('throws error on timeout', async () => {
       try {
-        await utils.downloadUrlPromise(
-          ctx,
-          `${BASE_URL}/api/timeout`,
-          {wholeCycle: '1s', connectionAndInactivity: '500ms'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        );
+        await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/timeout`, {
+          timeout: {wholeCycle: '1s', connectionAndInactivity: '500ms'},
+          limit: 1024 * 1024
+        });
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.code).toBe('ESOCKETTIMEDOUT');
@@ -444,16 +407,10 @@ describe('HTTP Request Unit Tests', () => {
 
     test.concurrent('throws error on wholeCycle timeout', async () => {
       try {
-        await utils.downloadUrlPromise(
-          ctx,
-          `${BASE_URL}/api/timeout`,
-          {wholeCycle: '1s', connectionAndInactivity: '5000ms'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        );
+        await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/timeout`, {
+          timeout: {wholeCycle: '1s', connectionAndInactivity: '5000ms'},
+          limit: 1024 * 1024
+        });
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.code).toBe('ETIMEDOUT');
@@ -461,16 +418,10 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     test.concurrent('follows redirects correctly', async () => {
-      const result = await utils.downloadUrlPromise(
-        ctx,
-        `${BASE_URL}/api/redirect`,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
-      );
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/redirect`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
 
       expect(result).toBeDefined();
       expect(getStatusCode(result.response)).toBe(200);
@@ -492,16 +443,10 @@ describe('HTTP Request Unit Tests', () => {
       });
 
       try {
-        await utils.downloadUrlPromise(
-          mockCtx,
-          `${BASE_URL}/api/redirect`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        );
+        await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/redirect`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        });
       } catch (error) {
         // New implementation path (Axios)
         expect(error.statusCode).toBe(302);
@@ -523,16 +468,10 @@ describe('HTTP Request Unit Tests', () => {
       });
 
       try {
-        await utils.downloadUrlPromise(
-          mockCtx,
-          `${BASE_URL}/api/redirect`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        );
+        await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/redirect`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        });
 
         // Old implementation path
       } catch (error) {
@@ -543,47 +482,26 @@ describe('HTTP Request Unit Tests', () => {
 
     test.concurrent('throws error on server error', async () => {
       await expect(
-        utils.downloadUrlPromise(
-          ctx,
-          `${BASE_URL}/api/error`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        )
+        utils.downloadUrlPromise(ctx, `${BASE_URL}/api/error`, {timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'}, limit: 1024 * 1024})
       ).rejects.toMatchObject({code: 'ERR_BAD_RESPONSE'});
     });
 
     test.concurrent('throws error when content-length exceeds limit', async () => {
       try {
-        await utils.downloadUrlPromise(
-          ctx,
-          `${BASE_URL}/api/large`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        );
+        await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/large`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        });
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.code).toBe('EMSGSIZE');
       }
 
       try {
-        await utils.downloadUrlPromise(
-          ctx,
-          `${BASE_URL}/api/large-chunked`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        );
+        await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/large-chunked`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        });
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.code).toBe('EMSGSIZE');
@@ -592,32 +510,22 @@ describe('HTTP Request Unit Tests', () => {
 
     test.concurrent('throws error when content-length exceeds limit with stream', async () => {
       try {
-        const {stream} = await utils.downloadUrlPromise(
-          ctx,
-          `${BASE_URL}/api/large`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          true
-        );
+        const {stream} = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/large`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024,
+          returnStream: true
+        });
         await buffer(stream);
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.code).toBe('EMSGSIZE');
       }
       try {
-        const {stream} = await utils.downloadUrlPromise(
-          ctx,
-          `${BASE_URL}/api/large-chunked`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          true
-        );
+        const {stream} = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/large-chunked`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024,
+          returnStream: true
+        });
         await buffer(stream);
         throw new Error('Expected an error to be thrown');
       } catch (error) {
@@ -634,7 +542,7 @@ describe('HTTP Request Unit Tests', () => {
         }
       });
 
-      const response = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/mirror`, {wholeCycle: '2s'}, 1024 * 1024, null, false, null, null);
+      const response = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/mirror`, {timeout: {wholeCycle: '2s'}, limit: 1024 * 1024});
 
       // Parse the response body assuming it's JSON
       const responseBody = JSON.parse(response.body);
@@ -653,7 +561,7 @@ describe('HTTP Request Unit Tests', () => {
         }
       });
 
-      const response = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/mirror`, {wholeCycle: '2s'}, 1024 * 1024, null, false, null, null);
+      const response = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/mirror`, {timeout: {wholeCycle: '2s'}, limit: 1024 * 1024});
 
       // Parse the response body assuming it's JSON
       const responseBody = JSON.parse(response.body);
@@ -670,7 +578,7 @@ describe('HTTP Request Unit Tests', () => {
         }
       });
 
-      const response = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/mirror`, {wholeCycle: '2s'}, 1024 * 1024, null, false, null, null);
+      const response = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/mirror`, {timeout: {wholeCycle: '2s'}, limit: 1024 * 1024});
 
       // Parse the response body assuming it's JSON
       const responseBody = JSON.parse(response.body);
@@ -690,16 +598,10 @@ describe('HTTP Request Unit Tests', () => {
         }
       });
 
-      const result = await utils.downloadUrlPromise(
-        mockCtx,
-        `${BASE_URL}/api/mirror`,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
-      );
+      const result = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/mirror`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
 
       expect(result).toBeDefined();
       expect(result.response).toBeDefined();
@@ -721,15 +623,11 @@ describe('HTTP Request Unit Tests', () => {
       });
       const customHeaders = {'custom-header': 'test-value', 'set-cookie': ['cookie']};
       const customQueryParams = {'custom-query-param': 'value'};
-      const result = await utils.downloadUrlPromise(
-        mockCtx,
-        `${BASE_URL}/api/mirror?${new URLSearchParams(customQueryParams).toString()}`,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        1024 * 1024,
-        null,
-        false,
-        customHeaders
-      );
+      const result = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/mirror?${new URLSearchParams(customQueryParams).toString()}`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024,
+        headers: customHeaders
+      });
       expect(result).toBeDefined();
       expect(getStatusCode(result.response)).toBe(200);
       const body = JSON.parse(result.body);
@@ -756,16 +654,10 @@ describe('HTTP Request Unit Tests', () => {
         });
 
         // Make a GET request through the proxy
-        const result = await utils.downloadUrlPromise(
-          mockCtx,
-          `${BASE_URL}/api/data`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        );
+        const result = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/data`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        });
 
         // Verify the request was successful
         expect(result).toBeDefined();
@@ -787,16 +679,10 @@ describe('HTTP Request Unit Tests', () => {
 
     test.concurrent('should return 205 status code for /status/205', async () => {
       try {
-        await utils.downloadUrlPromise(
-          ctx,
-          `${BASE_URL}/api/status/205`,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          1024 * 1024,
-          null,
-          false,
-          null,
-          null
-        );
+        await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/status/205`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        });
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.message).toContain('Error response:');
@@ -806,16 +692,10 @@ describe('HTTP Request Unit Tests', () => {
   });
 
   test.concurrent('handles binary data correctly', async () => {
-    const result = await utils.downloadUrlPromise(
-      ctx,
-      `${BASE_URL}/api/binary`,
-      {wholeCycle: '5s', connectionAndInactivity: '3s'},
-      1024 * 1024,
-      null,
-      false,
-      null,
-      null
-    );
+    const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/binary`, {
+      timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+      limit: 1024 * 1024
+    });
 
     // Expected binary data (PNG file signature)
     const expectedData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -832,16 +712,11 @@ describe('HTTP Request Unit Tests', () => {
   });
 
   test.concurrent('handles binary data with stream writer', async () => {
-    const {stream} = await utils.downloadUrlPromise(
-      ctx,
-      `${BASE_URL}/api/binary`,
-      {wholeCycle: '5s', connectionAndInactivity: '3s'},
-      1024 * 1024,
-      null,
-      false,
-      null,
-      true
-    );
+    const {stream} = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/binary`, {
+      timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+      limit: 1024 * 1024,
+      returnStream: true
+    });
     const receivedData = await buffer(stream);
     const expectedData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -866,16 +741,7 @@ describe('HTTP Request Unit Tests', () => {
 
     // Use rejects.toThrow to test the error message
     await expect(
-      utils.downloadUrlPromise(
-        mockCtx,
-        'https://example.com/test',
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        1024 * 1024,
-        null,
-        false,
-        null,
-        null
-      )
+      utils.downloadUrlPromise(mockCtx, 'https://example.com/test', {timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'}, limit: 1024 * 1024})
     ).rejects.toThrow('Block external request. See externalRequest config options');
   });
 
@@ -897,16 +763,10 @@ describe('HTTP Request Unit Tests', () => {
       }
     });
 
-    const result = await utils.downloadUrlPromise(
-      mockCtx,
-      `${BASE_URL}/api/data`,
-      {wholeCycle: '5s', connectionAndInactivity: '3s'},
-      1024 * 1024,
-      null,
-      false,
-      null,
-      null
-    );
+    const result = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/data`, {
+      timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+      limit: 1024 * 1024
+    });
 
     expect(result).toBeDefined();
     expect(getStatusCode(result.response)).toBe(200);
@@ -931,16 +791,11 @@ describe('HTTP Request Unit Tests', () => {
       }
     });
 
-    const result = await utils.downloadUrlPromise(
-      mockCtx,
-      `${BASE_URL}/api/data`,
-      {wholeCycle: '5s', connectionAndInactivity: '3s'},
-      1024 * 1024,
-      null,
-      true, // Indicate URL is from JWT token
-      null,
-      null
-    );
+    const result = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/data`, {
+      timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+      limit: 1024 * 1024,
+      isInJwtToken: true
+    });
 
     expect(result).toBeDefined();
     expect(getStatusCode(result.response)).toBe(200);
@@ -951,17 +806,12 @@ describe('HTTP Request Unit Tests', () => {
     test.concurrent('successfully posts data', async () => {
       const postData = JSON.stringify({test: 'data'});
 
-      const result = await utils.postRequestPromise(
-        ctx,
-        `${BASE_URL}/api/post`,
-        postData,
-        null,
-        postData.length,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        null,
-        false,
-        {'Content-Type': 'application/json'}
-      );
+      const result = await utils.postRequestPromise(ctx, `${BASE_URL}/api/post`, {
+        data: postData,
+        dataSize: postData.length,
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        headers: {'Content-Type': 'application/json'}
+      });
 
       expect(result).toBeDefined();
       expect(result.response.statusCode).toBe(200);
@@ -972,17 +822,12 @@ describe('HTTP Request Unit Tests', () => {
       const postData = JSON.stringify({test: 'data'});
 
       await expect(
-        utils.postRequestPromise(
-          ctx,
-          `${BASE_URL}/api/timeout`,
-          postData,
-          null,
-          postData.length,
-          {wholeCycle: '1s', connectionAndInactivity: '500ms'},
-          null,
-          false,
-          {'Content-Type': 'application/json'}
-        )
+        utils.postRequestPromise(ctx, `${BASE_URL}/api/timeout`, {
+          data: postData,
+          dataSize: postData.length,
+          timeout: {wholeCycle: '1s', connectionAndInactivity: '500ms'},
+          headers: {'Content-Type': 'application/json'}
+        })
       ).rejects.toMatchObject({code: 'ESOCKETTIMEDOUT'});
     });
 
@@ -990,17 +835,13 @@ describe('HTTP Request Unit Tests', () => {
       const postData = JSON.stringify({test: 'data'});
       const authToken = 'test-auth-token';
 
-      const result = await utils.postRequestPromise(
-        ctx,
-        `${BASE_URL}/api/post`,
-        postData,
-        null,
-        postData.length,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        authToken,
-        false,
-        {'Content-Type': 'application/json'}
-      );
+      const result = await utils.postRequestPromise(ctx, `${BASE_URL}/api/post`, {
+        data: postData,
+        dataSize: postData.length,
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        authorization: authToken,
+        headers: {'Content-Type': 'application/json'}
+      });
 
       expect(result).toBeDefined();
       expect(result.response.statusCode).toBe(200);
@@ -1014,17 +855,12 @@ describe('HTTP Request Unit Tests', () => {
         'Content-Type': 'application/json'
       };
 
-      const result = await utils.postRequestPromise(
-        ctx,
-        `${BASE_URL}/api/post`,
-        postData,
-        null,
-        postData.length,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        null,
-        false,
-        customHeaders
-      );
+      const result = await utils.postRequestPromise(ctx, `${BASE_URL}/api/post`, {
+        data: postData,
+        dataSize: postData.length,
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        headers: customHeaders
+      });
 
       expect(result).toBeDefined();
       expect(result.response.statusCode).toBe(200);
@@ -1040,17 +876,12 @@ describe('HTTP Request Unit Tests', () => {
         }
       });
 
-      const result = await utils.postRequestPromise(
-        ctx,
-        `${BASE_URL}/api/post`,
-        null,
-        postStream,
-        postData.length,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        null,
-        false,
-        {'Content-Type': 'application/json'}
-      );
+      const result = await utils.postRequestPromise(ctx, `${BASE_URL}/api/post`, {
+        dataStream: postStream,
+        dataSize: postData.length,
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        headers: {'Content-Type': 'application/json'}
+      });
 
       expect(result).toBeDefined();
       expect(result.response.statusCode).toBe(200);
@@ -1061,17 +892,12 @@ describe('HTTP Request Unit Tests', () => {
       const postData = JSON.stringify({test: 'data'});
 
       await expect(
-        utils.postRequestPromise(
-          ctx,
-          `${BASE_URL}/api/timeout`,
-          postData,
-          null,
-          postData.length,
-          {wholeCycle: '1s', connectionAndInactivity: '5s'},
-          null,
-          false,
-          {'Content-Type': 'application/json'}
-        )
+        utils.postRequestPromise(ctx, `${BASE_URL}/api/timeout`, {
+          data: postData,
+          dataSize: postData.length,
+          timeout: {wholeCycle: '1s', connectionAndInactivity: '5s'},
+          headers: {'Content-Type': 'application/json'}
+        })
       ).rejects.toMatchObject({code: 'ETIMEDOUT'});
     });
 
@@ -1092,17 +918,12 @@ describe('HTTP Request Unit Tests', () => {
       const postData = JSON.stringify({test: 'data'});
 
       await expect(
-        utils.postRequestPromise(
-          mockCtx,
-          'https://example.com/api/post',
-          postData,
-          null,
-          postData.length,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          null,
-          false,
-          {'Content-Type': 'application/json'}
-        )
+        utils.postRequestPromise(mockCtx, 'https://example.com/api/post', {
+          data: postData,
+          dataSize: postData.length,
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          headers: {'Content-Type': 'application/json'}
+        })
       ).rejects.toThrow('Block external request. See externalRequest config options');
     });
 
@@ -1126,17 +947,13 @@ describe('HTTP Request Unit Tests', () => {
 
       const postData = JSON.stringify({test: 'data'});
 
-      const result = await utils.postRequestPromise(
-        mockCtx,
-        `${BASE_URL}/api/post`,
-        postData,
-        null,
-        postData.length,
-        {wholeCycle: '5s', connectionAndInactivity: '3s'},
-        null,
-        true, // Indicate URL is from JWT token
-        {'Content-Type': 'application/json'}
-      );
+      const result = await utils.postRequestPromise(mockCtx, `${BASE_URL}/api/post`, {
+        data: postData,
+        dataSize: postData.length,
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        isInJwtToken: true,
+        headers: {'Content-Type': 'application/json'}
+      });
 
       expect(result).toBeDefined();
       expect(result.response.statusCode).toBe(200);
@@ -1154,17 +971,12 @@ describe('HTTP Request Unit Tests', () => {
 
       const postData = JSON.stringify({test: 'data'});
 
-      const response = await utils.postRequestPromise(
-        mockCtx,
-        `${BASE_URL}/api/mirror`,
-        postData,
-        null,
-        postData.length,
-        {wholeCycle: '2s'},
-        null,
-        false,
-        {'Content-Type': 'application/json'}
-      );
+      const response = await utils.postRequestPromise(mockCtx, `${BASE_URL}/api/mirror`, {
+        data: postData,
+        dataSize: postData.length,
+        timeout: {wholeCycle: '2s'},
+        headers: {'Content-Type': 'application/json'}
+      });
 
       // Parse the response body assuming it's JSON
       const responseBody = JSON.parse(response.body);
@@ -1183,17 +995,12 @@ describe('HTTP Request Unit Tests', () => {
 
       const postData = JSON.stringify({test: 'data'});
 
-      const response = await utils.postRequestPromise(
-        mockCtx,
-        `${BASE_URL}/api/mirror`,
-        postData,
-        null,
-        postData.length,
-        {wholeCycle: '2s'},
-        null,
-        false,
-        {'Content-Type': 'application/json'}
-      );
+      const response = await utils.postRequestPromise(mockCtx, `${BASE_URL}/api/mirror`, {
+        data: postData,
+        dataSize: postData.length,
+        timeout: {wholeCycle: '2s'},
+        headers: {'Content-Type': 'application/json'}
+      });
 
       // Parse the response body assuming it's JSON
       const responseBody = JSON.parse(response.body);
@@ -1223,17 +1030,13 @@ describe('HTTP Request Unit Tests', () => {
         // Test POST request
         const postData = JSON.stringify({nested: {test: 'complex-data'}});
 
-        const postResult = await utils.postRequestPromise(
-          mockCtx,
-          `${BASE_URL}/api/post`,
-          postData,
-          null,
-          postData.length,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          'auth-token', // With auth token
-          false,
-          {'Content-Type': 'application/json', 'X-Custom': 'test-value'}
-        );
+        const postResult = await utils.postRequestPromise(mockCtx, `${BASE_URL}/api/post`, {
+          data: postData,
+          dataSize: postData.length,
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          authorization: 'auth-token',
+          headers: {'Content-Type': 'application/json', 'X-Custom': 'test-value'}
+        });
 
         // Verify the post request
         expect(postResult).toBeDefined();
@@ -1264,17 +1067,12 @@ describe('HTTP Request Unit Tests', () => {
       try {
         const postData = JSON.stringify({test: 'data'});
 
-        await utils.postRequestPromise(
-          ctx,
-          `${BASE_URL}/api/status/205`,
-          postData,
-          null,
-          postData.length,
-          {wholeCycle: '5s', connectionAndInactivity: '3s'},
-          null,
-          false,
-          {'Content-Type': 'application/json'}
-        );
+        await utils.postRequestPromise(ctx, `${BASE_URL}/api/status/205`, {
+          data: postData,
+          dataSize: postData.length,
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          headers: {'Content-Type': 'application/json'}
+        });
         throw new Error('Expected an error to be thrown');
       } catch (error) {
         expect(error.message).toContain('Error response:');

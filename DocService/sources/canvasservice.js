@@ -802,7 +802,12 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
             }
           }
           //todo stream
-          const getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], isInJwtToken);
+          const getRes = yield utils.downloadUrlPromise(ctx, urlSource, {
+            timeout: tenImageDownloadTimeout,
+            limit: tenImageSize,
+            authorization: authorizations[i],
+            isInJwtToken
+          });
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -1364,12 +1369,12 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
 function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   let res = '{"error": 1}';
   const metadata = yield storage.headObject(ctx, savePathDoc);
-  const streamObj = yield storage.createReadStream(ctx, savePathDoc);
+  const streamFactory = () => storage.createReadStream(ctx, savePathDoc);
   const postRes = yield wopiClient.putFile(
     ctx,
     wopiParams,
     null,
-    streamObj.readStream,
+    streamFactory,
     metadata.ContentLength,
     userLastChangeId,
     isModifiedByUser,
@@ -1853,16 +1858,14 @@ exports.downloadFile = function (req, res) {
           headers['Range'] = req.get('Range');
         }
 
-        const downloadResult = yield utils.downloadUrlPromise(
-          ctx,
-          url,
-          tenDownloadTimeout,
-          tenDownloadMaxBytes,
+        const downloadResult = yield utils.downloadUrlPromise(ctx, url, {
+          timeout: tenDownloadTimeout,
+          limit: tenDownloadMaxBytes,
           authorization,
           isInJwtToken,
           headers,
-          true
-        );
+          returnStream: true
+        });
         const response = downloadResult.response;
         stream = downloadResult.stream;
         // Sanitize Content-Disposition by removing control chars (prevents CRLF/header injection)
@@ -1982,15 +1985,16 @@ async function processWopiSaveAs(ctx, cmd) {
     const suggestedExt = `.${formatChecker.getStringFromFormat(cmd.getOutputFormat())}`;
     const suggestedTarget = cmd.getSaveAsPath();
     const storageFilePath = `${cmd.getDocId()}${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
-    const stream = await storage.createReadStream(ctx, storageFilePath);
+    const metadata = await storage.headObject(ctx, storageFilePath);
+    const streamFactory = () => storage.createReadStream(ctx, storageFilePath);
     const {wopiSrc, access_token} = info.wopiParams.userAuth;
     res = await wopiClient.putRelativeFile(
       ctx,
       wopiSrc,
       access_token,
       null,
-      stream.readStream,
-      stream.contentLength,
+      streamFactory,
+      metadata.ContentLength,
       suggestedExt,
       suggestedTarget,
       false

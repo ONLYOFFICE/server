@@ -746,13 +746,13 @@ function getConverterHtmlHandler(req, res) {
         const fileTo = `${docId}/${constants.OUTPUT_NAME}.${targetext}`;
 
         const metadata = yield storage.headObject(ctx, fileTo);
-        const streamObj = yield storage.createReadStream(ctx, fileTo);
+        const streamFactory = () => storage.createReadStream(ctx, fileTo);
         const putRelativeRes = yield wopiClient.putRelativeFile(
           ctx,
           wopiSrc,
           access_token,
           null,
-          streamObj.readStream,
+          streamFactory,
           metadata.ContentLength,
           `.${targetext}`,
           undefined,

@@ -338,22 +338,28 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
   }
 }
 /*
- * Download a URL and return the response.
+ * Downloads a URL and returns the response.
  * @param {operationContext.Context} ctx - The operation context.
  * @param {string} uri - The URL to download.
- * @param {object} optTimeout - Optional timeout configuration.
- * @param {number} optLimit - Optional limit on the size of the response.
- * @param {string} opt_Authorization - Optional authorization header.
- * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
- * @param {object} opt_headers - Optional headers to include in the request.
- * @param {boolean} opt_returnStream - Optional flag to return stream.
- * @returns {Promise<{response: axios.AxiosResponse, body: Buffer|null, stream: NodeJS.ReadableStream|null}>} - A promise that resolves to object containing response and body, or stream if opt_returnStream is true.
+ * @param {object} [opts] - Options.
+ * @param {object} [opts.timeout] - Timeout config: `wholeCycle` and `connectionAndInactivity` duration strings.
+ * @param {number} [opts.limit] - Max response size in bytes.
+ * @param {string} [opts.authorization] - Authorization token added to the outbox header.
+ * @param {boolean} [opts.isInJwtToken] - Whether the URL originates from a JWT token (bypasses private IP filter).
+ * @param {object} [opts.headers] - Additional request headers.
+ * @param {boolean} [opts.returnStream] - Return a readable stream instead of buffering the body.
+ * @param {Function} [opts.beforeRedirect] - Called before following a redirect; throw to cancel.
+ * @returns {Promise<{response: axios.AxiosResponse, body: Buffer|null, stream: NodeJS.ReadableStream|null}>}
  */
-async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_returnStream) {
+async function downloadUrlPromise(
+  ctx,
+  uri,
+  {timeout, limit, authorization, isInJwtToken, headers: extraHeaders, returnStream, beforeRedirect, maxRedirects} = {}
+) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-  const sizeLimit = optLimit || Number.MAX_VALUE;
+  const sizeLimit = limit || Number.MAX_VALUE;
   uri = URI.serialize(URI.parse(uri));
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
 
@@ -362,7 +368,7 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
 
-  if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
+  if (!addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
     throw new Error('Block external request. See externalRequest config options');
   }
 
@@ -372,11 +378,11 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   }
 
   const headers = {...options.headers};
-  if (opt_Authorization) {
-    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
+  if (authorization) {
+    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + authorization;
   }
-  if (opt_headers) {
-    Object.assign(headers, opt_headers);
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
   }
 
   const axiosConfig = {
@@ -385,8 +391,10 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     method: 'GET',
     responseType: 'stream',
     headers,
-    signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
-    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined
+    signal: timeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(timeout.wholeCycle)) : undefined,
+    timeout: timeout?.connectionAndInactivity ? ms(timeout.connectionAndInactivity) : undefined,
+    beforeRedirect,
+    ...(maxRedirects !== undefined && {maxRedirects})
   };
   try {
     const response = await axios(axiosConfig);
@@ -406,8 +414,8 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
       response.data.destroy(error);
       throw error;
     }
-    const limitedStream = new SizeLimitStream(optLimit);
-    if (opt_returnStream) {
+    const limitedStream = new SizeLimitStream(limit);
+    if (returnStream) {
       return {response, body: null, stream: response.data.pipe(limitedStream)};
     }
 
@@ -421,12 +429,19 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     }
     if (err.status) {
       err.statusCode = err.status;
+    } else if (!err.statusCode) {
+      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
+      err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
   }
 }
 
-async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_isInJwtToken, opt_headers) {
+async function postRequestPromise(
+  ctx,
+  uri,
+  {data, dataStream, dataSize, timeout, authorization, isInJwtToken, headers: extraHeaders, beforeRedirect, maxRedirects} = {}
+) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
@@ -437,7 +452,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
 
-  if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
+  if (!addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
     throw new Error('Block external request. See externalRequest config options');
   }
 
@@ -447,19 +462,19 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   }
 
   const headers = {...options.headers};
-  if (opt_Authorization) {
-    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
+  if (authorization) {
+    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + authorization;
   }
-  if (opt_headers) {
-    Object.assign(headers, opt_headers);
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
   }
-  if (undefined !== postDataSize) {
+  if (undefined !== dataSize) {
     //If no Content-Length is set, data will automatically be encoded in HTTP Chunked transfer encoding,
     //so that server knows when the data ends. The Transfer-Encoding: chunked header is added.
     //https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
     //issue with Transfer-Encoding: chunked wopi and sharepoint 2019
     //https://community.alteryx.com/t5/Dev-Space/Download-Tool-amp-Microsoft-SharePoint-Chunked-Request-Error/td-p/735824
-    headers['Content-Length'] = postDataSize;
+    headers['Content-Length'] = dataSize;
   }
 
   const axiosConfig = {
@@ -467,31 +482,33 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     url: uri,
     method: 'POST',
     headers,
-    signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
-    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined
+    signal: timeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(timeout.wholeCycle)) : undefined,
+    timeout: timeout?.connectionAndInactivity ? ms(timeout.connectionAndInactivity) : undefined,
+    beforeRedirect,
+    ...(maxRedirects !== undefined && {maxRedirects})
   };
 
-  if (postData) {
-    axiosConfig.data = postData;
-  } else if (postDataStream) {
-    axiosConfig.data = postDataStream;
+  if (data) {
+    axiosConfig.data = data;
+  } else if (dataStream) {
+    axiosConfig.data = dataStream;
   }
 
   try {
     const response = await axios(axiosConfig);
-    const {status, headers, data} = response;
+    const {status, headers, data: responseData} = response;
 
     if (status === 200 || status === 204) {
       return {
         response: {
           statusCode: status,
           headers,
-          body: data
+          body: responseData
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(responseData)
       };
     } else {
-      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${data}`);
+      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${responseData}`);
       error.status = status;
       error.response = response;
       throw error;
@@ -504,6 +521,9 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     }
     if (err.status) {
       err.statusCode = err.status;
+    } else if (!err.statusCode) {
+      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
+      err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
   }
@@ -586,6 +606,9 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
     }
     if (err.status) {
       err.statusCode = err.status;
+    } else if (!err.statusCode) {
+      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
+      err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
   }

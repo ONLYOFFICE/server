@@ -524,16 +524,14 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
         }
-        const {stream} = yield utils.downloadUrlPromise(
-          ctx,
-          uri,
-          tenDownloadTimeout,
-          tenMaxDownloadBytes,
+        const {stream} = yield utils.downloadUrlPromise(ctx, uri, {
+          timeout: tenDownloadTimeout,
+          limit: tenMaxDownloadBytes,
           authorization,
           isInJwtToken,
-          opt_headers,
-          true
-        );
+          headers: opt_headers,
+          returnStream: true
+        });
         const hashStream = new utils.HashSizeStream();
         yield pipeline(stream, hashStream, fs.createWriteStream(fileFrom));
         ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', hashStream.byteCount, hashStream.sha256);

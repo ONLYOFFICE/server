@@ -663,7 +663,7 @@ function getEditorHtml(req, res) {
       const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
       const tenWopiFileInfoBlockList = ctx.getCfg('wopi.fileInfoBlockList', cfgWopiFileInfoBlockList);
 
-      const wopiSrc = req.query['wopisrc'];
+      let wopiSrc = req.query['wopisrc'];
       const fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       ctx.setDocId(fileId);
       const usid = req.query['usid'] || crypto.randomUUID();
@@ -695,13 +695,17 @@ function getEditorHtml(req, res) {
         forcedViewMode: false
       });
 
-      const fileInfo = (params.fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token, sc));
+      const {fileInfo, redirectedWopiSrc} = yield checkFileInfo(ctx, wopiSrc, access_token, sc);
+      params.fileInfo = fileInfo;
       if (!fileInfo || fileInfo.error) {
-        if (fileInfo && fileInfo.error) {
-          params.statusCode = fileInfo.statusCode;
-        }
+        if (fileInfo?.error) params.statusCode = fileInfo.statusCode;
         params.fileInfo = {};
         return;
+      }
+      if (redirectedWopiSrc) {
+        ctx.logger.info('wopiEditor: updating wopiSrc after redirect %s -> %s', wopiSrc, redirectedWopiSrc);
+        wopiSrc = redirectedWopiSrc;
+        userAuth.wopiSrc = wopiSrc;
       }
       const fileType = getFileTypeByInfo(fileInfo);
       if (!shutdownFlag) {
@@ -758,7 +762,7 @@ function getConverterHtml(req, res) {
       const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
       const tenWopiHost = ctx.getCfg('wopi.host', cfgWopiHost);
 
-      const wopiSrc = req.query['wopisrc'];
+      let wopiSrc = req.query['wopisrc'];
       const fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       ctx.setDocId(fileId);
       ctx.logger.info('convert-and-edit start');
@@ -780,10 +784,11 @@ function getConverterHtml(req, res) {
         return;
       }
 
-      const fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token);
+      const {fileInfo, redirectedWopiSrc} = yield checkFileInfo(ctx, wopiSrc, access_token);
       if (!fileInfo || fileInfo.error) {
         return;
       }
+      if (redirectedWopiSrc) wopiSrc = redirectedWopiSrc;
 
       const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
 
@@ -849,9 +854,15 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         headers['Content-Type'] = mime.getType(getFileTypeByInfo(fileInfo));
 
         ctx.logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
-        //isInJwtToken is true because it passed checkIpFilter for wopi
-        const isInJwtToken = true;
-        postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
+        postRes = yield utils.postRequestPromise(ctx, uri, {
+          timeout: tenCallbackRequestTimeout,
+          isInJwtToken: true,
+          headers,
+          beforeRedirect: wopiUtils.blockWopiRedirect,
+          data,
+          dataStream,
+          dataSize
+        });
         ctx.logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
         ctx.logger.debug('wopi PutFile response body:%s', postRes.body);
       } else {
@@ -887,19 +898,15 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       headers['Content-Type'] = mime.getType(suggestedExt);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
-      //isInJwtToken is true because it passed checkIpFilter for wopi
-      const isInJwtToken = true;
-      const postRes = yield utils.postRequestPromise(
-        ctx,
-        uri,
+      const postRes = yield utils.postRequestPromise(ctx, uri, {
+        timeout: tenCallbackRequestTimeout,
+        isInJwtToken: true,
+        headers,
+        beforeRedirect: wopiUtils.blockWopiRedirect,
         data,
         dataStream,
-        dataSize,
-        tenCallbackRequestTimeout,
-        undefined,
-        isInJwtToken,
-        headers
-      );
+        dataSize
+      });
       ctx.logger.debug('wopi putRelativeFile response headers=%j', postRes.response.headers);
       ctx.logger.debug('wopi putRelativeFile response body:%s', postRes.body);
       res = JSON.parse(postRes.body);
@@ -945,19 +952,12 @@ async function renameFile(ctx, wopiParams, name) {
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
 
       ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-      //isInJwtToken is true because it passed checkIpFilter for wopi
-      const isInJwtToken = true;
-      const postRes = await utils.postRequestPromise(
-        ctx,
-        uri,
-        undefined,
-        undefined,
-        undefined,
-        tenCallbackRequestTimeout,
-        undefined,
-        isInJwtToken,
-        headers
-      );
+      const postRes = await utils.postRequestPromise(ctx, uri, {
+        timeout: tenCallbackRequestTimeout,
+        isInJwtToken: true,
+        headers,
+        beforeRedirect: wopiUtils.blockWopiRedirect
+      });
       ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
       if (postRes.body) {
         res = JSON.parse(postRes.body);
@@ -988,10 +988,11 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
     const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
     const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
 
-    const fileInfo = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
+    const {fileInfo, redirectedWopiSrc} = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
     if (!fileInfo || fileInfo.error) {
       return;
     }
+    if (redirectedWopiSrc) userAuth.wopiSrc = redirectedWopiSrc;
     const fileType = getFileTypeByInfo(fileInfo);
 
     res = {userAuth, fileInfo, queryParams: undefined};
@@ -1010,6 +1011,31 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
   }
   return res;
 }
+// Private helper: one signed WOPI GET → {res} on success, {redirectedUri} if redirected, throws on error
+async function _wopiGet(ctx, uri, access_token, baseHeaders, timeout) {
+  const headers = {...baseHeaders};
+  let redirectedUri = null;
+  await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
+  ctx.logger.debug('wopi GET request uri=%s headers=%j', uri, headers);
+  try {
+    return {
+      res: await utils.downloadUrlPromise(ctx, uri, {
+        timeout,
+        isInJwtToken: true,
+        headers,
+        beforeRedirect: (options, responseDetails) => {
+          redirectedUri = options.href;
+          ctx.logger.debug('wopi GET redirect %d to: %s', responseDetails.statusCode, redirectedUri);
+          throw new Error(`WOPI redirect ${responseDetails.statusCode}`);
+        }
+      })
+    };
+  } catch (err) {
+    if (redirectedUri) return {redirectedUri};
+    throw err;
+  }
+}
+
 /**
  * Checks file info from WOPI server (implements CheckFileInfo operation)
  * @see https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/files/checkfileinfo
@@ -1022,40 +1048,41 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
  *   - Error: {error: true, statusCode: 401|404|500}
  */
 async function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
-  let result = null;
   try {
     ctx.logger.info('wopi checkFileInfo start');
     const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
-
     const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-    const filterStatus = await checkIpFilter(ctx, uri);
-    if (0 !== filterStatus) {
-      const errorMsg = getWopiErrorMessage(403);
-      ctx.logger.error('wopi checkFileInfo error status=%d (%s)', 403, errorMsg);
-      return {error: true, statusCode: 403};
+    if (0 !== (await checkIpFilter(ctx, uri))) {
+      ctx.logger.warn('wopi checkFileInfo blocked by IP filter uri=%s', uri);
+      return {fileInfo: {error: true, statusCode: 403}};
     }
-    const headers = {};
-    if (opt_sc) {
-      headers['X-WOPI-SessionContext'] = opt_sc;
+    const headers = opt_sc ? {'X-WOPI-SessionContext': opt_sc} : {};
+    const firstGet = await _wopiGet(ctx, uri, access_token, headers, tenDownloadTimeout);
+    const {redirectedUri} = firstGet;
+    let getRes = firstGet.res;
+    let redirectedWopiSrc;
+    if (redirectedUri) {
+      const rUrl = new URL(redirectedUri);
+      rUrl.search = '';
+      redirectedWopiSrc = rUrl.toString();
+      ctx.logger.info('wopi checkFileInfo redirect: %s -> %s', wopiSrc, redirectedWopiSrc);
+      const newUri = `${redirectedWopiSrc}?access_token=${encodeURIComponent(access_token)}`;
+      if (0 !== (await checkIpFilter(ctx, newUri))) {
+        ctx.logger.warn('wopi checkFileInfo redirect blocked by IP filter uri=%s', newUri);
+        return {fileInfo: {error: true, statusCode: 403}};
+      }
+      const retry = await _wopiGet(ctx, newUri, access_token, headers, tenDownloadTimeout);
+      if (retry.redirectedUri) throw new Error('WOPI redirect loop');
+      getRes = retry.res;
     }
-    await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
-    ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-    //isInJwtToken is true because it passed checkIpFilter for wopi
-    const isInJwtToken = true;
-    const getRes = await utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, isInJwtToken, headers);
-    ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
-    result = JSON.parse(getRes.body);
+    ctx.logger.debug('wopi checkFileInfo headers=%j body=%s', getRes.response.headers, getRes.body);
+    return {fileInfo: JSON.parse(getRes.body), redirectedWopiSrc};
   } catch (err) {
-    const errorMsg = getWopiErrorMessage(err.statusCode);
-    ctx.logger.error('wopi checkFileInfo error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
-    result = {
-      error: true,
-      statusCode: err.statusCode
-    };
+    ctx.logger.error('wopi checkFileInfo error status=%d (%s):%s', err.statusCode, getWopiErrorMessage(err.statusCode), err.stack);
+    return {fileInfo: {error: true, statusCode: err.statusCode}};
   } finally {
     ctx.logger.info('wopi checkFileInfo end');
   }
-  return result;
 }
 async function lock(ctx, command, lockId, fileInfo, userAuth) {
   const res = {error: false, statusCode: undefined};
@@ -1081,19 +1108,12 @@ async function lock(ctx, command, lockId, fileInfo, userAuth) {
       const headers = {'X-WOPI-Override': command, 'X-WOPI-Lock': lockId};
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
-      //isInJwtToken is true because it passed checkIpFilter for wopi
-      const isInJwtToken = true;
-      const postRes = await utils.postRequestPromise(
-        ctx,
-        uri,
-        undefined,
-        undefined,
-        undefined,
-        tenCallbackRequestTimeout,
-        undefined,
-        isInJwtToken,
-        headers
-      );
+      const postRes = await utils.postRequestPromise(ctx, uri, {
+        timeout: tenCallbackRequestTimeout,
+        isInJwtToken: true,
+        headers,
+        beforeRedirect: wopiUtils.blockWopiRedirect
+      });
       ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
     } else {
       ctx.logger.info('wopi %s SupportsLocks = false', command);
@@ -1131,19 +1151,12 @@ async function unlock(ctx, wopiParams) {
       const headers = {'X-WOPI-Override': 'UNLOCK', 'X-WOPI-Lock': lockId};
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-      //isInJwtToken is true because it passed checkIpFilter for wopi
-      const isInJwtToken = true;
-      const postRes = await utils.postRequestPromise(
-        ctx,
-        uri,
-        undefined,
-        undefined,
-        undefined,
-        tenCallbackRequestTimeout,
-        undefined,
-        isInJwtToken,
-        headers
-      );
+      const postRes = await utils.postRequestPromise(ctx, uri, {
+        timeout: tenCallbackRequestTimeout,
+        isInJwtToken: true,
+        headers,
+        beforeRedirect: wopiUtils.blockWopiRedirect
+      });
       ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
     } else {
       ctx.logger.info('wopi SupportsLocks = false');

@@ -137,7 +137,17 @@ async function getWopiFileUrl(ctx, fileInfo, userAuth) {
   return {url, headers};
 }
 
+/**
+ * Standard beforeRedirect handler that blocks all redirects for WOPI requests
+ */
+function blockWopiRedirect(_options, responseDetails) {
+  const err = new Error(`WOPI redirect ${responseDetails.statusCode} blocked`);
+  err.statusCode = responseDetails.statusCode;
+  throw err;
+}
+
 module.exports = {
   getWopiFileUrl,
-  fillStandardHeaders
+  fillStandardHeaders,
+  blockWopiRedirect
 };

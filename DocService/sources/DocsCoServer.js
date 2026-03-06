@@ -768,17 +768,13 @@ async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizat
   }
   const headers = {'Content-Type': 'application/json'};
   //isInJwtToken is true because callbackUrl is required field in jwt token
-  const postRes = await utils.postRequestPromise(
-    ctx,
-    uri,
-    JSON.stringify(dataObject),
-    undefined,
-    undefined,
-    tenCallbackRequestTimeout,
-    auth,
-    tenTokenEnableRequestInbox,
+  const postRes = await utils.postRequestPromise(ctx, uri, {
+    data: JSON.stringify(dataObject),
+    timeout: tenCallbackRequestTimeout,
+    authorization: auth,
+    isInJwtToken: tenTokenEnableRequestInbox,
     headers
-  );
+  });
   ctx.logger.debug('postData response: data = %s', postRes.body);
   return postRes.body;
 }
@@ -4558,17 +4554,13 @@ async function proxyCommand(ctx, req, params) {
   }
   ctx.logger.info('commandFromServer proxy request with "key" to correctly process commands in sharded cluster to url:%s', url);
   //isInJwtToken is true because 'command' is always internal
-  return await utils.postRequestPromise(
-    ctx,
-    url,
-    req.body,
-    null,
-    req.body.length,
-    tenCallbackRequestTimeout,
-    undefined,
-    tenTokenEnableRequestInbox,
-    req.headers
-  );
+  return await utils.postRequestPromise(ctx, url, {
+    data: req.body,
+    dataSize: req.body.length,
+    timeout: tenCallbackRequestTimeout,
+    isInJwtToken: tenTokenEnableRequestInbox,
+    headers: req.headers
+  });
 }
 /**
  * Server commands handler.
