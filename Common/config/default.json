@@ -280,6 +280,7 @@
     "modulusOld": "",
     "exponentOld": 65537,
     "privateKeyOld": "",
+    "sendAuthorizationHeader": false,
     "refreshLockInterval": "10m",
     "dummy": {
       "enable": false,
