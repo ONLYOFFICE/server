@@ -373,6 +373,16 @@ function addPasswordToCmd(ctx, cmd, docPasswordStr, originFormat) {
 function addOriginFormat(ctx, cmd, row) {
   cmd.setOriginFormat(row && row.change_id);
 }
+function setDelimiterByOutputFormat(cmd) {
+  // todo: delimiter should be persisted in db on open and read from row here,
+  // instead of being inferred from output format (loses user-specified delimiter for csv)
+  const outputFormat = cmd.getOutputFormat();
+  if (outputFormat === constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_TSV) {
+    cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Tab);
+  } else if (outputFormat === constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_SCSV) {
+    cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Semicolon);
+  }
+}
 
 function changeFormatByOrigin(ctx, row, format) {
   const tenAssemblyFormatAsOrigin = ctx.getCfg('services.CoAuthoring.server.assemblyFormatAsOrigin', cfgAssemblyFormatAsOrigin);
@@ -697,6 +707,7 @@ const commandSfctByCmd = co.wrap(function* (ctx, cmd, opt_priority, opt_expirati
   yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password, row.change_id);
   addOriginFormat(ctx, cmd, row);
+  setDelimiterByOutputFormat(cmd);
   const userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
   cmd.setOutputFormat(changeFormatByOrigin(ctx, row, cmd.getOutputFormat()));
@@ -1952,6 +1963,7 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
         cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
         addPasswordToCmd(ctx, cmd, row && row.password, row && row.change_id);
         addOriginFormat(ctx, cmd, row);
+        setDelimiterByOutputFormat(cmd);
         yield* addRandomKeyTaskCmd(ctx, cmd);
         const queueData = getSaveTask(ctx, cmd);
         queueData.setFromChanges(true);

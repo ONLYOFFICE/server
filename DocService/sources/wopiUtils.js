@@ -42,6 +42,7 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const cfgMaxDownloadBytes = config.get('FileConverter.converter.maxDownloadBytes');
 const cfgWopiPrivateKey = config.get('wopi.privateKey');
 const cfgWopiPrivateKeyOld = config.get('wopi.privateKeyOld');
+const cfgWopiSendAuthorizationHeader = config.get('wopi.sendAuthorizationHeader');
 
 const cryptoSign = util.promisify(crypto.sign);
 
@@ -108,8 +109,10 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
   headers['X-WOPI-ClientVersion'] = commonDefines.buildVersion + '.' + commonDefines.buildNumber;
   headers['X-WOPI-CorrelationId'] = crypto.randomUUID();
   headers['X-WOPI-SessionId'] = ctx.userSessionId;
-  //remove redundant header https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/common-headers#request-headers
-  // headers['Authorization'] = `Bearer ${access_token}`;
+  //Authorization header is optional, see https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/common-headers#request-headers
+  if (ctx.getCfg('wopi.sendAuthorizationHeader', cfgWopiSendAuthorizationHeader)) {
+    headers['Authorization'] = `Bearer ${access_token}`;
+  }
 }
 
 /**
