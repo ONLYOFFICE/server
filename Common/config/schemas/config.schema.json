@@ -332,6 +332,17 @@
       "x-scope": ["admin", "tenant"],
       "properties": {
         "enable": {"type": "boolean"},
+        "wopiZone": {
+          "type": "string",
+          "enum": ["external-https", "external-http", "internal-https", "internal-http"],
+          "description": "Specifies the discovery zone advertised by the document server. For SharePoint integrations, this value should match the zone configured with Set-SPWOPIZone.",
+          "x-scope": ["admin", "tenant"]
+        },
+        "sendAuthorizationHeader": {
+          "type": "boolean",
+          "description": "Adds the Authorization: Bearer <token> header to WOPI requests. Optional by specification, but may be needed for older SharePoint integrations.",
+          "x-scope": ["admin", "tenant"]
+        },
         "publicKey": {"type": "string"},
         "refreshLockInterval": {
           "type": "string",
