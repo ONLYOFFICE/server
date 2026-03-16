@@ -57,6 +57,14 @@ const CONVERT_ASYNC_DELAY = 1000;
 
 const clientStatsD = statsDClient.getClient();
 
+function getDelimiter(filetype, outputtype, external) {
+  const defaults = {
+    tsv: commonDefines.c_oAscCsvDelimiter.Tab,
+    scsv: commonDefines.c_oAscCsvDelimiter.Semicolon
+  };
+  return external || defaults[filetype] || defaults[outputtype] || commonDefines.c_oAscCsvDelimiter.Comma;
+}
+
 function* getConvertStatus(ctx, docId, encryptedUserPassword, selectRes, opt_checkPassword) {
   const status = new commonDefines.ConvertStatus(constants.NO_ERROR);
   if (selectRes.length > 0) {
@@ -323,13 +331,8 @@ function convertRequest(req, res, isJson) {
       let outputExt = formatChecker.getStringFromFormat(cmd.getOutputFormat());
 
       cmd.setCodepage(commonDefines.c_oAscEncodingsMap[params.codePage] || commonDefines.c_oAscCodePageUtf8);
-      if ('tsv' === filetype) {
-        // TSV format strictly requires Tab delimiter by definition
-        cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Tab);
-      } else {
-        cmd.setDelimiter(parseIntParam(params.delimiter) || commonDefines.c_oAscCsvDelimiter.Comma);
-        if (undefined != params.delimiterChar) cmd.setDelimiterChar(params.delimiterChar);
-      }
+      cmd.setDelimiter(getDelimiter(filetype, outputtype, parseIntParam(params.delimiter)));
+      if (undefined != params.delimiterChar) cmd.setDelimiterChar(params.delimiterChar);
       if (params.region) {
         cmd.setLCID(utilsDocService.localeToLCID(params.region));
       }
@@ -586,7 +589,7 @@ function convertTo(req, res) {
         cmd.setFormat(filetype);
         cmd.setOutputFormat(outputFormat);
         cmd.setCodepage(commonDefines.c_oAscCodePageUtf8);
-        cmd.setDelimiter('tsv' === filetype ? commonDefines.c_oAscCsvDelimiter.Tab : commonDefines.c_oAscCsvDelimiter.Comma);
+        cmd.setDelimiter(getDelimiter(filetype, format));
         if (lang) {
           cmd.setLCID(utilsDocService.localeToLCID(lang));
         }
