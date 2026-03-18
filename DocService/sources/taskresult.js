@@ -134,6 +134,28 @@ function select(ctx, docId) {
     );
   });
 }
+function selectByStatus(ctx, status) {
+  return new Promise((resolve, reject) => {
+    const values = [];
+    const p1 = addSqlParam(ctx.tenant, values);
+    const p2 = addSqlParam(status, values);
+    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE tenant=${p1} AND status=${p2};`;
+    sqlBase.sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      undefined,
+      undefined,
+      values
+    );
+  });
+}
 /**
  * Generate SQL SET/WHERE clauses from task object
  * @param {TaskResultData} task - Task data object
@@ -387,6 +409,7 @@ function removeIf(ctx, mask) {
 exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
 exports.select = select;
+exports.selectByStatus = selectByStatus;
 exports.selectWithCache = selectWithCache;
 exports.update = update;
 exports.updateIf = updateIf;

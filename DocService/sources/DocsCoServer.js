@@ -4489,7 +4489,15 @@ exports.healthCheck = function (req, res) {
   });
 };
 function validateInputParams(ctx, authRes, command) {
-  const commandsWithoutKey = ['version', 'license', 'getForgottenList'];
+  const commandsWithoutKey = [
+    'version',
+    'license',
+    'getForgottenList',
+    'getForgottenListWithMetadata',
+    'getFilesWithConversionErrors',
+    'deleteForgottenBulk',
+    'deleteFilesWithConversionErrors'
+  ];
   const isValidWithoutKey = commandsWithoutKey.includes(command.c);
   const isDocIdString = typeof command.key === 'string';
 
@@ -4523,6 +4531,34 @@ function* getFilesKeys(ctx, opt_specialDir) {
   }
 
   return filteredKeys;
+}
+
+function* getForgottenItems(ctx, opt_specialDir) {
+  const filesInfo = yield storage.listObjectsInfo(ctx, '', opt_specialDir);
+  const items = [];
+  let previousKey = null;
+  for (const fileInfo of filesInfo) {
+    const key = fileInfo.key.split('/')[0];
+    if (previousKey !== key) {
+      previousKey = key;
+      items.push({
+        key,
+        modified: fileInfo.modified
+      });
+    }
+  }
+  return items;
+}
+function* getFilesWithStatus(ctx, status) {
+  const rows = yield taskResult.selectByStatus(ctx, status);
+  const items = [];
+  for (const row of rows) {
+    items.push({
+      key: row.id,
+      modified: row.last_open_date
+    });
+  }
+  return items;
 }
 
 function* findForgottenFile(ctx, docId) {
@@ -4678,8 +4714,60 @@ function* commandHandle(ctx, params, req, output) {
       yield storage.deletePath(ctx, docId, tenForgottenFiles);
       break;
     }
+    case 'deleteForgottenBulk': {
+      const keys = params.keys;
+      if (!Array.isArray(keys) || keys.length === 0 || keys.some(k => typeof k !== 'string')) {
+        output.error = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
+        break;
+      }
+      const failedKeys = [];
+      for (const key of keys) {
+        const forgottenFile = yield* findForgottenFile(ctx, key);
+        if (!forgottenFile) {
+          failedKeys.push(key);
+        } else {
+          yield storage.deletePath(ctx, key, tenForgottenFiles);
+        }
+      }
+      if (failedKeys.length > 0) {
+        forgottenData.errors = failedKeys;
+        output.error = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
+      }
+      break;
+    }
     case 'getForgottenList': {
       forgottenData.keys = yield* getFilesKeys(ctx, tenForgottenFiles);
+      break;
+    }
+    case 'getForgottenListWithMetadata': {
+      forgottenData.items = yield* getForgottenItems(ctx, tenForgottenFiles);
+      break;
+    }
+    case 'getFilesWithConversionErrors': {
+      forgottenData.items = yield* getFilesWithStatus(ctx, commonDefines.FileStatus.SaveVersion);
+      break;
+    }
+    case 'deleteFilesWithConversionErrors': {
+      const keys = params.keys;
+      if (!Array.isArray(keys) || keys.length === 0 || keys.some(k => typeof k !== 'string')) {
+        output.error = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
+        break;
+      }
+      const failedKeys = [];
+      for (const key of keys) {
+        const mask = new taskResult.TaskResultData();
+        mask.tenant = ctx.tenant;
+        mask.key = key;
+        mask.status = commonDefines.FileStatus.SaveVersion;
+        const cleanupRes = yield canvasService.cleanupCacheIf(ctx, mask);
+        if (!cleanupRes) {
+          failedKeys.push(key);
+        }
+      }
+      if (failedKeys.length > 0) {
+        forgottenData.errors = failedKeys;
+        output.error = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
+      }
       break;
     }
     case 'version': {
