@@ -101,6 +101,8 @@ function handleCorsHeaders(req, res, ctx, handleOptions = true) {
   return false; // Not an OPTIONS request or origin not allowed
 }
 
+const safeUrlOrigin = url => (URL.canParse(url) ? new URL(url).origin : null);
+
 /**
  * Detects provider type and generates appropriate authentication headers based on URL patterns
  *
@@ -163,8 +165,8 @@ async function proxyRequest(req, res) {
     let userName = '';
     let userCustomerId = '';
     const checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
-    if (!checkJwtRes || checkJwtRes.err) {
-      ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.err);
+    if (!checkJwtRes || !checkJwtRes.decoded) {
+      ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.description);
       res.status(403).json({
         error: {
           message: 'proxyRequest: checkJwtHeader error',
@@ -198,14 +200,14 @@ async function proxyRequest(req, res) {
 
     const providerHeaders = {};
     let providerMatched = false;
-    // Determine which API key to use based on the target URL
-    if (uri) {
-      for (const providerName in tenAiApi.providers) {
-        const tenProvider = tenAiApi.providers[providerName];
-        if (uri.startsWith(tenProvider.url)) {
+    // Determine which API key to use based on the target URL.
+    // Compare origins first to prevent userinfo-SSRF (e.g. https://api.x.com@evil.com)
+    // and subdomain-bypass (e.g. https://api.x.com.evil.com) that startsWith alone would miss.
+    const targetOrigin = uri ? safeUrlOrigin(uri) : null;
+    if (targetOrigin) {
+      for (const tenProvider of Object.values(tenAiApi.providers)) {
+        if (safeUrlOrigin(tenProvider.url) === targetOrigin && uri.startsWith(tenProvider.url)) {
           providerMatched = true;
-
-          // Generate appropriate headers based on provider type
           uri = insertKeyToProvider(ctx, tenProvider.url, tenProvider.key, uri, providerHeaders);
           break;
         }
@@ -224,7 +226,7 @@ async function proxyRequest(req, res) {
       return;
     }
 
-    // Merge key in headers
+    // Merge key in headers; providerHeaders (spread last) always win — axios normalises header names case-insensitively.
     const headers = {...body.headers, ...providerHeaders};
 
     // Preserve Accept-Encoding from original request if not explicitly provided
