@@ -35,7 +35,7 @@ const fs = require('fs');
 const {Agent: HttpsAgent} = require('https');
 const {Agent: HttpAgent} = require('http');
 const path = require('path');
-const {S3Client, ListObjectsCommand, HeadObjectCommand} = require('@aws-sdk/client-s3');
+const {S3Client, ListObjectsCommand, HeadObjectCommand, paginateListObjectsV2} = require('@aws-sdk/client-s3');
 const {GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require('@aws-sdk/client-s3');
 const {DeleteObjectsCommand, DeleteObjectCommand} = require('@aws-sdk/client-s3');
 const {getSignedUrl} = require('@aws-sdk/s3-request-presigner');
@@ -231,6 +231,22 @@ async function listObjects(ctx, storageCfg, strPath) {
   await listObjectsExec(ctx, storageCfg, output, params);
   return output;
 }
+async function listObjectsInfo(ctx, storageCfg, strPath) {
+  const paginator = paginateListObjectsV2(
+    {client: getS3Client(ctx, storageCfg)},
+    {Bucket: storageCfg.bucketName, Prefix: getFilePath(storageCfg, strPath)}
+  );
+  const output = [];
+  for await (const page of paginator) {
+    for (const entry of page.Contents ?? []) {
+      output.push({
+        key: entry.Key.substring((storageCfg.storageFolderName + '/').length),
+        modified: entry.LastModified?.toISOString()
+      });
+    }
+  }
+  return output;
+}
 async function deleteObject(ctx, storageCfg, strPath) {
   const input = {
     Bucket: storageCfg.bucketName,
@@ -293,6 +309,7 @@ module.exports = {
   uploadObject,
   copyObject,
   listObjects,
+  listObjectsInfo,
   deleteObject,
   deletePath,
   getDirectSignedUrl,

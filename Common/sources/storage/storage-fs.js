@@ -100,6 +100,21 @@ async function listObjects(_ctx, storageCfg, strPath) {
   });
 }
 
+async function listObjectsInfo(_ctx, storageCfg, strPath) {
+  const storageFolderPath = storageCfg.fs.folderPath;
+  const fsPath = getFilePath(storageCfg, strPath);
+  const values = await utils.listObjects(fsPath);
+  return Promise.all(
+    values.map(async currentValue => {
+      const stats = await stat(currentValue);
+      return {
+        key: getOutputPath(currentValue.substring(storageFolderPath.length + 1)),
+        modified: stats.mtime.toISOString()
+      };
+    })
+  );
+}
+
 async function deleteObject(_ctx, storageCfg, strPath) {
   const fsPath = getFilePath(storageCfg, strPath);
   return rm(fsPath, {force: true, recursive: true});
@@ -122,6 +137,7 @@ module.exports = {
   uploadObject,
   copyObject,
   listObjects,
+  listObjectsInfo,
   deleteObject,
   deletePath,
   needServeStatic

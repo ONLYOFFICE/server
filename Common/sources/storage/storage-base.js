@@ -145,6 +145,23 @@ async function listObjects(ctx, strPath, opt_specialDir) {
     return [];
   }
 }
+async function listObjectsInfo(ctx, strPath, opt_specialDir) {
+  const storageCfg = getStorageCfg(ctx, opt_specialDir);
+  const storage = getStorage(storageCfg);
+  const prefix = getStoragePath(ctx, '', opt_specialDir);
+  try {
+    const list = await storage.listObjectsInfo(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
+    return list.map(currentValue => {
+      return {
+        key: currentValue.key.substring(prefix.length),
+        modified: currentValue.modified
+      };
+    });
+  } catch (e) {
+    ctx.logger.error('storage.listObjectsInfo: %s', e.stack);
+    return [];
+  }
+}
 async function deleteObject(ctx, strPath, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
@@ -270,6 +287,7 @@ module.exports = {
   copyObject,
   copyPath,
   listObjects,
+  listObjectsInfo,
   deleteObject,
   deletePath,
   getSignedUrl,

@@ -189,6 +189,21 @@ async function listObjects(_ctx, storageCfg, strPath) {
   return await listObjectsExec(storageCfg, strPath);
 }
 
+async function listObjectsInfo(_ctx, storageCfg, strPath) {
+  const containerClient = getContainerClient(storageCfg);
+  const storageFolderName = storageCfg.storageFolderName;
+  const prefixWithFolder = storageFolderName ? `${storageFolderName}/${strPath}` : strPath;
+  const listOptions = applyCommandOptions({prefix: prefixWithFolder}, storageCfg, 'listBlobsFlat');
+  const output = [];
+  for await (const blob of containerClient.listBlobsFlat(listOptions)) {
+    output.push({
+      key: storageFolderName ? blob.name.substring(storageFolderName.length + 1) : blob.name,
+      modified: blob.properties?.lastModified?.toISOString?.()
+    });
+  }
+  return output;
+}
+
 async function deleteObject(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const options = applyCommandOptions({}, storageCfg, 'deleteBlob');
@@ -239,6 +254,7 @@ module.exports = {
   uploadObject,
   copyObject,
   listObjects,
+  listObjectsInfo,
   deleteObject,
   deletePath,
   getDirectSignedUrl,
