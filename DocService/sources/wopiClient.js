@@ -854,6 +854,10 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         headers['Content-Type'] = mime.getType(getFileTypeByInfo(fileInfo));
 
         ctx.logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
+        if (typeof dataStream === 'function') {
+          const streamObj = yield dataStream();
+          dataStream = streamObj.readStream;
+        }
         postRes = yield utils.postRequestPromise(ctx, uri, {
           timeout: tenCallbackRequestTimeout,
           isInJwtToken: true,
@@ -898,6 +902,10 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       headers['Content-Type'] = mime.getType(suggestedExt);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
+      if (typeof dataStream === 'function') {
+        const streamObj = yield dataStream();
+        dataStream = streamObj.readStream;
+      }
       const postRes = yield utils.postRequestPromise(ctx, uri, {
         timeout: tenCallbackRequestTimeout,
         isInJwtToken: true,
