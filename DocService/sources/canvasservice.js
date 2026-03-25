@@ -1794,13 +1794,13 @@ exports.downloadFile = function (req, res) {
         const decoded = authRes.params;
         if (decoded.changesUrl) {
           url = decoded.changesUrl;
-          isInJwtToken = true;
+          isInJwtToken = authRes.isDecoded;
         } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
           url = decoded.document.url;
-          isInJwtToken = true;
+          isInJwtToken = authRes.isDecoded;
         } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
           url = decoded.url;
-          isInJwtToken = true;
+          isInJwtToken = authRes.isDecoded;
         } else if (wopiClient.isWopiJwtToken(decoded)) {
           if (decoded.fileInfo.Size === 0) {
             //editnew case
@@ -1820,7 +1820,7 @@ exports.downloadFile = function (req, res) {
           //todo token required
           if (decoded.url) {
             url = decoded.url;
-            isInJwtToken = true;
+            isInJwtToken = authRes.isDecoded;
           }
         } else {
           errorDescription = 'access deny';
