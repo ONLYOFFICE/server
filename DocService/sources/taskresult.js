@@ -134,12 +134,24 @@ function select(ctx, docId) {
     );
   });
 }
-function selectByStatus(ctx, status) {
+function selectWhere(ctx, opt_whereBuilder, opt_fields) {
   return new Promise((resolve, reject) => {
     const values = [];
-    const p1 = addSqlParam(ctx.tenant, values);
-    const p2 = addSqlParam(status, values);
-    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE tenant=${p1} AND status=${p2};`;
+    const whereConditions = [];
+    const fields = Array.isArray(opt_fields) && opt_fields.length > 0 ? opt_fields.join(', ') : '*';
+    if (opt_whereBuilder) {
+      const where = opt_whereBuilder(values, addSqlParam);
+      if (Array.isArray(where)) {
+        whereConditions.push(...where);
+      } else if (where) {
+        whereConditions.push(where);
+      }
+    }
+    let sqlCommand = `SELECT ${fields} FROM ${cfgTableResult}`;
+    if (whereConditions.length > 0) {
+      sqlCommand += ` WHERE ${whereConditions.join(' AND ')}`;
+    }
+    sqlCommand += ';';
     sqlBase.sqlQuery(
       ctx,
       sqlCommand,
@@ -409,7 +421,7 @@ function removeIf(ctx, mask) {
 exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
 exports.select = select;
-exports.selectByStatus = selectByStatus;
+exports.selectWhere = selectWhere;
 exports.selectWithCache = selectWithCache;
 exports.update = update;
 exports.updateIf = updateIf;

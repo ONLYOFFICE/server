@@ -1110,6 +1110,24 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
       isError = true;
     }
     let outputSfc;
+    const encodeBase64UrlSafe = value => {
+      return Buffer.from(value, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    };
+    const storeForgottenWithUserMarkers = function* () {
+      ctx.logger.warn('storeForgotten');
+      const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
+      yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
+
+      const markerPrefix = '_u_';
+      const outputUsers = outputSfc?.getUsers?.() || [];
+      const userIdCandidate = outputUsers && outputUsers.length > 0 ? outputUsers[0] : userLastChangeId;
+      const userId = userIdCandidate === undefined || userIdCandidate === null ? '' : String(userIdCandidate);
+      if (userId) {
+        const markerName = markerPrefix + encodeBase64UrlSafe(userId);
+        const markerPath = docId + '/' + markerName;
+        yield storage.putObject(ctx, markerPath, Buffer.alloc(0), 0, tenForgottenFiles);
+      }
+    };
     if (uri && baseUrl && userLastChangeId) {
       ctx.logger.debug('Callback commandSfcCallback: callback = %s', uri);
       outputSfc = new commonDefines.OutputSfcData(docId);
@@ -1312,9 +1330,7 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
     }
     if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
       try {
-        ctx.logger.warn('storeForgotten');
-        const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
-        yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
+        yield* storeForgottenWithUserMarkers();
       } catch (err) {
         ctx.logger.error('Error storeForgotten: %s', err.stack);
       }

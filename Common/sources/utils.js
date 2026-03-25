@@ -132,6 +132,22 @@ exports.addSeconds = function (date, sec) {
 exports.getMillisecondsOfHour = function (date) {
   return (date.getUTCMinutes() * 60 + date.getUTCSeconds()) * 1000 + date.getUTCMilliseconds();
 };
+exports.encodeBase64UrlSafe = function (value) {
+  return Buffer.from(value, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+};
+exports.decodeBase64UrlSafe = function (encoded) {
+  if (!encoded) {
+    return null;
+  }
+  const normalized = encoded.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = normalized.length % 4;
+  const padded = pad ? normalized + '='.repeat(4 - pad) : normalized;
+  try {
+    return Buffer.from(padded, 'base64').toString('utf8');
+  } catch (_err) {
+    return null;
+  }
+};
 exports.encodeXml = function (value) {
   return value.replace(/[<>&'"\r\n\t\xA0]/g, c => {
     switch (c) {

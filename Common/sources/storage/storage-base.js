@@ -131,36 +131,30 @@ async function copyPath(ctx, sourcePath, destinationPath, opt_specialDirSrc, opt
     })
   );
 }
-async function listObjects(ctx, strPath, opt_specialDir) {
+async function listObjectsGeneric(ctx, strPath, opt_specialDir, listFnName, mapFn) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);
   const storage = getStorage(storageCfg);
   const prefix = getStoragePath(ctx, '', opt_specialDir);
   try {
-    const list = await storage.listObjects(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
-    return list.map(currentValue => {
-      return currentValue.substring(prefix.length);
-    });
+    const list = await storage[listFnName](ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
+    return list.map(currentValue => mapFn(currentValue, prefix));
   } catch (e) {
-    ctx.logger.error('storage.listObjects: %s', e.stack);
+    ctx.logger.error(`storage.${listFnName}: %s`, e.stack);
     return [];
   }
 }
+async function listObjects(ctx, strPath, opt_specialDir) {
+  return listObjectsGeneric(ctx, strPath, opt_specialDir, 'listObjects', (currentValue, prefix) => {
+    return currentValue.substring(prefix.length);
+  });
+}
 async function listObjectsInfo(ctx, strPath, opt_specialDir) {
-  const storageCfg = getStorageCfg(ctx, opt_specialDir);
-  const storage = getStorage(storageCfg);
-  const prefix = getStoragePath(ctx, '', opt_specialDir);
-  try {
-    const list = await storage.listObjectsInfo(ctx, storageCfg, getStoragePath(ctx, strPath, opt_specialDir));
-    return list.map(currentValue => {
-      return {
-        key: currentValue.key.substring(prefix.length),
-        modified: currentValue.modified
-      };
-    });
-  } catch (e) {
-    ctx.logger.error('storage.listObjectsInfo: %s', e.stack);
-    return [];
-  }
+  return listObjectsGeneric(ctx, strPath, opt_specialDir, 'listObjectsInfo', (currentValue, prefix) => {
+    return {
+      key: currentValue.key.substring(prefix.length),
+      modified: currentValue.modified
+    };
+  });
 }
 async function deleteObject(ctx, strPath, opt_specialDir) {
   const storageCfg = getStorageCfg(ctx, opt_specialDir);

@@ -4535,30 +4535,70 @@ function* getFilesKeys(ctx, opt_specialDir) {
 
 function* getForgottenItems(ctx, opt_specialDir) {
   const filesInfo = yield storage.listObjectsInfo(ctx, '', opt_specialDir);
-  const items = [];
-  let previousKey = null;
+  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
+  const userMarkerPrefix = '_u_';
+  const itemsByKey = new Map();
+
   for (const fileInfo of filesInfo) {
-    const key = fileInfo.key.split('/')[0];
-    if (previousKey !== key) {
-      previousKey = key;
-      items.push({
+    const separatorIndex = fileInfo.key.indexOf('/');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    const key = fileInfo.key.substring(0, separatorIndex);
+    const relativeName = fileInfo.key.substring(separatorIndex + 1);
+    if (relativeName.startsWith(userMarkerPrefix)) {
+      const encoded = relativeName.substring(userMarkerPrefix.length);
+      const userId = utils.decodeBase64UrlSafe(encoded);
+      const item = itemsByKey.get(key);
+      if (item) {
+        item.userId = userId;
+      } else {
+        itemsByKey.set(key, {
+          key,
+          modified: null,
+          fileType: 'Unknown',
+          userId,
+          isForgottenDoc: false
+        });
+      }
+      continue;
+    }
+
+    const ext = pathModule.extname(relativeName);
+    const baseName = pathModule.basename(relativeName, ext);
+    const isForgottenDoc = baseName === tenForgottenFilesName;
+    const existed = itemsByKey.get(key);
+    if (!existed) {
+      itemsByKey.set(key, {
         key,
-        modified: fileInfo.modified
+        modified: fileInfo.modified,
+        fileType: ext.replace('.', '').toUpperCase() || 'Unknown',
+        userId: null,
+        isForgottenDoc
       });
+    } else if (!existed.modified || (!existed.isForgottenDoc && isForgottenDoc)) {
+      existed.modified = fileInfo.modified;
+      existed.fileType = ext.replace('.', '').toUpperCase() || 'Unknown';
+      existed.isForgottenDoc = isForgottenDoc;
     }
   }
-  return items;
+  return Array.from(itemsByKey.values())
+    .filter(item => item.modified)
+    .map(item => ({
+      key: item.key,
+      modified: item.modified,
+      fileType: item.fileType,
+      userId: item.userId
+    }));
 }
 function* getFilesWithStatus(ctx, status) {
-  const rows = yield taskResult.selectByStatus(ctx, status);
-  const items = [];
-  for (const row of rows) {
-    items.push({
-      key: row.id,
-      modified: row.last_open_date
-    });
-  }
-  return items;
+  const cutoffDate = new Date(Date.now() - utils.getConvertionTimeout(ctx));
+  const rows = yield taskResult.selectWhere(ctx, (values, addSqlParam) => {
+    const statusParam = addSqlParam(status, values);
+    const cutoffParam = addSqlParam(cutoffDate, values);
+    return [`status=${statusParam}`, `last_open_date <= ${cutoffParam}`];
+  });
+  return rows.map(row => ({key: row.id, modified: row.last_open_date}));
 }
 
 function* findForgottenFile(ctx, docId) {

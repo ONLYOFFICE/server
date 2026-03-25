@@ -35,7 +35,7 @@ const fs = require('fs');
 const {Agent: HttpsAgent} = require('https');
 const {Agent: HttpAgent} = require('http');
 const path = require('path');
-const {S3Client, ListObjectsCommand, HeadObjectCommand, paginateListObjectsV2} = require('@aws-sdk/client-s3');
+const {S3Client, HeadObjectCommand, paginateListObjectsV2} = require('@aws-sdk/client-s3');
 const {GetObjectCommand, PutObjectCommand, CopyObjectCommand} = require('@aws-sdk/client-s3');
 const {DeleteObjectsCommand, DeleteObjectCommand} = require('@aws-sdk/client-s3');
 const {getSignedUrl} = require('@aws-sdk/s3-request-presigner');
@@ -109,27 +109,29 @@ function getFilePath(storageCfg, strPath) {
   const storageFolderName = storageCfg.storageFolderName;
   return storageFolderName + '/' + strPath;
 }
-function joinListObjects(storageCfg, inputArray, outputArray) {
-  if (!inputArray) {
-    return;
-  }
-  const storageFolderName = storageCfg.storageFolderName;
-  const length = inputArray.length;
-  for (let i = 0; i < length; i++) {
-    outputArray.push(inputArray[i].Key.substring((storageFolderName + '/').length));
-  }
-}
-async function listObjectsExec(ctx, storageCfg, output, params) {
+async function listObjectsExec(ctx, storageCfg, strPath, withMeta) {
+  const params = {
+    Bucket: storageCfg.bucketName,
+    Prefix: getFilePath(storageCfg, strPath)
+  };
   applyCommandOptions(params, storageCfg, 'listObjects');
 
-  const data = await getS3Client(ctx, storageCfg).send(new ListObjectsCommand(params));
-  joinListObjects(storageCfg, data.Contents, output);
-  if (data.IsTruncated && (data.NextMarker || (data.Contents && data.Contents.length > 0))) {
-    params.Marker = data.NextMarker || data.Contents[data.Contents.length - 1].Key;
-    return await listObjectsExec(ctx, storageCfg, output, params);
-  } else {
-    return output;
+  const paginator = paginateListObjectsV2({client: getS3Client(ctx, storageCfg)}, params);
+  const output = [];
+  for await (const page of paginator) {
+    for (const entry of page.Contents ?? []) {
+      const key = entry.Key.substring((storageCfg.storageFolderName + '/').length);
+      if (withMeta) {
+        output.push({
+          key,
+          modified: entry.LastModified?.toISOString()
+        });
+      } else {
+        output.push(key);
+      }
+    }
   }
+  return output;
 }
 async function deleteObjectsHelp(ctx, storageCfg, aKeys) {
   //By default, the operation uses verbose mode in which the response includes the result of deletion of each key in your request.
@@ -223,29 +225,10 @@ async function copyObject(ctx, storageCfgSrc, storageCfgDst, sourceKey, destinat
   await getS3Client(ctx, storageCfgDst).send(command);
 }
 async function listObjects(ctx, storageCfg, strPath) {
-  const params = {
-    Bucket: storageCfg.bucketName,
-    Prefix: getFilePath(storageCfg, strPath)
-  };
-  const output = [];
-  await listObjectsExec(ctx, storageCfg, output, params);
-  return output;
+  return listObjectsExec(ctx, storageCfg, strPath, false);
 }
 async function listObjectsInfo(ctx, storageCfg, strPath) {
-  const paginator = paginateListObjectsV2(
-    {client: getS3Client(ctx, storageCfg)},
-    {Bucket: storageCfg.bucketName, Prefix: getFilePath(storageCfg, strPath)}
-  );
-  const output = [];
-  for await (const page of paginator) {
-    for (const entry of page.Contents ?? []) {
-      output.push({
-        key: entry.Key.substring((storageCfg.storageFolderName + '/').length),
-        modified: entry.LastModified?.toISOString()
-      });
-    }
-  }
-  return output;
+  return listObjectsExec(ctx, storageCfg, strPath, true);
 }
 async function deleteObject(ctx, storageCfg, strPath) {
   const input = {
@@ -266,7 +249,7 @@ async function deleteObjects(ctx, storageCfg, strPaths) {
   }
 }
 async function deletePath(ctx, storageCfg, strPath) {
-  const list = await listObjects(ctx, storageCfg, strPath);
+  const list = await listObjectsExec(ctx, storageCfg, strPath, false);
   await deleteObjects(ctx, storageCfg, list);
 }
 
