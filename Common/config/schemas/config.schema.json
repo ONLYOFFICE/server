@@ -129,7 +129,7 @@
       "type": "object",
       "description": "Logging configuration - Changing the logging level",
       "x-scope": "admin",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "filePath": {
           "type": "string",
@@ -147,11 +147,29 @@
               "default": true,
               "description": "Defines if the log information is printed to the console or not.",
               "x-scope": "admin"
+            },
+            "categories": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "default": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "level": {
+                      "type": "string",
+                      "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
+                      "description": "Logging level for the application"
+                    }
+                  }
+                }
+              }
             }
           },
           "default": {
             "replaceConsole": true
-          }
+          },
+          "additionalProperties": true
         }
       },
       "x-section-intro": "These parameters define the logger properties."
@@ -267,7 +285,8 @@
               "default": {
                 "user": "",
                 "pass": ""
-              }
+              },
+              "additionalProperties": false
             }
           },
           "default": {
@@ -277,7 +296,8 @@
               "user": "",
               "pass": ""
             }
-          }
+          },
+          "additionalProperties": false
         },
         "connectionConfiguration": {
           "type": "object",
@@ -325,16 +345,17 @@
           "default": {
             "from": "from@example.com",
             "to": "to@example.com"
-          }
+          },
+          "additionalProperties": false
         }
       },
-      "x-section-intro": "These parameters define the settings of an external mail server, which is used to send [notifications](./notification). To connect to the mail server, use the [nodemailer](https://nodemailer.com/about/) library. Many config settings are passed directly to this library."
+      "x-section-intro": "These parameters define the settings of an external mail server, which is used to send [notifications](../notification/). To connect to the mail server, use the [nodemailer](https://nodemailer.com/about/) library. Many config settings are passed directly to this library."
     },
     "notification": {
       "type": "object",
       "description": "Notification system configuration for license expiration and limits warnings",
       "x-scope": ["admin", "tenant"],
-      "x-section-intro": "These parameters define the notification settings.\n\nNotifications with the following event types and content are sent:\n\n- 70% of the [connection quota](./license#licensewarning_limit_percents) (quota of unique users) is exceeded.\n\n  License connection limit warning: *\"Attention! You have reached 70% of the connections limit set by your license.\"*\n\n- The connection quota (quota of unique users) is reached.\n\n  License connection limit warning: *\"Attention! You have reached 100% of the connection limit set by your license.\"*\n\n- 30 days before the [license expires](./license#licensewarning_license_expiration).\n\n  License expiration warning: *\"Attention! Your license is about to expire on September 8, 2024. Upon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.\"*\n\n- The license has expired.\n\n  License connection limit warning: *\"Attention! Your license expired on September 8, 2024. You are no longer entitled to receive personal technical support and install new Docs versions released after this date. Please contact sales@onlyoffice.com to discuss license renewal.\"*",
+      "x-section-intro": "These parameters define the notification settings.\n\nNotifications with the following event types and content are sent:\n\n- 70% of the [connection quota](../license/#licensewarning_limit_percents) (quota of unique users) is exceeded.\n\n  License connection limit warning: *\"Attention! You have reached 70% of the connections limit set by your license.\"*\n\n- The connection quota (quota of unique users) is reached.\n\n  License connection limit warning: *\"Attention! You have reached 100% of the connection limit set by your license.\"*\n\n- 30 days before the [license expires](../license/#licensewarning_license_expiration).\n\n  License expiration warning: *\"Attention! Your license is about to expire on September 8, 2024. Upon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.\"*\n\n- The license has expired.\n\n  License connection limit warning: *\"Attention! Your license expired on September 8, 2024. You are no longer entitled to receive personal technical support and install new Docs versions released after this date. Please contact sales@onlyoffice.com to discuss license renewal.\"*",
       "additionalProperties": false,
       "properties": {
         "rules": {
@@ -401,7 +422,8 @@
                   },
                   "default": {
                     "repeatInterval": "1d"
-                  }
+                  },
+                  "additionalProperties": false
                 }
               },
               "default": {
@@ -414,7 +436,8 @@
                 "policies": {
                   "repeatInterval": "1d"
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "licenseExpirationError": {
               "type": "object",
@@ -474,7 +497,8 @@
                   "description": "Defines the *licenseExpirationError* notification sending policy.",
                   "default": {
                     "repeatInterval": "1d"
-                  }
+                  },
+                  "additionalProperties": false
                 }
               },
               "default": {
@@ -487,7 +511,8 @@
                 "policies": {
                   "repeatInterval": "1d"
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "licenseLimitEdit": {
               "type": "object",
@@ -547,7 +572,8 @@
                   "description": "Defines the *licenseLimitEdit* notification sending policy.",
                   "default": {
                     "repeatInterval": "1h"
-                  }
+                  },
+                  "additionalProperties": false
                 }
               },
               "default": {
@@ -560,7 +586,8 @@
                 "policies": {
                   "repeatInterval": "1h"
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "licenseLimitLiveViewer": {
               "type": "object",
@@ -620,7 +647,8 @@
                   "description": "Defines the *licenseLimitLiveViewer* notification sending policy.",
                   "default": {
                     "repeatInterval": "1h"
-                  }
+                  },
+                  "additionalProperties": false
                 }
               },
               "default": {
@@ -633,7 +661,8 @@
                 "policies": {
                   "repeatInterval": "1h"
                 }
-              }
+              },
+              "additionalProperties": false
             }
           },
           "default": {
@@ -681,7 +710,8 @@
                 "repeatInterval": "1h"
               }
             }
-          }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -977,7 +1007,7 @@
     "persistentStorage": {
       "type": "object",
       "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration — specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
-      "x-section-intro": "These parameters define the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage) object. The separation is convenient for server upgrades."
+      "x-section-intro": "These parameters define the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](../storage/) object. The separation is convenient for server upgrades."
     },
     "rabbitmq": {
       "type": "object",
@@ -1677,7 +1707,7 @@
             },
             "requestDefaults": {
               "type": "object",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "x-scope": ["admin"],
               "description": "Default options for outgoing HTTP/HTTPS requests",
               "properties": {
