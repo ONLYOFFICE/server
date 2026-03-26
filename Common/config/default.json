@@ -380,9 +380,9 @@
         "max_allowed_packet": 1048575,
         "pgPoolExtraOptions": {
           "idleTimeoutMillis": 30000,
-          "maxLifetimeSeconds ": 60000,
-          "statement_timeout ": 60000,
-          "query_timeout  ": 60000,
+          "maxLifetimeSeconds": 60000,
+          "statement_timeout": 60000,
+          "query_timeout": 60000,
           "connectionTimeoutMillis": 60000
         },
         "damengExtraOptions": {

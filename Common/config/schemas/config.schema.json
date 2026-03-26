@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "urn:onlyoffice:config:superset:1",
-  "title": "Config Patch Schema (Superset for Admin and Tenant)",
-  "description": "Superset schema with x-scope markers. Use at runtime to derive per-scope schemas.",
+  "title": "ONLYOFFICE Docs Configuration Schema",
+  "description": "Complete configuration schema with scope markers for validation and documentation.",
   "type": "object",
   "additionalProperties": false,
   "$defs": {
@@ -34,6 +34,33 @@
     }
   },
   "properties": {
+    "statsd": {
+      "type": "object",
+      "description": "StatsD metrics configuration for monitoring",
+      "additionalProperties": false,
+      "properties": {
+        "useMetrics": {
+          "type": "boolean",
+          "default": false,
+          "description": "Defines if the StatsD metrics are enabled for **ONLYOFFICE Docs** or not."
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Defines the StatsD server host (host name or IP address)."
+        },
+        "port": {
+          "type": "string",
+          "default": "8125",
+          "description": "Defines the StatsD server port."
+        },
+        "prefix": {
+          "type": "string",
+          "default": "ds.",
+          "description": "Defines a string that will be added to the beginning of all the stats automatically. It helps to distinguish different applications using the same StatsD server."
+        }
+      }
+    },
     "aiSettings": {
       "type": "object",
       "description": "AI integration settings for document processing and AI-powered features",
@@ -42,38 +69,40 @@
       "properties": {
         "version": {
           "type": "integer",
-          "description": "AI settings schema version",
+          "description": "Defines the version of the AI SDK.",
           "minimum": 1,
           "x-scope": ["admin", "tenant"]
         },
         "timeout": {
           "type": "string",
-          "description": "Default timeout for AI API requests (e.g., '5m', '30s')",
+          "description": "Defines an AI proxy timeout (measured in minutes).",
+          "default": "5m",
           "x-scope": ["admin", "tenant"]
         },
         "proxy": {
           "type": "string",
-          "description": "Proxy URL for AI API requests",
+          "description": "Supports routing AI requests via proxy.",
           "x-scope": ["admin", "tenant"]
         },
         "allowedCorsOrigins": {
           "type": "array",
-          "description": "Array of allowed CORS origins for AI API requests",
+          "description": "Defines which external websites are permitted to make cross-origin requests to the server.",
           "x-scope": ["admin", "tenant"],
           "items": {
             "type": "string",
             "description": "Allowed origin URL"
-          }
+          },
+          "default": ["https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"]
         },
         "actions": {
           "type": "object",
-          "description": "Available AI actions/features configuration",
+          "description": "Defines actions performed by AI, e.g., Chat, Summarization, Translation, TextAnalyze, ImageGeneration, OCR, Vision.",
           "additionalProperties": true,
           "x-scope": ["admin", "tenant"]
         },
         "providers": {
           "type": "object",
-          "description": "AI service providers configuration",
+          "description": "Defines AI providers, e.g., OpenAI, Google Gemini, Anthropic, etc.",
           "additionalProperties": true,
           "x-scope": ["admin", "tenant"]
         },
@@ -85,12 +114,1402 @@
         },
         "models": {
           "type": "array",
-          "description": "Active AI models configuration",
+          "description": "Defines AI models, e.g., gemini-1.5-pro-latest, llama3.2:latest, etc.",
           "x-scope": ["admin", "tenant"],
           "items": {
             "type": "object",
             "additionalProperties": true
           }
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "description": "Logging configuration - Changing the logging level",
+      "x-scope": "admin",
+      "additionalProperties": false,
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "Defines a path to the log file.",
+          "x-scope": "admin",
+          "default": ""
+        },
+        "options": {
+          "type": "object",
+          "description": "Defines the log options.",
+          "x-scope": "admin",
+          "properties": {
+            "replaceConsole": {
+              "type": "boolean",
+              "default": true,
+              "description": "Defines if the log information is printed to the console or not.",
+              "x-scope": "admin"
+            }
+          },
+          "default": {
+            "replaceConsole": true
+          }
+        }
+      }
+    },
+    "runtimeConfig": {
+      "type": "object",
+      "description": "Runtime configuration management",
+      "additionalProperties": false,
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "Defines a path to the `runtime.json` dynamic config file. By default, the `/var/www/onlyoffice/Data/runtime.json` path is used.",
+          "default": ""
+        },
+        "cache": {
+          "type": "object",
+          "description": "Defines the `runtime.json` cache options.",
+          "properties": {
+            "stdTTL": {
+              "type": "integer",
+              "default": 300,
+              "description": "Defines the TTL (time to live) for every generated cache element (measured in seconds)."
+            },
+            "checkperiod": {
+              "type": "integer",
+              "default": 60,
+              "description": "Defines the period used for the automatic delete check interval (measured in seconds)."
+            },
+            "useClones": {
+              "type": "boolean",
+              "default": false,
+              "description": "Defines if the cached variables will be cloned or not. If `true`, a copy of the cached variable will be created. If `false`, only the reference will be saved."
+            }
+          },
+          "default": {
+            "stdTTL": 300,
+            "checkperiod": 60,
+            "useClones": false
+          }
+        }
+      }
+    },
+    "queue": {
+      "type": "object",
+      "description": "Message queue configuration",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["rabbitmq", "activemq"],
+          "default": "rabbitmq",
+          "description": "Defines the message broker type."
+        },
+        "visibilityTimeout": {
+          "type": "integer",
+          "default": 300,
+          "description": "Defines the conversion timeout (measured in seconds)."
+        },
+        "retentionPeriod": {
+          "type": "integer",
+          "default": 900,
+          "description": "Defines the TTL (time to live) of all the messages in a queue (measured in seconds)."
+        }
+      }
+    },
+    "email": {
+      "type": "object",
+      "description": "Email (nodemailer) configuration for notifications",
+      "x-scope": ["admin", "tenant"],
+      "additionalProperties": false,
+      "properties": {
+        "smtpServerConfiguration": {
+          "type": "object",
+          "description": "Defines the basic settings for connecting to the SMTP server.",
+          "x-scope": "admin",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "localhost",
+              "description": "Defines the host name or IP address of the SMTP server.",
+              "x-scope": "admin"
+            },
+            "port": {
+              "type": "integer",
+              "default": 587,
+              "description": "Defines the SMTP server port.",
+              "x-scope": "admin",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "auth": {
+              "type": "object",
+              "description": "Defines the authentication data.",
+              "x-scope": "admin",
+              "properties": {
+                "user": {
+                  "type": "string",
+                  "description": "Defines the authentication username.",
+                  "x-scope": "admin",
+                  "default": "",
+                  "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+                },
+                "pass": {
+                  "type": "string",
+                  "description": "Defines the authentication password.",
+                  "x-scope": "admin",
+                  "default": "",
+                  "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+                }
+              },
+              "default": {
+                "user": "",
+                "pass": ""
+              }
+            }
+          },
+          "default": {
+            "host": "localhost",
+            "port": 587,
+            "auth": {
+              "user": "",
+              "pass": ""
+            }
+          }
+        },
+        "connectionConfiguration": {
+          "type": "object",
+          "description": "Defines the technical options for connecting to the SMTP server.",
+          "x-scope": "admin",
+          "properties": {
+            "disableFileAccess": {
+              "type": "boolean",
+              "default": false,
+              "description": "Defines whether to allow using files as content. If this parameter is set to **true**, then JSON data from an untrusted source cannot be used as the email. If an attachment or message node tries to fetch something from a file, the sending returns an error.",
+              "x-scope": "admin"
+            },
+            "disableUrlAccess": {
+              "type": "boolean",
+              "default": false,
+              "description": "Defines whether to allow using URLs as content.",
+              "x-scope": "admin"
+            }
+          },
+          "default": {
+            "disableFileAccess": false,
+            "disableUrlAccess": false
+          }
+        },
+        "contactDefaults": {
+          "type": "object",
+          "description": "Defines the email message settings .",
+          "x-scope": "admin",
+          "properties": {
+            "from": {
+              "type": "string",
+              "format": "email",
+              "default": "from@example.com",
+              "description": "Defines the email address of the sender. All email addresses can be plain *\"sender@server.com\"* or with formatted name *&#x27;\"Sender Name\" sender@server.com&#x27;*.",
+              "x-scope": "admin"
+            },
+            "to": {
+              "type": "string",
+              "format": "email",
+              "default": "to@example.com",
+              "description": "Defines the comma separated list or an array of recipients email addresses that will appear on the *To:* field.",
+              "x-scope": "admin"
+            }
+          },
+          "default": {
+            "from": "from@example.com",
+            "to": "to@example.com"
+          }
+        }
+      }
+    },
+    "notification": {
+      "type": "object",
+      "description": "Notification system configuration for license expiration and limits warnings",
+      "x-scope": ["admin", "tenant"],
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "type": "object",
+          "description": "Defines the rules of notification settings for four notification types: *licenseExpirationWarning*, *licenseExpirationError*, *licenseLimitEdit*, *licenseLimitLiveViewer*.",
+          "x-scope": ["admin", "tenant"],
+          "properties": {
+            "licenseExpirationWarning": {
+              "type": "object",
+              "description": "Defines the rules for the *licenseExpirationWarning* notification settings.",
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Defines whether the *licenseExpirationWarning* notification is enabled. Each notification type must be enabled separately.",
+                  "x-scope": ["admin", "tenant"]
+                },
+                "transportType": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["email"]
+                  },
+                  "description": "Defines the way of sending the *licenseExpirationWarning* notification. Currently, only the *email* type is available.",
+                  "x-scope": "admin",
+                  "default": ["email"]
+                },
+                "template": {
+                  "type": "object",
+                  "description": "Defines a template of the *licenseExpirationWarning* notification title and body.",
+                  "x-scope": "admin",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "description": "Defines a template of the *licenseExpirationWarning* notification title.",
+                      "x-scope": "admin",
+                      "default": "%s Docs license expiration warning"
+                    },
+                    "body": {
+                      "type": "string",
+                      "description": "Defines a template of the *licenseExpirationWarning* notification body.",
+                      "x-scope": "admin",
+                      "default": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+                    }
+                  },
+                  "default": {
+                    "title": "%s Docs license expiration warning",
+                    "body": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+                  }
+                },
+                "policies": {
+                  "type": "object",
+                  "description": "Defines the *licenseExpirationWarning* notification sending policy.",
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "description": "Defines the time when the *licenseExpirationWarning* notification will be sent (not more often than the specified period).",
+                      "x-scope": ["admin", "tenant"],
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "default": "1d"
+                    }
+                  },
+                  "default": {
+                    "repeatInterval": "1d"
+                  }
+                }
+              },
+              "default": {
+                "enable": false,
+                "transportType": ["email"],
+                "template": {
+                  "title": "%s Docs license expiration warning",
+                  "body": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+                },
+                "policies": {
+                  "repeatInterval": "1d"
+                }
+              }
+            },
+            "licenseExpirationError": {
+              "type": "object",
+              "description": "Defines the rules for the *licenseExpirationError* notification settings.",
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-scope": ["admin", "tenant"],
+                  "description": "Defines whether the *licenseExpirationError* notification is enabled. Each notification type must be enabled separately."
+                },
+                "transportType": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "x-scope": "admin",
+                  "description": "Defines the way of sending the *licenseExpirationError* notification. Currently, only the *email* type is available.",
+                  "default": ["email"]
+                },
+                "template": {
+                  "type": "object",
+                  "x-scope": "admin",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "Defines a template of the *licenseExpirationError* notification title.",
+                      "default": "%s Docs license expiration warning"
+                    },
+                    "body": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "Defines a template of the *licenseExpirationError* notification body.",
+                      "default": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+                    }
+                  },
+                  "description": "Defines a template of the *licenseExpirationError* notification title and body.",
+                  "default": {
+                    "title": "%s Docs license expiration warning",
+                    "body": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+                  }
+                },
+                "policies": {
+                  "type": "object",
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "x-scope": ["admin", "tenant"],
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Defines the time when the *licenseExpirationError* notification will be sent (not more often than the specified period).",
+                      "default": "1d"
+                    }
+                  },
+                  "description": "Defines the *licenseExpirationError* notification sending policy.",
+                  "default": {
+                    "repeatInterval": "1d"
+                  }
+                }
+              },
+              "default": {
+                "enable": false,
+                "transportType": ["email"],
+                "template": {
+                  "title": "%s Docs license expiration warning",
+                  "body": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+                },
+                "policies": {
+                  "repeatInterval": "1d"
+                }
+              }
+            },
+            "licenseLimitEdit": {
+              "type": "object",
+              "description": "Defines the rules for the *licenseLimitEdit* notification settings.",
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-scope": ["admin", "tenant"],
+                  "description": "Defines whether the *licenseLimitEdit* notification is enabled. Each notification type must be enabled separately."
+                },
+                "transportType": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "x-scope": "admin",
+                  "description": "Defines the way of sending the *licenseLimitEdit* notification. Currently, only the *email* type is available.",
+                  "default": ["email"]
+                },
+                "template": {
+                  "type": "object",
+                  "x-scope": "admin",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "Defines a template of the *licenseLimitEdit* notification title.",
+                      "default": "%s Docs license %s limit warning"
+                    },
+                    "body": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "Defines a template of the *licenseLimitEdit* notification body.",
+                      "default": "Attention! You have reached %s%% of the %s limit set by your license."
+                    }
+                  },
+                  "description": "Defines a template of the *licenseLimitEdit* notification title and body.",
+                  "default": {
+                    "title": "%s Docs license %s limit warning",
+                    "body": "Attention! You have reached %s%% of the %s limit set by your license."
+                  }
+                },
+                "policies": {
+                  "type": "object",
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "x-scope": ["admin", "tenant"],
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Defines the time when the *licenseLimitEdit* notification will be sent (not more often than the specified period).",
+                      "default": "1h"
+                    }
+                  },
+                  "description": "Defines the *licenseLimitEdit* notification sending policy.",
+                  "default": {
+                    "repeatInterval": "1h"
+                  }
+                }
+              },
+              "default": {
+                "enable": false,
+                "transportType": ["email"],
+                "template": {
+                  "title": "%s Docs license %s limit warning",
+                  "body": "Attention! You have reached %s%% of the %s limit set by your license."
+                },
+                "policies": {
+                  "repeatInterval": "1h"
+                }
+              }
+            },
+            "licenseLimitLiveViewer": {
+              "type": "object",
+              "description": "Defines the rules for the *licenseLimitLiveViewer* notification settings.",
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-scope": ["admin", "tenant"],
+                  "description": "Defines whether the *licenseLimitLiveViewer* notification is enabled. Each notification type must be enabled separately."
+                },
+                "transportType": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "x-scope": "admin",
+                  "description": "Defines the way of sending the *licenseLimitLiveViewer* notification. Currently, only the *email* type is available.",
+                  "default": ["email"]
+                },
+                "template": {
+                  "type": "object",
+                  "x-scope": "admin",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "Defines a template of the *licenseLimitLiveViewer* notification title.",
+                      "default": "%s Docs license %s limit warning"
+                    },
+                    "body": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "Defines a template of the *licenseLimitLiveViewer* notification body.",
+                      "default": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+                    }
+                  },
+                  "description": "Defines a template of the *licenseLimitLiveViewer* notification title and body.",
+                  "default": {
+                    "title": "%s Docs license %s limit warning",
+                    "body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+                  }
+                },
+                "policies": {
+                  "type": "object",
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "x-scope": ["admin", "tenant"],
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "Defines the time when the *licenseLimitLiveViewer* notification will be sent (not more often than the specified period).",
+                      "default": "1h"
+                    }
+                  },
+                  "description": "Defines the *licenseLimitLiveViewer* notification sending policy.",
+                  "default": {
+                    "repeatInterval": "1h"
+                  }
+                }
+              },
+              "default": {
+                "enable": false,
+                "transportType": ["email"],
+                "template": {
+                  "title": "%s Docs license %s limit warning",
+                  "body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+                },
+                "policies": {
+                  "repeatInterval": "1h"
+                }
+              }
+            }
+          },
+          "default": {
+            "licenseExpirationWarning": {
+              "enable": false,
+              "transportType": ["email"],
+              "template": {
+                "title": "%s Docs license expiration warning",
+                "body": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+              },
+              "policies": {
+                "repeatInterval": "1d"
+              }
+            },
+            "licenseExpirationError": {
+              "enable": false,
+              "transportType": ["email"],
+              "template": {
+                "title": "%s Docs license expiration warning",
+                "body": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+              },
+              "policies": {
+                "repeatInterval": "1d"
+              }
+            },
+            "licenseLimitEdit": {
+              "enable": false,
+              "transportType": ["email"],
+              "template": {
+                "title": "%s Docs license %s limit warning",
+                "body": "Attention! You have reached %s%% of the %s limit set by your license."
+              },
+              "policies": {
+                "repeatInterval": "1h"
+              }
+            },
+            "licenseLimitLiveViewer": {
+              "enable": false,
+              "transportType": ["email"],
+              "template": {
+                "title": "%s Docs license %s limit warning",
+                "body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+              },
+              "policies": {
+                "repeatInterval": "1h"
+              }
+            }
+          }
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "description": "Storage backend configuration (file system, S3, Azure Blob Storage)",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["storage-fs", "storage-s3", "storage-azure"],
+          "default": "storage-fs",
+          "description": "Defines the document storage service name. E.g., the \"storage-s3\" value allows connecting Amazon S3 bucket as a cache. The \"storage-az\" value allows connecting MS Azure Blob Storage as a cache."
+        },
+        "fs": {
+          "type": "object",
+          "description": "Defines a fileSystem object parameters.",
+          "properties": {
+            "folderPath": {
+              "type": "string",
+              "description": "Defines a path to the `App_Data` folder where all files are stored.",
+              "default": ""
+            },
+            "urlExpires": {
+              "type": "integer",
+              "default": 900,
+              "description": "Defines the time when the temporary URL to the fileSystem object expires (measured in seconds)."
+            },
+            "secretString": {
+              "type": "string",
+              "default": "verysecretstring",
+              "description": "Defines the secret string which is used to sign the URL."
+            }
+          },
+          "default": {
+            "folderPath": "",
+            "urlExpires": 900,
+            "secretString": "verysecretstring"
+          }
+        },
+        "region": {
+          "type": "string",
+          "default": "",
+          "description": "Defines an AWS region where your Amazon bucket resides."
+        },
+        "endpoint": {
+          "type": "string",
+          "default": "http://localhost/s3",
+          "description": "Defines the endpoint of S3 AWS document storage or MS Azure Blob Storage."
+        },
+        "bucketName": {
+          "type": "string",
+          "default": "cache",
+          "description": "Defines a unique name of S3 AWS document storage or MS Azure Blob Storage."
+        },
+        "storageFolderName": {
+          "type": "string",
+          "default": "files",
+          "description": "Defines the S3 AWS document storage folder name where all the files are stored."
+        },
+        "cacheFolderName": {
+          "type": "string",
+          "default": "data",
+          "description": "Defines the cache folder name for working in the multi-tenant mode."
+        },
+        "commandOptions": {
+          "type": "object",
+          "description": "Defines parameters that allow customizing commands to a storage, for example, enabling AWS KMS.",
+          "properties": {
+            "s3": {
+              "type": "object",
+              "description": "Defines parameters that allow customizing commands to S3 AWS document storage.",
+              "properties": {
+                "putObject": {
+                  "type": "object",
+                  "description": "Defines parameters of the putObject command type used to upload an object to a specified S3 bucket.",
+                  "default": {},
+                  "properties": {
+                    "BucketKeyEnabled": {
+                      "type": "boolean",
+                      "description": "This is an optional setting. Optimizes the cost per request by reducing calls to the KMS API."
+                    },
+                    "ServerSideEncryption": {
+                      "type": "string",
+                      "description": "Defines the encryption type for the newly uploaded object. The available values are \"aws:kms\" or \"AES256\"."
+                    },
+                    "SSEKMSKeyId": {
+                      "type": "string",
+                      "description": "Defines the identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it&#x27;s uploaded."
+                    }
+                  }
+                },
+                "getObject": {
+                  "type": "object",
+                  "description": "Defines parameters of the getObject command type used to retrieve an object from a specified S3 bucket.",
+                  "default": {}
+                },
+                "copyObject": {
+                  "type": "object",
+                  "description": "Defines parameters of the copyObject command type used to create a copy of an object stored in a specified S3 bucket.",
+                  "properties": {
+                    "MetadataDirective": {
+                      "type": "string",
+                      "default": "COPY",
+                      "description": "Defines how Amazon S3 should handle the metadata of the destination object during a copy operation. If the value is set to \"COPY\", the metadata from the source object is copied to the destination object. If the value is set to \"REPLACE\", the metadata of the destination object is replaced by the metadata provided in the copyObject request and the metadata from the source object is not copied."
+                    },
+                    "BucketKeyEnabled": {
+                      "type": "boolean",
+                      "description": "This is an optional setting. Optimizes the cost per request by reducing calls to the KMS API."
+                    },
+                    "ServerSideEncryption": {
+                      "type": "string",
+                      "description": "Defines the encryption type for the newly copied object. The available values are \"aws:kms\" or \"AES256\"."
+                    },
+                    "SSEKMSKeyId": {
+                      "type": "string",
+                      "description": "Defines the identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it&#x27;s copied."
+                    }
+                  },
+                  "default": {
+                    "MetadataDirective": "COPY"
+                  }
+                },
+                "listObjects": {
+                  "type": "object",
+                  "description": "Defines parameters of the listObjects command type used to retrieve a list of objects within a specified S3 bucket.",
+                  "properties": {
+                    "MaxKeys": {
+                      "type": "integer",
+                      "default": 1000,
+                      "description": "Defines the maximum number of objects that are returned in a response."
+                    }
+                  },
+                  "default": {
+                    "MaxKeys": 1000
+                  }
+                },
+                "deleteObject": {
+                  "type": "object",
+                  "description": "Defines parameters of the deleteObject command type used to remove an object from a specified S3 bucket.",
+                  "default": {}
+                }
+              },
+              "default": {
+                "putObject": {},
+                "getObject": {},
+                "copyObject": {
+                  "MetadataDirective": "COPY"
+                },
+                "listObjects": {
+                  "MaxKeys": 1000
+                },
+                "deleteObject": {}
+              }
+            },
+            "az": {
+              "type": "object",
+              "description": "Defines parameters that allow customizing commands to MS Azure Blob Storage.",
+              "properties": {
+                "uploadData": {
+                  "type": "object",
+                  "description": "Defines parameters of the uploadData command type used to upload data to MS Azure Blob Storage.",
+                  "default": {},
+                  "properties": {
+                    "encryptionScope": {
+                      "type": "string",
+                      "description": "Defines the name of the encryption scope used to encrypt an uploaded blob."
+                    }
+                  }
+                },
+                "uploadStream": {
+                  "type": "object",
+                  "description": "Defines parameters of the uploadStream command type used to upload data from a stream to MS Azure Blob Storage.",
+                  "default": {},
+                  "properties": {
+                    "encryptionScope": {
+                      "type": "string",
+                      "description": "Defines the name of the encryption scope used to encrypt a blob uploaded from a sream."
+                    }
+                  }
+                },
+                "download": {
+                  "type": "object",
+                  "description": "Defines parameters of the download command type used to download data from MS Azure Blob Storage.",
+                  "default": {}
+                },
+                "syncCopyFromURL": {
+                  "type": "object",
+                  "description": "Defines parameters of the syncCopyFromURL command type used to copy a blob from a source URL to a destination blob.",
+                  "default": {},
+                  "properties": {
+                    "encryptionScope": {
+                      "type": "string",
+                      "description": "Defines the name of the encryption scope used to encrypt a copied blob."
+                    }
+                  }
+                },
+                "listBlobsFlat": {
+                  "type": "object",
+                  "properties": {
+                    "maxPageSize": {
+                      "type": "integer",
+                      "default": 1000,
+                      "description": "Defines the maximum number of blobs to return."
+                    }
+                  },
+                  "description": "Defines parameters of the listBlobsFlat command type used to retrieve a list of all blobs in a container.",
+                  "default": {
+                    "maxPageSize": 1000
+                  }
+                },
+                "deleteBlob": {
+                  "type": "object",
+                  "description": "Defines parameters of the deleteBlob command type used to remove a blob.",
+                  "default": {}
+                }
+              },
+              "default": {
+                "uploadData": {},
+                "uploadStream": {},
+                "download": {},
+                "syncCopyFromURL": {},
+                "listBlobsFlat": {
+                  "maxPageSize": 1000
+                },
+                "deleteBlob": {}
+              }
+            }
+          },
+          "default": {
+            "s3": {
+              "putObject": {},
+              "getObject": {},
+              "copyObject": {
+                "MetadataDirective": "COPY"
+              },
+              "listObjects": {
+                "MaxKeys": 1000
+              },
+              "deleteObject": {}
+            },
+            "az": {
+              "uploadData": {},
+              "uploadStream": {},
+              "download": {},
+              "syncCopyFromURL": {},
+              "listBlobsFlat": {
+                "maxPageSize": 1000
+              },
+              "deleteBlob": {}
+            }
+          }
+        },
+        "urlExpires": {
+          "type": "integer",
+          "default": 604800,
+          "description": "Defines the time when the URL to the S3 AWS document storage expires (measured in milliseconds)."
+        },
+        "accessKeyId": {
+          "type": "string",
+          "default": "",
+          "description": "Defines a key ID to access the S3 AWS document storage or MS Azure Blob Storage."
+        },
+        "secretAccessKey": {
+          "type": "string",
+          "default": "",
+          "writeOnly": true,
+          "description": "Defines a secret key to access the S3 AWS document storage or MS Azure Blob Storage."
+        },
+        "sslEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Defines if SSL of the S3 AWS document storage is enabled or not."
+        },
+        "s3ForcePathStyle": {
+          "type": "boolean",
+          "default": true,
+          "description": "Defines if the requests to the S3 AWS document storage always use path style addressing."
+        },
+        "externalHost": {
+          "type": "string",
+          "default": "",
+          "description": "Defines an external host which is used instead of the host specified in the request."
+        },
+        "useDirectStorageUrls": {
+          "type": "boolean",
+          "default": false,
+          "description": "Defines the issuance of links to an external storage: direct links or links that are proxied through the Document Server. Setting this parameter to `true` enables direct links, while the `false` value allows using internal links (the server proxies requests to the storage)."
+        }
+      }
+    },
+    "persistentStorage": {
+      "type": "object",
+      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration — specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache."
+    },
+    "rabbitmq": {
+      "type": "object",
+      "description": "RabbitMQ message queue configuration",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "default": "amqp://localhost:5672",
+          "description": "Defines the RabbitMQ URL.",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+        },
+        "socketOptions": {
+          "type": "object",
+          "description": "Defines the RabbitMQ socket options that will be passed to the socket library (`net` or `tls`). These options must be fields set on the object supplied. The socket options can be used for the SSL connection and can contain the following fields: **cert** - defines a certificate to present to the server (in PEM or pkcs12 format), **type**: string, **example**: \"\"; **key** - defines the private key for the certificate (in PEM or pkcs12 format), **type**: string, **example**: \"\"; **passphrase** - defines a passphrase for the private key, **type**: string, **example**: \"MySecretPassword\"; **ca** - defines a list of the CA certificates in PEM format that we will trust, since we are using a self-signed certificate, **type**: array, **example**: []; **noDelay** - defines if TCP_NODELAY (Nagle&#x27;s algorithm) is set on the underlying socket or not, **type**: boolean, **example**: true.",
+          "default": {}
+        },
+        "exchangepubsub": {
+          "type": "object",
+          "description": "Defines the Publisher Subscriber exchange server.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.pubsub",
+              "description": "Defines a name of the Publisher Subscriber server."
+            },
+            "options": {
+              "type": "object",
+              "description": "Defines the settings of the Publisher Subscriber server.",
+              "default": {
+                "durable": true
+              },
+              "properties": {
+                "durable": {
+                  "type": "boolean",
+                  "description": "Defines whether the queue will survive broker restarts.",
+                  "default": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.pubsub",
+            "options": {
+              "durable": true
+            }
+          }
+        },
+        "queuepubsub": {
+          "type": "object",
+          "description": "Defines the Publisher Subscriber queue.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Defines a name of the Publisher Subscriber queue.",
+              "default": ""
+            },
+            "options": {
+              "type": "object",
+              "description": "Defines the settings of the Publisher Subscriber queue.",
+              "default": {
+                "autoDelete": true,
+                "exclusive": true,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "Defines the additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "Defines a value of the *x-queue-type* header which specifies the queue type. Only classic queues can be used.",
+                      "default": "classic"
+                    }
+                  }
+                },
+                "autoDelete": {
+                  "type": "boolean",
+                  "description": "Defines whether the queue will be deleted when the number of consumers drops to zero.",
+                  "default": true
+                },
+                "exclusive": {
+                  "type": "boolean",
+                  "description": "Defines whether the queue will be scoped to the connection.",
+                  "default": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "",
+            "options": {
+              "autoDelete": true,
+              "exclusive": true,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        },
+        "queueconverttask": {
+          "type": "object",
+          "description": "Defines a queue of tasks.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.converttask6",
+              "description": "Defines a name of the queue of tasks."
+            },
+            "options": {
+              "type": "object",
+              "description": "Defines the settings of the queue of tasks.",
+              "default": {
+                "durable": true,
+                "maxPriority": 6,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "Defines the additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "Defines a value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
+                      "default": "classic"
+                    }
+                  }
+                },
+                "durable": {
+                  "type": "boolean",
+                  "description": "Defines whether the queue will survive broker restarts.",
+                  "default": true
+                },
+                "maxPriority": {
+                  "type": "integer",
+                  "description": "Defines a queue priority .",
+                  "default": 6
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.converttask6",
+            "options": {
+              "durable": true,
+              "maxPriority": 6,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        },
+        "queueconvertresponse": {
+          "type": "object",
+          "description": "Defines a queue of responses.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.convertresponse",
+              "description": "Defines a name of the queue of responses."
+            },
+            "options": {
+              "type": "object",
+              "description": "Defines the settings of the queue of responses.",
+              "default": {
+                "durable": true,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "Defines the additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "Defines a value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
+                      "default": "classic"
+                    }
+                  }
+                },
+                "durable": {
+                  "type": "boolean",
+                  "description": "Defines whether the queue will survive broker restarts.",
+                  "default": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.convertresponse",
+            "options": {
+              "durable": true,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        },
+        "exchangeconvertdead": {
+          "type": "object",
+          "description": "Defines a dead letter exchange.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.exchangeconvertdead",
+              "description": "Defines a name of the dead letter exchange."
+            },
+            "options": {
+              "type": "object",
+              "description": "Defines the settings of the dead letter exchange.",
+              "default": {
+                "durable": true
+              },
+              "properties": {
+                "durable": {
+                  "type": "boolean",
+                  "description": "Defines whether the queue will survive broker restarts.",
+                  "default": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.exchangeconvertdead",
+            "options": {
+              "durable": true
+            }
+          }
+        },
+        "queueconvertdead": {
+          "type": "object",
+          "description": "Defines a dead letter queue.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.convertdead",
+              "description": "Defines a name of the dead letter queue."
+            },
+            "options": {
+              "type": "object",
+              "description": "Defines the settings of the dead letter queue.",
+              "default": {
+                "durable": true,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "Defines the additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "Defines a value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
+                      "default": "classic"
+                    }
+                  }
+                },
+                "durable": {
+                  "type": "boolean",
+                  "description": "Defines whether the queue will survive broker restarts.",
+                  "default": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.convertdead",
+            "options": {
+              "durable": true,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        },
+        "queuedelayed": {
+          "type": "object",
+          "description": "Defines the delayed queue.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.delayed",
+              "description": "Defines a name of the delayed queue."
+            },
+            "options": {
+              "type": "object",
+              "description": "Defines the settings of the delayed queue.",
+              "default": {
+                "durable": true,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "Defines the additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "Defines a value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
+                      "default": "classic"
+                    }
+                  }
+                },
+                "durable": {
+                  "type": "boolean",
+                  "description": "Defines whether the queue will survive broker restarts.",
+                  "default": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.delayed",
+            "options": {
+              "durable": true,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        }
+      }
+    },
+    "activemq": {
+      "type": "object",
+      "description": "ActiveMQ message queue configuration (alternative to RabbitMQ)",
+      "additionalProperties": false,
+      "properties": {
+        "connectOptions": {
+          "type": "object",
+          "description": "Defines the ActiveMQ connect options .",
+          "properties": {
+            "port": {
+              "type": "integer",
+              "default": 5672,
+              "description": "Defines a port of the server to which the ActiveMQ container is connected."
+            },
+            "host": {
+              "type": "string",
+              "default": "localhost",
+              "description": "Defines a host (host name or IP address) of the server to which the ActiveMQ container is connected."
+            },
+            "reconnect": {
+              "type": "boolean",
+              "default": false,
+              "description": "Defines if the ActiveMQ module will automatically attempt to reconnect if disconnected (**true**) or not (**false**)."
+            }
+          },
+          "default": {
+            "port": 5672,
+            "host": "localhost",
+            "reconnect": false
+          }
+        },
+        "queueconverttask": {
+          "type": "string",
+          "default": "ds.converttask",
+          "description": "Defines a queue of tasks."
+        },
+        "queueconvertresponse": {
+          "type": "string",
+          "default": "ds.convertresponse",
+          "description": "Defines a queue of responses."
+        },
+        "queueconvertdead": {
+          "type": "string",
+          "default": "ActiveMQ.DLQ",
+          "description": "Defines a dead letter queue."
+        },
+        "queuedelayed": {
+          "type": "string",
+          "default": "ds.delayed",
+          "description": "Defines the delayed queue."
+        },
+        "topicpubsub": {
+          "type": "string",
+          "default": "ds.pubsub",
+          "description": "Defines the Publisher Subscriber topic."
+        }
+      }
+    },
+    "dnscache": {
+      "type": "object",
+      "description": "DNS caching configuration for improved performance",
+      "additionalProperties": false,
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Defines if the DNS cache is enabled or not."
+        },
+        "ttl": {
+          "type": "integer",
+          "default": 300,
+          "description": "Defines the time when the DNS records expire (measured in seconds)."
+        },
+        "cachesize": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Defines the DNS cache size."
+        }
+      }
+    },
+    "openpgpjs": {
+      "type": "object",
+      "description": "OpenPGP encryption/decryption configuration",
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "type": "object",
+          "description": "Defines the OpenPGP protocol configuration .",
+          "default": {}
+        },
+        "encrypt": {
+          "type": "object",
+          "description": "Defines the OpenPGP encryption settings.",
+          "properties": {
+            "passwords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Defines a password which is used for the OpenPGP encryption.",
+              "default": ["verysecretstring"]
+            }
+          },
+          "default": {
+            "passwords": ["verysecretstring"]
+          }
+        },
+        "decrypt": {
+          "type": "object",
+          "description": "Defines the OpenPGP decryption settings.",
+          "properties": {
+            "passwords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Defines a password which is used for the OpenPGP decryption.",
+              "default": ["verysecretstring"]
+            }
+          },
+          "default": {
+            "passwords": ["verysecretstring"]
+          }
+        }
+      }
+    },
+    "aesEncrypt": {
+      "type": "object",
+      "description": "AES encryption configuration for sensitive data",
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "type": "object",
+          "description": "Defines the AES-256-GCM algorithm configuration.",
+          "properties": {
+            "keyByteLength": {
+              "type": "integer",
+              "default": 32,
+              "description": "Defines the key length measured in bytes."
+            },
+            "saltByteLength": {
+              "type": "integer",
+              "default": 64,
+              "description": "Defines the salt length measured in bytes."
+            },
+            "initializationVectorByteLength": {
+              "type": "integer",
+              "default": 16,
+              "description": "Defines the initialization vector length measured in bytes."
+            },
+            "iterationsByteLength": {
+              "type": "integer",
+              "default": 5,
+              "description": "Defines the iterations length measured in bytes."
+            }
+          },
+          "default": {
+            "keyByteLength": 32,
+            "saltByteLength": 64,
+            "initializationVectorByteLength": 16,
+            "iterationsByteLength": 5
+          }
+        },
+        "secret": {
+          "type": "string",
+          "default": "verysecretstring",
+          "description": "Defines a password which is used for the AES-256-GCM encryption."
+        }
+      }
+    },
+    "bottleneck": {
+      "type": "object",
+      "description": "Rate limiting and bottleneck configuration",
+      "additionalProperties": false,
+      "properties": {
+        "getChanges": {
+          "type": "object",
+          "description": "Defines the constructor options to generate limiters for throttling the database requests.",
+          "default": {}
+        }
+      }
+    },
+    "win-ca": {
+      "type": "object",
+      "description": "Windows Certificate Authority integration (Windows only)",
+      "additionalProperties": false,
+      "properties": {
+        "inject": {
+          "type": "string",
+          "default": "+",
+          "description": "Defines the injection mode of the Windows System Root certificates. The \"+\" means that a new experimental method is used to install certificates."
         }
       }
     },
@@ -107,12 +1526,120 @@
               "additionalProperties": false,
               "x-scope": ["admin", "tenant"],
               "properties": {
-                "filesCron": {"$ref": "#/$defs/cron6", "x-scope": "admin"},
-                "documentsCron": {"$ref": "#/$defs/cron6", "x-scope": "admin"},
-                "files": {"type": "integer", "minimum": 0, "x-scope": "admin"},
-                "filesremovedatonce": {"type": "integer", "minimum": 0, "x-scope": "admin"},
-                "sessionidle": {"type": "string", "x-scope": ["admin", "tenant"]},
-                "sessionabsolute": {"type": "string", "x-scope": ["admin", "tenant"]}
+                "filesCron": {
+                  "$ref": "#/$defs/cron6",
+                  "x-scope": "admin",
+                  "description": "Defines the time for check starting (every hour by default).",
+                  "default": "00 00 */1 * * *"
+                },
+                "documentsCron": {
+                  "$ref": "#/$defs/cron6",
+                  "x-scope": "admin",
+                  "description": "Defines the time for starting check, during which old files are deleted from the cache (every two minutes by default).",
+                  "default": "0 */2 * * * *"
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "x-scope": "admin",
+                  "description": "Defines the time of life for the folders in `App_Data`.",
+                  "default": 86400
+                },
+                "filesremovedatonce": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "x-scope": "admin",
+                  "description": "Defines the number of simultaneously deleted document folders from the cache.",
+                  "default": 100
+                },
+                "sessionidle": {
+                  "type": "string",
+                  "x-scope": ["admin", "tenant"],
+                  "description": "Defines the inactive session lifetime. This parameter allows ending editing session for an idle user. It is also used to initialize document saving procedure by terminating the last editing session. So, it defines the time after which an inactive user will be disconnected from the editing session. Its value format is \"1s\", \"1m\", \"1h\", \"1d\" etc.",
+                  "default": "1h",
+                  "x-note": "Please note that by inactivity, we mean the absence of any action in the editor, including cursor movement."
+                },
+                "sessionabsolute": {
+                  "type": "string",
+                  "x-scope": ["admin", "tenant"],
+                  "description": "Defines the lifetime for any editing session.",
+                  "default": "30d"
+                },
+                "changeindex": {
+                  "type": "integer",
+                  "description": "Defines the time for changing indexes.",
+                  "default": 86400
+                },
+                "forcesave": {
+                  "type": "integer",
+                  "description": "Defines the time of life for the forcesaving executed with success.",
+                  "default": 604800
+                },
+                "forcesaveLock": {
+                  "type": "integer",
+                  "description": "Defines the time of life for the forcesaved locks in the ioredis cluster mode.",
+                  "default": 5000
+                },
+                "lastsave": {
+                  "type": "integer",
+                  "description": "Defines the time of life for the last database save executed with success.",
+                  "default": 604800
+                },
+                "lockDoc": {
+                  "type": "integer",
+                  "description": "Defines the time for locking documents.",
+                  "default": 30
+                },
+                "locks": {
+                  "type": "integer",
+                  "description": "Defines the time of life for the locks.",
+                  "default": 604800
+                },
+                "message": {
+                  "type": "integer",
+                  "description": "Defines the time of life for the messages.",
+                  "default": 86400
+                },
+                "monthUniqueUsers": {
+                  "type": "string",
+                  "description": "Defines the time of life for the list of the month unique users.",
+                  "default": "1y"
+                },
+                "pemCheckPeriod": {
+                  "type": "string",
+                  "description": "Defines the time for checking the PEM files ttl.",
+                  "default": "10m"
+                },
+                "pemStdTTL": {
+                  "type": "string",
+                  "description": "Defines the time of life for the PEM files with secrets.",
+                  "default": "1h"
+                },
+                "presence": {
+                  "type": "integer",
+                  "description": "Defines the time of life for the user presence status.",
+                  "default": 300
+                },
+                "saved": {
+                  "type": "integer",
+                  "description": "Defines the time of life for the database save executed with success.",
+                  "default": 3600
+                },
+                "saveLock": {
+                  "type": "integer",
+                  "description": "Defines the time for saving locks.",
+                  "default": 60
+                },
+                "sessionclosecommand": {
+                  "type": "string",
+                  "description": "Defines the time before the `sessionidle` or `sessionabsolute ttl` expires when a warning message is sent.",
+                  "default": "2m"
+                },
+                "updateVersionStatus": {
+                  "type": "string",
+                  "description": "Defines the time when the user can open the file again after an error occurs due to opening an already saved file using the old key.",
+                  "default": "5m"
+                }
               }
             },
             "request-filtering-agent": {
@@ -122,17 +1649,19 @@
               "properties": {
                 "allowPrivateIPAddress": {
                   "type": "boolean",
-                  "description": "Whether to allow requests from private IP addresses"
+                  "description": "Defines if it is allowed to connect private IP address or not. This includes private IP addresses and reserved IP addresses.",
+                  "default": false
                 },
                 "allowMetaIPAddress": {
                   "type": "boolean",
-                  "description": "Whether to allow requests from meta IP addresses"
+                  "description": "Defines if it is allowed to connect meta IP address or not. Meta address can be `0.0.0.0` (IPv4) or `::` (IPv6) - a meta address that routing another address.",
+                  "default": false
                 }
               }
             },
             "requestDefaults": {
               "type": "object",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "x-scope": ["admin"],
               "description": "Default options for outgoing HTTP/HTTPS requests",
               "properties": {
@@ -140,6 +1669,22 @@
                   "type": "boolean",
                   "default": true,
                   "description": "When true, TLS certificates are verified; set false only for diagnostics with self-signed or invalid certificates"
+                },
+                "headers": {
+                  "type": "object",
+                  "description": "Default HTTP headers added to every outgoing request.",
+                  "properties": {
+                    "User-Agent": {
+                      "type": "string",
+                      "description": "HTTP User-Agent header sent with outgoing requests.",
+                      "default": "Node.js/6.13"
+                    },
+                    "Connection": {
+                      "type": "string",
+                      "description": "HTTP Connection header controlling keep-alive behaviour for outgoing requests.",
+                      "default": "Keep-Alive"
+                    }
+                  }
                 }
               }
             },
@@ -148,7 +1693,22 @@
               "additionalProperties": false,
               "x-scope": ["admin", "tenant"],
               "properties": {
-                "step": {"type": "string", "enum": ["1m", "5m", "10m", "15m", "30m"]}
+                "step": {
+                  "type": "string",
+                  "enum": ["1m", "5m", "10m", "15m", "30m"],
+                  "description": "Defines the delay in minutes between the intervals.",
+                  "default": "1m"
+                },
+                "enable": {
+                  "type": "boolean",
+                  "description": "Defines if the automatic forcesaving is enabled or not.",
+                  "default": false
+                },
+                "interval": {
+                  "type": "string",
+                  "description": "Defines the interval time in minutes for initiating the automatic forcesaving.",
+                  "default": "5m"
+                }
               }
             },
             "ipfilter": {
@@ -158,7 +1718,7 @@
               "properties": {
                 "rules": {
                   "type": "array",
-                  "description": "Array of IP filtering rules",
+                  "description": "Defines the IP filter rules that contain the following parameters: **address** - the IP address of the integrator. This parameter can contain IP in the X.X.X.X format for ipv4 or in the xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx format for ipv6, dns-name or * wildcard to replace any symbol/symbols, **type**: string, **example**: \"ip_address\"; **allowed** - specifies if the IP address is trusted or not, **type**: boolean, **example**: true.",
                   "items": {
                     "type": "object",
                     "additionalProperties": false,
@@ -173,17 +1733,25 @@
                         "description": "Whether this address/range is allowed (true) or denied (false)"
                       }
                     }
-                  }
+                  },
+                  "default": [
+                    {
+                      "address": "*",
+                      "allowed": true
+                    }
+                  ]
                 },
                 "useforrequest": {
                   "type": "boolean",
-                  "description": "Whether to use IP filtering for requests"
+                  "description": "Defines if the IP filter is used for the request or not.",
+                  "default": false
                 },
                 "errorcode": {
                   "type": "integer",
                   "minimum": 400,
                   "maximum": 599,
-                  "description": "HTTP error code to return when IP is not allowed"
+                  "description": "Defines an error code for the IP filter.",
+                  "default": 403
                 }
               }
             },
@@ -195,28 +1763,1417 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "description": "Database type (e.g., 'mysql', 'mariadb', 'mssql', 'postgres', 'dameng', 'oracle')",
-                  "examples": ["postgres"]
+                  "description": "Defines the database type (`mysql`, `mariadb`, `mssql`, `postgres`, `dameng`, `oracle`).",
+                  "examples": ["postgres"],
+                  "default": "postgres"
                 },
                 "dbHost": {
                   "type": "string",
-                  "description": "Database host name or IP address",
-                  "examples": ["localhost"]
+                  "description": "Defines the database server host (host name or IP address).",
+                  "examples": ["localhost"],
+                  "default": "localhost"
                 },
                 "dbPort": {
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 65535,
-                  "description": "Database TCP port",
-                  "examples": [5432]
+                  "description": "Defines the database server port.",
+                  "examples": [5432],
+                  "default": 5432
                 },
                 "dbName": {
                   "type": "string",
-                  "description": "Database name",
-                  "examples": ["onlyoffice"]
+                  "description": "Defines a name of a database to be created on the image startup.",
+                  "examples": ["onlyoffice"],
+                  "default": "onlyoffice"
+                },
+                "charset": {
+                  "type": "string",
+                  "description": "Defines the database charset.",
+                  "default": "utf8"
+                },
+                "connectionlimit": {
+                  "type": "integer",
+                  "description": "Defines the maximum number of the simultaneous user connections to the database server.",
+                  "default": 10
+                },
+                "damengExtraOptions": {
+                  "type": "object",
+                  "description": "Defines the Dameng database parameters.",
+                  "default": {
+                    "columnNameUpperCase": false,
+                    "columnNameCase": "lower",
+                    "connectTimeout": 60000,
+                    "loginEncrypt": false,
+                    "localTimezone": 0,
+                    "poolTimeout": 60,
+                    "socketTimeout": 60000,
+                    "queueTimeout": 60000
+                  },
+                  "properties": {
+                    "columnNameCase": {
+                      "type": "string",
+                      "description": "Defines the case of column names.",
+                      "default": "lower"
+                    },
+                    "columnNameUpperCase": {
+                      "type": "boolean",
+                      "description": "Defines if the column names are uppercase or not.",
+                      "default": false
+                    },
+                    "connectTimeout": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds to wait for a connection.",
+                      "default": 60000
+                    },
+                    "localTimezone": {
+                      "type": "integer",
+                      "description": "Defines the local timezone.",
+                      "default": 0
+                    },
+                    "loginEncrypt": {
+                      "type": "boolean",
+                      "description": "Defines if the login encryption is enabled or not.",
+                      "default": false
+                    },
+                    "poolTimeout": {
+                      "type": "integer",
+                      "description": "Defines a number of seconds after which the pool terminates idle connections (unused in the pool).",
+                      "default": 60
+                    },
+                    "queueTimeout": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds when messages are retained in the queue before they are discarded.",
+                      "default": 60000
+                    },
+                    "socketTimeout": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds when a connection request made by a client or a server doesn&#x27;t receive a response from the other end.",
+                      "default": 60000
+                    }
+                  }
+                },
+                "dbPass": {
+                  "type": "string",
+                  "description": "Defines a password set to the database account.",
+                  "default": "onlyoffice"
+                },
+                "dbUser": {
+                  "type": "string",
+                  "description": "Defines a new username with superuser permissions for the database account.",
+                  "default": "onlyoffice"
+                },
+                "max_allowed_packet": {
+                  "type": "integer",
+                  "description": "Defines the maximum size of data that can be sent in one request.",
+                  "default": 1048575
+                },
+                "msSqlExtraOptions": {
+                  "type": "object",
+                  "description": "Defines the MS SQL database parameters.",
+                  "default": {
+                    "options": {
+                      "encrypt": false,
+                      "trustServerCertificate": true
+                    },
+                    "pool": {
+                      "idleTimeoutMillis": 30000
+                    }
+                  },
+                  "properties": {
+                    "options": {
+                      "type": "object",
+                      "description": "Defines the MS SQL database options.",
+                      "default": {
+                        "encrypt": false,
+                        "trustServerCertificate": true
+                      },
+                      "properties": {
+                        "encrypt": {
+                          "type": "boolean",
+                          "description": "Defines whether the data will be encrypted before sending it over the network.",
+                          "default": false
+                        },
+                        "trustServerCertificate": {
+                          "type": "boolean",
+                          "description": "Defines whether an encryption occurs when there is no verified server certificate.",
+                          "default": true
+                        }
+                      }
+                    },
+                    "pool": {
+                      "type": "object",
+                      "description": "Defines the parameters of the connection pool.",
+                      "default": {
+                        "idleTimeoutMillis": 30000
+                      },
+                      "properties": {
+                        "idleTimeoutMillis": {
+                          "type": "integer",
+                          "description": "Defines a number of milliseconds a client must remain idle in the pool and not be checked out before it is disconnected from the backend and discarded. Set to 0 to disable automatic disconnection of idle clients.",
+                          "default": 30000
+                        }
+                      }
+                    }
+                  }
+                },
+                "mysqlExtraOptions": {
+                  "type": "object",
+                  "description": "Defines the connection parameters of the MySQL database (including SSL settings) that can be passed directly to the node-mysql2 module.",
+                  "default": {
+                    "connectTimeout": 60000,
+                    "queryTimeout": 60000
+                  },
+                  "properties": {
+                    "connectTimeout": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds to wait for a connection.",
+                      "default": 60000
+                    },
+                    "queryTimeout": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds before a query call times out.",
+                      "default": 60000
+                    }
+                  }
+                },
+                "oracleExtraOptions": {
+                  "type": "object",
+                  "description": "Defines the Oracle database parameters.",
+                  "default": {
+                    "thin": true,
+                    "connectTimeout": 60
+                  },
+                  "properties": {
+                    "connectTimeout": {
+                      "type": "integer",
+                      "description": "Defines a number of seconds to wait for a connection.",
+                      "default": 60
+                    },
+                    "thin": {
+                      "type": "boolean",
+                      "description": "Defines connection to Oracle in the Thick Mode using Oracle Instant Client in a cluster.",
+                      "default": true
+                    }
+                  }
+                },
+                "pgPoolExtraOptions": {
+                  "type": "object",
+                  "description": "Defines the parameters that can be passed directly to the node-postgres pool library.",
+                  "default": {
+                    "idleTimeoutMillis": 30000,
+                    "connectionTimeoutMillis": 60000,
+                    "maxLifetimeSeconds": 60000,
+                    "statement_timeout": 60000,
+                    "query_timeout": 60000
+                  },
+                  "properties": {
+                    "connectionTimeoutMillis": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds to wait for a connection.",
+                      "default": 60000
+                    },
+                    "idleTimeoutMillis": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds a client must remain idle in the pool and not be checked out before it is disconnected from the backend and discarded. Set to 0 to disable automatic disconnection of idle clients.",
+                      "default": 30000
+                    },
+                    "maxLifetimeSeconds": {
+                      "type": "integer",
+                      "description": "Defines a number of seconds that represents the maximum lifetime.",
+                      "default": 60000
+                    },
+                    "query_timeout": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds before a query call times out.",
+                      "default": 60000
+                    },
+                    "statement_timeout": {
+                      "type": "integer",
+                      "description": "Defines a number of milliseconds before the query statement times out.",
+                      "default": 60000
+                    }
+                  }
+                },
+                "tableChanges": {
+                  "type": "string",
+                  "description": "Defines the database table name where all the document changes are stored.",
+                  "default": "doc_changes"
+                },
+                "tableResult": {
+                  "type": "string",
+                  "description": "Defines the database table name where the query result is stored.",
+                  "default": "task_result"
+                }
+              }
+            },
+            "callbackBackoffOptions": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "httpStatus": {
+                  "type": "string",
+                  "description": "Defines the HTTP statuses of the callback backoff.",
+                  "default": "429,500-599"
+                },
+                "retries": {
+                  "type": "integer",
+                  "description": "Defines the maximum amount of times to retry the operation.",
+                  "default": 3
+                },
+                "timeout": {
+                  "type": "object",
+                  "description": "Defines the callback backoff timeouts.",
+                  "default": {
+                    "factor": 2,
+                    "minTimeout": 1000,
+                    "maxTimeout": 2147483647,
+                    "randomize": false
+                  },
+                  "properties": {
+                    "factor": {
+                      "type": "integer",
+                      "description": "Defines the exponential factor to use.",
+                      "default": 2
+                    },
+                    "maxTimeout": {
+                      "type": "integer",
+                      "description": "Defines the maximum number of milliseconds between two retries.",
+                      "default": 2147483647
+                    },
+                    "minTimeout": {
+                      "type": "integer",
+                      "description": "Defines the number of milliseconds before starting the first try.",
+                      "default": 1000
+                    },
+                    "randomize": {
+                      "type": "boolean",
+                      "description": "Defines if the timeouts are randomized by multiplying with a factor between 1 and 2 or not.",
+                      "default": false
+                    }
+                  }
+                }
+              }
+            },
+            "editor": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "binaryChanges": {
+                  "type": "boolean",
+                  "description": "Defines if the document changes are saved in binary (**true**) or JSON (**false**) format.",
+                  "default": false
+                },
+                "maxChangesSize": {
+                  "type": "string",
+                  "description": "Defines a limit on the total size of the changes made to the document. When the limit is exceeded, the user receives a dialog box with a suggestion to cancel the last action or switch to the offline mode.",
+                  "default": "150MB"
+                },
+                "reconnection": {
+                  "type": "object",
+                  "description": "Defines the settings for reconnecting the editor to the server.",
+                  "default": {
+                    "attempts": 50,
+                    "delay": "2s"
+                  },
+                  "properties": {
+                    "attempts": {
+                      "type": "integer",
+                      "description": "Defines a maximum number of attempts to reconnect the editor.",
+                      "default": 50
+                    },
+                    "delay": {
+                      "type": "string",
+                      "description": "Defines the attempt delay for reconnecting the editor.",
+                      "default": "2s"
+                    }
+                  }
+                },
+                "spellcheckerUrl": {
+                  "type": "string",
+                  "description": "Defines a path to the spell checker.",
+                  "default": ""
+                },
+                "websocketMaxPayloadSize": {
+                  "type": "string",
+                  "description": "Defines a maximum payload size of WebSocket.",
+                  "default": "1.5MB"
+                }
+              }
+            },
+            "plugins": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "autostart": {
+                  "type": "string",
+                  "description": "Defines a list of plugins that run automatically.",
+                  "default": []
+                },
+                "uri": {
+                  "type": "string",
+                  "description": "Defines a path to the folder where all the plugins are stored.",
+                  "default": "/sdkjs-plugins"
+                }
+              }
+            },
+            "pubsub": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "maxChanges": {
+                  "type": "integer",
+                  "description": "Defines the maximum size of changes which can be passed via PubSub. If the size exceeds the specified value, the changes will be read from the database.",
+                  "default": 1000
+                }
+              }
+            },
+            "redis": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "host": {
+                  "type": "string",
+                  "description": "Defines the Redis server host (host name or IP address).",
+                  "default": "127.0.0.1"
+                },
+                "iooptions": {
+                  "type": "object",
+                  "description": "Defines the parameters (username, password, modules etc.) that can be passed directly to the ioredis RedisOptions library.",
+                  "default": {
+                    "lazyConnect": true
+                  },
+                  "properties": {
+                    "lazyConnect": {
+                      "type": "boolean",
+                      "description": "Defines if the connection to the server will be delayed until the first command is sent or *redis.connect()* is called explicitly.",
+                      "default": true
+                    }
+                  }
+                },
+                "iooptionsClusterNodes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Defines a list of nodes of the cluster you want to connect to that can be passed directly to the ioredis cluster library to connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
+                  "default": []
+                },
+                "iooptionsClusterOptions": {
+                  "type": "object",
+                  "description": "Defines the parameters (clusterRetryStrategy, dnsLookup, scaleReads etc.) that can be passed directly to the ioredis cluster library to connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
+                  "default": {
+                    "lazyConnect": true
+                  },
+                  "properties": {
+                    "lazyConnect": {
+                      "type": "boolean",
+                      "description": "Defines if the connection to the server will be delayed until the first command is sent or *redis.connect()* is called explicitly.",
+                      "default": true
+                    }
+                  }
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Defines the database name, `\"redis\"` or `\"ioredis\"`.",
+                  "default": "redis"
+                },
+                "options": {
+                  "type": "object",
+                  "description": "Defines the parameters (username, password, modules etc.) that can be passed directly to the node-redis createClient library.",
+                  "default": {}
+                },
+                "optionsCluster": {
+                  "type": "object",
+                  "description": "Defines the parameters (rootNodes, defaults, modules etc.) that can be passed directly to the node-redis clustering library to connect to the redis cluster. This setting has the priority over the *options* parameter for connecting to the single redis.",
+                  "default": {}
+                },
+                "port": {
+                  "type": "integer",
+                  "description": "Defines the Redis server port.",
+                  "default": 6379
+                },
+                "prefix": {
+                  "type": "string",
+                  "description": "Defines the name prefix for all the used structures in Redis.",
+                  "default": "ds:"
+                }
+              }
+            },
+            "secret": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "browser": {
+                  "type": "object",
+                  "description": "Defines the parameters of a secret key to generate a token in the client-side browser requests to ONLYOFFICE Docs: **string** - the secret key, **type**: string, **example**: \"secret\"; **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
+                  "default": {
+                    "string": "secret",
+                    "file": ""
+                  },
+                  "properties": {
+                    "string": {
+                      "type": "string",
+                      "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
+                      "default": "secret"
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
+                      "default": ""
+                    }
+                  }
+                },
+                "inbox": {
+                  "type": "object",
+                  "description": "Defines the parameters of a secret key to generate a token in the incoming HTTP requests with the commands from the **document storage service** to the **document command service**, **document conversion service** and **document builder service**: **string** - the secret key, **type**: string, **example**: \"secret\"; **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
+                  "default": {
+                    "string": "secret",
+                    "file": ""
+                  },
+                  "properties": {
+                    "string": {
+                      "type": "string",
+                      "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
+                      "default": "secret"
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
+                      "default": ""
+                    }
+                  }
+                },
+                "outbox": {
+                  "type": "object",
+                  "description": "Defines the parameters of a secret key to generate a token in the outgoing HTTP requests to the `callbackUrl` address by **document editing service**: **string** - the secret key, **type**: string, **example**: \"secret\"; **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
+                  "default": {
+                    "string": "secret",
+                    "file": ""
+                  },
+                  "properties": {
+                    "string": {
+                      "type": "string",
+                      "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
+                      "default": "secret"
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
+                      "default": ""
+                    }
+                  }
+                },
+                "session": {
+                  "type": "object",
+                  "description": "Defines the parameters of a secret key to generate the session token: **string** - the secret key, **type**: string, **example**: \"secret\"; **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
+                  "default": {
+                    "string": "secret",
+                    "file": ""
+                  },
+                  "properties": {
+                    "string": {
+                      "type": "string",
+                      "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
+                      "default": "secret"
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
+                      "default": ""
+                    }
+                  }
+                }
+              }
+            },
+            "server": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "assemblyFormatAsOrigin": {
+                  "type": "boolean",
+                  "description": "Defines if the assembled file is saved in its original format or not.",
+                  "default": true
+                },
+                "callbackRequestTimeout": {
+                  "type": "object",
+                  "description": "Defines the timeout properties for callback requesting.",
+                  "default": {
+                    "connectionAndInactivity": "10m",
+                    "wholeCycle": "10m"
+                  },
+                  "properties": {
+                    "connectionAndInactivity": {
+                      "type": "string",
+                      "description": "Defines a period which specifies two timeouts: **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request; **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect. This parameter is sent to the **npm** module.",
+                      "default": "10m"
+                    },
+                    "wholeCycle": {
+                      "type": "string",
+                      "description": "Defines the whole request cycle timeout.",
+                      "default": "10m"
+                    }
+                  }
+                },
+                "documentFormatsFile": {
+                  "type": "string",
+                  "description": "Defines a path to the \"onlyoffice-docs-formats\" file.",
+                  "default": "../../document-formats/onlyoffice-docs-formats.json"
+                },
+                "downloadFileAllowExt": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Defines extensions which are allowed to be downloaded via the downloadFile handler.",
+                  "default": ["pdf", "xlsx"]
+                },
+                "edit_singleton": {
+                  "type": "boolean",
+                  "description": "Defines if the singleton can be edited or not.",
+                  "default": false
+                },
+                "editorDataStorage": {
+                  "type": "string",
+                  "description": "Defines the editor data storage. The possible values: *\"editorDataRedis\"*, *\"\"*.",
+                  "default": "editorDataMemory"
+                },
+                "editorStatStorage": {
+                  "type": "string",
+                  "description": "Defines the editor data storage for license calculation and statistics (local memory or redis). The possible values are *\"editorDataMemory\"*, *\"editorDataRedis\"*, or *\"\"*. The default *\"\"* value means that the value of the *editorDataStorage* parameter will be used. This parameter is primarily used for a sharded cluster.",
+                  "default": ""
+                },
+                "forceSaveUsingButtonWithoutChanges": {
+                  "type": "boolean",
+                  "description": "Defines whether a file without any changes can be forcesaved by clicking the **Save** button.",
+                  "default": false
+                },
+                "forgottenfiles": {
+                  "type": "string",
+                  "description": "Defines a folder name where all the forgotten files are stored.",
+                  "default": "forgotten"
+                },
+                "forgottenfilesname": {
+                  "type": "string",
+                  "description": "Defines a forgotten file name.",
+                  "default": "output"
+                },
+                "healthcheckfilepath": {
+                  "type": "string",
+                  "description": "Defines a path where the health check requests will be sent.",
+                  "default": "../public/healthcheck.docx"
+                },
+                "isAnonymousSupport": {
+                  "type": "boolean",
+                  "description": "Defines if the anonymous users have access to the editor or live viewer or not.",
+                  "default": true
+                },
+                "limits_image_download_timeout": {
+                  "type": "object",
+                  "description": "Defines the timeout properties for downloading images.",
+                  "default": {
+                    "connectionAndInactivity": "2m",
+                    "wholeCycle": "2m"
+                  },
+                  "properties": {
+                    "connectionAndInactivity": {
+                      "type": "string",
+                      "description": "Defines a period which specifies two timeouts: **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request; **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect. This parameter is sent to the **npm** module.",
+                      "default": "2m"
+                    },
+                    "wholeCycle": {
+                      "type": "string",
+                      "description": "Defines the whole request cycle - a period from the download start to the full download.",
+                      "default": "2m"
+                    }
+                  }
+                },
+                "limits_image_size": {
+                  "type": "integer",
+                  "description": "Defines a maximum size for all the images uploaded in each process (measured in bytes).",
+                  "default": 26214400
+                },
+                "limits_tempfile_upload": {
+                  "type": "integer",
+                  "description": "Defines a maximum size for all the uploaded temporary files used by each process (measured in bytes).",
+                  "default": 104857600
+                },
+                "maxRequestChanges": {
+                  "type": "integer",
+                  "description": "Defines a maximum size of the request changes.",
+                  "default": 20000
+                },
+                "mode": {
+                  "type": "string",
+                  "description": "Defines the server mode.",
+                  "default": "development"
+                },
+                "newFileTemplate": {
+                  "type": "string",
+                  "description": "Defines a path to the \"new\" file template if a file of 0 bytes was received from the link for opening.",
+                  "default": "../../document-templates/new"
+                },
+                "openProtectedFile": {
+                  "type": "boolean",
+                  "description": "Defines if the password-protected files can be opened or not.",
+                  "default": true
+                },
+                "port": {
+                  "type": "integer",
+                  "description": "Defines the server port.",
+                  "default": 8000
+                },
+                "savetimeoutdelay": {
+                  "type": "integer",
+                  "description": "Defines the conversion start delay time (measured in milliseconds) after the edited file is closed.",
+                  "default": 5000
+                },
+                "tokenRequiredParams": {
+                  "type": "boolean",
+                  "description": "Defines if the required token parameters will be validated. This is required for security. For example, the conversion token will not be used to open a document.",
+                  "default": true
+                },
+                "workerpercpu": {
+                  "type": "integer",
+                  "description": "Defines a number of worker threads per CPU.",
+                  "default": 1
+                }
+              }
+            },
+            "socketio": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "connection": {
+                  "type": "object",
+                  "description": "Defines the connection properties.",
+                  "default": {
+                    "path": "/doc/",
+                    "serveClient": false,
+                    "pingTimeout": 20000,
+                    "pingInterval": 25000,
+                    "maxHttpBufferSize": 100000000
+                  },
+                  "properties": {
+                    "maxHttpBufferSize": {
+                      "type": "integer",
+                      "description": "Defines the maximum number of bytes a single message can be, before closing the socket.",
+                      "default": 100000000
+                    },
+                    "path": {
+                      "type": "string",
+                      "description": "Defines the path that is captured on the server side.",
+                      "default": "/doc/"
+                    },
+                    "pingInterval": {
+                      "type": "integer",
+                      "description": "Defines the interval time in milliseconds, which is used to check if the connection is still alive between the server and the client. The server sends a ping packet to the client, and if the client does not respond with a pong within a `pingTimeout` period, the server considers that the connection is closed.",
+                      "default": 25000
+                    },
+                    "pingTimeout": {
+                      "type": "integer",
+                      "description": "Defines the timeout period in milliseconds within which the client must respond with a pong to the server ping. If there is no response, the server considers that the connection is closed. The connection between the server and the client is checked every `pingInterval` milliseconds.",
+                      "default": 20000
+                    },
+                    "serveClient": {
+                      "type": "boolean",
+                      "description": "Defines if the client files will be served or not.",
+                      "default": false
+                    }
+                  }
+                }
+              }
+            },
+            "sockjs": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "disable_cors": {
+                  "type": "boolean",
+                  "description": "Defines if CORS will be disabled or not. The `true` value prevents the **Access-Control-Allow-Origin** header vulnerability.",
+                  "default": true
+                },
+                "sockjs_url": {
+                  "type": "string",
+                  "description": "Defines a path to the `sockjs.min.js` file.",
+                  "default": ""
+                },
+                "websocket": {
+                  "type": "boolean",
+                  "description": "Defines if the WebSocket protocol is enabled or not.",
+                  "default": true
+                }
+              }
+            },
+            "themes": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "uri": {
+                  "type": "string",
+                  "description": "Defines a path to the folder where all the *json* files with the custom color themes are stored.",
+                  "default": "/web-apps/apps/common/main/resources/themes"
+                }
+              }
+            },
+            "token": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "browser": {
+                  "type": "object",
+                  "description": "Defines the browser token configuration.",
+                  "default": {
+                    "secretFromInbox": true
+                  },
+                  "properties": {
+                    "secretFromInbox": {
+                      "type": "boolean",
+                      "description": "Defines if the browser token is equal to the token from the incoming requests (`true`) or not (`false`).",
+                      "default": true
+                    }
+                  }
+                },
+                "enable": {
+                  "type": "object",
+                  "description": "Defines if the tokens are enabled or not.",
+                  "default": {
+                    "browser": false,
+                    "request": {
+                      "inbox": false,
+                      "outbox": false
+                    }
+                  },
+                  "properties": {
+                    "browser": {
+                      "type": "boolean",
+                      "description": "Defines if a token in the client-side browser requests is enabled or not.",
+                      "default": false
+                    },
+                    "request": {
+                      "type": "object",
+                      "description": "Defines if the tokens in the HTTP requests are enabled or not.",
+                      "default": {
+                        "inbox": false,
+                        "outbox": false
+                      },
+                      "properties": {
+                        "inbox": {
+                          "type": "boolean",
+                          "description": "Defines if a token in the incoming HTTP requests is enabled or not.",
+                          "default": false
+                        },
+                        "outbox": {
+                          "type": "boolean",
+                          "description": "Defines if a token in the outgoing HTTP requests is enabled or not.",
+                          "default": false
+                        }
+                      }
+                    }
+                  }
+                },
+                "inbox": {
+                  "type": "object",
+                  "description": "Defines the configuration of a token from the incoming requests.",
+                  "default": {
+                    "header": "Authorization",
+                    "prefix": "Bearer ",
+                    "inBody": false
+                  },
+                  "properties": {
+                    "header": {
+                      "type": "string",
+                      "description": "Defines the HTTP header that will be used to send the incoming request token.",
+                      "default": "Authorization"
+                    },
+                    "inBody": {
+                      "type": "boolean",
+                      "description": "Defines if a token is enabled in the incoming request body or not.",
+                      "default": false
+                    },
+                    "prefix": {
+                      "type": "string",
+                      "description": "Defines a prefix in the HTTP header that will be used to send the incoming request token.",
+                      "default": "Bearer "
+                    }
+                  }
+                },
+                "outbox": {
+                  "type": "object",
+                  "description": "Defines the configuration of a token from the outgoing requests.",
+                  "default": {
+                    "header": "Authorization",
+                    "prefix": "Bearer ",
+                    "algorithm": "HS256",
+                    "expires": "5m",
+                    "inBody": false,
+                    "urlExclusionRegex": ""
+                  },
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "description": "Defines an algorithm which is used to sign the outgoing request token.",
+                      "default": "HS256"
+                    },
+                    "expires": {
+                      "type": "string",
+                      "description": "Defines a period when the outgoing request token expires.",
+                      "default": "5m"
+                    },
+                    "header": {
+                      "type": "string",
+                      "description": "Defines the HTTP header that will be used to send the outgoing request token.",
+                      "default": "Authorization"
+                    },
+                    "inBody": {
+                      "type": "boolean",
+                      "description": "Defines if a token is enabled in the outgoing request body or not.",
+                      "default": false
+                    },
+                    "prefix": {
+                      "type": "string",
+                      "description": "Defines a prefix in the HTTP header that will be used to send the outgoing request token.",
+                      "default": "Bearer "
+                    },
+                    "urlExclusionRegex": {
+                      "type": "string",
+                      "description": "Defines the regular expression that specifies URLs from which the authorization should be excluded. The empty string means that this option is disabled.",
+                      "default": ""
+                    }
+                  }
+                },
+                "session": {
+                  "type": "object",
+                  "description": "Defines the session token configuration.",
+                  "default": {
+                    "algorithm": "HS256",
+                    "expires": "30d"
+                  },
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "description": "Defines an algorithm which is used to sign the session token.",
+                      "default": "HS256"
+                    },
+                    "expires": {
+                      "type": "string",
+                      "description": "Defines a period when the session token expires.",
+                      "default": "30d"
+                    }
+                  }
+                },
+                "verifyOptions": {
+                  "type": "object",
+                  "description": "Defines the token verifying options.",
+                  "default": {
+                    "clockTolerance": 60
+                  },
+                  "properties": {
+                    "clockTolerance": {
+                      "type": "integer",
+                      "description": "Defines a number of seconds which is acceptable when dealing with the clock differences among different servers.",
+                      "default": 60
+                    }
+                  }
+                }
+              }
+            },
+            "utils": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "limits_image_types_upload": {
+                  "type": "string",
+                  "description": "Defines the supported image formats for uploading.",
+                  "default": "jpg;jpeg;jpe;png;gif;bmp;svg;tiff;tif;webp;heic;heif;avif"
+                },
+                "utils_common_fontdir": {
+                  "type": "string",
+                  "description": "Defines a directory where all the fonts are stored.",
+                  "default": "null"
+                },
+                "utils_fonts_search_patterns": {
+                  "type": "string",
+                  "description": "Defines the patterns for searching font files of the corresponding extensions.",
+                  "default": "*.ttf;*.ttc;*.otf"
+                },
+                "limits_document_types_upload": {
+                  "type": "string",
+                  "description": "Semicolon-separated list of document file extensions allowed for upload. Only files matching these extensions are accepted.",
+                  "default": "xlsx"
                 }
               }
             }
+          },
+          "description": "Defines the settings for the co-authoring editing session."
+        }
+      }
+    },
+    "externalRequest": {
+      "type": "object",
+      "description": "External request handling and proxy configuration",
+      "additionalProperties": false,
+      "properties": {
+        "directIfIn": {
+          "type": "object",
+          "description": "Defines the IP addresses that are allowed for direct requests.",
+          "properties": {
+            "allowList": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [],
+              "description": "Defines a list of the IP addresses that are trusted for the direct requests."
+            },
+            "jwtToken": {
+              "type": "boolean",
+              "default": true,
+              "description": "Defines if the trusted IP addresses are in the JWT or not."
+            }
+          },
+          "default": {
+            "allowList": [],
+            "jwtToken": true
+          }
+        },
+        "action": {
+          "type": "object",
+          "description": "Defines the external request options.",
+          "properties": {
+            "allow": {
+              "type": "boolean",
+              "default": true,
+              "description": "Defines if the external requests are allowed or not."
+            },
+            "blockPrivateIP": {
+              "type": "boolean",
+              "default": true,
+              "description": "Defines if the private IP address will be blocked or not."
+            },
+            "proxyUrl": {
+              "type": "string",
+              "default": "",
+              "description": "Defines the proxy URL."
+            },
+            "proxyUser": {
+              "type": "object",
+              "description": "Defines the proxy authentication parameters.",
+              "properties": {
+                "username": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Defines the proxy authentication username."
+                },
+                "password": {
+                  "type": "string",
+                  "default": "",
+                  "writeOnly": true,
+                  "description": "Defines the proxy authentication password."
+                }
+              },
+              "default": {
+                "username": "",
+                "password": ""
+              }
+            },
+            "proxyHeaders": {
+              "type": "object",
+              "default": {},
+              "description": "Defines the proxy headers."
+            }
+          },
+          "default": {
+            "allow": true,
+            "blockPrivateIP": true,
+            "proxyUrl": "",
+            "proxyUser": {
+              "username": "",
+              "password": ""
+            },
+            "proxyHeaders": {}
+          }
+        }
+      }
+    },
+    "tenants": {
+      "type": "object",
+      "description": "Multi-tenant configuration settings",
+      "x-scope": "admin",
+      "additionalProperties": false,
+      "properties": {
+        "baseDir": {
+          "type": "string",
+          "description": "Defines a directory that limits the files that can be accessed by **ONLYOFFICE Docs**.",
+          "x-scope": "admin",
+          "default": ""
+        },
+        "baseDomain": {
+          "type": "string",
+          "description": "Defines the tenant base domain name.",
+          "x-scope": "admin",
+          "default": ""
+        },
+        "filenameConfig": {
+          "type": "string",
+          "default": "config.json",
+          "description": "Defines the name of the config file in the tenant folder to override *default.json*. It is used in the multi-tenant mode to initialize the specific tenant settings (wopi, ipfilter, jwt secret etc.).",
+          "x-scope": "admin"
+        },
+        "filenameSecret": {
+          "type": "string",
+          "default": "secret.key",
+          "description": "Defines the *.pem* filename where the tenant secret key is stored.",
+          "x-scope": "admin"
+        },
+        "filenameLicense": {
+          "type": "string",
+          "default": "license.lic",
+          "description": "Defines the filename where the tenant license is stored.",
+          "x-scope": "admin"
+        },
+        "defaultTenant": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Defines the domain name of the default tenant.",
+          "x-scope": "admin"
+        },
+        "cache": {
+          "type": "object",
+          "description": "Defines the cache properties for reading multi-tenant license and secret.",
+          "x-scope": "admin",
+          "properties": {
+            "stdTTL": {
+              "type": "integer",
+              "default": 300,
+              "description": "Defines the TTL (time to live) for every generated cache element (measured in seconds).",
+              "x-scope": "admin"
+            },
+            "checkperiod": {
+              "type": "integer",
+              "default": 60,
+              "description": "Defines the period used for the automatic delete check interval (measured in seconds).",
+              "x-scope": "admin"
+            },
+            "useClones": {
+              "type": "boolean",
+              "default": false,
+              "description": "Defines if the cached variables will be cloned or not. If `true`, a copy of the cached variable will be created. If `false`, only the reference will be saved.",
+              "x-scope": "admin"
+            }
+          },
+          "default": {
+            "stdTTL": 300,
+            "checkperiod": 60,
+            "useClones": false
+          }
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "description": "License configuration and validation settings",
+      "x-scope": "admin",
+      "additionalProperties": false,
+      "properties": {
+        "license_file": {
+          "type": "string",
+          "default": "",
+          "description": "Defines a path to the license file.",
+          "x-scope": "admin"
+        },
+        "warning_limit_percents": {
+          "type": "integer",
+          "default": 70,
+          "description": "Defines a percent range of the connections and connections_view limitations, exceeding which a license limit warning appears in logs.",
+          "x-scope": "admin"
+        },
+        "packageType": {
+          "type": "integer",
+          "default": 0,
+          "description": "Defines the license package type: 2 - Developer Edition.",
+          "x-scope": "admin",
+          "x-note": "This parameter is set at the time of version build. You do not have to manually configure it."
+        },
+        "warning_license_expiration": {
+          "type": "string",
+          "default": "30d",
+          "description": "Defines the time before the license expires when a warning message is sent.",
+          "x-scope": "admin"
+        }
+      }
+    },
+    "wopi": {
+      "type": "object",
+      "description": "WOPI (Web Application Open Platform Interface) configuration",
+      "x-scope": ["admin", "tenant"],
+      "additionalProperties": false,
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Defines if WOPI is enabled or not.",
+          "x-scope": "admin"
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Defines the WOPI host (host name or IP address).",
+          "x-scope": "admin"
+        },
+        "htmlTemplate": {
+          "type": "string",
+          "default": "../../web-apps/apps/api/wopi",
+          "description": "Defines a path to the WOPI HTML template.",
+          "x-scope": "admin"
+        },
+        "wopiZone": {
+          "type": "string",
+          "default": "external-http",
+          "description": "Defines a zone that the Document Server uses to navigate the browser to the WOPI application.",
+          "x-scope": "admin"
+        },
+        "favIconUrlWord": {
+          "type": "string",
+          "default": "/web-apps/apps/documenteditor/main/resources/img/favicon.ico",
+          "description": "Defines a path to the favicon for the document editor.",
+          "x-scope": "admin"
+        },
+        "favIconUrlCell": {
+          "type": "string",
+          "default": "/web-apps/apps/spreadsheeteditor/main/resources/img/favicon.ico",
+          "description": "Defines a path to the favicon for the spreadsheet editor.",
+          "x-scope": "admin"
+        },
+        "favIconUrlSlide": {
+          "type": "string",
+          "default": "/web-apps/apps/presentationeditor/main/resources/img/favicon.ico",
+          "description": "Defines a path to the favicon for the presentation editor.",
+          "x-scope": "admin"
+        },
+        "favIconUrlPdf": {
+          "type": "string",
+          "default": "/web-apps/apps/pdfeditor/main/resources/img/favicon.ico",
+          "description": "Defines a path to the favicon for the PDF editor.",
+          "x-scope": "admin"
+        },
+        "favIconUrlDiagram": {
+          "type": "string",
+          "default": "/web-apps/apps/visioeditor/main/resources/img/favicon.ico",
+          "description": "Defines a path to the favicon for the diagram editor.",
+          "x-scope": "admin"
+        },
+        "fileInfoBlockList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["FileUrl"],
+          "description": "Defines a list of WOPI file information parameters that are blocked when sending this array to the browser. However, these parameters are available on the server.",
+          "x-scope": "admin"
+        },
+        "pdfView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be viewed in the PDF editor.",
+          "x-scope": "admin",
+          "x-example": ["djvu", "xps", "oxps"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "pdfEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be edited in the PDF editor.",
+          "x-scope": "admin",
+          "x-example": ["pdf"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "forms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the form file types.",
+          "x-scope": "admin",
+          "x-example": ["pdf"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "wordView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be viewed in the document editor.",
+          "x-scope": "admin",
+          "x-example": ["doc", "dotm", "dot", "fodt", "ott", "rtf", "mht", "mhtml", "html", "htm", "xml", "epub", "fb2", "sxw", "stw", "wps", "wpt", "pages", "docxf", "oform", "hwp", "hwpx", "md"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "wordEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be edited in the document editor.",
+          "x-scope": "admin",
+          "x-example": ["docx", "dotx", "docm", "odt", "txt"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "cellView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be viewed in the spreadsheet editor.",
+          "x-scope": "admin",
+          "x-example": ["xls", "xltm", "xlt", "fods", "ots", "sxc", "xml", "et", "ett", "numbers"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "cellEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be edited in the spreadsheet editor.",
+          "x-scope": "admin",
+          "x-example": ["xlsx", "xlsb", "xltx", "xlsm", "ods", "csv"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "slideView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be viewed in the presentation editor.",
+          "x-scope": "admin",
+          "x-example": ["ppt", "ppsx", "ppsm", "pps", "potm", "pot", "fodp", "otp", "sxi", "dps", "dpt", "key", "odg"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "slideEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be edited in the presentation editor.",
+          "x-scope": "admin",
+          "x-example": ["pptx", "potx", "pptm", "odp"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "diagramView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be viewed in the diagram editor.",
+          "x-scope": "admin",
+          "x-example": ["vsdx", "vstx", "vssx", "vsdm", "vstm", "vssm"],
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "diagramEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Defines the file types that can be edited in the diagram editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+        },
+        "publicKey": {
+          "type": "string",
+          "default": "",
+          "description": "Defines the public key that the integrator uses to check the private key.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+        },
+        "modulus": {
+          "type": "string",
+          "default": "",
+          "description": "Defines the RSA modulus in the Base64-encoded format that is used to retrieve the public key.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+        },
+        "exponent": {
+          "type": "integer",
+          "default": 65537,
+          "description": "Defines the RSA exponent in the Base64-encoded format that is used to retrieve the public key.",
+          "x-scope": "admin"
+        },
+        "privateKey": {
+          "type": "string",
+          "default": "",
+          "writeOnly": true,
+          "description": "Defines the private key that signs the Document Server request.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+        },
+        "publicKeyOld": {
+          "type": "string",
+          "default": "",
+          "description": "Defines the old public key that the integrator used to check the private key.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+        },
+        "modulusOld": {
+          "type": "string",
+          "default": "",
+          "description": "Defines the old RSA modulus in the Base64-encoded format that was used to retrieve the public key.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+        },
+        "exponentOld": {
+          "type": "integer",
+          "default": 65537,
+          "description": "Defines the old RSA exponent in the Base64-encoded format that was used to retrieve the public key.",
+          "x-scope": "admin"
+        },
+        "privateKeyOld": {
+          "type": "string",
+          "default": "",
+          "writeOnly": true,
+          "description": "Defines the old private key that signed the Document Server request.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+        },
+        "refreshLockInterval": {
+          "type": "string",
+          "default": "10m",
+          "description": "Defines the interval time in minutes for refreshing the lock on a file by resetting its automatic expiration timer to 30 minutes.",
+          "x-scope": "admin",
+          "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$"
+        },
+        "dummy": {
+          "type": "object",
+          "description": "Defines the properties of dummy handlers for stress testing.",
+          "x-scope": "admin",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": false,
+              "description": "Defines if the dummy handlers are enabled or not."
+            },
+            "sampleFilePath": {
+              "type": "string",
+              "default": "",
+              "description": "Defines the dummy path to the sample file."
+            }
+          },
+          "default": {
+            "enable": false,
+            "sampleFilePath": ""
           }
         }
       }
@@ -229,11 +3186,20 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 10485760000, "x-scope": ["admin", "tenant"]},
+            "maxDownloadBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10485760000,
+              "x-scope": ["admin", "tenant"],
+              "description": "Defines a maximum size of the file being requested (measured in bytes).",
+              "default": 104857600
+            },
             "signingKeyStorePath": {
               "type": "string",
               "description": "Legacy. Path to signing certificate file. Use signing.keyStorePath instead.",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "default": "",
+              "x-pinned": true
             },
             "signing": {
               "type": "object",
@@ -243,49 +3209,137 @@
               "properties": {
                 "keyStorePath": {
                   "type": "string",
-                  "description": "Path to signing certificate. P12/PFX for local x2t, PEM chain for cloud signing."
+                  "description": "Path to signing certificate. P12/PFX for local x2t, PEM chain for cloud signing.",
+                  "x-pinned": true
                 },
                 "meta": {
                   "type": "object",
                   "additionalProperties": false,
                   "description": "Signature metadata fields embedded in the PDF digital signature.",
                   "properties": {
-                    "reason": {"type": "string", "description": "Purpose of signing (e.g. Approved)."},
-                    "name": {"type": "string", "description": "Signer name."},
-                    "location": {"type": "string", "description": "Signing location."},
-                    "contactInfo": {"type": "string", "description": "Contact details (URL or email)."}
-                  }
+                    "reason": {
+                      "type": "string",
+                      "description": "Purpose of signing (e.g. Approved).",
+                      "x-pinned": true
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Signer name.",
+                      "x-pinned": true
+                    },
+                    "location": {
+                      "type": "string",
+                      "description": "Signing location.",
+                      "x-pinned": true
+                    },
+                    "contactInfo": {
+                      "type": "string",
+                      "description": "Contact details (URL or email).",
+                      "x-pinned": true
+                    }
+                  },
+                  "x-pinned": true
                 },
                 "awsKms": {
                   "type": "object",
                   "additionalProperties": false,
                   "description": "AWS KMS (or compatible) settings. Set keyId to enable.",
                   "properties": {
-                    "endpoint": {"type": "string", "description": "KMS endpoint URL. Allows alternative KMS-compatible services."},
-                    "keyId": {"type": "string", "description": "KMS key ID or ARN. If set, AWS KMS signing is active."},
-                    "accessKeyId": {"type": "string", "description": "AWS access key. Empty = default credential chain."},
-                    "secretAccessKey": {"type": "string", "description": "AWS secret access key."}
-                  }
+                    "endpoint": {
+                      "type": "string",
+                      "description": "KMS endpoint URL. Allows alternative KMS-compatible services.",
+                      "x-pinned": true
+                    },
+                    "keyId": {
+                      "type": "string",
+                      "description": "KMS key ID or ARN. If set, AWS KMS signing is active.",
+                      "x-pinned": true
+                    },
+                    "accessKeyId": {
+                      "type": "string",
+                      "description": "AWS access key. Empty = default credential chain.",
+                      "x-pinned": true
+                    },
+                    "secretAccessKey": {
+                      "type": "string",
+                      "description": "AWS secret access key.",
+                      "x-pinned": true
+                    }
+                  },
+                  "x-pinned": true
                 },
                 "csc": {
                   "type": "object",
                   "additionalProperties": false,
                   "description": "CSC API v2 (ETSI TS 119 432) settings. Set baseUrl to enable.",
                   "properties": {
-                    "baseUrl": {"type": "string", "description": "CSC API base URL. If set, CSC signing is active."},
-                    "tokenUrl": {"type": "string", "description": "OAuth2 token endpoint."},
-                    "clientId": {"type": "string", "description": "OAuth2 client ID."},
-                    "clientSecret": {"type": "string", "description": "OAuth2 client secret."},
-                    "grantType": {"type": "string", "description": "Optional. OAuth2 grant type: '' (auto-detect), 'password', or 'client_credentials'. Empty selects based on presence of username/password."},
-                    "clientAuth": {"type": "string", "description": "Optional. How client authenticates to token endpoint: '' (body), 'basic', 'body', or 'both'."},
-                    "tokenBodyFormat": {"type": "string", "description": "Optional. Token request body format: 'form' (default, RFC 6749) or 'json'."},
-                    "username": {"type": "string", "description": "Optional. Username for password grant type."},
-                    "password": {"type": "string", "description": "Optional. Password for password grant type."},
-                    "credentialId": {"type": "string", "description": "Optional. Signing credential ID. Auto-discovered via credentials/list when empty."},
-                    "clientData": {"type": "string", "description": "Optional. Provider-specific clientData for credentials/list (e.g. eSeal credential type)."},
-                    "scope": {"type": "string", "description": "Optional. OAuth2 scope (e.g. 'service')."},
-                    "audience": {"type": "string", "description": "Optional. OAuth2 audience parameter."}
-                  }
+                    "baseUrl": {
+                      "type": "string",
+                      "description": "CSC API base URL. If set, CSC signing is active.",
+                      "x-pinned": true
+                    },
+                    "tokenUrl": {
+                      "type": "string",
+                      "description": "OAuth2 token endpoint.",
+                      "x-pinned": true
+                    },
+                    "clientId": {
+                      "type": "string",
+                      "description": "OAuth2 client ID.",
+                      "x-pinned": true
+                    },
+                    "clientSecret": {
+                      "type": "string",
+                      "description": "OAuth2 client secret.",
+                      "x-pinned": true
+                    },
+                    "grantType": {
+                      "type": "string",
+                      "description": "Optional. OAuth2 grant type: '' (auto-detect), 'password', or 'client_credentials'. Empty selects based on presence of username/password.",
+                      "x-pinned": true
+                    },
+                    "clientAuth": {
+                      "type": "string",
+                      "description": "Optional. How client authenticates to token endpoint: '' (body), 'basic', 'body', or 'both'.",
+                      "x-pinned": true
+                    },
+                    "tokenBodyFormat": {
+                      "type": "string",
+                      "description": "Optional. Token request body format: 'form' (default, RFC 6749) or 'json'.",
+                      "x-pinned": true
+                    },
+                    "username": {
+                      "type": "string",
+                      "description": "Optional. Username for password grant type.",
+                      "x-pinned": true
+                    },
+                    "password": {
+                      "type": "string",
+                      "description": "Optional. Password for password grant type.",
+                      "x-pinned": true
+                    },
+                    "credentialId": {
+                      "type": "string",
+                      "description": "Optional. Signing credential ID. Auto-discovered via credentials/list when empty.",
+                      "x-pinned": true
+                    },
+                    "clientData": {
+                      "type": "string",
+                      "description": "Optional. Provider-specific clientData for credentials/list (e.g. eSeal credential type).",
+                      "x-pinned": true
+                    },
+                    "scope": {
+                      "type": "string",
+                      "description": "Optional. OAuth2 scope (e.g. 'service').",
+                      "x-pinned": true
+                    },
+                    "audience": {
+                      "type": "string",
+                      "description": "Optional. OAuth2 audience parameter.",
+                      "x-pinned": true
+                    }
+                  },
+                  "x-pinned": true
                 }
               }
             },
@@ -300,11 +3354,14 @@
                   "properties": {
                     "SIGNING_KEYSTORE_PASSPHRASE": {
                       "type": "string",
-                      "description": "Passphrase for the PKCS#12 keystore file"
+                      "description": "Passphrase for the PKCS#12 keystore file",
+                      "x-pinned": true
                     }
                   }
                 }
-              }
+              },
+              "description": "Defines the parameters that can be passed directly to the node.js child_process.spawn library (only for running x2t).",
+              "default": {}
             },
             "inputLimits": {
               "type": "array",
@@ -333,181 +3390,218 @@
                     }
                   }
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "wopi": {
-      "type": "object",
-      "additionalProperties": false,
-      "x-scope": ["admin", "tenant"],
-      "properties": {
-        "enable": {"type": "boolean"},
-        "publicKey": {"type": "string"},
-        "refreshLockInterval": {
-          "type": "string",
-          "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-          "description": "Refresh lock interval in time format (e.g., '10m', '1h', '30s')"
-        }
-      }
-    },
-    "email": {
-      "type": "object",
-      "additionalProperties": false,
-      "x-scope": ["admin", "tenant"],
-      "properties": {
-        "smtpServerConfiguration": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "host": {"type": "string"},
-            "port": {"type": "integer", "minimum": 1, "maximum": 65535},
-            "auth": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "user": {"type": "string"},
-                "pass": {"type": "string"}
-              }
-            }
-          }
-        },
-        "contactDefaults": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "from": {"type": "string", "format": "email"},
-            "to": {"type": "string", "format": "email"}
-          }
-        }
-      }
-    },
-    "log": {
-      "type": "object",
-      "additionalProperties": true,
-      "x-scope": "admin",
-      "properties": {
-        "options": {
-          "type": "object",
-          "additionalProperties": true,
-          "properties": {
-            "categories": {
-              "type": "object",
-              "additionalProperties": true,
-              "properties": {
-                "default": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "properties": {
-                    "level": {
-                      "type": "string",
-                      "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
-                      "description": "Logging level for the application"
-                    }
+              },
+              "description": "Defines limits for input files.",
+              "default": [
+                {
+                  "type": "docx;dotx;docm;dotm",
+                  "zip": {
+                    "uncompressed": "50MB",
+                    "template": "*.xml"
+                  }
+                },
+                {
+                  "type": "xlsx;xltx;xlsm;xltm",
+                  "zip": {
+                    "uncompressed": "300MB",
+                    "template": "*.xml"
+                  }
+                },
+                {
+                  "type": "pptx;ppsx;potx;pptm;ppsm;potm",
+                  "zip": {
+                    "uncompressed": "50MB",
+                    "template": "*.xml"
+                  }
+                },
+                {
+                  "type": "vsdx;vstx;vssx;vsdm;vstm;vssm",
+                  "zip": {
+                    "uncompressed": "50MB",
+                    "template": "*.xml"
                   }
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "notification": {
-      "type": "object",
-      "additionalProperties": false,
-      "x-scope": ["admin", "tenant"],
-      "properties": {
-        "rules": {
-          "type": "object",
-          "additionalProperties": false,
-          "x-scope": ["admin", "tenant"],
-          "properties": {
-            "licenseExpirationWarning": {
-              "type": "object",
-              "additionalProperties": false,
-              "x-scope": ["admin", "tenant"],
+              ],
               "properties": {
-                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                "policies": {
+                "type": {
+                  "type": "string",
+                  "description": "Defines the OOXML file types for which the limits are specified (text documents/spreadsheets/presentations). This does not include other objects, like images.",
+                  "default": "docx;dotx;docm;dotm\"/\"xlsx;xltx;xlsm;xltm\"/\"pptx;ppsx;potx;pptm;ppsm;potm"
+                },
+                "zip": {
                   "type": "object",
-                  "additionalProperties": false,
-                  "x-scope": ["admin", "tenant"],
+                  "description": "Defines the zip archive properties.",
                   "properties": {
-                    "repeatInterval": {
+                    "template": {
                       "type": "string",
-                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                      "x-scope": ["admin", "tenant"]
+                      "description": "Defines the name template for files which sizes are counted.",
+                      "default": "*.xml"
+                    },
+                    "uncompressed": {
+                      "type": "string",
+                      "description": "Defines the total uncompressed file size for text documents/spreadsheets/presentations.",
+                      "default": "50MB\"/\"300MB\"/\"50MB"
                     }
                   }
                 }
               }
             },
-            "licenseExpirationError": {
+            "args": {
+              "type": "string",
+              "description": "Defines the additional parameters for running x2t.",
+              "default": ""
+            },
+            "docbuilderPath": {
+              "type": "string",
+              "description": "Defines a path to the Document Builder application.",
+              "default": "null"
+            },
+            "downloadAttemptDelay": {
+              "type": "integer",
+              "description": "Defines the attempt delay to download the converted file.",
+              "default": 1000
+            },
+            "downloadAttemptMaxCount": {
+              "type": "integer",
+              "description": "Defines a maximum number of attempts to download the converted file.",
+              "default": 3
+            },
+            "downloadTimeout": {
               "type": "object",
-              "additionalProperties": false,
-              "x-scope": ["admin", "tenant"],
+              "description": "Defines the timeout properties for downloading the converted file.",
+              "default": {
+                "connectionAndInactivity": "2m",
+                "wholeCycle": "2m"
+              },
               "properties": {
-                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                "policies": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "x-scope": ["admin", "tenant"],
-                  "properties": {
-                    "repeatInterval": {
-                      "type": "string",
-                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                      "x-scope": ["admin", "tenant"]
-                    }
-                  }
+                "connectionAndInactivity": {
+                  "type": "string",
+                  "description": "Defines a period which specifies two timeouts: **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request; **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect. This parameter is sent to the **npm** module.",
+                  "default": "2m"
+                },
+                "wholeCycle": {
+                  "type": "string",
+                  "description": "Defines the whole request cycle timeout.",
+                  "default": "2m"
                 }
               }
             },
-            "licenseLimitEdit": {
-              "type": "object",
-              "additionalProperties": false,
-              "x-scope": ["admin", "tenant"],
-              "properties": {
-                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                "policies": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "x-scope": ["admin", "tenant"],
-                  "properties": {
-                    "repeatInterval": {
-                      "type": "string",
-                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                      "x-scope": ["admin", "tenant"]
-                    }
-                  }
-                }
-              }
+            "errorfiles": {
+              "type": "string",
+              "description": "Defines a path to the error files.",
+              "default": ""
             },
-            "licenseLimitLiveViewer": {
-              "type": "object",
-              "additionalProperties": false,
-              "x-scope": ["admin", "tenant"],
-              "properties": {
-                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                "policies": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "x-scope": ["admin", "tenant"],
-                  "properties": {
-                    "repeatInterval": {
-                      "type": "string",
-                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                      "x-scope": ["admin", "tenant"]
-                    }
-                  }
-                }
-              }
+            "fontDir": {
+              "type": "string",
+              "description": "Defines a path to the folder with fonts.",
+              "default": "null"
+            },
+            "maxprocesscount": {
+              "type": "integer",
+              "description": "Defines a maximum number of conversion processes which can be active at one time.",
+              "default": 1
+            },
+            "maxRedeliveredCount": {
+              "type": "integer",
+              "description": "Defines a maximum number of message re-deliveries.",
+              "default": 2
+            },
+            "presentationThemesDir": {
+              "type": "string",
+              "description": "Defines a path to the folder with the presentation themes.",
+              "default": "null"
+            },
+            "streamWriterBufferSize": {
+              "type": "integer",
+              "description": "Defines the StreamWriter buffer size.",
+              "default": 8388608
+            },
+            "x2tPath": {
+              "type": "string",
+              "description": "Defines a path to the x2t file converter.",
+              "default": "null"
             }
+          },
+          "description": "Defines the converter properties.",
+          "default": {
+            "maxDownloadBytes": 104857600,
+            "downloadTimeout": {
+              "connectionAndInactivity": "2m",
+              "wholeCycle": "2m"
+            },
+            "downloadAttemptMaxCount": 3,
+            "downloadAttemptDelay": 1000,
+            "maxprocesscount": 1,
+            "fontDir": "null",
+            "presentationThemesDir": "null",
+            "x2tPath": "null",
+            "docbuilderPath": "null",
+            "signingKeyStorePath": "",
+            "signing": {
+              "keyStorePath": "",
+              "meta": {
+                "reason": "",
+                "name": "",
+                "location": "",
+                "contactInfo": ""
+              },
+              "awsKms": {
+                "endpoint": "",
+                "keyId": "",
+                "accessKeyId": "",
+                "secretAccessKey": ""
+              },
+              "csc": {
+                "baseUrl": "",
+                "tokenUrl": "",
+                "clientId": "",
+                "clientSecret": "",
+                "grantType": "",
+                "clientAuth": "",
+                "tokenBodyFormat": "",
+                "username": "",
+                "password": "",
+                "credentialId": "",
+                "clientData": "",
+                "scope": "service",
+                "audience": ""
+              }
+            },
+            "args": "",
+            "spawnOptions": {},
+            "errorfiles": "",
+            "streamWriterBufferSize": 8388608,
+            "maxRedeliveredCount": 2,
+            "inputLimits": [
+              {
+                "type": "docx;dotx;docm;dotm",
+                "zip": {
+                  "uncompressed": "50MB",
+                  "template": "*.xml"
+                }
+              },
+              {
+                "type": "xlsx;xltx;xlsm;xltm",
+                "zip": {
+                  "uncompressed": "300MB",
+                  "template": "*.xml"
+                }
+              },
+              {
+                "type": "pptx;ppsx;potx;pptm;ppsm;potm",
+                "zip": {
+                  "uncompressed": "50MB",
+                  "template": "*.xml"
+                }
+              },
+              {
+                "type": "vsdx;vstx;vssx;vsdm;vstm;vssm",
+                "zip": {
+                  "uncompressed": "50MB",
+                  "template": "*.xml"
+                }
+              }
+            ]
           }
         }
       }
@@ -548,6 +3642,17 @@
               "x-scope": ["admin", "tenant"]
             }
           }
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "Defines a password hash used to protect a password with the PBKDF2-SHA256 algorithm.",
+          "x-note": "The value of this parameter is stored in the *runtime.json* file. E.g., for the Linux version, this file can be found here: `/var/www/onlyoffice/Data/runtime.json`",
+          "default": ""
+        },
+        "port": {
+          "type": "integer",
+          "description": "Defines the port on which the Admin Panel service is running.",
+          "default": 9000
         }
       }
     }
