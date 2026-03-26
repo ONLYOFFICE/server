@@ -59,7 +59,8 @@
           "default": "ds.",
           "description": "Defines a string that will be added to the beginning of all the stats automatically. It helps to distinguish different applications using the same StatsD server."
         }
-      }
+      },
+      "x-section-intro": "These parameters define the StatsD server properties, specifying an aggregator of metrics."
     },
     "aiSettings": {
       "type": "object",
@@ -121,7 +122,8 @@
             "additionalProperties": true
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the AI plugin properties."
     },
     "log": {
       "type": "object",
@@ -151,7 +153,8 @@
             "replaceConsole": true
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the logger properties."
     },
     "runtimeConfig": {
       "type": "object",
@@ -189,7 +192,8 @@
             "useClones": false
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the `runtime.json` dynamic config file properties. This file allows you to change parameters without restarting. The file is reread based on a watch event or every 5 minutes."
     },
     "queue": {
       "type": "object",
@@ -210,9 +214,10 @@
         "retentionPeriod": {
           "type": "integer",
           "default": 900,
-          "description": "Defines the TTL (time to live) of all the messages in a queue (measured in seconds)."
+          "description": "Defines the [TTL](https://www.rabbitmq.com/ttl.html) (time to live) of all the messages in a queue (measured in seconds)."
         }
-      }
+      },
+      "x-section-intro": "These parameters define a queue of messages received from the message-broker."
     },
     "email": {
       "type": "object",
@@ -222,7 +227,7 @@
       "properties": {
         "smtpServerConfiguration": {
           "type": "object",
-          "description": "Defines the basic settings for connecting to the SMTP server.",
+          "description": "Defines the [basic settings](https://nodemailer.com/smtp/) for connecting to the SMTP server.",
           "x-scope": "admin",
           "properties": {
             "host": {
@@ -276,13 +281,13 @@
         },
         "connectionConfiguration": {
           "type": "object",
-          "description": "Defines the technical options for connecting to the SMTP server.",
+          "description": "Defines the [technical options](https://nodemailer.com/smtp/#connection-options) for connecting to the SMTP server.",
           "x-scope": "admin",
           "properties": {
             "disableFileAccess": {
               "type": "boolean",
               "default": false,
-              "description": "Defines whether to allow using files as content. If this parameter is set to **true**, then JSON data from an untrusted source cannot be used as the email. If an attachment or message node tries to fetch something from a file, the sending returns an error.",
+              "description": "Defines whether to allow using files as content. If this parameter is set to **true**, then JSON data from an untrusted source cannot be used as the email.\nIf an attachment or message node tries to fetch something from a file, the sending returns an error.",
               "x-scope": "admin"
             },
             "disableUrlAccess": {
@@ -299,14 +304,14 @@
         },
         "contactDefaults": {
           "type": "object",
-          "description": "Defines the email message settings .",
+          "description": "Defines the [email message settings](https://nodemailer.com/message/#common-fields).",
           "x-scope": "admin",
           "properties": {
             "from": {
               "type": "string",
               "format": "email",
               "default": "from@example.com",
-              "description": "Defines the email address of the sender. All email addresses can be plain *\"sender@server.com\"* or with formatted name *&#x27;\"Sender Name\" sender@server.com&#x27;*.",
+              "description": "Defines the email address of the sender. All email addresses can be plain *\"sender@server.com\"*\nor with formatted name *&#x27;\"Sender Name\" sender@server.com&#x27;*.",
               "x-scope": "admin"
             },
             "to": {
@@ -322,17 +327,19 @@
             "to": "to@example.com"
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the settings of an external mail server, which is used to send [notifications](./notification). To connect to the mail server, use the [nodemailer](https://nodemailer.com/about/) library. Many config settings are passed directly to this library."
     },
     "notification": {
       "type": "object",
       "description": "Notification system configuration for license expiration and limits warnings",
       "x-scope": ["admin", "tenant"],
+      "x-section-intro": "These parameters define the notification settings.\n\nNotifications with the following event types and content are sent:\n\n- 70% of the [connection quota](./license#licensewarning_limit_percents) (quota of unique users) is exceeded.\n\n  License connection limit warning: *\"Attention! You have reached 70% of the connections limit set by your license.\"*\n\n- The connection quota (quota of unique users) is reached.\n\n  License connection limit warning: *\"Attention! You have reached 100% of the connection limit set by your license.\"*\n\n- 30 days before the [license expires](./license#licensewarning_license_expiration).\n\n  License expiration warning: *\"Attention! Your license is about to expire on September 8, 2024. Upon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.\"*\n\n- The license has expired.\n\n  License connection limit warning: *\"Attention! Your license expired on September 8, 2024. You are no longer entitled to receive personal technical support and install new Docs versions released after this date. Please contact sales@onlyoffice.com to discuss license renewal.\"*",
       "additionalProperties": false,
       "properties": {
         "rules": {
           "type": "object",
-          "description": "Defines the rules of notification settings for four notification types: *licenseExpirationWarning*, *licenseExpirationError*, *licenseLimitEdit*, *licenseLimitLiveViewer*.",
+          "description": "Defines the rules of notification settings for four notification types:\n*licenseExpirationWarning*, *licenseExpirationError*, *licenseLimitEdit*, *licenseLimitLiveViewer*.",
           "x-scope": ["admin", "tenant"],
           "properties": {
             "licenseExpirationWarning": {
@@ -964,11 +971,13 @@
           "default": false,
           "description": "Defines the issuance of links to an external storage: direct links or links that are proxied through the Document Server. Setting this parameter to `true` enables direct links, while the `false` value allows using internal links (the server proxies requests to the storage)."
         }
-      }
+      },
+      "x-section-intro": "These parameters define the document storage service configuration."
     },
     "persistentStorage": {
       "type": "object",
-      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration — specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache."
+      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration — specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
+      "x-section-intro": "These parameters define the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage) object. The separation is convenient for server upgrades."
     },
     "rabbitmq": {
       "type": "object",
@@ -983,7 +992,7 @@
         },
         "socketOptions": {
           "type": "object",
-          "description": "Defines the RabbitMQ socket options that will be passed to the socket library (`net` or `tls`). These options must be fields set on the object supplied. The socket options can be used for the SSL connection and can contain the following fields: **cert** - defines a certificate to present to the server (in PEM or pkcs12 format), **type**: string, **example**: \"\"; **key** - defines the private key for the certificate (in PEM or pkcs12 format), **type**: string, **example**: \"\"; **passphrase** - defines a passphrase for the private key, **type**: string, **example**: \"MySecretPassword\"; **ca** - defines a list of the CA certificates in PEM format that we will trust, since we are using a self-signed certificate, **type**: array, **example**: []; **noDelay** - defines if TCP_NODELAY (Nagle&#x27;s algorithm) is set on the underlying socket or not, **type**: boolean, **example**: true.",
+          "description": "Defines the [RabbitMQ socket options](https://amqp-node.github.io/amqplib/channel_api.html#connect) that will be passed to the socket library (`net` or `tls`). These options must be fields set on the object supplied. The socket options can be used for the SSL connection and can contain the following fields:\n\n- **cert** - defines a certificate to present to the server (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **key** - defines the private key for the certificate (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **passphrase** - defines a passphrase for the private key, **type**: string, **example**: \"MySecretPassword\";\n\n- **ca** - defines a list of the CA certificates in PEM format that we will trust, since we are using a self-signed certificate, **type**: array, **example**: [];\n\n- **noDelay** - defines if TCP_NODELAY (Nagle&#x27;s algorithm) is set on the underlying socket or not, **type**: boolean, **example**: true.",
           "default": {}
         },
         "exchangepubsub": {
@@ -997,7 +1006,7 @@
             },
             "options": {
               "type": "object",
-              "description": "Defines the settings of the Publisher Subscriber server.",
+              "description": "Defines the [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the Publisher Subscriber server.",
               "default": {
                 "durable": true
               },
@@ -1028,7 +1037,7 @@
             },
             "options": {
               "type": "object",
-              "description": "Defines the settings of the Publisher Subscriber queue.",
+              "description": "Defines the [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the Publisher Subscriber queue.",
               "default": {
                 "autoDelete": true,
                 "exclusive": true,
@@ -1086,7 +1095,7 @@
             },
             "options": {
               "type": "object",
-              "description": "Defines the settings of the queue of tasks.",
+              "description": "Defines the [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the queue of tasks.",
               "default": {
                 "durable": true,
                 "maxPriority": 6,
@@ -1116,7 +1125,7 @@
                 },
                 "maxPriority": {
                   "type": "integer",
-                  "description": "Defines a queue priority .",
+                  "description": "Defines a queue [priority](https://www.rabbitmq.com/docs/priority).",
                   "default": 6
                 }
               }
@@ -1144,7 +1153,7 @@
             },
             "options": {
               "type": "object",
-              "description": "Defines the settings of the queue of responses.",
+              "description": "Defines the [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the queue of responses.",
               "default": {
                 "durable": true,
                 "arguments": {
@@ -1195,7 +1204,7 @@
             },
             "options": {
               "type": "object",
-              "description": "Defines the settings of the dead letter exchange.",
+              "description": "Defines the [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the dead letter exchange.",
               "default": {
                 "durable": true
               },
@@ -1226,7 +1235,7 @@
             },
             "options": {
               "type": "object",
-              "description": "Defines the settings of the dead letter queue.",
+              "description": "Defines the [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the dead letter queue.",
               "default": {
                 "durable": true,
                 "arguments": {
@@ -1277,7 +1286,7 @@
             },
             "options": {
               "type": "object",
-              "description": "Defines the settings of the delayed queue.",
+              "description": "Defines the [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the delayed queue.",
               "default": {
                 "durable": true,
                 "arguments": {
@@ -1317,7 +1326,8 @@
             }
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the RabbitMQ message broker configuration."
     },
     "activemq": {
       "type": "object",
@@ -1326,7 +1336,7 @@
       "properties": {
         "connectOptions": {
           "type": "object",
-          "description": "Defines the ActiveMQ connect options .",
+          "description": "Defines the [ActiveMQ connect options](https://github.com/amqp/rhea#connectoptions).",
           "properties": {
             "port": {
               "type": "integer",
@@ -1375,7 +1385,8 @@
           "default": "ds.pubsub",
           "description": "Defines the Publisher Subscriber topic."
         }
-      }
+      },
+      "x-section-intro": "These parameters define the ActiveMQ message broker configuration."
     },
     "dnscache": {
       "type": "object",
@@ -1397,7 +1408,8 @@
           "default": 1000,
           "description": "Defines the DNS cache size."
         }
-      }
+      },
+      "x-section-intro": "These parameters define the configuration of the DNS cache which is used for the IP-filter."
     },
     "openpgpjs": {
       "type": "object",
@@ -1406,7 +1418,7 @@
       "properties": {
         "config": {
           "type": "object",
-          "description": "Defines the OpenPGP protocol configuration .",
+          "description": "Defines the [OpenPGP protocol configuration](https://github.com/openpgpjs/openpgpjs).",
           "default": {}
         },
         "encrypt": {
@@ -1443,7 +1455,8 @@
             "passwords": ["verysecretstring"]
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the settings of the OpenPGP protocol, which is used to encrypt the password when opening an encrypted document for editing."
     },
     "aesEncrypt": {
       "type": "object",
@@ -1487,7 +1500,8 @@
           "default": "verysecretstring",
           "description": "Defines a password which is used for the AES-256-GCM encryption."
         }
-      }
+      },
+      "x-section-intro": "These parameters define the settings of the AES-256-GCM encryption algorithm used for password protection of the documents."
     },
     "bottleneck": {
       "type": "object",
@@ -1496,7 +1510,7 @@
       "properties": {
         "getChanges": {
           "type": "object",
-          "description": "Defines the constructor options to generate limiters for throttling the database requests.",
+          "description": "Defines the [constructor options](https://github.com/SGrondin/bottleneck#constructor) to generate limiters for throttling the database requests.",
           "default": {}
         }
       }
@@ -1640,7 +1654,8 @@
                   "description": "Defines the time when the user can open the file again after an error occurs due to opening an already saved file using the old key.",
                   "default": "5m"
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the expiration settings."
             },
             "request-filtering-agent": {
               "type": "object",
@@ -1657,7 +1672,8 @@
                   "description": "Defines if it is allowed to connect meta IP address or not. Meta address can be `0.0.0.0` (IPv4) or `::` (IPv6) - a meta address that routing another address.",
                   "default": false
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the [Request Filtering Agent configuration](https://github.com/azu/request-filtering-agent#api)."
             },
             "requestDefaults": {
               "type": "object",
@@ -1686,7 +1702,8 @@
                     }
                   }
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the [default request configuration](https://github.com/request/request#requestoptions-callback)."
             },
             "autoAssembly": {
               "type": "object",
@@ -1709,7 +1726,8 @@
                   "description": "Defines the interval time in minutes for initiating the automatic forcesaving.",
                   "default": "5m"
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the automatic forcesaving configuration."
             },
             "ipfilter": {
               "type": "object",
@@ -1718,7 +1736,7 @@
               "properties": {
                 "rules": {
                   "type": "array",
-                  "description": "Defines the IP filter rules that contain the following parameters: **address** - the IP address of the integrator. This parameter can contain IP in the X.X.X.X format for ipv4 or in the xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx format for ipv6, dns-name or * wildcard to replace any symbol/symbols, **type**: string, **example**: \"ip_address\"; **allowed** - specifies if the IP address is trusted or not, **type**: boolean, **example**: true.",
+                  "description": "Defines the IP filter rules that contain the following parameters:\n\n- **address** - the IP address of the integrator. This parameter can contain IP in the X.X.X.X format for ipv4 or in the xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx format for ipv6, dns-name or * wildcard to replace any symbol/symbols, **type**: string, **example**: \"ip_address\";\n\n- **allowed** - specifies if the IP address is trusted or not, **type**: boolean, **example**: true.",
                   "items": {
                     "type": "object",
                     "additionalProperties": false,
@@ -1753,7 +1771,8 @@
                   "description": "Defines an error code for the IP filter.",
                   "default": 403
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the IP filter configuration."
             },
             "sql": {
               "type": "object",
@@ -1919,7 +1938,7 @@
                 },
                 "mysqlExtraOptions": {
                   "type": "object",
-                  "description": "Defines the connection parameters of the MySQL database (including SSL settings) that can be passed directly to the node-mysql2 module.",
+                  "description": "Defines the connection parameters of the MySQL database (including SSL settings) that can be passed directly to the [node-mysql2](https://sidorares.github.io/node-mysql2/docs/examples/connections/create-connection#connectionoptions) module.",
                   "default": {
                     "connectTimeout": 60000,
                     "queryTimeout": 60000
@@ -1959,7 +1978,7 @@
                 },
                 "pgPoolExtraOptions": {
                   "type": "object",
-                  "description": "Defines the parameters that can be passed directly to the node-postgres pool library.",
+                  "description": "Defines the parameters that can be passed directly to the [node-postgres pool](https://github.com/brianc/node-postgres-docs/blob/master/content/api/1-pool.mdx#new-poolconfig-object) library.",
                   "default": {
                     "idleTimeoutMillis": 30000,
                     "connectionTimeoutMillis": 60000,
@@ -2005,7 +2024,8 @@
                   "description": "Defines the database table name where the query result is stored.",
                   "default": "task_result"
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the database configuration."
             },
             "callbackBackoffOptions": {
               "type": "object",
@@ -2053,7 +2073,8 @@
                     }
                   }
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the [callback backoff options](https://github.com/tim-kos/node-retry#retrytimeoutsoptions)."
             },
             "editor": {
               "type": "object",
@@ -2099,7 +2120,8 @@
                   "description": "Defines a maximum payload size of WebSocket.",
                   "default": "1.5MB"
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the editor configuration."
             },
             "plugins": {
               "type": "object",
@@ -2115,7 +2137,8 @@
                   "description": "Defines a path to the folder where all the plugins are stored.",
                   "default": "/sdkjs-plugins"
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the plugins configuration."
             },
             "pubsub": {
               "type": "object",
@@ -2126,7 +2149,8 @@
                   "description": "Defines the maximum size of changes which can be passed via PubSub. If the size exceeds the specified value, the changes will be read from the database.",
                   "default": 1000
                 }
-              }
+              },
+              "x-section-intro": "This parameter defines the PubSub service configuration."
             },
             "redis": {
               "type": "object",
@@ -2139,7 +2163,7 @@
                 },
                 "iooptions": {
                   "type": "object",
-                  "description": "Defines the parameters (username, password, modules etc.) that can be passed directly to the ioredis RedisOptions library.",
+                  "description": "Defines the parameters (username, password, modules etc.) that can be passed directly to the [ioredis RedisOptions](https://github.com/redis/ioredis/blob/main/lib/redis/RedisOptions.ts) library.",
                   "default": {
                     "lazyConnect": true
                   },
@@ -2156,12 +2180,12 @@
                   "items": {
                     "type": "string"
                   },
-                  "description": "Defines a list of nodes of the cluster you want to connect to that can be passed directly to the ioredis cluster library to connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
+                  "description": "Defines a list of nodes of the cluster you want to connect to that can be passed directly to the [ioredis cluster](https://github.com/redis/ioredis#cluster) library\nto connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
                   "default": []
                 },
                 "iooptionsClusterOptions": {
                   "type": "object",
-                  "description": "Defines the parameters (clusterRetryStrategy, dnsLookup, scaleReads etc.) that can be passed directly to the ioredis cluster library to connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
+                  "description": "Defines the parameters (clusterRetryStrategy, dnsLookup, scaleReads etc.) that can be passed directly to the [ioredis cluster](https://github.com/redis/ioredis#cluster) library\nto connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
                   "default": {
                     "lazyConnect": true
                   },
@@ -2180,12 +2204,12 @@
                 },
                 "options": {
                   "type": "object",
-                  "description": "Defines the parameters (username, password, modules etc.) that can be passed directly to the node-redis createClient library.",
+                  "description": "Defines the parameters (username, password, modules etc.) that can be passed directly to the [node-redis createClient](https://github.com/redis/node-redis/blob/master/docs/client-configuration.md) library.",
                   "default": {}
                 },
                 "optionsCluster": {
                   "type": "object",
-                  "description": "Defines the parameters (rootNodes, defaults, modules etc.) that can be passed directly to the node-redis clustering library to connect to the redis cluster. This setting has the priority over the *options* parameter for connecting to the single redis.",
+                  "description": "Defines the parameters (rootNodes, defaults, modules etc.) that can be passed directly to the [node-redis clustering](https://github.com/redis/node-redis/blob/master/docs/clustering.md)\nlibrary to connect to the redis cluster. This setting has the priority over the *options* parameter for connecting to the single redis.",
                   "default": {}
                 },
                 "port": {
@@ -2198,7 +2222,8 @@
                   "description": "Defines the name prefix for all the used structures in Redis.",
                   "default": "ds:"
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the Redis configuration."
             },
             "secret": {
               "type": "object",
@@ -2206,7 +2231,7 @@
               "properties": {
                 "browser": {
                   "type": "object",
-                  "description": "Defines the parameters of a secret key to generate a token in the client-side browser requests to ONLYOFFICE Docs: **string** - the secret key, **type**: string, **example**: \"secret\"; **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
+                  "description": "Defines the parameters of a secret key to generate a token in the client-side browser requests to ONLYOFFICE Docs:\n\n- **string** - the secret key, **type**: string, **example**: \"secret\";\n\n- **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
                   "default": {
                     "string": "secret",
                     "file": ""
@@ -2226,7 +2251,7 @@
                 },
                 "inbox": {
                   "type": "object",
-                  "description": "Defines the parameters of a secret key to generate a token in the incoming HTTP requests with the commands from the **document storage service** to the **document command service**, **document conversion service** and **document builder service**: **string** - the secret key, **type**: string, **example**: \"secret\"; **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
+                  "description": "Defines the parameters of a secret key to generate a token in the incoming HTTP requests with the commands from the **document storage service** to the **document command service**, **document conversion service** and **document builder service**:\n\n- **string** - the secret key, **type**: string, **example**: \"secret\";\n\n- **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
                   "default": {
                     "string": "secret",
                     "file": ""
@@ -2246,7 +2271,7 @@
                 },
                 "outbox": {
                   "type": "object",
-                  "description": "Defines the parameters of a secret key to generate a token in the outgoing HTTP requests to the `callbackUrl` address by **document editing service**: **string** - the secret key, **type**: string, **example**: \"secret\"; **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
+                  "description": "Defines the parameters of a secret key to generate a token in the outgoing HTTP requests to the `callbackUrl` address by **document editing service**:\n\n- **string** - the secret key, **type**: string, **example**: \"secret\";\n\n- **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
                   "default": {
                     "string": "secret",
                     "file": ""
@@ -2266,7 +2291,7 @@
                 },
                 "session": {
                   "type": "object",
-                  "description": "Defines the parameters of a secret key to generate the session token: **string** - the secret key, **type**: string, **example**: \"secret\"; **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
+                  "description": "Defines the parameters of a secret key to generate the session token:\n\n- **string** - the secret key, **type**: string, **example**: \"secret\";\n\n- **file** - the PEM file where the secret is stored, **type**: string, **example**: \"\".",
                   "default": {
                     "string": "secret",
                     "file": ""
@@ -2284,7 +2309,8 @@
                     }
                   }
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the secret key configuration."
             },
             "server": {
               "type": "object",
@@ -2305,7 +2331,7 @@
                   "properties": {
                     "connectionAndInactivity": {
                       "type": "string",
-                      "description": "Defines a period which specifies two timeouts: **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request; **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect. This parameter is sent to the **npm** module.",
+                      "description": "Defines a period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
                       "default": "10m"
                     },
                     "wholeCycle": {
@@ -2378,7 +2404,7 @@
                   "properties": {
                     "connectionAndInactivity": {
                       "type": "string",
-                      "description": "Defines a period which specifies two timeouts: **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request; **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect. This parameter is sent to the **npm** module.",
+                      "description": "Defines a period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
                       "default": "2m"
                     },
                     "wholeCycle": {
@@ -2430,7 +2456,7 @@
                 },
                 "tokenRequiredParams": {
                   "type": "boolean",
-                  "description": "Defines if the required token parameters will be validated. This is required for security. For example, the conversion token will not be used to open a document.",
+                  "description": "Defines if the [required token parameters](https://api.onlyoffice.com/docs/docs-api/additional-api/signature/browser/#opening-file) will be validated. This is required for security. For example, the conversion token will not be used to open a document.",
                   "default": true
                 },
                 "workerpercpu": {
@@ -2438,7 +2464,8 @@
                   "description": "Defines a number of worker threads per CPU.",
                   "default": 1
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the server configuration."
             },
             "socketio": {
               "type": "object",
@@ -2467,12 +2494,12 @@
                     },
                     "pingInterval": {
                       "type": "integer",
-                      "description": "Defines the interval time in milliseconds, which is used to check if the connection is still alive between the server and the client. The server sends a ping packet to the client, and if the client does not respond with a pong within a `pingTimeout` period, the server considers that the connection is closed.",
+                      "description": "Defines the interval time in milliseconds, which is used to check if the connection is still alive between the server and the client.\nThe server sends a ping packet to the client, and if the client does not respond with a pong within a `pingTimeout` period,\nthe server considers that the connection is closed.",
                       "default": 25000
                     },
                     "pingTimeout": {
                       "type": "integer",
-                      "description": "Defines the timeout period in milliseconds within which the client must respond with a pong to the server ping. If there is no response, the server considers that the connection is closed. The connection between the server and the client is checked every `pingInterval` milliseconds.",
+                      "description": "Defines the timeout period in milliseconds within which the client must respond with a pong to the server ping.\nIf there is no response, the server considers that the connection is closed.\nThe connection between the server and the client is checked every `pingInterval` milliseconds.",
                       "default": 20000
                     },
                     "serveClient": {
@@ -2482,7 +2509,8 @@
                     }
                   }
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the Socket.IO module configuration."
             },
             "sockjs": {
               "type": "object",
@@ -2503,7 +2531,8 @@
                   "description": "Defines if the WebSocket protocol is enabled or not.",
                   "default": true
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the SockJs configuration."
             },
             "themes": {
               "type": "object",
@@ -2514,7 +2543,8 @@
                   "description": "Defines a path to the folder where all the *json* files with the custom color themes are stored.",
                   "default": "/web-apps/apps/common/main/resources/themes"
                 }
-              }
+              },
+              "x-section-intro": "This parameter defines the properties of the custom color themes."
             },
             "token": {
               "type": "object",
@@ -2676,7 +2706,8 @@
                     }
                   }
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the token configuration."
             },
             "utils": {
               "type": "object",
@@ -2702,10 +2733,12 @@
                   "description": "Semicolon-separated list of document file extensions allowed for upload. Only files matching these extensions are accepted.",
                   "default": "xlsx"
                 }
-              }
+              },
+              "x-section-intro": "These parameters define the utils configuration."
             }
           },
-          "description": "Defines the settings for the co-authoring editing session."
+          "description": "Defines the settings for the co-authoring editing session.",
+          "x-section-intro": "These parameters define the settings for the Document Server services."
         }
       }
     },
@@ -2794,7 +2827,8 @@
             "proxyHeaders": {}
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the configuration of the external requests."
     },
     "tenants": {
       "type": "object",
@@ -2817,7 +2851,7 @@
         "filenameConfig": {
           "type": "string",
           "default": "config.json",
-          "description": "Defines the name of the config file in the tenant folder to override *default.json*. It is used in the multi-tenant mode to initialize the specific tenant settings (wopi, ipfilter, jwt secret etc.).",
+          "description": "Defines the name of the config file in the tenant folder to override *default.json*. It is used in the multi-tenant mode\nto initialize the specific tenant settings (wopi, ipfilter, jwt secret etc.).",
           "x-scope": "admin"
         },
         "filenameSecret": {
@@ -2868,7 +2902,8 @@
             "useClones": false
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the tenants properties for working in the multi-tenant mode."
     },
     "license": {
       "type": "object",
@@ -2885,7 +2920,7 @@
         "warning_limit_percents": {
           "type": "integer",
           "default": 70,
-          "description": "Defines a percent range of the connections and connections_view limitations, exceeding which a license limit warning appears in logs.",
+          "description": "Defines a percent range of the [connections and connections_view](https://api.onlyoffice.com/docs/docs-api/additional-api/command-service/license/)\nlimitations, exceeding which a license limit warning appears in logs.",
           "x-scope": "admin"
         },
         "packageType": {
@@ -2901,7 +2936,8 @@
           "description": "Defines the time before the license expires when a warning message is sent.",
           "x-scope": "admin"
         }
-      }
+      },
+      "x-section-intro": "These parameters define the license configuration."
     },
     "wopi": {
       "type": "object",
@@ -3176,7 +3212,8 @@
             "sampleFilePath": ""
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the WOPI protocol configuration."
     },
     "FileConverter": {
       "type": "object",
@@ -3360,7 +3397,7 @@
                   }
                 }
               },
-              "description": "Defines the parameters that can be passed directly to the node.js child_process.spawn library (only for running x2t).",
+              "description": "Defines the parameters that can be passed directly to the [node.js child_process.spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options) library (only for running x2t).",
               "default": {}
             },
             "inputLimits": {
@@ -3476,7 +3513,7 @@
               "properties": {
                 "connectionAndInactivity": {
                   "type": "string",
-                  "description": "Defines a period which specifies two timeouts: **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request; **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect. This parameter is sent to the **npm** module.",
+                  "description": "Defines a period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
                   "default": "2m"
                 },
                 "wholeCycle": {
@@ -3604,7 +3641,8 @@
             ]
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters define the file converter configuration."
     },
     "adminPanel": {
       "type": "object",
@@ -3654,7 +3692,8 @@
           "description": "Defines the port on which the Admin Panel service is running.",
           "default": 9000
         }
-      }
+      },
+      "x-section-intro": "These parameters define the Admin Panel properties. For more details on using Admin Panel, you can refer to [this article](https://helpcenter.onlyoffice.com/docs/installation/docs-admin-panel.aspx)."
     }
   }
 }

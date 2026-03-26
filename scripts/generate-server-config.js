@@ -9,49 +9,29 @@ const path = require('path');
 // ---------------------------------------------------------------------------
 
 // Positions follow the helpcenter page order (intro=1, then sections as they appear).
-// CoAuthoring sub-sections live in a 'coauthoring/' subdirectory (sidebar category at position 23).
-// Their `position` values are within-category positions, not root sidebar positions.
+// CoAuthoring sub-sections appear as a flat list right after External request (position 20),
+// matching the helpcenter layout.
 const PREFIX_FILE_MAP = [
-  // CoAuthoring sub-sections — grouped under the 'coauthoring' sidebar category
-  {
-    prefix: 'services.CoAuthoring',
-    file: 'services.md',
-    title: 'Document Server services',
-    position: 1,
-    subDir: 'coauthoring',
-    categoryLabel: 'CoAuthoring services',
-    categoryPosition: 23
-  },
-  {prefix: 'services.CoAuthoring.server', file: 'server.md', title: 'Server', position: 2, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.editor', file: 'editor.md', title: 'Editor', position: 3, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.sql', file: 'sql.md', title: 'SQL', position: 4, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.redis', file: 'redis.md', title: 'Redis', position: 5, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.token', file: 'token.md', title: 'Token', position: 6, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.expire', file: 'expiration.md', title: 'Expiration', position: 7, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.autoAssembly', file: 'auto-assembly.md', title: 'Auto assembly', position: 8, subDir: 'coauthoring'},
-  {
-    prefix: 'services.CoAuthoring.callbackBackoffOptions',
-    file: 'callback-backoff.md',
-    title: 'Callback backoff options',
-    position: 9,
-    subDir: 'coauthoring'
-  },
-  {prefix: 'services.CoAuthoring.ipfilter', file: 'ip-filter.md', title: 'IP filter', position: 10, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.plugins', file: 'plugins.md', title: 'Plugins', position: 11, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.pubsub', file: 'pubsub.md', title: 'PubSub service', position: 12, subDir: 'coauthoring'},
-  {
-    prefix: 'services.CoAuthoring.request-filtering-agent',
-    file: 'request-filtering.md',
-    title: 'Request Filtering Agent',
-    position: 13,
-    subDir: 'coauthoring'
-  },
-  {prefix: 'services.CoAuthoring.requestDefaults', file: 'request-defaults.md', title: 'Default request', position: 14, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.requestDefault', file: 'request-defaults.md', title: 'Default request', position: 14, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.socketio', file: 'socketio.md', title: 'Socket.IO', position: 15, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.sockjs', file: 'sockjs.md', title: 'SockJs', position: 16, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.themes', file: 'themes.md', title: 'Themes', position: 17, subDir: 'coauthoring'},
-  {prefix: 'services.CoAuthoring.utils', file: 'utils.md', title: 'Utils', position: 18, subDir: 'coauthoring'},
+  // CoAuthoring sub-sections — flat list starting at position 21 (after External request)
+  {prefix: 'services.CoAuthoring', file: 'services.md', title: 'Document Server services', position: 21},
+  {prefix: 'services.CoAuthoring.server', file: 'server.md', title: 'Server', position: 22},
+  {prefix: 'services.CoAuthoring.editor', file: 'editor.md', title: 'Editor', position: 23},
+  {prefix: 'services.CoAuthoring.sql', file: 'sql.md', title: 'SQL', position: 24},
+  {prefix: 'services.CoAuthoring.redis', file: 'redis.md', title: 'Redis', position: 25},
+  {prefix: 'services.CoAuthoring.token', file: 'token.md', title: 'Token', position: 26},
+  {prefix: 'services.CoAuthoring.expire', file: 'expiration.md', title: 'Expiration', position: 27},
+  {prefix: 'services.CoAuthoring.autoAssembly', file: 'auto-assembly.md', title: 'Auto assembly', position: 28},
+  {prefix: 'services.CoAuthoring.callbackBackoffOptions', file: 'callback-backoff.md', title: 'Callback backoff options', position: 29},
+  {prefix: 'services.CoAuthoring.ipfilter', file: 'ip-filter.md', title: 'IP filter', position: 30},
+  {prefix: 'services.CoAuthoring.plugins', file: 'plugins.md', title: 'Plugins', position: 31},
+  {prefix: 'services.CoAuthoring.pubsub', file: 'pubsub.md', title: 'PubSub service', position: 32},
+  {prefix: 'services.CoAuthoring.request-filtering-agent', file: 'request-filtering.md', title: 'Request Filtering Agent', position: 33},
+  {prefix: 'services.CoAuthoring.requestDefaults', file: 'request-defaults.md', title: 'Default request', position: 34},
+  {prefix: 'services.CoAuthoring.requestDefault', file: 'request-defaults.md', title: 'Default request', position: 34},
+  {prefix: 'services.CoAuthoring.socketio', file: 'socketio.md', title: 'Socket.IO', position: 35},
+  {prefix: 'services.CoAuthoring.sockjs', file: 'sockjs.md', title: 'SockJs', position: 36},
+  {prefix: 'services.CoAuthoring.themes', file: 'themes.md', title: 'Themes', position: 37},
+  {prefix: 'services.CoAuthoring.utils', file: 'utils.md', title: 'Utils', position: 38},
   // secret stays in root security.md (merged with AES + OpenPGP)
   {prefix: 'services.CoAuthoring.secret', file: 'security.md', title: 'Security', mergeOrder: 3, subTitle: 'Secret key', position: 15},
 
@@ -64,11 +44,11 @@ const PREFIX_FILE_MAP = [
   {prefix: 'adminPanel', file: 'admin-panel.md', title: 'Admin Panel', position: 2},
   {prefix: 'aiSettings', file: 'ai-settings.md', title: 'AI plugin settings', position: 4},
   {prefix: 'bottleneck', file: 'bottleneck.md', title: 'Bottleneck', position: 16},
-  {prefix: 'FileConverter', file: 'converter.md', title: 'Converter', position: 19},
+  {prefix: 'FileConverter', file: 'converter.md', title: 'Converter', position: 40},
   {prefix: 'dnscache', file: 'dns-cache.md', title: 'DNS cache', position: 14},
   {prefix: 'email', file: 'email.md', title: 'Email', position: 8},
   {prefix: 'externalRequest', file: 'external-request.md', title: 'External request', position: 20},
-  {prefix: 'license', file: 'license.md', title: 'License', position: 21},
+  {prefix: 'license', file: 'license.md', title: 'License', position: 39},
   {prefix: 'log', file: 'logger.md', title: 'Logger', position: 5},
   {prefix: 'notification', file: 'notification.md', title: 'Notification', position: 9},
   {prefix: 'queue', file: 'queues.md', title: 'Queues', position: 7},
@@ -77,7 +57,7 @@ const PREFIX_FILE_MAP = [
   {prefix: 'statsd', file: 'statsd.md', title: 'StatsD', position: 3},
   {prefix: 'storage', file: 'storage.md', title: 'Document storage service', position: 10},
   {prefix: 'persistentStorage', file: 'persistent-storage.md', title: 'Persistent storage', position: 11},
-  {prefix: 'tenants', file: 'tenants.md', title: 'Tenants', position: 22},
+  {prefix: 'tenants', file: 'tenants.md', title: 'Tenants', position: 19},
   {prefix: 'win-ca', file: 'win-ca.md', title: 'Windows System Root certificates', position: 17},
   {prefix: 'wopi', file: 'wopi.md', title: 'WOPI', position: 18}
 ];
@@ -353,6 +333,18 @@ function main() {
     fileGroups[file] = [...groupMap.values()].sort((a, b) => a.mergeOrder - b.mergeOrder);
   }
 
+  // Build section intro map: schema-prefix → x-section-intro text
+  // Keyed by prefix so merged files (security.md) get per-group intros under each sub-heading
+  const sectionIntroMap = {};
+  for (const entry of PREFIX_FILE_MAP) {
+    if (sectionIntroMap[entry.prefix]) continue;
+    const parts = entry.prefix.split('.');
+    let node = schema;
+    for (const p of parts) node = node?.properties?.[p];
+    const intro = node?.['x-section-intro'];
+    if (intro) sectionIntroMap[entry.prefix] = intro;
+  }
+
   // Remove section-root nodes that have children in the same group.
   // These are object nodes from the Copy schema whose descriptions bloat the output
   // (e.g. a `rabbitmq` root node above the `rabbitmq.url`, `rabbitmq.socketOptions`, … entries).
@@ -371,7 +363,7 @@ function main() {
   fs.mkdirSync(outDir, {recursive: true});
 
   // Remove legacy directories from old structures
-  for (const legacyDir of ['services']) {
+  for (const legacyDir of ['services', 'coauthoring']) {
     const p = path.join(outDir, legacyDir);
     if (fs.existsSync(p)) fs.rmSync(p, {recursive: true, force: true});
   }
@@ -415,16 +407,18 @@ sidebar_position: 1
 
 # Introduction
 
-To change any **ONLYOFFICE Docs** server settings, configure the corresponding parameter in the **ONLYOFFICE Docs** configuration file, which can be found at the following path:
+To change any ONLYOFFICE Docs server settings, configure the corresponding parameter in the **ONLYOFFICE Docs** configuration file, which can be found at the following path:
 
 - For Linux: \`/etc/onlyoffice/documentserver/default.json\`
 - For Windows: \`%ProgramFiles%\\ONLYOFFICE\\DocumentServer\\config\\default.json\`
+
+If you want to change it, you can use the \`local.json\` file, where all the edited parameters should be stored. This file is located in the same directory as the \`default.json\` file, and the whole object structure for the necessary parameter must be retained.
 
 :::warning
 Please do not edit the contents of the \`default.json\` file directly. The default values will be restored each time you restart Docker container or upgrade **ONLYOFFICE Docs** to a new version, and all your changes will be lost.
 :::
 
-Instead, create or edit the \`local.json\` file in the same directory to store the parameters you want to change, while preserving the complete object structure for those parameters.
+Default server settings are described below.
 `;
   fs.writeFileSync(path.join(outDir, 'intro.md'), introContent);
 
@@ -458,6 +452,10 @@ Instead, create or edit the \`local.json\` file in the same directory to store t
 
     w(`---\nsidebar_position: ${pos}\n---\n\n`);
     w(`# ${title}\n\n`);
+    // For single-group files, write the section intro after the page title
+    if (!isMerged && sectionIntroMap[groups[0].mappingPrefix]) {
+      w(sectionIntroMap[groups[0].mappingPrefix] + '\n\n');
+    }
 
     for (const group of groups) {
       const params = group.params;
@@ -466,6 +464,10 @@ Instead, create or edit the \`local.json\` file in the same directory to store t
 
       if (isMerged && group.subTitle) {
         w(`## ${group.subTitle}\n\n`);
+        // For merged files, write each group's intro after its sub-heading
+        if (sectionIntroMap[group.mappingPrefix]) {
+          w(sectionIntroMap[group.mappingPrefix] + '\n\n');
+        }
       }
 
       for (const param of params) {
@@ -478,7 +480,7 @@ Instead, create or edit the \`local.json\` file in the same directory to store t
         const effectiveDefault = realDefault !== undefined ? realDefault : param.defaultValue;
 
         const defaultBadge = param.docTypeRaw !== 'object' ? formatDefaultBadge(effectiveDefault) : null;
-        const desc = (param.description || '').replace(/\n\s*/g, ' ').trim();
+        const desc = (param.description || '').trim();
 
         w(`${headingLevel} ${param.key}\n\n`);
         if (defaultBadge !== null) {
