@@ -739,9 +739,9 @@ function getDocumentFormatBySignature(buffer) {
 }
 
 /**
- * Определяет формат Office документов по ZIP сигнатуре
- * @param {Buffer} buffer - Буфер с данными файла
- * @returns {number} Константа формата или AVS_OFFICESTUDIO_FILE_UNKNOWN
+ * Determines the format of Office documents by ZIP signature
+ * @param {Buffer} buffer - Buffer with file data
+ * @returns {number} Format constant or AVS_OFFICESTUDIO_FILE_UNKNOWN
  */
 function getOfficeZipFormatBySignature(buffer) {
   const length = buffer.length;
