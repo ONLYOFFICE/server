@@ -201,7 +201,7 @@ async function putObject(storageCfg, strPath, buffer, contentLength) {
 }
 async function uploadObject(storageCfg, strPath, filePath) {
   const file = fs.createReadStream(filePath);
-  //todo рассмотреть Expires
+  //todo consider Expires
   const input = {
     Bucket: storageCfg.bucketName,
     Key: getFilePath(storageCfg, strPath),
