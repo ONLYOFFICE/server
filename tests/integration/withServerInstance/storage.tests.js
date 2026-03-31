@@ -195,6 +195,18 @@ function runTestForDir(ctx, isMultitenantMode, specialDir) {
     const list = await storage.listObjects(ctx, testDir, specialDir);
     expect(list.sort()).toEqual([testFile1, testFile2, testFile3, testFile4].sort());
   });
+  test('listObjectsInfo', async () => {
+    const list = await storage.listObjectsInfo(ctx, testDir, specialDir);
+    const keys = list.map(item => item.key).sort();
+    expect(keys).toEqual([testFile1, testFile2, testFile3, testFile4].sort());
+    for (const item of list) {
+      expect(item).toHaveProperty('key');
+      expect(item).toHaveProperty('modified');
+      if (item.modified !== undefined && item.modified !== null) {
+        expect(Number.isNaN(new Date(item.modified).getTime())).toBe(false);
+      }
+    }
+  });
   test('headObject', async () => {
     let output;
     output = await storage.headObject(ctx, testFile1, specialDir);

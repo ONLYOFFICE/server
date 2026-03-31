@@ -84,17 +84,25 @@ function applyCommandOptions(baseOptions, storageCfg, commandType) {
   return Object.keys(baseOptions).length > 0 ? baseOptions : undefined;
 }
 
-async function listObjectsExec(storageCfg, prefix, output = []) {
+async function listObjectsExec(storageCfg, prefix, withMeta) {
   const containerClient = getContainerClient(storageCfg);
   const storageFolderName = storageCfg.storageFolderName;
   const prefixWithFolder = storageFolderName ? `${storageFolderName}/${prefix}` : prefix;
 
   const baseOptions = {prefix: prefixWithFolder};
   const listOptions = applyCommandOptions(baseOptions, storageCfg, 'listBlobsFlat');
+  const output = [];
 
   for await (const blob of containerClient.listBlobsFlat(listOptions)) {
-    const relativePath = storageFolderName ? blob.name.substring(storageFolderName.length + 1) : blob.name;
-    output.push(relativePath);
+    const key = storageFolderName ? blob.name.substring(storageFolderName.length + 1) : blob.name;
+    if (withMeta) {
+      output.push({
+        key,
+        modified: blob.properties?.lastModified?.toISOString?.()
+      });
+    } else {
+      output.push(key);
+    }
   }
   return output;
 }
@@ -186,22 +194,11 @@ async function copyObject(_ctx, storageCfgSrc, storageCfgDst, sourceKey, destina
 }
 
 async function listObjects(_ctx, storageCfg, strPath) {
-  return await listObjectsExec(storageCfg, strPath);
+  return await listObjectsExec(storageCfg, strPath, false);
 }
 
 async function listObjectsInfo(_ctx, storageCfg, strPath) {
-  const containerClient = getContainerClient(storageCfg);
-  const storageFolderName = storageCfg.storageFolderName;
-  const prefixWithFolder = storageFolderName ? `${storageFolderName}/${strPath}` : strPath;
-  const listOptions = applyCommandOptions({prefix: prefixWithFolder}, storageCfg, 'listBlobsFlat');
-  const output = [];
-  for await (const blob of containerClient.listBlobsFlat(listOptions)) {
-    output.push({
-      key: storageFolderName ? blob.name.substring(storageFolderName.length + 1) : blob.name,
-      modified: blob.properties?.lastModified?.toISOString?.()
-    });
-  }
-  return output;
+  return await listObjectsExec(storageCfg, strPath, true);
 }
 
 async function deleteObject(_ctx, storageCfg, strPath) {
@@ -218,7 +215,7 @@ async function deleteObjects(storageCfg, strPaths) {
 }
 
 async function deletePath(_ctx, storageCfg, strPath) {
-  const list = await listObjectsExec(storageCfg, strPath);
+  const list = await listObjectsExec(storageCfg, strPath, false);
   await deleteObjects(storageCfg, list);
 }
 

@@ -4532,33 +4532,136 @@ function* getFilesKeys(ctx, opt_specialDir) {
 
   return filteredKeys;
 }
+function getPaginationParams(params) {
+  return {
+    page: Number(params?.page),
+    pageSize: Number(params?.pageSize),
+    sortDirection: params?.sortDirection === 'asc' ? 'asc' : 'desc'
+  };
+}
+function sortItemsByModified(items, sortDirection) {
+  const multiplier = sortDirection === 'asc' ? 1 : -1;
+  return [...items].sort((left, right) => {
+    const leftDate = left?.modified ? new Date(left.modified).getTime() : 0;
+    const rightDate = right?.modified ? new Date(right.modified).getTime() : 0;
+    return (leftDate - rightDate) * multiplier;
+  });
+}
+function paginateArray(items, page, pageSize) {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const start = (safePage - 1) * pageSize;
+  return {
+    items: items.slice(start, start + pageSize),
+    total,
+    page: safePage,
+    pageSize,
+    totalPages
+  };
+}
 
-function* getForgottenItems(ctx, opt_specialDir) {
+function* getForgottenItemsBase(ctx, opt_specialDir) {
   const filesInfo = yield storage.listObjectsInfo(ctx, '', opt_specialDir);
-  const items = [];
-  let previousKey = null;
-  for (const fileInfo of filesInfo) {
-    const key = fileInfo.key.split('/')[0];
-    if (previousKey !== key) {
-      previousKey = key;
-      items.push({
+  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
+  const metadataFileName = '_meta.json';
+  const itemsByKey = new Map();
+  const getOrCreateItem = key => {
+    let item = itemsByKey.get(key);
+    if (!item) {
+      item = {
         key,
-        modified: fileInfo.modified
-      });
+        modified: null,
+        fileType: 'Unknown',
+        userId: null,
+        metadataPath: null,
+        fileRank: -1
+      };
+      itemsByKey.set(key, item);
+    }
+    return item;
+  };
+
+  for (const fileInfo of filesInfo) {
+    const separatorIndex = fileInfo.key.indexOf('/');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    const key = fileInfo.key.substring(0, separatorIndex);
+    const relativeName = fileInfo.key.substring(separatorIndex + 1);
+    const item = getOrCreateItem(key);
+    if (relativeName === metadataFileName) {
+      item.metadataPath = fileInfo.key;
+      continue;
+    }
+
+    const ext = pathModule.extname(relativeName);
+    const baseName = pathModule.basename(relativeName, ext);
+    const fileRank = baseName === tenForgottenFilesName ? 1 : 0;
+    if (!item.modified || fileRank > item.fileRank) {
+      item.modified = fileInfo.modified;
+      item.fileType = ext.replace('.', '').toUpperCase() || 'Unknown';
+      item.fileRank = fileRank;
     }
   }
-  return items;
+  return Array.from(itemsByKey.values()).filter(item => item.modified);
 }
-function* getFilesWithStatus(ctx, status) {
-  const rows = yield taskResult.selectByStatus(ctx, status);
-  const items = [];
-  for (const row of rows) {
-    items.push({
-      key: row.id,
-      modified: row.last_open_date
+function* fillForgottenItemsMetadata(ctx, opt_specialDir, items) {
+  const result = [];
+  for (const item of items) {
+    let userId = item.userId;
+    if (item.metadataPath) {
+      try {
+        const metadataBuffer = yield storage.getObject(ctx, item.metadataPath, opt_specialDir);
+        const metadata = JSON.parse(metadataBuffer.toString('utf8'));
+        if (metadata?.userId !== undefined && metadata?.userId !== null) {
+          userId = String(metadata.userId);
+        }
+      } catch (err) {
+        ctx.logger.warn('getForgottenItems metadata read failed key=%s path=%s error=%s', item.key, item.metadataPath, err.message);
+      }
+    }
+    result.push({
+      key: item.key,
+      modified: item.modified,
+      fileType: item.fileType,
+      userId
     });
   }
-  return items;
+  return result;
+}
+function* getFilesWithStatus(ctx, status, opt_pagination) {
+  const cutoffDate = new Date(Date.now() - utils.getConvertionTimeout(ctx));
+  const whereBuilder = (values, addSqlParam) => {
+    const statusParam = addSqlParam(status, values);
+    const cutoffParam = addSqlParam(cutoffDate, values);
+    return [`status=${statusParam}`, `last_open_date <= ${cutoffParam}`];
+  };
+  if (!opt_pagination) {
+    const rows = yield taskResult.selectWhere(ctx, whereBuilder);
+    return rows.map(row => ({key: row.id, modified: row.last_open_date}));
+  }
+  const countRows = yield taskResult.selectWhere(ctx, whereBuilder, ['COUNT(*) AS total']);
+  const total = Number(countRows?.[0]?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(total / opt_pagination.pageSize));
+  const page = Math.min(Math.max(opt_pagination.page, 1), totalPages);
+  const sortDirectionSql = opt_pagination.sortDirection === 'asc' ? 'ASC' : 'DESC';
+  const offset = (page - 1) * opt_pagination.pageSize;
+  const rows = yield taskResult.selectWhere(
+    ctx,
+    whereBuilder,
+    ['id', 'last_open_date'],
+    `last_open_date ${sortDirectionSql}`,
+    opt_pagination.pageSize,
+    offset
+  );
+  return {
+    items: rows.map(row => ({key: row.id, modified: row.last_open_date})),
+    total,
+    page,
+    pageSize: opt_pagination.pageSize,
+    totalPages
+  };
 }
 
 function* findForgottenFile(ctx, docId) {
@@ -4616,6 +4719,7 @@ async function proxyCommand(ctx, req, params) {
  */
 function* commandHandle(ctx, params, req, output) {
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+  const pagination = getPaginationParams(params);
 
   const docId = params.key;
   const forgottenData = {};
@@ -4715,8 +4819,9 @@ function* commandHandle(ctx, params, req, output) {
       break;
     }
     case 'deleteForgottenBulk': {
-      const keys = params.keys;
-      if (!Array.isArray(keys) || keys.length === 0 || keys.some(k => typeof k !== 'string')) {
+      const isDeleteAll = params.all === true;
+      const keys = isDeleteAll ? yield* getFilesKeys(ctx, tenForgottenFiles) : params.keys;
+      if (!Array.isArray(keys) || (!isDeleteAll && keys.length === 0) || keys.some(k => typeof k !== 'string')) {
         output.error = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
         break;
       }
@@ -4740,16 +4845,28 @@ function* commandHandle(ctx, params, req, output) {
       break;
     }
     case 'getForgottenListWithMetadata': {
-      forgottenData.items = yield* getForgottenItems(ctx, tenForgottenFiles);
+      const sortedItems = sortItemsByModified(yield* getForgottenItemsBase(ctx, tenForgottenFiles), pagination.sortDirection);
+      const pagedResult = paginateArray(sortedItems, pagination.page, pagination.pageSize);
+      forgottenData.items = yield* fillForgottenItemsMetadata(ctx, tenForgottenFiles, pagedResult.items);
+      forgottenData.total = pagedResult.total;
+      forgottenData.page = pagedResult.page;
+      forgottenData.pageSize = pagedResult.pageSize;
+      forgottenData.totalPages = pagedResult.totalPages;
       break;
     }
     case 'getFilesWithConversionErrors': {
-      forgottenData.items = yield* getFilesWithStatus(ctx, commonDefines.FileStatus.SaveVersion);
+      const result = yield* getFilesWithStatus(ctx, commonDefines.FileStatus.SaveVersion, pagination);
+      forgottenData.items = result.items;
+      forgottenData.total = result.total;
+      forgottenData.page = result.page;
+      forgottenData.pageSize = result.pageSize;
+      forgottenData.totalPages = result.totalPages;
       break;
     }
     case 'deleteFilesWithConversionErrors': {
-      const keys = params.keys;
-      if (!Array.isArray(keys) || keys.length === 0 || keys.some(k => typeof k !== 'string')) {
+      const isDeleteAll = params.all === true;
+      const keys = isDeleteAll ? (yield* getFilesWithStatus(ctx, commonDefines.FileStatus.SaveVersion)).map(item => item.key) : params.keys;
+      if (!Array.isArray(keys) || (!isDeleteAll && keys.length === 0) || keys.some(k => typeof k !== 'string')) {
         output.error = commonDefines.c_oAscServerCommandErrors.DocumentIdError;
         break;
       }

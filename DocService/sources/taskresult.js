@@ -134,12 +134,37 @@ function select(ctx, docId) {
     );
   });
 }
-function selectByStatus(ctx, status) {
+function selectWhere(ctx, opt_whereBuilder, opt_fields, opt_orderBy, opt_limit, opt_offset) {
   return new Promise((resolve, reject) => {
     const values = [];
-    const p1 = addSqlParam(ctx.tenant, values);
-    const p2 = addSqlParam(status, values);
-    const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE tenant=${p1} AND status=${p2};`;
+    const whereConditions = [];
+    const tenantParam = addSqlParam(ctx.tenant, values);
+    whereConditions.push(`tenant=${tenantParam}`);
+    const fields = Array.isArray(opt_fields) && opt_fields.length > 0 ? opt_fields.join(', ') : '*';
+    if (opt_whereBuilder) {
+      const where = opt_whereBuilder(values, addSqlParam);
+      if (Array.isArray(where)) {
+        whereConditions.push(...where);
+      } else if (where) {
+        whereConditions.push(where);
+      }
+    }
+    let sqlCommand = `SELECT ${fields} FROM ${cfgTableResult}`;
+    if (whereConditions.length > 0) {
+      sqlCommand += ` WHERE ${whereConditions.join(' AND ')}`;
+    }
+    if (opt_orderBy) {
+      sqlCommand += ` ORDER BY ${opt_orderBy}`;
+    }
+    if (opt_limit !== undefined && opt_limit !== null) {
+      const limitParam = addSqlParam(opt_limit, values);
+      sqlCommand += ` LIMIT ${limitParam}`;
+      if (opt_offset !== undefined && opt_offset !== null) {
+        const offsetParam = addSqlParam(opt_offset, values);
+        sqlCommand += ` OFFSET ${offsetParam}`;
+      }
+    }
+    sqlCommand += ';';
     sqlBase.sqlQuery(
       ctx,
       sqlCommand,
@@ -409,7 +434,7 @@ function removeIf(ctx, mask) {
 exports.TaskResultData = TaskResultData;
 exports.upsert = upsert;
 exports.select = select;
-exports.selectByStatus = selectByStatus;
+exports.selectWhere = selectWhere;
 exports.selectWithCache = selectWithCache;
 exports.update = update;
 exports.updateIf = updateIf;

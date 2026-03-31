@@ -1110,6 +1110,20 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
       isError = true;
     }
     let outputSfc;
+    const storeForgottenWithUserMarkers = function* () {
+      ctx.logger.warn('storeForgotten');
+      const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
+      yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
+
+      const outputUsers = outputSfc?.getUsers?.() || [];
+      const userIdCandidate = outputUsers && outputUsers.length > 0 ? outputUsers[0] : userLastChangeId;
+      if (userIdCandidate !== undefined && userIdCandidate !== null) {
+        const metadataPath = docId + '/_meta.json';
+        const metadata = {userId: String(userIdCandidate)};
+        const metadataBuffer = Buffer.from(JSON.stringify(metadata), 'utf8');
+        yield storage.putObject(ctx, metadataPath, metadataBuffer, metadataBuffer.length, tenForgottenFiles);
+      }
+    };
     if (uri && baseUrl && userLastChangeId) {
       ctx.logger.debug('Callback commandSfcCallback: callback = %s', uri);
       outputSfc = new commonDefines.OutputSfcData(docId);
@@ -1312,9 +1326,7 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
     }
     if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
       try {
-        ctx.logger.warn('storeForgotten');
-        const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
-        yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
+        yield* storeForgottenWithUserMarkers();
       } catch (err) {
         ctx.logger.error('Error storeForgotten: %s', err.stack);
       }
