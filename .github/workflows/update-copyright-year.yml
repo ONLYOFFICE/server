@@ -1,0 +1,41 @@
+name: Update copyright year
+
+on:
+  schedule:
+    - cron: '0 9 2 1 *'
+
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        type: boolean
+        default: false
+
+  push:
+    branches:
+      - '**'
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: check out repository
+        uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ONLYOFFICE/build_tools
+          token: ${{ secrets.READ_PAT }}
+          path: build_tools
+          ref: feature/copyright-year
+          sparse-checkout: |
+            scripts/copyright-year-bump
+
+      - uses: ./build_tools/scripts/copyright-year-bump
+        with:
+          mode: fix
+          gitea-token: ${{ secrets.READ_PAT }}
