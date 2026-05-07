@@ -1,0 +1,5 @@
+--
+-- Drop tables
+--
+DROP TABLE doc_changes CASCADE CONSTRAINTS PURGE;
+DROP TABLE task_result CASCADE CONSTRAINTS PURGE;
