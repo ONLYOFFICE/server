@@ -230,9 +230,11 @@ docsCoServer.install(server, app, () => {
   });
   const urleEcodedParser = bodyParser.urlencoded({extended: false});
   const forms = multer();
+  const fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 
   app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
   app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
+  app.post('/converter/multipart', utils.checkClientIp, fileForms.any(), docsCoServer.commandConvertFromBody);
   app.post('/command', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 
   app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
@@ -331,7 +333,6 @@ docsCoServer.install(server, app, () => {
       });
   }
   //todo dest
-  const fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
   app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
   app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
   app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);

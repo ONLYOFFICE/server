@@ -114,6 +114,7 @@ router.get('/config', async (req, res) => {
         api: `/web-apps/apps/api/documents/api.js`,
         command: `/command`,
         converter: `/converter`,
+        converterMultipart: `/converter/multipart`,
         docbuilder: `/docbuilder`
       },
       limits: {
