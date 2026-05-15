@@ -40,7 +40,7 @@ const platforms = {
 const platform = platforms[process.platform];
 
 process.env.NODE_ENV = `development-${platform}`;
-// __dirname = server/tests/ — absolute path, independent of launch CWD
+// __dirname = server/tests/ ï¿½ absolute path, independent of launch CWD
 process.env.NODE_CONFIG_DIR = path.resolve(__dirname, '../Common/config');
 
 if (platform === 'mac') {

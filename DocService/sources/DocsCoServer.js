@@ -122,7 +122,6 @@ const cfgExpSaveLock = config.get('services.CoAuthoring.expire.saveLock');
 const cfgExpLockDoc = config.get('services.CoAuthoring.expire.lockDoc');
 const cfgExpSessionIdle = config.get('services.CoAuthoring.expire.sessionidle');
 const cfgExpSessionAbsolute = config.get('services.CoAuthoring.expire.sessionabsolute');
-const cfgExpSessionCloseCommand = config.get('services.CoAuthoring.expire.sessionclosecommand');
 const cfgExpUpdateVersionStatus = config.get('services.CoAuthoring.expire.updateVersionStatus');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
@@ -626,9 +625,9 @@ function modifyConnectionEditorToView(ctx, conn) {
     conn.user.view = true;
   }
   delete conn.coEditingMode;
-  
+
   // Disable idle timeout for viewers
-  sessionScheduler.configureConnection(conn.id, { idleMs: 0 });
+  sessionScheduler.configureConnection(conn.id, {idleMs: 0});
 }
 function getParticipants(docId, excludeClosed, excludeUserId, excludeViewer) {
   return _.filter(connections, el => {
@@ -1888,44 +1887,49 @@ exports.install = function (server, app, callbackFunction) {
       conn.baseUrl = utils.getBaseUrlByConnection(ctx, conn);
       conn.sessionIsSendWarning = false;
       conn.sessionTimeConnect = conn.sessionTimeLastAction = new Date().getTime();
-      
+
       // Register session in heap-based scheduler
-      (function(){
+      (function () {
         try {
           const tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle));
           const tenExpSessionAbsolute = ms(ctx.getCfg('services.CoAuthoring.expire.sessionabsolute', cfgExpSessionAbsolute));
-          sessionScheduler.init({ tickMs: 1000 }, {
-            onIdleWarning: async (c, idleMs) => {
-              let localCtx = new operationContext.Context();
-              localCtx.initFromConnection(c);
-              await localCtx.initTenantCache();
-              sendDataSession(localCtx, c, { code: constants.SESSION_IDLE_CODE, reason: constants.SESSION_IDLE_REASON, interval: idleMs });
-            },
-            onIdleClose: async (c) => {
-              let localCtx = new operationContext.Context();
-              localCtx.initFromConnection(c);
-              await localCtx.initTenantCache();
-              localCtx.logger.debug('Session idle timeout reached, closing connection');
-              sendDataDisconnectReason(localCtx, c, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
-              c.disconnect(true);
-            },
-            onAbsoluteWarning: async (c) => {
-              let localCtx = new operationContext.Context();
-              localCtx.initFromConnection(c);
-              await localCtx.initTenantCache();
-              sendDataSession(localCtx, c, { code: constants.SESSION_ABSOLUTE_CODE, reason: constants.SESSION_ABSOLUTE_REASON });
-            },
-            onAbsoluteClose: async (c) => {
-              let localCtx = new operationContext.Context();
-              localCtx.initFromConnection(c);
-              await localCtx.initTenantCache();
-              localCtx.logger.debug('Session absolute timeout reached, closing connection');
-              sendDataDisconnectReason(localCtx, c, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
-              c.disconnect(true);
+          sessionScheduler.init(
+            {tickMs: 1000},
+            {
+              onIdleWarning: async (c, idleMs) => {
+                const localCtx = new operationContext.Context();
+                localCtx.initFromConnection(c);
+                await localCtx.initTenantCache();
+                sendDataSession(localCtx, c, {code: constants.SESSION_IDLE_CODE, reason: constants.SESSION_IDLE_REASON, interval: idleMs});
+              },
+              onIdleClose: async c => {
+                const localCtx = new operationContext.Context();
+                localCtx.initFromConnection(c);
+                await localCtx.initTenantCache();
+                localCtx.logger.debug('Session idle timeout reached, closing connection');
+                sendDataDisconnectReason(localCtx, c, constants.SESSION_IDLE_CODE, constants.SESSION_IDLE_REASON);
+                c.disconnect(true);
+              },
+              onAbsoluteWarning: async c => {
+                const localCtx = new operationContext.Context();
+                localCtx.initFromConnection(c);
+                await localCtx.initTenantCache();
+                sendDataSession(localCtx, c, {code: constants.SESSION_ABSOLUTE_CODE, reason: constants.SESSION_ABSOLUTE_REASON});
+              },
+              onAbsoluteClose: async c => {
+                const localCtx = new operationContext.Context();
+                localCtx.initFromConnection(c);
+                await localCtx.initTenantCache();
+                localCtx.logger.debug('Session absolute timeout reached, closing connection');
+                sendDataDisconnectReason(localCtx, c, constants.SESSION_ABSOLUTE_CODE, constants.SESSION_ABSOLUTE_REASON);
+                c.disconnect(true);
+              }
             }
-          });
-          sessionScheduler.registerConnection(conn, { idleMs: tenExpSessionIdle, absoluteMs: tenExpSessionAbsolute });
-        } catch(e) { ctx.logger.warn('sessionScheduler register error: %s', e && e.stack || e); }
+          );
+          sessionScheduler.registerConnection(conn, {idleMs: tenExpSessionIdle, absoluteMs: tenExpSessionAbsolute});
+        } catch (e) {
+          ctx.logger.warn('sessionScheduler register error: %s', (e && e.stack) || e);
+        }
       })();
 
       conn.on('message', data => {
@@ -2009,7 +2013,7 @@ exports.install = function (server, app, callbackFunction) {
                 ctx.logger.debug('extendSession idletime: %d', data.idletime);
                 conn.sessionIsSendWarning = false;
                 conn.sessionTimeLastAction = new Date().getTime() - data.idletime;
-                
+
                 sessionScheduler.recordActivity(conn.id, conn.sessionTimeLastAction);
                 break;
               case 'forceSaveStart': {
@@ -2065,10 +2069,10 @@ exports.install = function (server, app, callbackFunction) {
           try {
             ctx.initFromConnection(conn);
             yield ctx.initTenantCache();
-            
+
             // Remove from scheduler when connection is closed
             sessionScheduler.removeConnection(conn.id);
-            
+
             yield* closeDocument(ctx, conn, reason);
           } catch (err) {
             ctx.logger.error('Error conn close: %s', err.stack);
@@ -2121,8 +2125,11 @@ exports.install = function (server, app, callbackFunction) {
     // Remove from scheduler when document is closed
     sessionScheduler.removeConnection(conn.id);
 
-    ctx.logger.info("Connection closed or timed out: reason = %s", reason);
-    var userLocks, reconnected = false, bHasEditors, bHasChanges;
+    ctx.logger.info('Connection closed or timed out: reason = %s', reason);
+    let userLocks,
+      reconnected = false,
+      bHasEditors,
+      bHasChanges;
     const docId = conn.docId;
 
     if (null == docId) {
@@ -4195,10 +4202,10 @@ exports.install = function (server, app, callbackFunction) {
             ctx.logger.warn('start shutdown:%s', shutdownFlag);
             if (shutdownFlag) {
               ctx.logger.warn('active connections: %d', connections.length);
-              
+
               // Clear all sessions on shutdown
               sessionScheduler.shutdown();
-              
+
               //do not stop the server, because sockets and all requests will be unavailable
               //bad because you may need to convert the output file and the fact that requests for the CommandService will not be processed
               //server.close();
@@ -4293,22 +4300,22 @@ exports.install = function (server, app, callbackFunction) {
         let countLiveViewByShard = 0;
         let countViewByShard = 0;
         ctx.logger.debug('expireDoc connections.length = %d', connections.length);
-        for (var i = 0; i < connections.length; ++i) {
-            var conn = connections[i];
-            ctx.initFromConnection(conn);
-            //todo group by tenant
-            yield ctx.initTenantCache();
-            let tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle)) || 0;
-            if (preStopFlag && (tenExpSessionIdle > 5 * 60 * 1000 || tenExpSessionIdle <= 0)) {
-              tenExpSessionIdle = 5 * 60 * 1000; //5 minutes
-            }
-            
-            // Session timeout logic is now handled by individual timeouts
-            // This function only handles statistics and presence updates
-            let tenant = tenants[ctx.tenant];
-            if (!tenant) {
-              tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
-            }
+        for (let i = 0; i < connections.length; ++i) {
+          const conn = connections[i];
+          ctx.initFromConnection(conn);
+          //todo group by tenant
+          yield ctx.initTenantCache();
+          let tenExpSessionIdle = ms(ctx.getCfg('services.CoAuthoring.expire.sessionidle', cfgExpSessionIdle)) || 0;
+          if (preStopFlag && (tenExpSessionIdle > 5 * 60 * 1000 || tenExpSessionIdle <= 0)) {
+            tenExpSessionIdle = 5 * 60 * 1000; //5 minutes
+          }
+
+          // Session timeout logic is now handled by individual timeouts
+          // This function only handles statistics and presence updates
+          let tenant = tenants[ctx.tenant];
+          if (!tenant) {
+            tenant = tenants[ctx.tenant] = {countEditByShard: 0, countLiveViewByShard: 0, countViewByShard: 0};
+          }
           if (constants.CONN_CLOSED === conn.conn.readyState) {
             ctx.logger.error('expireDoc connection closed');
           }
