@@ -1,0 +1,41 @@
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 2
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# JavaScript files
+[*.{js,jsx}]
+indent_size = 2
+max_line_length = 120
+
+# JSON configuration files (Common/config/*.json)
+[*.json]
+indent_style = tab
+max_line_length = 120
+
+# Package files (use spaces for package.json)
+[package*.json]
+indent_style = space
+indent_size = 2
+
+# GitHub workflow files (.github/workflows/*.yml)
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# SQL schema files (schema/*/)
+[*.sql]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# Markdown files (preserve trailing spaces for line breaks)
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off

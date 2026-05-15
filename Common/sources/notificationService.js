@@ -31,16 +31,15 @@
  */
 
 'use strict';
-const util = require('util');
 const config = require('config');
 const ms = require('ms');
 
 const mailService = require('./mailService');
 
-const cfgMailServer = config.util.cloneDeep(config.get('email.smtpServerConfiguration'));
-const cfgMailMessageDefaults = config.util.cloneDeep(config.get('email.contactDefaults'));
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
+const cfgSmtpServerConfiguration = config.get('email.smtpServerConfiguration');
+const cfgContactDefaults = config.get('email.contactDefaults');
 const editorStatStorage = require('./../../DocService/sources/' + (cfgEditorStatStorage || cfgEditorDataStorage));
 
 const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();
@@ -52,17 +51,19 @@ const notificationTypes = {
 };
 
 class TransportInterface {
-  async send(ctx, message) {}
-  contentGeneration(title, message) {}
+  async send(_ctx, _message) {}
+  contentGeneration(_title, _message) {}
 }
 
 class MailTransport extends TransportInterface {
-  host = cfgMailServer.host;
-  port = cfgMailServer.port;
-  auth = cfgMailServer.auth;
-
   constructor(ctx) {
     super();
+
+    const mailServerConfig = ctx.getCfg('email.smtpServerConfiguration', cfgSmtpServerConfiguration);
+    this.host = mailServerConfig.host;
+    this.port = mailServerConfig.port;
+    this.auth = mailServerConfig.auth;
+    const cfgMailMessageDefaults = ctx.getCfg('email.contactDefaults', cfgContactDefaults);
 
     mailService.createTransporter(ctx, this.host, this.port, this.auth, cfgMailMessageDefaults);
   }
@@ -82,7 +83,7 @@ class MailTransport extends TransportInterface {
 
 // TODO:
 class TelegramTransport extends TransportInterface {
-  constructor(ctx) {
+  constructor(_ctx) {
     super();
   }
 }
@@ -99,7 +100,7 @@ class Transport {
         break;
       case 'telegram':
         this.transport = new TelegramTransport(ctx);
-        break
+        break;
       default:
         ctx.logger.warn(`Notification service: error: transport method "${transportName}" not implemented`);
     }
@@ -109,8 +110,8 @@ class Transport {
 async function notify(ctx, notificationType, title, message, opt_cacheKey = undefined) {
   const tenRule = ctx.getCfg(`notification.rules.${notificationType}`, config.get(`notification.rules.${notificationType}`));
   if (tenRule?.enable) {
-    ctx.logger.debug('Notification service: notify "%s"',  notificationType);
-    let checkRes = await checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey);
+    ctx.logger.debug('Notification service: notify "%s"', notificationType);
+    const checkRes = await checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey);
     if (checkRes) {
       await notifyRule(ctx, tenRule, title, message);
     }
@@ -118,9 +119,9 @@ async function notify(ctx, notificationType, title, message, opt_cacheKey = unde
 }
 
 async function checkRulePolicies(ctx, notificationType, tenRule, opt_cacheKey) {
-  const { repeatInterval } = tenRule.policies;
+  const {repeatInterval} = tenRule.policies;
   //decrease repeatInterval by 1% to avoid race condition if timeout=repeatInterval
-  let ttl = Math.floor(ms(repeatInterval) * 0.99 / 1000);
+  const ttl = Math.floor((ms(repeatInterval) * 0.99) / 1000);
   let isLock = false;
   //todo for compatibility remove if after 8.2
   if (editorStat?.lockNotification) {

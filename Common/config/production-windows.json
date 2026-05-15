@@ -5,9 +5,6 @@
   "runtimeConfig": {
     "filePath": "./../runtime.json"
   },
-  "aiSettings": {
-    "pluginDir" : "../info/ai"
-  },
   "storage": {
     "fs": {
       "folderPath": "../App_Data/cache/files"
@@ -70,7 +67,8 @@
       "fontDir": "",
       "presentationThemesDir": "../../sdkjs/slide/themes",
       "x2tPath": "../FileConverter/bin/x2t.exe",
-      "docbuilderPath": "../FileConverter/bin/docbuilder.exe"
+      "docbuilderPath": "../FileConverter/bin/docbuilder.exe",
+      "signingKeyStorePath": "./../signing-keystore.p12"
     }
   },
   "SpellChecker": {

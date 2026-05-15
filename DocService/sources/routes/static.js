@@ -32,42 +32,44 @@
 
 'use strict';
 
-const { pipeline } = require('node:stream/promises');
+const {pipeline} = require('node:stream/promises');
 const express = require('express');
 const config = require('config');
 const operationContext = require('./../../../Common/sources/operationContext');
 const tenantManager = require('./../../../Common/sources/tenantManager');
 const utils = require('./../../../Common/sources/utils');
 const storage = require('./../../../Common/sources/storage/storage-base');
-const urlModule = require("url");
-const path = require("path");
-const mime = require("mime");
+const urlModule = require('url');
+const path = require('path');
+const mime = require('mime');
 const crypto = require('crypto');
 
-const cfgStaticContent = config.has('services.CoAuthoring.server.static_content') ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content')) : {};
+const cfgStaticContent = config.has('services.CoAuthoring.server.static_content')
+  ? config.util.cloneDeep(config.get('services.CoAuthoring.server.static_content'))
+  : {};
 const cfgCacheStorage = config.get('storage');
-const cfgPersistentStorage = utils.deepMergeObjects({}, cfgCacheStorage, config.get('persistentStorage'));
+const cfgPersistentStorage = operationContext.normalizePersistentStorageCfg(cfgCacheStorage, config.get('persistentStorage'));
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgErrorFiles = config.get('FileConverter.converter.errorfiles');
 
 const router = express.Router();
 
-function initCacheRouter(cfgStorage, routs) {
-  const { storageFolderName, fs: { folderPath, secretString: secret } } = cfgStorage;
+function initCacheRouter(cfgStorage, routs, configKey) {
+  const {storageFolderName} = cfgStorage;
 
-  routs.forEach((rout) => {
-    if (!rout) return;
-
-    const rootPath = path.join(folderPath, rout);
+  routs.forEach(rout => {
+    if (!rout) {
+      return;
+    }
 
     ['cache', 'storage-cache'].forEach(prefix => {
       const route = `/${prefix}/${storageFolderName}/${rout}`;
-      router.use(route, createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout));
+      router.use(route, createCacheMiddleware(prefix, cfgStorage, rout, configKey));
     });
   });
 }
 
-function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
+function createCacheMiddleware(prefix, cfgStorage, rout, configKey) {
   return async (req, res) => {
     const index = req.url.lastIndexOf('/');
     if (req.method !== 'GET' || index <= 0) {
@@ -76,8 +78,16 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
     }
 
     try {
+      const ctx = new operationContext.Context();
+      ctx.initFromRequest(req);
+      await ctx.initTenantCache();
+      const tenantStorageCfg = ctx.getCfg(configKey, cfgStorage);
+      // todo storageFolderName is intentionally kept the same across all tenants for simplicity
+      const tenantSecret = tenantStorageCfg.fs.secretString;
+      const tenantRootPath = path.join(tenantStorageCfg.fs.folderPath, rout);
+
       const urlParsed = urlModule.parse(req.url, true);
-      const { md5, expires } = urlParsed.query;
+      const {md5, expires} = urlParsed.query;
       const numericExpires = parseInt(expires);
 
       if (!md5 || !numericExpires) {
@@ -93,15 +103,9 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
 
       const uri = req.url.split('?')[0];
       const fullPath = `/${prefix}/${cfgStorage.storageFolderName}/${rout}${uri}`;
-      const signatureData = numericExpires + decodeURIComponent(fullPath) + secret;
+      const signatureData = numericExpires + decodeURIComponent(fullPath) + tenantSecret;
 
-      const expectedMd5 = crypto
-        .createHash('md5')
-        .update(signatureData)
-        .digest('base64')
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
+      const expectedMd5 = crypto.createHash('md5').update(signatureData).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
       if (md5 !== expectedMd5) {
         res.sendStatus(403);
@@ -110,31 +114,34 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
 
       const filename = urlParsed.pathname && decodeURIComponent(path.basename(urlParsed.pathname));
       let filePath = decodeURI(req.url.substring(1, index));
-      if (cfgStorage.name === 'storage-fs') {
+      if (tenantStorageCfg.name === 'storage-fs') {
         const sendFileOptions = {
-          root: rootPath,
+          root: tenantRootPath,
           dotfiles: 'deny',
           headers: {
             'Content-Disposition': 'attachment',
-            ...(filename && { 'Content-Type': mime.getType(filename) })
+            ...(filename && {'Content-Type': mime.getType(filename)})
           }
         };
 
-        res.sendFile(filePath, sendFileOptions, (err) => {
+        res.sendFile(filePath, sendFileOptions, err => {
           if (err) {
-            operationContext.global.logger.error(err);
-            res.status(400).end();
+            if (err.code === 'ERR_STREAM_PREMATURE_CLOSE' || err.code === 'ECONNRESET' || err.code === 'ECONNABORTED') {
+              operationContext.global.logger.debug('client disconnected during sendFile: %s', err.stack);
+            } else {
+              operationContext.global.logger.error(err);
+            }
+            if (!res.headersSent) {
+              res.status(400).end();
+            }
           }
         });
-      } else if (['storage-s3', 'storage-az'].includes(cfgStorage.name)) {
-        const ctx = new operationContext.Context();
-        ctx.initFromRequest(req);
-        await ctx.initTenantCache();
+      } else if (['storage-s3', 'storage-az'].includes(tenantStorageCfg.name)) {
         if (tenantManager.isMultitenantMode(ctx) && filePath.startsWith(ctx.tenant + '/')) {
           filePath = filePath.substring(ctx.tenant.length + 1);
         }
         const result = await storage.createReadStream(ctx, filePath, rout);
-        
+
         res.setHeader('Content-Type', mime.getType(filename));
         res.setHeader('Content-Length', result.contentLength);
         res.setHeader('Content-Disposition', utils.getContentDisposition(filename));
@@ -143,25 +150,33 @@ function createCacheMiddleware(prefix, rootPath, cfgStorage, secret, rout) {
         res.sendStatus(404);
       }
     } catch (e) {
-      operationContext.global.logger.error(e);
-      res.sendStatus(400);
+      if (e.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+        operationContext.global.logger.debug('client disconnected during cache streaming: %s', e.stack);
+      } else {
+        operationContext.global.logger.error(e);
+      }
+      if (!res.headersSent) {
+        res.sendStatus(400);
+      }
     }
   };
 }
 
-for (let i in cfgStaticContent) {
-  if (cfgStaticContent.hasOwnProperty(i)) {
+for (const i in cfgStaticContent) {
+  if (Object.hasOwn(cfgStaticContent, i)) {
     router.use(i, express.static(cfgStaticContent[i]['path'], cfgStaticContent[i]['options']));
   }
 }
-if (storage.needServeStatic()) {
-  initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName]);
+if (storage.needServeStatic() || tenantManager.isMultitenantMode()) {
+  initCacheRouter(cfgCacheStorage, [cfgCacheStorage.cacheFolderName], 'storage');
 }
-if (storage.needServeStatic(cfgForgottenFiles)) {
+if (storage.needServeStatic(cfgForgottenFiles) || tenantManager.isMultitenantMode()) {
   let persistentRouts = [cfgForgottenFiles, cfgErrorFiles];
-  persistentRouts = persistentRouts.filter((rout) => {return rout && rout.length > 0;});
+  persistentRouts = persistentRouts.filter(rout => {
+    return rout && rout.length > 0;
+  });
   if (persistentRouts.length > 0) {
-    initCacheRouter(cfgPersistentStorage, persistentRouts);
+    initCacheRouter(cfgPersistentStorage, persistentRouts, 'persistentStorage');
   }
 }
 

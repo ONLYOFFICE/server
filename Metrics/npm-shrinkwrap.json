@@ -7,7 +7,7 @@
     "commander": {
       "version": "1.3.1",
       "resolved": "https://registry.npmjs.org/commander/-/commander-1.3.1.tgz",
-      "integrity": "sha1-AkQ+AtuW9LMrZ0IlRRq7bpUQAA4=",
+      "integrity": "sha512-tpQAw1M5L/v+kutCmx0ceB6WOLeJR+KZyj+g1tLvJUsA5ilaMqqM+90oIndVIGQnpB/IwcMmc1ov22KL08Cqhw==",
       "optional": true,
       "requires": {
         "keypress": "0.1.x"
@@ -16,18 +16,18 @@
     "connection-parse": {
       "version": "0.0.7",
       "resolved": "https://registry.npmjs.org/connection-parse/-/connection-parse-0.0.7.tgz",
-      "integrity": "sha1-GOcxiqsGppkmc3KxDFIm0locmmk=",
+      "integrity": "sha512-bTTG28diWg7R7/+qE5NZumwPbCiJOT8uPdZYu674brDjBWQctbaQbYlDKhalS+4i5HxIx+G8dZsnBHKzWpp01A==",
       "optional": true
     },
     "generic-pool": {
       "version": "2.2.0",
       "resolved": "https://registry.npmjs.org/generic-pool/-/generic-pool-2.2.0.tgz",
-      "integrity": "sha1-i0ZcGnWI6p3SuxM72gu2a/74pj4="
+      "integrity": "sha512-mPcLSdb8iADPF5Fy5M7AcFQ07QDxhAbz0KvzUIXVhJBYi8ELRHWXweJ8XTy6lyjh9b3nndSsTeOo3ElOOu2FsA=="
     },
     "hashring": {
       "version": "3.2.0",
       "resolved": "https://registry.npmjs.org/hashring/-/hashring-3.2.0.tgz",
-      "integrity": "sha1-/aTv3oqiLNuX+x0qZeiEAeHBRM4=",
+      "integrity": "sha512-xCMovURClsQZ+TR30icCZj+34Fq1hs0y6YCASD6ZqdRfYRybb5Iadws2WS+w09mGM/kf9xyA5FCdJQGcgcraSA==",
       "optional": true,
       "requires": {
         "connection-parse": "0.0.x",
@@ -37,51 +37,35 @@
     "keypress": {
       "version": "0.1.0",
       "resolved": "https://registry.npmjs.org/keypress/-/keypress-0.1.0.tgz",
-      "integrity": "sha1-SjGI1CkbZrT2XtuZ+AaqmuKTWSo=",
-      "optional": true
-    },
-    "modern-syslog": {
-      "version": "1.2.0",
-      "resolved": "https://registry.npmjs.org/modern-syslog/-/modern-syslog-1.2.0.tgz",
-      "integrity": "sha512-dmFE23qpyZJf8MOdzuNKliW4j1PCqxaRtSzyNnv6QDUWjf1z8T4ZoQ7Qf0t6It2ewNv9/XJZSJoUgwpq3D0X7A==",
-      "optional": true,
-      "requires": {
-        "nan": "^2.13.2"
-      }
-    },
-    "nan": {
-      "version": "2.14.0",
-      "resolved": "https://registry.npmjs.org/nan/-/nan-2.14.0.tgz",
-      "integrity": "sha512-INOFj37C7k3AfaNTtX8RhsTw7qRy7eLET14cROi9+5HAVbbHuIWUHEauBv5qT4Av2tWasiTY1Jw6puUNqRJXQg==",
+      "integrity": "sha512-x0yf9PL/nx9Nw9oLL8ZVErFAk85/lslwEP7Vz7s5SI1ODXZIgit3C5qyWjw4DxOuO/3Hb4866SQh28a1V1d+WA==",
       "optional": true
     },
     "sequence": {
       "version": "2.2.1",
       "resolved": "https://registry.npmjs.org/sequence/-/sequence-2.2.1.tgz",
-      "integrity": "sha1-f1YXiV1ENRwKBH52RGdpBJChawM=",
+      "integrity": "sha512-RY4zLg/1hvZMVMIf8iiix8w1Aqls95nuR4pZinKH26OYrRrb8tEZTeCFkvGDKWt4qHY0rd8nKHvplb7+8O6C/A==",
       "optional": true
     },
     "simple-lru-cache": {
       "version": "0.0.2",
       "resolved": "https://registry.npmjs.org/simple-lru-cache/-/simple-lru-cache-0.0.2.tgz",
-      "integrity": "sha1-1ZzDoZPBpdAyD4Tucy9uRxPlEd0=",
+      "integrity": "sha512-uEv/AFO0ADI7d99OHDmh1QfYzQk/izT1vCmu/riQfh7qjBVUUgRT87E5s5h7CxWCA/+YoZerykpEthzVrW3LIw==",
       "optional": true
     },
     "statsd": {
-      "version": "0.8.4",
-      "resolved": "https://registry.npmjs.org/statsd/-/statsd-0.8.4.tgz",
-      "integrity": "sha512-GLxev8J5AtlQILyT2/ofRVgGIbMMu2dMBwcQaEg3BIPZwQQlIG48OYjVyjxo7yI/1AKur97LnJKvjELV6Elx+A==",
+      "version": "0.9.0",
+      "resolved": "https://registry.npmjs.org/statsd/-/statsd-0.9.0.tgz",
+      "integrity": "sha512-DwQDAZ3osm5ZaQshq7Z/C8nxpqWjj7NVBmHkxZLta9lDOYelPZ8vR976OU1TCHRgGA1bSBuB6glOw9cFkxlyzA==",
       "requires": {
         "generic-pool": "2.2.0",
         "hashring": "3.2.0",
-        "modern-syslog": "1.2.0",
         "winser": "=0.1.6"
       }
     },
     "winser": {
       "version": "0.1.6",
       "resolved": "https://registry.npmjs.org/winser/-/winser-0.1.6.tgz",
-      "integrity": "sha1-CGY9wyh4oSu84WLYQNpQl7SEZsk=",
+      "integrity": "sha512-2XeoVtwGi94rnRcQJrVLhYkhQtI4XngGLXoTJSdU4c2HSD9QDXBnuc0d+/cOUBwKTcghAJxjjxbtbXZrUDOJjw==",
       "optional": true,
       "requires": {
         "commander": "1.3.1",

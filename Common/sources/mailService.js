@@ -64,7 +64,13 @@ function createTransporter(ctx, host, port, auth, messageCommonParameters = {}) 
     const transporter = nodemailer.createTransport(transport, messageCommonParameters);
     smtpTransporters.set(`${host}:${auth.user}`, transporter);
   } catch (error) {
-    ctx.logger.error('Mail service smtp transporter creation error: %o\nWith parameters: \n\thost - %s, \n\tport - %d, \n\tauth = %o', error.stack, host, port, auth);
+    ctx.logger.error(
+      'Mail service smtp transporter creation error: %o\nWith parameters: \n\thost - %s, \n\tport - %d, \n\tauth = %o',
+      error.stack,
+      host,
+      port,
+      auth
+    );
   }
 }
 
@@ -99,4 +105,3 @@ module.exports = {
   deleteTransporter,
   transportersRelease
 };
-

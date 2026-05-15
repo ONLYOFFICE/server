@@ -19,18 +19,20 @@ jobs:
       - name: Caching dependencies
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: |
             ./npm-shrinkwrap.json
             ./Common/npm-shrinkwrap.json
             ./DocService/npm-shrinkwrap.json
+            ./FileConverter/npm-shrinkwrap.json
 
       - name: Install modules
         run: |
           npm ci
           npm --prefix Common ci
           npm --prefix DocService ci
+          npm --prefix FileConverter ci
 
       - name: Run Jest
         run: npm run "unit tests"

@@ -1,0 +1,27 @@
+node_modules
+dist
+build
+coverage
+.next
+out
+*.min.js
+*.min.css
+package-lock.json
+npm-shrinkwrap.json
+*.log
+*.tmp
+*.temp
+Metrics/config/config.js
+SpellChecker/sources/server.js
+
+# Patterns merged from .gitignore
+.idea/
+Common/config/local.json
+license.lic
+App_Data/
+FileConverter/bin
+DocService/npm-debug.log
+/Gruntfile.js.out
+local-development-*.json
+*.pyc
+run-develop-local.py

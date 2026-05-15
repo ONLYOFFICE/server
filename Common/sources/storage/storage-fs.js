@@ -32,11 +32,11 @@
 
 'use strict';
 
-const { cp, rm, mkdir } = require('fs/promises');
-const { stat, readFile, writeFile } = require('fs/promises');
-var path = require('path');
-var utils = require("../utils");
-
+const {cp, rm, mkdir} = require('fs/promises');
+const {stat, readFile, writeFile} = require('fs/promises');
+const path = require('path');
+const utils = require('../utils');
+const {pipeline} = require('node:stream/promises');
 
 function getFilePath(storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
@@ -46,66 +46,66 @@ function getOutputPath(strPath) {
   return strPath.replace(/\\/g, '/');
 }
 
-async function headObject(storageCfg, strPath) {
-  let fsPath = getFilePath(storageCfg, strPath);
-  let stats = await stat(fsPath);
+async function headObject(_ctx, storageCfg, strPath) {
+  const fsPath = getFilePath(storageCfg, strPath);
+  const stats = await stat(fsPath);
   return {ContentLength: stats.size};
 }
 
-async function getObject(storageCfg, strPath) {
-  let fsPath = getFilePath(storageCfg, strPath);
+async function getObject(_ctx, storageCfg, strPath) {
+  const fsPath = getFilePath(storageCfg, strPath);
   return await readFile(fsPath);
 }
 
-async function createReadStream(storageCfg, strPath) {
-  let fsPath = getFilePath(storageCfg, strPath);
-  let stats = await stat(fsPath);
-  let contentLength = stats.size;
-  let readStream = await utils.promiseCreateReadStream(fsPath);
+async function createReadStream(_ctx, storageCfg, strPath) {
+  const fsPath = getFilePath(storageCfg, strPath);
+  const stats = await stat(fsPath);
+  const contentLength = stats.size;
+  const readStream = await utils.promiseCreateReadStream(fsPath);
   return {
-    contentLength: contentLength,
-    readStream: readStream
+    contentLength,
+    readStream
   };
 }
 
-async function putObject(storageCfg, strPath, buffer, contentLength) {
-  var fsPath = getFilePath(storageCfg, strPath);
+async function putObject(_ctx, storageCfg, strPath, buffer, _contentLength) {
+  const fsPath = getFilePath(storageCfg, strPath);
   await mkdir(path.dirname(fsPath), {recursive: true});
 
   if (Buffer.isBuffer(buffer)) {
     await writeFile(fsPath, buffer);
   } else {
-    let writable = await utils.promiseCreateWriteStream(fsPath);
-    await utils.pipeStreams(buffer, writable, true);
+    const writable = await utils.promiseCreateWriteStream(fsPath);
+    await pipeline(buffer, writable);
   }
 }
 
-async function uploadObject(storageCfg, strPath, filePath) {
-  let fsPath = getFilePath(storageCfg, strPath);
+async function uploadObject(_ctx, storageCfg, strPath, filePath) {
+  const fsPath = getFilePath(storageCfg, strPath);
   await cp(filePath, fsPath, {force: true, recursive: true});
 }
 
-async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
-  let fsPathSource = getFilePath(storageCfgSrc, sourceKey);
-  let fsPathDestination = getFilePath(storageCfgDst, destinationKey);
+async function copyObject(_ctx, storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
+  const fsPathSource = getFilePath(storageCfgSrc, sourceKey);
+  const fsPathDestination = getFilePath(storageCfgDst, destinationKey);
   await cp(fsPathSource, fsPathDestination, {force: true, recursive: true});
 }
 
-async function listObjects(storageCfg, strPath) {
+async function listObjects(_ctx, storageCfg, strPath) {
   const storageFolderPath = storageCfg.fs.folderPath;
-  let fsPath = getFilePath(storageCfg, strPath);
-  let values = await utils.listObjects(fsPath);
-  return values.map(function(curvalue) {
+  const fsPath = getFilePath(storageCfg, strPath);
+  const values = await utils.listObjects(fsPath);
+  return values.map(curvalue => {
     return getOutputPath(curvalue.substring(storageFolderPath.length + 1));
   });
 }
 
-async function deleteObject(storageCfg, strPath) {
+async function deleteObject(_ctx, storageCfg, strPath) {
   const fsPath = getFilePath(storageCfg, strPath);
   return rm(fsPath, {force: true, recursive: true});
 }
 
-async function deletePath(storageCfg, strPath) {
+async function deletePath(_ctx, storageCfg, strPath) {
   const fsPath = getFilePath(storageCfg, strPath);
   return rm(fsPath, {force: true, recursive: true, maxRetries: 3});
 }

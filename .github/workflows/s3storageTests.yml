@@ -7,21 +7,68 @@ on:
       - 'tests/integration/withServerInstance/storage.tests.js'
       - 'Common/sources/storage/**'
       - 'DocService/sources/routes/static.js'
+      - '.github/workflows/s3storageTests.yml'
 
 jobs:
   storage-tests:
     name: Storage Tests
     runs-on: ubuntu-latest
+    env:
+      MINIO_CONTAINER: minio-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
-      - name: Run MinIO docker container
+      - name: Pre-run cleanup
         run: |
-          docker run --name minio \
+          docker rm -f "$MINIO_CONTAINER" 2>/dev/null || true
+          # Remove legacy container name if it exists (for self-hosted runners or retries)
+          docker rm -f minio 2>/dev/null || true
+
+      - name: Setup and start MinIO
+        run: |
+          # Detect network and set network arguments
+          JOB_NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{printf "%s\n" $k}}{{end}}' "$(hostname)" 2>/dev/null | head -n1 || true)
+
+          if [ -n "$JOB_NET" ]; then
+            NETWORK_ARGS="--network $JOB_NET"
+          else
+            NETWORK_ARGS=""
+          fi
+
+          # Start MinIO container
+          docker run --name "$MINIO_CONTAINER" \
+            $NETWORK_ARGS \
             -p 9000:9000 \
             -p 9001:9001 \
             -e "MINIO_ROOT_USER=minioadmin" \
             -e "MINIO_ROOT_PASSWORD=minioadmin" \
             -d minio/minio server /data --console-address ":9001"
+
+          # Set host based on network configuration
+          if [ -n "$JOB_NET" ]; then
+            HOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$MINIO_CONTAINER")
+          else
+            HOST=127.0.0.1
+          fi
+
+          # Wait for MinIO to be ready
+          echo "Waiting for MinIO at $HOST:9000..."
+          for i in $(seq 1 15); do
+            if curl -sS "http://$HOST:9000/minio/health/ready" >/dev/null 2>&1; then
+              echo "MinIO ready"
+              break
+            fi
+            sleep 1
+          done
+
+          # Verify MinIO is running
+          if ! curl -sS "http://$HOST:9000/minio/health/ready" >/dev/null 2>&1; then
+            echo "MinIO failed to start"
+            docker logs "$MINIO_CONTAINER" || true
+            exit 1
+          fi
+
+          # Export host for subsequent steps
+          echo "MINIO_HOST=$HOST" >> "$GITHUB_ENV"
 
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -44,11 +91,12 @@ jobs:
 
       - name: Creating storage configuration
         run: |
-          echo '{
+          cat > Common/config/local.json << EOF
+          {
             "storage": {
               "name": "storage-s3",
               "region": "us-east-1",
-              "endpoint": "http://localhost:9000",
+              "endpoint": "http://${MINIO_HOST:-127.0.0.1}:9000",
               "bucketName": "cache",
               "storageFolderName": "files",
               "commandOptions": {
@@ -66,12 +114,17 @@ jobs:
             "persistentStorage": {
               "storageFolderName": "files/persistent"
             }
-          }' >> Common/config/local.json
+          }
+          EOF
 
       - name: Create MinIO buckets
         run: |
-          docker exec minio mc alias set myminio http://localhost:9000 minioadmin minioadmin
-          docker exec minio mc mb myminio/cache
+          docker exec "$MINIO_CONTAINER" mc alias set myminio http://localhost:9000 minioadmin minioadmin
+          docker exec "$MINIO_CONTAINER" mc mb myminio/cache
 
       - name: Run storage tests
         run: npm run storage-tests
+
+      - name: Final cleanup
+        if: always()
+        run: docker rm -f "$MINIO_CONTAINER" || true

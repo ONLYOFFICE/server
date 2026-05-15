@@ -1,0 +1,32 @@
+{
+  "licenseInfo": {
+    "packageType": 1,
+    "buildDate": "2025-08-15T00:00:00Z",
+    "mode": 4,
+    "endDate": "2026-08-15T00:00:00Z",
+    "type": 0,
+    "startDate": "2025-08-01T00:00:00Z",
+    "connections": 40,
+    "connectionsView": 25,
+    "usersCount": 0,
+    "usersViewCount": 0
+  },
+  "serverInfo": {
+    "buildVersion": "8.2",
+    "buildNumber": "1235",
+    "date": "2025-09-05T12:00:00Z"
+  },
+  "quota": {
+    "edit": {"connectionsCount": 12},
+    "view": {"connectionsCount": 9},
+    "byMonth": []
+  },
+  "connectionsStat": {
+    "hour": {
+      "edit": {"max": 10, "avr": 8}
+    },
+    "day": {
+      "liveview": {"max": 20, "avr": 12}
+    }
+  }
+}

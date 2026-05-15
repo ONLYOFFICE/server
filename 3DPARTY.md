@@ -1,11 +1,13 @@
-
 ## Third-party
+
+### Common
 
 - @aws-sdk/client-s3 3.637.0 ([Apache-2.0](https://raw.githubusercontent.com/aws/aws-sdk-js-v3/main/LICENSE))
 - @smithy/node-http-handler 4.0.3 ([Apache-2.0](https://raw.githubusercontent.com/smithy-lang/smithy-typescript/main/LICENSE))
 - @aws-sdk/s3-request-presigner 3.370.0 ([Apache-2.0](https://raw.githubusercontent.com/aws/aws-sdk-js-v3/main/LICENSE))
 - @azure/storage-blob 12.27.0 ([MIT](https://raw.githubusercontent.com/Azure/azure-sdk-for-js/refs/heads/main/sdk/storage/storage-blob/LICENSE))
 - amqplib 0.10.7 ([MIT](https://raw.githubusercontent.com/amqp-node/amqplib/main/LICENSE))
+- axios 1.8.3 ([MIT](https://raw.githubusercontent.com/axios/axios/v1.x/LICENSE))
 - co 4.6.0 ([MIT](https://raw.githubusercontent.com/tj/co/master/LICENSE))
 - config 3.3.12 ([MIT](https://raw.githubusercontent.com/node-config/node-config/master/LICENSE))
 - content-disposition 0.5.4 ([MIT](https://raw.githubusercontent.com/jshttp/content-disposition/master/LICENSE))
@@ -20,25 +22,27 @@
 - node-cache 5.1.2 ([MIT](https://raw.githubusercontent.com/node-cache/node-cache/master/LICENSE))
 - node-statsd 0.1.1 ([MIT](https://raw.githubusercontent.com/sivy/node-statsd/master/LICENSE))
 - nodemailer 6.10.0 ([MIT-0](https://raw.githubusercontent.com/nodemailer/nodemailer/master/LICENSE))
-- axios 2.88.0 ([MIT](https://raw.githubusercontent.com/axios/axios/v1.x/LICENSE))
 - request-filtering-agent 1.0.5 ([MIT](https://raw.githubusercontent.com/azu/request-filtering-agent/master/LICENSE))
 - rhea 3.0.3 ([Apache-2.0](https://raw.githubusercontent.com/amqp/rhea/main/LICENSE))
 - uri-js-replace 1.0.1 ([MIT](https://github.com/andreinwald/uri-js-replace?tab=MIT-0-1-ov-file#readme))
 - win-ca 3.5.1 ([MIT](https://raw.githubusercontent.com/ukoloff/win-ca/master/LICENSE))
+
+### DocService
+
+- ajv 8.17.1 ([MIT](https://raw.githubusercontent.com/ajv-validator/ajv/master/LICENSE))
 - apicache 1.6.3 ([MIT](https://raw.githubusercontent.com/kwhitley/apicache/master/LICENSE))
 - body-parser 1.20.3 ([MIT](https://raw.githubusercontent.com/expressjs/body-parser/master/LICENSE))
 - bottleneck 2.19.5 ([MIT](https://raw.githubusercontent.com/SGrondin/bottleneck/master/LICENSE))
 - bytes 3.1.2 ([MIT](https://raw.githubusercontent.com/visionmedia/bytes.js/master/LICENSE))
 - co 4.6.0 ([MIT](https://raw.githubusercontent.com/tj/co/master/LICENSE))
-- config 3.3.12 ([MIT](https://raw.githubusercontent.com/node-config/node-config/master/LICENSE))
+- config 3.3.12 ([MIT](https://github.com/node-config/node-config/blob/master/LICENSE))
+- cors 2.8.5 ([MIT](https://raw.githubusercontent.com/expressjs/cors/master/LICENSE))
 - cron 1.5.0 ([MIT](https://raw.githubusercontent.com/kelektiv/node-cron/main/LICENSE))
-- dmdb 1.0.36002 ([none](https://www.npmjs.com/package/dmdb))
+- dmdb 1.0.46190 ([none](https://www.npmjs.com/package/dmdb))
 - ejs 3.1.10 ([Apache-2.0](https://raw.githubusercontent.com/mde/ejs/main/LICENSE))
-- exif-parser 0.1.12 ([MIT](https://raw.githubusercontent.com/bwindels/exif-parser/master/LICENSE.md))
 - express 4.21.2 ([MIT](https://raw.githubusercontent.com/expressjs/express/master/LICENSE))
-- fakeredis 2.0.0 ([MIT](https://github.com/hdachev/fakeredis?tab=readme-ov-file#license))
+- heic-decode 2.1.0 ([ISC](https://opensource.org/license/isc-license-txt))
 - ioredis 5.6.0 ([MIT](https://raw.githubusercontent.com/redis/ioredis/main/LICENSE))
-- jimp 0.22.10 ([MIT](https://raw.githubusercontent.com/jimp-dev/jimp/main/LICENSE))
 - jsonwebtoken 9.0.2 ([MIT](https://raw.githubusercontent.com/auth0/node-jsonwebtoken/master/LICENSE))
 - mime 2.3.1 ([MIT](https://raw.githubusercontent.com/broofa/mime/main/LICENSE))
 - mime-db 1.53.0 ([MIT](https://raw.githubusercontent.com/jshttp/mime-db/master/LICENSE))
@@ -48,18 +52,29 @@
 - multi-integer-range 5.2.0 ([MIT](https://raw.githubusercontent.com/smikitky/node-multi-integer-range/master/LICENSE))
 - multiparty 4.2.3 ([MIT](https://raw.githubusercontent.com/pillarjs/multiparty/master/LICENSE))
 - mysql2 3.13.0 ([MIT](https://raw.githubusercontent.com/sidorares/node-mysql2/master/License))
-- oracledb 6.8.0 ([(Apache-2.0 OR UPL-1.0)](https://raw.githubusercontent.com/oracle/node-oracledb/main/LICENSE.txt))
+- oracledb 6.9.0 ([(Apache-2.0 OR UPL-1.0)](https://raw.githubusercontent.com/oracle/node-oracledb/main/LICENSE.txt))
 - pg 8.14.0 ([MIT](https://raw.githubusercontent.com/brianc/node-postgres/master/LICENSE))
 - redis 4.7.0 ([MIT](https://raw.githubusercontent.com/redis/node-redis/master/LICENSE))
 - retry 0.13.1 ([MIT](https://raw.githubusercontent.com/tim-kos/node-retry/master/License))
+- sharp 0.32.6 ([Apache-2.0](https://raw.githubusercontent.com/lovell/sharp/master/LICENSE))
 - socket.io 4.8.1 ([MIT](https://raw.githubusercontent.com/socketio/socket.io/main/LICENSE))
 - underscore 1.13.7 ([MIT](https://raw.githubusercontent.com/jashkenas/underscore/master/LICENSE))
 - utf7 1.0.2 ([BSD](https://www.npmjs.com/package/utf7))
 - windows-locale 1.1.3 ([MIT](https://raw.githubusercontent.com/TiagoDanin/Windows-Locale/master/LICENSE))
 - xmlbuilder2 3.1.1 ([MIT](https://raw.githubusercontent.com/oozcitak/xmlbuilder2/master/LICENSE))
+
+### FileConverter
+
+- @aws-sdk/client-kms 3.637.0 ([Apache-2.0](https://raw.githubusercontent.com/aws/aws-sdk-js-v3/main/LICENSE))
 - @expo/spawn-async 1.7.2 ([MIT](https://raw.githubusercontent.com/TritonDataCenter/node-spawn-async/master/LICENSE))
+- asn1js 3.0.5 ([BSD-3-Clause](https://raw.githubusercontent.com/PeculiarVentures/ASN1.js/master/LICENSE))
 - bytes 3.1.2 ([MIT](https://raw.githubusercontent.com/visionmedia/bytes.js/master/LICENSE))
 - co 4.6.0 ([MIT](https://raw.githubusercontent.com/tj/co/master/LICENSE))
 - config 3.3.12 ([MIT](https://github.com/node-config/node-config/blob/master/LICENSE))
 - lcid 3.1.1 ([MIT](https://raw.githubusercontent.com/sindresorhus/lcid/main/license))
-- statsd 0.8.4 ([MIT](https://raw.githubusercontent.com/statsd/statsd/master/LICENSE))
+- ms 2.1.3 ([MIT](https://raw.githubusercontent.com/vercel/ms/master/license.md))
+- pkijs 3.2.4 ([BSD-3-Clause](https://raw.githubusercontent.com/PeculiarVentures/PKI.js/master/LICENSE))
+
+### Metrics
+
+- statsd 0.9.0 ([MIT](https://raw.githubusercontent.com/statsd/statsd/master/LICENSE))

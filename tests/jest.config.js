@@ -68,7 +68,7 @@ module.exports = {
   // ],
 
   // Indicates which provider should be used to instrument code for coverage
-  coverageProvider: "v8",
+  coverageProvider: 'v8',
 
   // A list of reporter names that Jest uses when writing coverage reports
   // coverageReporters: [
@@ -127,6 +127,9 @@ module.exports = {
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
     '^axios$': '../../Common/node_modules/axios/dist/node/axios.cjs',
+    // Map bare 'config' to a single canonical location so doMock('config', …)
+    // intercepts require('config') from all source subdirectories.
+    '^config$': '<rootDir>/../Common/node_modules/config'
   },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
@@ -190,9 +193,7 @@ module.exports = {
   // testLocationInResults: false,
 
   // The glob patterns Jest uses to detect test files
-  testMatch: [
-    "**/?(*.)+(spec|tests).[tj]s?(x)"
-  ],
+  testMatch: ['**/?(*.)+(spec|tests).[tj]s?(x)']
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
   // testPathIgnorePatterns: [
