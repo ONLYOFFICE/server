@@ -1687,7 +1687,7 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     const tenTokenSessionExpires = ms(ctx.getCfg('services.CoAuthoring.token.session.expires', cfgTokenSessionExpires));
 
     baseUrl = utils.checkBaseUrl(ctx, baseUrl);
-    const payload = {document: {key: docId}};
+    const payload = {document: {key: docId}, ds_tokenType: 'printfile'};
     const token = yield docsCoServer.signToken(
       ctx,
       payload,
@@ -1733,7 +1733,7 @@ exports.printFile = function (req, res) {
       const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
       if (checkJwtRes.decoded) {
         const docIdBase = checkJwtRes.decoded.document.key;
-        if (!docId.startsWith(docIdBase)) {
+        if (docId !== docIdBase || checkJwtRes.decoded.ds_tokenType !== 'printfile') {
           ctx.logger.warn('Error printFile jwt: description = %s', 'access deny');
           res.sendStatus(403);
           return;
