@@ -1,0 +1,92 @@
+/**
+ *
+ * (c) Copyright Ascensio System SIA {{year}}
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+/* ---- Phase 1 unified welcome: platform / edition routing ----
+
+   Used only by branding/welcome/example/index.html. Loaded AFTER
+   css/stylesheet.css. Old per-platform pages (linux.html, linux-rpm.html,
+   docker.html, win.html, k8s.html) intentionally do not load this file
+   and must not be affected by anything declared here.
+*/
+
+/* Hide every platform variant by default; specific data-platform rules
+   below show the right one. For data-platform="k8s" the .jwt-block has
+   no matching show-rule, so the whole JWT section stays hidden — this
+   matches the original k8s.html where the JWT block was absent. */
+.jwt-block,
+.example-variant,
+.admin-variant {
+    display: none;
+}
+
+html[data-platform="linux"]     .jwt--unix,
+html[data-platform="linux-rpm"] .jwt--unix    { display: block; }
+html[data-platform="win"]       .jwt--windows { display: block; }
+html[data-platform="docker"]    .jwt--docker  { display: block; }
+
+html[data-platform="linux"]     .example--systemctl,
+html[data-platform="linux-rpm"] .example--systemctl,
+html[data-platform="win"]       .example--winsvc,
+html[data-platform="docker"]    .example--docker,
+html[data-platform="k8s"]       .example--k8s     { display: block; }
+
+html[data-platform="linux"]     .admin--systemctl,
+html[data-platform="linux-rpm"] .admin--systemctl,
+html[data-platform="win"]       .admin--winsvc,
+html[data-platform="docker"]    .admin--docker,
+html[data-platform="k8s"]       .admin--k8s       { display: block; }
+
+/* In the old platform pages, common paragraphs after command blocks matched
+   .content-block pre~p. Commands are now nested inside platform variants, so
+   restore that spacing only for command-based platforms. */
+html[data-platform="linux"]     .example--systemctl ~ p,
+html[data-platform="linux-rpm"] .example--systemctl ~ p,
+html[data-platform="win"]       .example--winsvc ~ p,
+html[data-platform="docker"]    .example--docker ~ p,
+html[data-platform="linux"]     .admin--systemctl ~ p,
+html[data-platform="linux-rpm"] .admin--systemctl ~ p,
+html[data-platform="win"]       .admin--winsvc ~ p,
+html[data-platform="docker"]    .admin--docker ~ p {
+    margin-top: 24px;
+}
+
+/* Community Edition: hide every Admin Panel related element wholesale.
+   Any element that depends on Admin Panel availability must carry the
+   .requires-admin-panel class. !important defends against accidental
+   higher-specificity overrides in future redesign CSS. */
+html[data-has-admin-panel="false"] .requires-admin-panel {
+    display: none !important;
+}
+
+/* k8s ordered the Admin Panel paragraphs as [bootstrap, info-link,
+   if-already-installed] inside one container. Other platforms keep the
+   bootstrap paragraph after the commands. The .admin--k8s variant ships its
+   own copy of the bootstrap paragraph in the right place, so for k8s we hide
+   the common one that sits between the variant and the GO TO ADMIN PANEL
+   button. */
+html[data-platform="k8s"] .requires-admin-panel > p.admin-bootstrap {
+    display: none;
+}
+
+/* Old k8s.html had an empty <p></p> between the GO TO TEST EXAMPLE button
+   and the "Please do NOT use" warning, contributing 24px of vertical space
+   from .content-block p { padding-bottom: 24px }. Reproduce that gap for
+   k8s only without re-introducing a non-semantic empty paragraph. */
+html[data-platform="k8s"] .example--k8s ~ a + p {
+    margin-top: 24px;
+}
