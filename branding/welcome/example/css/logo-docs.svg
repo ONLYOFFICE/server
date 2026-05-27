@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="245" height="32" viewBox="0 0 245 32" fill="none">
+  <g transform="translate(0,2)">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M13.341 27.657L0.802 21.89C-0.266 21.386 -0.266 20.608 0.802 20.15L5.167 18.136L13.295 21.89C14.363 22.393 16.081 22.393 17.103 21.89L25.23 18.136L29.596 20.15C30.664 20.654 30.664 21.432 29.596 21.89L17.056 27.657C16.081 28.114 14.363 28.114 13.341 27.657Z" fill="#FF6F3D"/>
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M13.341 20.562L0.802 14.795C-0.266 14.292 -0.266 13.514 0.802 13.056L5.074 11.088L13.341 14.887C14.409 15.39 16.128 15.39 17.149 14.887L25.416 11.088L29.689 13.056C30.757 13.56 30.757 14.338 29.689 14.795L17.149 20.562C16.081 21.066 14.363 21.066 13.341 20.562Z" fill="#95C038"/>
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M13.341 13.651L0.802 7.884C-0.266 7.38 -0.266 6.602 0.802 6.145L13.341 0.378C14.409 -0.126 16.128 -0.126 17.149 0.378L29.689 6.145C30.757 6.648 30.757 7.426 29.689 7.884L17.149 13.651C16.081 14.109 14.363 14.109 13.341 13.651Z" fill="#5DC0E8"/>
+  </g>
+  <text x="42" y="22" font-family="'Open Sans','Segoe UI',system-ui,sans-serif" font-size="20" font-weight="700" fill="#333333" letter-spacing="-0.1">ONLYOFFICE</text>
+  <text x="183" y="22" font-family="'Open Sans','Segoe UI',system-ui,sans-serif" font-size="20" font-weight="300" fill="#333333">Docs</text>
+</svg>
