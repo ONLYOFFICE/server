@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="124" height="116" viewBox="0 0 124 116" fill="none">
-  <rect x="22" y="10" width="80" height="100" rx="4" fill="#FFFFFF" stroke="#E0E4E7"/>
-  <rect x="33" y="25" width="56" height="6" rx="1" fill="#F0BFA1"/>
-  <rect x="33" y="40" width="56" height="42" rx="2" fill="#F4D2BD"/>
-  <rect x="33" y="89" width="40" height="3" rx="1" fill="#F0BFA1"/>
-  <rect x="33" y="96" width="48" height="3" rx="1" fill="#F0BFA1"/>
-  <rect x="8" y="2" width="48" height="22" rx="4" fill="#EA723B"/>
-  <text x="32" y="17" font-family="'Open Sans','Segoe UI',sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">PPTX</text>
-</svg>

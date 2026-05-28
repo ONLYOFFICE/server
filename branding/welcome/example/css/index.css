@@ -22,8 +22,8 @@
  * docker.html, win.html, k8s.html) intentionally do not load this file and
  * must not be affected by anything declared here.
  *
- * Every redesign rule is scoped to .welcome2 (the <body> class) or to one of
- * the Phase 1 routing classes (.example-variant, .requires-admin-panel,
+ * Every rule is scoped to .welcome2 (the <body> class) or to one of the
+ * Phase 1 routing classes (.example-variant, .requires-admin-panel,
  * .requires-test-example). No :root tokens. No bare element selectors.
  * -------------------------------------------------------------------------- */
 
@@ -50,41 +50,41 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   --w2-color-bg: #ffffff;
   --w2-color-heading: #333333;
   --w2-color-text: #555f65;
-  --w2-color-muted: #7c868c;
-  --w2-color-soft: #acb1b5;
   --w2-color-primary: #5299e0;
   --w2-color-primary-hover: #3f84cb;
   --w2-color-primary-text: #ffffff;
+  --w2-color-link: #4781d1;
+  --w2-color-link-hover: #3568b8;
   --w2-color-success: #2db482;
-  --w2-color-success-bg: rgba(45, 180, 130, 0.1);
-  --w2-color-warn: #ff8a33;
-  --w2-color-warn-bg: rgba(255, 138, 51, 0.08);
+  --w2-color-success-bg: #eaf7f2;
+  --w2-color-warn: #ed7309;
+  --w2-color-warn-bg: #f8f9f9;
   --w2-color-error: #e54d39;
   --w2-color-error-bg: rgba(229, 77, 57, 0.1);
-  --w2-color-unknown-bg: rgba(85, 95, 101, 0.08);
-  --w2-color-card: #f9f9f9;
-  --w2-color-card-hover: #f1f3f4;
+  --w2-color-unknown-fg: #555f65;
+  --w2-color-unknown-bg: #eceef1;
+  --w2-color-editor-card: #f9f9f9;
+  --w2-color-editor-card-hover: #f1f3f4;
   --w2-color-surface: #ffffff;
+  --w2-color-accordion: #f8f9f9;
   --w2-color-border: #dfe2e3;
-  --w2-color-border-soft: #eceff1;
+  --w2-color-border-strong: #d0d5da;
   --w2-color-pre-bg: #ffffff;
-  --w2-promo-fallback: #ddeee6;
-  --w2-promo-gradient: linear-gradient(270deg, #ceeee3 48%, #ffffff 100%);
-
-  --w2-tag-docx: #287ca9;
-  --w2-tag-xlsx: #3aa133;
-  --w2-tag-pptx: #ea723b;
-  --w2-tag-pdf: #e54d39;
+  --w2-promo-gradient: linear-gradient(90deg, #ffffff 0%, #f4fbf8 48%, #ceeee3 100%);
+  --w2-promo-border: #98dbc3;
 
   --w2-radius-btn: 3px;
   --w2-radius-card: 8px;
   --w2-radius-accordion: 12px;
   --w2-radius-badge: 3px;
+  --w2-radius-input: 3px;
+  --w2-radius-note: 6px;
+  --w2-radius-app-card: 12px;
 
   --w2-font: 'Open Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --w2-content-max: 1024px;
-  --w2-page-pad-y: 100px;
+  --w2-page-pad-y: 48px;
   --w2-page-pad-x: 20px;
   --w2-gap-section: 32px;
 }
@@ -200,17 +200,28 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 }
 
 .welcome2 .welcome2__desc {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--w2-color-text);
   font-size: 15px;
   line-height: 22px;
 }
 
+.welcome2 .welcome2__apps {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .welcome2 .welcome2__section-head {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 16px;
+  gap: 6px;
+}
+
+.welcome2 .welcome2__editors {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* ---- Buttons ------------------------------------------------------------- */
@@ -230,7 +241,6 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   white-space: nowrap;
   cursor: pointer;
   border: 1px solid transparent;
-  box-sizing: border-box;
   background-image: none;
   background-color: transparent;
   transition:
@@ -271,7 +281,7 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 .welcome2 .welcome2__btn--ghost-light:visited {
   background-color: #ffffff;
   color: var(--w2-color-heading);
-  border: 1px solid #d0d5da;
+  border: 1px solid var(--w2-color-border-strong);
 }
 .welcome2 .welcome2__btn--ghost-light:hover {
   border-color: var(--w2-color-primary);
@@ -286,13 +296,13 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   align-items: center;
   text-align: center;
   gap: 16px;
-  padding: 0 0 4px;
+  padding: 0;
 }
 
 .welcome2 .welcome2__logo {
-  height: 32px;
-  width: auto;
-  margin-bottom: 4px;
+  width: 319.1px;
+  height: 45px;
+  align-self: center;
 }
 
 .welcome2 .welcome2__hero-text {
@@ -307,7 +317,7 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   font-size: 23px;
   line-height: 28px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .welcome2 .welcome2__subtitle {
@@ -331,22 +341,23 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 12px;
-  padding: 24px 16px 16px;
+  padding: 24px 32px 16px;
   min-height: 172px;
-  background: var(--w2-color-card);
+  background: var(--w2-color-editor-card);
   border-radius: var(--w2-radius-card);
   color: var(--w2-color-heading);
   text-decoration: none;
   overflow: hidden;
+  isolation: isolate;
   transition:
     background-color 0.15s ease,
     transform 0.15s ease,
     box-shadow 0.15s ease;
 }
 .welcome2 .welcome2__editor-card:hover {
-  background: var(--w2-color-card-hover);
+  background: var(--w2-color-editor-card-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   color: var(--w2-color-heading);
@@ -354,15 +365,47 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 }
 
 .welcome2 .welcome2__editor-art {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  width: 100%;
-  height: 108px;
+  position: relative;
+  width: 108px;
+  height: 100px;
+  flex: 0 0 100px;
 }
-.welcome2 .welcome2__editor-art img {
-  width: 124px;
-  height: 116px;
+.welcome2 .welcome2__editor-paper {
+  width: 108px;
+  height: 100px;
+  display: block;
+}
+.welcome2 .welcome2__editor-badge {
+  position: absolute;
+  top: -12px;
+  left: -15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 6px;
+  color: #ffffff;
+  font-family: 'Segoe UI', system-ui, -apple-system, 'Open Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.welcome2 .welcome2__editor-badge--docx {
+  background: linear-gradient(135deg, #4298c5, #2d84b2);
+}
+.welcome2 .welcome2__editor-badge--xlsx {
+  background: linear-gradient(135deg, #5bb514, #318c2b);
+}
+.welcome2 .welcome2__editor-badge--pptx {
+  background: linear-gradient(135deg, #f4893a, #de7341);
+}
+.welcome2 .welcome2__editor-badge--pdf {
+  background: linear-gradient(135deg, #f36653, #d2402d);
 }
 
 .welcome2 .welcome2__editor-label {
@@ -373,48 +416,41 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   text-align: center;
 }
 
-/* Legacy tag class kept in case of reuse; not used in current markup */
-.welcome2 .welcome2__tag {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: var(--w2-radius-badge);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 16px;
-  color: #ffffff;
-  letter-spacing: 0.02em;
-}
-.welcome2 .welcome2__tag--docx {
-  background: var(--w2-tag-docx);
-}
-.welcome2 .welcome2__tag--xlsx {
-  background: var(--w2-tag-xlsx);
-}
-.welcome2 .welcome2__tag--pptx {
-  background: var(--w2-tag-pptx);
-}
-.welcome2 .welcome2__tag--pdf {
-  background: var(--w2-tag-pdf);
-}
-
 /* ---- Accordion ----------------------------------------------------------- */
 
 .welcome2 .welcome2__accordion {
-  background: var(--w2-color-accordion, #f9f9f9);
-  border: 1px solid var(--w2-color-border);
+  background: var(--w2-color-accordion);
   border-radius: var(--w2-radius-accordion);
-  padding: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .welcome2 .welcome2__accordion-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 20px 24px;
-  cursor: pointer;
+  gap: 24px;
+  padding: 0;
   list-style: none;
+  width: 100%;
+}
+.welcome2 details > .welcome2__accordion-head,
+.welcome2 button.welcome2__accordion-head {
+  cursor: pointer;
   user-select: none;
-  min-height: 60px;
+}
+.welcome2 button.welcome2__accordion-head {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.welcome2 .welcome2__accordion-head:focus-visible {
+  outline: 2px solid var(--w2-color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 .welcome2 .welcome2__accordion-head::-webkit-details-marker {
   display: none;
@@ -423,45 +459,100 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   content: '';
 }
 
+.welcome2 .welcome2__accordion-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.welcome2 .welcome2__accordion-head-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
 .welcome2 .welcome2__accordion-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 22px;
+  line-height: 24px;
   color: var(--w2-color-heading);
-  flex: 0 1 auto;
+}
+
+.welcome2 .welcome2__accordion-head-desc {
+  color: var(--w2-color-text);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 400;
 }
 
 .welcome2 .welcome2__chevron {
-  margin-left: auto;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   background-image: url('icon-chevron.svg');
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 14px 14px;
-  transform: rotate(-180deg);
-  transition: transform 0.15s ease;
-  flex: 0 0 auto;
-}
-.welcome2 details[open] > .welcome2__accordion-head .welcome2__chevron {
+  background-size: 16px 16px;
   transform: rotate(0deg);
+  transition: transform 0.15s ease;
+  flex: 0 0 16px;
+  align-self: center;
+}
+.welcome2 details[open] > .welcome2__accordion-head .welcome2__chevron,
+.welcome2 .welcome2__accordion-head[aria-expanded='true'] .welcome2__chevron {
+  transform: rotate(180deg);
 }
 
 .welcome2 .welcome2__accordion-body {
-  padding: 0 24px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.welcome2 .welcome2__accordion-body p {
-  margin: 0 0 12px;
+.welcome2 .welcome2__accordion-body > p {
+  margin: 0;
   color: var(--w2-color-text);
-}
-.welcome2 .welcome2__accordion-body p:last-child {
-  margin-bottom: 0;
+  font-size: 16px;
+  line-height: 22px;
 }
 
-/* ---- Command blocks + copy button --------------------------------------- */
+/* Default: when the accordion is closed the entire body collapses. */
+.welcome2 .welcome2__accordion-head[aria-expanded='false'] + .welcome2__accordion-body {
+  display: none;
+}
+
+/* For Test example, the body must stay visible when closed (it holds the
+   "Open test example" CTA which Figma shows in the closed state). Only the
+   .welcome2__accordion-extras subtree (commands + note) is hidden. */
+.welcome2 .welcome2__accordion.requires-test-example .welcome2__accordion-head[aria-expanded='false'] + .welcome2__accordion-body {
+  display: flex;
+}
+.welcome2 .welcome2__accordion.requires-test-example .welcome2__accordion-head[aria-expanded='false'] + .welcome2__accordion-body .welcome2__accordion-extras {
+  display: none;
+}
+
+.welcome2 .welcome2__accordion-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Closed-state header gets a slightly compact look on small screens. */
+.welcome2 .welcome2__section-head + .welcome2__promo-banner {
+  margin-top: 0;
+}
+
+/* ---- Command input blocks + copy button --------------------------------- */
+
+.welcome2 .welcome2__cmd-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
 .welcome2 .welcome2__field-label {
-  margin: 12px 0 4px;
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
   line-height: 20px;
@@ -470,14 +561,21 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 
 .welcome2 .welcome2__cmd {
   position: relative;
-  margin: 0 0 12px;
+  margin: 0;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 32px;
+  background: var(--w2-color-pre-bg);
+  border: 1px solid var(--w2-color-border-strong);
+  border-radius: var(--w2-radius-input);
 }
 .welcome2 .welcome2__cmd pre {
+  flex: 1 1 auto;
   margin: 0;
-  padding: 10px 48px 10px 14px;
-  background: var(--w2-color-pre-bg);
-  border: 1px solid var(--w2-color-border);
-  border-radius: 4px;
+  padding: 6px 40px 6px 8px;
+  background: transparent;
+  border: 0;
   font-family: 'Consolas', 'Menlo', 'Monaco', monospace;
   font-size: 13px;
   line-height: 20px;
@@ -488,25 +586,24 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 }
 .welcome2 .welcome2__copy {
   position: absolute;
-  top: 6px;
+  top: 50%;
   right: 6px;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
   border: 0;
-  background-color: var(--w2-color-pre-bg);
+  background-color: transparent;
   background-image: url('icon-copy.svg');
   background-repeat: no-repeat;
   background-position: center;
   background-size: 16px 16px;
   cursor: pointer;
   color: var(--w2-color-text);
-  box-shadow: -6px 0 6px var(--w2-color-pre-bg);
   transition: background-color 0.15s ease;
 }
 .welcome2 .welcome2__copy:hover {
-  background-color: var(--w2-color-card-hover);
-  box-shadow: -6px 0 6px var(--w2-color-card-hover);
+  background-color: rgba(0, 0, 0, 0.06);
 }
 .welcome2 .welcome2__copy.is-copied {
   background-image: url('icon-check.svg');
@@ -515,53 +612,57 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 /* ---- Test example CTA row ----------------------------------------------- */
 
 .welcome2 .welcome2__accordion-cta-row {
-  margin: 0 0 16px;
+  margin: 0;
 }
 
-/* ---- Note ---------------------------------------------------------------- */
+/* ---- Note (info block) -------------------------------------------------- */
 
 .welcome2 .welcome2__note {
-  margin-top: 16px;
-  padding: 12px 14px;
+  margin: 0;
+  padding: 12px 16px;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  border: 1px solid rgba(255, 138, 51, 0.4);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  border: 1px solid var(--w2-color-warn);
   background: var(--w2-color-warn-bg);
-  border-radius: 4px;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--w2-color-text);
+  border-radius: var(--w2-radius-note);
+}
+.welcome2 .welcome2__note-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--w2-color-heading);
 }
 .welcome2 .welcome2__note-icon {
   flex: 0 0 16px;
   width: 16px;
   height: 16px;
-  margin-top: 2px;
   background-image: url('icon-info.svg');
   background-repeat: no-repeat;
   background-position: center;
   background-size: 16px 16px;
 }
 .welcome2 .welcome2__note-body {
-  flex: 1 1 auto;
-}
-.welcome2 .welcome2__note strong {
-  color: var(--w2-color-heading);
-  margin-right: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--w2-color-text);
 }
 
 /* ---- Status badge -------------------------------------------------------- */
 
 .welcome2 .welcome2__status-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
   border-radius: var(--w2-radius-badge);
   font-size: 13px;
   font-weight: 400;
   line-height: 20px;
-  color: var(--w2-color-text);
+  color: var(--w2-color-unknown-fg);
   background: var(--w2-color-unknown-bg);
 }
 
@@ -574,23 +675,25 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   background: var(--w2-color-error-bg);
 }
 .welcome2 [data-example-state='unknown'] .welcome2__status-badge {
-  color: var(--w2-color-text);
+  color: var(--w2-color-unknown-fg);
   background: var(--w2-color-unknown-bg);
 }
 
 /* ---- Apps ---------------------------------------------------------------- */
 
 .welcome2 .welcome2__promo-banner {
-  background-color: var(--w2-promo-fallback);
+  position: relative;
+  background-color: #ddeee6;
   background-image: var(--w2-promo-gradient);
-  border-radius: var(--w2-radius-card);
-  padding: 24px 28px;
+  border: 1px solid var(--w2-promo-border);
+  border-radius: var(--w2-radius-app-card);
+  padding: 16px 20px;
   display: flex;
   flex-wrap: wrap;
   gap: 16px 24px;
   align-items: center;
   justify-content: space-between;
-  margin: 0 0 16px;
+  margin: 0;
 }
 
 .welcome2 .welcome2__promo-text {
@@ -598,7 +701,7 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .welcome2 .welcome2__promo-title {
@@ -606,18 +709,18 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   color: var(--w2-color-heading);
   font-size: 16px;
   line-height: 22px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .welcome2 .welcome2__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 16px;
 }
 .welcome2 .welcome2__chip {
-  padding: 2px 8px;
-  border-radius: 3px;
-  background: rgba(45, 179, 130, 0.12);
+  padding: 2px 6px;
+  border-radius: var(--w2-radius-badge);
+  background: var(--w2-color-success-bg);
   color: var(--w2-color-success);
   font-size: 13px;
   line-height: 20px;
@@ -633,12 +736,12 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 .welcome2 .welcome2__app-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 20px;
+  gap: 16px;
+  padding: 16px;
   background: var(--w2-color-surface);
-  border: 1px solid var(--w2-color-border);
-  border-radius: var(--w2-radius-accordion);
-  min-height: 168px;
+  border: 0.8px solid var(--w2-color-border);
+  border-radius: var(--w2-radius-app-card);
+  min-height: 158px;
 }
 
 .welcome2 .welcome2__app-icon {
@@ -647,33 +750,46 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   justify-content: center;
   width: 32px;
   height: 32px;
-  margin-bottom: 4px;
+  border-radius: 6px;
+  background: #eceef1;
 }
 .welcome2 .welcome2__app-icon img {
-  width: 32px;
-  height: 32px;
+  width: 16px;
+  height: 16px;
+}
+
+.welcome2 .welcome2__app-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .welcome2 .welcome2__app-title {
   color: var(--w2-color-heading);
   font-size: 14px;
-  line-height: 20px;
-  font-weight: 700;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.welcome2 .welcome2__app-text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
 }
 
 .welcome2 .welcome2__app-desc {
   color: var(--w2-color-text);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 400;
-  flex: 1 1 auto;
+  margin: 0;
 }
 
 .welcome2 .welcome2__app-card .welcome2__btn {
   align-self: flex-start;
-  padding: 4px 20px;
-  min-height: 28px;
-  min-width: 84px;
+  padding: 6px 28px;
+  min-height: 32px;
   font-size: 13px;
   line-height: 20px;
 }
@@ -683,32 +799,41 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 .welcome2 .welcome2__connector-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 4px 0 0;
+  gap: 16px;
+  margin: 0;
 }
 .welcome2 .welcome2__connector-grid li {
-  padding: 16px 16px;
+  padding: 20px;
   background: var(--w2-color-surface);
-  border: 1px solid var(--w2-color-border);
-  border-radius: var(--w2-radius-card);
+  border: 0.8px solid var(--w2-color-border);
+  border-radius: var(--w2-radius-app-card);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
   text-align: center;
+  min-height: 85.6px;
+}
+.welcome2 .welcome2__connector-grid li.welcome2__connector-more {
+  background: var(--w2-color-accordion);
 }
 .welcome2 .welcome2__connector-name {
   color: var(--w2-color-heading);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 16px;
   font-weight: 600;
 }
 .welcome2 .welcome2__connector-grid a {
-  color: var(--w2-color-primary);
+  color: var(--w2-color-link);
   font-size: 13px;
-  line-height: 20px;
-  font-weight: 400;
+  line-height: 15px;
+  font-weight: 600;
   text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 2px;
+}
+.welcome2 .welcome2__connector-grid a:hover {
+  color: var(--w2-color-link-hover);
 }
 
 /* ---- Build with ONLYOFFICE ---------------------------------------------- */
@@ -717,49 +842,48 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  margin: 4px 0 0;
+  margin: 0;
 }
 .welcome2 .welcome2__dev-grid li {
-  padding: 20px;
+  padding: 16px;
   background: var(--w2-color-surface);
   border: 1px solid var(--w2-color-border);
-  border-radius: var(--w2-radius-card);
+  border-radius: var(--w2-radius-app-card);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
+  min-height: 152px;
 }
 .welcome2 .welcome2__dev-title {
   color: var(--w2-color-heading);
   font-size: 14px;
-  line-height: 20px;
-  font-weight: 700;
+  line-height: 16px;
+  font-weight: 600;
+}
+.welcome2 .welcome2__dev-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .welcome2 .welcome2__dev-desc {
   color: var(--w2-color-text);
-  font-size: 13px;
-  line-height: 20px;
-  font-weight: 400;
-  flex: 1 1 auto;
-}
-.welcome2 .welcome2__dev-grid a {
-  color: var(--w2-color-primary);
-  font-size: 13px;
-  line-height: 20px;
-  font-weight: 400;
-  text-decoration: underline;
-  align-self: flex-start;
-}
-
-/* ---- Footer -------------------------------------------------------------- */
-
-.welcome2 .welcome2__footer {
-  max-width: var(--w2-content-max);
-  margin: 0 auto;
-  padding: 24px var(--w2-page-pad-x) 40px;
-  text-align: center;
-  color: var(--w2-color-muted);
   font-size: 12px;
   line-height: 16px;
+  font-weight: 400;
+  margin: 0;
+}
+.welcome2 .welcome2__dev-grid a {
+  color: var(--w2-color-link);
+  font-size: 13px;
+  line-height: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 2px;
+  align-self: flex-start;
+}
+.welcome2 .welcome2__dev-grid a:hover {
+  color: var(--w2-color-link-hover);
 }
 
 /* ---- Responsive ---------------------------------------------------------- */
@@ -776,7 +900,8 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 
 @media (max-width: 720px) {
   .welcome2 {
-    --w2-page-pad-y: 48px;
+    --w2-page-pad-y: 32px;
+    --w2-gap-section: 20px;
   }
   .welcome2 .welcome2__title {
     font-size: 20px;
@@ -795,29 +920,19 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
     grid-template-columns: 1fr;
   }
   .welcome2 .welcome2__promo-banner {
-    padding: 20px;
+    padding: 16px;
     align-items: flex-start;
   }
-  .welcome2 .welcome2__accordion-head {
-    flex-wrap: wrap;
-    padding: 16px 18px;
-    min-height: 0;
-  }
-  .welcome2 .welcome2__accordion-body {
-    padding: 0 18px 18px;
+  .welcome2 .welcome2__accordion {
+    padding: 12px;
+    gap: 12px;
   }
   .welcome2 .welcome2__status-badge {
     margin-left: 0;
   }
   .welcome2 .welcome2__cmd pre {
-    padding: 10px 44px 10px 12px;
+    padding: 6px 36px 6px 8px;
     font-size: 12px;
     line-height: 18px;
-  }
-  .welcome2 .welcome2__copy {
-    top: 5px;
-    right: 5px;
-    width: 26px;
-    height: 26px;
   }
 }
