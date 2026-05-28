@@ -386,7 +386,12 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   padding: 0 6px;
   border-radius: 6px;
   color: #ffffff;
-  font-family: 'Segoe UI', system-ui, -apple-system, 'Open Sans', sans-serif;
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    'Open Sans',
+    sans-serif;
   font-size: 16px;
   font-weight: 700;
   line-height: 1;
@@ -528,7 +533,11 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 .welcome2 .welcome2__accordion.requires-test-example .welcome2__accordion-head[aria-expanded='false'] + .welcome2__accordion-body {
   display: flex;
 }
-.welcome2 .welcome2__accordion.requires-test-example .welcome2__accordion-head[aria-expanded='false'] + .welcome2__accordion-body .welcome2__accordion-extras {
+.welcome2
+  .welcome2__accordion.requires-test-example
+  .welcome2__accordion-head[aria-expanded='false']
+  + .welcome2__accordion-body
+  .welcome2__accordion-extras {
   display: none;
 }
 
