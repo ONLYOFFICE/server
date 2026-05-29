@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ---------------------------------------------------------------------------
-// Config: schema key prefix → output file mapping
+// Config: schema key prefix -> output file mapping
 // Sorted longest-prefix-first so the most-specific entry wins.
 // ---------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ const path = require('path');
 // CoAuthoring sub-sections appear as a flat list right after External request (position 20),
 // matching the helpcenter layout.
 const PREFIX_FILE_MAP = [
-  // CoAuthoring sub-sections — flat list starting at position 21 (after External request)
+  // CoAuthoring sub-sections -- flat list starting at position 21 (after External request)
   {prefix: 'services.CoAuthoring', file: 'services.md', title: 'Document Server services', position: 21},
   {prefix: 'services.CoAuthoring.server', file: 'server.md', title: 'Server', position: 22},
   {prefix: 'services.CoAuthoring.editor', file: 'editor.md', title: 'Editor', position: 23},
@@ -201,35 +201,6 @@ function formatDefaultBadge(value) {
 }
 
 /**
- * Return Docusaurus admonitions for a parameter, or an empty string.
- *
- * Rules:
- *   :::warning  — schema has x-warning: true, OR last key segment contains "pass"/"secret"
- *                 (type must not be object)
- *   :::note     — schema has x-note field (exact text used as-is)
- */
-function getAdmonitions(param) {
-  const parts = [];
-  const lastSegment = param.key.split('.').pop().toLowerCase();
-
-  const warnExplicit = param.xWarning === true;
-  // Match the FULL last key segment — avoids false positives like "filenameSecret" or "bypass"
-  const warnHeuristic = param.docTypeRaw !== 'object' && /^(pass(word|phrase|s)?|secret(string|key|accesskey|s)?)$/i.test(lastSegment);
-
-  if (warnExplicit || warnHeuristic) {
-    parts.push(
-      ':::warning\n' + 'Do not store sensitive values in version control. ' + 'Consider using environment variables or a secrets manager.\n' + ':::'
-    );
-  }
-
-  if (param.xNote) {
-    parts.push(`:::note\n${param.xNote}\n:::`);
-  }
-
-  return parts.length ? parts.join('\n\n') + '\n\n' : '';
-}
-
-/**
  * Wrap a value at its dot-path prefix to produce a nested object.
  * E.g. ('services.CoAuthoring.redis', {...}) => {services:{CoAuthoring:{redis:{...}}}}
  */
@@ -243,31 +214,277 @@ function wrapAtPrefix(prefix, value) {
 }
 
 /**
- * Deep-merge source into target (objects only; arrays are replaced).
+ * Slugify a section title into a stable Docusaurus anchor.
+ * "AES-256-GCM algorithm" -> "aes-256-gcm-algorithm"
  */
-function deepMerge(target, source) {
-  const result = Object.assign({}, target);
-  for (const [k, v] of Object.entries(source)) {
-    if (v && typeof v === 'object' && !Array.isArray(v) && result[k] && typeof result[k] === 'object' && !Array.isArray(result[k])) {
-      result[k] = deepMerge(result[k], v);
-    } else {
-      result[k] = v;
-    }
-  }
-  return result;
+function sectionAnchor(text) {
+  return String(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// ---------------------------------------------------------------------------
+// Internal-link rewriting
+//
+// Schema descriptions were authored for the legacy multi-page layout and use
+// relative links like `./notification.md` or `./license.md#licensewarning_limit_percents`.
+// In single-page mode every section lives on server-config.mdx, so those links
+// must become same-page anchors:
+//   ./notification.md                              -> #notification        (section H2 anchor)
+//   ./storage.md                                   -> #document-storage-service
+//   ./license.md#licensewarning_limit_percents     -> #license.warning_limit_percents (APITable row anchor)
+//
+// Rewriting lives here (not in the schema) so the fix survives regeneration and
+// the schema descriptions stay layout-agnostic.
+// ---------------------------------------------------------------------------
+
+// Built in main() once allParams/PREFIX_FILE_MAP are known.
+let FILE_TO_ANCHOR = {};
+let OLD_SLUG_TO_KEY = {};
+
+/**
+ * Replicate the Docusaurus (GithubSlugger) id for a former `## <param.key>` heading.
+ * Lowercase, drop every char except [a-z0-9_-]; dots disappear, underscores survive.
+ * "license.warning_limit_percents" -> "licensewarning_limit_percents"
+ */
+function oldHeadingSlug(key) {
+  return String(key)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '');
 }
 
 /**
- * Determine if a param key is a child of an object-type entry.
- * Uses a pre-built Map<key, param> for O(1) parent lookups.
+ * Build the lookup tables used by rewriteInternalLinks().
  */
-function isChildOfObject(key, paramByKey) {
-  const parts = key.split('.');
-  for (let i = parts.length - 1; i >= 1; i--) {
-    const parent = paramByKey.get(parts.slice(0, i).join('.'));
-    if (parent && parent.docTypeRaw === 'object') return true;
+function buildLinkMaps(allParams) {
+  FILE_TO_ANCHOR = {};
+  for (const e of PREFIX_FILE_MAP) {
+    if (FILE_TO_ANCHOR[e.file]) continue; // first mapping wins (merged files are unused as link targets)
+    FILE_TO_ANCHOR[e.file] = sectionAnchor(e.subTitle || e.title);
   }
-  return false;
+  OLD_SLUG_TO_KEY = {};
+  for (const p of allParams) OLD_SLUG_TO_KEY[oldHeadingSlug(p.key)] = p.key;
+}
+
+/**
+ * Rewrite legacy `](./file.md[#frag])` links into same-page anchors.
+ * Fragment (a specific parameter) wins over the section file when both resolve.
+ * Unresolved links are left untouched so they surface as build warnings.
+ */
+function rewriteInternalLinks(text) {
+  if (!text) return text;
+  return String(text).replace(/\]\(\.\/([a-zA-Z0-9._-]+)\.md(?:#([a-zA-Z0-9_-]+))?\)/g, (m, file, frag) => {
+    if (frag && OLD_SLUG_TO_KEY[frag]) return `](#${OLD_SLUG_TO_KEY[frag]})`;
+    const sectionFile = `${file}.md`;
+    if (FILE_TO_ANCHOR[sectionFile]) return `](#${FILE_TO_ANCHOR[sectionFile]})`;
+    return m;
+  });
+}
+
+/**
+ * Escape a string for placement inside a single Markdown table cell.
+ * Pipes are escaped; newlines collapsed into <br/>.
+ * Inline Markdown (code spans, links, bold) is preserved.
+ */
+function escapeTableCell(value) {
+  if (value == null) return '';
+  let s = String(value);
+  s = s.replace(/\r\n/g, '\n');
+  s = s.replace(/\|/g, '\\|');
+  s = s.replace(/\n+/g, '<br/>');
+  return s;
+}
+
+/**
+ * Build a single-cell description for the server-config.mdx page.
+ * Appends admonitions inline as **Warning:** / **Note:** blocks.
+ */
+function descriptionForTable(param) {
+  let desc = escapeTableCell(rewriteInternalLinks((param.description || '').trim()));
+
+  const adm = [];
+  const lastSegment = param.key.split('.').pop().toLowerCase();
+  const warnExplicit = param.xWarning === true;
+  const warnHeuristic = param.docTypeRaw !== 'object' && /^(pass(word|phrase|s)?|secret(string|key|accesskey|s)?)$/i.test(lastSegment);
+  if (warnExplicit || warnHeuristic) {
+    adm.push('**Warning:** Do not store sensitive values in version control. Consider using environment variables or a secrets manager.');
+  }
+  if (param.xNote) {
+    adm.push(`**Note:** ${escapeTableCell(rewriteInternalLinks(param.xNote))}`);
+  }
+  if (adm.length) {
+    if (desc) desc += '<br/><br/>';
+    desc += adm.join('<br/><br/>');
+  }
+  return desc;
+}
+
+/**
+ * Build a flat ordered list of sections (one entry per group) for the
+ * server-config.mdx page. Each entry: {heading, position, group, mappingPrefix}.
+ *
+ * Sections are sorted by PREFIX_FILE_MAP `position`, then heading text.
+ * For merged files (e.g. security.md), each subTitle becomes its own section.
+ */
+function buildOrderedSections(fileGroups) {
+  const sections = [];
+  for (const [fileKey, groups] of Object.entries(fileGroups)) {
+    for (const group of groups) {
+      const entry = PREFIX_FILE_MAP.find(e => {
+        const eKey = e.subDir ? `${e.subDir}/${e.file}` : e.file;
+        return eKey === fileKey && (group.subTitle ? e.subTitle === group.subTitle : !e.subTitle);
+      });
+      const position = entry && entry.position != null ? entry.position : 99;
+      const heading = group.subTitle || group.title;
+      sections.push({heading, position, group, mappingPrefix: group.mappingPrefix});
+    }
+  }
+  sections.sort((a, b) => a.position - b.position || a.heading.localeCompare(b.heading));
+  return sections;
+}
+
+/**
+ * Resolve type/default badge string for a param the same way per-file output does.
+ * Returns null when the default value cannot be shown inline.
+ */
+function resolveDefaultBadge(param, defaultConfig) {
+  if (param.docTypeRaw === 'object') return null;
+  const real = resolvePath(defaultConfig, param.key);
+  const effective = real !== undefined ? real : param.defaultValue;
+  return formatDefaultBadge(effective);
+}
+
+/**
+ * Build a JSON example for one reference-table section. The example uses the
+ * same data as the old per-section pages: default.json value wrapped at the
+ * documented schema prefix. Large examples are omitted as before.
+ */
+function buildSectionExample(group, defaultConfig) {
+  const val = resolvePath(defaultConfig, group.mappingPrefix);
+  if (val === undefined || val === null) return null;
+  const wrapped = wrapAtPrefix(group.mappingPrefix, val);
+  const json = JSON.stringify(wrapped, null, 2);
+  return json.length <= 3000 ? json : null;
+}
+
+/**
+ * Static Introduction body, lifted verbatim from the former intro.md. Wrapped
+ * under `## Introduction` inside server-config.mdx instead of being a
+ * separate page.
+ */
+const INTRO_BODY = [
+  'To change any ONLYOFFICE Docs server settings, configure the corresponding parameter in the **ONLYOFFICE Docs** configuration file, which can be found at the following path:',
+  '',
+  '- For Linux: `/etc/onlyoffice/documentserver/default.json`',
+  '- For Windows: `%ProgramFiles%\\ONLYOFFICE\\DocumentServer\\config\\default.json`',
+  '',
+  'If you want to change it, you can use the `local.json` file, where all the edited parameters should be stored. This file is located in the same directory as the `default.json` file, and the whole object structure for the necessary parameter must be retained.',
+  '',
+  ':::warning',
+  'Please do not edit the contents of the `default.json` file directly. The default values will be restored each time you restart Docker container or upgrade **ONLYOFFICE Docs** to a new version, and all your changes will be lost.',
+  ':::'
+].join('\n');
+
+/**
+ * Wipe everything inside outDir before writing the new single-page output.
+ * Guarantees the workflow's `git add .` in api.onlyoffice.com commits deletions
+ * for every per-section file from the legacy multi-page layout.
+ */
+function sweepOutDir(outDir) {
+  if (!fs.existsSync(outDir)) return;
+  for (const name of fs.readdirSync(outDir)) {
+    fs.rmSync(path.join(outDir, name), {recursive: true, force: true});
+  }
+}
+
+/**
+ * Write server-config.mdx: one long page, ## per section, APITable wrapping
+ * a 4-column Markdown table per section. Param key in the first column drives
+ * the row anchor produced by the APITable component.
+ */
+function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultConfig, introBody, scopeMap) {
+  const lines = [];
+  let totalParamsWritten = 0;
+  let paramsWithScope = 0;
+
+  // No sidebar_label / sidebar_position here: this file is the category index
+  // for the server-config folder, so the single sidebar item's label and position
+  // come from _category_.json. That collapses the redundant "Server configuration"
+  // > "Server configuration reference" nesting into one clickable item.
+  //
+  // The file MUST be named after its parent folder (server-config.mdx), not
+  // index.mdx: api.onlyoffice.com's docusaurus.config.ts customizes
+  // sidebarItemsGenerator to exclude `index` from the category-index convention
+  // (`if (params.fileName.toLowerCase() === 'index') return false`). The
+  // folder-name convention is not excluded and is already used elsewhere in that
+  // repo (e.g. command-service/command-service.md).
+  lines.push('---');
+  lines.push('title: Server configuration reference');
+  lines.push('toc_min_heading_level: 2');
+  lines.push('toc_max_heading_level: 2');
+  lines.push('pagination_prev: null');
+  lines.push('pagination_next: null');
+  lines.push('---');
+  lines.push('');
+  lines.push('# Server configuration reference');
+  lines.push('');
+  lines.push('```mdx-code-block');
+  lines.push("import APITable from '@site/src/components/APITable/APITable';");
+  lines.push('```');
+  lines.push('');
+  lines.push('## Introduction {#introduction}');
+  lines.push('');
+  lines.push(introBody.trim());
+  lines.push('');
+
+  for (const section of orderedSections) {
+    const anchor = sectionAnchor(section.heading);
+    lines.push(`## ${section.heading} {#${anchor}}`);
+    lines.push('');
+    if (sectionIntroMap[section.mappingPrefix]) {
+      lines.push(rewriteInternalLinks(sectionIntroMap[section.mappingPrefix]));
+      lines.push('');
+    }
+
+    lines.push('```mdx-code-block');
+    lines.push('<APITable>');
+    lines.push('```');
+    lines.push('');
+    lines.push('| Parameter | Type | Default | Description |');
+    lines.push('|-----------|------|---------|-------------|');
+    for (const param of section.group.params) {
+      const badge = resolveDefaultBadge(param, defaultConfig);
+      // Parameter and Type are plain text per the convention used in
+      // adding-a-dms-provider.md / callback-handler.md / conversion-api/*.
+      // Default keeps backticks because it's an actual literal value.
+      const paramCell = param.key;
+      const typeCell = param.docTypeRaw;
+      const defaultCell = badge !== null ? `\`${badge}\`` : '';
+      const descCell = descriptionForTable(param);
+      lines.push(`| ${paramCell} | ${typeCell} | ${defaultCell} | ${descCell} |`);
+      totalParamsWritten++;
+      if (scopeMap[param.key]) paramsWithScope++;
+    }
+    lines.push('');
+    lines.push('```mdx-code-block');
+    lines.push('</APITable>');
+    lines.push('```');
+    lines.push('');
+
+    const example = buildSectionExample(section.group, defaultConfig);
+    if (example) {
+      lines.push(`### Example {#${anchor}-example}`);
+      lines.push('');
+      lines.push('```json');
+      lines.push(example);
+      lines.push('```');
+      lines.push('');
+    }
+  }
+
+  fs.writeFileSync(path.join(outDir, 'server-config.mdx'), lines.join('\n'));
+  return {totalParamsWritten, paramsWithScope};
 }
 
 // ---------------------------------------------------------------------------
@@ -277,10 +494,19 @@ function isChildOfObject(key, paramByKey) {
 function main() {
   const args = process.argv.slice(2);
   let outDir = path.join(__dirname, '..', 'docs-output');
+  let sectionFilter = null; // null = all sections; otherwise Set of accepted anchors
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--out' && args[i + 1]) {
       outDir = path.resolve(args[i + 1]);
+      i++;
+    } else if (args[i] === '--sections' && args[i + 1]) {
+      sectionFilter = new Set(
+        args[i + 1]
+          .split(',')
+          .map(s => sectionAnchor(s.trim()))
+          .filter(Boolean)
+      );
       i++;
     }
   }
@@ -295,6 +521,9 @@ function main() {
   const allParams = [];
   walkSchema(schema, '', allParams);
 
+  // Build lookup tables for rewriting legacy per-section links to same-page anchors.
+  buildLinkMaps(allParams);
+
   // Build scope lookup
   const scopeMap = {};
   collectScopes(schema, '', scopeMap);
@@ -305,7 +534,7 @@ function main() {
   const schemaKeySet = new Set(allParams.map(p => p.key));
 
   // Group params by output file, then by merge group within that file
-  // fileGroups: file → Map<groupKey, {title, mergeOrder, subTitle, params: []}>
+  // fileGroups: file -> Map<groupKey, {title, mergeOrder, subTitle, params: []}>
   const fileGroupMaps = {};
   const unmappedKeys = [];
 
@@ -332,7 +561,7 @@ function main() {
     fileGroups[file] = [...groupMap.values()].sort((a, b) => a.mergeOrder - b.mergeOrder);
   }
 
-  // Build section intro map: schema-prefix → x-section-intro text
+  // Build section intro map: schema-prefix -> x-section-intro text
   // Keyed by prefix so merged files (security.md) get per-group intros under each sub-heading
   const sectionIntroMap = {};
   for (const entry of PREFIX_FILE_MAP) {
@@ -346,7 +575,7 @@ function main() {
 
   // Remove section-root nodes that have children in the same group.
   // These are object nodes from the Copy schema whose descriptions bloat the output
-  // (e.g. a `rabbitmq` root node above the `rabbitmq.url`, `rabbitmq.socketOptions`, … entries).
+  // (e.g. a `rabbitmq` root node above the `rabbitmq.url`, `rabbitmq.socketOptions`, ... entries).
   // Exception: keep the root when it is the ONLY param (e.g. services.CoAuthoring in services.md).
   for (const groups of Object.values(fileGroups)) {
     for (const group of groups) {
@@ -358,173 +587,43 @@ function main() {
     }
   }
 
-  // Create output directory
+  // Single-page mode: wipe outDir completely so deletions of the legacy
+  // per-section files (rabbitmq.md, intro.md, _category_.json, services/, ...)
+  // make it into the api.onlyoffice.com commit via the workflow's `git add .`.
+  sweepOutDir(outDir);
   fs.mkdirSync(outDir, {recursive: true});
 
-  // Remove legacy directories from old structures
-  for (const legacyDir of ['services', 'coauthoring']) {
-    const p = path.join(outDir, legacyDir);
-    if (fs.existsSync(p)) fs.rmSync(p, {recursive: true, force: true});
+  // Build the ordered section list for the single reference page. Docusaurus'
+  // right-side "On this page" TOC provides section navigation from these H2s.
+  let orderedSections = buildOrderedSections(fileGroups);
+  if (sectionFilter) {
+    const before = orderedSections.length;
+    orderedSections = orderedSections.filter(s => sectionFilter.has(sectionAnchor(s.heading)));
+    const missing = [...sectionFilter].filter(req => !orderedSections.some(s => sectionAnchor(s.heading) === req));
+    console.log(`Section filter: kept ${orderedSections.length}/${before} sections`);
+    if (missing.length) console.log(`  Unknown sections (ignored): ${missing.join(', ')}`);
   }
 
-  // Clean up old flat files that now live in a subdirectory
-  const movedToSubDir = new Set();
-  for (const entry of PREFIX_FILE_MAP) {
-    if (entry.subDir) movedToSubDir.add(entry.file);
-  }
-  for (const fname of movedToSubDir) {
-    const oldPath = path.join(outDir, fname);
-    if (fs.existsSync(oldPath)) {
-      try {
-        fs.unlinkSync(oldPath);
-      } catch (_) {
-        /* file may not exist */
-      }
-    }
-  }
+  // The single content page.
+  const tableStats = writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultConfig, INTRO_BODY, scopeMap);
+  const totalParamsWritten = tableStats.totalParamsWritten;
+  const paramsWithScope = tableStats.paramsWithScope;
 
-  // Write root _category_.json
-  fs.writeFileSync(path.join(outDir, '_category_.json'), JSON.stringify({label: 'Server configuration', position: 1}, null, 2) + '\n');
+  // server-config.mdx is the category index for the server-config folder, so the folder
+  // collapses into a single clickable sidebar item. This label and position
+  // drive that one item (the doc's own sidebar_label/position are intentionally
+  // omitted). Avoids the redundant "Server configuration" > "Server
+  // configuration reference" two-level nesting.
+  fs.writeFileSync(path.join(outDir, '_category_.json'), JSON.stringify({label: 'Server configuration reference', position: 1}, null, 2) + '\n');
 
-  // Create _category_.json files for each subdirectory
-  const subDirCategories = new Map();
-  for (const entry of PREFIX_FILE_MAP) {
-    if (entry.subDir && entry.categoryLabel && !subDirCategories.has(entry.subDir)) {
-      subDirCategories.set(entry.subDir, {label: entry.categoryLabel, position: entry.categoryPosition || 99});
-    }
-  }
-  for (const [subDir, cat] of subDirCategories) {
-    const subDirPath = path.join(outDir, subDir);
-    fs.mkdirSync(subDirPath, {recursive: true});
-    fs.writeFileSync(path.join(subDirPath, '_category_.json'), JSON.stringify({label: cat.label, position: cat.position}, null, 2) + '\n');
-  }
-
-  // Write static intro page (position 1 — always first in sidebar)
-  const introContent = `---
-sidebar_position: 1
----
-
-# Introduction
-
-To change any ONLYOFFICE Docs server settings, configure the corresponding parameter in the **ONLYOFFICE Docs** configuration file, which can be found at the following path:
-
-- For Linux: \`/etc/onlyoffice/documentserver/default.json\`
-- For Windows: \`%ProgramFiles%\\ONLYOFFICE\\DocumentServer\\config\\default.json\`
-
-If you want to change it, you can use the \`local.json\` file, where all the edited parameters should be stored. This file is located in the same directory as the \`default.json\` file, and the whole object structure for the necessary parameter must be retained.
-
-:::warning
-Please do not edit the contents of the \`default.json\` file directly. The default values will be restored each time you restart Docker container or upgrade **ONLYOFFICE Docs** to a new version, and all your changes will be lost.
-:::
-`;
-  fs.writeFileSync(path.join(outDir, 'intro.md'), introContent);
-
-  let filesGenerated = 0;
-  let totalParamsWritten = 0;
-  let paramsWithScope = 0;
-
-  // Assign sidebar_position from PREFIX_FILE_MAP position field (min when file has multiple entries)
-  const filePositions = {};
-  for (const [fileKey, groups] of Object.entries(fileGroups)) {
-    const positions = groups.map(g => {
-      const entry = PREFIX_FILE_MAP.find(e => {
-        const eKey = e.subDir ? `${e.subDir}/${e.file}` : e.file;
-        return eKey === fileKey && (g.subTitle ? e.subTitle === g.subTitle : !e.subTitle);
-      });
-      return entry && entry.position != null ? entry.position : 99;
-    });
-    filePositions[fileKey] = Math.min(...positions);
-  }
-
-  // Generate each file
-  for (const [fileKey, groups] of Object.entries(fileGroups)) {
-    const isMerged = groups.length > 1;
-    const title = groups[0].title;
-    const pos = filePositions[fileKey] || 1;
-
-    const outPath = path.join(outDir, fileKey);
-    fs.mkdirSync(path.dirname(outPath), {recursive: true});
-    const stream = fs.createWriteStream(outPath, {encoding: 'utf8'});
-    const w = s => stream.write(s);
-
-    w(`---\nsidebar_position: ${pos}\n---\n\n`);
-    w(`# ${title}\n\n`);
-    // For single-group files, write the section intro after the page title
-    if (!isMerged && sectionIntroMap[groups[0].mappingPrefix]) {
-      w(sectionIntroMap[groups[0].mappingPrefix] + '\n\n');
-    }
-
-    for (const group of groups) {
-      const params = group.params;
-      // Build lookup map once per group for O(1) parent resolution
-      const paramByKey = new Map(params.map(p => [p.key, p]));
-
-      if (isMerged && group.subTitle) {
-        w(`## ${group.subTitle}\n\n`);
-        // For merged files, write each group's intro after its sub-heading
-        if (sectionIntroMap[group.mappingPrefix]) {
-          w(sectionIntroMap[group.mappingPrefix] + '\n\n');
-        }
-      }
-
-      for (const param of params) {
-        const child = isChildOfObject(param.key, paramByKey);
-        const headingLevel = isMerged && group.subTitle ? (child ? '####' : '###') : child ? '###' : '##';
-
-        const scope = scopeMap[param.key];
-
-        const realDefault = resolvePath(defaultConfig, param.key);
-        const effectiveDefault = realDefault !== undefined ? realDefault : param.defaultValue;
-
-        const defaultBadge = param.docTypeRaw !== 'object' ? formatDefaultBadge(effectiveDefault) : null;
-        const desc = (param.description || '').trim();
-
-        w(`${headingLevel} ${param.key}\n\n`);
-        if (defaultBadge !== null) {
-          w(`**type:** \`${param.docTypeRaw}\` | **default:** \`${defaultBadge}\`\n\n`);
-        } else {
-          w(`**type:** \`${param.docTypeRaw}\`\n\n`);
-        }
-        w(`${desc}\n\n`);
-        w(getAdmonitions(param));
-
-        totalParamsWritten++;
-        if (scope) paramsWithScope++;
-      }
-    }
-
-    // Section-level JSON example block — built from default.json values for each group's prefix.
-    // Groups are merged into one JSON object (deep-merge), then wrapped at their dot-path.
-    // Skipped when the resolved value is undefined or produces JSON > 3000 chars (too large to be useful).
-    let exampleObj = {};
-    let hasExample = false;
-    for (const group of groups) {
-      const val = resolvePath(defaultConfig, group.mappingPrefix);
-      if (val === undefined || val === null) continue;
-      const wrapped = wrapAtPrefix(group.mappingPrefix, val);
-      exampleObj = deepMerge(exampleObj, wrapped);
-      hasExample = true;
-    }
-    if (hasExample) {
-      const json = JSON.stringify(exampleObj, null, 2);
-      if (json.length <= 3000) {
-        w(`## Example\n\n`);
-        w('```json\n');
-        w(json + '\n');
-        w('```\n\n');
-      }
-    }
-
-    stream.end();
-    filesGenerated++;
-  }
+  const filesGenerated = 2; // server-config.mdx + _category_.json
 
   // Report: gaps between default.json and schema docs
   const inDefaultNotInSchema = defaultLeafKeys.filter(k => !schemaKeySet.has(k));
   const inSchemaNotInDefault = allParams.filter(p => resolvePath(defaultConfig, p.key) === undefined).map(p => p.key);
 
   // Report: default value mismatches (schema default vs default.json)
-  // Skips object-type params — their JSON.stringify comparison is order-sensitive and noisy.
+  // Skips object-type params -- their JSON.stringify comparison is order-sensitive and noisy.
   const defaultMismatches = [];
   for (const param of allParams) {
     if (param.defaultValue === undefined) continue;
