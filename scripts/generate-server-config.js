@@ -420,14 +420,14 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
   // folder-name convention is not excluded and is already used elsewhere in that
   // repo (e.g. command-service/command-service.md).
   lines.push('---');
-  lines.push('title: Server configuration reference');
+  lines.push('title: Server configuration');
   lines.push('toc_min_heading_level: 2');
   lines.push('toc_max_heading_level: 2');
   lines.push('pagination_prev: null');
   lines.push('pagination_next: null');
   lines.push('---');
   lines.push('');
-  lines.push('# Server configuration reference');
+  lines.push('# Server configuration');
   lines.push('');
   lines.push('```mdx-code-block');
   lines.push("import APITable from '@site/src/components/APITable/APITable';");
@@ -614,7 +614,7 @@ function main() {
   // drive that one item (the doc's own sidebar_label/position are intentionally
   // omitted). Avoids the redundant "Server configuration" > "Server
   // configuration reference" two-level nesting.
-  fs.writeFileSync(path.join(outDir, '_category_.json'), JSON.stringify({label: 'Server configuration reference', position: 1}, null, 2) + '\n');
+  fs.writeFileSync(path.join(outDir, '_category_.json'), JSON.stringify({label: 'Server configuration', position: 1}, null, 2) + '\n');
 
   const filesGenerated = 2; // server-config.mdx + _category_.json
 
