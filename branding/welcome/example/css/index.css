@@ -51,10 +51,15 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   --w2-color-heading: #333333;
   --w2-color-text: #555f65;
   --w2-color-primary: #5299e0;
-  --w2-color-primary-hover: #3f84cb;
+  /* DocSpace UI Kit button states: hover = primary @ 85%, pressed = +10% black overlay, disabled = primary @ 60%. */
+  --w2-color-primary-hover: rgba(82, 153, 224, 0.85);
+  --w2-color-primary-pressed: linear-gradient(0deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), #5299e0;
+  --w2-color-primary-disabled: rgba(82, 153, 224, 0.6);
   --w2-color-primary-text: #ffffff;
   --w2-color-link: #4781d1;
   --w2-color-link-hover: #3568b8;
+  /* DocSpace "accent color/hover": link @ 85%, used on documentation card hover. */
+  --w2-color-link-hover-soft: rgba(71, 129, 209, 0.85);
   --w2-color-success: #35ad17;
   --w2-color-success-bg: rgba(53, 173, 23, 0.1);
   --w2-color-warn: #ed7309;
@@ -64,7 +69,14 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   --w2-color-unknown-fg: #555f65;
   --w2-color-unknown-bg: #eceef1;
   --w2-color-editor-card: #f9f9f9;
-  --w2-color-editor-card-hover: #f1f3f4;
+  --w2-color-editor-card-hover: #f3f4f4;
+  /* DocSpace card hovers: apps = gray/light, connectors + documentation = gray/light-hover. */
+  --w2-color-app-card-hover: #f8f9f9;
+  --w2-color-card-hover: #f3f4f4;
+  /* DocSpace secondary button pressed fill (gray/mid). */
+  --w2-color-btn-pressed-bg: #eceef1;
+  /* DocSpace "Blackout" token: dimming behind modal dialogs (feedback #12). */
+  --w2-color-blackout: rgba(6, 22, 38, 0.2);
   --w2-color-surface: #ffffff;
   --w2-color-accordion: #f8f9f9;
   --w2-color-border: #dfe2e3;
@@ -257,6 +269,10 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 .welcome2 .welcome2__btn:hover {
   text-decoration: none;
 }
+.welcome2 .welcome2__btn:focus-visible {
+  outline: 2px solid var(--w2-color-primary);
+  outline-offset: 2px;
+}
 
 .welcome2 .welcome2__btn--primary,
 .welcome2 .welcome2__btn--primary:visited {
@@ -269,7 +285,22 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   border-color: var(--w2-color-primary-hover);
   color: var(--w2-color-primary-text);
 }
+.welcome2 .welcome2__btn--primary:active {
+  background: var(--w2-color-primary-pressed);
+  border-color: var(--w2-color-primary);
+  color: var(--w2-color-primary-text);
+}
+.welcome2 .welcome2__btn--primary:disabled,
+.welcome2 .welcome2__btn--primary[disabled],
+.welcome2 .welcome2__btn--primary[aria-disabled='true'] {
+  background-color: var(--w2-color-primary-disabled);
+  border-color: var(--w2-color-primary-disabled);
+  color: var(--w2-color-primary-text);
+  cursor: default;
+  pointer-events: none;
+}
 
+/* Secondary (ghost on light): hover keeps text dark, only the border turns blue. */
 .welcome2 .welcome2__btn--ghost-light,
 .welcome2 .welcome2__btn--ghost-light:visited {
   background-color: #ffffff;
@@ -277,16 +308,32 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   border: 1px solid var(--w2-color-border-strong);
 }
 .welcome2 .welcome2__btn--ghost-light:hover {
+  background-color: #ffffff;
   border-color: var(--w2-color-primary);
-  color: var(--w2-color-primary);
+  color: var(--w2-color-heading);
+}
+.welcome2 .welcome2__btn--ghost-light:active {
+  background-color: var(--w2-color-btn-pressed-bg);
+  border-color: var(--w2-color-border-strong);
+  color: var(--w2-color-heading);
+}
+.welcome2 .welcome2__btn--ghost-light:disabled,
+.welcome2 .welcome2__btn--ghost-light[disabled],
+.welcome2 .welcome2__btn--ghost-light[aria-disabled='true'] {
+  background-color: #f8f9f9; /* gray/light */
+  border-color: #eceef1; /* gray/mid */
+  color: var(--w2-color-heading);
+  cursor: default;
+  pointer-events: none;
 }
 
+/* GitHub button = secondary button + 16px octocat; inherits the base 6px 28px
+   padding to match the mockup width (feedback #8). */
 .welcome2 .welcome2__btn--with-icon {
   gap: 8px;
-  padding: 6px 16px;
 }
 .welcome2 .welcome2__btn-icon {
-  width: 17px;
+  width: 16px;
   height: 16px;
   display: block;
 }
@@ -424,17 +471,18 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   text-decoration: none;
   overflow: hidden;
   isolation: isolate;
-  transition:
-    background-color 0.15s ease,
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: background-color 0.15s ease;
 }
+/* Flat hover to match the desktop editor start page: background highlight only,
+   no lift or drop shadow (designer feedback #2). */
 .welcome2 .welcome2__editor-card:hover {
   background: var(--w2-color-editor-card-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   color: var(--w2-color-heading);
   text-decoration: none;
+}
+.welcome2 .welcome2__editor-card:focus-visible {
+  outline: 2px solid var(--w2-color-primary);
+  outline-offset: -2px;
 }
 
 .welcome2 .welcome2__editor-art {
@@ -499,17 +547,19 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 .welcome2 .welcome2__accordion {
   background: var(--w2-color-accordion);
   border-radius: var(--w2-radius-accordion);
-  padding: 24px;
+  /* Padding lives on the head/body so the entire header card is the click target. */
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
 }
 
+/* The head button fills the whole card (edge to edge) so a click anywhere on the
+   header region - including the former section padding - toggles the accordion. */
 .welcome2 .welcome2__accordion-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 24px;
-  padding: 0;
+  padding: 24px;
   list-style: none;
   width: 100%;
 }
@@ -526,8 +576,8 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 }
 .welcome2 .welcome2__accordion-head:focus-visible {
   outline: 2px solid var(--w2-color-primary);
-  outline-offset: 2px;
-  border-radius: 4px;
+  outline-offset: -2px;
+  border-radius: var(--w2-radius-accordion);
 }
 
 .welcome2 .welcome2__accordion-head-text {
@@ -561,7 +611,8 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 
 .welcome2 .welcome2__chevron {
   width: 16px;
-  height: 16px;
+  /* Box matches the title line-height so the 16px glyph centers on the heading (feedback #5). */
+  height: 24px;
   background-image: url('icon-chevron.svg');
   background-repeat: no-repeat;
   background-position: center;
@@ -569,7 +620,7 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   transform: rotate(0deg);
   transition: transform 0.15s ease;
   flex: 0 0 16px;
-  align-self: center;
+  align-self: flex-start;
 }
 .welcome2 .welcome2__accordion-head[aria-expanded='true'] .welcome2__chevron {
   transform: rotate(180deg);
@@ -579,6 +630,8 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* Matches the head's side/bottom padding now that the section padding is 0. */
+  padding: 0 24px 24px;
 }
 
 /* Default: when the accordion is closed the entire body collapses. */
@@ -740,6 +793,7 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 }
 
 .welcome2 .welcome2__app-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -748,6 +802,12 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   border: 1px solid var(--w2-color-border);
   border-radius: var(--w2-radius-app-card);
   min-height: 108px;
+  /* Whole card is the click target (feedback #4); modal wiring follows in #7. */
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.welcome2 .welcome2__app-card:hover {
+  background: var(--w2-color-app-card-hover);
 }
 
 .welcome2 .welcome2__app-icon {
@@ -795,9 +855,10 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   margin: 0;
 }
 .welcome2 .welcome2__connector-grid li {
+  position: relative;
   padding: 20px;
   background: var(--w2-color-surface);
-  border: 0.8px solid var(--w2-color-border);
+  border: 1px solid var(--w2-color-border);
   border-radius: var(--w2-radius-app-card);
   display: flex;
   flex-direction: column;
@@ -805,9 +866,16 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   align-items: center;
   text-align: center;
   min-height: 85.6px;
+  transition: background-color 0.15s ease;
+}
+.welcome2 .welcome2__connector-grid li:hover {
+  background: var(--w2-color-card-hover);
 }
 .welcome2 .welcome2__connector-grid li.welcome2__connector-more {
   background: var(--w2-color-accordion);
+}
+.welcome2 .welcome2__connector-grid li.welcome2__connector-more:hover {
+  background: var(--w2-color-card-hover);
 }
 .welcome2 .welcome2__connector-name {
   color: var(--w2-color-heading);
@@ -822,9 +890,21 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   font-weight: 600;
   text-decoration: none;
 }
+/* Stretch the single link over the whole card so the entire card is clickable. */
+.welcome2 .welcome2__connector-grid a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--w2-radius-app-card);
+}
+.welcome2 .welcome2__connector-grid li:hover a,
 .welcome2 .welcome2__connector-grid a:hover {
-  color: var(--w2-color-link-hover);
-  text-decoration: underline;
+  color: var(--w2-color-link);
+  text-decoration: none;
+}
+.welcome2 .welcome2__connector-grid a:focus-visible::after {
+  outline: 2px solid var(--w2-color-primary);
+  outline-offset: -2px;
 }
 
 /* ---- Build with ONLYOFFICE ---------------------------------------------- */
@@ -836,6 +916,7 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   margin: 0;
 }
 .welcome2 .welcome2__dev-grid li {
+  position: relative;
   padding: 16px;
   background: var(--w2-color-surface);
   border: 1px solid var(--w2-color-border);
@@ -844,6 +925,10 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   flex-direction: column;
   gap: 16px;
   min-height: 152px;
+  transition: background-color 0.15s ease;
+}
+.welcome2 .welcome2__dev-grid li:hover {
+  background: var(--w2-color-card-hover);
 }
 .welcome2 .welcome2__dev-title {
   color: var(--w2-color-heading);
@@ -870,10 +955,42 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   font-weight: 600;
   text-decoration: none;
   align-self: flex-start;
+  /* Pin to the card bottom so links line up across cards (feedback #6). */
+  margin-top: auto;
 }
+/* Stretch the single link over the whole card so the entire card is clickable. */
+.welcome2 .welcome2__dev-grid a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--w2-radius-app-card);
+}
+.welcome2 .welcome2__dev-grid li:hover a,
 .welcome2 .welcome2__dev-grid a:hover {
-  color: var(--w2-color-link-hover);
-  text-decoration: underline;
+  color: var(--w2-color-link-hover-soft);
+  text-decoration: none;
+}
+.welcome2 .welcome2__dev-grid a:focus-visible::after {
+  outline: 2px solid var(--w2-color-primary);
+  outline-offset: -2px;
+}
+
+/* ---- Modal backdrop (shared dimming for dialogs; feedback #12) ----------- */
+
+/* Reusable overlay for the upcoming modal dialogs (Apps / test-example /
+   admin-panel). A dialog mounts inside it; toggling [hidden] shows/hides. */
+.welcome2 .welcome2__overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--w2-color-blackout);
+  z-index: 1000;
+}
+.welcome2 .welcome2__overlay[hidden] {
+  display: none;
 }
 
 /* ---- Footer (document-flow block, NOT fixed/sticky) --------------------- */
@@ -1006,9 +1123,11 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   .welcome2 .welcome2__dev-grid {
     grid-template-columns: 1fr;
   }
-  .welcome2 .welcome2__accordion {
+  .welcome2 .welcome2__accordion-head {
     padding: 16px;
-    gap: 16px;
+  }
+  .welcome2 .welcome2__accordion-body {
+    padding: 0 16px 16px;
   }
   .welcome2 .welcome2__cmd pre {
     padding: 6px 36px 6px 8px;
