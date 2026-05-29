@@ -60,7 +60,7 @@
           "description": "A string that will be added to the beginning of all the stats automatically. It helps to distinguish different applications using the same StatsD server."
         }
       },
-      "x-section-intro": "These parameters define the StatsD server properties, specifying an aggregator of metrics."
+      "x-section-intro": "These parameters configure the StatsD server properties, specifying an aggregator of metrics."
     },
     "aiSettings": {
       "type": "object",
@@ -123,7 +123,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters define the AI plugin properties."
+      "x-section-intro": "These parameters configure the AI plugin properties."
     },
     "log": {
       "type": "object",
@@ -172,7 +172,7 @@
           "additionalProperties": true
         }
       },
-      "x-section-intro": "These parameters define the logger properties."
+      "x-section-intro": "These parameters configure the logger properties."
     },
     "runtimeConfig": {
       "type": "object",
@@ -211,7 +211,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters define the `runtime.json` dynamic config file properties. This file allows you to change parameters without restarting. The file is reread based on a watch event or every 5 minutes."
+      "x-section-intro": "These parameters configure the `runtime.json` dynamic config file properties. This file allows you to change parameters without restarting. The file is reread based on a watch event or every 5 minutes."
     },
     "queue": {
       "type": "object",
@@ -235,7 +235,7 @@
           "description": "The [TTL](https://www.rabbitmq.com/ttl.html) (time to live) of all the messages in a queue (measured in seconds)."
         }
       },
-      "x-section-intro": "These parameters define a queue of messages received from the message-broker."
+      "x-section-intro": "These parameters configure a queue of messages received from the message-broker."
     },
     "email": {
       "type": "object",
@@ -349,13 +349,13 @@
           "additionalProperties": false
         }
       },
-      "x-section-intro": "These parameters define the settings of an external mail server, which is used to send [notifications](./notification.md). To connect to the mail server, use the [nodemailer](https://nodemailer.com/about/) library. Many config settings are passed directly to this library."
+      "x-section-intro": "These parameters configure the settings of an external mail server, which is used to send [notifications](./notification.md). To connect to the mail server, use the [nodemailer](https://nodemailer.com/about/) library. Many config settings are passed directly to this library."
     },
     "notification": {
       "type": "object",
       "description": "The notification system configuration for license expiration and limits warnings.",
       "x-scope": ["admin", "tenant"],
-      "x-section-intro": "These parameters define the notification settings.\n\nNotifications with the following event types and content are sent:\n\n- 70% of the [connection quota](./license.md#licensewarning_limit_percents) (quota of unique users) is exceeded.\n\n  License connection limit warning: *\"Attention! You have reached 70% of the connections limit set by your license.\"*\n\n- The connection quota (quota of unique users) is reached.\n\n  License connection limit warning: *\"Attention! You have reached 100% of the connection limit set by your license.\"*\n\n- 30 days before the [license expires](./license.md#licensewarning_license_expiration).\n\n  License expiration warning: *\"Attention! Your license is about to expire on September 8, 2024. Upon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.\"*\n\n- The license has expired.\n\n  License connection limit warning: *\"Attention! Your license expired on September 8, 2024. You are no longer entitled to receive personal technical support and install new Docs versions released after this date. Please contact sales@onlyoffice.com to discuss license renewal.\"*",
+      "x-section-intro": "These parameters configure the notification settings.\n\nNotifications with the following event types and content are sent:\n\n- 70% of the [connection quota](./license.md#licensewarning_limit_percents) (quota of unique users) is exceeded.\n\n  License connection limit warning: *\"Attention! You have reached 70% of the connections limit set by your license.\"*\n\n- The connection quota (quota of unique users) is reached.\n\n  License connection limit warning: *\"Attention! You have reached 100% of the connection limit set by your license.\"*\n\n- 30 days before the [license expires](./license.md#licensewarning_license_expiration).\n\n  License expiration warning: *\"Attention! Your license is about to expire on September 8, 2024. Upon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.\"*\n\n- The license has expired.\n\n  License connection limit warning: *\"Attention! Your license expired on September 8, 2024. You are no longer entitled to receive personal technical support and install new Docs versions released after this date. Please contact sales@onlyoffice.com to discuss license renewal.\"*",
       "additionalProperties": false,
       "properties": {
         "rules": {
@@ -1002,12 +1002,12 @@
           "description": "The issuance of links to an external storage: direct links or links that are proxied through the Document Server. Setting this parameter to `true` enables direct links, while the `false` value allows using internal links (the server proxies requests to the storage)."
         }
       },
-      "x-section-intro": "These parameters define the document storage service configuration."
+      "x-section-intro": "These parameters configure the document storage service configuration."
     },
     "persistentStorage": {
       "type": "object",
       "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration — specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
-      "x-section-intro": "These parameters define the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage.md) object. The separation is convenient for server upgrades."
+      "x-section-intro": "These parameters configure the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage.md) object. The separation is convenient for server upgrades."
     },
     "rabbitmq": {
       "type": "object",
@@ -1357,7 +1357,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters define the RabbitMQ message broker configuration."
+      "x-section-intro": "These parameters configure the RabbitMQ message broker configuration."
     },
     "activemq": {
       "type": "object",
@@ -1416,7 +1416,7 @@
           "description": "The Publisher Subscriber topic."
         }
       },
-      "x-section-intro": "These parameters define the ActiveMQ message broker configuration."
+      "x-section-intro": "These parameters configure the ActiveMQ message broker configuration."
     },
     "dnscache": {
       "type": "object",
@@ -1439,7 +1439,7 @@
           "description": "The DNS cache size."
         }
       },
-      "x-section-intro": "These parameters define the configuration of the DNS cache which is used for the IP-filter."
+      "x-section-intro": "These parameters configure the configuration of the DNS cache which is used for the IP-filter."
     },
     "openpgpjs": {
       "type": "object",
@@ -1486,7 +1486,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters define the settings of the OpenPGP protocol, which is used to encrypt the password when opening an encrypted document for editing."
+      "x-section-intro": "These parameters configure the settings of the OpenPGP protocol, which is used to encrypt the password when opening an encrypted document for editing."
     },
     "aesEncrypt": {
       "type": "object",
@@ -1531,7 +1531,7 @@
           "description": "A password which is used for the AES-256-GCM encryption."
         }
       },
-      "x-section-intro": "These parameters define the settings of the AES-256-GCM encryption algorithm used for password protection of the documents."
+      "x-section-intro": "These parameters configure the settings of the AES-256-GCM encryption algorithm used for password protection of the documents."
     },
     "bottleneck": {
       "type": "object",
@@ -1685,7 +1685,7 @@
                   "default": "5m"
                 }
               },
-              "x-section-intro": "These parameters define the expiration settings."
+              "x-section-intro": "These parameters configure the expiration settings."
             },
             "request-filtering-agent": {
               "type": "object",
@@ -1703,7 +1703,7 @@
                   "default": false
                 }
               },
-              "x-section-intro": "These parameters define the [Request Filtering Agent configuration](https://github.com/azu/request-filtering-agent#api)."
+              "x-section-intro": "These parameters configure the [Request Filtering Agent configuration](https://github.com/azu/request-filtering-agent#api)."
             },
             "requestDefaults": {
               "type": "object",
@@ -1733,7 +1733,7 @@
                   }
                 }
               },
-              "x-section-intro": "These parameters define the [default request configuration](https://github.com/request/request#requestoptions-callback)."
+              "x-section-intro": "These parameters configure the [default request configuration](https://github.com/request/request#requestoptions-callback)."
             },
             "autoAssembly": {
               "type": "object",
@@ -1757,7 +1757,7 @@
                   "default": "5m"
                 }
               },
-              "x-section-intro": "These parameters define the automatic forcesaving configuration."
+              "x-section-intro": "These parameters configure the automatic forcesaving configuration."
             },
             "ipfilter": {
               "type": "object",
@@ -1802,7 +1802,7 @@
                   "default": 403
                 }
               },
-              "x-section-intro": "These parameters define the IP filter configuration."
+              "x-section-intro": "These parameters configure the IP filter configuration."
             },
             "sql": {
               "type": "object",
@@ -2051,7 +2051,7 @@
                   "default": "task_result"
                 }
               },
-              "x-section-intro": "These parameters define the database configuration."
+              "x-section-intro": "These parameters configure the database configuration."
             },
             "callbackBackoffOptions": {
               "type": "object",
@@ -2100,7 +2100,7 @@
                   }
                 }
               },
-              "x-section-intro": "These parameters define the [callback backoff options](https://github.com/tim-kos/node-retry#retrytimeoutsoptions)."
+              "x-section-intro": "These parameters configure the [callback backoff options](https://github.com/tim-kos/node-retry#retrytimeoutsoptions)."
             },
             "editor": {
               "type": "object",
@@ -2142,7 +2142,7 @@
                   "default": "1.5MB"
                 }
               },
-              "x-section-intro": "These parameters define the editor configuration."
+              "x-section-intro": "These parameters configure the editor configuration."
             },
             "plugins": {
               "type": "object",
@@ -2159,7 +2159,7 @@
                   "default": "/sdkjs-plugins"
                 }
               },
-              "x-section-intro": "These parameters define the plugins configuration."
+              "x-section-intro": "These parameters configure the plugins configuration."
             },
             "pubsub": {
               "type": "object",
@@ -2171,7 +2171,7 @@
                   "default": 1000
                 }
               },
-              "x-section-intro": "This parameter defines the PubSub service configuration."
+              "x-section-intro": "This parameter configures the PubSub service configuration."
             },
             "redis": {
               "type": "object",
@@ -2244,7 +2244,7 @@
                   "default": "ds:"
                 }
               },
-              "x-section-intro": "These parameters define the Redis configuration."
+              "x-section-intro": "These parameters configure the Redis configuration."
             },
             "secret": {
               "type": "object",
@@ -2331,7 +2331,7 @@
                   }
                 }
               },
-              "x-section-intro": "These parameters define the secret key configuration."
+              "x-section-intro": "These parameters configure the secret key configuration."
             },
             "server": {
               "type": "object",
@@ -2486,7 +2486,7 @@
                   "default": 1
                 }
               },
-              "x-section-intro": "These parameters define the server configuration."
+              "x-section-intro": "These parameters configure the server configuration."
             },
             "socketio": {
               "type": "object",
@@ -2531,7 +2531,7 @@
                   }
                 }
               },
-              "x-section-intro": "These parameters define the Socket.IO module configuration."
+              "x-section-intro": "These parameters configure the Socket.IO module configuration."
             },
             "sockjs": {
               "type": "object",
@@ -2553,7 +2553,7 @@
                   "default": true
                 }
               },
-              "x-section-intro": "These parameters define the SockJs configuration."
+              "x-section-intro": "These parameters configure the SockJs configuration."
             },
             "themes": {
               "type": "object",
@@ -2565,7 +2565,7 @@
                   "default": "/web-apps/apps/common/main/resources/themes"
                 }
               },
-              "x-section-intro": "This parameter defines the properties of the custom color themes."
+              "x-section-intro": "This parameter configures the properties of the custom color themes."
             },
             "token": {
               "type": "object",
@@ -2728,7 +2728,7 @@
                   }
                 }
               },
-              "x-section-intro": "These parameters define the token configuration."
+              "x-section-intro": "These parameters configure the token configuration."
             },
             "utils": {
               "type": "object",
@@ -2755,11 +2755,11 @@
                   "default": "xlsx"
                 }
               },
-              "x-section-intro": "These parameters define the utils configuration."
+              "x-section-intro": "These parameters configure the utils configuration."
             }
           },
           "description": "The settings for the co-authoring editing session.",
-          "x-section-intro": "These parameters define the settings for the Document Server services."
+          "x-section-intro": "These parameters configure the settings for the Document Server services."
         }
       }
     },
@@ -2849,7 +2849,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters define the configuration of the external requests."
+      "x-section-intro": "These parameters configure the configuration of the external requests."
     },
     "tenants": {
       "type": "object",
@@ -2924,7 +2924,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters define the tenants properties for working in the multi-tenant mode."
+      "x-section-intro": "These parameters configure the tenants properties for working in the multi-tenant mode."
     },
     "license": {
       "type": "object",
@@ -2958,7 +2958,7 @@
           "x-scope": "admin"
         }
       },
-      "x-section-intro": "These parameters define the license configuration."
+      "x-section-intro": "These parameters configure the license configuration."
     },
     "wopi": {
       "type": "object",
@@ -3231,7 +3231,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters define the WOPI protocol configuration."
+      "x-section-intro": "These parameters configure the WOPI protocol configuration."
     },
     "FileConverter": {
       "type": "object",
@@ -3660,7 +3660,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters define the file converter configuration."
+      "x-section-intro": "These parameters configure the file converter configuration."
     },
     "adminPanel": {
       "type": "object",
@@ -3711,7 +3711,7 @@
           "default": 9000
         }
       },
-      "x-section-intro": "These parameters define the Admin Panel properties. For more details on using Admin Panel, you can refer to [this article](https://helpcenter.onlyoffice.com/docs/installation/docs-admin-panel.aspx)."
+      "x-section-intro": "These parameters configure the Admin Panel properties. For more details on using Admin Panel, you can refer to [this article](https://helpcenter.onlyoffice.com/docs/installation/docs-admin-panel.aspx)."
     }
   }
 }
