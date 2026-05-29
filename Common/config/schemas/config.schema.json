@@ -36,7 +36,7 @@
   "properties": {
     "statsd": {
       "type": "object",
-      "description": "StatsD metrics configuration for monitoring",
+      "description": "The StatsD metrics configuration for monitoring.",
       "additionalProperties": false,
       "properties": {
         "useMetrics": {
@@ -64,7 +64,7 @@
     },
     "aiSettings": {
       "type": "object",
-      "description": "AI integration settings for document processing and AI-powered features",
+      "description": "The AI integration settings for document processing and AI-powered features.",
       "additionalProperties": false,
       "x-scope": ["admin", "tenant"],
       "properties": {
@@ -91,7 +91,7 @@
           "x-scope": ["admin", "tenant"],
           "items": {
             "type": "string",
-            "description": "Allowed origin URL"
+            "description": "An allowed origin URL."
           },
           "default": ["https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"]
         },
@@ -109,7 +109,7 @@
         },
         "customProviders": {
           "type": "object",
-          "description": "Custom AI service providers configuration",
+          "description": "The custom AI service providers configuration.",
           "additionalProperties": true,
           "x-scope": ["admin", "tenant"]
         },
@@ -127,7 +127,7 @@
     },
     "log": {
       "type": "object",
-      "description": "Logging configuration - Changing the logging level",
+      "description": "The logging configuration.",
       "x-scope": "admin",
       "additionalProperties": true,
       "properties": {
@@ -159,7 +159,7 @@
                     "level": {
                       "type": "string",
                       "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
-                      "description": "Logging level for the application"
+                      "description": "The logging level for the application."
                     }
                   }
                 }
@@ -176,7 +176,7 @@
     },
     "runtimeConfig": {
       "type": "object",
-      "description": "Runtime configuration management",
+      "description": "The runtime configuration.",
       "additionalProperties": false,
       "properties": {
         "filePath": {
@@ -215,7 +215,7 @@
     },
     "queue": {
       "type": "object",
-      "description": "Message queue configuration",
+      "description": "The message queue configuration.",
       "additionalProperties": false,
       "properties": {
         "type": {
@@ -239,7 +239,7 @@
     },
     "email": {
       "type": "object",
-      "description": "Email (nodemailer) configuration for notifications",
+      "description": "The email (nodemailer) configuration for notifications.",
       "x-scope": ["admin", "tenant"],
       "additionalProperties": false,
       "properties": {
@@ -353,7 +353,7 @@
     },
     "notification": {
       "type": "object",
-      "description": "Notification system configuration for license expiration and limits warnings",
+      "description": "The notification system configuration for license expiration and limits warnings.",
       "x-scope": ["admin", "tenant"],
       "x-section-intro": "These parameters define the notification settings.\n\nNotifications with the following event types and content are sent:\n\n- 70% of the [connection quota](./license.md#licensewarning_limit_percents) (quota of unique users) is exceeded.\n\n  License connection limit warning: *\"Attention! You have reached 70% of the connections limit set by your license.\"*\n\n- The connection quota (quota of unique users) is reached.\n\n  License connection limit warning: *\"Attention! You have reached 100% of the connection limit set by your license.\"*\n\n- 30 days before the [license expires](./license.md#licensewarning_license_expiration).\n\n  License expiration warning: *\"Attention! Your license is about to expire on September 8, 2024. Upon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.\"*\n\n- The license has expired.\n\n  License connection limit warning: *\"Attention! Your license expired on September 8, 2024. You are no longer entitled to receive personal technical support and install new Docs versions released after this date. Please contact sales@onlyoffice.com to discuss license renewal.\"*",
       "additionalProperties": false,
@@ -717,7 +717,7 @@
     },
     "storage": {
       "type": "object",
-      "description": "Storage backend configuration (file system, S3, Azure Blob Storage)",
+      "description": "The storage backend configuration (file system, S3, Azure Blob Storage).",
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -1011,7 +1011,7 @@
     },
     "rabbitmq": {
       "type": "object",
-      "description": "RabbitMQ message queue configuration",
+      "description": "The RabbitMQ message queue configuration.",
       "additionalProperties": false,
       "properties": {
         "url": {
@@ -1361,7 +1361,7 @@
     },
     "activemq": {
       "type": "object",
-      "description": "ActiveMQ message queue configuration (alternative to RabbitMQ)",
+      "description": "The ActiveMQ message queue configuration (alternative to RabbitMQ).",
       "additionalProperties": false,
       "properties": {
         "connectOptions": {
@@ -1420,7 +1420,7 @@
     },
     "dnscache": {
       "type": "object",
-      "description": "DNS caching configuration for improved performance",
+      "description": "The DNS caching configuration for improved performance.",
       "additionalProperties": false,
       "properties": {
         "enable": {
@@ -1443,7 +1443,7 @@
     },
     "openpgpjs": {
       "type": "object",
-      "description": "OpenPGP encryption/decryption configuration",
+      "description": "The OpenPGP encryption/decryption configuration.",
       "additionalProperties": false,
       "properties": {
         "config": {
@@ -1490,7 +1490,7 @@
     },
     "aesEncrypt": {
       "type": "object",
-      "description": "AES encryption configuration for sensitive data",
+      "description": "The AES encryption configuration for sensitive data.",
       "additionalProperties": false,
       "properties": {
         "config": {
@@ -1535,7 +1535,7 @@
     },
     "bottleneck": {
       "type": "object",
-      "description": "Rate limiting and bottleneck configuration",
+      "description": "The rate limiting and bottleneck configuration.",
       "additionalProperties": false,
       "properties": {
         "getChanges": {
@@ -1547,7 +1547,7 @@
     },
     "win-ca": {
       "type": "object",
-      "description": "Windows Certificate Authority integration (Windows only)",
+      "description": "The Windows Certificate Authority integration (Windows only).",
       "additionalProperties": false,
       "properties": {
         "inject": {
@@ -1709,12 +1709,12 @@
               "type": "object",
               "additionalProperties": false,
               "x-scope": ["admin"],
-              "description": "Default options for outgoing HTTP/HTTPS requests",
+              "description": "The default options for outgoing HTTP/HTTPS requests.",
               "properties": {
                 "rejectUnauthorized": {
                   "type": "boolean",
                   "default": true,
-                  "description": "When true, TLS certificates are verified; set false only for diagnostics with self-signed or invalid certificates"
+                  "description": "Whether TLS certificates are verified. Set to `false` only for diagnostics with self-signed or invalid certificates."
                 },
                 "headers": {
                   "type": "object",
@@ -1774,7 +1774,7 @@
                     "properties": {
                       "address": {
                         "type": "string",
-                        "description": "IP address, CIDR notation, or '*' for all (e.g., '192.168.1.0/24', '10.0.0.1', '*')"
+                        "description": "The IP address, CIDR notation, or `*` for all addresses (e.g., `192.168.1.0/24`, `10.0.0.1`, `*`)."
                       },
                       "allowed": {
                         "type": "boolean",
@@ -1806,7 +1806,7 @@
             },
             "sql": {
               "type": "object",
-              "description": "Database connection settings for the CoAuthoring service",
+              "description": "The database connection settings for the CoAuthoring service.",
               "additionalProperties": false,
               "x-scope": "admin",
               "properties": {
@@ -2765,7 +2765,7 @@
     },
     "externalRequest": {
       "type": "object",
-      "description": "External request handling and proxy configuration",
+      "description": "The external request handling and proxy configuration.",
       "additionalProperties": false,
       "properties": {
         "directIfIn": {
@@ -2853,7 +2853,7 @@
     },
     "tenants": {
       "type": "object",
-      "description": "Multi-tenant configuration settings",
+      "description": "The multi-tenant configuration settings.",
       "x-scope": "admin",
       "additionalProperties": false,
       "properties": {
@@ -2928,7 +2928,7 @@
     },
     "license": {
       "type": "object",
-      "description": "License configuration and validation settings",
+      "description": "The license configuration and validation settings.",
       "x-scope": "admin",
       "additionalProperties": false,
       "properties": {
@@ -2962,7 +2962,7 @@
     },
     "wopi": {
       "type": "object",
-      "description": "WOPI (Web Application Open Platform Interface) configuration",
+      "description": "The WOPI (Web Application Open Platform Interface) configuration.",
       "x-scope": ["admin", "tenant"],
       "additionalProperties": false,
       "properties": {
@@ -2988,13 +2988,13 @@
           "type": "string",
           "enum": ["external-https", "external-http", "internal-https", "internal-http"],
           "default": "external-http",
-          "description": "Specifies the discovery zone advertised by the document server. For SharePoint integrations, this value should match the zone configured with Set-SPWOPIZone.",
+          "description": "The discovery zone advertised by the document server. For SharePoint integrations, this value should match the zone configured with Set-SPWOPIZone.",
           "x-scope": ["admin", "tenant"]
         },
         "sendAuthorizationHeader": {
           "type": "boolean",
           "default": false,
-          "description": "Adds the `Authorization: Bearer <token>` header to WOPI requests. Optional by specification, but may be needed for older SharePoint integrations.",
+          "description": "The `Authorization: Bearer <token>` header added to WOPI requests. Optional by specification, but may be needed for older SharePoint integrations.",
           "x-scope": ["admin", "tenant"]
         },
         "favIconUrlWord": {
@@ -3251,7 +3251,7 @@
             },
             "signingKeyStorePath": {
               "type": "string",
-              "description": "Legacy. Path to signing certificate file. Use signing.keyStorePath instead.",
+              "description": "Legacy. The path to the signing certificate file. Use `signing.keyStorePath` instead.",
               "x-scope": "admin",
               "default": "",
               "x-pinned": true
@@ -3260,36 +3260,36 @@
               "type": "object",
               "additionalProperties": false,
               "x-scope": "admin",
-              "description": "Signing settings. keyStorePath takes priority over legacy signingKeyStorePath. Cloud provider detected by awsKms.keyId.",
+              "description": "The signing settings. `keyStorePath` takes priority over legacy `signingKeyStorePath`. Cloud provider is detected by `awsKms.keyId`.",
               "properties": {
                 "keyStorePath": {
                   "type": "string",
-                  "description": "Path to signing certificate. P12/PFX for local x2t, PEM chain for cloud signing.",
+                  "description": "The path to the signing certificate. P12/PFX for local x2t, PEM chain for cloud signing.",
                   "x-pinned": true
                 },
                 "meta": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "Signature metadata fields embedded in the PDF digital signature.",
+                  "description": "The signature metadata fields embedded in the PDF digital signature.",
                   "properties": {
                     "reason": {
                       "type": "string",
-                      "description": "Purpose of signing (e.g. Approved).",
+                      "description": "The purpose of signing (e.g. Approved).",
                       "x-pinned": true
                     },
                     "name": {
                       "type": "string",
-                      "description": "Signer name.",
+                      "description": "The signer name.",
                       "x-pinned": true
                     },
                     "location": {
                       "type": "string",
-                      "description": "Signing location.",
+                      "description": "The signing location.",
                       "x-pinned": true
                     },
                     "contactInfo": {
                       "type": "string",
-                      "description": "Contact details (URL or email).",
+                      "description": "The contact details (URL or email).",
                       "x-pinned": true
                     }
                   },
@@ -3298,26 +3298,26 @@
                 "awsKms": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "AWS KMS (or compatible) settings. Set keyId to enable.",
+                  "description": "The AWS KMS (or compatible) settings. Set `keyId` to enable.",
                   "properties": {
                     "endpoint": {
                       "type": "string",
-                      "description": "KMS endpoint URL. Allows alternative KMS-compatible services.",
+                      "description": "The KMS endpoint URL. Allows alternative KMS-compatible services.",
                       "x-pinned": true
                     },
                     "keyId": {
                       "type": "string",
-                      "description": "KMS key ID or ARN. If set, AWS KMS signing is active.",
+                      "description": "The KMS key ID or ARN. If set, AWS KMS signing is active.",
                       "x-pinned": true
                     },
                     "accessKeyId": {
                       "type": "string",
-                      "description": "AWS access key. Empty = default credential chain.",
+                      "description": "The AWS access key. Leave empty to use the default credential chain.",
                       "x-pinned": true
                     },
                     "secretAccessKey": {
                       "type": "string",
-                      "description": "AWS secret access key.",
+                      "description": "The AWS secret access key.",
                       "x-pinned": true
                     }
                   },
@@ -3326,71 +3326,71 @@
                 "csc": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "CSC API v2 (ETSI TS 119 432) settings. Set baseUrl to enable.",
+                  "description": "The CSC API v2 (ETSI TS 119 432) settings. Set `baseUrl` to enable.",
                   "properties": {
                     "baseUrl": {
                       "type": "string",
-                      "description": "CSC API base URL. If set, CSC signing is active.",
+                      "description": "The CSC API base URL. If set, CSC signing is active.",
                       "x-pinned": true
                     },
                     "tokenUrl": {
                       "type": "string",
-                      "description": "OAuth2 token endpoint.",
+                      "description": "The OAuth2 token endpoint.",
                       "x-pinned": true
                     },
                     "clientId": {
                       "type": "string",
-                      "description": "OAuth2 client ID.",
+                      "description": "The OAuth2 client ID.",
                       "x-pinned": true
                     },
                     "clientSecret": {
                       "type": "string",
-                      "description": "OAuth2 client secret.",
+                      "description": "The OAuth2 client secret.",
                       "x-pinned": true
                     },
                     "grantType": {
                       "type": "string",
-                      "description": "Optional. OAuth2 grant type: '' (auto-detect), 'password', or 'client_credentials'. Empty selects based on presence of username/password.",
+                      "description": "Optional. The OAuth2 grant type: `''` (auto-detect), `'password'`, or `'client_credentials'`. Empty selects based on presence of username/password.",
                       "x-pinned": true
                     },
                     "clientAuth": {
                       "type": "string",
-                      "description": "Optional. How client authenticates to token endpoint: '' (body), 'basic', 'body', or 'both'.",
+                      "description": "Optional. How the client authenticates to the token endpoint: `''` (body), `'basic'`, `'body'`, or `'both'`.",
                       "x-pinned": true
                     },
                     "tokenBodyFormat": {
                       "type": "string",
-                      "description": "Optional. Token request body format: 'form' (default, RFC 6749) or 'json'.",
+                      "description": "Optional. The token request body format: `'form'` (default, RFC 6749) or `'json'`.",
                       "x-pinned": true
                     },
                     "username": {
                       "type": "string",
-                      "description": "Optional. Username for password grant type.",
+                      "description": "Optional. The username for the password grant type.",
                       "x-pinned": true
                     },
                     "password": {
                       "type": "string",
-                      "description": "Optional. Password for password grant type.",
+                      "description": "Optional. The password for the password grant type.",
                       "x-pinned": true
                     },
                     "credentialId": {
                       "type": "string",
-                      "description": "Optional. Signing credential ID. Auto-discovered via credentials/list when empty.",
+                      "description": "Optional. The signing credential ID. Auto-discovered via credentials/list when empty.",
                       "x-pinned": true
                     },
                     "clientData": {
                       "type": "string",
-                      "description": "Optional. Provider-specific clientData for credentials/list (e.g. eSeal credential type).",
+                      "description": "Optional. The provider-specific `clientData` for credentials/list (e.g. eSeal credential type).",
                       "x-pinned": true
                     },
                     "scope": {
                       "type": "string",
-                      "description": "Optional. OAuth2 scope (e.g. 'service').",
+                      "description": "Optional. The OAuth2 scope (e.g. `'service'`).",
                       "x-pinned": true
                     },
                     "audience": {
                       "type": "string",
-                      "description": "Optional. OAuth2 audience parameter.",
+                      "description": "Optional. The OAuth2 audience parameter.",
                       "x-pinned": true
                     }
                   },
@@ -3409,7 +3409,7 @@
                   "properties": {
                     "SIGNING_KEYSTORE_PASSPHRASE": {
                       "type": "string",
-                      "description": "Passphrase for the PKCS#12 keystore file",
+                      "description": "The passphrase for the PKCS#12 keystore file.",
                       "x-pinned": true
                     }
                   }
@@ -3428,7 +3428,7 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "description": "File types this limit applies to (e.g., 'docx;dotx;docm;dotm')"
+                    "description": "The file types this limit applies to (e.g., `docx;dotx;docm;dotm`)."
                   },
                   "zip": {
                     "type": "object",
@@ -3436,11 +3436,11 @@
                     "properties": {
                       "uncompressed": {
                         "type": "string",
-                        "description": "Maximum uncompressed size (e.g., '50MB', '300MB')"
+                        "description": "The maximum uncompressed size (e.g., `50MB`, `300MB`)."
                       },
                       "template": {
                         "type": "string",
-                        "description": "Template pattern for file matching (e.g., '*.xml')"
+                        "description": "The template pattern for file matching (e.g., `*.xml`)."
                       }
                     }
                   }
@@ -3670,7 +3670,7 @@
         "passwordValidation": {
           "type": "object",
           "x-scope": ["admin", "tenant"],
-          "description": "Password validation requirements using custom format types",
+          "description": "The password validation requirements.",
           "properties": {
             "minLength": {
               "$ref": "#/$defs/passlength",
