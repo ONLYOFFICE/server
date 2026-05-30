@@ -37,12 +37,13 @@ html[data-platform='linux'] .example--systemctl,
 html[data-platform='win'] .example--winsvc,
 html[data-platform='docker'] .example--docker,
 html[data-platform='k8s'] .example--k8s {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-html[data-has-admin-panel='false'] .requires-admin-panel {
-  display: none !important;
-}
+/* Admin Panel button shows in every edition. Routing (navigate vs Enterprise
+   promo modal) is decided in JS from data-has-admin-panel (feedback #10/#11). */
 
 /* ---- Design tokens (scoped to .welcome2) --------------------------------- */
 
@@ -392,48 +393,7 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   gap: 20px;
 }
 
-/* ---- Action spoiler (Start/Stop test example) --------------------------- */
-
-/* The action body holds BOTH start and stop sub-blocks. Native [hidden]
-   keeps the entire subtree collapsed until the toggle button is clicked.
-   The visible sub-block (start vs stop) is then chosen by data-example-state
-   on the .requires-test-example wrapper. */
-.welcome2 .welcome2__action-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.welcome2 .welcome2__action-body[hidden] {
-  display: none;
-}
-
-.welcome2 .welcome2__action {
-  display: none;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* Default (unknown / down): show Start commands. */
-.welcome2 .requires-test-example[data-example-state='unknown'] .welcome2__action--start,
-.welcome2 .requires-test-example[data-example-state='down'] .welcome2__action--start {
-  display: flex;
-}
-
-/* Running (up): show Stop commands. */
-.welcome2 .requires-test-example[data-example-state='up'] .welcome2__action--stop {
-  display: flex;
-}
-
-/* Toggle-button label follows the same state map. */
-.welcome2 [data-action-toggle] .welcome2__action-label--stop {
-  display: none;
-}
-.welcome2 .requires-test-example[data-example-state='up'] [data-action-toggle] .welcome2__action-label--start {
-  display: none;
-}
-.welcome2 .requires-test-example[data-example-state='up'] [data-action-toggle] .welcome2__action-label--stop {
-  display: inline;
-}
+/* ---- Test-example commands (shown inside the start/stop modals) ---------- */
 
 .welcome2 .welcome2__k8s-note {
   margin: 4px 0 0;
@@ -720,9 +680,21 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  border: 1px solid var(--w2-color-warn);
   background: var(--w2-color-warn-bg);
   border-radius: var(--w2-radius-note);
+}
+/* In modals, long commands wrap (match mockup) and the copy sits top-right. */
+.welcome2 .welcome2__modal-body .welcome2__cmd {
+  align-items: flex-start;
+}
+.welcome2 .welcome2__modal-body .welcome2__cmd pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: visible;
+}
+.welcome2 .welcome2__modal-body .welcome2__copy {
+  top: 6px;
+  transform: none;
 }
 .welcome2 .welcome2__note-title {
   display: flex;
@@ -746,6 +718,10 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   font-size: 12px;
   line-height: 16px;
   color: var(--w2-color-text);
+}
+/* Info variant (blue icon) - e.g. the Admin Panel bootstrap-code note. */
+.welcome2 .welcome2__note--info .welcome2__note-icon {
+  background-image: url('icon-info-blue.svg');
 }
 
 /* ---- Status badge + reusable chip --------------------------------------- */
@@ -802,12 +778,25 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
   border: 1px solid var(--w2-color-border);
   border-radius: var(--w2-radius-app-card);
   min-height: 108px;
-  /* Whole card is the click target (feedback #4); modal wiring follows in #7. */
+  /* Whole card is the click target (feedback #4); a stretched button opens the app modal (#7). */
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 .welcome2 .welcome2__app-card:hover {
   background: var(--w2-color-app-card-hover);
+}
+.welcome2 .welcome2__app-card-trigger {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.welcome2 .welcome2__app-card-trigger:focus-visible {
+  outline: 2px solid var(--w2-color-primary);
+  outline-offset: -2px;
+  border-radius: var(--w2-radius-app-card);
 }
 
 .welcome2 .welcome2__app-icon {
@@ -991,6 +980,183 @@ html[data-has-admin-panel='false'] .requires-admin-panel {
 }
 .welcome2 .welcome2__overlay[hidden] {
   display: none;
+}
+
+/* Dialog shell (DocSpace modal). max-width switches compact (520) vs wide (1024). */
+.welcome2 .welcome2__modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 48px);
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+.welcome2 .welcome2__modal--wide {
+  max-width: 1024px;
+}
+
+.welcome2 .welcome2__modal-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 54px;
+  padding: 0 16px;
+  border-bottom: 1px solid #eceef1;
+}
+.welcome2 .welcome2__modal-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 21px;
+  line-height: 28px;
+  font-weight: 700;
+  color: var(--w2-color-heading);
+}
+.welcome2 .welcome2__modal-close {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent url('icon-close.svg') center / 16px 16px no-repeat;
+  cursor: pointer;
+}
+.welcome2 .welcome2__modal-close:hover {
+  background-color: #f3f4f4;
+}
+.welcome2 .welcome2__modal-close:focus-visible {
+  outline: 2px solid var(--w2-color-primary);
+  outline-offset: -2px;
+}
+
+.welcome2 .welcome2__modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.welcome2 .welcome2__modal-foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px;
+}
+
+/* Wide modal: hero + two-column promo (feature list + product screenshot). */
+.welcome2 .welcome2__modal-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.welcome2 .welcome2__modal-hero-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--w2-color-heading);
+}
+.welcome2 .welcome2__modal-hero-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--w2-color-text);
+}
+.welcome2 .welcome2__modal-promo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+.welcome2 .welcome2__feature-list {
+  display: flex;
+  flex-direction: column;
+}
+.welcome2 .welcome2__feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 0;
+}
+.welcome2 .welcome2__feature-icon {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  /* Per-app accent; default gray, overridden by a .welcome2__modal--<app> modifier. */
+  background: var(--w2-feat-bg, #eceef1);
+  color: var(--w2-feat-fg, #555f65);
+}
+.welcome2 .welcome2__modal--app {
+  --w2-feat-bg: rgba(34, 195, 134, 0.1);
+  --w2-feat-fg: #22c386;
+}
+.welcome2 .welcome2__feature-icon svg,
+.welcome2 .welcome2__feature-icon img {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.welcome2 .welcome2__feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.welcome2 .welcome2__feature-title {
+  font-size: 14px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--w2-color-heading);
+}
+.welcome2 .welcome2__feature-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--w2-color-text);
+}
+/* Screenshot bleeds to the modal's right/bottom edge (clipped by the dialog). */
+.welcome2 .welcome2__modal-shot {
+  position: relative;
+  overflow: hidden;
+  background: #f8f9f9;
+  min-height: 360px;
+  /* Bleed to the dialog's right + bottom edges; clipped by the dialog's radius. */
+  margin: 0 -16px -16px 0;
+}
+.welcome2 .welcome2__modal-shot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* cover fills the panel (no gray gutter) while preserving aspect (crops, never stretches). */
+  object-fit: cover;
+  object-position: left top;
+  display: block;
+}
+
+@media (max-width: 720px) {
+  .welcome2 .welcome2__modal-promo {
+    grid-template-columns: 1fr;
+  }
+  .welcome2 .welcome2__modal-shot {
+    margin: 0;
+    min-height: 200px;
+  }
+  .welcome2 .welcome2__modal-shot img {
+    position: relative;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
 }
 
 /* ---- Footer (document-flow block, NOT fixed/sticky) --------------------- */
