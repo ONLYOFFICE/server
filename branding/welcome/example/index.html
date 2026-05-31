@@ -369,7 +369,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-files.jpg" alt="" width="821" height="1024" />
+              <img data-src="css/modal-files.png" data-srcset="css/modal-files.png 1x, css/modal-files@1.5x.png 1.5x, css/modal-files@2x.png 2x" alt="" width="512" height="432" />
             </div>
           </div>
         </div>
@@ -426,7 +426,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-rooms.jpg" alt="" width="821" height="1024" />
+              <img data-src="css/modal-rooms.png" data-srcset="css/modal-rooms.png 1x, css/modal-rooms@1.5x.png 1.5x, css/modal-rooms@2x.png 2x" alt="" width="512" height="432" />
             </div>
           </div>
         </div>
@@ -483,7 +483,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-forms.jpg" alt="" width="1004" height="700" />
+              <img data-src="css/modal-forms.png" data-srcset="css/modal-forms.png 1x, css/modal-forms@1.5x.png 1.5x, css/modal-forms@2x.png 2x" alt="" width="512" height="432" />
             </div>
           </div>
         </div>
@@ -540,7 +540,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-ai.jpg" alt="" width="821" height="1024" />
+              <img data-src="css/modal-ai.png" data-srcset="css/modal-ai.png 1x, css/modal-ai@1.5x.png 1.5x, css/modal-ai@2x.png 2x" alt="" width="512" height="432" />
             </div>
           </div>
         </div>
@@ -708,7 +708,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-admin-promo.jpg" alt="" width="2588" height="2710" />
+              <img data-src="css/modal-admin-promo.png" data-srcset="css/modal-admin-promo.png 1x, css/modal-admin-promo@1.5x.png 1.5x, css/modal-admin-promo@2x.png 2x" alt="" width="512" height="432" />
             </div>
           </div>
         </div>
@@ -765,7 +765,7 @@
           </div>
           <div class="welcome2__note welcome2__note--info">
             <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Important</span>
-            <span class="welcome2__note-body">When you first open the Admin Panel, a one-time bootstrap code is required. You can find it in the admin panel server logs. The code expires after one hour. <a target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/">Find Bootstrap Code</a></span>
+            <span class="welcome2__note-body">The Admin Panel has no administrator account yet. The first administrator can only be created from the host &mdash; run <code>documentserver-admin create-admin</code>, then reload. See the <a target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docs/installation/docs-admin-panel.aspx">Admin Panel guide</a>.</span>
           </div>
         </div>
         <div class="welcome2__modal-foot">
@@ -939,8 +939,12 @@
           ov.__trigger = trigger || document.activeElement;
           ov.removeAttribute('hidden');
           // Load screenshots on first open so they do not cost page-load bandwidth.
+          // Copy data-srcset first so the browser can pick the 1x/2x source by DPR.
           Array.prototype.forEach.call(ov.querySelectorAll('img[data-src]'), function (im) {
-            if (!im.getAttribute('src')) im.setAttribute('src', im.getAttribute('data-src'));
+            if (im.getAttribute('src')) return;
+            var ss = im.getAttribute('data-srcset');
+            if (ss) im.setAttribute('srcset', ss);
+            im.setAttribute('src', im.getAttribute('data-src'));
           });
           if (!open.length) {
             // Reserve the scrollbar width so the page does not shift when scroll locks.
