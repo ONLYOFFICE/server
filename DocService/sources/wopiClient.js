@@ -148,8 +148,7 @@ function discovery(req, res) {
       ctx.logger.info('wopiDiscovery start');
       const tenWopiWopiZone = ctx.getCfg('wopi.wopiZone', cfgWopiWopiZone);
       // Get formats from JSON file, with config override if non-empty array
-      const tenDocumentFormatsFile = ctx.getCfg('services.CoAuthoring.server.documentFormatsFile', cfgDocumentFormatsFile);
-      const formats = yield documentFormats.getAllFormats(tenDocumentFormatsFile);
+      const formats = yield documentFormats.getAllFormats(ctx, cfgDocumentFormatsFile);
       const getFormats = (cfgKey, cfgDefault, fileKey) => {
         const cfgValue = ctx.getCfg(cfgKey, cfgDefault);
         return Array.isArray(cfgValue) && cfgValue.length > 0 ? cfgValue : formats[fileKey];

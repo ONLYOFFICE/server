@@ -51,30 +51,34 @@ const CATEGORIES = [
   'forms'
 ];
 
+// Formats are global to the server; cache the parsed list for the process lifetime.
 let cache = null;
 
 /**
  * Load and parse all formats from JSON file (with caching)
+ * @param {Object} ctx - operation context, used to log when the file cannot be read
  * @param {string} filePath - Full path to onlyoffice-docs-formats.json
  * @returns {Promise<Object>} Map of category -> extensions array
  */
-async function getAllFormats(filePath) {
+async function getAllFormats(ctx, filePath) {
   if (cache) {
     return cache;
   }
 
   // Initialize empty categories
-  cache = Object.fromEntries(CATEGORIES.map(key => [key, []]));
+  const result = Object.fromEntries(CATEGORIES.map(key => [key, []]));
 
   if (!filePath) {
-    return cache;
+    ctx.logger.warn('getAllFormats: documentFormatsFile not configured');
+    return result;
   }
 
   try {
     const formats = JSON.parse(await readFile(filePath, 'utf8'));
 
     if (!Array.isArray(formats)) {
-      return cache;
+      ctx.logger.warn('getAllFormats: %s is not a JSON array', filePath);
+      return result;
     }
 
     for (const {name, type, actions} of formats) {
@@ -87,18 +91,22 @@ async function getAllFormats(filePath) {
       const hasView = actions.includes('view');
       const key = type + (hasEdit ? 'Edit' : hasView ? 'View' : '');
 
-      if (cache[key]) {
-        cache[key].push(name);
+      if (result[key]) {
+        result[key].push(name);
       }
 
       if (type === 'pdf' && actions.includes('fill')) {
-        cache.forms.push(name);
+        result.forms.push(name);
       }
     }
-  } catch {
-    // Return empty categories on error
+  } catch (err) {
+    // Do not cache the empty result, so a later request retries once the file is available
+    ctx.logger.warn('getAllFormats error: file = %s; %s', filePath, err.message);
+    return result;
   }
 
+  // Cache only a successfully parsed result
+  cache = result;
   return cache;
 }
 
