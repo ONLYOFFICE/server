@@ -638,7 +638,7 @@ html[data-platform='k8s'] .example--k8s {
   padding: 6px 40px 6px 8px;
   background: transparent;
   border: 0;
-  font-family: 'Consolas', 'Menlo', 'Monaco', monospace;
+  font-family: var(--w2-font);
   font-size: 13px;
   line-height: 20px;
   color: var(--w2-color-heading);
@@ -653,21 +653,20 @@ html[data-platform='k8s'] .example--k8s {
   transform: translateY(-50%);
   width: 20px;
   height: 20px;
+  padding: 0;
   border-radius: 3px;
   border: 0;
-  background-color: transparent;
-  background-image: url('icon-copy.svg');
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 16px 16px;
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
-  color: var(--w2-color-text);
-  transition: background-color 0.15s ease;
+  /* background-image (not mask) so the icon renders over file:// too; hover swaps to the #657077 variant (feedback #14). */
+  background: transparent url('icon-copy.svg') center / 16px 16px no-repeat;
 }
 .welcome2 .welcome2__copy:hover {
-  background-color: rgba(0, 0, 0, 0.06);
+  background-image: url('icon-copy-hover.svg');
 }
-.welcome2 .welcome2__copy.is-copied {
+.welcome2 .welcome2__copy.is-copied,
+.welcome2 .welcome2__copy.is-copied:hover {
   background-image: url('icon-check.svg');
 }
 
@@ -1019,13 +1018,17 @@ html[data-platform='k8s'] .example--k8s {
   flex: 0 0 32px;
   width: 32px;
   height: 32px;
+  padding: 0;
   border: 0;
   border-radius: 3px;
-  background: transparent url('icon-close.svg') center / 16px 16px no-repeat;
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
+  /* background-image (not mask) so the icon renders over file:// too; hover swaps to the #657077 variant (feedback #14). */
+  background: transparent url('icon-close.svg') center / 17px 17px no-repeat;
 }
 .welcome2 .welcome2__modal-close:hover {
-  background-color: #f3f4f4;
+  background-image: url('icon-close-hover.svg');
 }
 .welcome2 .welcome2__modal-close:focus-visible {
   outline: 2px solid var(--w2-color-primary);
