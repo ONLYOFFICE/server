@@ -369,7 +369,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-files.png" data-srcset="css/modal-files.png 1x, css/modal-files@1.5x.png 1.5x, css/modal-files@2x.png 2x" alt="" width="512" height="432" />
+              <img data-src="css/modal-files.png" alt="" width="496" height="352" />
             </div>
           </div>
         </div>
@@ -426,7 +426,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-rooms.png" data-srcset="css/modal-rooms.png 1x, css/modal-rooms@1.5x.png 1.5x, css/modal-rooms@2x.png 2x" alt="" width="512" height="432" />
+              <img data-src="css/modal-rooms.png" alt="" width="496" height="352" />
             </div>
           </div>
         </div>
@@ -483,7 +483,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-forms.png" data-srcset="css/modal-forms.png 1x, css/modal-forms@1.5x.png 1.5x, css/modal-forms@2x.png 2x" alt="" width="512" height="432" />
+              <img data-src="css/modal-forms.png" alt="" width="496" height="352" />
             </div>
           </div>
         </div>
@@ -540,7 +540,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-ai.png" data-srcset="css/modal-ai.png 1x, css/modal-ai@1.5x.png 1.5x, css/modal-ai@2x.png 2x" alt="" width="512" height="432" />
+              <img data-src="css/modal-ai.png" alt="" width="496" height="352" />
             </div>
           </div>
         </div>
@@ -708,7 +708,7 @@
               </li>
             </ul>
             <div class="welcome2__modal-shot">
-              <img data-src="css/modal-admin-promo.png" data-srcset="css/modal-admin-promo.png 1x, css/modal-admin-promo@1.5x.png 1.5x, css/modal-admin-promo@2x.png 2x" alt="" width="512" height="432" />
+              <img data-src="css/modal-admin-promo.png" alt="" width="496" height="352" />
             </div>
           </div>
         </div>
@@ -939,7 +939,7 @@
           ov.__trigger = trigger || document.activeElement;
           ov.removeAttribute('hidden');
           // Load screenshots on first open so they do not cost page-load bandwidth.
-          // Copy data-srcset first so the browser can pick the 1x/2x source by DPR.
+          // Single high-res source via data-src; data-srcset is copied too if present.
           Array.prototype.forEach.call(ov.querySelectorAll('img[data-src]'), function (im) {
             if (im.getAttribute('src')) return;
             var ss = im.getAttribute('data-srcset');

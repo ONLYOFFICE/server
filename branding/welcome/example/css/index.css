@@ -1073,8 +1073,8 @@ html[data-platform='k8s'] .example--k8s {
 }
 .welcome2 .welcome2__modal-promo {
   display: grid;
-  /* Figma promo: points column 496px; screenshot element starts at the 512px line
-     and bleeds off the right. The visual gap is the screenshot's own left margin. */
+  /* Figma promo: points column 496px; the screenshot column (1fr) starts at the
+     512px line. The screenshot's own left:16px offset is the gap to the points. */
   grid-template-columns: 496px 1fr;
   column-gap: 0;
   row-gap: 16px;
@@ -1131,29 +1131,34 @@ html[data-platform='k8s'] .example--k8s {
   line-height: 16px;
   color: var(--w2-color-text);
 }
-/* Screenshot bleeds to the modal's right/bottom edge (clipped by the dialog). */
+/* Screenshot bleeds to the modal's right/bottom edge (clipped by the panel). */
 .welcome2 .welcome2__modal-shot {
   position: relative;
+  /* Clip the screenshot's right + bottom bleed (and their shadow) at the panel
+     edge; the image's top + left insets keep the top/left shadow visible. */
   overflow: hidden;
-  /* Transparent so the modal's white shows through the asset's top/left margin. */
   background: transparent;
-  min-height: 360px;
-  /* Bleed to the dialog's right + bottom edges; clipped by the dialog's radius. */
+  min-height: 320px;
+  /* Bleed to the dialog's right edge and down into the body's bottom padding. */
   margin: 0 -16px -16px 0;
 }
 .welcome2 .welcome2__modal-shot img {
   position: absolute;
-  top: 0;
-  left: 0;
-  /* x1 display size (512x432). The asset bakes in a transparent top/left margin
-     (16px left, 8px top) - the gap to the text column - and a rounded content
-     corner; the content bleeds off the panel's right + bottom. */
-  width: 512px;
+  /* 8px top inset so the soft top-edge shadow is not clipped by overflow:hidden. */
+  top: 8px;
+  /* 16px gap to the text column. The old PNG baked this as a transparent margin;
+     the v7 no-alpha asset is a clean rectangle, so it is a CSS offset now. */
+  left: 16px;
+  /* x1 display size 496x352; source is a 4x master (1984x1408) the browser
+     downscales. height:auto keeps the asset's aspect (1984:1408). */
+  width: 496px;
   height: auto;
   display: block;
-  /* The soft drop-shadow + rounded corner are baked into the PNG (that is what
-     the transparent top/left margin holds), so NO CSS shadow here - adding one
-     double-darkens it. The modal's white shows through the margin. */
+  /* Soft drop-shadow + top-left rounded corner are CSS now (no longer baked into
+     the PNG). The screenshot is taller than the points column, so its bottom
+     bleeds past + is clipped: the shadow shows only on the top + left edges. */
+  border-radius: 8px 0 0 0;
+  box-shadow: 0 0 4px rgba(4, 15, 27, 0.04), 0 8px 16px rgba(4, 15, 27, 0.08);
 }
 
 @media (max-width: 720px) {
