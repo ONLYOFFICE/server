@@ -1195,7 +1195,9 @@ html[data-platform='k8s'] .example--k8s {
      the PNG). The screenshot is taller than the points column, so its bottom
      bleeds past + is clipped: the shadow shows only on the top + left edges. */
   border-radius: 8px 0 0 0;
-  box-shadow: 0 0 4px rgba(4, 15, 27, 0.04), 0 8px 16px rgba(4, 15, 27, 0.08);
+  box-shadow:
+    0 0 4px rgba(4, 15, 27, 0.04),
+    0 8px 16px rgba(4, 15, 27, 0.08);
 }
 
 @media (max-width: 720px) {

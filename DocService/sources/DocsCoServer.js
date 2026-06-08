@@ -1703,8 +1703,6 @@ function getRequestParams(ctx, req, _opt_isNotInBody) {
       } catch (err) {
         ctx.logger.debug('getRequestParams error parsing json body: %s', err.stack);
       }
-    } else if (req.is('multipart/form-data') && req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
-      res.params = req.body;
     }
     if (!res.params) {
       res.params = req.query;
@@ -4783,28 +4781,6 @@ exports.commandFromServer = function (req, res) {
       ctx.logger.info('commandFromServer end : %s', outputBuffer);
     }
   });
-};
-exports.commandConvertFromBody = async function (req, res) {
-  const ctx = new operationContext.Context();
-  try {
-    ctx.initFromRequest(req);
-    await ctx.initTenantCache();
-    ctx.logger.info('commandConvertFromBody start');
-    const authRes = await co(getRequestParams(ctx, req));
-    if (authRes.code !== constants.NO_ERROR) {
-      ctx.logger.warn('commandConvertFromBody auth failed %j', authRes);
-      res.sendStatus(403);
-      return;
-    }
-    await converterService.convertFromCommandBody(req, res, authRes.params);
-  } catch (err) {
-    ctx.logger.error('commandConvertFromBody error: %s', err.stack);
-    if (!res.headersSent) {
-      res.sendStatus(400);
-    }
-  } finally {
-    ctx.logger.info('commandConvertFromBody end');
-  }
 };
 
 exports.shutdown = function (req, res) {
