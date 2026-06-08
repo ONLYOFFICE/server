@@ -804,8 +804,11 @@
         // otherwise open the start-commands modal (feedback: same logic as the Open button).
         Array.prototype.forEach.call(block.querySelectorAll('[data-test-open]'), function (el) {
           el.addEventListener('click', function (e) {
-            if (block.getAttribute('data-example-state') === 'up') return;
+            var state = block.getAttribute('data-example-state');
+            if (state === 'up') return;
             e.preventDefault();
+            // Probe still running: controls are disabled, do not open the start modal yet.
+            if (state === 'checking') return;
             if (window.welcome2Modal) window.welcome2Modal.open('welcome2-modal-test-start', el);
           });
         });
@@ -814,27 +817,67 @@
     <script>
       (function () {
         var block = document.querySelector('.requires-test-example');
-        if (!block || typeof fetch !== 'function') return;
+        if (!block) return;
         var badge = block.querySelector('.welcome2__status-badge');
+        // Gate the whole section while checking (incl. Stop) so none stays live with a sharp border.
+        var gated = block.querySelectorAll('[data-test-open], [data-modal-open]');
 
-        var labels = {up: 'Running', down: 'Not running', unknown: 'Status unknown'};
+        var labels = {checking: 'Checking...', up: 'Running', down: 'Not running', unknown: 'Status unknown'};
         function setState(state) {
+          var busy = state === 'checking';
           block.setAttribute('data-example-state', state);
+          block.setAttribute('aria-busy', busy ? 'true' : 'false');
+          Array.prototype.forEach.call(gated, function (el) {
+            if (busy) {
+              if (!el.hasAttribute('data-welcome2-tabindex')) {
+                el.setAttribute('data-welcome2-tabindex', el.getAttribute('tabindex') || '');
+              }
+              el.setAttribute('aria-disabled', 'true');
+              el.setAttribute('tabindex', '-1');
+              if (document.activeElement === el) el.blur();
+            } else {
+              var tabindex = el.getAttribute('data-welcome2-tabindex');
+              el.removeAttribute('aria-disabled');
+              el.removeAttribute('data-welcome2-tabindex');
+              if (tabindex) el.setAttribute('tabindex', tabindex);
+              else el.removeAttribute('tabindex');
+            }
+          });
           if (badge) badge.textContent = labels[state] || labels.unknown;
         }
+
+        // Disable the controls while the probe is in flight so a click cannot act on an
+        // intermediate status; behavior is tied to the probe, not to a guessed delay.
+        setState('checking');
+        if (typeof fetch !== 'function') {
+          setState('unknown');
+          return;
+        }
+
+        var settled = false;
+        function finish(state) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          setState(state);
+        }
+        // Safety net: never leave the controls disabled if the probe hangs.
+        var timer = setTimeout(function () {
+          finish('unknown');
+        }, 4000);
 
         try {
           fetch('../example/', {cache: 'no-store', credentials: 'same-origin'})
             .then(function (r) {
               return r.text().then(function (body) {
-                setState(body.indexOf('onlyoffice-example-fallback:1') !== -1 ? 'down' : r.ok ? 'up' : 'unknown');
+                finish(body.indexOf('onlyoffice-example-fallback:1') !== -1 ? 'down' : r.ok ? 'up' : 'unknown');
               });
             })
             .catch(function () {
-              setState('unknown');
+              finish('unknown');
             });
         } catch (e) {
-          setState('unknown');
+          finish('unknown');
         }
       })();
     </script>
@@ -895,21 +938,59 @@
         var btn = document.querySelector('.requires-admin-panel');
         if (!btn) return;
         var hasPanel = document.documentElement.getAttribute('data-has-admin-panel') !== 'false';
-        var adminState = 'unknown';
+        var adminState = hasPanel ? 'checking' : 'down';
+        var originalTabindex = btn.getAttribute('tabindex') || '';
+        function setState(state) {
+          adminState = state;
+          if (state === 'checking') {
+            btn.setAttribute('aria-disabled', 'true');
+            btn.setAttribute('tabindex', '-1');
+            if (document.activeElement === btn) btn.blur();
+          } else {
+            btn.removeAttribute('aria-disabled');
+            if (originalTabindex) btn.setAttribute('tabindex', originalTabindex);
+            else btn.removeAttribute('tabindex');
+          }
+        }
         // Enterprise: probe admin-panel availability (same mechanism as the test example).
         if (hasPanel && typeof fetch === 'function') {
+          setState('checking');
+          var settled = false;
+          var finish = function (state) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            setState(state);
+          };
+          // Safety net: never leave the button disabled if the probe hangs.
+          var timer = setTimeout(function () {
+            finish('unknown');
+          }, 4000);
           try {
             fetch('../admin/', {cache: 'no-store', credentials: 'same-origin'})
               .then(function (r) {
-                adminState = r.ok ? 'up' : 'down';
+                // Nginx serves admin-disabled.html with HTTP 200 when down; detect the marker, not r.ok.
+                return r.text().then(function (body) {
+                  finish(body.indexOf('onlyoffice-adminpanel-fallback:1') !== -1 ? 'down' : r.ok ? 'up' : 'unknown');
+                });
               })
               .catch(function () {
-                adminState = 'down';
+                finish('unknown');
               });
-          } catch (e) {}
+          } catch (e) {
+            finish('unknown');
+          }
+        } else if (hasPanel) {
+          // No fetch support: cannot probe, keep the button active and fall back to the start modal.
+          setState('down');
         }
         btn.addEventListener('click', function (e) {
           if (!window.welcome2Modal) return;
+          // Probe still running: button is disabled, do not open a modal yet.
+          if (adminState === 'checking') {
+            e.preventDefault();
+            return;
+          }
           if (!hasPanel) {
             // Community -> Enterprise promo modal.
             e.preventDefault();

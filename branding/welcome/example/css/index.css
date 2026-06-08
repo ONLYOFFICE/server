@@ -56,6 +56,9 @@ html[data-platform='k8s'] .example--k8s {
   --w2-color-primary-hover: rgba(82, 153, 224, 0.85);
   --w2-color-primary-pressed: linear-gradient(0deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), #5299e0;
   --w2-color-primary-disabled: rgba(82, 153, 224, 0.6);
+  /* buttons-state macet: primary disabled label = white @ 60%; ghost disabled label = gray/strong. */
+  --w2-color-primary-disabled-text: rgba(255, 255, 255, 0.6);
+  --w2-color-btn-disabled-text: #d0d5da;
   --w2-color-primary-text: #ffffff;
   --w2-color-link: #4781d1;
   --w2-color-link-hover: #3568b8;
@@ -295,8 +298,9 @@ html[data-platform='k8s'] .example--k8s {
 .welcome2 .welcome2__btn--primary[disabled],
 .welcome2 .welcome2__btn--primary[aria-disabled='true'] {
   background-color: var(--w2-color-primary-disabled);
-  border-color: var(--w2-color-primary-disabled);
-  color: var(--w2-color-primary-text);
+  /* transparent: a translucent border would stack over the translucent fill into a darker rim. */
+  border-color: transparent;
+  color: var(--w2-color-primary-disabled-text);
   cursor: default;
   pointer-events: none;
 }
@@ -323,7 +327,7 @@ html[data-platform='k8s'] .example--k8s {
 .welcome2 .welcome2__btn--ghost-light[aria-disabled='true'] {
   background-color: #f8f9f9; /* gray/light */
   border-color: #eceef1; /* gray/mid */
-  color: var(--w2-color-heading);
+  color: var(--w2-color-btn-disabled-text); /* gray/strong, per buttons-state macet */
   cursor: default;
   pointer-events: none;
 }
@@ -751,6 +755,39 @@ html[data-platform='k8s'] .example--k8s {
 .welcome2 [data-example-state='unknown'] .welcome2__status-badge {
   color: var(--w2-color-unknown-fg);
   background: var(--w2-color-unknown-bg);
+}
+
+/* Checking: status probe still in flight. Neutral badge + spinner (buttons-state
+   Loader ring color); the gated controls reuse the shared [aria-disabled] styles. */
+.welcome2 [data-example-state='checking'] .welcome2__status-badge {
+  color: var(--w2-color-unknown-fg);
+  background: var(--w2-color-unknown-bg);
+  gap: 6px;
+}
+.welcome2 [data-example-state='checking'] .welcome2__status-badge::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(from 90deg at 50% 50%, rgba(82, 153, 224, 0) 0deg, #5299e0 359.96deg, rgba(82, 153, 224, 0) 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  animation: welcome2-spin 0.7s linear infinite;
+}
+.welcome2 .welcome2__editor-card[aria-disabled='true'] {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: default;
+}
+@keyframes welcome2-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome2 [data-example-state='checking'] .welcome2__status-badge::before {
+    animation: none;
+  }
 }
 
 /* ---- Apps section -------------------------------------------------------- */
