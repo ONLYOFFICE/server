@@ -665,7 +665,7 @@ function applyCommunityMemoryAdmission(ctx, conn, isLiveViewer) {
     Math.round((heapStats.heap_size_limit || 0) / 1048576)
   );
 
-  conn.licenseType = constants.LICENSE_RESULT.ConnectionsOS;
+  conn.licenseType = constants.LICENSE_RESULT.NotEnoughResources;
   modifyConnectionEditorToView(ctx, conn);
 }
 
