@@ -114,7 +114,9 @@ router.get('/config', async (req, res) => {
         api: `/web-apps/apps/api/documents/api.js`,
         command: `/command`,
         converter: `/converter`,
-        docbuilder: `/docbuilder`
+        converterFromFile: `/converter/from-file`,
+        docbuilder: `/docbuilder`,
+        docbuilderFromFile: `/docbuilder/from-file`
       },
       limits: {
         maxFileSize: ctx.config?.FileConverter?.converter?.maxDownloadBytes
