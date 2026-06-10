@@ -3,6 +3,7 @@ const {Readable} = require('stream');
 const {buffer} = require('node:stream/consumers');
 const http = require('http');
 const express = require('express');
+const crypto = require('crypto');
 const operationContext = require('../../Common/sources/operationContext');
 const utils = require('../../Common/sources/utils');
 
@@ -181,6 +182,61 @@ describe('HTTP Request Unit Tests', () => {
       res.setHeader('transfer-encoding', 'chunked');
       res.write(Buffer.alloc(2 * 1024 * 1024));
       res.end();
+    });
+
+    // Endpoint that returns data with correct Content-Digest header
+    app.get('/api/content-digest-ok', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const sha256 = crypto.createHash('sha256').update(body).digest('base64');
+      res.setHeader('content-digest', 'sha256=:' + sha256 + ':');
+      res.send(body);
+    });
+
+    // Endpoint that returns data with wrong Content-Digest header
+    app.get('/api/content-digest-bad', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const sha256 = crypto.createHash('sha256').update(body).digest('base64');
+      // Send wrong body but correct hash for different body
+      const wrongBody = Buffer.from('tampered content data');
+      res.setHeader('content-digest', 'sha256=:' + sha256 + ':');
+      res.send(wrongBody);
+    });
+
+    // Endpoint that returns data with correct x-amz-checksum-sha256 header
+    app.get('/api/amz-checksum-ok', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const sha256 = crypto.createHash('sha256').update(body).digest('base64');
+      res.setHeader('x-amz-checksum-sha256', sha256);
+      res.send(body);
+    });
+
+    // Endpoint that returns data with wrong x-amz-checksum-sha256 header
+    app.get('/api/amz-checksum-bad', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const sha256 = crypto.createHash('sha256').update(body).digest('base64');
+      // Send wrong body but correct hash for different body
+      const wrongBody = Buffer.from('tampered content data');
+      res.setHeader('x-amz-checksum-sha256', sha256);
+      res.send(wrongBody);
+    });
+
+    // Endpoint that returns data with correct Content-Length
+    app.get('/api/content-length-ok', (_req, res) => {
+      const body = Buffer.from('exact length content');
+      res.setHeader('content-length', body.length);
+      res.send(body);
+    });
+
+    // Endpoint that returns data with wrong Content-Length (too large),
+    // then forcefully closes the connection so the client sees a truncated response.
+    app.get('/api/content-length-mismatch', (_req, res) => {
+      const body = Buffer.from('actual content');
+      res.writeHead(200, {
+        'content-length': 999,
+        'content-type': 'application/octet-stream'
+      });
+      res.write(body);
+      res.destroy();
     });
 
     // Endpoint that mirrors whole request - handles any HTTP method
@@ -675,6 +731,62 @@ describe('HTTP Request Unit Tests', () => {
       } finally {
         // No need to clean up proxy server here anymore
       }
+    });
+
+    test.concurrent('passes validation when Content-Length matches', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/content-length-ok`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('throws ESOCKETTIMEDOUT when Content-Length header says more bytes than body', async () => {
+      // The server sends Content-Length: 999 but only 14 bytes of body, then destroys the connection.
+      // The client detects the mismatch as an incomplete response → ESOCKETTIMEDOUT.
+      await expect(
+        utils.downloadUrlPromise(ctx, `${BASE_URL}/api/content-length-mismatch`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        })
+      ).rejects.toMatchObject({code: 'ESOCKETTIMEDOUT'});
+    });
+
+    test.concurrent('passes validation when Content-Digest sha256 matches', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/content-digest-ok`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('throws EBADDIGEST when Content-Digest sha256 does not match', async () => {
+      await expect(
+        utils.downloadUrlPromise(ctx, `${BASE_URL}/api/content-digest-bad`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        })
+      ).rejects.toMatchObject({code: 'EBADDIGEST'});
+    });
+
+    test.concurrent('passes validation when x-amz-checksum-sha256 matches', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/amz-checksum-ok`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('throws EBADAMZCHECKSUM when x-amz-checksum-sha256 does not match', async () => {
+      await expect(
+        utils.downloadUrlPromise(ctx, `${BASE_URL}/api/amz-checksum-bad`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        })
+      ).rejects.toMatchObject({code: 'EBADAMZCHECKSUM'});
     });
 
     test.concurrent('should return 205 status code for /status/205', async () => {

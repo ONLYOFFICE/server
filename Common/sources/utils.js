@@ -422,6 +422,7 @@ async function downloadUrlPromise(
     }
 
     const body = await pipeline(response.data, limitedStream, buffer);
+    validateDownloadIntegrity(headers, body);
     return {response, body, stream: null};
   } catch (err) {
     if ('ERR_CANCELED' === err.code) {
@@ -1406,6 +1407,7 @@ class HashSizeStream extends Transform {
   constructor() {
     super();
     this._hash = crypto.createHash('sha256');
+    this._sha256 = undefined;
     this.byteCount = 0;
   }
   _transform(chunk, _encoding, callback) {
@@ -1414,7 +1416,10 @@ class HashSizeStream extends Transform {
     callback(null, chunk);
   }
   get sha256() {
-    return this._hash.digest('hex');
+    if (!this._sha256) {
+      this._sha256 = this._hash.digest('hex');
+    }
+    return this._sha256;
   }
 }
 exports.HashSizeStream = HashSizeStream;
@@ -1447,6 +1452,92 @@ exports.isUselesSfc = function (row, cmd) {
 exports.getChangesFileHeader = function () {
   return `CHANGES\t${commonDefines.buildVersion}\n`;
 };
+/**
+ * Validate download integrity by checking response headers against downloaded content.
+ * Supports Content-Length, Content-Digest (RFC 3230), and x-amz-checksum-* headers.
+ *
+ * @param {object} headers - HTTP response headers (lowercase keys)
+ * @param {Buffer|object} bodyOrInfo - Downloaded body (Buffer) or {byteCount, sha256Hex} for stream
+ * @throws {Error} With code EBADCONTENTLENGTH, EBADDIGEST, or EBADAMZCHECKSUM on mismatch
+ */
+function validateDownloadIntegrity(headers, bodyOrInfo) {
+  const isBuffer = Buffer.isBuffer(bodyOrInfo);
+  const actualLength = isBuffer ? bodyOrInfo.length : bodyOrInfo.byteCount;
+  const sha256Hex = isBuffer
+    ? crypto.createHash('sha256').update(bodyOrInfo).digest('hex')
+    : bodyOrInfo.sha256Hex;
+
+  // 1. Content-Length check
+  const contentLength = headers['content-length'];
+  if (contentLength !== undefined) {
+    const expectedLength = parseInt(contentLength, 10);
+    if (!isNaN(expectedLength) && expectedLength !== actualLength) {
+      const err = new Error('Content-Length mismatch: expected ' + expectedLength + ' bytes, received ' + actualLength);
+      err.code = 'EBADCONTENTLENGTH';
+      throw err;
+    }
+  }
+
+  // 2. Content-Digest check
+  const contentDigest = headers['content-digest'];
+  if (contentDigest) {
+    const entries = contentDigest.split(',');
+    for (const entry of entries) {
+      const match = entry.trim().match(/^(\w[\w-]*)=:(.+?):$/);
+      if (match) {
+        const algorithm = match[1].toLowerCase().replace(/-/g, '');
+        const expectedBase64 = match[2];
+        let actualBase64;
+        if (isBuffer) {
+          try {
+            actualBase64 = crypto.createHash(algorithm).update(bodyOrInfo).digest('base64');
+          } catch (_e) {
+            continue;
+          }
+        } else if (algorithm === 'sha256') {
+          actualBase64 = Buffer.from(sha256Hex, 'hex').toString('base64');
+        } else {
+          continue;
+        }
+        if (actualBase64 !== expectedBase64) {
+          const err = new Error('Content-Digest mismatch for ' + match[1] + ': expected ' + expectedBase64 + ', actual ' + actualBase64);
+          err.code = 'EBADDIGEST';
+          throw err;
+        }
+      }
+    }
+  }
+
+  // 3. x-amz-checksum-* check
+  // Format: x-amz-checksum-sha256: base64hash
+  for (const [header, value] of Object.entries(headers)) {
+    const match = header.match(/^x-amz-checksum-(.+)$/);
+    if (match) {
+      const algorithm = match[1].toLowerCase().replace(/-/g, '');
+      const expectedBase64 = value.trim();
+      let actualBase64;
+      if (isBuffer) {
+        try {
+          actualBase64 = crypto.createHash(algorithm).update(bodyOrInfo).digest('base64');
+        } catch (_e) {
+          continue;
+        }
+      } else if (algorithm === 'sha256') {
+        actualBase64 = Buffer.from(sha256Hex, 'hex').toString('base64');
+      } else {
+        continue;
+      }
+      if (actualBase64 !== expectedBase64) {
+        const err = new Error('x-amz-checksum-' + match[1] + ' mismatch: expected ' + expectedBase64 + ', actual ' + actualBase64);
+        err.code = 'EBADAMZCHECKSUM';
+        throw err;
+      }
+    }
+  }
+}
+
+exports.validateDownloadIntegrity = validateDownloadIntegrity;
+
 exports.checksumFile = function (hashName, path) {
   //https://stackoverflow.com/a/44643479
   return new Promise((resolve, reject) => {
