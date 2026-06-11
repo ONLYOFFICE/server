@@ -132,8 +132,8 @@ function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
     let shouldReload = false;
 
     if (typeof eventTypeOrCurrent === 'object' && eventTypeOrCurrent.isFile) {
-      // fs.watchFile callback: (current, previous)
-      shouldReload = eventTypeOrCurrent.mtime !== filenameOrPrevious.mtime;
+      // fs.watchFile callback: (current, previous); compare numeric mtime/size, not Date identity
+      shouldReload = eventTypeOrCurrent.mtimeMs !== filenameOrPrevious.mtimeMs || eventTypeOrCurrent.size !== filenameOrPrevious.size;
     } else {
       // fs.watch callback: (eventType, filename)
       shouldReload = configFileName === filenameOrPrevious;

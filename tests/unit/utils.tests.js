@@ -33,7 +33,9 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-const {describe, test, expect} = require('@jest/globals');
+const {describe, test, expect, jest, afterEach} = require('@jest/globals');
+const fs = require('fs');
+const fsPromises = require('node:fs/promises');
 const config = require('../../Common/node_modules/config');
 
 const operationContext = require('../../Common/sources/operationContext');
@@ -60,5 +62,56 @@ describe('AES encryption & decryption', () => {
     const encrypted = await utils.encryptPassword(ctx, 'secretstring');
     const decrypted = await utils.decryptPassword(ctx, encrypted);
     expect(decrypted).toEqual('secretstring');
+  });
+});
+
+describe('watchWithFallback', () => {
+  const SAFE_FS = 0xef53; // ext4 magic, not in UNSAFE_MAGIC
+  const dirPath = '/cfg';
+  const filePath = '/cfg/runtime.json';
+  const listener = () => {};
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('uses native fs.watch when file and dir share a device', async () => {
+    jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
+    jest.spyOn(fsPromises, 'stat').mockResolvedValue({dev: 2049});
+    const fakeWatcher = {on: jest.fn(), close: jest.fn()};
+    const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue(fakeWatcher);
+    const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue({});
+
+    const result = await utils.watchWithFallback(ctx, dirPath, filePath, listener);
+
+    expect(watchSpy).toHaveBeenCalledWith(dirPath, {}, listener);
+    expect(watchFileSpy).not.toHaveBeenCalled();
+    expect(result).toBe(fakeWatcher);
+  });
+
+  test('falls back to fs.watchFile when file is on a separate mount (single-file bind mount)', async () => {
+    jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
+    jest.spyOn(fsPromises, 'stat').mockImplementation(async p => ({dev: p === filePath ? 100 : 200}));
+    const fakeStatWatcher = {};
+    const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue({on: jest.fn(), close: jest.fn()});
+    const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue(fakeStatWatcher);
+
+    const result = await utils.watchWithFallback(ctx, dirPath, filePath, listener);
+
+    expect(watchFileSpy).toHaveBeenCalledWith(filePath, {}, listener);
+    expect(watchSpy).not.toHaveBeenCalled();
+    expect(result).toBe(fakeStatWatcher);
+  });
+
+  test('treats a missing file as same mount so native watch observes its creation', async () => {
+    jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
+    jest.spyOn(fsPromises, 'stat').mockRejectedValue(Object.assign(new Error('ENOENT'), {code: 'ENOENT'}));
+    const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue({on: jest.fn(), close: jest.fn()});
+    const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue({});
+
+    await utils.watchWithFallback(ctx, dirPath, filePath, listener);
+
+    expect(watchSpy).toHaveBeenCalledWith(dirPath, {}, listener);
+    expect(watchFileSpy).not.toHaveBeenCalled();
   });
 });

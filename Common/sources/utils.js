@@ -1520,6 +1520,24 @@ async function getFsType(ctx, path) {
 }
 
 /**
+ * Detects whether filePath sits on a different mount than its directory (e.g. a single-file bind mount)
+ * @param {operationContext} ctx - Operation context
+ * @param {string} filePath - File path to check
+ * @param {string} dirPath - Directory path to compare against
+ * @returns {Promise<boolean>} True when the file is on a separate device/mount
+ */
+async function isSeparateMount(ctx, filePath, dirPath) {
+  try {
+    const [fileStat, dirStat] = await Promise.all([fsPromises.stat(filePath), fsPromises.stat(dirPath)]);
+    return fileStat.dev !== dirStat.dev;
+  } catch (err) {
+    // Missing file cannot be a single-file bind mount; let native watch handle creation
+    ctx.logger.info(`isSeparateMount error: ${filePath}: ${err.message}`);
+    return false;
+  }
+}
+
+/**
  * File watcher with native events fallback to polling
  * @param {operationContext} ctx - Operation context
  * @param {string} dirPath - Directory path to watch
@@ -1530,8 +1548,10 @@ async function getFsType(ctx, path) {
  */
 exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, filePath, listener, opts = {}) {
   const fsType = await getFsType(ctx, dirPath);
-  if (null === fsType || UNSAFE_MAGIC.has(fsType)) {
-    ctx.logger.info(`watchWithFallback fs type=${fsType} unsupport watch. fallback to watchFile ${filePath}`);
+  // Native dir watch is blind to a single-file bind mount, so poll the file when it is on a separate mount
+  const separateMount = await isSeparateMount(ctx, filePath, dirPath);
+  if (null === fsType || UNSAFE_MAGIC.has(fsType) || separateMount) {
+    ctx.logger.info(`watchWithFallback fs type=${fsType} separateMount=${separateMount} unsupport watch. fallback to watchFile ${filePath}`);
     return fs.watchFile(filePath, opts, listener);
   }
 
