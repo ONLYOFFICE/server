@@ -1849,6 +1849,7 @@ exports.downloadFile = function (req, res) {
         return;
       }
       if (fromTemplate) {
+        // todo locale as param
         ctx.logger.debug('downloadFile from file template: requested=%s template=%s', requestedTemplateExt, fromTemplate);
         const locale = constants.TEMPLATES_DEFAULT_LOCALE;
         const fileTemplatePath = pathModule.join(tenNewFileTemplate, locale, 'new.' + fromTemplate);

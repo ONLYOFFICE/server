@@ -51,6 +51,7 @@ const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const wopiUtils = require('./wopiUtils');
 const newFileTemplateUtils = require('./newFileTemplateUtils');
+const templateLocale = require('./../../Common/sources/templateLocale');
 const documentFormats = require('./../../Common/sources/documentFormats');
 const operationContext = require('./../../Common/sources/operationContext');
 const tenantManager = require('./../../Common/sources/tenantManager');
@@ -94,7 +95,6 @@ const cfgWopiHost = config.get('wopi.host');
 const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
 const cfgDocumentFormatsFile = config.get('services.CoAuthoring.server.documentFormatsFile');
 
-const templatesFolderLocalesCache = Object.create(null);
 let templatesFolderExtsCache = null;
 const templateFilesSizeCache = Object.create(null);
 let shutdownFlag = false;
@@ -562,20 +562,9 @@ function applyFileInfo(fileInfo, size, info) {
  */
 async function getNewFileTemplateMeta(ctx, lang, ui, fileType) {
   const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
-  if (!templatesFolderLocalesCache[tenNewFileTemplate]) {
-    templatesFolderLocalesCache[tenNewFileTemplate] = readdir(`${tenNewFileTemplate}/`, {withFileTypes: true})
-      .then(dirContent => dirContent.filter(x => x.isDirectory()).map(x => x.name))
-      .catch(err => {
-        delete templatesFolderLocalesCache[tenNewFileTemplate];
-        throw err;
-      });
-  }
-  const locales = await templatesFolderLocalesCache[tenNewFileTemplate];
-  const localePrefix = lang || ui || 'en';
-  const locale =
-    constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ??
-    locales.find(x => x.startsWith(localePrefix)) ??
-    constants.TEMPLATES_DEFAULT_LOCALE;
+  const locales = await templateLocale.readTemplateFolders(tenNewFileTemplate);
+  // Try lang first, then ui; ui is a real fallback when lang is present but unsupported.
+  const locale = templateLocale.resolveTemplateLocale([lang, ui], locales, constants.TEMPLATES_DEFAULT_LOCALE);
   const templateFileType = newFileTemplateUtils.getNewFileTemplateExt(fileType);
   const filePath = `${tenNewFileTemplate}/${locale}/new.${templateFileType}`;
   if (!templateFilesSizeCache[filePath]) {

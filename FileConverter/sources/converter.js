@@ -41,7 +41,7 @@ const co = require('co');
 const config = require('config');
 const spawnAsync = require('@expo/spawn-async');
 const bytes = require('bytes');
-const lcid = require('lcid');
+const windowsLocale = require('windows-locale');
 const ms = require('ms');
 const {pipeline} = require('node:stream/promises');
 
@@ -49,6 +49,7 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const storage = require('./../../Common/sources/storage/storage-base');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
+const templateLocale = require('./../../Common/sources/templateLocale');
 const baseConnector = require('../../DocService/sources/databaseConnectors/baseConnector');
 const wopiUtils = require('./../../DocService/sources/wopiUtils');
 const taskResult = require('./../../DocService/sources/taskresult');
@@ -463,28 +464,34 @@ async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
     }
   }
 }
+let lcidToTagMap = null;
+// Reverse Windows-locale lookup (numeric LCID -> BCP-47 tag); covers neutral LCIDs that lcid lacks.
+function lcidToTag(id) {
+  if (!lcidToTagMap) {
+    lcidToTagMap = Object.create(null);
+    for (const key of Object.keys(windowsLocale)) {
+      const entry = windowsLocale[key];
+      // 4096 (LOCALE_CUSTOM_UNSPECIFIED) is shared by many locales; treat it as no specific locale.
+      if (entry.id != null && entry.id !== 4096 && lcidToTagMap[entry.id] == null) {
+        lcidToTagMap[entry.id] = entry.tag;
+      }
+    }
+  }
+  return lcidToTagMap[id];
+}
 /**
  * Replace an empty file with a localized template of the requested format, if available.
  * @param {operationContext} ctx - Operation context for config and logging
  * @param {string} fileFrom - Path to the file to check/replace
  * @param {string} ext - Target extension (e.g., 'docx', 'xlsx', 'pptx')
- * @param {number} _lcid - Optional locale identifier to select template locale
+ * @param {number} _lcid - Optional numeric Windows LCID to select template locale
  */
 function replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
   if (!fs.existsSync(fileFrom) || 0 === fs.lstatSync(fileFrom).size) {
-    let locale = constants.TEMPLATES_DEFAULT_LOCALE;
-    if (_lcid) {
-      let localeNew = lcid.from(_lcid);
-      if (localeNew) {
-        localeNew = localeNew.replace(/_/g, '-');
-        if (fs.existsSync(path.join(tenNewFileTemplate, localeNew))) {
-          locale = localeNew;
-        } else {
-          ctx.logger.debug('replaceEmptyFile empty locale dir locale=%s', localeNew);
-        }
-      }
-    }
+    const requestedLocale = _lcid ? lcidToTag(_lcid) : undefined;
+    const folders = templateLocale.readTemplateFoldersSync(tenNewFileTemplate);
+    const locale = templateLocale.resolveTemplateLocale(requestedLocale, folders, constants.TEMPLATES_DEFAULT_LOCALE);
     const fileTemplatePath = path.join(tenNewFileTemplate, locale, 'new.');
     if (fs.existsSync(fileTemplatePath + ext)) {
       ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
