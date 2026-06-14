@@ -29,6 +29,8 @@
     "format:check": "prettier . --check",
     "code:check": "run-s lint:check format:check",
     "code:fix": "run-s lint:fix format:fix",
+    "config-schema:check": "node ./scripts/check-config-schema.js --check",
+    "config-schema:apply": "node ./scripts/check-config-schema.js --apply",
     "perf-expired": "cd ./DocService&& cross-env NODE_ENV=development-windows NODE_CONFIG_DIR=../Common/config node ../tests/perf/checkFileExpire.js",
     "unit tests": "cd ./DocService && jest unit --inject-globals=false --config=../tests/jest.config.js",
     "integration tests with server instance": "cd ./DocService && jest integration/withServerInstance --inject-globals=false --config=../tests/jest.config.js",

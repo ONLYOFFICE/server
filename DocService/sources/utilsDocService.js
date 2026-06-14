@@ -86,7 +86,7 @@ initializeSharp();
 
 const {notificationTypes, ...notificationService} = require('../../Common/sources/notificationService');
 
-const cfgStartNotifyFrom = ms(config.get('license.warning_license_expiration'));
+const cfgStartNotifyFromRaw = config.get('license.warning_license_expiration');
 const cfgNotificationRuleLicenseExpirationWarning = config.get('notification.rules.licenseExpirationWarning.template');
 const cfgNotificationRuleLicenseExpirationError = config.get('notification.rules.licenseExpirationError.template');
 
@@ -242,7 +242,8 @@ async function notifyLicenseExpiration(ctx, endDate) {
   }
 
   const currentDate = new Date();
-  if (currentDate.getTime() >= endDate.getTime() - cfgStartNotifyFrom) {
+  const tenStartNotifyFrom = ms(ctx.getCfg('license.warning_license_expiration', cfgStartNotifyFromRaw));
+  if (currentDate.getTime() >= endDate.getTime() - tenStartNotifyFrom) {
     //todo remove stub for "new Date(1)" and "setMonth + 1" in license.js; bug 70676
     if (endDate.getUTCFullYear() < 2000) {
       endDate = currentDate;
