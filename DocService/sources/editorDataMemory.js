@@ -425,47 +425,33 @@ EditorStat.prototype.getEditorConnections = async function (ctx) {
   }
   return tenantStat;
 };
-EditorStat.prototype.setEditorConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
-EditorStat.prototype.incrEditorConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
-EditorStat.prototype.getEditorConnectionsCount = async function (ctx, connections) {
+// count this tenant's connections in the given mode
+function countConnectionsByMode(ctx, connections, mode) {
   let count = 0;
   if (connections) {
     for (let i = 0; i < connections.length; ++i) {
       const conn = connections[i];
-      if (!(conn.isCloseCoAuthoring || (conn.user && conn.user.view)) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
+      if (mode === utils.getConnectionCountMode(conn) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
         count++;
       }
     }
   }
   return count;
+}
+EditorStat.prototype.setEditorConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
+EditorStat.prototype.incrEditorConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
+EditorStat.prototype.getEditorConnectionsCount = async function (ctx, connections) {
+  return countConnectionsByMode(ctx, connections, 'edit');
 };
 EditorStat.prototype.setViewerConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
 EditorStat.prototype.incrViewerConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
 EditorStat.prototype.getViewerConnectionsCount = async function (ctx, connections) {
-  let count = 0;
-  if (connections) {
-    for (let i = 0; i < connections.length; ++i) {
-      const conn = connections[i];
-      if (conn.isCloseCoAuthoring || (conn.user && conn.user.view && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn))) {
-        count++;
-      }
-    }
-  }
-  return count;
+  return countConnectionsByMode(ctx, connections, 'view');
 };
 EditorStat.prototype.setLiveViewerConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
 EditorStat.prototype.incrLiveViewerConnectionsCountByShard = async function (_ctx, _shardId, _count) {};
 EditorStat.prototype.getLiveViewerConnectionsCount = async function (ctx, connections) {
-  let count = 0;
-  if (connections) {
-    for (let i = 0; i < connections.length; ++i) {
-      const conn = connections[i];
-      if (utils.isLiveViewer(conn) && ctx.tenant === tenantManager.getTenantByConnection(ctx, conn)) {
-        count++;
-      }
-    }
-  }
-  return count;
+  return countConnectionsByMode(ctx, connections, 'liveview');
 };
 EditorStat.prototype.addShutdown = async function (key, docId) {
   if (!this.shutdown[key]) {

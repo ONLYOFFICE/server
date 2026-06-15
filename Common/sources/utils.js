@@ -1216,6 +1216,16 @@ exports.getConnectionInfoStr = function (conn) {
 exports.isLiveViewer = function (conn) {
   return conn.user?.view && 'fast' === conn.coEditingMode;
 };
+// connection count mode: edit, view or liveview
+exports.getConnectionCountMode = function (conn) {
+  if (exports.isLiveViewer(conn)) {
+    return 'liveview';
+  }
+  if (conn.isCloseCoAuthoring || conn.user?.view) {
+    return 'view';
+  }
+  return 'edit';
+};
 exports.isLiveViewerSupport = function (licenseInfo) {
   return licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0;
 };
