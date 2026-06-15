@@ -28,7 +28,7 @@ function createMockContext(overrides = {}) {
         case 'services.CoAuthoring.requestDefaults':
           return {
             headers: {
-              'User-Agent': 'Node.js/6.13',
+              'User-Agent': 'DocumentServer',
               Connection: 'Keep-Alive'
             },
             decompress: true,
@@ -432,7 +432,7 @@ describe('HTTP Request Unit Tests', () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
           headers: {
-            'User-Agent': 'Node.js/6.13',
+            'User-Agent': 'DocumentServer',
             Connection: 'Keep-Alive'
           },
           decompress: true,
@@ -457,7 +457,7 @@ describe('HTTP Request Unit Tests', () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
           headers: {
-            'User-Agent': 'Node.js/6.13',
+            'User-Agent': 'DocumentServer',
             Connection: 'Keep-Alive'
           },
           decompress: true,
@@ -536,7 +536,7 @@ describe('HTTP Request Unit Tests', () => {
     test.concurrent('enables compression when gzip is true', async () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
-          headers: {'User-Agent': 'Node.js/6.13'},
+          headers: {'User-Agent': 'DocumentServer'},
           gzip: true,
           rejectUnauthorized: false
         }
@@ -555,7 +555,7 @@ describe('HTTP Request Unit Tests', () => {
     test.concurrent('disables compression when gzip is false', async () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
-          headers: {'User-Agent': 'Node.js/6.13'},
+          headers: {'User-Agent': 'DocumentServer'},
           gzip: false,
           rejectUnauthorized: false
         }
@@ -572,7 +572,7 @@ describe('HTTP Request Unit Tests', () => {
     test.concurrent('enables keep-alive when forever is true', async () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
-          headers: {'User-Agent': 'Node.js/6.13'},
+          headers: {'User-Agent': 'DocumentServer'},
           forever: true,
           rejectUnauthorized: false
         }
@@ -591,7 +591,7 @@ describe('HTTP Request Unit Tests', () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
           headers: {
-            'User-Agent': 'Node.js/6.13'
+            'User-Agent': 'DocumentServer'
           },
           forever: false,
           rejectUnauthorized: false
@@ -615,7 +615,7 @@ describe('HTTP Request Unit Tests', () => {
     });
 
     test.concurrent('test requestDefaults', async () => {
-      const defaultHeaders = {'user-agent': 'Node.js/6.13'};
+      const defaultHeaders = {'user-agent': 'DocumentServer'};
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
           headers: defaultHeaders
@@ -963,7 +963,7 @@ describe('HTTP Request Unit Tests', () => {
     test.concurrent('applies gzip setting to POST requests', async () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
-          headers: {'User-Agent': 'Node.js/6.13'},
+          headers: {'User-Agent': 'DocumentServer'},
           gzip: false,
           rejectUnauthorized: false
         }
@@ -987,7 +987,7 @@ describe('HTTP Request Unit Tests', () => {
     test.concurrent('applies forever setting to POST requests', async () => {
       const mockCtx = createMockContext({
         'services.CoAuthoring.requestDefaults': {
-          headers: {'User-Agent': 'Node.js/6.13'},
+          headers: {'User-Agent': 'DocumentServer'},
           forever: true,
           rejectUnauthorized: false
         }

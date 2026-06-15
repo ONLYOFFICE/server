@@ -351,7 +351,7 @@
       },
       "requestDefaults": {
         "headers": {
-          "User-Agent": "Node.js/6.13",
+          "User-Agent": "DocumentServer",
           "Connection": "Keep-Alive"
         },
         "rejectUnauthorized": true

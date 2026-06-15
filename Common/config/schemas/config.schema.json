@@ -1867,7 +1867,7 @@
                     "User-Agent": {
                       "type": "string",
                       "description": "HTTP User-Agent header sent with outgoing requests.",
-                      "default": "Node.js/6.13",
+                      "default": "DocumentServer",
                       "x-tenantOverride": true
                     },
                     "Connection": {
