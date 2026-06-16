@@ -33,10 +33,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-// Hermetic contract test for getRequestParamsFromFile: the accept/reject decision for
-// POST /converter/from-file, exercised up to (not including) enqueue - no running server, no x2t.
-// Rejections (extra fields, dup/conflicting token, invalid params) are checked before auth, so they
-// hold in both inbox-token and non-token modes; the two mode-dependent cases are guarded on config.
+// Hermetic from-file params/token parser tests; no server or x2t.
 
 'use strict';
 
@@ -57,7 +54,7 @@ const inboxEnabled = config.get('services.CoAuthoring.token.enable.request.inbox
 const ctx = new operationContext.Context();
 const PARAMS = {filetype: 'txt', outputtype: 'docx'};
 
-// minimal Express-like req: body holds the parsed multipart text parts; get() returns the auth header
+// Minimal Express-like request.
 function fakeReq(body, headerToken) {
   return {
     body,
@@ -75,6 +72,51 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
     expect(res.params).toMatchObject(PARAMS);
   });
 
+  test('accepts a token nested inside the params JSON (classic body.token contract)', async () => {
+    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({outputtype: 'spoiled', token})}));
+    expect(res.badRequest).toBe(false);
+    expect(res.code).toBe(constants.NO_ERROR);
+    expect(res.isDecoded).toBe(true);
+    expect(res.params).toMatchObject(PARAMS);
+    expect(res.params.outputtype).toBe(PARAMS.outputtype);
+  });
+
+  test('accepts a header token alongside an unsigned params part', async () => {
+    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({outputtype: 'spoiled'})}, token));
+    expect(res.badRequest).toBe(false);
+    expect(res.code).toBe(constants.NO_ERROR);
+    expect(res.isDecoded).toBe(true);
+    expect(res.params).toMatchObject(PARAMS);
+  });
+
+  test('a nested params token wins over the header (classic precedence: body token, header ignored)', async () => {
+    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({token})}, 'garbageheader'));
+    expect(res.badRequest).toBe(false);
+    expect(res.code).toBe(constants.NO_ERROR);
+    expect(res.isDecoded).toBe(true);
+    expect(res.params).toMatchObject(PARAMS);
+  });
+
+  test('an empty nested token is ignored (classic !!params.token), unsigned params used in non-token mode', async () => {
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({...PARAMS, token: ''})}));
+    if (inboxEnabled) {
+      expect(res.code).not.toBe(constants.NO_ERROR);
+    } else {
+      expect(res.badRequest).toBe(false);
+      expect(res.isDecoded).toBe(false);
+      expect(res.params).toMatchObject(PARAMS);
+    }
+  });
+
+  test('a non-string truthy nested token fails verification like classic, never accepted unsigned', async () => {
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({...PARAMS, token: 12345})}));
+    expect(res.code).not.toBe(constants.NO_ERROR);
+    expect(res.isDecoded).toBe(false);
+  });
+
   test('400 on an unexpected unsigned scalar field', async () => {
     const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify(PARAMS), outputtype: 'docx'}));
     expect(res.badRequest).toBe(true);
@@ -85,13 +127,22 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
     expect(res.badRequest).toBe(true);
   });
 
-  test('400 when a header token and a body token are both present', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({token: 'bodytoken'}, 'headertoken'));
-    expect(res.badRequest).toBe(true);
+  test('a token part wins over the header (classic precedence: body token, header ignored)', async () => {
+    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const res = await getRequestParamsFromFile(ctx, fakeReq({token}, 'garbageheader'));
+    expect(res.badRequest).toBe(false);
+    expect(res.code).toBe(constants.NO_ERROR);
+    expect(res.isDecoded).toBe(true);
+    expect(res.params).toMatchObject(PARAMS);
   });
 
   test('400 when the token part is duplicated into an array', async () => {
     const res = await getRequestParamsFromFile(ctx, fakeReq({token: ['a', 'b']}));
+    expect(res.badRequest).toBe(true);
+  });
+
+  test('400 when the params part is duplicated into an array', async () => {
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: [JSON.stringify(PARAMS), JSON.stringify(PARAMS)]}));
     expect(res.badRequest).toBe(true);
   });
 
@@ -103,7 +154,7 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   test('params source depends on mode: accepted in non-token mode, rejected when inbox tokens are required', async () => {
     const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify(PARAMS)}));
     if (inboxEnabled) {
-      expect(res.code).not.toBe(constants.NO_ERROR); // unsigned params are not a valid source
+      expect(res.code).not.toBe(constants.NO_ERROR);
     } else {
       expect(res.badRequest).toBe(false);
       expect(res.isDecoded).toBe(false);

@@ -49,7 +49,13 @@ const {describe, test, expect, jest, beforeAll, afterAll, afterEach} = require('
 const {handleConvertUpload} = require('../../DocService/sources/middleware/convertUpload');
 const convertFromFile = require('../../DocService/sources/convertFromFile');
 const converterService = require('../../DocService/sources/converterservice');
+const {signToken} = require('../../DocService/sources/DocsCoServer');
+const commonDefines = require('../../Common/sources/commondefines');
 const operationContext = require('../../Common/sources/operationContext');
+const config = require('../../Common/node_modules/config');
+
+const cfgTokenAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
+const cfgTokenExpires = config.get('services.CoAuthoring.token.outbox.expires');
 
 let server;
 let converterUrl;
@@ -193,5 +199,25 @@ describe('POST /docbuilder/from-file route contract (in-process, no server)', ()
 
     expect(res.status).toBe(400);
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  test('200; builder receives the decoded token params and isDecoded=true when params carries a nested token', async () => {
+    const payload = {key: 'bld-token', argument: '{}'};
+    const token = await signToken(new operationContext.Context(), payload, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const spy = jest.spyOn(converterService, 'builder').mockImplementation(async (req, res) => {
+      res.status(200).send('mock');
+    });
+    const form = new FormData();
+    form.append('params', JSON.stringify({token}));
+    form.append('file', new Blob([Buffer.from('builder script')]), 'script.docbuilder');
+
+    const res = await postForm(form, docbuilderUrl);
+
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [req, , params, isDecoded] = spy.mock.calls[0];
+    expect(req.file.originalname).toBe('script.docbuilder');
+    expect(params).toMatchObject(payload);
+    expect(isDecoded).toBe(true);
   });
 });

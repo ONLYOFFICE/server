@@ -45,6 +45,7 @@ const docsCoServer = require('./DocsCoServer');
 const converterService = require('./converterservice');
 
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
+const cfgTokenRequiredParams = config.get('services.CoAuthoring.server.tokenRequiredParams');
 const cfgTokenInboxHeader = config.get('services.CoAuthoring.token.inbox.header');
 const cfgTokenInboxPrefix = config.get('services.CoAuthoring.token.inbox.prefix');
 
@@ -59,22 +60,31 @@ function parseFromFileParams(value) {
   }
   return parsed;
 }
-// Strict contract: params from a `params` JSON part XOR a signed `token` - never both, never from
-// unsigned scalar fields. badRequest=true on contract errors (handler maps to 400).
+// Params come from `params`; token may be a part, `params.token`, or the inbox header.
+// Body token wins over header; a separate `token` part plus `params` is rejected.
 async function getRequestParamsFromFile(ctx, req) {
   const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
+  const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
   const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
   const tenTokenInboxPrefix = ctx.getCfg('services.CoAuthoring.token.inbox.prefix', cfgTokenInboxPrefix);
 
   const res = {code: constants.NO_ERROR, description: '', isDecoded: false, params: undefined, badRequest: false};
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
-  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : undefined;
+  const partToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : undefined;
   const authorization = req.get(tenTokenInboxHeader);
   const hasHeaderToken = !!(authorization && authorization.startsWith(tenTokenInboxPrefix));
-  const hasToken = !!bodyToken || hasHeaderToken;
   const hasParamsPart = undefined !== body.params && null !== body.params && '' !== body.params;
 
-  // only `token`/`params` text parts are allowed; reject any other (unsigned) scalar field
+  // Repeated multipart fields become arrays in multer/append-field.
+  for (const name of ['token', 'params']) {
+    if (Array.isArray(body[name])) {
+      ctx.logger.warn('convert-from-file duplicate %s field (sent more than once)', name);
+      res.badRequest = true;
+      return res;
+    }
+  }
+
+  // No unsigned scalar fields outside `params`.
   const extraFields = Object.keys(body).filter(name => 'token' !== name && 'params' !== name);
   if (extraFields.length > 0) {
     ctx.logger.warn('convert-from-file unexpected scalar fields: %j', extraFields);
@@ -82,23 +92,16 @@ async function getRequestParamsFromFile(ctx, req) {
     return res;
   }
 
-  // a present token must be exactly one non-empty string (duplicated/empty -> reject, never drop)
-  if (undefined !== body.token && undefined === bodyToken) {
+  // A `token` part must be a single non-empty string.
+  if (undefined !== body.token && undefined === partToken) {
     ctx.logger.warn('convert-from-file malformed token part (not a single non-empty string)');
     res.badRequest = true;
     return res;
   }
 
-  // a header token and a `token` part are two competing signed sources; require exactly one
-  if (bodyToken && hasHeaderToken) {
-    ctx.logger.warn('convert-from-file conflicting_parameter_sources: both header and body token present');
-    res.badRequest = true;
-    return res;
-  }
-
-  // token and params parts are mutually exclusive sources for this endpoint
-  if (hasToken && hasParamsPart) {
-    ctx.logger.warn('convert-from-file conflicting_parameter_sources: both token and params parts present');
+  // Use either a `token` part or a `params` part with nested token, not both.
+  if (partToken && hasParamsPart) {
+    ctx.logger.warn('convert-from-file conflicting_parameter_sources: both token part and params part present');
     res.badRequest = true;
     return res;
   }
@@ -114,6 +117,11 @@ async function getRequestParamsFromFile(ctx, req) {
     }
   }
 
+  // Match classic truthiness: malformed truthy `params.token` must fail JWT verification.
+  const paramsToken = parsedParams && parsedParams.token ? parsedParams.token : undefined;
+  const bodyToken = partToken || paramsToken;
+
+  const hasToken = !!bodyToken || hasHeaderToken;
   if (tenTokenEnableRequestInbox || hasToken) {
     res.code = constants.VKEY;
     let checkJwtRes;
@@ -126,8 +134,8 @@ async function getRequestParamsFromFile(ctx, req) {
       if (checkJwtRes.decoded) {
         res.code = constants.NO_ERROR;
         res.isDecoded = true;
-        // token mode: only signed params, never mixed with unsigned parts or scalar fields
-        res.params = {};
+        // Match classic tokenRequiredParams merge/discard behavior.
+        res.params = !tenTokenRequiredParams && parsedParams ? parsedParams : {};
         Object.assign(res.params, checkJwtRes.decoded);
         if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
           Object.assign(res.params, checkJwtRes.decoded.payload);
@@ -143,7 +151,7 @@ async function getRequestParamsFromFile(ctx, req) {
     return res;
   }
 
-  // no token: effective params come solely from the params JSON part
+  // No token: params come from the params part only.
   if (!hasParamsPart) {
     ctx.logger.warn('convert-from-file missing required params (no params part and no token)');
     res.badRequest = true;
