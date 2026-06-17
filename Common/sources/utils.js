@@ -1538,6 +1538,51 @@ async function isSeparateMount(ctx, filePath, dirPath) {
 }
 
 /**
+ * Decodes octal escapes (e.g. \040 space, \011 tab) used for special characters in /proc mountinfo fields
+ * @param {string} field - Raw mountinfo field
+ * @returns {string} Unescaped field
+ */
+function unescapeMountInfoField(field) {
+  return field.replace(/\\([0-7]{3})/g, (_match, octal) => String.fromCharCode(parseInt(octal, 8)));
+}
+
+/**
+ * Detects whether filePath is itself a mount point (e.g. a single-file bind mount) via /proc/self/mountinfo
+ * @param {operationContext} ctx - Operation context
+ * @param {string} filePath - File path to check
+ * @returns {Promise<boolean>} True when filePath appears as a mount point; false when undetectable
+ */
+async function isMountPoint(ctx, filePath) {
+  // mountinfo stores canonical absolute paths, so resolve symlinks and relative inputs before comparing
+  let target;
+  try {
+    target = await fsPromises.realpath(filePath);
+  } catch {
+    target = path.resolve(filePath);
+  }
+  try {
+    const mountInfo = await fsPromises.readFile('/proc/self/mountinfo', 'utf8');
+    for (const line of mountInfo.split('\n')) {
+      if (!line) {
+        continue;
+      }
+      // fields before the " - " separator are space-separated; index 4 is the mount point with octal escapes
+      const mountField = line.split(' - ')[0].split(' ')[4];
+      if (mountField && unescapeMountInfoField(mountField) === target) {
+        return true;
+      }
+    }
+    return false;
+  } catch (err) {
+    // no /proc (non-Linux) or unreadable mountinfo: cannot detect, stay safe and let other signals decide
+    if ('linux' === process.platform) {
+      ctx.logger.info(`isMountPoint unavailable for ${target}: ${err.message}`);
+    }
+    return false;
+  }
+}
+
+/**
  * File watcher with native events fallback to polling
  * @param {operationContext} ctx - Operation context
  * @param {string} dirPath - Directory path to watch
@@ -1548,10 +1593,13 @@ async function isSeparateMount(ctx, filePath, dirPath) {
  */
 exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, filePath, listener, opts = {}) {
   const fsType = await getFsType(ctx, dirPath);
-  // Native dir watch is blind to a single-file bind mount, so poll the file when it is on a separate mount
+  // Native dir watch is blind to a single-file bind mount; it can share st_dev with the dir, so also check mountinfo
   const separateMount = await isSeparateMount(ctx, filePath, dirPath);
-  if (null === fsType || UNSAFE_MAGIC.has(fsType) || separateMount) {
-    ctx.logger.info(`watchWithFallback fs type=${fsType} separateMount=${separateMount} unsupport watch. fallback to watchFile ${filePath}`);
+  const mountPoint = await isMountPoint(ctx, filePath);
+  if (null === fsType || UNSAFE_MAGIC.has(fsType) || separateMount || mountPoint) {
+    ctx.logger.info(
+      `watchWithFallback fs type=${fsType} separateMount=${separateMount} mountPoint=${mountPoint} unsupport watch. fallback to watchFile ${filePath}`
+    );
     return fs.watchFile(filePath, opts, listener);
   }
 
@@ -1570,6 +1618,31 @@ exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, fileP
     return fs.watchFile(filePath, opts, listener);
   }
 };
+
+/**
+ * Reads a file while guarding against catching it mid-write by comparing stat before and after the read
+ * @param {operationContext} ctx - Operation context
+ * @param {string} filePath - File path to read
+ * @param {number} attempts - Maximum read attempts before giving up
+ * @returns {Promise<string>} File contents as utf8; throws an EUNSTABLE error when the file keeps changing
+ */
+async function readFileStable(ctx, filePath, attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const before = await fsPromises.stat(filePath);
+    const data = await fsPromises.readFile(filePath, 'utf8');
+    const after = await fsPromises.stat(filePath);
+    // stable when size and mtime did not change around the read, otherwise a write was in progress
+    if (before.mtimeMs === after.mtimeMs && before.size === after.size) {
+      return data;
+    }
+    ctx.logger.debug(`readFileStable unstable read attempt ${attempt}: ${filePath}`);
+  }
+  const err = new Error(`readFileStable unstable after ${attempts} attempts: ${filePath}`);
+  err.code = 'EUNSTABLE';
+  throw err;
+}
+exports.readFileStable = readFileStable;
+
 /**
  * Underlying get mechanism
  *

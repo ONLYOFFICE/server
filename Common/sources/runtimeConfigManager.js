@@ -54,23 +54,34 @@ const nodeCache = new NodeCache(cfgRuntimeConfig.cache);
 let reloadTimer = null;
 const RELOAD_DEBOUNCE_MS = 200;
 
+// Retry timer for reload after a transient read, so a single mid-write event does not strand the process on stale config
+let reloadRetryTimer = null;
+const RELOAD_RETRY_MS = 500;
+const RELOAD_MAX_RETRIES = 5;
+
+// Sentinel for a transient read failure (unstable read or partial JSON); callers must keep the last good cache
+const READ_TRANSIENT = Symbol('runtimeConfigReadTransient');
+
 /**
- * Get runtime configuration for the current context
+ * Read and parse the runtime config file
  * @param {operationContext} ctx - Operation context
- * @returns {Object} Runtime configuration object
+ * @returns {Object|null|Symbol} Parsed config, null when absent (ENOENT) or no filePath, or READ_TRANSIENT on an unstable/partial read
  */
 async function getConfigFromFile(ctx) {
   if (!configFilePath) {
     return null;
   }
   try {
-    const configData = await fs.readFile(configFilePath, 'utf8');
+    const configData = await utils.readFileStable(ctx, configFilePath);
     return JSON.parse(configData);
   } catch (err) {
-    if (err.code !== 'ENOENT') {
-      ctx.logger.error('getConfigFromFile error: %s', err.stack);
+    if (err.code === 'ENOENT') {
+      // file genuinely absent: a legitimate empty config
+      return null;
     }
-    return null;
+    // unstable read or partial/invalid JSON during a concurrent write: keep the last good cache
+    ctx.logger.error('getConfigFromFile transient error: %s', err.stack);
+    return READ_TRANSIENT;
   }
 }
 
@@ -82,11 +93,48 @@ async function getConfigFromFile(ctx) {
 async function getConfig(ctx) {
   let config = nodeCache.get(configFileName);
   if (undefined === config) {
-    config = await getConfigFromFile(ctx);
+    const loaded = await getConfigFromFile(ctx);
+    if (READ_TRANSIENT === loaded) {
+      // do not cache a transient read failure; the next call will retry
+      return null;
+    }
+    config = loaded;
     nodeCache.set(configFileName, config);
   }
   return config;
 }
+
+/**
+ * Apply a config object to the current process immediately: refresh caches and reconfigure the logger
+ * Lets the writing process pick up changes at once instead of waiting for its own watcher poll
+ * @param {operationContext} ctx - Operation context
+ * @param {Object} config - Configuration data to apply
+ */
+function applyConfig(ctx, config) {
+  nodeCache.set(configFileName, config);
+  ctx.cleanRuntimeConfigCache();
+  logger.configureLogger(config?.log?.options);
+}
+
+/**
+ * Read the currently persisted config before a write, distinguishing an absent file from a transient failure
+ * @param {operationContext} ctx - Operation context
+ * @returns {Object|null} Last good or absent (null) config; throws on an unstable read so a write cannot corrupt it
+ */
+async function readCurrentConfig(ctx) {
+  const cached = nodeCache.get(configFileName);
+  if (undefined !== cached) {
+    return cached;
+  }
+  const loaded = await getConfigFromFile(ctx);
+  if (READ_TRANSIENT === loaded) {
+    // a transient read must not look like "no config": refuse the write instead of merging onto {}
+    throw new Error(`runtime config read is unstable, aborting write: ${configFileName}`);
+  }
+  nodeCache.set(configFileName, loaded);
+  return loaded;
+}
+
 /**
  * Save runtime configuration for the current context
  * @param {operationContext} ctx - Operation context
@@ -98,10 +146,10 @@ async function saveConfig(ctx, config) {
     throw new Error('runtimeConfig.filePath is not specified');
   }
   await fs.mkdir(path.dirname(configFilePath), {recursive: true});
-  let newConfig = await getConfig(ctx);
+  let newConfig = await readCurrentConfig(ctx);
   newConfig = utils.deepMergeObjects(newConfig || {}, config);
   await fs.writeFile(configFilePath, JSON.stringify(newConfig, null, 2), 'utf8');
-  nodeCache.set(configFileName, newConfig);
+  applyConfig(ctx, newConfig);
   return newConfig;
 }
 
@@ -111,14 +159,40 @@ async function saveConfig(ctx, config) {
  * @param {Object} config - Configuration data to replace with
  * @returns {Object} Replaced configuration object
  */
-async function replaceConfig(_ctx, config) {
+async function replaceConfig(ctx, config) {
   if (!configFilePath) {
     throw new Error('runtimeConfig.filePath is not specified');
   }
   await fs.mkdir(path.dirname(configFilePath), {recursive: true});
   await fs.writeFile(configFilePath, JSON.stringify(config, null, 2), 'utf8');
-  nodeCache.set(configFileName, config);
+  applyConfig(ctx, config);
   return config;
+}
+
+/**
+ * Reload config from disk into the cache, keeping the last good value on a transient/unstable read
+ * @param {operationContext} ctx - Operation context
+ */
+async function reloadConfig(ctx, retriesLeft = RELOAD_MAX_RETRIES) {
+  const loaded = await getConfigFromFile(ctx);
+  if (reloadRetryTimer) {
+    clearTimeout(reloadRetryTimer);
+    reloadRetryTimer = null;
+  }
+  if (READ_TRANSIENT === loaded) {
+    // write in progress or invalid JSON: keep last good config and retry, since there may be no further watcher event
+    if (retriesLeft > 0) {
+      ctx.logger.warn(`reloadConfig unstable read, retry scheduled (${retriesLeft} left): ${configFileName}`);
+      reloadRetryTimer = setTimeout(() => {
+        // reloadConfig clears reloadRetryTimer at its top, which is the authoritative reset
+        reloadConfig(ctx, retriesLeft - 1).catch(err => ctx.logger.error(`reloadConfig retry error: ${err.message}`));
+      }, RELOAD_RETRY_MS);
+    } else {
+      ctx.logger.error(`reloadConfig gave up after retries, keeping last good config: ${configFileName}`);
+    }
+    return;
+  }
+  applyConfig(ctx, loaded);
 }
 
 /**
@@ -147,12 +221,9 @@ function handleConfigFileChange(eventTypeOrCurrent, filenameOrPrevious) {
 
       reloadTimer = setTimeout(async () => {
         reloadTimer = null;
-        nodeCache.del(configFileName);
         operationContext.global.logger.info(`handleConfigFileChange reloading config: ${configFileName}`);
-        operationContext.global.cleanRuntimeConfigCache();
         try {
-          const config = await getConfig(operationContext.global);
-          logger.configureLogger(config?.log?.options);
+          await reloadConfig(operationContext.global);
         } catch (err) {
           operationContext.global.logger.error(`handleConfigFileChange reload error: ${err.message}`);
         }
@@ -177,6 +248,7 @@ async function initRuntimeConfigWatcher(ctx) {
 module.exports = {
   initRuntimeConfigWatcher,
   getConfig,
+  reloadConfig,
   saveConfig,
   replaceConfig
 };

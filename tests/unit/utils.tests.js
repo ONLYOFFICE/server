@@ -33,9 +33,10 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-const {describe, test, expect, jest, afterEach} = require('@jest/globals');
+const {describe, test, expect, jest, beforeEach, afterEach} = require('@jest/globals');
 const fs = require('fs');
 const fsPromises = require('node:fs/promises');
+const path = require('path');
 const config = require('../../Common/node_modules/config');
 
 const operationContext = require('../../Common/sources/operationContext');
@@ -70,14 +71,24 @@ describe('watchWithFallback', () => {
   const dirPath = '/cfg';
   const filePath = '/cfg/runtime.json';
   const listener = () => {};
+  // mountinfo lines: index 4 (before the " - " separator) is the mount point
+  const mountInfoNoMatch = '21 20 0:20 / /proc rw - proc proc rw\n22 20 0:21 / /sys rw - sysfs sysfs rw';
+  // mountinfo stores absolute paths; isMountPoint compares against path.resolve(filePath)
+  const mountInfoMatch = `40 35 8:1 /app/runtime.json ${path.resolve(filePath)} rw,relatime - ext4 /dev/sda1 rw`;
+
+  beforeEach(() => {
+    // isMountPoint canonicalizes via realpath; for a non-symlinked file that equals path.resolve
+    jest.spyOn(fsPromises, 'realpath').mockImplementation(async p => path.resolve(p));
+  });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  test('uses native fs.watch when file and dir share a device', async () => {
+  test('uses native fs.watch when file and dir share a device and file is not a mount point', async () => {
     jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
     jest.spyOn(fsPromises, 'stat').mockResolvedValue({dev: 2049});
+    jest.spyOn(fsPromises, 'readFile').mockResolvedValue(mountInfoNoMatch);
     const fakeWatcher = {on: jest.fn(), close: jest.fn()};
     const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue(fakeWatcher);
     const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue({});
@@ -92,6 +103,7 @@ describe('watchWithFallback', () => {
   test('falls back to fs.watchFile when file is on a separate mount (single-file bind mount)', async () => {
     jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
     jest.spyOn(fsPromises, 'stat').mockImplementation(async p => ({dev: p === filePath ? 100 : 200}));
+    jest.spyOn(fsPromises, 'readFile').mockResolvedValue(mountInfoNoMatch);
     const fakeStatWatcher = {};
     const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue({on: jest.fn(), close: jest.fn()});
     const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue(fakeStatWatcher);
@@ -103,9 +115,73 @@ describe('watchWithFallback', () => {
     expect(result).toBe(fakeStatWatcher);
   });
 
+  test('falls back to fs.watchFile when file is a mount point with the same device', async () => {
+    jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
+    jest.spyOn(fsPromises, 'stat').mockResolvedValue({dev: 2049});
+    jest.spyOn(fsPromises, 'readFile').mockResolvedValue(mountInfoMatch);
+    const fakeStatWatcher = {};
+    const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue({on: jest.fn(), close: jest.fn()});
+    const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue(fakeStatWatcher);
+
+    const result = await utils.watchWithFallback(ctx, dirPath, filePath, listener);
+
+    expect(watchFileSpy).toHaveBeenCalledWith(filePath, {}, listener);
+    expect(watchSpy).not.toHaveBeenCalled();
+    expect(result).toBe(fakeStatWatcher);
+  });
+
+  test('resolves a relative filePath before matching mountinfo', async () => {
+    const relPath = 'cfg/runtime.json';
+    jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
+    jest.spyOn(fsPromises, 'stat').mockResolvedValue({dev: 2049});
+    jest.spyOn(fsPromises, 'readFile').mockResolvedValue(`50 35 8:1 /src ${path.resolve(relPath)} rw - ext4 /dev/sda1 rw`);
+    const fakeStatWatcher = {};
+    const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue({on: jest.fn(), close: jest.fn()});
+    const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue(fakeStatWatcher);
+
+    const result = await utils.watchWithFallback(ctx, dirPath, relPath, listener);
+
+    expect(watchFileSpy).toHaveBeenCalledWith(relPath, {}, listener);
+    expect(watchSpy).not.toHaveBeenCalled();
+    expect(result).toBe(fakeStatWatcher);
+  });
+
+  test('decodes octal escapes so a mount point with a space still matches', async () => {
+    const spacedPath = '/cfg/my run.json';
+    const escaped = path.resolve(spacedPath).replace(/ /g, '\\040');
+    jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
+    jest.spyOn(fsPromises, 'stat').mockResolvedValue({dev: 2049});
+    jest.spyOn(fsPromises, 'readFile').mockResolvedValue(`60 35 8:1 /src ${escaped} rw - ext4 /dev/sda1 rw`);
+    const fakeStatWatcher = {};
+    const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue({on: jest.fn(), close: jest.fn()});
+    const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue(fakeStatWatcher);
+
+    const result = await utils.watchWithFallback(ctx, dirPath, spacedPath, listener);
+
+    expect(watchFileSpy).toHaveBeenCalledWith(spacedPath, {}, listener);
+    expect(watchSpy).not.toHaveBeenCalled();
+    expect(result).toBe(fakeStatWatcher);
+  });
+
+  test('unavailable mountinfo does not break the native watch path', async () => {
+    jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
+    jest.spyOn(fsPromises, 'stat').mockResolvedValue({dev: 2049});
+    jest.spyOn(fsPromises, 'readFile').mockRejectedValue(Object.assign(new Error('ENOENT'), {code: 'ENOENT'}));
+    const fakeWatcher = {on: jest.fn(), close: jest.fn()};
+    const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue(fakeWatcher);
+    const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue({});
+
+    const result = await utils.watchWithFallback(ctx, dirPath, filePath, listener);
+
+    expect(watchSpy).toHaveBeenCalledWith(dirPath, {}, listener);
+    expect(watchFileSpy).not.toHaveBeenCalled();
+    expect(result).toBe(fakeWatcher);
+  });
+
   test('treats a missing file as same mount so native watch observes its creation', async () => {
     jest.spyOn(fsPromises, 'statfs').mockResolvedValue({type: SAFE_FS});
     jest.spyOn(fsPromises, 'stat').mockRejectedValue(Object.assign(new Error('ENOENT'), {code: 'ENOENT'}));
+    jest.spyOn(fsPromises, 'readFile').mockResolvedValue(mountInfoNoMatch);
     const watchSpy = jest.spyOn(fs, 'watch').mockReturnValue({on: jest.fn(), close: jest.fn()});
     const watchFileSpy = jest.spyOn(fs, 'watchFile').mockReturnValue({});
 
@@ -113,5 +189,55 @@ describe('watchWithFallback', () => {
 
     expect(watchSpy).toHaveBeenCalledWith(dirPath, {}, listener);
     expect(watchFileSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('readFileStable', () => {
+  const filePath = '/cfg/runtime.json';
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('returns contents when the file is stable around the read', async () => {
+    jest.spyOn(fsPromises, 'stat').mockResolvedValue({mtimeMs: 100, size: 10});
+    const readSpy = jest.spyOn(fsPromises, 'readFile').mockResolvedValue('{"a":1}');
+
+    const data = await utils.readFileStable(ctx, filePath);
+
+    expect(data).toBe('{"a":1}');
+    expect(readSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries when the file changes mid-read and then succeeds', async () => {
+    const statValues = [
+      {mtimeMs: 100, size: 10}, // attempt 1 before
+      {mtimeMs: 200, size: 12}, // attempt 1 after - changed, retry
+      {mtimeMs: 200, size: 12}, // attempt 2 before
+      {mtimeMs: 200, size: 12} // attempt 2 after - stable
+    ];
+    let i = 0;
+    jest.spyOn(fsPromises, 'stat').mockImplementation(async () => statValues[i++]);
+    const readSpy = jest.spyOn(fsPromises, 'readFile').mockResolvedValue('{"a":2}');
+
+    const data = await utils.readFileStable(ctx, filePath, 3);
+
+    expect(data).toBe('{"a":2}');
+    expect(readSpy).toHaveBeenCalledTimes(2);
+  });
+
+  test('throws EUNSTABLE when the file keeps changing', async () => {
+    let m = 0;
+    jest.spyOn(fsPromises, 'stat').mockImplementation(async () => ({mtimeMs: m++, size: 10}));
+    const readSpy = jest.spyOn(fsPromises, 'readFile').mockResolvedValue('x');
+
+    await expect(utils.readFileStable(ctx, filePath, 3)).rejects.toMatchObject({code: 'EUNSTABLE'});
+    expect(readSpy).toHaveBeenCalledTimes(3);
+  });
+
+  test('propagates ENOENT for a missing file', async () => {
+    jest.spyOn(fsPromises, 'stat').mockRejectedValue(Object.assign(new Error('ENOENT'), {code: 'ENOENT'}));
+
+    await expect(utils.readFileStable(ctx, filePath)).rejects.toMatchObject({code: 'ENOENT'});
   });
 });
