@@ -116,12 +116,22 @@ const safeUrlOrigin = url => (URL.canParse(url) ? new URL(url).origin : null);
  * @param {object} providerHeaders - Optional provider headers from customProviders
  * @returns {object} Headers object with authentication added
  */
-function insertKeyToProvider(ctx, providerUrl, providerKey, uri, providerHeaders) {
+function insertKeyToProvider(ctx, providerUrl, providerKey, uri, providerHeaders, requestHeaders = {}) {
   if (!providerKey) {
     return uri;
   }
-  const urlLower = providerUrl.toLowerCase();
 
+  // Prefer the auth slot the client left for us (empty header or empty key= query) over hardcoded per-provider rules.
+  const authHeader = Object.keys(requestHeaders).find(h => ['authorization', 'x-api-key', 'api-key'].includes(h.toLowerCase()));
+  if (authHeader) {
+    providerHeaders[authHeader] = authHeader.toLowerCase() === 'authorization' ? `Bearer ${providerKey}` : providerKey;
+    return uri;
+  }
+  if (/[?&]key=($|&)/.test(uri)) {
+    return uri.replace(/([?&]key=)($|&)/, `$1${encodeURIComponent(providerKey)}$2`);
+  }
+
+  const urlLower = providerUrl.toLowerCase();
   if (urlLower.includes('anthropic.com')) {
     // Anthropic uses x-api-key header
     providerHeaders['x-api-key'] = providerKey;
@@ -135,6 +145,34 @@ function insertKeyToProvider(ctx, providerUrl, providerKey, uri, providerHeaders
   }
 
   return uri;
+}
+
+// Collect every URL the proxy is allowed to forward to, with the secret to inject; spans legacy providers and the v5 plugin settings blob.
+function getAiProxyTargets(tenAiApi) {
+  const targets = [];
+  for (const provider of Object.values(tenAiApi?.providers || {})) {
+    if (provider?.url) {
+      targets.push({url: provider.url, key: provider.key});
+    }
+  }
+  const blob = tenAiApi?.pluginSettings;
+  if (blob && typeof blob === 'object') {
+    for (const profile of blob.profiles || []) {
+      if (profile?.baseUrl) {
+        targets.push({url: profile.baseUrl, key: profile.key});
+      }
+    }
+    if (blob.webSearch?.baseUrl) {
+      targets.push({url: blob.webSearch.baseUrl, key: blob.webSearch.key});
+    }
+    for (const server of Object.values(blob.mcpServers || {})) {
+      if (server?.url) {
+        targets.push({url: server.url, headers: server.headers});
+      }
+    }
+    // customProviders are user-authored client-side code (endpoint and creds live in their source); they run in the browser and are not proxied here.
+  }
+  return targets;
 }
 
 /**
@@ -203,15 +241,20 @@ async function proxyRequest(req, res) {
 
     const providerHeaders = {};
     let providerMatched = false;
-    // Determine which API key to use based on the target URL.
+    // Determine which configured target/secret to use based on the URL.
     // Compare origins first to prevent userinfo-SSRF (e.g. https://api.x.com@evil.com)
     // and subdomain-bypass (e.g. https://api.x.com.evil.com) that startsWith alone would miss.
     const targetOrigin = uri ? safeUrlOrigin(uri) : null;
     if (targetOrigin) {
-      for (const tenProvider of Object.values(tenAiApi.providers)) {
-        if (safeUrlOrigin(tenProvider.url) === targetOrigin && uri.startsWith(tenProvider.url)) {
+      for (const target of getAiProxyTargets(tenAiApi)) {
+        if (safeUrlOrigin(target.url) === targetOrigin && uri.startsWith(target.url)) {
           providerMatched = true;
-          uri = insertKeyToProvider(ctx, tenProvider.url, tenProvider.key, uri, providerHeaders);
+          if (target.headers) {
+            // MCP servers carry their own auth headers; restore them verbatim from config.
+            Object.assign(providerHeaders, target.headers);
+          } else {
+            uri = insertKeyToProvider(ctx, target.url, target.key, uri, providerHeaders, body.headers);
+          }
           break;
         }
       }
@@ -356,7 +399,44 @@ async function getPluginSettings(ctx) {
   };
 }
 
+// Blank secret values inside the opaque v5 plugin settings blob before sending it to the browser; the server AI proxy injects real credentials.
+function stripPluginSettingsSecrets(blob) {
+  if (!blob || typeof blob !== 'object') {
+    return blob;
+  }
+  // Blank per-profile API keys.
+  if (Array.isArray(blob.profiles)) {
+    for (const profile of blob.profiles) {
+      if (profile && profile.key) {
+        profile.key = '';
+      }
+    }
+  }
+  // Blank the web search provider key.
+  if (blob.webSearch && blob.webSearch.key) {
+    blob.webSearch.key = '';
+  }
+  // Blank MCP server header values; the proxy restores them from config on use.
+  if (blob.mcpServers && typeof blob.mcpServers === 'object') {
+    for (const id in blob.mcpServers) {
+      const server = blob.mcpServers[id];
+      if (server && server.headers && typeof server.headers === 'object') {
+        for (const header in server.headers) {
+          server.headers[header] = '';
+        }
+      }
+    }
+  }
+  return blob;
+}
+
 async function getPluginSettingsForInterface(ctx) {
+  // Prefer the new universal plugin settings blob when configured; strip secrets for the browser.
+  const newBlob = ctx.getCfg('aiSettings.pluginSettings', cfgAiSettings.pluginSettings);
+  if (newBlob && typeof newBlob === 'object' && Object.keys(newBlob).length > 0) {
+    return stripPluginSettingsSecrets(JSON.parse(JSON.stringify(newBlob)));
+  }
+
   let pluginSettings = await getPluginSettings(ctx);
 
   // Create deep copy to avoid modifying cached config

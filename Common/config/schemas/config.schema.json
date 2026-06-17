@@ -132,6 +132,13 @@
             "additionalProperties": true
           },
           "x-tenantOverride": true
+        },
+        "pluginSettings": {
+          "type": "object",
+          "description": "Opaque universal AI plugin settings blob (profiles, assignments, mcpServers, webSearch, etc.) owned by the AI plugin and round-tripped verbatim.",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         }
       },
       "x-section-intro": "These parameters configure the AI plugin properties."
