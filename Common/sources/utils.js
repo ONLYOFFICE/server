@@ -356,7 +356,7 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
 async function downloadUrlPromise(
   ctx,
   uri,
-  {timeout, limit, authorization, isInJwtToken, headers: extraHeaders, returnStream, beforeRedirect, maxRedirects} = {}
+  {timeout, limit, authorization, isInJwtToken, headers: extraHeaders, returnStream, beforeRedirect, maxRedirects, checksumVerification} = {}
 ) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
@@ -418,12 +418,23 @@ async function downloadUrlPromise(
     }
     const limitedStream = new SizeLimitStream(limit);
     if (returnStream) {
-      return {response, body: null, stream: response.data.pipe(limitedStream)};
+      return {response, body: null, stream: response.data.pipe(limitedStream), checksumVerification};
     }
 
     const body = await pipeline(response.data, limitedStream, buffer);
-    validateDownloadIntegrity(headers, body);
-    return {response, body, stream: null};
+    // axios strips content-encoding from response.headers when decompress: true.
+    const rawHeaders = response.request?.res?.rawHeaders;
+    let rawContentEncoding;
+    if (rawHeaders) {
+      for (let i = 0; i < rawHeaders.length - 1; i += 2) {
+        if (rawHeaders[i].toLowerCase() === 'content-encoding') {
+          rawContentEncoding = rawHeaders[i + 1];
+          break;
+        }
+      }
+    }
+    validateDownloadIntegrity(headers, body, rawContentEncoding, checksumVerification);
+    return {response, body, stream: null, checksumVerification};
   } catch (err) {
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
@@ -1379,10 +1390,13 @@ class SizeLimitStream extends Transform {
     super();
     this.sizeLimit = sizeLimit;
     this.bytesReceived = 0;
+    this._hash = crypto.createHash('sha256');
+    this._sha256 = undefined;
   }
 
   /**
-   * Transform implementation that tracks the bytes received and enforces the size limit
+   * Transform implementation that tracks the bytes received, computes sha256 hash,
+   * and enforces the size limit
    *
    * @param {Buffer|string} chunk - The chunk of data to process
    * @param {string} encoding - The encoding of the chunk if it's a string
@@ -1391,6 +1405,7 @@ class SizeLimitStream extends Transform {
    */
   _transform(chunk, encoding, callback) {
     this.bytesReceived += chunk.length;
+    this._hash.update(chunk);
 
     if (this.sizeLimit && this.bytesReceived > this.sizeLimit) {
       const error = new Error(`EMSGSIZE: Response too large: ${this.bytesReceived} bytes (limit: ${this.sizeLimit} bytes)`);
@@ -1401,20 +1416,7 @@ class SizeLimitStream extends Transform {
 
     callback(null, chunk);
   }
-}
 
-class HashSizeStream extends Transform {
-  constructor() {
-    super();
-    this._hash = crypto.createHash('sha256');
-    this._sha256 = undefined;
-    this.byteCount = 0;
-  }
-  _transform(chunk, _encoding, callback) {
-    this._hash.update(chunk);
-    this.byteCount += chunk.length;
-    callback(null, chunk);
-  }
   get sha256() {
     if (!this._sha256) {
       this._sha256 = this._hash.digest('hex');
@@ -1422,7 +1424,8 @@ class HashSizeStream extends Transform {
     return this._sha256;
   }
 }
-exports.HashSizeStream = HashSizeStream;
+
+exports.HashSizeStream = SizeLimitStream;
 
 exports.getLicensePeriod = function (startDate, now) {
   startDate = new Date(startDate.getTime()); //clone
@@ -1454,22 +1457,28 @@ exports.getChangesFileHeader = function () {
 };
 /**
  * Validate download integrity by checking response headers against downloaded content.
- * Supports Content-Length, Content-Digest (RFC 3230), and x-amz-checksum-* headers.
+ * Content-Length is always checked. Digest checks (Content-Digest, Repr-Digest,
+ * x-amz-checksum-*, x-goog-hash) are only performed when checkDigests is true.
  *
  * @param {object} headers - HTTP response headers (lowercase keys)
  * @param {Buffer|object} bodyOrInfo - Downloaded body (Buffer) or {byteCount, sha256Hex} for stream
+ * @param {string} [rawContentEncoding] - Raw content-encoding from underlying http response (axios strips it)
+ * @param {boolean} [checkDigests=true] - Whether to perform digest-based integrity checks
  * @throws {Error} With code EBADCONTENTLENGTH, EBADDIGEST, or EBADAMZCHECKSUM on mismatch
  */
-function validateDownloadIntegrity(headers, bodyOrInfo) {
+function validateDownloadIntegrity(headers, bodyOrInfo, rawContentEncoding, checkDigests) {
   const isBuffer = Buffer.isBuffer(bodyOrInfo);
   const actualLength = isBuffer ? bodyOrInfo.length : bodyOrInfo.byteCount;
   const sha256Hex = isBuffer
     ? crypto.createHash('sha256').update(bodyOrInfo).digest('hex')
     : bodyOrInfo.sha256Hex;
 
+  // 0. Skip Content-Length if content-encoding is present (e.g. gzip),
+  const contentEncoding = headers['content-encoding'] || rawContentEncoding;
+
   // 1. Content-Length check
   const contentLength = headers['content-length'];
-  if (contentLength !== undefined) {
+  if (contentLength !== undefined && !contentEncoding) {
     const expectedLength = parseInt(contentLength, 10);
     if (!isNaN(expectedLength) && expectedLength !== actualLength) {
       const err = new Error('Content-Length mismatch: expected ' + expectedLength + ' bytes, received ' + actualLength);
@@ -1478,59 +1487,85 @@ function validateDownloadIntegrity(headers, bodyOrInfo) {
     }
   }
 
-  // 2. Content-Digest check
-  const contentDigest = headers['content-digest'];
-  if (contentDigest) {
-    const entries = contentDigest.split(',');
+  // Helper: compute actualBase64 for a given algorithm
+  function computeActualBase64(algorithm) {
+    const algo = algorithm.toLowerCase().replace(/-/g, '');
+    if (isBuffer) {
+      try {
+        return crypto.createHash(algo).update(bodyOrInfo).digest('base64');
+      } catch (_e) {
+        return undefined;
+      }
+    }
+    if (algo === 'sha256') {
+      return Buffer.from(sha256Hex, 'hex').toString('base64');
+    }
+    return undefined;
+  }
+
+  // Helper: parse RFC 9530 dictionary-style entries (algorithm=:base64:)
+  function checkDigestDictionary(dictionaryValue, errCode, labelPrefix) {
+    if (!dictionaryValue) return;
+    const entries = dictionaryValue.split(',');
     for (const entry of entries) {
       const match = entry.trim().match(/^(\w[\w-]*)=:(.+?):$/);
       if (match) {
-        const algorithm = match[1].toLowerCase().replace(/-/g, '');
+        const algorithm = match[1];
         const expectedBase64 = match[2];
-        let actualBase64;
-        if (isBuffer) {
-          try {
-            actualBase64 = crypto.createHash(algorithm).update(bodyOrInfo).digest('base64');
-          } catch (_e) {
-            continue;
-          }
-        } else if (algorithm === 'sha256') {
-          actualBase64 = Buffer.from(sha256Hex, 'hex').toString('base64');
-        } else {
-          continue;
-        }
+        const actualBase64 = computeActualBase64(algorithm);
+        if (actualBase64 === undefined) continue;
         if (actualBase64 !== expectedBase64) {
-          const err = new Error('Content-Digest mismatch for ' + match[1] + ': expected ' + expectedBase64 + ', actual ' + actualBase64);
-          err.code = 'EBADDIGEST';
+          const err = new Error(labelPrefix + ' mismatch for ' + algorithm + ': expected ' + expectedBase64 + ', actual ' + actualBase64);
+          err.code = errCode;
           throw err;
         }
       }
     }
   }
 
-  // 3. x-amz-checksum-* check
-  // Format: x-amz-checksum-sha256: base64hash
-  for (const [header, value] of Object.entries(headers)) {
-    const match = header.match(/^x-amz-checksum-(.+)$/);
-    if (match) {
-      const algorithm = match[1].toLowerCase().replace(/-/g, '');
-      const expectedBase64 = value.trim();
-      let actualBase64;
-      if (isBuffer) {
-        try {
-          actualBase64 = crypto.createHash(algorithm).update(bodyOrInfo).digest('base64');
-        } catch (_e) {
-          continue;
+  if (checkDigests !== false) {
+    // 2. Content-Digest check (RFC 9530 Section 2)
+    checkDigestDictionary(headers['content-digest'], 'EBADDIGEST', 'Content-Digest');
+
+    // 3. Repr-Digest check (RFC 9530 Section 3)
+    checkDigestDictionary(headers['repr-digest'], 'EBADDIGEST', 'Repr-Digest');
+
+    // 4. x-goog-hash check (Google Cloud Storage)
+    //    Format: x-goog-hash: crc32c=AAAA, md5=XXXX
+    const xGoogHash = headers['x-goog-hash'];
+    if (xGoogHash) {
+      const entries = xGoogHash.split(',');
+      for (const entry of entries) {
+        const trimmed = entry.trim();
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx > 0) {
+          const algorithm = trimmed.substring(0, eqIdx).trim();
+          const expectedBase64 = trimmed.substring(eqIdx + 1).trim();
+          const actualBase64 = computeActualBase64(algorithm);
+          if (actualBase64 === undefined) continue;
+          if (actualBase64 !== expectedBase64) {
+            const err = new Error('x-goog-hash mismatch for ' + algorithm + ': expected ' + expectedBase64 + ', actual ' + actualBase64);
+            err.code = 'EBADDIGEST';
+            throw err;
+          }
         }
-      } else if (algorithm === 'sha256') {
-        actualBase64 = Buffer.from(sha256Hex, 'hex').toString('base64');
-      } else {
-        continue;
       }
-      if (actualBase64 !== expectedBase64) {
-        const err = new Error('x-amz-checksum-' + match[1] + ' mismatch: expected ' + expectedBase64 + ', actual ' + actualBase64);
-        err.code = 'EBADAMZCHECKSUM';
-        throw err;
+    }
+
+    // 5. x-amz-checksum-* check (AWS S3)
+    //    Format: x-amz-checksum-sha256: base64hash
+    for (const [header, value] of Object.entries(headers)) {
+      const match = header.match(/^x-amz-checksum-(.+)$/);
+      if (match) {
+        const algorithm = match[1];
+        const expectedBase64 = value.trim();
+        const actualBase64 = computeActualBase64(algorithm);
+        if (actualBase64 === undefined) continue;
+        if (actualBase64 !== expectedBase64) {
+          const err = new Error('x-amz-checksum-' + match[1] + ' mismatch: expected ' + expectedBase64 + ', actual ' + actualBase64);
+          err.code = 'EBADAMZCHECKSUM';
+          throw err;
+        }
       }
     }
   }

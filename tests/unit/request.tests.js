@@ -4,6 +4,7 @@ const {buffer} = require('node:stream/consumers');
 const http = require('http');
 const express = require('express');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const operationContext = require('../../Common/sources/operationContext');
 const utils = require('../../Common/sources/utils');
 
@@ -218,6 +219,95 @@ describe('HTTP Request Unit Tests', () => {
       const wrongBody = Buffer.from('tampered content data');
       res.setHeader('x-amz-checksum-sha256', sha256);
       res.send(wrongBody);
+    });
+
+    // Endpoint that returns gzipped data (Content-Length = compressed size != decompressed body size
+    // Integrity check must skip Content-Length when content-encoding is present)
+    app.get('/api/gzip-content-length', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const compressed = zlib.gzipSync(body);
+      res.writeHead(200, {
+        'content-encoding': 'gzip',
+        'content-length': compressed.length,
+        'content-type': 'application/octet-stream'
+      });
+      res.end(compressed);
+    });
+
+    // Endpoint that returns gzipped data with correct Content-Digest (of decompressed body)
+    app.get('/api/gzip-content-digest-ok', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const compressed = zlib.gzipSync(body);
+      const sha256 = crypto.createHash('sha256').update(body).digest('base64');
+      res.writeHead(200, {
+        'content-encoding': 'gzip',
+        'content-length': compressed.length,
+        'content-digest': 'sha256=:' + sha256 + ':',
+        'content-type': 'application/octet-stream'
+      });
+      res.end(compressed);
+    });
+
+    // Endpoint that returns data with correct x-goog-hash md5 header
+    app.get('/api/x-goog-hash-ok', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const md5 = crypto.createHash('md5').update(body).digest('base64');
+      res.setHeader('x-goog-hash', 'md5=' + md5);
+      res.send(body);
+    });
+
+    // Endpoint that returns data with wrong x-goog-hash md5 header
+    app.get('/api/x-goog-hash-bad', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const wrongMd5 = crypto.createHash('md5').update(Buffer.from('wrong data')).digest('base64');
+      res.setHeader('x-goog-hash', 'md5=' + wrongMd5);
+      res.send(body);
+    });
+
+    // Endpoint that returns x-goog-hash with multiple algorithms
+    app.get('/api/x-goog-hash-multi', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const md5 = crypto.createHash('md5').update(body).digest('base64');
+      res.setHeader('x-goog-hash', 'crc32c=AAAA, md5=' + md5);
+      res.send(body);
+    });
+
+    // Endpoint that returns data with correct Repr-Digest sha-256 header
+    app.get('/api/repr-digest-ok', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const sha256 = crypto.createHash('sha256').update(body).digest('base64');
+      res.setHeader('repr-digest', 'sha-256=:' + sha256 + ':');
+      res.send(body);
+    });
+
+    // Endpoint that returns data with wrong Repr-Digest sha-256 header
+    app.get('/api/repr-digest-bad', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const sha256 = crypto.createHash('sha256').update(body).digest('base64');
+      const wrongBody = Buffer.from('tampered content data');
+      res.setHeader('repr-digest', 'sha-256=:' + sha256 + ':');
+      res.send(wrongBody);
+    });
+
+    // Endpoint that returns gzipped data with correct Repr-Digest (representation == decompressed body)
+    app.get('/api/repr-digest-gzip', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      const compressed = zlib.gzipSync(body);
+      const sha256 = crypto.createHash('sha256').update(body).digest('base64');
+      res.writeHead(200, {
+        'content-encoding': 'gzip',
+        'content-length': compressed.length,
+        'repr-digest': 'sha-256=:' + sha256 + ':',
+        'content-type': 'application/octet-stream'
+      });
+      res.end(compressed);
+    });
+
+    // Endpoint that returns x-amz-checksum-crc32 (unknown algorithm, should be skipped)
+    app.get('/api/amz-checksum-crc32', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      res.setHeader('x-amz-checksum-crc32', 'somecrc32hash');
+      res.send(body);
     });
 
     // Endpoint that returns data with correct Content-Length
@@ -787,6 +877,87 @@ describe('HTTP Request Unit Tests', () => {
           limit: 1024 * 1024
         })
       ).rejects.toMatchObject({code: 'EBADAMZCHECKSUM'});
+    });
+
+    test.concurrent('passes with gzip Content-Length mismatch (skip check)', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/gzip-content-length`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('passes with gzip + Content-Digest match', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/gzip-content-digest-ok`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('passes when x-amz-checksum-crc32 (unsupported, skipped)', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/amz-checksum-crc32`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('passes validation when x-goog-hash md5 matches', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/x-goog-hash-ok`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('throws EBADDIGEST when x-goog-hash md5 does not match', async () => {
+      await expect(
+        utils.downloadUrlPromise(ctx, `${BASE_URL}/api/x-goog-hash-bad`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        })
+      ).rejects.toMatchObject({code: 'EBADDIGEST'});
+    });
+
+    test.concurrent('passes with x-goog-hash multi (crc32c skipped, md5 matches)', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/x-goog-hash-multi`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('passes validation when Repr-Digest sha-256 matches', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/repr-digest-ok`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('throws EBADDIGEST when Repr-Digest sha-256 does not match', async () => {
+      await expect(
+        utils.downloadUrlPromise(ctx, `${BASE_URL}/api/repr-digest-bad`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        })
+      ).rejects.toMatchObject({code: 'EBADDIGEST'});
+    });
+
+    test.concurrent('passes with gzip + Repr-Digest match (false positive scenario)', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/repr-digest-gzip`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(result).toBeDefined();
+      expect(getStatusCode(result.response)).toBe(200);
     });
 
     test.concurrent('should return 205 status code for /status/205', async () => {

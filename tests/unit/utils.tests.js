@@ -174,6 +174,151 @@ describe('validateDownloadIntegrity', () => {
       expectIntegrityError({'content-digest': 'sha256=:' + wrongDigest + ':'}, info, 'EBADDIGEST');
     });
   });
+
+  describe('Content-Length with content-encoding (gzip)', () => {
+    test('skips Content-Length check when content-encoding is present', () => {
+      const headers = {
+        'content-length': '1',
+        'content-encoding': 'gzip'
+      };
+      expect(() => {
+        utils.validateDownloadIntegrity(headers, validBody);
+      }).not.toThrow();
+    });
+
+    test('skips Content-Length check with any content-encoding', () => {
+      const headers = {
+        'content-length': '1',
+        'content-encoding': 'deflate'
+      };
+      expect(() => {
+        utils.validateDownloadIntegrity(headers, validBody);
+      }).not.toThrow();
+    });
+
+    test('still checks Content-Length when content-encoding is absent', () => {
+      expectIntegrityError({'content-length': '1'}, validBody, 'EBADCONTENTLENGTH');
+    });
+  });
+
+  describe('x-amz-checksum with unknown algorithms', () => {
+    test('skips CRC32 (unsupported by Node.js crypto)', () => {
+      const body = Buffer.from('test data for crc32');
+      expect(() => {
+        utils.validateDownloadIntegrity({'x-amz-checksum-crc32': 'somebase64'}, body);
+      }).not.toThrow();
+    });
+
+    test('skips CRC32C (unsupported by Node.js crypto)', () => {
+      const body = Buffer.from('test data for crc32c');
+      expect(() => {
+        utils.validateDownloadIntegrity({'x-amz-checksum-crc32c': 'somebase64'}, body);
+      }).not.toThrow();
+    });
+
+    test('skips SHA1 in stream mode (only sha256 tracked)', () => {
+      const info = {byteCount: 10, sha256Hex: 'abc'};
+      expect(() => {
+        utils.validateDownloadIntegrity({'x-amz-checksum-sha1': 'base64hash'}, info);
+      }).not.toThrow();
+    });
+  });
+
+  describe('x-goog-hash (Google Cloud Storage)', () => {
+    test('accepts when md5 matches', () => {
+      const md5 = crypto.createHash('md5').update(validBody).digest('base64');
+      expect(() => {
+        utils.validateDownloadIntegrity({'x-goog-hash': 'md5=' + md5}, validBody);
+      }).not.toThrow();
+    });
+
+    test('throws EBADDIGEST when md5 does not match', () => {
+      const wrongMd5 = crypto.createHash('md5').update(Buffer.from('different')).digest('base64');
+      expectIntegrityError({'x-goog-hash': 'md5=' + wrongMd5}, validBody, 'EBADDIGEST');
+    });
+
+    test('skips CRC32C in x-goog-hash (unsupported)', () => {
+      const body = Buffer.from('test');
+      expect(() => {
+        utils.validateDownloadIntegrity({'x-goog-hash': 'crc32c=AAAA'}, body);
+      }).not.toThrow();
+    });
+
+    test('handles multiple comma-separated algorithms in x-goog-hash', () => {
+      const body = Buffer.from('test data');
+      const md5 = crypto.createHash('md5').update(body).digest('base64');
+      expect(() => {
+        utils.validateDownloadIntegrity({'x-goog-hash': 'crc32c=AAAA, md5=' + md5}, body);
+      }).not.toThrow();
+    });
+
+    test('throws on md5 mismatch even when crc32c is present', () => {
+      const body = Buffer.from('test data');
+      const wrongMd5 = crypto.createHash('md5').update(Buffer.from('wrong')).digest('base64');
+      expectIntegrityError({'x-goog-hash': 'crc32c=AAAA, md5=' + wrongMd5}, body, 'EBADDIGEST');
+    });
+  });
+
+  describe('Repr-Digest (RFC 9530)', () => {
+    test('accepts when sha-256 matches', () => {
+      const expected = sha256Base64(validBody);
+      expect(() => {
+        utils.validateDownloadIntegrity({'repr-digest': 'sha-256=:' + expected + ':'}, validBody);
+      }).not.toThrow();
+    });
+
+    test('throws EBADDIGEST when sha-256 does not match', () => {
+      const expected = sha256Base64(validBody);
+      expectIntegrityError({'repr-digest': 'sha-256=:' + expected + ':'}, tamperedBody, 'EBADDIGEST');
+    });
+
+    test('passes when Repr-Digest is missing', () => {
+      expect(() => {
+        utils.validateDownloadIntegrity({}, validBody);
+      }).not.toThrow();
+    });
+
+    test('supports multiple algorithms in Repr-Digest', () => {
+      const sha256b64 = sha256Base64(validBody);
+      const sha512b64 = crypto.createHash('sha512').update(validBody).digest('base64');
+      expect(() => {
+        utils.validateDownloadIntegrity({'repr-digest': 'sha-256=:' + sha256b64 + ', sha-512=:' + sha512b64 + ':'}, validBody);
+      }).not.toThrow();
+    });
+  });
+
+  describe('false positive prevention', () => {
+    test('no headers at all - no check performed', () => {
+      expect(() => {
+        utils.validateDownloadIntegrity({}, Buffer.from('any data'));
+      }).not.toThrow();
+    });
+
+    test('gzip with all headers - only digest checks run, Content-Length skipped', () => {
+      const body = Buffer.from('compressed representation');
+      const b64 = sha256Base64(body);
+      const headers = {
+        'content-length': '1',
+        'content-encoding': 'gzip',
+        'content-digest': 'sha256=:' + b64 + ':',
+        'x-amz-checksum-sha256': b64
+      };
+      expect(() => {
+        utils.validateDownloadIntegrity(headers, body);
+      }).not.toThrow();
+    });
+
+    test('Content-Length matches but body is gzipped - no false positive', () => {
+      // Content-Length of 1 and body of 18 bytes - if gzip, this should be skipped
+      const headers = {
+        'content-length': '1',
+        'content-encoding': 'gzip'
+      };
+      expect(() => {
+        utils.validateDownloadIntegrity(headers, Buffer.from('some real content'));
+      }).not.toThrow();
+    });
+  });
 });
 
 describe('AES encryption & decryption', () => {
