@@ -861,10 +861,10 @@
           clearTimeout(timer);
           setState(state);
         }
-        // Safety net: never leave the controls disabled if the probe hangs.
+        // Safety net for a hung probe; 8s clears the Windows cold-connect (~4.3s) so a stopped service resolves via the fallback marker, not the timer.
         var timer = setTimeout(function () {
           finish('unknown');
-        }, 4000);
+        }, 8000);
 
         try {
           fetch('../example/', {cache: 'no-store', credentials: 'same-origin'})
@@ -962,10 +962,10 @@
             clearTimeout(timer);
             setState(state);
           };
-          // Safety net: never leave the button disabled if the probe hangs.
+          // Safety net for a hung probe; 8s clears the Windows cold-connect (~4.3s) so a stopped service resolves via the fallback marker, not the timer.
           var timer = setTimeout(function () {
             finish('unknown');
-          }, 4000);
+          }, 8000);
           try {
             fetch('../admin/', {cache: 'no-store', credentials: 'same-origin'})
               .then(function (r) {
