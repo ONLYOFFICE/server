@@ -134,6 +134,27 @@ function* getConvertUrl(ctx, baseUrl, fileToPath, title) {
   }
   return yield storage.getSignedUrl(ctx, baseUrl, fileToPath, commonDefines.c_oAscUrlTypes.Temporary, title);
 }
+// Resolve the async flag, downgrading to sync in a sharded cluster when no shard key routes the status poll.
+function resolveAsync(ctx, req, params, label) {
+  let async = typeof params.async === 'string' ? 'true' === params.async : !!params.async;
+  if (async && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
+    ctx.logger.warn(
+      '%s set async=false. Pass query string parameter "%s" to correctly process request in sharded cluster',
+      label,
+      constants.SHARD_KEY_API_NAME
+    );
+    async = false;
+  }
+  return async;
+}
+// Fill the signed result URL and extension on a finished convert status; a no-op while still running.
+async function setConvertResultUrl(ctx, baseUrl, status, docId, fileTo, cmd) {
+  if (status && status.end) {
+    const fileToPath = await co(getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat()));
+    status.setExtName(path.extname(fileToPath));
+    status.setUrl(await co(getConvertUrl(ctx, baseUrl, fileToPath, cmd.getTitle())));
+  }
+}
 function* convertByCmd(ctx, cmd, async, opt_fileTo, opt_taskExist, opt_priority, opt_expiration, opt_queue, opt_checkPassword) {
   const docId = cmd.getDocId();
   let startDate = null;
@@ -258,11 +279,7 @@ async function convertFromChanges(
     fileTo += '.' + outputExt;
   }
   const status = await co(convertByCmd(ctx, cmd, true, fileTo, undefined, opt_priority, opt_expiration, opt_queue));
-  if (status.end) {
-    const fileToPath = await co(getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat()));
-    status.setExtName(path.extname(fileToPath));
-    status.setUrl(await co(getConvertUrl(ctx, baseUrl, fileToPath, cmd.getTitle())));
-  }
+  await setConvertResultUrl(ctx, baseUrl, status, docId, fileTo, cmd);
   return status;
 }
 function parseIntParam(val) {
@@ -447,20 +464,11 @@ async function convertRequest(req, res, isJson) {
       return;
     }
     const {cmd, docId, fileTo} = prepared;
-    let async = typeof params.async === 'string' ? 'true' == params.async : params.async;
-    if (async && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
-      ctx.logger.warn(
-        'convertRequest set async=false. Pass query string parameter "%s" to correctly process request in sharded cluster',
-        constants.SHARD_KEY_API_NAME
-      );
-      async = false;
-    }
+    const async = resolveAsync(ctx, req, params, 'convertRequest');
     if (constants.AVS_OFFICESTUDIO_FILE_UNKNOWN !== cmd.getOutputFormat()) {
       const status = await co(convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true));
+      await setConvertResultUrl(ctx, utils.getBaseUrlByRequest(ctx, req), status, docId, fileTo, cmd);
       if (status.end) {
-        const fileToPath = await co(getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat()));
-        status.setExtName(path.extname(fileToPath));
-        status.setUrl(await co(getConvertUrl(ctx, utils.getBaseUrlByRequest(ctx, req), fileToPath, cmd.getTitle())));
         ctx.logger.debug('convertRequest: url = %s', status.url);
       }
       utils.fillResponse(req, res, status, isJson);
@@ -534,14 +542,7 @@ function builderRequest(req, res, opt_params, opt_isDecoded) {
           queueData.setCmd(cmd);
           yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_LOW);
         }
-        let async = typeof params.async === 'string' ? 'true' === params.async : params.async;
-        if (async && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
-          ctx.logger.warn(
-            'builderRequest set async=false. Pass query string parameter "%s" to correctly process request in sharded cluster',
-            constants.SHARD_KEY_API_NAME
-          );
-          async = false;
-        }
+        const async = resolveAsync(ctx, req, params, 'builderRequest');
         const status = yield* convertByCmd(ctx, cmd, async, undefined, undefined, constants.QUEUE_PRIORITY_LOW);
         end = status.end;
         error = status.err;
@@ -714,8 +715,20 @@ function buildConvFromFileFingerprint(params, basics) {
     engine: commonDefines.buildVersion + '.' + commonDefines.buildNumber
   });
 }
+// Content-addressed from-file docId: a key replaces the file hash, else the file bytes hash in.
+// The key path takes filetype from explicit params only, so a no-file poll reproduces the docId.
+function buildConvFromFileDocId(params, basics, opt_bodyDigest) {
+  const idFiletype = params.key ? params.filetype || params.fileType || '' : basics.filetype;
+  const paramsDigest = buildParamsDigest(buildConvFromFileFingerprint(params, {...basics, filetype: idFiletype}));
+  return params.key
+    ? buildConvDocIdFromDigests(params.key, paramsDigest, undefined)
+    : buildConvDocIdFromDigests(undefined, paramsDigest, opt_bodyDigest);
+}
 async function convertFromCommandBody(req, res, opt_params, opt_isDecoded) {
   const ctx = new operationContext.Context();
+  // from-file uses the classic JSON convert contract for async, polling and errors; a successful
+  // synchronous (async=false) request with a file still streams the converted bytes back.
+  const isJson = true;
   try {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
@@ -723,33 +736,43 @@ async function convertFromCommandBody(req, res, opt_params, opt_isDecoded) {
     // params come only from the resolved params/token source; no unsigned scalar fallback
     const params = opt_params || {};
     const file = req.file;
-    if (!(file && file.originalname && file.buffer)) {
-      ctx.logger.warn('convert-from-command-body missing multipart file');
-      res.sendStatus(400);
+    const hasFile = !!(file && file.originalname && file.buffer);
+    // polling: a second request without a file must carry the key to resolve the same docId
+    if (!hasFile && !params.key) {
+      ctx.logger.warn('convert-from-command-body missing both multipart file and key');
+      utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
       return;
     }
-    // content-addressed docId: the params fingerprint and the file body hash into separate digests
-    const bodyDigest = buildBodyDigest(file.buffer);
+    // content-addressed docId (see buildConvFromFileDocId): a caller key replaces the file hash, no
+    // key hashes the file bytes; the file is hashed only on the no-key path that actually needs it.
+    const bodyDigest = hasFile && !params.key ? buildBodyDigest(file.buffer) : undefined;
     const prepared = await prepareConvertCommand(ctx, params, {
       isDecoded: opt_isDecoded,
-      fallbackFileName: file.originalname,
-      buildDocId: basics => {
-        const paramsDigest = buildParamsDigest(buildConvFromFileFingerprint(params, basics));
-        return buildConvDocIdFromDigests(params.key, paramsDigest, bodyDigest);
-      }
+      fallbackFileName: hasFile ? file.originalname : undefined,
+      buildDocId: basics => buildConvFromFileDocId(params, basics, bodyDigest)
     });
     if (!prepared.valid) {
       ctx.logger.warn('convert-from-command-body unexpected %s = %j', prepared.reason, prepared.value);
-      res.sendStatus(400);
+      utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
       return;
     }
     const {cmd, docId, basics, fileTo} = prepared;
-    const filetype = basics.filetype;
     ctx.setDocId(docId);
-    await storageBase.putObject(ctx, `${docId}/origin.${filetype}`, file.buffer, file.buffer.length);
 
-    const status = await co(convertByCmd(ctx, cmd, false, fileTo, undefined, undefined, undefined, undefined, true));
-    if (status && status.end && constants.NO_ERROR === status.err) {
+    let status;
+    let async = false;
+    if (hasFile) {
+      async = resolveAsync(ctx, req, params, 'convert-from-command-body');
+      await storageBase.putObject(ctx, `${docId}/origin.${basics.filetype}`, file.buffer, file.buffer.length);
+      status = await co(convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true));
+    } else {
+      // polling by key: report the existing task status; never enqueue (there is no source to convert)
+      const selectRes = await taskResult.select(ctx, docId);
+      status = await co(getConvertStatus(ctx, docId, cmd.getPassword(), selectRes, true));
+    }
+
+    // backward-compatible synchronous path: stream the converted bytes back
+    if (hasFile && !async && status && status.end && constants.NO_ERROR === status.err) {
       const fileToPath = await co(getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat()));
       const sourceName = params.title || file.originalname;
       const filename = path.basename(sourceName, path.extname(sourceName)) + path.extname(fileToPath);
@@ -758,16 +781,16 @@ async function convertFromCommandBody(req, res, opt_params, opt_isDecoded) {
       res.setHeader('Content-Length', streamObj.contentLength);
       res.setHeader('Content-Type', mime.getType(filename));
       await utils.pipeHttpStreams(streamObj.readStream, res);
-    } else {
-      ctx.logger.error('convert-from-command-body error status:%j', status);
-      if (!res.headersSent) {
-        res.sendStatus(400);
-      }
+      return;
     }
+
+    // async / polling / error: classic JSON convert response (percent kept for compatibility, deprecated in docs)
+    await setConvertResultUrl(ctx, utils.getBaseUrlByRequest(ctx, req), status, docId, fileTo, cmd);
+    utils.fillResponse(req, res, status, isJson);
   } catch (err) {
     ctx.logger.error('convert-from-command-body error:%s', err.stack);
     if (!res.headersSent) {
-      res.sendStatus(400);
+      utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
     }
   } finally {
     ctx.logger.info('convert-from-command-body end');
@@ -897,6 +920,7 @@ exports.convertJson = convertRequestJson;
 exports.convertXml = convertRequestXml;
 exports.convertTo = convertTo;
 exports.convertFromCommandBody = convertFromCommandBody;
+exports.buildConvFromFileDocId = buildConvFromFileDocId;
 exports.convertAndEdit = convertAndEdit;
 exports.getConverterHtmlHandler = getConverterHtmlHandler;
 exports.builder = builderRequest;

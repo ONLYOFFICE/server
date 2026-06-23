@@ -61,7 +61,7 @@ function parseFromFileParams(value) {
   return parsed;
 }
 // Params come from `params`; token may be a part, `params.token`, or the inbox header.
-// Body token wins over header; a separate `token` part plus `params` is rejected.
+// Body token wins over header; a `token` part may accompany a `params` part (3-part layout).
 async function getRequestParamsFromFile(ctx, req) {
   const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
   const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
@@ -99,13 +99,6 @@ async function getRequestParamsFromFile(ctx, req) {
     return res;
   }
 
-  // Use either a `token` part or a `params` part with nested token, not both.
-  if (partToken && hasParamsPart) {
-    ctx.logger.warn('convert-from-file conflicting_parameter_sources: both token part and params part present');
-    res.badRequest = true;
-    return res;
-  }
-
   let parsedParams;
   if (hasParamsPart) {
     try {
@@ -136,13 +129,7 @@ async function getRequestParamsFromFile(ctx, req) {
         res.isDecoded = true;
         // Match classic tokenRequiredParams merge/discard behavior.
         res.params = !tenTokenRequiredParams && parsedParams ? parsedParams : {};
-        Object.assign(res.params, checkJwtRes.decoded);
-        if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
-          Object.assign(res.params, checkJwtRes.decoded.payload);
-        }
-        if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
-          Object.assign(res.params, checkJwtRes.decoded.query);
-        }
+        utils.mergeJwtDecodedParams(res.params, checkJwtRes.decoded);
       } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
         res.code = constants.VKEY_KEY_EXPIRE;
       }
@@ -160,9 +147,9 @@ async function getRequestParamsFromFile(ctx, req) {
   res.params = parsedParams;
   return res;
 }
-// Strict from-file route handler: resolve params via the strict contract, then delegate. Shared by
-// /converter/from-file and /docbuilder/from-file (they differ only in the delegate).
-function makeFromFileHandler(label, delegate) {
+// Shared from-file route handler: parse the strict contract, then delegate.
+// Pre-delegate failures answer with the delegate's legacy JSON error body, not a bare 400/403.
+function makeFromFileHandler(label, delegate, sendError, badRequestCode) {
   return async function (req, res) {
     const ctx = new operationContext.Context();
     try {
@@ -172,30 +159,40 @@ function makeFromFileHandler(label, delegate) {
       const authRes = await getRequestParamsFromFile(ctx, req);
       if (authRes.badRequest) {
         ctx.logger.warn('%s bad request %j', label, authRes);
-        res.sendStatus(400);
+        sendError(req, res, badRequestCode);
         return;
       }
       if (authRes.code !== constants.NO_ERROR) {
         ctx.logger.warn('%s auth failed %j', label, authRes);
-        res.sendStatus(403);
+        sendError(req, res, authRes.code);
         return;
       }
       await delegate(req, res, authRes.params, authRes.isDecoded);
     } catch (err) {
       ctx.logger.error('%s error: %s', label, err.stack);
       if (!res.headersSent) {
-        res.sendStatus(400);
+        sendError(req, res, constants.UNKNOWN);
       }
     } finally {
       ctx.logger.info('%s end', label);
     }
   };
 }
-const commandConvertFromBody = makeFromFileHandler('commandConvertFromBody', (req, res, params, isDecoded) =>
-  converterService.convertFromCommandBody(req, res, params, isDecoded)
+// Legacy convert JSON: {error: <oldCode>}.
+const sendConvertError = (req, res, code) => utils.fillResponse(req, res, new commonDefines.ConvertStatus(code), true);
+// Legacy builder JSON: {error: <oldCode>}.
+const sendBuilderError = (req, res, code) => utils.fillResponseBuilder(res, undefined, undefined, false, code);
+const commandConvertFromBody = makeFromFileHandler(
+  'commandConvertFromBody',
+  (req, res, params, isDecoded) => converterService.convertFromCommandBody(req, res, params, isDecoded),
+  sendConvertError,
+  constants.CONVERT_PARAMS
 );
-const builderFromFile = makeFromFileHandler('builderFromFile', (req, res, params, isDecoded) =>
-  converterService.builder(req, res, params, isDecoded)
+const builderFromFile = makeFromFileHandler(
+  'builderFromFile',
+  (req, res, params, isDecoded) => converterService.builder(req, res, params, isDecoded),
+  sendBuilderError,
+  constants.UNKNOWN
 );
 
 exports.getRequestParamsFromFile = getRequestParamsFromFile;

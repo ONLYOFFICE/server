@@ -122,9 +122,14 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
     expect(res.badRequest).toBe(true);
   });
 
-  test('400 when both a token part and a params part are present', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({token: 'x', params: JSON.stringify(PARAMS)}));
-    expect(res.badRequest).toBe(true);
+  test('accepts a token part together with a params part (3-part layout: token, params, file)', async () => {
+    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const res = await getRequestParamsFromFile(ctx, fakeReq({token, params: JSON.stringify({outputtype: 'spoiled'})}));
+    expect(res.badRequest).toBe(false);
+    expect(res.code).toBe(constants.NO_ERROR);
+    expect(res.isDecoded).toBe(true);
+    expect(res.params).toMatchObject(PARAMS);
+    expect(res.params.outputtype).toBe(PARAMS.outputtype);
   });
 
   test('a token part wins over the header (classic precedence: body token, header ignored)', async () => {

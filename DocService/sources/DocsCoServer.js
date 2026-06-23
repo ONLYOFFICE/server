@@ -1725,13 +1725,7 @@ function getRequestParams(ctx, req, _opt_isNotInBody) {
           if (tenTokenRequiredParams) {
             res.params = {};
           }
-          Object.assign(res.params, checkJwtRes.decoded);
-          if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
-            Object.assign(res.params, checkJwtRes.decoded.payload);
-          }
-          if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
-            Object.assign(res.params, checkJwtRes.decoded.query);
-          }
+          utils.mergeJwtDecodedParams(res.params, checkJwtRes.decoded);
         } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
           res.code = constants.VKEY_KEY_EXPIRE;
         }

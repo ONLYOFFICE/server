@@ -43,13 +43,17 @@
 'use strict';
 
 const http = require('http');
+const stream = require('stream');
 const express = require('express');
 const {describe, test, expect, jest, beforeAll, afterAll, afterEach} = require('@jest/globals');
 
 const {handleConvertUpload} = require('../../DocService/sources/middleware/convertUpload');
 const convertFromFile = require('../../DocService/sources/convertFromFile');
 const converterService = require('../../DocService/sources/converterservice');
+const docsCoServer = require('../../DocService/sources/DocsCoServer');
 const {signToken} = require('../../DocService/sources/DocsCoServer');
+const taskResult = require('../../DocService/sources/taskresult');
+const storageBase = require('../../Common/sources/storage/storage-base');
 const commonDefines = require('../../Common/sources/commondefines');
 const operationContext = require('../../Common/sources/operationContext');
 const config = require('../../Common/node_modules/config');
@@ -112,7 +116,7 @@ describe('POST /converter/from-file route contract (in-process, no server)', () 
     expect(isDecoded).toBe(false);
   });
 
-  test('400 on an unexpected unsigned scalar field; the converter boundary is not reached', async () => {
+  test('legacy JSON error on an unexpected unsigned scalar field; the converter boundary is not reached', async () => {
     const spy = jest.spyOn(converterService, 'convertFromCommandBody').mockResolvedValue(undefined);
     const form = new FormData();
     form.append('params', JSON.stringify({filetype: 'txt', outputtype: 'docx'}));
@@ -121,11 +125,12 @@ describe('POST /converter/from-file route contract (in-process, no server)', () 
 
     const res = await postForm(form);
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect((await res.json()).error).toBe(-7);
     expect(spy).not.toHaveBeenCalled();
   });
 
-  test('400 on bracket-notation params fields; the converter boundary is not reached', async () => {
+  test('legacy JSON error on bracket-notation params fields; the converter boundary is not reached', async () => {
     const spy = jest.spyOn(converterService, 'convertFromCommandBody').mockResolvedValue(undefined);
     const form = new FormData();
     form.append('params[filetype]', 'txt');
@@ -134,18 +139,20 @@ describe('POST /converter/from-file route contract (in-process, no server)', () 
 
     const res = await postForm(form);
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect((await res.json()).error).toBe(-7);
     expect(spy).not.toHaveBeenCalled();
   });
 
-  test('400 when the file part is missing (real handler rejects before storage)', async () => {
-    // No spy: the real convertFromCommandBody runs and returns 400 before touching storage/x2t.
+  test('legacy JSON error when both the file part and key are missing (real handler rejects before storage)', async () => {
+    // No spy: the real convertFromCommandBody runs and returns the legacy JSON error before touching storage/x2t.
     const form = new FormData();
     form.append('params', JSON.stringify({filetype: 'txt', outputtype: 'docx'}));
 
     const res = await postForm(form);
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect((await res.json()).error).toBe(-7);
   });
 
   test('413 when the upload exceeds maxDownloadBytes (real multer limit)', async () => {
@@ -164,6 +171,20 @@ describe('POST /converter/from-file route contract (in-process, no server)', () 
     const res = await postForm(form);
 
     expect(res.status).toBe(413);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test('legacy JSON auth error (-8) when the token fails verification; the converter boundary is not reached', async () => {
+    const spy = jest.spyOn(converterService, 'convertFromCommandBody').mockResolvedValue(undefined);
+    const form = new FormData();
+    form.append('token', 'not.a.valid.jwt');
+    form.append('file', new Blob([Buffer.from('hello')]), 'sample.txt');
+
+    const res = await postForm(form);
+
+    // VKEY -> -8, the same wire code the legacy convertRequest returns on auth failure.
+    expect(res.status).toBe(200);
+    expect((await res.json()).error).toBe(-8);
     expect(spy).not.toHaveBeenCalled();
   });
 });
@@ -188,7 +209,7 @@ describe('POST /docbuilder/from-file route contract (in-process, no server)', ()
     expect(isDecoded).toBe(false);
   });
 
-  test('400 on an unexpected scalar field (argument); the builder boundary is not reached', async () => {
+  test('legacy builder JSON error on an unexpected scalar field (argument); the builder boundary is not reached', async () => {
     const spy = jest.spyOn(converterService, 'builder').mockResolvedValue(undefined);
     const form = new FormData();
     form.append('params', JSON.stringify({key: 'bld1'}));
@@ -197,7 +218,9 @@ describe('POST /docbuilder/from-file route contract (in-process, no server)', ()
 
     const res = await postForm(form, docbuilderUrl);
 
-    expect(res.status).toBe(400);
+    // -1 (UNKNOWN), matching the legacy builderRequest contract (it never emits CONVERT_PARAMS/-7).
+    expect(res.status).toBe(200);
+    expect((await res.json()).error).toBe(-1);
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -219,5 +242,102 @@ describe('POST /docbuilder/from-file route contract (in-process, no server)', ()
     expect(req.file.originalname).toBe('script.docbuilder');
     expect(params).toMatchObject(payload);
     expect(isDecoded).toBe(true);
+  });
+});
+
+// The real convertFromCommandBody runs here; only the storage/db/queue boundary is mocked. These lock
+// in the async/poll behavior: async returns endConvert=false immediately, a no-file poll never writes
+// or enqueues, and a completed poll returns a fileUrl. The shardkey query param keeps async from being
+// downgraded by the DEFAULT_SHARD_KEY guard.
+describe('POST /converter/from-file async and polling behavior (real handler, mocked storage/db/queue)', () => {
+  test('async=true with a file enqueues and answers endConvert=false immediately (no streamed bytes)', async () => {
+    const putObject = jest.spyOn(storageBase, 'putObject').mockResolvedValue(undefined);
+    const upsert = jest.spyOn(taskResult, 'upsert').mockResolvedValue({isInsert: true});
+    const select = jest.spyOn(taskResult, 'select').mockResolvedValue([]);
+    const addTask = jest.spyOn(docsCoServer, 'addTask').mockImplementation(function* () {});
+
+    const form = new FormData();
+    form.append('params', JSON.stringify({key: 'asynckey', filetype: 'txt', outputtype: 'docx', async: true}));
+    form.append('file', new Blob([Buffer.from('hello async')]), 'sample.txt');
+
+    const res = await postForm(form, `${converterUrl}?shardkey=test`);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.endConvert).toBe(false);
+    expect(body.percent).toBe(0);
+    expect(body.fileUrl).toBeUndefined();
+    expect(putObject).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(addTask).toHaveBeenCalledTimes(1);
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  test('a no-file poll by key reads status and NEVER writes storage or enqueues a task', async () => {
+    const putObject = jest.spyOn(storageBase, 'putObject').mockResolvedValue(undefined);
+    const upsert = jest.spyOn(taskResult, 'upsert').mockResolvedValue({isInsert: true});
+    const addTask = jest.spyOn(docsCoServer, 'addTask').mockImplementation(function* () {});
+    const select = jest
+      .spyOn(taskResult, 'select')
+      .mockResolvedValue([{status: commonDefines.FileStatus.WaitQueue, last_open_date: new Date(), password: null}]);
+
+    const form = new FormData();
+    form.append('params', JSON.stringify({key: 'pollkey', filetype: 'txt', outputtype: 'docx'}));
+
+    const res = await postForm(form);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.endConvert).toBe(false);
+    expect(body.error).toBeUndefined();
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(putObject).not.toHaveBeenCalled();
+    expect(addTask).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  test('a no-file poll for a completed task returns the fileUrl and endConvert=true without writing or enqueuing', async () => {
+    const putObject = jest.spyOn(storageBase, 'putObject').mockResolvedValue(undefined);
+    const upsert = jest.spyOn(taskResult, 'upsert').mockResolvedValue({isInsert: true});
+    const addTask = jest.spyOn(docsCoServer, 'addTask').mockImplementation(function* () {});
+    jest.spyOn(taskResult, 'select').mockResolvedValue([{status: commonDefines.FileStatus.Ok, last_open_date: new Date(), password: null}]);
+    jest.spyOn(storageBase, 'getSignedUrl').mockResolvedValue('http://signed/result.docx');
+
+    const form = new FormData();
+    form.append('params', JSON.stringify({key: 'donekey', filetype: 'txt', outputtype: 'docx'}));
+
+    const res = await postForm(form);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.endConvert).toBe(true);
+    expect(body.fileUrl).toBe('http://signed/result.docx');
+    expect(body.fileType).toBe('docx');
+    expect(putObject).not.toHaveBeenCalled();
+    expect(addTask).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  test('synchronous success streams the converted bytes back (not JSON)', async () => {
+    const outBytes = Buffer.from('converted-bytes');
+    const putObject = jest.spyOn(storageBase, 'putObject').mockResolvedValue(undefined);
+    // upsert isInsert=false + an Ok task row makes convertByCmd return end=true on the first check (no wait, no enqueue).
+    jest.spyOn(taskResult, 'upsert').mockResolvedValue({isInsert: false});
+    jest.spyOn(taskResult, 'select').mockResolvedValue([{status: commonDefines.FileStatus.Ok, last_open_date: new Date(), password: null}]);
+    jest.spyOn(storageBase, 'createReadStream').mockResolvedValue({readStream: stream.Readable.from(outBytes), contentLength: outBytes.length});
+    const addTask = jest.spyOn(docsCoServer, 'addTask').mockImplementation(function* () {});
+
+    const form = new FormData();
+    form.append('params', JSON.stringify({key: 'syncdone', filetype: 'txt', outputtype: 'docx'}));
+    form.append('file', new Blob([Buffer.from('hello sync')]), 'sample.txt');
+
+    const res = await postForm(form);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('wordprocessingml');
+    expect(res.headers.get('content-disposition')).toContain('sample.docx');
+    expect(await res.text()).toBe('converted-bytes');
+    expect(putObject).toHaveBeenCalledTimes(1);
+    expect(addTask).not.toHaveBeenCalled();
   });
 });

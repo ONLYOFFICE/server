@@ -1114,6 +1114,18 @@ function isEmptyObject(val) {
   return !(val && Object.keys(val).length);
 }
 exports.isEmptyObject = isEmptyObject;
+// Overlay a verified JWT's claims onto a params object: base claims first, then payload, then query win.
+function mergeJwtDecodedParams(target, decoded) {
+  Object.assign(target, decoded);
+  if (!isEmptyObject(decoded.payload)) {
+    Object.assign(target, decoded.payload);
+  }
+  if (!isEmptyObject(decoded.query)) {
+    Object.assign(target, decoded.query);
+  }
+  return target;
+}
+exports.mergeJwtDecodedParams = mergeJwtDecodedParams;
 function getSecretByElem(secretElem) {
   let secret;
   if (secretElem) {
