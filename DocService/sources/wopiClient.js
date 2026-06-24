@@ -228,6 +228,8 @@ function discovery(req, res) {
         for (let j = 0; j < ext.view.length; ++j) {
           xmlApp.ele('action', {name: 'view', ext: ext.view[j], default: 'true', urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
+          //read-only interactive preview for SharePoint details pane; reuses embedded view
+          xmlApp.ele('action', {name: 'interactivepreview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.view[j], urlsrc: urlTemplateMobileView}).up();
           if (ext.targetext) {
             const urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
@@ -237,6 +239,8 @@ function discovery(req, res) {
         for (let j = 0; j < ext.edit.length; ++j) {
           xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
+          //read-only interactive preview for SharePoint details pane; reuses embedded view
+          xmlApp.ele('action', {name: 'interactivepreview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
           if (formsExts[ext.edit[j]]) {
             xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
@@ -283,6 +287,8 @@ function discovery(req, res) {
               const xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
               xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
+              //read-only interactive preview for SharePoint details pane; reuses embedded view
+              xmlApp.ele('action', {name: 'interactivepreview', ext: '', urlsrc: urlTemplateEmbedView}).up();
               xmlApp.ele('action', {name: 'mobileView', ext: '', urlsrc: urlTemplateMobileView}).up();
               if (ext.targetext) {
                 const urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
@@ -593,7 +599,7 @@ async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, ac
   }
   const {filePath, size, templateFileType} = await getNewFileTemplateMeta(ctx, lang, ui, fileType);
 
-  // Canonical WOPI editnew flow: unlocked PutFile on zero-byte file (spec §createnew).
+  // Canonical WOPI editnew flow: unlocked PutFile on zero-byte file (spec createnew).
   // X-WOPI-Lock is not included during document creation per WOPI spec.
   const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
   const postRes = await putFile(ctx, wopiParams, undefined, createReadStream(filePath), size, fileInfo.UserId, false, false, false, {
@@ -624,7 +630,7 @@ async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, ac
   const {fileInfo: updatedFileInfo} = await checkFileInfo(ctx, wopiSrc, access_token);
   if (updatedFileInfo && !updatedFileInfo.error && updatedFileInfo.Size > 0) {
     applyFileInfo(fileInfo, updatedFileInfo.Size, updatedFileInfo);
-    ctx.logger.info('checkAndReplaceEmptyFile: concurrent create-new 409 resolved — file initialized by another session');
+    ctx.logger.info('checkAndReplaceEmptyFile: concurrent create-new 409 resolved - file initialized by another session');
     return;
   }
 
@@ -1101,7 +1107,7 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
   }
   return res;
 }
-// Private helper: one signed WOPI GET → {res} on success, {redirectedUri} if redirected, throws on error
+// Private helper: one signed WOPI GET -> {res} on success, {redirectedUri} if redirected, throws on error
 async function _wopiGet(ctx, uri, access_token, baseHeaders, timeout) {
   const headers = {...baseHeaders};
   let redirectedUri = null;
