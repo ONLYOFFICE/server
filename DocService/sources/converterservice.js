@@ -726,15 +726,17 @@ function buildConvFromFileDocId(params, basics, opt_bodyDigest) {
 }
 async function convertFromCommandBody(req, res, opt_params, opt_isDecoded) {
   const ctx = new operationContext.Context();
-  // from-file uses the classic JSON convert contract for async, polling and errors; a successful
-  // synchronous (async=false) request with a file still streams the converted bytes back.
+  // ready result streams the bytes (sync, async cache hit, completed poll); JSON only for not-ready (endConvert:false) and errors
   const isJson = true;
   try {
     ctx.initFromRequest(req);
     await ctx.initTenantCache();
-    ctx.logger.info('convert-from-command-body start');
     // params come only from the resolved params/token source; no unsigned scalar fallback
+    // no start/end log here: the route wrapper frames the request
     const params = opt_params || {};
+    if (params.key) {
+      ctx.setDocId(params.key);
+    }
     const file = req.file;
     const hasFile = !!(file && file.originalname && file.buffer);
     // polling: a second request without a file must carry the key to resolve the same docId
@@ -743,8 +745,7 @@ async function convertFromCommandBody(req, res, opt_params, opt_isDecoded) {
       utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
       return;
     }
-    // content-addressed docId (see buildConvFromFileDocId): a caller key replaces the file hash, no
-    // key hashes the file bytes; the file is hashed only on the no-key path that actually needs it.
+    // hash the file only on the no-key path (the key path does not need the body hash); see buildConvFromFileDocId
     const bodyDigest = hasFile && !params.key ? buildBodyDigest(file.buffer) : undefined;
     const prepared = await prepareConvertCommand(ctx, params, {
       isDecoded: opt_isDecoded,
@@ -758,23 +759,25 @@ async function convertFromCommandBody(req, res, opt_params, opt_isDecoded) {
     }
     const {cmd, docId, basics, fileTo} = prepared;
     ctx.setDocId(docId);
+    // link the caller key to the content-addressed docId so logs are searchable by either
+    if (params.key) {
+      ctx.logger.info('convert-from-command-body resolved key=%s docId=%s', params.key, docId);
+    }
 
     let status;
-    let async = false;
     if (hasFile) {
-      async = resolveAsync(ctx, req, params, 'convert-from-command-body');
+      const async = resolveAsync(ctx, req, params, 'convert-from-command-body');
       await storageBase.putObject(ctx, `${docId}/origin.${basics.filetype}`, file.buffer, file.buffer.length);
       status = await co(convertByCmd(ctx, cmd, async, fileTo, undefined, undefined, undefined, undefined, true));
     } else {
-      // polling by key: report the existing task status; never enqueue (there is no source to convert)
+      // polling by key: report task status, never enqueue
       const selectRes = await taskResult.select(ctx, docId);
       status = await co(getConvertStatus(ctx, docId, cmd.getPassword(), selectRes, true));
     }
 
-    // backward-compatible synchronous path: stream the converted bytes back
-    if (hasFile && !async && status && status.end && constants.NO_ERROR === status.err) {
+    if (status && status.end && constants.NO_ERROR === status.err) {
       const fileToPath = await co(getConvertPath(ctx, docId, fileTo, cmd.getOutputFormat()));
-      const sourceName = params.title || file.originalname;
+      const sourceName = params.title || (file && file.originalname) || path.basename(fileToPath);
       const filename = path.basename(sourceName, path.extname(sourceName)) + path.extname(fileToPath);
       const streamObj = await storage.createReadStream(ctx, fileToPath);
       res.setHeader('Content-Disposition', utils.getContentDisposition(filename, null, constants.CONTENT_DISPOSITION_INLINE));
@@ -784,16 +787,12 @@ async function convertFromCommandBody(req, res, opt_params, opt_isDecoded) {
       return;
     }
 
-    // async / polling / error: classic JSON convert response (percent kept for compatibility, deprecated in docs)
-    await setConvertResultUrl(ctx, utils.getBaseUrlByRequest(ctx, req), status, docId, fileTo, cmd);
     utils.fillResponse(req, res, status, isJson);
   } catch (err) {
     ctx.logger.error('convert-from-command-body error:%s', err.stack);
     if (!res.headersSent) {
       utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.UNKNOWN), isJson);
     }
-  } finally {
-    ctx.logger.info('convert-from-command-body end');
   }
 }
 function convertAndEdit(ctx, wopiParams, filetypeFrom, filetypeTo) {

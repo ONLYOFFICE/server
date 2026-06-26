@@ -110,6 +110,11 @@ async function getRequestParamsFromFile(ctx, req) {
     }
   }
 
+  // attribute logs by the caller key ASAP so the auth-fail/error paths below are not anonymous
+  if (parsedParams && parsedParams.key) {
+    ctx.setDocId(parsedParams.key);
+  }
+
   // Match classic truthiness: malformed truthy `params.token` must fail JWT verification.
   const paramsToken = parsedParams && parsedParams.token ? parsedParams.token : undefined;
   const bodyToken = partToken || paramsToken;
@@ -166,6 +171,10 @@ function makeFromFileHandler(label, delegate, sendError, badRequestCode) {
         ctx.logger.warn('%s auth failed %j', label, authRes);
         sendError(req, res, authRes.code);
         return;
+      }
+      // set the caller key as docId ASAP so the rest of this request's logs are not anonymous
+      if (authRes.params && authRes.params.key) {
+        ctx.setDocId(authRes.params.key);
       }
       await delegate(req, res, authRes.params, authRes.isDecoded);
     } catch (err) {

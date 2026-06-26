@@ -116,6 +116,28 @@ describe('POST /converter/from-file route contract (in-process, no server)', () 
     expect(isDecoded).toBe(false);
   });
 
+  test('a token-supplied key (no params part) sets the docId in context for attribution', async () => {
+    // token carries the params; params optional when a token is present
+    const payload = {key: 'attr-key-1', filetype: 'txt', outputtype: 'docx'};
+    const token = await signToken(new operationContext.Context(), payload, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const setDocId = jest.spyOn(operationContext.Context.prototype, 'setDocId');
+    const spy = jest.spyOn(converterService, 'convertFromCommandBody').mockImplementation(async (req, res) => {
+      res.status(200).send('mock');
+    });
+    const form = new FormData();
+    form.append('token', token);
+    form.append('file', new Blob([Buffer.from('hi')]), 'sample.txt');
+
+    const res = await postForm(form);
+
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [, , params, isDecoded] = spy.mock.calls[0];
+    expect(isDecoded).toBe(true);
+    expect(params).toMatchObject({key: 'attr-key-1', filetype: 'txt', outputtype: 'docx'});
+    expect(setDocId).toHaveBeenCalledWith('attr-key-1');
+  });
+
   test('legacy JSON error on an unexpected unsigned scalar field; the converter boundary is not reached', async () => {
     const spy = jest.spyOn(converterService, 'convertFromCommandBody').mockResolvedValue(undefined);
     const form = new FormData();
@@ -296,23 +318,23 @@ describe('POST /converter/from-file async and polling behavior (real handler, mo
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  test('a no-file poll for a completed task returns the fileUrl and endConvert=true without writing or enqueuing', async () => {
+  test('a no-file poll for a completed task streams the bytes (not JSON) without writing or enqueuing', async () => {
+    const outBytes = Buffer.from('polled-bytes');
     const putObject = jest.spyOn(storageBase, 'putObject').mockResolvedValue(undefined);
     const upsert = jest.spyOn(taskResult, 'upsert').mockResolvedValue({isInsert: true});
     const addTask = jest.spyOn(docsCoServer, 'addTask').mockImplementation(function* () {});
     jest.spyOn(taskResult, 'select').mockResolvedValue([{status: commonDefines.FileStatus.Ok, last_open_date: new Date(), password: null}]);
-    jest.spyOn(storageBase, 'getSignedUrl').mockResolvedValue('http://signed/result.docx');
+    jest.spyOn(storageBase, 'createReadStream').mockResolvedValue({readStream: stream.Readable.from(outBytes), contentLength: outBytes.length});
 
     const form = new FormData();
-    form.append('params', JSON.stringify({key: 'donekey', filetype: 'txt', outputtype: 'docx'}));
+    form.append('params', JSON.stringify({key: 'donekey', filetype: 'txt', outputtype: 'docx', title: 'sample.txt'}));
 
     const res = await postForm(form);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.endConvert).toBe(true);
-    expect(body.fileUrl).toBe('http://signed/result.docx');
-    expect(body.fileType).toBe('docx');
+    expect(res.headers.get('content-type')).toContain('wordprocessingml');
+    expect(res.headers.get('content-disposition')).toContain('sample.docx');
+    expect(await res.text()).toBe('polled-bytes');
     expect(putObject).not.toHaveBeenCalled();
     expect(addTask).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
