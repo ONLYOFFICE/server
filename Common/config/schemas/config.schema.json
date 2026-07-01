@@ -92,6 +92,13 @@
           "x-scope": ["admin", "tenant"],
           "x-tenantOverride": true
         },
+        "allowBrowserProxy": {
+          "type": "boolean",
+          "description": "Enables the unmatched-target relay mode inside /ai-proxy: when the target matches no configured provider, the request is forwarded as-is (with the client's own credentials) to bypass CORS. The server injects no credentials; the caller still needs a valid session JWT; the target stays untrusted and uses the normal externalRequest private-IP filtering. On by default to support browser-configured MCP and web search; set to false to keep unmatched targets denied with 403.",
+          "default": true,
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
+        },
         "allowedCorsOrigins": {
           "type": "array",
           "description": "The external websites permitted to make cross-origin requests to the server.",

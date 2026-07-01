@@ -116,6 +116,7 @@ const util = require('util');
 const cfgEditSingleton = config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor = config.get('services.CoAuthoring.editor');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
+const cfgAiApiAllowBrowserProxy = config.get('aiSettings.allowBrowserProxy');
 //The waiting time to document assembly when all out(not 0 in case of F5 in the browser)
 const cfgAscSaveTimeOutDelay = config.get('services.CoAuthoring.server.savetimeoutdelay');
 
@@ -3966,6 +3967,7 @@ exports.install = function (server, app, callbackFunction) {
 
         const [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
         const pluginSettings = yield aiProxyHandler.getPluginSettingsForInterface(ctx);
+        const tenAllowBrowserProxy = ctx.getCfg('aiSettings.allowBrowserProxy', cfgAiApiAllowBrowserProxy);
         sendData(ctx, conn, {
           type: 'license',
           license: {
@@ -3982,7 +3984,8 @@ exports.install = function (server, app, callbackFunction) {
             customization: licenseInfo.customization,
             advancedApi: licenseInfo.advancedApi
           },
-          aiPluginSettings: pluginSettings
+          aiPluginSettings: pluginSettings,
+          aiPluginSettingsAllowBrowserProxy: tenAllowBrowserProxy
         });
         ctx.logger.info('_checkLicense end');
       } catch (err) {

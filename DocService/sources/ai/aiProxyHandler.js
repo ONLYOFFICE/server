@@ -48,6 +48,7 @@ const statsDClient = require('./../../../Common/sources/statsdclient');
 const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
 const cfgAiApiProxy = config.get('aiSettings.proxy');
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
+const cfgAiApiAllowBrowserProxy = config.get('aiSettings.allowBrowserProxy');
 const cfgTokenEnableOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
 const cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
@@ -105,6 +106,66 @@ function handleCorsHeaders(req, res, ctx, handleOptions = true) {
 }
 
 const safeUrlOrigin = url => (URL.canParse(url) ? new URL(url).origin : null);
+
+// HTTP methods the browser-proxy relay accepts; anything else is rejected before egress.
+const RELAY_ALLOWED_METHODS = ['GET', 'POST', 'DELETE', 'HEAD'];
+// Hop-by-hop, connection-management and proxy headers the client must not control on the outgoing request.
+const STRIP_REQUEST_HEADERS = [
+  'host',
+  'content-length',
+  'connection',
+  'keep-alive',
+  'transfer-encoding',
+  'te',
+  'trailer',
+  'upgrade',
+  'proxy-connection',
+  'proxy-authorization'
+];
+// Hop-by-hop and cookie headers stripped from the upstream response before it reaches the editor origin.
+const STRIP_RESPONSE_HEADERS = [
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'set-cookie',
+  'set-cookie2'
+];
+
+// Drop the client-controlled hop-by-hop request headers; the HTTP layer manages these itself.
+function sanitizeProxyRequestHeaders(headers) {
+  const res = {};
+  for (const key in headers) {
+    if (!STRIP_REQUEST_HEADERS.includes(key.toLowerCase())) {
+      res[key] = headers[key];
+    }
+  }
+  return res;
+}
+
+// Strip hop-by-hop and cookie headers and remove control chars before relaying an upstream response.
+function sanitizeProxyResponseHeaders(headers) {
+  const res = {...headers};
+  for (const key of Object.keys(res)) {
+    if (STRIP_RESPONSE_HEADERS.includes(key.toLowerCase())) {
+      delete res[key];
+    }
+  }
+  if (res['content-disposition']) {
+    res['content-disposition'] = res['content-disposition'].replace(/\p{Cc}/gu, '');
+  }
+  return res;
+}
+
+// Compact, secret-free error descriptor for logs; never includes the axios config/headers/body that a raw AxiosError carries.
+function describeRequestError(error) {
+  const status = error?.statusCode ?? error?.response?.status;
+  return `message=${error?.message} code=${error?.code} status=${status}`;
+}
 
 /**
  * Detects provider type and generates appropriate authentication headers based on URL patterns
@@ -195,6 +256,7 @@ async function proxyRequest(req, res) {
     const tenAiApiTimeout = ctx.getCfg('aiSettings.timeout', cfgAiApiTimeout);
     const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
     const tenAiApiProxy = ctx.getCfg('aiSettings.proxy', cfgAiApiProxy);
+    const tenAllowBrowserProxy = ctx.getCfg('aiSettings.allowBrowserProxy', cfgAiApiAllowBrowserProxy);
 
     // 1. Handle CORS preflight (OPTIONS) requests if necessary
     if (handleCorsHeaders(req, res, ctx) === true) {
@@ -225,17 +287,6 @@ async function proxyRequest(req, res) {
       ctx.setUserId(userId);
     }
 
-    if (!tenAiApi?.providers) {
-      ctx.logger.error('proxyRequest: No providers configured');
-      res.status(403).json({
-        error: {
-          message: 'proxyRequest: No providers configured',
-          code: '403'
-        }
-      });
-      return;
-    }
-
     const body = JSON.parse(req.body);
     let uri = body.target;
 
@@ -260,8 +311,12 @@ async function proxyRequest(req, res) {
       }
     }
 
-    // If body.target was provided but no provider was matched, return 403
+    // No configured provider matched: relay the client-supplied request as-is when browser-proxy is enabled, otherwise deny.
     if (!providerMatched) {
+      if (tenAllowBrowserProxy) {
+        await relayBrowserProxy(ctx, req, res, body, tenAiApiTimeout);
+        return;
+      }
       ctx.logger.warn(`proxyRequest: target '${uri}' does not match any configured AI provider. Denying access.`);
       res.status(403).json({
         error: {
@@ -273,7 +328,7 @@ async function proxyRequest(req, res) {
     }
 
     // Merge key in headers; providerHeaders (spread last) always wins - axios normalises header names case-insensitively.
-    const headers = {...body.headers, ...providerHeaders};
+    const headers = {...sanitizeProxyRequestHeaders(body.headers || {}), ...providerHeaders};
 
     // Preserve Accept-Encoding from original request if not explicitly provided
     if (!headers['accept-encoding'] && req.headers['accept-encoding']) {
@@ -327,8 +382,8 @@ async function proxyRequest(req, res) {
       isInJwtToken: providerMatched //true because it passed provider's filter
     };
 
-    // Log the sanitized request parameters
-    ctx.logger.debug(`proxyRequest request: %j`, requestParams);
+    // Log only method and origin; headers and body carry injected provider keys and must not be logged.
+    ctx.logger.debug('proxyRequest request: method=%s target=%s', requestParams.method, targetOrigin || 'invalid');
 
     // Use utils.httpRequest to make the request
     const result = await utils.httpRequest(
@@ -345,22 +400,22 @@ async function proxyRequest(req, res) {
       }
     );
 
-    // Set the response headers to match the target response
-    res.set(result.response.headers);
+    // Sanitize upstream headers (drop Set-Cookie/hop-by-hop) before relaying to the editor origin.
+    res.set(sanitizeProxyResponseHeaders(result.response.headers));
 
     // Use pipeline to pipe the response data to the client
     await pipeline(result.stream, res);
     success = true;
   } catch (error) {
     if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
-      ctx.logger.debug('proxyRequest: client disconnected: %s', error.stack);
+      ctx.logger.debug('proxyRequest: client disconnected');
     } else {
-      ctx.logger.error(`proxyRequest: AI API request error: %s`, error);
+      ctx.logger.error('proxyRequest: AI API request error: %s', describeRequestError(error));
     }
     if (!res.headersSent) {
       try {
         if (error.response) {
-          res.set(error.response.headers);
+          res.set(sanitizeProxyResponseHeaders(error.response.headers));
           await pipeline(error.response.data, res);
         } else {
           res.status(500).json({
@@ -380,6 +435,102 @@ async function proxyRequest(req, res) {
       clientStatsD.timing('coauth.aiProxy', new Date() - startDate);
     }
     ctx.logger.info('End proxyRequest');
+  }
+}
+
+/**
+ * Relays a fully client-supplied request (client owns its keys) to bypass browser CORS; injects no credentials.
+ * Reached from proxyRequest when no configured provider matches and aiSettings.allowBrowserProxy is on. SSRF is
+ * bounded by the default blockPrivateIP filter because isInJwtToken=false routes through the filtering agent.
+ *
+ * @param {operationContext.Context} ctx - Operation context (already authenticated)
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ * @param {object} body - Parsed request body {target, method, headers, data}
+ * @param {string} tenAiApiTimeout - AI request timeout
+ * @returns {Promise<void>}
+ */
+async function relayBrowserProxy(ctx, req, res, body, tenAiApiTimeout) {
+  const startDate = new Date();
+  let success = false;
+
+  try {
+    const uri = body.target;
+    // Only forward absolute http(s) URLs; reject anything else before egress.
+    let parsedTarget = null;
+    try {
+      parsedTarget = typeof uri === 'string' ? new URL(uri) : null;
+    } catch (_) {
+      parsedTarget = null;
+    }
+    if (!parsedTarget || (parsedTarget.protocol !== 'http:' && parsedTarget.protocol !== 'https:')) {
+      ctx.logger.warn('proxyRequest relay: invalid target URL');
+      res.status(400).json({error: {message: 'proxyRequest relay: invalid target URL', code: '400'}});
+      return;
+    }
+
+    const method = (typeof body.method === 'string' ? body.method : 'GET').toUpperCase();
+    if (!RELAY_ALLOWED_METHODS.includes(method)) {
+      ctx.logger.warn('proxyRequest relay: method not allowed: %s', method);
+      res.status(400).json({error: {message: 'proxyRequest relay: method not allowed', code: '400'}});
+      return;
+    }
+
+    if (body.headers != null && (typeof body.headers !== 'object' || Array.isArray(body.headers))) {
+      ctx.logger.warn('proxyRequest relay: invalid headers');
+      res.status(400).json({error: {message: 'proxyRequest relay: invalid headers', code: '400'}});
+      return;
+    }
+
+    // Forward only the client-supplied target headers (minus hop-by-hop); never the session JWT or an outbox token.
+    const headers = sanitizeProxyRequestHeaders(body.headers || {});
+    if (!headers['accept-encoding'] && req.headers['accept-encoding']) {
+      headers['accept-encoding'] = req.headers['accept-encoding'];
+    }
+
+    const timeoutOptions = {connectionAndInactivity: tenAiApiTimeout, wholeCycle: tenAiApiTimeout};
+    // Log only the safe origin; headers and body carry client secrets and must not be logged.
+    ctx.logger.debug('proxyRequest relay: %s to %s', method, parsedTarget.origin);
+
+    const result = await utils.httpRequest(
+      ctx,
+      method,
+      uri,
+      headers,
+      body.data,
+      timeoutOptions,
+      null,
+      false, // opt_filterPrivate=false: client-controlled URL is untrusted, so blockPrivateIP applies
+      {decompress: false}
+    );
+
+    res.status(result.response.status);
+    res.set(sanitizeProxyResponseHeaders(result.response.headers));
+    await pipeline(result.stream, res);
+    success = true;
+  } catch (error) {
+    if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+      ctx.logger.debug('proxyRequest relay: client disconnected');
+    } else {
+      ctx.logger.error('proxyRequest relay: request error: %s', describeRequestError(error));
+    }
+    if (!res.headersSent) {
+      try {
+        if (error.response) {
+          res.status(error.response.status || error.statusCode || 502);
+          res.set(sanitizeProxyResponseHeaders(error.response.headers));
+          await pipeline(error.response.data, res);
+        } else {
+          res.status(500).json({error: {message: 'proxyRequest relay: request error', code: '500'}});
+        }
+      } catch (responseError) {
+        ctx.logger.debug('proxyRequest relay: error sending error response: %s', responseError.stack);
+      }
+    }
+  } finally {
+    if (clientStatsD && success) {
+      clientStatsD.timing('coauth.aiBrowserProxy', new Date() - startDate);
+    }
   }
 }
 
@@ -471,5 +622,8 @@ async function getPluginSettingsForInterface(ctx) {
 module.exports = {
   proxyRequest,
   getPluginSettings,
-  getPluginSettingsForInterface
+  getPluginSettingsForInterface,
+  sanitizeProxyRequestHeaders,
+  sanitizeProxyResponseHeaders,
+  describeRequestError
 };

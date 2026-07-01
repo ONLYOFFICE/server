@@ -539,7 +539,7 @@ async function postRequestPromise(
  * @param {*} opt_body - Optional request body data.
  * @param {object} opt_timeout - Optional timeout configuration.
  * @param {number} opt_limit - Optional limit on the size of the response.
- * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
+ * @param {boolean} opt_filterPrivate - Optional flag: true treats the URL as trusted (in JWT) and may bypass the private-IP filter.
  * @param {Object} [opt_axiosConfig={}] - Optional additional axios configuration options.
  * @returns {Promise<{response: axios.AxiosResponse, stream: SizeLimitStream}>} - A promise that resolves to an object containing the raw Axios response and a SizeLimitStream.
  */
