@@ -625,6 +625,7 @@ exports.mapAscServerErrorToOldError = function (error) {
   switch (error) {
     case constants.NO_ERROR:
     case constants.CONVERT_CELLLIMITS:
+    case constants.CONVERT_ROWLIMITS:
       res = 0;
       break;
     case constants.TASK_QUEUE:
