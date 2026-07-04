@@ -1802,7 +1802,7 @@ exports.downloadFile = function (req, res) {
       let authorization;
       let isInJwtToken = false;
       let errorDescription;
-      let headers, fromTemplate, requestedTemplateExt;
+      let headers, fromTemplate, requestedTemplateExt, expectedDigest;
       const authRes = yield docsCoServer.getRequestParams(ctx, req);
       if (authRes.code === constants.NO_ERROR) {
         const decoded = authRes.params;
@@ -1812,7 +1812,7 @@ exports.downloadFile = function (req, res) {
             requestedTemplateExt = pathModule.extname(decoded.fileInfo.BaseFileName).substring(1);
             fromTemplate = newFileTemplateUtils.getNewFileTemplateExt(requestedTemplateExt);
           } else {
-            ({url, headers} = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
+            ({url, headers, expectedDigest} = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
             const filterStatus = yield wopiClient.checkIpFilter(ctx, url);
             if (0 === filterStatus) {
               //todo false? (true because it passed checkIpFilter for wopi)
@@ -1879,6 +1879,7 @@ exports.downloadFile = function (req, res) {
           authorization,
           isInJwtToken,
           headers,
+          expectedDigest,
           returnStream: true
         });
         const response = downloadResult.response;

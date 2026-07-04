@@ -118,28 +118,49 @@ async function fillStandardHeaders(ctx, headers, url, access_token) {
 }
 
 /**
+ * Builds a caller-provided digest from the SHA256 property of CheckFileInfo.
+ * SHA256 is the base64 sha-256 hash of the file contents; malformed or absent values are ignored downstream.
+ * @see https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/files/checkfileinfo/checkfileinfo-other#sha256
+ *
+ * @param {Object} fileInfo - Information about the file
+ * @returns {{source: string, nodeAlgorithm: string, expectedBase64: string}|undefined} Expected digest or undefined
+ */
+function getContentsExpectedDigest(fileInfo) {
+  if ('string' !== typeof fileInfo?.SHA256 || 0 === fileInfo.SHA256.length) {
+    return undefined;
+  }
+  return {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: fileInfo.SHA256};
+}
+
+/**
  * Gets a WOPI file URL with appropriate headers
  *
  * @param {Object} ctx - The operation context
  * @param {Object} fileInfo - Information about the file
  * @param {Object} userAuth - User authentication details
- * @returns {Object} - Object containing URL and headers
+ * @returns {Object} - Object containing URL, headers and an optional expectedDigest for the file contents
  */
 async function getWopiFileUrl(ctx, fileInfo, userAuth) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   let url;
+  let expectedDigest;
   const headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
   if (fileInfo?.FileUrl) {
     //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
     url = fileInfo.FileUrl;
+    // SHA256 in CheckFileInfo describes this file, which FileUrl serves the contents of
+    expectedDigest = getContentsExpectedDigest(fileInfo);
   } else if (fileInfo?.TemplateSource) {
+    // TemplateSource is a separate resource, so the file SHA256 is not guaranteed to describe it
     url = fileInfo.TemplateSource;
   } else if (userAuth) {
     url = `${userAuth.wopiSrc}/contents?access_token=${encodeURIComponent(userAuth.access_token)}`;
     await fillStandardHeaders(ctx, headers, url, userAuth.access_token);
+    // The /contents endpoint returns the file this CheckFileInfo SHA256 describes
+    expectedDigest = getContentsExpectedDigest(fileInfo);
   }
-  ctx.logger.debug('getWopiFileUrl url=%s; headers=%j', url, headers);
-  return {url, headers};
+  ctx.logger.debug('getWopiFileUrl url=%s; headers=%j; expectedDigest=%j', url, headers, expectedDigest);
+  return {url, headers, expectedDigest};
 }
 
 /**
@@ -153,6 +174,7 @@ function blockWopiRedirect(_options, responseDetails) {
 
 module.exports = {
   getWopiFileUrl,
+  getContentsExpectedDigest,
   fillStandardHeaders,
   blockWopiRedirect
 };

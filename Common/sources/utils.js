@@ -356,12 +356,13 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
  * @param {object} [opts.headers] - Additional request headers.
  * @param {boolean} [opts.returnStream] - Return a readable stream instead of buffering the body.
  * @param {Function} [opts.beforeRedirect] - Called before following a redirect; throw to cancel.
+ * @param {{source: string, nodeAlgorithm: string, expectedBase64: string}} [opts.expectedDigest] - Caller-provided digest of the decoded contents, verified like a response digest.
  * @returns {Promise<{response: axios.AxiosResponse, body: Buffer|null, stream: NodeJS.ReadableStream|null}>}
  */
 async function downloadUrlPromise(
   ctx,
   uri,
-  {timeout, limit, authorization, isInJwtToken, headers: extraHeaders, returnStream, beforeRedirect, maxRedirects} = {}
+  {timeout, limit, authorization, isInJwtToken, headers: extraHeaders, returnStream, beforeRedirect, maxRedirects, expectedDigest} = {}
 ) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
@@ -427,7 +428,7 @@ async function downloadUrlPromise(
       response.data.destroy(error);
       throw error;
     }
-    const integrityPlan = tenChecksumVerification ? planIntegrityChecks(headers, status, getRawContentEncoding(response)) : null;
+    const integrityPlan = tenChecksumVerification ? planIntegrityChecks(headers, status, getRawContentEncoding(response), expectedDigest) : null;
     const limitedStream = new SizeLimitStream(limit);
     if (integrityPlan) {
       const integrityStream = new IntegrityStream(integrityPlan, response);

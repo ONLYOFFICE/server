@@ -506,7 +506,7 @@ function replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
     }
   }
 }
-function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_headers) {
+function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_headers, opt_expectedDigest) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
   const tenDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
@@ -529,6 +529,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
           authorization,
           isInJwtToken,
           headers: opt_headers,
+          expectedDigest: opt_expectedDigest,
           returnStream: true
         });
         const hashStream = new utils.HashSizeStream();
@@ -1215,6 +1216,7 @@ function* ExecuteTask(ctx, task) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
       let headers;
+      let expectedDigest;
       let fileSize;
       const wopiParams = cmd.getWopiParams();
       if (wopiParams) {
@@ -1222,10 +1224,11 @@ function* ExecuteTask(ctx, task) {
         isInJwtToken = true;
         const fileInfo = wopiParams.commonInfo?.fileInfo;
         fileSize = fileInfo?.Size;
-        ({url, headers} = yield wopiUtils.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
+        // expectedDigest is the CheckFileInfo SHA256 captured at open; a host edit before this download surfaces as a retryable digest mismatch
+        ({url, headers, expectedDigest} = yield wopiUtils.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
       }
       if (undefined === fileSize || fileSize > 0) {
-        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers);
+        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers, expectedDigest);
       }
       if (constants.NO_ERROR === error) {
         replaceEmptyFile(ctx, dataConvert.fileFrom, format, cmd.getLCID());

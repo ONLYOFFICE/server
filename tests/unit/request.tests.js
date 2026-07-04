@@ -203,6 +203,13 @@ describe('HTTP Request Unit Tests', () => {
       res.send(wrongBody);
     });
 
+    // Endpoint that returns plain content with no integrity headers (for a caller-provided digest)
+    app.get('/api/plain-content', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      res.setHeader('content-type', 'application/octet-stream');
+      res.send(body);
+    });
+
     // Endpoint that returns data with correct x-amz-checksum-sha256 header
     app.get('/api/amz-checksum-ok', (_req, res) => {
       const body = Buffer.from('valid content data');
@@ -1189,6 +1196,54 @@ describe('HTTP Request Unit Tests', () => {
       const result = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/repr-digest-bad`, {
         timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
         limit: 1024 * 1024
+      });
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('passes when a caller-provided expectedDigest matches', async () => {
+      const sha256 = crypto.createHash('sha256').update(Buffer.from('valid content data')).digest('base64');
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/plain-content`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024,
+        expectedDigest: {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: sha256}
+      });
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('throws EBADDIGEST when a caller-provided expectedDigest does not match', async () => {
+      const wrong = crypto.createHash('sha256').update(Buffer.from('tampered content data')).digest('base64');
+      await expect(
+        utils.downloadUrlPromise(ctx, `${BASE_URL}/api/plain-content`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024,
+          expectedDigest: {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: wrong}
+        })
+      ).rejects.toMatchObject({code: 'EBADDIGEST'});
+    });
+
+    test.concurrent('verifies a caller-provided expectedDigest against decoded bytes under gzip', async () => {
+      const sha256 = crypto.createHash('sha256').update(Buffer.from('valid content data')).digest('base64');
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/gzip-content-length`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024,
+        expectedDigest: {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: sha256}
+      });
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('checksumVerification=false disables caller-provided expectedDigest verification', async () => {
+      const mockCtx = createMockContext({
+        'services.CoAuthoring.requestDefaults': {
+          headers: {'User-Agent': 'Node.js/6.13'},
+          checksumVerification: false,
+          rejectUnauthorized: false
+        }
+      });
+      const wrong = crypto.createHash('sha256').update(Buffer.from('tampered content data')).digest('base64');
+      const result = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/plain-content`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024,
+        expectedDigest: {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: wrong}
       });
       expect(getStatusCode(result.response)).toBe(200);
     });

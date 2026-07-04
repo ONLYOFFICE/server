@@ -38,7 +38,13 @@ const crypto = require('crypto');
 const {Readable, Writable} = require('stream');
 const {pipeline} = require('node:stream/promises');
 
-const {parseDigestDictionary, getRawContentEncoding, planIntegrityChecks, IntegrityStream} = require('../../Common/sources/downloadIntegrity');
+const {
+  parseDigestDictionary,
+  getRawContentEncoding,
+  validateCallerDigest,
+  planIntegrityChecks,
+  IntegrityStream
+} = require('../../Common/sources/downloadIntegrity');
 
 const body = Buffer.from('valid content data');
 const otherBody = Buffer.from('tampered content data');
@@ -89,6 +95,47 @@ describe('getRawContentEncoding', () => {
   test('returns undefined when header or rawHeaders are absent', () => {
     expect(getRawContentEncoding({request: {res: {rawHeaders: ['Content-Type', 'text/plain']}}})).toBeUndefined();
     expect(getRawContentEncoding({})).toBeUndefined();
+  });
+});
+
+describe('validateCallerDigest', () => {
+  const sha256 = hashBase64('sha256', body);
+
+  test('normalizes a well-formed digest', () => {
+    expect(validateCallerDigest({source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: sha256})).toEqual({
+      source: 'WOPI SHA256',
+      nodeAlgorithm: 'sha256',
+      expectedBase64: sha256
+    });
+  });
+
+  test('trims surrounding whitespace', () => {
+    const result = validateCallerDigest({source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: `  ${sha256}\n`});
+    expect(result.expectedBase64).toBe(sha256);
+  });
+
+  test('accepts a value without base64 padding', () => {
+    const result = validateCallerDigest({source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: sha256.replace(/=+$/, '')});
+    expect(result.nodeAlgorithm).toBe('sha256');
+  });
+
+  test('returns null for missing input or fields', () => {
+    expect(validateCallerDigest(undefined)).toBeNull();
+    expect(validateCallerDigest({nodeAlgorithm: 'sha256', expectedBase64: sha256})).toBeNull();
+    expect(validateCallerDigest({source: 'WOPI SHA256', expectedBase64: sha256})).toBeNull();
+    expect(validateCallerDigest({source: 'WOPI SHA256', nodeAlgorithm: 'sha256'})).toBeNull();
+  });
+
+  test('returns null for unknown algorithms', () => {
+    expect(validateCallerDigest({source: 'WOPI SHA256', nodeAlgorithm: 'crc32c', expectedBase64: sha256})).toBeNull();
+  });
+
+  test('returns null for a value of the wrong digest size', () => {
+    expect(validateCallerDigest({source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: 'AAAA'})).toBeNull();
+  });
+
+  test('returns null for a malformed base64 string', () => {
+    expect(validateCallerDigest({source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: 'not base64!'})).toBeNull();
   });
 });
 
@@ -261,6 +308,53 @@ describe('planIntegrityChecks', () => {
       expect(plan.trailerSources).toEqual([]);
     });
   });
+
+  describe('caller-provided digest', () => {
+    const callerDigest = {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: sha256};
+
+    test('planned on an identity response with no other verifiable source', () => {
+      const plan = planIntegrityChecks({}, 200, undefined, callerDigest);
+      expect(plan.callerDigest).toMatchObject({source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: sha256});
+      expect(plan.digest).toBeNull();
+    });
+
+    test('survives transport encoding that axios has already decoded', () => {
+      const plan = planIntegrityChecks({}, 200, 'gzip', callerDigest);
+      expect(plan.callerDigest.nodeAlgorithm).toBe('sha256');
+      // header-derived checks stay disabled because the coding was applied to their bytes
+      expect(plan.digest).toBeNull();
+      expect(plan.expectedLength).toBeUndefined();
+    });
+
+    test('skipped when a coding still remains on the delivered stream', () => {
+      expect(planIntegrityChecks({'content-encoding': 'gzip'}, 200, undefined, callerDigest)).toBeNull();
+    });
+
+    test('skipped on a 206 partial response', () => {
+      expect(planIntegrityChecks({}, 206, undefined, callerDigest)).toBeNull();
+    });
+
+    test('malformed caller digest is skipped, not failed', () => {
+      expect(planIntegrityChecks({}, 200, undefined, {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: 'bad'})).toBeNull();
+    });
+
+    test('verified alongside a header digest', () => {
+      const plan = planIntegrityChecks({'repr-digest': `sha-256=:${sha256}:`}, 200, undefined, callerDigest);
+      expect(plan.digest.source).toBe('Repr-Digest');
+      expect(plan.callerDigest.source).toBe('WOPI SHA256');
+    });
+
+    test('applied when content-encoding is explicitly identity', () => {
+      const plan = planIntegrityChecks({'content-encoding': 'identity'}, 200, undefined, callerDigest);
+      expect(plan.callerDigest.nodeAlgorithm).toBe('sha256');
+    });
+
+    test('suppresses fallback trailers when a caller digest already covers the bytes', () => {
+      const plan = planIntegrityChecks({trailer: 'Repr-Digest'}, 200, undefined, callerDigest);
+      expect(plan.callerDigest.nodeAlgorithm).toBe('sha256');
+      expect(plan.trailerSources).toEqual([]);
+    });
+  });
 });
 
 describe('IntegrityStream', () => {
@@ -300,6 +394,45 @@ describe('IntegrityStream', () => {
     const plan = planIntegrityChecks({'x-amz-checksum-sha256': sha256.replace(/=+$/, '')}, 200, undefined);
     const stream = await runIntegrityStream(plan, [body]);
     expect(stream.integrity.source).toBe('x-amz-checksum-sha256');
+  });
+
+  describe('caller-provided digest', () => {
+    const callerDigest = {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: sha256};
+
+    test('passes and reports the caller source on a match', async () => {
+      const plan = planIntegrityChecks({}, 200, undefined, callerDigest);
+      const stream = await runIntegrityStream(plan, [body]);
+      expect(stream.integrity).toEqual({source: 'WOPI SHA256', algorithm: 'sha256'});
+    });
+
+    test('fails with EBADDIGEST on a mismatch', async () => {
+      const plan = planIntegrityChecks({}, 200, undefined, callerDigest);
+      await expect(runIntegrityStream(plan, [otherBody])).rejects.toMatchObject({code: 'EBADDIGEST'});
+    });
+
+    test('verifies a header digest and the caller digest together', async () => {
+      const plan = planIntegrityChecks({'x-goog-hash': `md5=${md5}`}, 200, undefined, callerDigest);
+      const stream = await runIntegrityStream(plan, [body]);
+      expect(stream.bytesReceived).toBe(body.length);
+    });
+
+    test('fails when the caller digest is wrong even if a header digest matches', async () => {
+      const wrongCaller = {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: hashBase64('sha256', otherBody)};
+      const plan = planIntegrityChecks({'x-goog-hash': `md5=${md5}`}, 200, undefined, wrongCaller);
+      await expect(runIntegrityStream(plan, [body])).rejects.toMatchObject({code: 'EBADDIGEST'});
+    });
+
+    test('does not double-finalize when a header digest shares the caller algorithm', async () => {
+      const plan = planIntegrityChecks({'repr-digest': `sha-256=:${sha256}:`}, 200, undefined, callerDigest);
+      const stream = await runIntegrityStream(plan, [body]);
+      expect(stream.bytesReceived).toBe(body.length);
+    });
+
+    test('fails when a shared-algorithm caller digest is wrong but the header digest matches', async () => {
+      const wrongCaller = {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: hashBase64('sha256', otherBody)};
+      const plan = planIntegrityChecks({'repr-digest': `sha-256=:${sha256}:`}, 200, undefined, wrongCaller);
+      await expect(runIntegrityStream(plan, [body])).rejects.toMatchObject({code: 'EBADDIGEST'});
+    });
   });
 
   describe('trailer digests', () => {

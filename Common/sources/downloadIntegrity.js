@@ -240,39 +240,72 @@ function getRawContentEncoding(response) {
  * @param {object} headers - Response headers (lowercase keys)
  * @param {number} statusCode - HTTP status code of the response
  * @param {string} [rawContentEncoding] - Original content-encoding from getRawContentEncoding
- * @returns {{expectedLength: number|undefined, digest: object|null, trailerSources: string[]}|null} Plan or null
+ * @param {{source: string, nodeAlgorithm: string, expectedBase64: string}} [callerDigest] - Digest of the decoded contents supplied by the caller
+ * @returns {{expectedLength: number|undefined, digest: object|null, callerDigest: object|null, trailerSources: string[]}|null} Plan or null
  */
-function planIntegrityChecks(headers, statusCode, rawContentEncoding) {
+function planIntegrityChecks(headers, statusCode, rawContentEncoding, callerDigest) {
   if (!headers) {
     return null;
   }
-  const encoding = String(rawContentEncoding || headers['content-encoding'] || '').toLowerCase();
-  // RFC 9530 ties every digest (incl. Repr-Digest, see B.4) and content-length to the content coding, while axios yields decoded bytes
-  if (encoding && 'identity' !== encoding) {
-    return null;
-  }
-  // A 206 body is a range while digest headers describe the whole representation
+  // A 206 body is a range while every digest describes the whole representation
   const isPartial = 206 === statusCode;
 
+  // A caller digest describes the decoded contents (axios yields decoded bytes), so it is comparable unless a coding still remains on the stream or the body is a range
+  const deliveredEncoding = String(headers['content-encoding'] || '').toLowerCase();
+  const deliveredDecoded = !deliveredEncoding || 'identity' === deliveredEncoding;
+  const callerPlan = !isPartial && deliveredDecoded ? validateCallerDigest(callerDigest) : null;
+
+  // RFC 9530 ties every header digest (incl. Repr-Digest, see B.4) and content-length to the content coding, while axios yields decoded bytes
+  const originalEncoding = String(rawContentEncoding || headers['content-encoding'] || '').toLowerCase();
+  const hadNonIdentityCoding = originalEncoding && 'identity' !== originalEncoding;
+
   let expectedLength;
-  if (undefined !== headers['content-length']) {
-    const parsed = parseInt(headers['content-length'], 10);
-    if (!isNaN(parsed)) {
-      expectedLength = parsed;
+  let digest = null;
+  let trailerSources = [];
+  if (!hadNonIdentityCoding) {
+    if (undefined !== headers['content-length']) {
+      const parsed = parseInt(headers['content-length'], 10);
+      if (!isNaN(parsed)) {
+        expectedLength = parsed;
+      }
     }
+    digest = isPartial ? null : selectDigestSource(headers);
+    // Trailers are a fallback; skip them when any concrete digest (header or caller) already covers the bytes
+    trailerSources = isPartial || digest || callerPlan ? [] : selectTrailerDigestSources(headers);
   }
 
-  const digest = isPartial ? null : selectDigestSource(headers);
-  const trailerSources = isPartial || digest ? [] : selectTrailerDigestSources(headers);
-
-  if (undefined === expectedLength && !digest && 0 === trailerSources.length) {
+  if (undefined === expectedLength && !digest && !callerPlan && 0 === trailerSources.length) {
     return null;
   }
-  return {expectedLength, digest, trailerSources};
+  return {expectedLength, digest, callerDigest: callerPlan, trailerSources};
 }
 
 function stripBase64Padding(value) {
   return String(value).replace(/=+$/, '');
+}
+
+/**
+ * Validate a caller-supplied expected digest that is not derived from response headers.
+ * The value is skipped (returns null) rather than failed when the shape is wrong, so a
+ * missing or malformed digest never blocks an otherwise valid download.
+ *
+ * @param {{source: string, nodeAlgorithm: string, expectedBase64: string}} [callerDigest] - Caller digest
+ * @returns {{source: string, nodeAlgorithm: string, expectedBase64: string}|null} Normalized digest or null
+ */
+function validateCallerDigest(callerDigest) {
+  if (!callerDigest) {
+    return null;
+  }
+  const {source, nodeAlgorithm, expectedBase64} = callerDigest;
+  if (!source || !nodeAlgorithm || 'string' !== typeof expectedBase64 || !DIGEST_BYTE_LENGTH[nodeAlgorithm]) {
+    return null;
+  }
+  const normalized = expectedBase64.trim();
+  // Buffer.from tolerates non-base64 chars, so reject the string shape before the length check
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized) || !isPlausibleBase64Digest(nodeAlgorithm, normalized)) {
+    return null;
+  }
+  return {source, nodeAlgorithm, expectedBase64: normalized};
 }
 
 /**
@@ -295,8 +328,18 @@ class IntegrityStream extends Transform {
     this.bytesReceived = 0;
     this.integrity = null;
     this.hashes = new Map();
+    // Header-derived and caller-provided digests are all verified against the same received bytes
+    this.digests = [];
     if (plan.digest) {
-      this.hashes.set(plan.digest.nodeAlgorithm, crypto.createHash(plan.digest.nodeAlgorithm));
+      this.digests.push(plan.digest);
+    }
+    if (plan.callerDigest) {
+      this.digests.push(plan.callerDigest);
+    }
+    for (const item of this.digests) {
+      if (!this.hashes.has(item.nodeAlgorithm)) {
+        this.hashes.set(item.nodeAlgorithm, crypto.createHash(item.nodeAlgorithm));
+      }
     }
     if (plan.trailerSources.length > 0 && !this.hashes.has('sha256')) {
       this.hashes.set('sha256', crypto.createHash('sha256'));
@@ -321,15 +364,21 @@ class IntegrityStream extends Transform {
   }
 
   _validate() {
-    const {expectedLength, digest, trailerSources} = this.plan;
+    const {expectedLength, trailerSources} = this.plan;
     if (undefined !== expectedLength && expectedLength !== this.bytesReceived) {
       const err = new Error(`Content-Length mismatch: expected ${expectedLength} bytes, received ${this.bytesReceived}`);
       err.code = 'EBADCONTENTLENGTH';
       throw err;
     }
-    if (digest) {
-      const actualBase64 = this.hashes.get(digest.nodeAlgorithm).digest('base64');
-      this._compareDigest(digest.source, digest.nodeAlgorithm, digest.expectedBase64, actualBase64);
+    if (this.digests.length > 0) {
+      // Finalize each algorithm once, since a caller digest and a header digest can share one algorithm
+      const actualByAlgorithm = new Map();
+      for (const [algorithm, hash] of this.hashes) {
+        actualByAlgorithm.set(algorithm, hash.digest('base64'));
+      }
+      for (const item of this.digests) {
+        this._compareDigest(item.source, item.nodeAlgorithm, item.expectedBase64, actualByAlgorithm.get(item.nodeAlgorithm));
+      }
     } else if (trailerSources.length > 0) {
       this._validateTrailers(trailerSources);
     }
@@ -364,5 +413,6 @@ class IntegrityStream extends Transform {
 
 exports.parseDigestDictionary = parseDigestDictionary;
 exports.getRawContentEncoding = getRawContentEncoding;
+exports.validateCallerDigest = validateCallerDigest;
 exports.planIntegrityChecks = planIntegrityChecks;
 exports.IntegrityStream = IntegrityStream;
