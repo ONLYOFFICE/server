@@ -511,7 +511,6 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
   const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
   const tenDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
   const tenDownloadAttemptDelay = ctx.getCfg('FileConverter.converter.downloadAttemptDelay', cfgDownloadAttemptDelay);
-  const tenChecksumVerification = ctx.getCfg('FileConverter.converter.checksumVerification', true);
   let res = constants.CONVERT_DOWNLOAD;
   let downloadAttemptCount = 0;
   const urlParsed = url.parse(uri);
@@ -524,28 +523,17 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
         }
-        const {response, stream, checksumVerification} = yield utils.downloadUrlPromise(ctx, uri, {
+        const {stream} = yield utils.downloadUrlPromise(ctx, uri, {
           timeout: tenDownloadTimeout,
           limit: tenMaxDownloadBytes,
           authorization,
           isInJwtToken,
           headers: opt_headers,
-          returnStream: true,
-          checksumVerification: tenChecksumVerification
+          returnStream: true
         });
-        yield pipeline(stream, fs.createWriteStream(fileFrom));
-        const rawHeaders = response.request?.res?.rawHeaders;
-        let rawContentEncoding;
-        if (rawHeaders) {
-          for (let i = 0; i < rawHeaders.length - 1; i += 2) {
-            if (rawHeaders[i].toLowerCase() === 'content-encoding') {
-              rawContentEncoding = rawHeaders[i + 1];
-              break;
-            }
-          }
-        }
-        utils.validateDownloadIntegrity(response.headers, {byteCount: stream.bytesReceived, sha256Hex: stream.sha256}, rawContentEncoding, checksumVerification);
-        ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', stream.bytesReceived, stream.sha256);
+        const hashStream = new utils.HashSizeStream();
+        yield pipeline(stream, hashStream, fs.createWriteStream(fileFrom));
+        ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', hashStream.byteCount, hashStream.sha256);
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;

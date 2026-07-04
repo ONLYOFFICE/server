@@ -1006,7 +1006,7 @@
     },
     "persistentStorage": {
       "type": "object",
-      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration — specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
+      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration - specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
       "x-section-intro": "These parameters configure the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage.md) object. The separation is convenient for server upgrades."
     },
     "rabbitmq": {
@@ -1715,6 +1715,11 @@
                   "type": "boolean",
                   "default": true,
                   "description": "Whether TLS certificates are verified. Set to `false` only for diagnostics with self-signed or invalid certificates."
+                },
+                "checksumVerification": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Whether downloaded content is verified against integrity response headers (Content-Length, Repr-Digest, Content-Digest, Digest, x-amz-checksum-*, x-goog-hash, Content-MD5). When enabled, the Want-Repr-Digest header is added to download requests."
                 },
                 "headers": {
                   "type": "object",

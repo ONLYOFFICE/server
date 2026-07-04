@@ -354,7 +354,8 @@
           "User-Agent": "Node.js/6.13",
           "Connection": "Keep-Alive"
         },
-        "rejectUnauthorized": true
+        "rejectUnauthorized": true,
+        "checksumVerification": true
       },
       "autoAssembly": {
         "enable": false,
