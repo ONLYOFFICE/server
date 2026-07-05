@@ -451,8 +451,52 @@ class IntegrityStream extends Transform {
   }
 }
 
+// SigV4 presigned query param names are matched case-insensitively; URL.searchParams percent-decodes the values
+const AMZ_SIGNATURE_PARAM = 'x-amz-signature';
+const AMZ_SIGNED_HEADERS_PARAM = 'x-amz-signedheaders';
+const AMZ_CHECKSUM_MODE_HEADER = 'x-amz-checksum-mode';
+
+/**
+ * Request headers to replay for an S3 presigned download URL so it returns its native checksum.
+ * S3 emits x-amz-checksum-* only when the request sends x-amz-checksum-mode: ENABLED, and a SigV4 URL
+ * signed with that header lists it in X-Amz-SignedHeaders and 403s unless the recipient replays it verbatim.
+ * The header is added only when the URL itself proves it was signed for it, so ordinary presigned and non-S3 URLs are untouched.
+ *
+ * @param {string} [uri] - The download URL
+ * @returns {Object<string, string>} Request headers to add (empty when not applicable)
+ */
+function getPresignedChecksumModeHeaders(uri) {
+  if (!uri) {
+    return {};
+  }
+  let hasSignature = false;
+  let signedHeaders;
+  try {
+    for (const [name, value] of new URL(uri).searchParams) {
+      const lowerName = name.toLowerCase();
+      if (AMZ_SIGNATURE_PARAM === lowerName) {
+        hasSignature = true;
+      } else if (AMZ_SIGNED_HEADERS_PARAM === lowerName) {
+        signedHeaders = value;
+      }
+    }
+  } catch {
+    return {};
+  }
+  if (!hasSignature || !signedHeaders) {
+    return {};
+  }
+  // ENABLED is the only valid value and the exact one the URL signed, so replaying it is both required (else 403) and safe
+  const declared = signedHeaders.toLowerCase().split(';');
+  if (!declared.some(name => AMZ_CHECKSUM_MODE_HEADER === name.trim())) {
+    return {};
+  }
+  return {[AMZ_CHECKSUM_MODE_HEADER]: 'ENABLED'};
+}
+
 exports.parseDigestDictionary = parseDigestDictionary;
 exports.getRawContentEncoding = getRawContentEncoding;
 exports.validateCallerDigest = validateCallerDigest;
 exports.planIntegrityChecks = planIntegrityChecks;
 exports.IntegrityStream = IntegrityStream;
+exports.getPresignedChecksumModeHeaders = getPresignedChecksumModeHeaders;

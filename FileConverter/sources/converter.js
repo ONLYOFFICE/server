@@ -530,7 +530,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
         }
-        const {stream} = yield utils.downloadUrlPromise(ctx, uri, {
+        const {stream, getIntegrity} = yield utils.downloadUrlPromise(ctx, uri, {
           timeout: tenDownloadTimeout,
           limit: tenMaxDownloadBytes,
           authorization,
@@ -541,7 +541,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
         });
         const hashStream = new utils.HashSizeStream();
         yield pipeline(stream, hashStream, fs.createWriteStream(fileFrom));
-        ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', hashStream.byteCount, hashStream.sha256);
+        ctx.logger.debug('downloadFile complete filesize=%d sha256=%s integrity=%j', hashStream.byteCount, hashStream.sha256, getIntegrity());
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;

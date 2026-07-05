@@ -57,7 +57,7 @@ const NodeCache = require('node-cache');
 const ms = require('ms');
 const constants = require('./constants');
 const commonDefines = require('./commondefines');
-const {planIntegrityChecks, IntegrityStream, getRawContentEncoding} = require('./downloadIntegrity');
+const {planIntegrityChecks, IntegrityStream, getRawContentEncoding, getPresignedChecksumModeHeaders} = require('./downloadIntegrity');
 const forwarded = require('forwarded');
 const {RequestFilteringHttpAgent, RequestFilteringHttpsAgent} = require('request-filtering-agent');
 const https = require('https');
@@ -395,6 +395,8 @@ async function downloadUrlPromise(
     // Ask RFC 9530 capable servers for a representation digest; it is verified only on identity responses
     headers['Want-Repr-Digest'] = 'sha-256=10';
   }
+  // Replay x-amz-checksum-mode only when the presigned URL was signed with it, so S3 returns the checksum without a 403
+  Object.assign(headers, getPresignedChecksumModeHeaders(uri));
   if (extraHeaders) {
     Object.assign(headers, extraHeaders);
   }
@@ -430,21 +432,23 @@ async function downloadUrlPromise(
     }
     const integrityPlan = tenChecksumVerification ? planIntegrityChecks(headers, status, getRawContentEncoding(response), expectedDigest) : null;
     const limitedStream = new SizeLimitStream(limit);
-    if (integrityPlan) {
-      const integrityStream = new IntegrityStream(integrityPlan, response);
+    const integrityStream = integrityPlan ? new IntegrityStream(integrityPlan, response) : null;
+    // Lets the caller read the verified digest {source, algorithm} after the stream/pipeline finishes; null when nothing was verified
+    const getIntegrity = () => integrityStream?.integrity ?? null;
+    if (integrityStream) {
       if (returnStream) {
         // pipe does not forward errors, so size limit failures must reach the returned stream
         limitedStream.on('error', err => integrityStream.destroy(err));
-        return {response, body: null, stream: response.data.pipe(limitedStream).pipe(integrityStream)};
+        return {response, body: null, stream: response.data.pipe(limitedStream).pipe(integrityStream), getIntegrity};
       }
       const body = await pipeline(response.data, limitedStream, integrityStream, buffer);
-      return {response, body, stream: null};
+      return {response, body, stream: null, getIntegrity};
     }
     if (returnStream) {
-      return {response, body: null, stream: response.data.pipe(limitedStream)};
+      return {response, body: null, stream: response.data.pipe(limitedStream), getIntegrity};
     }
     const body = await pipeline(response.data, limitedStream, buffer);
-    return {response, body, stream: null};
+    return {response, body, stream: null, getIntegrity};
   } catch (err) {
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';

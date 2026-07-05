@@ -904,6 +904,26 @@ describe('HTTP Request Unit Tests', () => {
       expect(body.query).toMatchObject(customQueryParams);
     });
 
+    test.concurrent('replays x-amz-checksum-mode when the presigned URL is signed with it', async () => {
+      const url = `${BASE_URL}/api/mirror?X-Amz-Signature=fake&X-Amz-SignedHeaders=host%3Bx-amz-checksum-mode`;
+      const result = await utils.downloadUrlPromise(ctx, url, {timeout: {wholeCycle: '5s'}, limit: 1024 * 1024});
+      const body = JSON.parse(result.body);
+      expect(body.headers['x-amz-checksum-mode']).toBe('ENABLED');
+    });
+
+    test.concurrent('does not send x-amz-checksum-mode for an ordinary host-only presigned URL', async () => {
+      const url = `${BASE_URL}/api/mirror?X-Amz-Signature=fake&X-Amz-SignedHeaders=host`;
+      const result = await utils.downloadUrlPromise(ctx, url, {timeout: {wholeCycle: '5s'}, limit: 1024 * 1024});
+      const body = JSON.parse(result.body);
+      expect(body.headers['x-amz-checksum-mode']).toBeUndefined();
+    });
+
+    test.concurrent('does not send x-amz-checksum-mode for a non-S3 URL', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/mirror`, {timeout: {wholeCycle: '5s'}, limit: 1024 * 1024});
+      const body = JSON.parse(result.body);
+      expect(body.headers['x-amz-checksum-mode']).toBeUndefined();
+    });
+
     test.concurrent('successfully routes GET request through a real proxy', async () => {
       try {
         // Create context with proxy configuration
@@ -991,6 +1011,38 @@ describe('HTTP Request Unit Tests', () => {
       });
       expect(result).toBeDefined();
       expect(getStatusCode(result.response)).toBe(200);
+      // observability: the verified source/algorithm is exposed for the downloadFile complete log
+      expect(result.getIntegrity()).toEqual({source: 'x-amz-checksum-sha256', algorithm: 'sha256'});
+    });
+
+    test.concurrent('getIntegrity reports the caller-provided WOPI digest source', async () => {
+      const sha256 = crypto.createHash('sha256').update(Buffer.from('valid content data')).digest('base64');
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/plain-content`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024,
+        expectedDigest: {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: sha256}
+      });
+      expect(result.getIntegrity()).toEqual({source: 'WOPI SHA256', algorithm: 'sha256'});
+    });
+
+    test.concurrent('getIntegrity returns null when no external digest was verified', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/plain-content`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(getStatusCode(result.response)).toBe(200);
+      expect(result.getIntegrity()).toBeNull();
+    });
+
+    test.concurrent('getIntegrity reports the source after a returnStream download is consumed', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/amz-checksum-ok`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024,
+        returnStream: true
+      });
+      // integrity is only populated once the stream ends, mirroring downloadFile which reads it after its pipeline
+      await buffer(result.stream);
+      expect(result.getIntegrity()).toEqual({source: 'x-amz-checksum-sha256', algorithm: 'sha256'});
     });
 
     test.concurrent('throws EBADDIGEST when x-amz-checksum-sha256 does not match', async () => {

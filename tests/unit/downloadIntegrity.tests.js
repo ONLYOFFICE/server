@@ -43,7 +43,8 @@ const {
   getRawContentEncoding,
   validateCallerDigest,
   planIntegrityChecks,
-  IntegrityStream
+  IntegrityStream,
+  getPresignedChecksumModeHeaders
 } = require('../../Common/sources/downloadIntegrity');
 
 const body = Buffer.from('valid content data');
@@ -70,6 +71,55 @@ async function runIntegrityStream(plan, chunks, response) {
   await pipeline(Readable.from(chunks), stream, devNull());
   return stream;
 }
+
+describe('getPresignedChecksumModeHeaders', () => {
+  const SIG = 'X-Amz-Signature=abcdef0123456789';
+
+  test('replays the header when the presigned URL is signed with x-amz-checksum-mode (encoded separator)', () => {
+    const uri = `https://bucket.s3.amazonaws.com/k?${SIG}&X-Amz-SignedHeaders=host%3Bx-amz-checksum-mode`;
+    expect(getPresignedChecksumModeHeaders(uri)).toEqual({'x-amz-checksum-mode': 'ENABLED'});
+  });
+
+  test('replays the header when the separator is literal', () => {
+    const uri = `https://bucket.s3.amazonaws.com/k?${SIG}&X-Amz-SignedHeaders=host;x-amz-checksum-mode`;
+    expect(getPresignedChecksumModeHeaders(uri)).toEqual({'x-amz-checksum-mode': 'ENABLED'});
+  });
+
+  test('replays the header when it is one of several signed headers', () => {
+    const uri = `https://bucket.s3.amazonaws.com/k?${SIG}&X-Amz-SignedHeaders=host%3Brange%3Bx-amz-checksum-mode`;
+    expect(getPresignedChecksumModeHeaders(uri)).toEqual({'x-amz-checksum-mode': 'ENABLED'});
+  });
+
+  test('matches signed-header param names case-insensitively', () => {
+    const uri = `https://bucket.s3.amazonaws.com/k?x-amz-signature=abc&x-amz-signedheaders=host%3Bx-amz-checksum-mode`;
+    expect(getPresignedChecksumModeHeaders(uri)).toEqual({'x-amz-checksum-mode': 'ENABLED'});
+  });
+
+  test('does not replay for an ordinary host-only presigned URL', () => {
+    const uri = `https://bucket.s3.amazonaws.com/k?${SIG}&X-Amz-SignedHeaders=host`;
+    expect(getPresignedChecksumModeHeaders(uri)).toEqual({});
+  });
+
+  test('does not replay when the URL has no signature', () => {
+    const uri = 'https://bucket.s3.amazonaws.com/k?X-Amz-SignedHeaders=host%3Bx-amz-checksum-mode';
+    expect(getPresignedChecksumModeHeaders(uri)).toEqual({});
+  });
+
+  test('does not replay on a partial header-name match', () => {
+    const uri = `https://bucket.s3.amazonaws.com/k?${SIG}&X-Amz-SignedHeaders=host%3Bx-amz-checksum-mode-extra`;
+    expect(getPresignedChecksumModeHeaders(uri)).toEqual({});
+  });
+
+  test('does not replay for a plain non-S3 URL', () => {
+    expect(getPresignedChecksumModeHeaders('https://example.com/file.docx')).toEqual({});
+  });
+
+  test('returns empty for malformed or missing input', () => {
+    expect(getPresignedChecksumModeHeaders('not a url')).toEqual({});
+    expect(getPresignedChecksumModeHeaders(undefined)).toEqual({});
+    expect(getPresignedChecksumModeHeaders('')).toEqual({});
+  });
+});
 
 describe('parseDigestDictionary', () => {
   test('parses RFC 9530 colon form', () => {
