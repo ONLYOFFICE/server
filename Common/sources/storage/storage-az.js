@@ -39,6 +39,7 @@ const config = require('config');
 const utils = require('../utils');
 const ms = require('ms');
 const commonDefines = require('../commondefines');
+const storageChecksum = require('./storageChecksum');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const cfgCacheStorage = config.get('storage');
@@ -160,7 +161,9 @@ async function createReadStream(_ctx, storageCfg, strPath) {
   const response = await blobClient.download(options);
   return {
     contentLength: response.contentLength,
-    readStream: response.readableStreamBody
+    readStream: response.readableStreamBody,
+    // Forward the blob's stored Content-MD5 when present; a full read exposes the whole-blob MD5 at no extra cost.
+    checksum: storageChecksum.extractAzChecksum(response)
   };
 }
 

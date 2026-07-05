@@ -42,6 +42,7 @@ const operationContext = require('./../../../Common/sources/operationContext');
 const tenantManager = require('./../../../Common/sources/tenantManager');
 const utils = require('./../../../Common/sources/utils');
 const storage = require('./../../../Common/sources/storage/storage-base');
+const storageChecksum = require('./../../../Common/sources/storage/storageChecksum');
 const urlModule = require('url');
 const path = require('path');
 const mime = require('mime');
@@ -148,6 +149,11 @@ function createCacheMiddleware(prefix, cfgStorage, rout, configKey) {
         res.setHeader('Content-Type', mime.getType(filename));
         res.setHeader('Content-Length', result.contentLength);
         res.setHeader('Content-Disposition', utils.getContentDisposition(filename));
+        // The proxy serves the full object with identity encoding, so a provider checksum describes exactly these bytes.
+        const checksumHeaders = storageChecksum.getChecksumResponseHeaders(result.checksum);
+        for (const [name, value] of Object.entries(checksumHeaders)) {
+          res.setHeader(name, value);
+        }
         await pipeline(result.readStream, res);
       } else {
         res.sendStatus(404);
