@@ -54,6 +54,8 @@ const ALGORITHM_STRENGTH = {sha512: 4, sha256: 3, sha1: 2, md5: 1};
 const DIGEST_BYTE_LENGTH = {sha512: 64, sha256: 32, sha1: 20, md5: 16};
 // S3 checksum algorithms Node can compute, strongest first (crc/xxhash are not in Node crypto)
 const AMZ_ALGORITHM_PREFERENCE = ['sha512', 'sha256', 'sha1', 'md5'];
+// ownCloud/Nextcloud OC-Checksum tokens Node can compute (Adler32 and SHA3 are skipped)
+const OC_CHECKSUM_ALGORITHM_BY_TOKEN = {sha256: 'sha256', sha1: 'sha1', md5: 'md5'};
 
 /**
  * Parse an RFC 9530 / RFC 3230 style digest dictionary header value.
@@ -152,6 +154,39 @@ function selectGoogHash(headers) {
 }
 
 /**
+ * Select a verifiable digest from the ownCloud/Nextcloud OC-Checksum header.
+ * The value is one or more space-separated "ALGORITHM:hexdigest" entries
+ * (e.g. "ADLER32:0561d5f5 SHA1:f572d396fae9206628714fb2ce00f72e94f2258f");
+ * the strongest computable one wins, mirroring the ownCloud sync clients.
+ *
+ * @param {object} headers - Response headers (lowercase keys)
+ * @returns {{nodeAlgorithm: string, expectedBase64: string, source: string}|null} Chosen digest or null
+ */
+function selectOcChecksum(headers) {
+  const raw = headers['oc-checksum'];
+  if (!raw) {
+    return null;
+  }
+  let best = null;
+  for (const entry of String(raw).trim().split(/\s+/)) {
+    const separator = entry.indexOf(':');
+    if (separator <= 0) {
+      continue;
+    }
+    const nodeAlgorithm = OC_CHECKSUM_ALGORITHM_BY_TOKEN[entry.slice(0, separator).toLowerCase()];
+    const hexValue = entry.slice(separator + 1);
+    // The value is a lowercase hex digest; reject anything but the exact hex length, so Adler32/CRC and malformed values are skipped
+    if (!nodeAlgorithm || hexValue.length !== 2 * DIGEST_BYTE_LENGTH[nodeAlgorithm] || !/^[0-9a-fA-F]+$/.test(hexValue)) {
+      continue;
+    }
+    if (!best || ALGORITHM_STRENGTH[nodeAlgorithm] > ALGORITHM_STRENGTH[best.nodeAlgorithm]) {
+      best = {nodeAlgorithm, expectedBase64: Buffer.from(hexValue, 'hex').toString('base64')};
+    }
+  }
+  return best ? {...best, source: 'OC-Checksum'} : null;
+}
+
+/**
  * Select the single digest source to verify, in priority order.
  * The caller guarantees an identity response, so every source describes the observed bytes.
  * ETag is deliberately not used: S3 SSE-KMS/SSE-C and multipart ETags look like MD5 but are not.
@@ -177,6 +212,11 @@ function selectDigestSource(headers) {
     return candidate;
   }
   candidate = selectGoogHash(headers);
+  if (candidate) {
+    return candidate;
+  }
+  // Vendor WebDAV digest below the standards-track and S3/GCS headers, but above Content-MD5 since it can carry sha256/sha1
+  candidate = selectOcChecksum(headers);
   if (candidate) {
     return candidate;
   }

@@ -383,6 +383,20 @@ describe('HTTP Request Unit Tests', () => {
       res.send(body);
     });
 
+    // Endpoint with a correct ownCloud OC-Checksum header (hex SHA1)
+    app.get('/api/oc-checksum-ok', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      res.setHeader('oc-checksum', 'SHA1:' + crypto.createHash('sha1').update(body).digest('hex'));
+      res.send(body);
+    });
+
+    // Endpoint with a wrong ownCloud OC-Checksum header (hex SHA1)
+    app.get('/api/oc-checksum-bad', (_req, res) => {
+      const body = Buffer.from('valid content data');
+      res.setHeader('oc-checksum', 'SHA1:' + crypto.createHash('sha1').update(Buffer.from('unrelated bytes')).digest('hex'));
+      res.send(body);
+    });
+
     // Endpoint returning 206 with a whole-object digest header and a partial body
     app.get('/api/partial-digest-206', (_req, res) => {
       const full = Buffer.from('valid content data');
@@ -1126,6 +1140,23 @@ describe('HTTP Request Unit Tests', () => {
         limit: 1024 * 1024
       });
       expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('passes validation when OC-Checksum SHA1 matches', async () => {
+      const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/oc-checksum-ok`, {
+        timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+        limit: 1024 * 1024
+      });
+      expect(getStatusCode(result.response)).toBe(200);
+    });
+
+    test.concurrent('throws EBADDIGEST when OC-Checksum SHA1 does not match', async () => {
+      await expect(
+        utils.downloadUrlPromise(ctx, `${BASE_URL}/api/oc-checksum-bad`, {
+          timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
+          limit: 1024 * 1024
+        })
+      ).rejects.toMatchObject({code: 'EBADDIGEST'});
     });
 
     test.concurrent('skips digest checks on 206 partial responses', async () => {

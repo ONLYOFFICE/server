@@ -53,6 +53,10 @@ function hashBase64(algorithm, buf) {
   return crypto.createHash(algorithm).update(buf).digest('base64');
 }
 
+function hashHex(algorithm, buf) {
+  return crypto.createHash(algorithm).update(buf).digest('hex');
+}
+
 function devNull() {
   return new Writable({
     write(_chunk, _encoding, callback) {
@@ -287,6 +291,53 @@ describe('planIntegrityChecks', () => {
     });
   });
 
+  describe('OC-Checksum (ownCloud/Nextcloud WebDAV)', () => {
+    const sha1Hex = hashHex('sha1', body);
+    const sha256Hex = hashHex('sha256', body);
+    const md5Hex = hashHex('md5', body);
+
+    test('valid SHA1 hex is chosen and converted to base64', () => {
+      const plan = planIntegrityChecks({'oc-checksum': `SHA1:${sha1Hex}`}, 200, undefined);
+      expect(plan.digest).toMatchObject({source: 'OC-Checksum', nodeAlgorithm: 'sha1'});
+      expect(plan.digest.expectedBase64).toBe(hashBase64('sha1', body));
+    });
+
+    test('strongest computable algorithm wins among space-separated entries', () => {
+      const plan = planIntegrityChecks({'oc-checksum': `ADLER32:0561d5f5 MD5:${md5Hex} SHA256:${sha256Hex}`}, 200, undefined);
+      expect(plan.digest).toMatchObject({source: 'OC-Checksum', nodeAlgorithm: 'sha256'});
+    });
+
+    test('unsupported algorithms (Adler32, SHA3) are skipped, not failed', () => {
+      expect(planIntegrityChecks({'oc-checksum': 'ADLER32:0561d5f5'}, 200, undefined)).toBeNull();
+      expect(planIntegrityChecks({'oc-checksum': `SHA3-256:${sha256Hex}`}, 200, undefined)).toBeNull();
+    });
+
+    test('malformed value (non-hex or wrong length) is skipped, not failed', () => {
+      expect(planIntegrityChecks({'oc-checksum': 'SHA1:not-hex-value-not-hex-value-not-hexxx'}, 200, undefined)).toBeNull();
+      expect(planIntegrityChecks({'oc-checksum': `SHA1:${sha1Hex}ab`}, 200, undefined)).toBeNull();
+      expect(planIntegrityChecks({'oc-checksum': 'SHA1:'}, 200, undefined)).toBeNull();
+      expect(planIntegrityChecks({'oc-checksum': ''}, 200, undefined)).toBeNull();
+    });
+
+    test('skipped when the response was encoded (digest describes decoded file bytes only on identity)', () => {
+      expect(planIntegrityChecks({'oc-checksum': `SHA1:${sha1Hex}`}, 200, 'gzip')).toBeNull();
+    });
+
+    test('skipped on a 206 partial response', () => {
+      const plan = planIntegrityChecks({'oc-checksum': `SHA1:${sha1Hex}`, 'content-length': '5'}, 206, undefined);
+      expect(plan.digest).toBeNull();
+      expect(plan.expectedLength).toBe(5);
+    });
+
+    test('ranked below x-goog-hash but above Content-MD5', () => {
+      const md5 = hashBase64('md5', body);
+      const belowGoog = planIntegrityChecks({'x-goog-hash': `md5=${md5}`, 'oc-checksum': `SHA256:${sha256Hex}`}, 200, undefined);
+      expect(belowGoog.digest.source).toBe('x-goog-hash');
+      const aboveMd5 = planIntegrityChecks({'content-md5': md5, 'oc-checksum': `SHA1:${sha1Hex}`}, 200, undefined);
+      expect(aboveMd5.digest.source).toBe('OC-Checksum');
+    });
+  });
+
   describe('206 Partial Content', () => {
     test('digests are skipped because headers describe the whole object', () => {
       const plan = planIntegrityChecks({'repr-digest': `sha-256=:${sha256}:`, 'content-length': '5'}, 206, undefined);
@@ -394,6 +445,19 @@ describe('IntegrityStream', () => {
     const plan = planIntegrityChecks({'x-amz-checksum-sha256': sha256.replace(/=+$/, '')}, 200, undefined);
     const stream = await runIntegrityStream(plan, [body]);
     expect(stream.integrity.source).toBe('x-amz-checksum-sha256');
+  });
+
+  describe('OC-Checksum', () => {
+    test('passes on a matching hex digest and reports the source', async () => {
+      const plan = planIntegrityChecks({'oc-checksum': `SHA1:${hashHex('sha1', body)}`}, 200, undefined);
+      const stream = await runIntegrityStream(plan, [body]);
+      expect(stream.integrity).toEqual({source: 'OC-Checksum', algorithm: 'sha1'});
+    });
+
+    test('fails with EBADDIGEST on a mismatching hex digest', async () => {
+      const plan = planIntegrityChecks({'oc-checksum': `SHA1:${hashHex('sha1', body)}`}, 200, undefined);
+      await expect(runIntegrityStream(plan, [otherBody])).rejects.toMatchObject({code: 'EBADDIGEST'});
+    });
   });
 
   describe('caller-provided digest', () => {
