@@ -57,6 +57,7 @@ const NodeCache = require('node-cache');
 const ms = require('ms');
 const constants = require('./constants');
 const commonDefines = require('./commondefines');
+const {planIntegrityChecks, IntegrityStream, getRawContentEncoding} = require('./downloadIntegrity');
 const forwarded = require('forwarded');
 const {RequestFilteringHttpAgent, RequestFilteringHttpsAgent} = require('request-filtering-agent');
 const https = require('https');
@@ -338,6 +339,10 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
     httpAgentOptions.keepAlive = !!options.forever;
     httpsAgentOptions.keepAlive = !!options.forever;
   }
+  // checksumVerification is an internal option consumed before this call, not an axios/agent option
+  delete options.checksumVerification;
+  delete httpAgentOptions.checksumVerification;
+  delete httpsAgentOptions.checksumVerification;
 }
 /*
  * Downloads a URL and returns the response.
@@ -351,12 +356,13 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
  * @param {object} [opts.headers] - Additional request headers.
  * @param {boolean} [opts.returnStream] - Return a readable stream instead of buffering the body.
  * @param {Function} [opts.beforeRedirect] - Called before following a redirect; throw to cancel.
+ * @param {{source: string, nodeAlgorithm: string, expectedBase64: string}} [opts.expectedDigest] - Caller-provided digest of the decoded contents, verified like a response digest.
  * @returns {Promise<{response: axios.AxiosResponse, body: Buffer|null, stream: NodeJS.ReadableStream|null}>}
  */
 async function downloadUrlPromise(
   ctx,
   uri,
-  {timeout, limit, authorization, isInJwtToken, headers: extraHeaders, returnStream, beforeRedirect, maxRedirects} = {}
+  {timeout, limit, authorization, isInJwtToken, headers: extraHeaders, returnStream, beforeRedirect, maxRedirects, expectedDigest} = {}
 ) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
@@ -364,6 +370,8 @@ async function downloadUrlPromise(
   const sizeLimit = limit || Number.MAX_VALUE;
   uri = URI.serialize(URI.parse(uri));
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
+  // Enabled unless requestDefaults.checksumVerification is explicitly set to false
+  const tenChecksumVerification = false !== options.checksumVerification;
 
   //baseRequest creates new agent(win-ca injects in globalAgent)
   const httpsAgentOptions = {...https.globalAgent.options, ...options};
@@ -382,6 +390,10 @@ async function downloadUrlPromise(
   const headers = {...options.headers};
   if (authorization) {
     headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + authorization;
+  }
+  if (tenChecksumVerification) {
+    // Ask RFC 9530 capable servers for a representation digest; it is verified only on identity responses
+    headers['Want-Repr-Digest'] = 'sha-256=10';
   }
   if (extraHeaders) {
     Object.assign(headers, extraHeaders);
@@ -416,11 +428,21 @@ async function downloadUrlPromise(
       response.data.destroy(error);
       throw error;
     }
+    const integrityPlan = tenChecksumVerification ? planIntegrityChecks(headers, status, getRawContentEncoding(response), expectedDigest) : null;
     const limitedStream = new SizeLimitStream(limit);
+    if (integrityPlan) {
+      const integrityStream = new IntegrityStream(integrityPlan, response);
+      if (returnStream) {
+        // pipe does not forward errors, so size limit failures must reach the returned stream
+        limitedStream.on('error', err => integrityStream.destroy(err));
+        return {response, body: null, stream: response.data.pipe(limitedStream).pipe(integrityStream)};
+      }
+      const body = await pipeline(response.data, limitedStream, integrityStream, buffer);
+      return {response, body, stream: null};
+    }
     if (returnStream) {
       return {response, body: null, stream: response.data.pipe(limitedStream)};
     }
-
     const body = await pipeline(response.data, limitedStream, buffer);
     return {response, body, stream: null};
   } catch (err) {
@@ -994,7 +1016,7 @@ function stream2Buffer(stream) {
 }
 exports.stream2Buffer = stream2Buffer;
 function changeOnlyOfficeUrl(inputUrl, strPath, optFilename) {
-  //onlyoffice file server expects url end with file extension
+  // File server expects the URL to end with a file extension
   if (-1 == inputUrl.indexOf('?')) {
     inputUrl += '?';
   } else {

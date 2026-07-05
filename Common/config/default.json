@@ -356,7 +356,8 @@
           "User-Agent": "DocumentServer",
           "Connection": "Keep-Alive"
         },
-        "rejectUnauthorized": true
+        "rejectUnauthorized": true,
+        "checksumVerification": true
       },
       "autoAssembly": {
         "enable": false,
