@@ -454,7 +454,7 @@ async function downloadUrlPromise(
     if (err.status) {
       err.statusCode = err.status;
     } else if (!err.statusCode) {
-      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
+      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
       err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
@@ -546,7 +546,7 @@ async function postRequestPromise(
     if (err.status) {
       err.statusCode = err.status;
     } else if (!err.statusCode) {
-      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
+      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
       err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
@@ -631,7 +631,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
     if (err.status) {
       err.statusCode = err.status;
     } else if (!err.statusCode) {
-      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
+      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
       err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
