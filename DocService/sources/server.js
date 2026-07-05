@@ -51,6 +51,7 @@ const apicache = require('apicache');
 const docsCoServer = require('./DocsCoServer');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
+const convertFromFile = require('./convertFromFile');
 const fileUploaderService = require('./fileuploaderservice');
 const wopiClient = require('./wopiClient');
 const embeddedConverter = require('./embeddedConverter');
@@ -62,6 +63,7 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const infoRouter = require('./routes/info');
 const metaRouter = require('./routes/meta');
+const {handleConvertUpload} = require('./middleware/convertUpload');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
@@ -230,6 +232,7 @@ docsCoServer.install(server, app, () => {
   });
   const urleEcodedParser = bodyParser.urlencoded({extended: false});
   const forms = multer();
+  const fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 
   app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
   app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
@@ -238,6 +241,7 @@ docsCoServer.install(server, app, () => {
   app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
   app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
   app.post('/converter', utils.checkClientIp, rawFileParser, converterService.convertJson);
+  app.post('/converter/from-file', utils.checkClientIp, handleConvertUpload, convertFromFile.commandConvertFromBody);
 
   app.param('docid', (req, res, next, val) => {
     if (constants.DOC_ID_REGEX.test(val)) {
@@ -281,6 +285,7 @@ docsCoServer.install(server, app, () => {
   app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
     converterService.builder(req, res);
   });
+  app.post('/docbuilder/from-file', utils.checkClientIp, handleConvertUpload, convertFromFile.builderFromFile);
   // Shared Info router (provides /info.json)
   app.use('/info', infoRouter(docsCoServer.getConnections));
   app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
@@ -331,7 +336,6 @@ docsCoServer.install(server, app, () => {
       });
   }
   //todo dest
-  const fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
   app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
   app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
   app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);

@@ -1,19 +1,36 @@
-/**
+/*
+ * Copyright (C) Ascensio System SIA, 2009-2026
  *
- * (c) Copyright Ascensio System SIA {{year}}
+ * This program is a free software product. You can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License (AGPL)
+ * version 3 as published by the Free Software Foundation, together with the
+ * additional terms provided in the LICENSE file.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is distributed WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. For
+ * details, see the GNU AGPL at: https://www.gnu.org/licenses/agpl-3.0.html
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * You can contact Ascensio System SIA by email at info@onlyoffice.com
+ * or by postal mail at 20A-6 Ernesta Birznieka-Upisha Street, Riga,
+ * LV-1050, Latvia, European Union.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * The interactive user interfaces in modified versions of the Program
+ * are required to display Appropriate Legal Notices in accordance with
+ * Section 5 of the GNU AGPL version 3.
  *
+ * No trademark rights are granted under this License.
+ *
+ * All non-code elements of the Product, including illustrations,
+ * icon sets, and technical writing content, are licensed under the
+ * Creative Commons Attribution-ShareAlike 4.0 International License:
+ * https://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * This license applies only to such non-code elements and does not
+ * modify or replace the licensing terms applicable to the Program's
+ * source code, which remains licensed under the GNU Affero General
+ * Public License v3.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 /* ----------------------------------------------------------------------------
@@ -26,6 +43,40 @@
  * Phase 1 routing classes (.example-variant, .requires-admin-panel,
  * .requires-test-example). No :root tokens. No bare element selectors.
  * -------------------------------------------------------------------------- */
+
+/* Open Sans cascade: OS-installed font first (local), else the shared core-fonts
+   copy bundled with every install (stable relative path), else font-family's sans-serif.
+   The one global at-rule here; harmless to legacy pages since only index.html loads this file. */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local('Open Sans'),
+    local('OpenSans'),
+    url('../../../../../core-fonts/opensans/OpenSans-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src:
+    local('Open Sans SemiBold'),
+    local('OpenSans-Semibold'),
+    url('../../../../../core-fonts/opensans/OpenSans-Semibold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    local('Open Sans Bold'),
+    local('OpenSans-Bold'),
+    url('../../../../../core-fonts/opensans/OpenSans-Bold.ttf') format('truetype');
+}
 
 /* ---- Phase 1 routing rules ------------------------------------------------ */
 
@@ -56,6 +107,9 @@ html[data-platform='k8s'] .example--k8s {
   --w2-color-primary-hover: rgba(82, 153, 224, 0.85);
   --w2-color-primary-pressed: linear-gradient(0deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), #5299e0;
   --w2-color-primary-disabled: rgba(82, 153, 224, 0.6);
+  /* buttons-state macet: primary disabled label = white @ 60%; ghost disabled label = gray/strong. */
+  --w2-color-primary-disabled-text: rgba(255, 255, 255, 0.6);
+  --w2-color-btn-disabled-text: #d0d5da;
   --w2-color-primary-text: #ffffff;
   --w2-color-link: #4781d1;
   --w2-color-link-hover: #3568b8;
@@ -96,7 +150,7 @@ html[data-platform='k8s'] .example--k8s {
   --w2-radius-note: 6px;
   --w2-radius-app-card: 12px;
 
-  --w2-font: 'Open Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --w2-font: 'Open Sans', sans-serif;
 
   --w2-content-max: 1024px;
   /* Product-approved compact top offset; Figma export keeps 64px here. */
@@ -247,8 +301,9 @@ html[data-platform='k8s'] .example--k8s {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 28px;
-  min-height: 32px;
+  /* 40px tall buttons incl. the 1px border (Figma): footer = 40 + 16*2 padding = 72px. */
+  padding: 9px 28px;
+  min-height: 40px;
   border-radius: var(--w2-radius-btn);
   font-family: var(--w2-font);
   font-size: 13px;
@@ -295,8 +350,9 @@ html[data-platform='k8s'] .example--k8s {
 .welcome2 .welcome2__btn--primary[disabled],
 .welcome2 .welcome2__btn--primary[aria-disabled='true'] {
   background-color: var(--w2-color-primary-disabled);
-  border-color: var(--w2-color-primary-disabled);
-  color: var(--w2-color-primary-text);
+  /* transparent: a translucent border would stack over the translucent fill into a darker rim. */
+  border-color: transparent;
+  color: var(--w2-color-primary-disabled-text);
   cursor: default;
   pointer-events: none;
 }
@@ -323,7 +379,7 @@ html[data-platform='k8s'] .example--k8s {
 .welcome2 .welcome2__btn--ghost-light[aria-disabled='true'] {
   background-color: #f8f9f9; /* gray/light */
   border-color: #eceef1; /* gray/mid */
-  color: var(--w2-color-heading);
+  color: var(--w2-color-btn-disabled-text); /* gray/strong, per buttons-state macet */
   cursor: default;
   pointer-events: none;
 }
@@ -467,12 +523,7 @@ html[data-platform='k8s'] .example--k8s {
   padding: 0 6px;
   border-radius: 6px;
   color: #ffffff;
-  font-family:
-    'Segoe UI',
-    system-ui,
-    -apple-system,
-    'Open Sans',
-    sans-serif;
+  font-family: 'Open Sans', sans-serif;
   font-size: 16px;
   font-weight: 700;
   line-height: 1;
@@ -753,6 +804,39 @@ html[data-platform='k8s'] .example--k8s {
   background: var(--w2-color-unknown-bg);
 }
 
+/* Checking: status probe still in flight. Neutral badge + spinner (buttons-state
+   Loader ring color); the gated controls reuse the shared [aria-disabled] styles. */
+.welcome2 [data-example-state='checking'] .welcome2__status-badge {
+  color: var(--w2-color-unknown-fg);
+  background: var(--w2-color-unknown-bg);
+  gap: 6px;
+}
+.welcome2 [data-example-state='checking'] .welcome2__status-badge::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(from 90deg at 50% 50%, rgba(82, 153, 224, 0) 0deg, #5299e0 359.96deg, rgba(82, 153, 224, 0) 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  animation: welcome2-spin 0.7s linear infinite;
+}
+.welcome2 .welcome2__editor-card[aria-disabled='true'] {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: default;
+}
+@keyframes welcome2-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome2 [data-example-state='checking'] .welcome2__status-badge::before {
+    animation: none;
+  }
+}
+
 /* ---- Apps section -------------------------------------------------------- */
 
 .welcome2 .welcome2__apps {
@@ -994,7 +1078,7 @@ html[data-platform='k8s'] .example--k8s {
   overflow: hidden;
 }
 .welcome2 .welcome2__modal--wide {
-  max-width: 1024px;
+  max-width: 880px;
 }
 
 .welcome2 .welcome2__modal-head {
@@ -1073,12 +1157,12 @@ html[data-platform='k8s'] .example--k8s {
 }
 .welcome2 .welcome2__modal-promo {
   display: grid;
-  /* Figma promo: points column 496px; the screenshot column (1fr) starts at the
-     512px line. The screenshot's own left:16px offset is the gap to the points. */
-  grid-template-columns: 496px 1fr;
-  column-gap: 0;
+  /* Figma v7.1: points column 400px, then a 20px gap to the screenshot (starts at 420). */
+  grid-template-columns: 400px 1fr;
+  column-gap: 20px;
   row-gap: 16px;
-  align-items: stretch;
+  /* Top-align the columns; the screenshot keeps its own (taller) height and extends below the points toward the footer. */
+  align-items: start;
 }
 .welcome2 .welcome2__feature-list {
   display: flex;
@@ -1131,34 +1215,24 @@ html[data-platform='k8s'] .example--k8s {
   line-height: 16px;
   color: var(--w2-color-text);
 }
-/* Screenshot bleeds to the modal's right/bottom edge (clipped by the panel). */
 .welcome2 .welcome2__modal-shot {
   position: relative;
-  /* Clip the screenshot's right + bottom bleed (and their shadow) at the panel
-     edge; the image's top + left insets keep the top/left shadow visible. */
-  overflow: hidden;
-  background: transparent;
-  min-height: 320px;
-  /* Bleed to the dialog's right edge and down into the body's bottom padding. */
-  margin: 0 -16px -16px 0;
+  /* Bleed only to the dialog's right edge (the modal's overflow clips it there too). */
+  margin: 0 -16px 0 0;
+  /* Clip the screenshot's right + bottom bleed but leave room for the top + left shadow. */
+  clip-path: inset(-16px 0 0 -20px);
 }
 .welcome2 .welcome2__modal-shot img {
-  position: absolute;
-  /* 8px top inset so the soft top-edge shadow is not clipped by overflow:hidden. */
-  top: 8px;
-  /* 16px gap to the text column. The old PNG baked this as a transparent margin;
-     the v7 no-alpha asset is a clean rectangle, so it is a CSS offset now. */
-  left: 16px;
-  /* x1 display size 496x352; source is a 4x master (1984x1408) the browser
-     downscales. height:auto keeps the asset's aspect (1984:1408). */
-  width: 496px;
-  height: auto;
   display: block;
-  /* Soft drop-shadow + top-left rounded corner are CSS now (no longer baked into
-     the PNG). The screenshot is taller than the points column, so its bottom
-     bleeds past + is clipped: the shadow shows only on the top + left edges. */
+  /* Natural size (x1 = 4x master / 4); the asset is taller than the points column,
+     so it extends below them toward the footer, its bottom clipped by clip-path. */
+  width: 444px;
+  height: auto;
+  /* Rounded top-left corner + soft shadow; clip-path keeps only the top + left edges. */
   border-radius: 8px 0 0 0;
-  box-shadow: 0 0 4px rgba(4, 15, 27, 0.04), 0 8px 16px rgba(4, 15, 27, 0.08);
+  box-shadow:
+    0 0 4px rgba(4, 15, 27, 0.04),
+    0 8px 16px rgba(4, 15, 27, 0.08);
 }
 
 @media (max-width: 720px) {
@@ -1167,13 +1241,11 @@ html[data-platform='k8s'] .example--k8s {
   }
   .welcome2 .welcome2__modal-shot {
     margin: 0;
-    min-height: 200px;
+    clip-path: none;
   }
   .welcome2 .welcome2__modal-shot img {
-    position: relative;
-    top: 0;
-    left: 0;
     width: 100%;
+    height: auto;
   }
 }
 

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "urn:onlyoffice:config:superset:1",
   "title": "ONLYOFFICE Docs Configuration Schema",
-  "description": "Complete configuration schema with scope markers for validation and documentation.",
+  "description": "Complete configuration schema with scope markers for validation and documentation.\n\nCustom annotation `x-tenantOverride` (boolean):\n- `true`  \u2014 setting this key in a per-tenant `config.json` is safe and either takes effect (supported) or is silently ignored without breaking anything (deprecated/unused).\n- `false` \u2014 setting this key per-tenant either has no effect (global-only), takes effect only under specific conditions (conditional), or causes a silent inconsistency with shared/global state (unsafe). Refer to `docs/tenant-config-overrides.md` for the specific category and operational notes.\n\nThe annotation covers every leaf-key present in `default.json` plus the `persistentStorage` parent (annotated once, since its body inherits from `storage`). The detailed evidence trail is in `docs/tenant-config-override-audit.md`.",
   "type": "object",
   "additionalProperties": false,
   "$defs": {
@@ -42,22 +42,26 @@
         "useMetrics": {
           "type": "boolean",
           "default": false,
-          "description": "Whether the StatsD metrics are enabled for **ONLYOFFICE Docs** or not."
+          "description": "Whether the StatsD metrics are enabled for **ONLYOFFICE Docs** or not.",
+          "x-tenantOverride": false
         },
         "host": {
           "type": "string",
           "default": "localhost",
-          "description": "The StatsD server host (host name or IP address)."
+          "description": "The StatsD server host (host name or IP address).",
+          "x-tenantOverride": false
         },
         "port": {
           "type": "string",
           "default": "8125",
-          "description": "The StatsD server port."
+          "description": "The StatsD server port.",
+          "x-tenantOverride": false
         },
         "prefix": {
           "type": "string",
           "default": "ds.",
-          "description": "A string that will be added to the beginning of all the stats automatically. It helps to distinguish different applications using the same StatsD server."
+          "description": "A string that will be added to the beginning of all the stats automatically. It helps to distinguish different applications using the same StatsD server.",
+          "x-tenantOverride": false
         }
       },
       "x-section-intro": "These parameters configure the StatsD server properties, specifying an aggregator of metrics."
@@ -72,18 +76,28 @@
           "type": "integer",
           "description": "The version of the AI SDK.",
           "minimum": 1,
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "timeout": {
           "type": "string",
           "description": "An AI proxy timeout (measured in minutes).",
           "default": "5m",
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "proxy": {
           "type": "string",
           "description": "Supports routing AI requests via proxy.",
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
+        },
+        "allowBrowserProxy": {
+          "type": "boolean",
+          "description": "Enables the unmatched-target relay mode inside /ai-proxy: when the target matches no configured provider, the request is forwarded as-is (with the client's own credentials) to bypass CORS. The server injects no credentials; the caller still needs a valid session JWT; the target stays untrusted and uses the normal externalRequest private-IP filtering. On by default to support browser-configured MCP and web search; set to false to keep unmatched targets denied with 403.",
+          "default": true,
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "allowedCorsOrigins": {
           "type": "array",
@@ -93,19 +107,22 @@
             "type": "string",
             "description": "An allowed origin URL."
           },
-          "default": ["https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"]
+          "default": ["https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"],
+          "x-tenantOverride": true
         },
         "actions": {
           "type": "object",
           "description": "AI actions performed, e.g., Chat, Summarization, Translation, TextAnalyze, ImageGeneration, OCR, Vision.",
           "additionalProperties": true,
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "providers": {
           "type": "object",
           "description": "AI providers, e.g., OpenAI, Google Gemini, Anthropic, etc.",
           "additionalProperties": true,
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "customProviders": {
           "type": "object",
@@ -120,7 +137,15 @@
           "items": {
             "type": "object",
             "additionalProperties": true
-          }
+          },
+          "x-tenantOverride": true
+        },
+        "pluginSettings": {
+          "type": "object",
+          "description": "Opaque universal AI plugin settings blob (profiles, assignments, mcpServers, webSearch, etc.) owned by the AI plugin and round-tripped verbatim.",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         }
       },
       "x-section-intro": "These parameters configure the AI plugin properties."
@@ -135,7 +160,8 @@
           "type": "string",
           "description": "A path to the log file.",
           "x-scope": "admin",
-          "default": ""
+          "default": "",
+          "x-tenantOverride": false
         },
         "options": {
           "type": "object",
@@ -146,7 +172,8 @@
               "type": "boolean",
               "default": true,
               "description": "Whether the log information is printed to the console or not.",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": false
             },
             "categories": {
               "type": "object",
@@ -182,7 +209,8 @@
         "filePath": {
           "type": "string",
           "description": "A path to the `runtime.json` dynamic config file. By default, the `/var/www/onlyoffice/Data/runtime.json` path is used.",
-          "default": ""
+          "default": "",
+          "x-tenantOverride": false
         },
         "cache": {
           "type": "object",
@@ -191,17 +219,20 @@
             "stdTTL": {
               "type": "integer",
               "default": 300,
-              "description": "The TTL (time to live) for every generated cache element (measured in seconds)."
+              "description": "The TTL (time to live) for every generated cache element (measured in seconds).",
+              "x-tenantOverride": false
             },
             "checkperiod": {
               "type": "integer",
               "default": 60,
-              "description": "The period used for the automatic delete check interval (measured in seconds)."
+              "description": "The period used for the automatic delete check interval (measured in seconds).",
+              "x-tenantOverride": false
             },
             "useClones": {
               "type": "boolean",
               "default": false,
-              "description": "Whether the cached variables will be cloned or not. If `true`, a copy of the cached variable will be created. If `false`, only the reference will be saved."
+              "description": "Whether the cached variables will be cloned or not. If `true`, a copy of the cached variable will be created. If `false`, only the reference will be saved.",
+              "x-tenantOverride": false
             }
           },
           "default": {
@@ -222,17 +253,20 @@
           "type": "string",
           "enum": ["rabbitmq", "activemq"],
           "default": "rabbitmq",
-          "description": "The message broker type."
+          "description": "The message broker type.",
+          "x-tenantOverride": false
         },
         "visibilityTimeout": {
           "type": "integer",
           "default": 300,
-          "description": "The conversion timeout (measured in seconds)."
+          "description": "The conversion timeout (measured in seconds).",
+          "x-tenantOverride": false
         },
         "retentionPeriod": {
           "type": "integer",
           "default": 900,
-          "description": "The [TTL](https://www.rabbitmq.com/ttl.html) (time to live) of all the messages in a queue (measured in seconds)."
+          "description": "The [TTL](https://www.rabbitmq.com/ttl.html) (time to live) of all the messages in a queue (measured in seconds).",
+          "x-tenantOverride": true
         }
       },
       "x-section-intro": "These parameters configure a queue of messages received from the message-broker."
@@ -252,7 +286,8 @@
               "type": "string",
               "default": "localhost",
               "description": "The host name or IP address of the SMTP server.",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": true
             },
             "port": {
               "type": "integer",
@@ -260,7 +295,8 @@
               "description": "The SMTP server port.",
               "x-scope": "admin",
               "minimum": 1,
-              "maximum": 65535
+              "maximum": 65535,
+              "x-tenantOverride": false
             },
             "auth": {
               "type": "object",
@@ -272,14 +308,16 @@
                   "description": "The authentication username.",
                   "x-scope": "admin",
                   "default": "",
-                  "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+                  "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+                  "x-tenantOverride": true
                 },
                 "pass": {
                   "type": "string",
                   "description": "The authentication password.",
                   "x-scope": "admin",
                   "default": "",
-                  "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+                  "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+                  "x-tenantOverride": false
                 }
               },
               "default": {
@@ -308,13 +346,15 @@
               "type": "boolean",
               "default": false,
               "description": "Whether to allow using files as content. If this parameter is set to **true**, then JSON data from an untrusted source cannot be used as the email.\nIf an attachment or message node tries to fetch something from a file, the sending returns an error.",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": false
             },
             "disableUrlAccess": {
               "type": "boolean",
               "default": false,
               "description": "Whether to allow using URLs as content.",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": false
             }
           },
           "default": {
@@ -332,14 +372,16 @@
               "format": "email",
               "default": "from@example.com",
               "description": "The email address of the sender. All email addresses can be plain *\"sender@server.com\"*\nor with formatted name *&#x27;\"Sender Name\" sender@server.com&#x27;*.",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": false
             },
             "to": {
               "type": "string",
               "format": "email",
               "default": "to@example.com",
               "description": "The comma separated list or an array of recipients email addresses that will appear on the *To:* field.",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": false
             }
           },
           "default": {
@@ -372,7 +414,8 @@
                   "type": "boolean",
                   "default": false,
                   "description": "Whether the *licenseExpirationWarning* notification is enabled. Each notification type must be enabled separately.",
-                  "x-scope": ["admin", "tenant"]
+                  "x-scope": ["admin", "tenant"],
+                  "x-tenantOverride": true
                 },
                 "transportType": {
                   "type": "array",
@@ -382,7 +425,8 @@
                   },
                   "description": "The way of sending the *licenseExpirationWarning* notification. Currently, only the *email* type is available.",
                   "x-scope": "admin",
-                  "default": ["email"]
+                  "default": ["email"],
+                  "x-tenantOverride": true
                 },
                 "template": {
                   "type": "object",
@@ -393,13 +437,15 @@
                       "type": "string",
                       "description": "A template of the *licenseExpirationWarning* notification title.",
                       "x-scope": "admin",
-                      "default": "%s Docs license expiration warning"
+                      "default": "%s Docs license expiration warning",
+                      "x-tenantOverride": true
                     },
                     "body": {
                       "type": "string",
                       "description": "A template of the *licenseExpirationWarning* notification body.",
                       "x-scope": "admin",
-                      "default": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+                      "default": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.",
+                      "x-tenantOverride": true
                     }
                   },
                   "default": {
@@ -417,7 +463,8 @@
                       "description": "The time when the *licenseExpirationWarning* notification will be sent (not more often than the specified period).",
                       "x-scope": ["admin", "tenant"],
                       "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "default": "1d"
+                      "default": "1d",
+                      "x-tenantOverride": true
                     }
                   },
                   "default": {
@@ -448,7 +495,8 @@
                   "type": "boolean",
                   "default": false,
                   "x-scope": ["admin", "tenant"],
-                  "description": "Whether the *licenseExpirationError* notification is enabled. Each notification type must be enabled separately."
+                  "description": "Whether the *licenseExpirationError* notification is enabled. Each notification type must be enabled separately.",
+                  "x-tenantOverride": true
                 },
                 "transportType": {
                   "type": "array",
@@ -457,7 +505,8 @@
                   },
                   "x-scope": "admin",
                   "description": "The way of sending the *licenseExpirationError* notification. Currently, only the *email* type is available.",
-                  "default": ["email"]
+                  "default": ["email"],
+                  "x-tenantOverride": true
                 },
                 "template": {
                   "type": "object",
@@ -467,13 +516,15 @@
                       "type": "string",
                       "x-scope": "admin",
                       "description": "A template of the *licenseExpirationError* notification title.",
-                      "default": "%s Docs license expiration warning"
+                      "default": "%s Docs license expiration warning",
+                      "x-tenantOverride": true
                     },
                     "body": {
                       "type": "string",
                       "x-scope": "admin",
                       "description": "A template of the *licenseExpirationError* notification body.",
-                      "default": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+                      "default": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal.",
+                      "x-tenantOverride": true
                     }
                   },
                   "description": "A template of the *licenseExpirationError* notification title and body.",
@@ -491,7 +542,8 @@
                       "x-scope": ["admin", "tenant"],
                       "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
                       "description": "The time when the *licenseExpirationError* notification will be sent (not more often than the specified period).",
-                      "default": "1d"
+                      "default": "1d",
+                      "x-tenantOverride": true
                     }
                   },
                   "description": "The *licenseExpirationError* notification sending policy.",
@@ -523,7 +575,8 @@
                   "type": "boolean",
                   "default": false,
                   "x-scope": ["admin", "tenant"],
-                  "description": "Whether the *licenseLimitEdit* notification is enabled. Each notification type must be enabled separately."
+                  "description": "Whether the *licenseLimitEdit* notification is enabled. Each notification type must be enabled separately.",
+                  "x-tenantOverride": true
                 },
                 "transportType": {
                   "type": "array",
@@ -532,7 +585,8 @@
                   },
                   "x-scope": "admin",
                   "description": "The way of sending the *licenseLimitEdit* notification. Currently, only the *email* type is available.",
-                  "default": ["email"]
+                  "default": ["email"],
+                  "x-tenantOverride": true
                 },
                 "template": {
                   "type": "object",
@@ -542,13 +596,15 @@
                       "type": "string",
                       "x-scope": "admin",
                       "description": "A template of the *licenseLimitEdit* notification title.",
-                      "default": "%s Docs license %s limit warning"
+                      "default": "%s Docs license %s limit warning",
+                      "x-tenantOverride": true
                     },
                     "body": {
                       "type": "string",
                       "x-scope": "admin",
                       "description": "A template of the *licenseLimitEdit* notification body.",
-                      "default": "Attention! You have reached %s%% of the %s limit set by your license."
+                      "default": "Attention! You have reached %s%% of the %s limit set by your license.",
+                      "x-tenantOverride": true
                     }
                   },
                   "description": "A template of the *licenseLimitEdit* notification title and body.",
@@ -566,7 +622,8 @@
                       "x-scope": ["admin", "tenant"],
                       "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
                       "description": "The time when the *licenseLimitEdit* notification will be sent (not more often than the specified period).",
-                      "default": "1h"
+                      "default": "1h",
+                      "x-tenantOverride": true
                     }
                   },
                   "description": "The *licenseLimitEdit* notification sending policy.",
@@ -598,7 +655,8 @@
                   "type": "boolean",
                   "default": false,
                   "x-scope": ["admin", "tenant"],
-                  "description": "Whether the *licenseLimitLiveViewer* notification is enabled. Each notification type must be enabled separately."
+                  "description": "Whether the *licenseLimitLiveViewer* notification is enabled. Each notification type must be enabled separately.",
+                  "x-tenantOverride": true
                 },
                 "transportType": {
                   "type": "array",
@@ -607,7 +665,8 @@
                   },
                   "x-scope": "admin",
                   "description": "The way of sending the *licenseLimitLiveViewer* notification. Currently, only the *email* type is available.",
-                  "default": ["email"]
+                  "default": ["email"],
+                  "x-tenantOverride": true
                 },
                 "template": {
                   "type": "object",
@@ -617,13 +676,15 @@
                       "type": "string",
                       "x-scope": "admin",
                       "description": "A template of the *licenseLimitLiveViewer* notification title.",
-                      "default": "%s Docs license %s limit warning"
+                      "default": "%s Docs license %s limit warning",
+                      "x-tenantOverride": true
                     },
                     "body": {
                       "type": "string",
                       "x-scope": "admin",
                       "description": "A template of the *licenseLimitLiveViewer* notification body.",
-                      "default": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+                      "default": "Attention! You have reached %s%% of the live viewer %s limit set by your license.",
+                      "x-tenantOverride": true
                     }
                   },
                   "description": "A template of the *licenseLimitLiveViewer* notification title and body.",
@@ -641,7 +702,8 @@
                       "x-scope": ["admin", "tenant"],
                       "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
                       "description": "The time when the *licenseLimitLiveViewer* notification will be sent (not more often than the specified period).",
-                      "default": "1h"
+                      "default": "1h",
+                      "x-tenantOverride": true
                     }
                   },
                   "description": "The *licenseLimitLiveViewer* notification sending policy.",
@@ -724,7 +786,8 @@
           "type": "string",
           "enum": ["storage-fs", "storage-s3", "storage-azure"],
           "default": "storage-fs",
-          "description": "The document storage service name. E.g., the \"storage-s3\" value allows connecting Amazon S3 bucket as a cache. The \"storage-az\" value allows connecting MS Azure Blob Storage as a cache."
+          "description": "The document storage service name. E.g., the \"storage-s3\" value allows connecting Amazon S3 bucket as a cache. The \"storage-az\" value allows connecting MS Azure Blob Storage as a cache.",
+          "x-tenantOverride": false
         },
         "fs": {
           "type": "object",
@@ -733,17 +796,20 @@
             "folderPath": {
               "type": "string",
               "description": "A path to the `App_Data` folder where all files are stored.",
-              "default": ""
+              "default": "",
+              "x-tenantOverride": true
             },
             "urlExpires": {
               "type": "integer",
               "default": 900,
-              "description": "The time when the temporary URL to the fileSystem object expires (measured in seconds)."
+              "description": "The time when the temporary URL to the fileSystem object expires (measured in seconds).",
+              "x-tenantOverride": true
             },
             "secretString": {
               "type": "string",
               "default": "verysecretstring",
-              "description": "The secret string which is used to sign the URL."
+              "description": "The secret string which is used to sign the URL.",
+              "x-tenantOverride": true
             }
           },
           "default": {
@@ -755,27 +821,32 @@
         "region": {
           "type": "string",
           "default": "",
-          "description": "An AWS region where your Amazon bucket resides."
+          "description": "An AWS region where your Amazon bucket resides.",
+          "x-tenantOverride": true
         },
         "endpoint": {
           "type": "string",
           "default": "http://localhost/s3",
-          "description": "The endpoint of S3 AWS document storage or MS Azure Blob Storage."
+          "description": "The endpoint of S3 AWS document storage or MS Azure Blob Storage.",
+          "x-tenantOverride": true
         },
         "bucketName": {
           "type": "string",
           "default": "cache",
-          "description": "A unique name of S3 AWS document storage or MS Azure Blob Storage."
+          "description": "A unique name of S3 AWS document storage or MS Azure Blob Storage.",
+          "x-tenantOverride": true
         },
         "storageFolderName": {
           "type": "string",
           "default": "files",
-          "description": "The S3 AWS document storage folder name where all the files are stored."
+          "description": "The S3 AWS document storage folder name where all the files are stored.",
+          "x-tenantOverride": false
         },
         "cacheFolderName": {
           "type": "string",
           "default": "data",
-          "description": "The cache folder name for working in the multi-tenant mode."
+          "description": "The cache folder name for working in the multi-tenant mode.",
+          "x-tenantOverride": false
         },
         "commandOptions": {
           "type": "object",
@@ -802,12 +873,14 @@
                       "type": "string",
                       "description": "The identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it&#x27;s uploaded."
                     }
-                  }
+                  },
+                  "x-tenantOverride": true
                 },
                 "getObject": {
                   "type": "object",
                   "description": "The parameters of the getObject command type used to retrieve an object from a specified S3 bucket.",
-                  "default": {}
+                  "default": {},
+                  "x-tenantOverride": true
                 },
                 "copyObject": {
                   "type": "object",
@@ -816,7 +889,8 @@
                     "MetadataDirective": {
                       "type": "string",
                       "default": "COPY",
-                      "description": "How Amazon S3 handles the metadata of the destination object during a copy operation. If the value is set to \"COPY\", the metadata from the source object is copied to the destination object. If the value is set to \"REPLACE\", the metadata of the destination object is replaced by the metadata provided in the copyObject request and the metadata from the source object is not copied."
+                      "description": "How Amazon S3 handles the metadata of the destination object during a copy operation. If the value is set to \"COPY\", the metadata from the source object is copied to the destination object. If the value is set to \"REPLACE\", the metadata of the destination object is replaced by the metadata provided in the copyObject request and the metadata from the source object is not copied.",
+                      "x-tenantOverride": true
                     },
                     "BucketKeyEnabled": {
                       "type": "boolean",
@@ -842,7 +916,8 @@
                     "MaxKeys": {
                       "type": "integer",
                       "default": 1000,
-                      "description": "The maximum number of objects that are returned in a response."
+                      "description": "The maximum number of objects that are returned in a response.",
+                      "x-tenantOverride": true
                     }
                   },
                   "default": {
@@ -852,7 +927,8 @@
                 "deleteObject": {
                   "type": "object",
                   "description": "The parameters of the deleteObject command type used to remove an object from a specified S3 bucket.",
-                  "default": {}
+                  "default": {},
+                  "x-tenantOverride": true
                 }
               },
               "default": {
@@ -880,7 +956,8 @@
                       "type": "string",
                       "description": "The name of the encryption scope used to encrypt an uploaded blob."
                     }
-                  }
+                  },
+                  "x-tenantOverride": true
                 },
                 "uploadStream": {
                   "type": "object",
@@ -891,12 +968,14 @@
                       "type": "string",
                       "description": "The name of the encryption scope used to encrypt a blob uploaded from a sream."
                     }
-                  }
+                  },
+                  "x-tenantOverride": true
                 },
                 "download": {
                   "type": "object",
                   "description": "The parameters of the download command type used to download data from MS Azure Blob Storage.",
-                  "default": {}
+                  "default": {},
+                  "x-tenantOverride": true
                 },
                 "syncCopyFromURL": {
                   "type": "object",
@@ -907,7 +986,8 @@
                       "type": "string",
                       "description": "The name of the encryption scope used to encrypt a copied blob."
                     }
-                  }
+                  },
+                  "x-tenantOverride": true
                 },
                 "listBlobsFlat": {
                   "type": "object",
@@ -915,7 +995,8 @@
                     "maxPageSize": {
                       "type": "integer",
                       "default": 1000,
-                      "description": "The maximum number of blobs to return."
+                      "description": "The maximum number of blobs to return.",
+                      "x-tenantOverride": true
                     }
                   },
                   "description": "The parameters of the listBlobsFlat command type used to retrieve a list of all blobs in a container.",
@@ -926,7 +1007,8 @@
                 "deleteBlob": {
                   "type": "object",
                   "description": "The parameters of the deleteBlob command type used to remove a blob.",
-                  "default": {}
+                  "default": {},
+                  "x-tenantOverride": true
                 }
               },
               "default": {
@@ -968,46 +1050,54 @@
         "urlExpires": {
           "type": "integer",
           "default": 604800,
-          "description": "The time when the URL to the S3 AWS document storage expires (measured in milliseconds)."
+          "description": "The time when the URL to the S3 AWS document storage expires (measured in milliseconds).",
+          "x-tenantOverride": true
         },
         "accessKeyId": {
           "type": "string",
           "default": "",
-          "description": "A key ID to access the S3 AWS document storage or MS Azure Blob Storage."
+          "description": "A key ID to access the S3 AWS document storage or MS Azure Blob Storage.",
+          "x-tenantOverride": true
         },
         "secretAccessKey": {
           "type": "string",
           "default": "",
           "writeOnly": true,
-          "description": "A secret key to access the S3 AWS document storage or MS Azure Blob Storage."
+          "description": "A secret key to access the S3 AWS document storage or MS Azure Blob Storage.",
+          "x-tenantOverride": true
         },
         "sslEnabled": {
           "type": "boolean",
           "default": false,
-          "description": "Whether SSL of the S3 AWS document storage is enabled or not."
+          "description": "Whether SSL of the S3 AWS document storage is enabled or not.",
+          "x-tenantOverride": true
         },
         "s3ForcePathStyle": {
           "type": "boolean",
           "default": true,
-          "description": "Whether the requests to the S3 AWS document storage always use path style addressing."
+          "description": "Whether the requests to the S3 AWS document storage always use path style addressing.",
+          "x-tenantOverride": true
         },
         "externalHost": {
           "type": "string",
           "default": "",
-          "description": "An external host which is used instead of the host specified in the request."
+          "description": "An external host which is used instead of the host specified in the request.",
+          "x-tenantOverride": true
         },
         "useDirectStorageUrls": {
           "type": "boolean",
           "default": false,
-          "description": "The issuance of links to an external storage: direct links or links that are proxied through the Document Server. Setting this parameter to `true` enables direct links, while the `false` value allows using internal links (the server proxies requests to the storage)."
+          "description": "The issuance of links to an external storage: direct links or links that are proxied through the Document Server. Setting this parameter to `true` enables direct links, while the `false` value allows using internal links (the server proxies requests to the storage).",
+          "x-tenantOverride": false
         }
       },
       "x-section-intro": "These parameters configure the document storage service configuration."
     },
     "persistentStorage": {
       "type": "object",
-      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration - specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
-      "x-section-intro": "These parameters configure the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage.md) object. The separation is convenient for server upgrades."
+      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration — specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
+      "x-section-intro": "These parameters configure the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage.md) object. The separation is convenient for server upgrades.",
+      "x-tenantOverride": false
     },
     "rabbitmq": {
       "type": "object",
@@ -1018,12 +1108,14 @@
           "type": "string",
           "default": "amqp://localhost:5672",
           "description": "The RabbitMQ URL.",
-          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": false
         },
         "socketOptions": {
           "type": "object",
           "description": "The [RabbitMQ socket options](https://amqp-node.github.io/amqplib/channel_api.html#connect) that will be passed to the socket library (`net` or `tls`). These options must be fields set on the object supplied. The socket options can be used for the SSL connection and can contain the following fields:\n\n- **cert** - defines a certificate to present to the server (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **key** - defines the private key for the certificate (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **passphrase** - defines a passphrase for the private key, **type**: string, **example**: \"MySecretPassword\";\n\n- **ca** - defines a list of the CA certificates in PEM format that we will trust, since we are using a self-signed certificate, **type**: array, **example**: [];\n\n- **noDelay** - defines if TCP_NODELAY (Nagle&#x27;s algorithm) is set on the underlying socket or not, **type**: boolean, **example**: true.",
-          "default": {}
+          "default": {},
+          "x-tenantOverride": false
         },
         "exchangepubsub": {
           "type": "object",
@@ -1032,7 +1124,8 @@
             "name": {
               "type": "string",
               "default": "ds.pubsub",
-              "description": "A name of the Publisher Subscriber server."
+              "description": "A name of the Publisher Subscriber server.",
+              "x-tenantOverride": true
             },
             "options": {
               "type": "object",
@@ -1044,7 +1137,8 @@
                 "durable": {
                   "type": "boolean",
                   "description": "Whether the queue will survive broker restarts.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 }
               }
             }
@@ -1063,7 +1157,8 @@
             "name": {
               "type": "string",
               "description": "A name of the Publisher Subscriber queue.",
-              "default": ""
+              "default": "",
+              "x-tenantOverride": true
             },
             "options": {
               "type": "object",
@@ -1086,19 +1181,22 @@
                     "x-queue-type": {
                       "type": "string",
                       "description": "A value of the *x-queue-type* header which specifies the queue type. Only classic queues can be used.",
-                      "default": "classic"
+                      "default": "classic",
+                      "x-tenantOverride": true
                     }
                   }
                 },
                 "autoDelete": {
                   "type": "boolean",
                   "description": "Whether the queue will be deleted when the number of consumers drops to zero.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 },
                 "exclusive": {
                   "type": "boolean",
                   "description": "Whether the queue will be scoped to the connection.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 }
               }
             }
@@ -1121,7 +1219,8 @@
             "name": {
               "type": "string",
               "default": "ds.converttask6",
-              "description": "A name of the queue of tasks."
+              "description": "A name of the queue of tasks.",
+              "x-tenantOverride": true
             },
             "options": {
               "type": "object",
@@ -1144,19 +1243,22 @@
                     "x-queue-type": {
                       "type": "string",
                       "description": "A value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
-                      "default": "classic"
+                      "default": "classic",
+                      "x-tenantOverride": true
                     }
                   }
                 },
                 "durable": {
                   "type": "boolean",
                   "description": "Whether the queue will survive broker restarts.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 },
                 "maxPriority": {
                   "type": "integer",
                   "description": "A queue [priority](https://www.rabbitmq.com/docs/priority).",
-                  "default": 6
+                  "default": 6,
+                  "x-tenantOverride": true
                 }
               }
             }
@@ -1179,7 +1281,8 @@
             "name": {
               "type": "string",
               "default": "ds.convertresponse",
-              "description": "A name of the queue of responses."
+              "description": "A name of the queue of responses.",
+              "x-tenantOverride": true
             },
             "options": {
               "type": "object",
@@ -1201,14 +1304,16 @@
                     "x-queue-type": {
                       "type": "string",
                       "description": "A value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
-                      "default": "classic"
+                      "default": "classic",
+                      "x-tenantOverride": true
                     }
                   }
                 },
                 "durable": {
                   "type": "boolean",
                   "description": "Whether the queue will survive broker restarts.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 }
               }
             }
@@ -1230,7 +1335,8 @@
             "name": {
               "type": "string",
               "default": "ds.exchangeconvertdead",
-              "description": "A name of the dead letter exchange."
+              "description": "A name of the dead letter exchange.",
+              "x-tenantOverride": true
             },
             "options": {
               "type": "object",
@@ -1242,7 +1348,8 @@
                 "durable": {
                   "type": "boolean",
                   "description": "Whether the queue will survive broker restarts.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 }
               }
             }
@@ -1261,7 +1368,8 @@
             "name": {
               "type": "string",
               "default": "ds.convertdead",
-              "description": "A name of the dead letter queue."
+              "description": "A name of the dead letter queue.",
+              "x-tenantOverride": true
             },
             "options": {
               "type": "object",
@@ -1283,14 +1391,16 @@
                     "x-queue-type": {
                       "type": "string",
                       "description": "A value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
-                      "default": "classic"
+                      "default": "classic",
+                      "x-tenantOverride": true
                     }
                   }
                 },
                 "durable": {
                   "type": "boolean",
                   "description": "Whether the queue will survive broker restarts.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 }
               }
             }
@@ -1312,7 +1422,8 @@
             "name": {
               "type": "string",
               "default": "ds.delayed",
-              "description": "A name of the delayed queue."
+              "description": "A name of the delayed queue.",
+              "x-tenantOverride": true
             },
             "options": {
               "type": "object",
@@ -1334,14 +1445,16 @@
                     "x-queue-type": {
                       "type": "string",
                       "description": "A value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
-                      "default": "classic"
+                      "default": "classic",
+                      "x-tenantOverride": true
                     }
                   }
                 },
                 "durable": {
                   "type": "boolean",
                   "description": "Whether the queue will survive broker restarts.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 }
               }
             }
@@ -1371,17 +1484,20 @@
             "port": {
               "type": "integer",
               "default": 5672,
-              "description": "A port of the server to which the ActiveMQ container is connected."
+              "description": "A port of the server to which the ActiveMQ container is connected.",
+              "x-tenantOverride": true
             },
             "host": {
               "type": "string",
               "default": "localhost",
-              "description": "A host (host name or IP address) of the server to which the ActiveMQ container is connected."
+              "description": "A host (host name or IP address) of the server to which the ActiveMQ container is connected.",
+              "x-tenantOverride": true
             },
             "reconnect": {
               "type": "boolean",
               "default": false,
-              "description": "Whether the ActiveMQ module will automatically attempt to reconnect if disconnected (**true**) or not (**false**)."
+              "description": "Whether the ActiveMQ module will automatically attempt to reconnect if disconnected (**true**) or not (**false**).",
+              "x-tenantOverride": true
             }
           },
           "default": {
@@ -1393,27 +1509,32 @@
         "queueconverttask": {
           "type": "string",
           "default": "ds.converttask",
-          "description": "A queue of tasks."
+          "description": "A queue of tasks.",
+          "x-tenantOverride": true
         },
         "queueconvertresponse": {
           "type": "string",
           "default": "ds.convertresponse",
-          "description": "A queue of responses."
+          "description": "A queue of responses.",
+          "x-tenantOverride": true
         },
         "queueconvertdead": {
           "type": "string",
           "default": "ActiveMQ.DLQ",
-          "description": "A dead letter queue."
+          "description": "A dead letter queue.",
+          "x-tenantOverride": true
         },
         "queuedelayed": {
           "type": "string",
           "default": "ds.delayed",
-          "description": "The delayed queue."
+          "description": "The delayed queue.",
+          "x-tenantOverride": true
         },
         "topicpubsub": {
           "type": "string",
           "default": "ds.pubsub",
-          "description": "The Publisher Subscriber topic."
+          "description": "The Publisher Subscriber topic.",
+          "x-tenantOverride": true
         }
       },
       "x-section-intro": "These parameters configure the ActiveMQ message broker configuration."
@@ -1426,17 +1547,20 @@
         "enable": {
           "type": "boolean",
           "default": true,
-          "description": "Whether the DNS cache is enabled or not."
+          "description": "Whether the DNS cache is enabled or not.",
+          "x-tenantOverride": false
         },
         "ttl": {
           "type": "integer",
           "default": 300,
-          "description": "The time when the DNS records expire (measured in seconds)."
+          "description": "The time when the DNS records expire (measured in seconds).",
+          "x-tenantOverride": false
         },
         "cachesize": {
           "type": "integer",
           "default": 1000,
-          "description": "The DNS cache size."
+          "description": "The DNS cache size.",
+          "x-tenantOverride": false
         }
       },
       "x-section-intro": "These parameters configure the configuration of the DNS cache which is used for the IP-filter."
@@ -1449,7 +1573,8 @@
         "config": {
           "type": "object",
           "description": "The [OpenPGP protocol configuration](https://github.com/openpgpjs/openpgpjs).",
-          "default": {}
+          "default": {},
+          "x-tenantOverride": true
         },
         "encrypt": {
           "type": "object",
@@ -1461,7 +1586,8 @@
                 "type": "string"
               },
               "description": "A password which is used for the OpenPGP encryption.",
-              "default": ["verysecretstring"]
+              "default": ["verysecretstring"],
+              "x-tenantOverride": true
             }
           },
           "default": {
@@ -1478,7 +1604,8 @@
                 "type": "string"
               },
               "description": "A password which is used for the OpenPGP decryption.",
-              "default": ["verysecretstring"]
+              "default": ["verysecretstring"],
+              "x-tenantOverride": true
             }
           },
           "default": {
@@ -1500,22 +1627,26 @@
             "keyByteLength": {
               "type": "integer",
               "default": 32,
-              "description": "The key length measured in bytes."
+              "description": "The key length measured in bytes.",
+              "x-tenantOverride": false
             },
             "saltByteLength": {
               "type": "integer",
               "default": 64,
-              "description": "The salt length measured in bytes."
+              "description": "The salt length measured in bytes.",
+              "x-tenantOverride": false
             },
             "initializationVectorByteLength": {
               "type": "integer",
               "default": 16,
-              "description": "The initialization vector length measured in bytes."
+              "description": "The initialization vector length measured in bytes.",
+              "x-tenantOverride": false
             },
             "iterationsByteLength": {
               "type": "integer",
               "default": 5,
-              "description": "The iterations length measured in bytes."
+              "description": "The iterations length measured in bytes.",
+              "x-tenantOverride": false
             }
           },
           "default": {
@@ -1528,7 +1659,8 @@
         "secret": {
           "type": "string",
           "default": "verysecretstring",
-          "description": "A password which is used for the AES-256-GCM encryption."
+          "description": "A password which is used for the AES-256-GCM encryption.",
+          "x-tenantOverride": false
         }
       },
       "x-section-intro": "These parameters configure the settings of the AES-256-GCM encryption algorithm used for password protection of the documents."
@@ -1541,7 +1673,8 @@
         "getChanges": {
           "type": "object",
           "description": "The [constructor options](https://github.com/SGrondin/bottleneck#constructor) to generate limiters for throttling the database requests.",
-          "default": {}
+          "default": {},
+          "x-tenantOverride": true
         }
       }
     },
@@ -1553,7 +1686,8 @@
         "inject": {
           "type": "string",
           "default": "+",
-          "description": "The injection mode of the Windows System Root certificates. The \"+\" means that a new experimental method is used to install certificates."
+          "description": "The injection mode of the Windows System Root certificates. The \"+\" means that a new experimental method is used to install certificates.",
+          "x-tenantOverride": false
         }
       }
     },
@@ -1574,115 +1708,136 @@
                   "$ref": "#/$defs/cron6",
                   "x-scope": "admin",
                   "description": "The time for check starting (every hour by default).",
-                  "default": "00 00 */1 * * *"
+                  "default": "00 00 */1 * * *",
+                  "x-tenantOverride": false
                 },
                 "documentsCron": {
                   "$ref": "#/$defs/cron6",
                   "x-scope": "admin",
                   "description": "The time for starting check, during which old files are deleted from the cache (every two minutes by default).",
-                  "default": "0 */2 * * * *"
+                  "default": "0 */2 * * * *",
+                  "x-tenantOverride": false
                 },
                 "files": {
                   "type": "integer",
                   "minimum": 0,
                   "x-scope": "admin",
                   "description": "The time of life for the folders in `App_Data`.",
-                  "default": 86400
+                  "default": 86400,
+                  "x-tenantOverride": false
                 },
                 "filesremovedatonce": {
                   "type": "integer",
                   "minimum": 0,
                   "x-scope": "admin",
                   "description": "The number of simultaneously deleted document folders from the cache.",
-                  "default": 100
+                  "default": 100,
+                  "x-tenantOverride": false
                 },
                 "sessionidle": {
                   "type": "string",
                   "x-scope": ["admin", "tenant"],
                   "description": "The inactive session lifetime. This parameter allows ending editing session for an idle user. It is also used to initialize document saving procedure by terminating the last editing session. So, it defines the time after which an inactive user will be disconnected from the editing session. Its value format is \"1s\", \"1m\", \"1h\", \"1d\" etc.",
                   "default": "1h",
-                  "x-note": "Please note that by inactivity, we mean the absence of any action in the editor, including cursor movement."
+                  "x-note": "Please note that by inactivity, we mean the absence of any action in the editor, including cursor movement.",
+                  "x-tenantOverride": true
                 },
                 "sessionabsolute": {
                   "type": "string",
                   "x-scope": ["admin", "tenant"],
                   "description": "The lifetime for any editing session.",
-                  "default": "30d"
+                  "default": "30d",
+                  "x-tenantOverride": false
                 },
                 "changeindex": {
                   "type": "integer",
                   "description": "The time for changing indexes.",
-                  "default": 86400
+                  "default": 86400,
+                  "x-tenantOverride": true
                 },
                 "forcesave": {
                   "type": "integer",
                   "description": "The time of life for the forcesaving executed with success.",
-                  "default": 604800
+                  "default": 604800,
+                  "x-tenantOverride": false
                 },
                 "forcesaveLock": {
                   "type": "integer",
                   "description": "The time of life for the forcesaved locks in the ioredis cluster mode.",
-                  "default": 5000
+                  "default": 5000,
+                  "x-tenantOverride": false
                 },
                 "lastsave": {
                   "type": "integer",
                   "description": "The time of life for the last database save executed with success.",
-                  "default": 604800
+                  "default": 604800,
+                  "x-tenantOverride": true
                 },
                 "lockDoc": {
                   "type": "integer",
                   "description": "The time for locking documents.",
-                  "default": 30
+                  "default": 30,
+                  "x-tenantOverride": true
                 },
                 "locks": {
                   "type": "integer",
                   "description": "The time of life for the locks.",
-                  "default": 604800
+                  "default": 604800,
+                  "x-tenantOverride": false
                 },
                 "message": {
                   "type": "integer",
                   "description": "The time of life for the messages.",
-                  "default": 86400
+                  "default": 86400,
+                  "x-tenantOverride": false
                 },
                 "monthUniqueUsers": {
                   "type": "string",
                   "description": "The time of life for the list of the month unique users.",
-                  "default": "1y"
+                  "default": "1y",
+                  "x-tenantOverride": false
                 },
                 "pemCheckPeriod": {
                   "type": "string",
                   "description": "The time for checking the PEM files ttl.",
-                  "default": "10m"
+                  "default": "10m",
+                  "x-tenantOverride": false
                 },
                 "pemStdTTL": {
                   "type": "string",
                   "description": "The time of life for the PEM files with secrets.",
-                  "default": "1h"
+                  "default": "1h",
+                  "x-tenantOverride": false
                 },
                 "presence": {
                   "type": "integer",
                   "description": "The time of life for the user presence status.",
-                  "default": 300
+                  "default": 300,
+                  "x-tenantOverride": false
                 },
                 "saved": {
                   "type": "integer",
                   "description": "The time of life for the database save executed with success.",
-                  "default": 3600
+                  "default": 3600,
+                  "x-tenantOverride": false
                 },
                 "saveLock": {
                   "type": "integer",
                   "description": "The time for saving locks.",
-                  "default": 60
+                  "default": 60,
+                  "x-tenantOverride": true
                 },
                 "sessionclosecommand": {
                   "type": "string",
                   "description": "The time before the `sessionidle` or `sessionabsolute ttl` expires when a warning message is sent.",
-                  "default": "2m"
+                  "default": "2m",
+                  "x-tenantOverride": true
                 },
                 "updateVersionStatus": {
                   "type": "string",
                   "description": "The time when the user can open the file again after an error occurs due to opening an already saved file using the old key.",
-                  "default": "5m"
+                  "default": "5m",
+                  "x-tenantOverride": true
                 }
               },
               "x-section-intro": "These parameters configure the expiration settings."
@@ -1695,12 +1850,14 @@
                 "allowPrivateIPAddress": {
                   "type": "boolean",
                   "description": "Whether it is allowed to connect private IP address or not. This includes private IP addresses and reserved IP addresses.",
-                  "default": false
+                  "default": false,
+                  "x-tenantOverride": false
                 },
                 "allowMetaIPAddress": {
                   "type": "boolean",
                   "description": "Whether it is allowed to connect meta IP address or not. Meta address can be `0.0.0.0` (IPv4) or `::` (IPv6) - a meta address that routing another address.",
-                  "default": false
+                  "default": false,
+                  "x-tenantOverride": false
                 }
               },
               "x-section-intro": "These parameters configure the [Request Filtering Agent configuration](https://github.com/azu/request-filtering-agent#api)."
@@ -1714,7 +1871,8 @@
                 "rejectUnauthorized": {
                   "type": "boolean",
                   "default": true,
-                  "description": "Whether TLS certificates are verified. Set to `false` only for diagnostics with self-signed or invalid certificates."
+                  "description": "Whether TLS certificates are verified. Set to `false` only for diagnostics with self-signed or invalid certificates.",
+                  "x-tenantOverride": true
                 },
                 "checksumVerification": {
                   "type": "boolean",
@@ -1728,12 +1886,14 @@
                     "User-Agent": {
                       "type": "string",
                       "description": "HTTP User-Agent header sent with outgoing requests.",
-                      "default": "Node.js/6.13"
+                      "default": "DocumentServer",
+                      "x-tenantOverride": true
                     },
                     "Connection": {
                       "type": "string",
                       "description": "HTTP Connection header controlling keep-alive behaviour for outgoing requests.",
-                      "default": "Keep-Alive"
+                      "default": "Keep-Alive",
+                      "x-tenantOverride": true
                     }
                   }
                 }
@@ -1749,17 +1909,20 @@
                   "type": "string",
                   "enum": ["1m", "5m", "10m", "15m", "30m"],
                   "description": "The delay in minutes between the intervals.",
-                  "default": "1m"
+                  "default": "1m",
+                  "x-tenantOverride": false
                 },
                 "enable": {
                   "type": "boolean",
                   "description": "Whether the automatic forcesaving is enabled or not.",
-                  "default": false
+                  "default": false,
+                  "x-tenantOverride": true
                 },
                 "interval": {
                   "type": "string",
                   "description": "The interval time in minutes for initiating the automatic forcesaving.",
-                  "default": "5m"
+                  "default": "5m",
+                  "x-tenantOverride": true
                 }
               },
               "x-section-intro": "These parameters configure the automatic forcesaving configuration."
@@ -1792,19 +1955,22 @@
                       "address": "*",
                       "allowed": true
                     }
-                  ]
+                  ],
+                  "x-tenantOverride": true
                 },
                 "useforrequest": {
                   "type": "boolean",
                   "description": "Whether the IP filter is used for the request or not.",
-                  "default": false
+                  "default": false,
+                  "x-tenantOverride": true
                 },
                 "errorcode": {
                   "type": "integer",
                   "minimum": 400,
                   "maximum": 599,
                   "description": "An error code for the IP filter.",
-                  "default": 403
+                  "default": 403,
+                  "x-tenantOverride": true
                 }
               },
               "x-section-intro": "These parameters configure the IP filter configuration."
@@ -1818,34 +1984,40 @@
                 "type": {
                   "type": "string",
                   "description": "The database type (`mysql`, `mariadb`, `mssql`, `postgres`, `dameng`, `oracle`).",
-                  "default": "postgres"
+                  "default": "postgres",
+                  "x-tenantOverride": false
                 },
                 "dbHost": {
                   "type": "string",
                   "description": "The database server host (host name or IP address).",
-                  "default": "localhost"
+                  "default": "localhost",
+                  "x-tenantOverride": false
                 },
                 "dbPort": {
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 65535,
                   "description": "The database server port.",
-                  "default": 5432
+                  "default": 5432,
+                  "x-tenantOverride": false
                 },
                 "dbName": {
                   "type": "string",
                   "description": "A name of a database to be created on the image startup.",
-                  "default": "onlyoffice"
+                  "default": "onlyoffice",
+                  "x-tenantOverride": false
                 },
                 "charset": {
                   "type": "string",
                   "description": "The database charset.",
-                  "default": "utf8"
+                  "default": "utf8",
+                  "x-tenantOverride": false
                 },
                 "connectionlimit": {
                   "type": "integer",
                   "description": "The maximum number of the simultaneous user connections to the database server.",
-                  "default": 10
+                  "default": 10,
+                  "x-tenantOverride": false
                 },
                 "damengExtraOptions": {
                   "type": "object",
@@ -1864,59 +2036,70 @@
                     "columnNameCase": {
                       "type": "string",
                       "description": "The case of column names.",
-                      "default": "lower"
+                      "default": "lower",
+                      "x-tenantOverride": false
                     },
                     "columnNameUpperCase": {
                       "type": "boolean",
                       "description": "Whether the column names are uppercase or not.",
-                      "default": false
+                      "default": false,
+                      "x-tenantOverride": false
                     },
                     "connectTimeout": {
                       "type": "integer",
                       "description": "A number of milliseconds to wait for a connection.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     },
                     "localTimezone": {
                       "type": "integer",
                       "description": "The local timezone.",
-                      "default": 0
+                      "default": 0,
+                      "x-tenantOverride": false
                     },
                     "loginEncrypt": {
                       "type": "boolean",
                       "description": "Whether the login encryption is enabled or not.",
-                      "default": false
+                      "default": false,
+                      "x-tenantOverride": false
                     },
                     "poolTimeout": {
                       "type": "integer",
                       "description": "A number of seconds after which the pool terminates idle connections (unused in the pool).",
-                      "default": 60
+                      "default": 60,
+                      "x-tenantOverride": false
                     },
                     "queueTimeout": {
                       "type": "integer",
                       "description": "A number of milliseconds when messages are retained in the queue before they are discarded.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     },
                     "socketTimeout": {
                       "type": "integer",
                       "description": "A number of milliseconds when a connection request made by a client or a server doesn&#x27;t receive a response from the other end.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     }
                   }
                 },
                 "dbPass": {
                   "type": "string",
                   "description": "A password set to the database account.",
-                  "default": "onlyoffice"
+                  "default": "onlyoffice",
+                  "x-tenantOverride": false
                 },
                 "dbUser": {
                   "type": "string",
                   "description": "A new username with superuser permissions for the database account.",
-                  "default": "onlyoffice"
+                  "default": "onlyoffice",
+                  "x-tenantOverride": false
                 },
                 "max_allowed_packet": {
                   "type": "integer",
                   "description": "The maximum size of data that can be sent in one request.",
-                  "default": 1048575
+                  "default": 1048575,
+                  "x-tenantOverride": false
                 },
                 "msSqlExtraOptions": {
                   "type": "object",
@@ -1942,12 +2125,14 @@
                         "encrypt": {
                           "type": "boolean",
                           "description": "Whether the data will be encrypted before sending it over the network.",
-                          "default": false
+                          "default": false,
+                          "x-tenantOverride": false
                         },
                         "trustServerCertificate": {
                           "type": "boolean",
                           "description": "Whether an encryption occurs when there is no verified server certificate.",
-                          "default": true
+                          "default": true,
+                          "x-tenantOverride": false
                         }
                       }
                     },
@@ -1961,7 +2146,8 @@
                         "idleTimeoutMillis": {
                           "type": "integer",
                           "description": "A number of milliseconds a client must remain idle in the pool and not be checked out before it is disconnected from the backend and discarded. Set to 0 to disable automatic disconnection of idle clients.",
-                          "default": 30000
+                          "default": 30000,
+                          "x-tenantOverride": false
                         }
                       }
                     }
@@ -1978,12 +2164,14 @@
                     "connectTimeout": {
                       "type": "integer",
                       "description": "A number of milliseconds to wait for a connection.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     },
                     "queryTimeout": {
                       "type": "integer",
                       "description": "A number of milliseconds before a query call times out.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     }
                   }
                 },
@@ -1998,12 +2186,14 @@
                     "connectTimeout": {
                       "type": "integer",
                       "description": "A number of seconds to wait for a connection.",
-                      "default": 60
+                      "default": 60,
+                      "x-tenantOverride": false
                     },
                     "thin": {
                       "type": "boolean",
                       "description": "The connection to Oracle in the Thick Mode using Oracle Instant Client in a cluster.",
-                      "default": true
+                      "default": true,
+                      "x-tenantOverride": false
                     }
                   }
                 },
@@ -2021,39 +2211,46 @@
                     "connectionTimeoutMillis": {
                       "type": "integer",
                       "description": "A number of milliseconds to wait for a connection.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     },
                     "idleTimeoutMillis": {
                       "type": "integer",
                       "description": "A number of milliseconds a client must remain idle in the pool and not be checked out before it is disconnected from the backend and discarded. Set to 0 to disable automatic disconnection of idle clients.",
-                      "default": 30000
+                      "default": 30000,
+                      "x-tenantOverride": false
                     },
                     "maxLifetimeSeconds": {
                       "type": "integer",
                       "description": "A number of seconds that represents the maximum lifetime.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     },
                     "query_timeout": {
                       "type": "integer",
                       "description": "A number of milliseconds before a query call times out.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     },
                     "statement_timeout": {
                       "type": "integer",
                       "description": "A number of milliseconds before the query statement times out.",
-                      "default": 60000
+                      "default": 60000,
+                      "x-tenantOverride": false
                     }
                   }
                 },
                 "tableChanges": {
                   "type": "string",
                   "description": "The database table name where all the document changes are stored.",
-                  "default": "doc_changes"
+                  "default": "doc_changes",
+                  "x-tenantOverride": false
                 },
                 "tableResult": {
                   "type": "string",
                   "description": "The database table name where the query result is stored.",
-                  "default": "task_result"
+                  "default": "task_result",
+                  "x-tenantOverride": false
                 }
               },
               "x-section-intro": "These parameters configure the database configuration."
@@ -2065,12 +2262,14 @@
                 "httpStatus": {
                   "type": "string",
                   "description": "The HTTP statuses of the callback backoff.",
-                  "default": "429,500-599"
+                  "default": "429,500-599",
+                  "x-tenantOverride": true
                 },
                 "retries": {
                   "type": "integer",
                   "description": "The maximum amount of times to retry the operation.",
-                  "default": 3
+                  "default": 3,
+                  "x-tenantOverride": true
                 },
                 "timeout": {
                   "type": "object",
@@ -2085,22 +2284,26 @@
                     "factor": {
                       "type": "integer",
                       "description": "The exponential factor to use.",
-                      "default": 2
+                      "default": 2,
+                      "x-tenantOverride": true
                     },
                     "maxTimeout": {
                       "type": "integer",
                       "description": "The maximum number of milliseconds between two retries.",
-                      "default": 2147483647
+                      "default": 2147483647,
+                      "x-tenantOverride": true
                     },
                     "minTimeout": {
                       "type": "integer",
                       "description": "The number of milliseconds before starting the first try.",
-                      "default": 1000
+                      "default": 1000,
+                      "x-tenantOverride": true
                     },
                     "randomize": {
                       "type": "boolean",
                       "description": "Whether the timeouts are randomized by multiplying with a factor between 1 and 2 or not.",
-                      "default": false
+                      "default": false,
+                      "x-tenantOverride": true
                     }
                   }
                 }
@@ -2114,12 +2317,14 @@
                 "binaryChanges": {
                   "type": "boolean",
                   "description": "Whether the document changes are saved in binary (**true**) or JSON (**false**) format.",
-                  "default": false
+                  "default": false,
+                  "x-tenantOverride": false
                 },
                 "maxChangesSize": {
                   "type": "string",
                   "description": "A limit on the total size of the changes made to the document. When the limit is exceeded, the user receives a dialog box with a suggestion to cancel the last action or switch to the offline mode.",
-                  "default": "150MB"
+                  "default": "150MB",
+                  "x-tenantOverride": true
                 },
                 "reconnection": {
                   "type": "object",
@@ -2132,19 +2337,22 @@
                     "attempts": {
                       "type": "integer",
                       "description": "A maximum number of attempts to reconnect the editor.",
-                      "default": 50
+                      "default": 50,
+                      "x-tenantOverride": true
                     },
                     "delay": {
                       "type": "string",
                       "description": "The attempt delay for reconnecting the editor.",
-                      "default": "2s"
+                      "default": "2s",
+                      "x-tenantOverride": true
                     }
                   }
                 },
                 "websocketMaxPayloadSize": {
                   "type": "string",
                   "description": "A maximum payload size of WebSocket.",
-                  "default": "1.5MB"
+                  "default": "1.5MB",
+                  "x-tenantOverride": true
                 }
               },
               "x-section-intro": "These parameters configure the editor configuration."
@@ -2154,14 +2362,17 @@
               "additionalProperties": true,
               "properties": {
                 "autostart": {
-                  "type": "string",
+                  "type": "array",
+                  "items": {"type": "string"},
                   "description": "A list of plugins that run automatically.",
-                  "default": []
+                  "default": [],
+                  "x-tenantOverride": false
                 },
                 "uri": {
                   "type": "string",
                   "description": "A path to the folder where all the plugins are stored.",
-                  "default": "/sdkjs-plugins"
+                  "default": "/sdkjs-plugins",
+                  "x-tenantOverride": false
                 }
               },
               "x-section-intro": "These parameters configure the plugins configuration."
@@ -2173,7 +2384,8 @@
                 "maxChanges": {
                   "type": "integer",
                   "description": "The maximum size of changes which can be passed via PubSub. If the size exceeds the specified value, the changes will be read from the database.",
-                  "default": 1000
+                  "default": 1000,
+                  "x-tenantOverride": true
                 }
               },
               "x-section-intro": "This parameter configures the PubSub service configuration."
@@ -2185,7 +2397,8 @@
                 "host": {
                   "type": "string",
                   "description": "The Redis server host (host name or IP address).",
-                  "default": "127.0.0.1"
+                  "default": "127.0.0.1",
+                  "x-tenantOverride": false
                 },
                 "iooptions": {
                   "type": "object",
@@ -2197,7 +2410,8 @@
                     "lazyConnect": {
                       "type": "boolean",
                       "description": "Whether the connection to the server will be delayed until the first command is sent or *redis.connect()* is called explicitly.",
-                      "default": true
+                      "default": true,
+                      "x-tenantOverride": false
                     }
                   }
                 },
@@ -2207,7 +2421,8 @@
                     "type": "string"
                   },
                   "description": "A list of nodes of the cluster you want to connect to that can be passed directly to the [ioredis cluster](https://github.com/redis/ioredis#cluster) library\nto connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
-                  "default": []
+                  "default": [],
+                  "x-tenantOverride": false
                 },
                 "iooptionsClusterOptions": {
                   "type": "object",
@@ -2219,34 +2434,40 @@
                     "lazyConnect": {
                       "type": "boolean",
                       "description": "Whether the connection to the server will be delayed until the first command is sent or *redis.connect()* is called explicitly.",
-                      "default": true
+                      "default": true,
+                      "x-tenantOverride": false
                     }
                   }
                 },
                 "name": {
                   "type": "string",
                   "description": "The database name, `\"redis\"` or `\"ioredis\"`.",
-                  "default": "redis"
+                  "default": "redis",
+                  "x-tenantOverride": false
                 },
                 "options": {
                   "type": "object",
                   "description": "The parameters (username, password, modules etc.) that can be passed directly to the [node-redis createClient](https://github.com/redis/node-redis/blob/master/docs/client-configuration.md) library.",
-                  "default": {}
+                  "default": {},
+                  "x-tenantOverride": false
                 },
                 "optionsCluster": {
                   "type": "object",
                   "description": "The parameters (rootNodes, defaults, modules etc.) that can be passed directly to the [node-redis clustering](https://github.com/redis/node-redis/blob/master/docs/clustering.md)\nlibrary to connect to the redis cluster. This setting has the priority over the *options* parameter for connecting to the single redis.",
-                  "default": {}
+                  "default": {},
+                  "x-tenantOverride": false
                 },
                 "port": {
                   "type": "integer",
                   "description": "The Redis server port.",
-                  "default": 6379
+                  "default": 6379,
+                  "x-tenantOverride": false
                 },
                 "prefix": {
                   "type": "string",
                   "description": "The name prefix for all the used structures in Redis.",
-                  "default": "ds:"
+                  "default": "ds:",
+                  "x-tenantOverride": false
                 }
               },
               "x-section-intro": "These parameters configure the Redis configuration."
@@ -2266,12 +2487,14 @@
                     "string": {
                       "type": "string",
                       "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
-                      "default": "secret"
+                      "default": "secret",
+                      "x-tenantOverride": true
                     },
                     "file": {
                       "type": "string",
                       "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
-                      "default": ""
+                      "default": "",
+                      "x-tenantOverride": true
                     }
                   }
                 },
@@ -2286,12 +2509,14 @@
                     "string": {
                       "type": "string",
                       "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
-                      "default": "secret"
+                      "default": "secret",
+                      "x-tenantOverride": true
                     },
                     "file": {
                       "type": "string",
                       "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
-                      "default": ""
+                      "default": "",
+                      "x-tenantOverride": true
                     }
                   }
                 },
@@ -2306,12 +2531,14 @@
                     "string": {
                       "type": "string",
                       "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
-                      "default": "secret"
+                      "default": "secret",
+                      "x-tenantOverride": true
                     },
                     "file": {
                       "type": "string",
                       "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
-                      "default": ""
+                      "default": "",
+                      "x-tenantOverride": true
                     }
                   }
                 },
@@ -2326,12 +2553,14 @@
                     "string": {
                       "type": "string",
                       "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
-                      "default": "secret"
+                      "default": "secret",
+                      "x-tenantOverride": true
                     },
                     "file": {
                       "type": "string",
                       "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
-                      "default": ""
+                      "default": "",
+                      "x-tenantOverride": true
                     }
                   }
                 }
@@ -2345,7 +2574,8 @@
                 "assemblyFormatAsOrigin": {
                   "type": "boolean",
                   "description": "Whether the assembled file is saved in its original format or not.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 },
                 "callbackRequestTimeout": {
                   "type": "object",
@@ -2358,19 +2588,22 @@
                     "connectionAndInactivity": {
                       "type": "string",
                       "description": "A period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
-                      "default": "10m"
+                      "default": "10m",
+                      "x-tenantOverride": true
                     },
                     "wholeCycle": {
                       "type": "string",
                       "description": "The whole request cycle timeout.",
-                      "default": "10m"
+                      "default": "10m",
+                      "x-tenantOverride": true
                     }
                   }
                 },
                 "documentFormatsFile": {
                   "type": "string",
                   "description": "A path to the \"onlyoffice-docs-formats\" file.",
-                  "default": "../../document-formats/onlyoffice-docs-formats.json"
+                  "default": "../../document-formats/onlyoffice-docs-formats.json",
+                  "x-tenantOverride": false
                 },
                 "downloadFileAllowExt": {
                   "type": "array",
@@ -2378,47 +2611,56 @@
                     "type": "string"
                   },
                   "description": "The extensions allowed to be downloaded via the downloadFile handler.",
-                  "default": ["pdf", "xlsx"]
+                  "default": ["pdf", "xlsx"],
+                  "x-tenantOverride": true
                 },
                 "edit_singleton": {
                   "type": "boolean",
                   "description": "Whether the singleton can be edited or not.",
-                  "default": false
+                  "default": false,
+                  "x-tenantOverride": true
                 },
                 "editorDataStorage": {
                   "type": "string",
                   "description": "The editor data storage. The possible values: *\"editorDataRedis\"*, *\"\"*.",
-                  "default": "editorDataMemory"
+                  "default": "editorDataMemory",
+                  "x-tenantOverride": false
                 },
                 "editorStatStorage": {
                   "type": "string",
                   "description": "The editor data storage for license calculation and statistics (local memory or redis). The possible values are *\"editorDataMemory\"*, *\"editorDataRedis\"*, or *\"\"*. The default *\"\"* value means that the value of the *editorDataStorage* parameter will be used. This parameter is primarily used for a sharded cluster.",
-                  "default": ""
+                  "default": "",
+                  "x-tenantOverride": false
                 },
                 "forceSaveUsingButtonWithoutChanges": {
                   "type": "boolean",
                   "description": "Whether a file without any changes can be forcesaved by clicking the **Save** button.",
-                  "default": false
+                  "default": false,
+                  "x-tenantOverride": true
                 },
                 "forgottenfiles": {
                   "type": "string",
                   "description": "A folder name where all the forgotten files are stored.",
-                  "default": "forgotten"
+                  "default": "forgotten",
+                  "x-tenantOverride": true
                 },
                 "forgottenfilesname": {
                   "type": "string",
                   "description": "A forgotten file name.",
-                  "default": "output"
+                  "default": "output",
+                  "x-tenantOverride": true
                 },
                 "healthcheckfilepath": {
                   "type": "string",
                   "description": "A path where the health check requests will be sent.",
-                  "default": "../public/healthcheck.docx"
+                  "default": "../public/healthcheck.docx",
+                  "x-tenantOverride": true
                 },
                 "isAnonymousSupport": {
                   "type": "boolean",
                   "description": "Whether the anonymous users have access to the editor or live viewer or not.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 },
                 "limits_image_download_timeout": {
                   "type": "object",
@@ -2431,64 +2673,76 @@
                     "connectionAndInactivity": {
                       "type": "string",
                       "description": "A period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
-                      "default": "2m"
+                      "default": "2m",
+                      "x-tenantOverride": true
                     },
                     "wholeCycle": {
                       "type": "string",
                       "description": "The whole request cycle - a period from the download start to the full download.",
-                      "default": "2m"
+                      "default": "2m",
+                      "x-tenantOverride": true
                     }
                   }
                 },
                 "limits_image_size": {
                   "type": "integer",
                   "description": "A maximum size for all the images uploaded in each process (measured in bytes).",
-                  "default": 26214400
+                  "default": 26214400,
+                  "x-tenantOverride": true
                 },
                 "limits_tempfile_upload": {
                   "type": "integer",
                   "description": "A maximum size for all the uploaded temporary files used by each process (measured in bytes).",
-                  "default": 104857600
+                  "default": 104857600,
+                  "x-tenantOverride": false
                 },
                 "maxRequestChanges": {
                   "type": "integer",
                   "description": "A maximum size of the request changes.",
-                  "default": 20000
+                  "default": 20000,
+                  "x-tenantOverride": true
                 },
                 "mode": {
                   "type": "string",
                   "description": "The server mode.",
-                  "default": "development"
+                  "default": "development",
+                  "x-tenantOverride": true
                 },
                 "newFileTemplate": {
                   "type": "string",
                   "description": "A path to the \"new\" file template if a file of 0 bytes was received from the link for opening.",
-                  "default": "../../document-templates/new"
+                  "default": "../../document-templates/new",
+                  "x-tenantOverride": true
                 },
                 "openProtectedFile": {
                   "type": "boolean",
                   "description": "Whether the password-protected files can be opened or not.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 },
                 "port": {
                   "type": "integer",
                   "description": "The server port.",
-                  "default": 8000
+                  "default": 8000,
+                  "x-tenantOverride": false
                 },
                 "savetimeoutdelay": {
                   "type": "integer",
                   "description": "The conversion start delay time (measured in milliseconds) after the edited file is closed.",
-                  "default": 5000
+                  "default": 5000,
+                  "x-tenantOverride": true
                 },
                 "tokenRequiredParams": {
                   "type": "boolean",
                   "description": "Whether the [required token parameters](https://api.onlyoffice.com/docs/docs-api/additional-api/signature/browser/#opening-file) will be validated. This is required for security. For example, the conversion token will not be used to open a document.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 },
                 "workerpercpu": {
                   "type": "integer",
                   "description": "A number of worker threads per CPU.",
-                  "default": 1
+                  "default": 1,
+                  "x-tenantOverride": true
                 }
               },
               "x-section-intro": "These parameters configure the server configuration."
@@ -2511,27 +2765,32 @@
                     "maxHttpBufferSize": {
                       "type": "integer",
                       "description": "The maximum number of bytes a single message can be, before closing the socket.",
-                      "default": 100000000
+                      "default": 100000000,
+                      "x-tenantOverride": false
                     },
                     "path": {
                       "type": "string",
                       "description": "The path that is captured on the server side.",
-                      "default": "/doc/"
+                      "default": "/doc/",
+                      "x-tenantOverride": false
                     },
                     "pingInterval": {
                       "type": "integer",
                       "description": "The interval time in milliseconds, which is used to check if the connection is still alive between the server and the client.\nThe server sends a ping packet to the client, and if the client does not respond with a pong within a `pingTimeout` period,\nthe server considers that the connection is closed.",
-                      "default": 25000
+                      "default": 25000,
+                      "x-tenantOverride": false
                     },
                     "pingTimeout": {
                       "type": "integer",
                       "description": "The timeout period in milliseconds within which the client must respond with a pong to the server ping.\nIf there is no response, the server considers that the connection is closed.\nThe connection between the server and the client is checked every `pingInterval` milliseconds.",
-                      "default": 20000
+                      "default": 20000,
+                      "x-tenantOverride": false
                     },
                     "serveClient": {
                       "type": "boolean",
                       "description": "Whether the client files will be served or not.",
-                      "default": false
+                      "default": false,
+                      "x-tenantOverride": false
                     }
                   }
                 }
@@ -2545,17 +2804,20 @@
                 "disable_cors": {
                   "type": "boolean",
                   "description": "Whether CORS will be disabled or not. The `true` value prevents the **Access-Control-Allow-Origin** header vulnerability.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 },
                 "sockjs_url": {
                   "type": "string",
                   "description": "A path to the `sockjs.min.js` file.",
-                  "default": ""
+                  "default": "",
+                  "x-tenantOverride": true
                 },
                 "websocket": {
                   "type": "boolean",
                   "description": "Whether the WebSocket protocol is enabled or not.",
-                  "default": true
+                  "default": true,
+                  "x-tenantOverride": true
                 }
               },
               "x-section-intro": "These parameters configure the SockJs configuration."
@@ -2567,7 +2829,8 @@
                 "uri": {
                   "type": "string",
                   "description": "A path to the folder where all the *json* files with the custom color themes are stored.",
-                  "default": "/web-apps/apps/common/main/resources/themes"
+                  "default": "/web-apps/apps/common/main/resources/themes",
+                  "x-tenantOverride": false
                 }
               },
               "x-section-intro": "This parameter configures the properties of the custom color themes."
@@ -2586,7 +2849,8 @@
                     "secretFromInbox": {
                       "type": "boolean",
                       "description": "Whether the browser token is equal to the token from the incoming requests (`true`) or not (`false`).",
-                      "default": true
+                      "default": true,
+                      "x-tenantOverride": true
                     }
                   }
                 },
@@ -2604,7 +2868,8 @@
                     "browser": {
                       "type": "boolean",
                       "description": "Whether a token in the client-side browser requests is enabled or not.",
-                      "default": false
+                      "default": false,
+                      "x-tenantOverride": true
                     },
                     "request": {
                       "type": "object",
@@ -2617,12 +2882,14 @@
                         "inbox": {
                           "type": "boolean",
                           "description": "Whether a token in the incoming HTTP requests is enabled or not.",
-                          "default": false
+                          "default": false,
+                          "x-tenantOverride": true
                         },
                         "outbox": {
                           "type": "boolean",
                           "description": "Whether a token in the outgoing HTTP requests is enabled or not.",
-                          "default": false
+                          "default": false,
+                          "x-tenantOverride": true
                         }
                       }
                     }
@@ -2640,17 +2907,20 @@
                     "header": {
                       "type": "string",
                       "description": "The HTTP header that will be used to send the incoming request token.",
-                      "default": "Authorization"
+                      "default": "Authorization",
+                      "x-tenantOverride": true
                     },
                     "inBody": {
                       "type": "boolean",
                       "description": "Whether a token is enabled in the incoming request body or not.",
-                      "default": false
+                      "default": false,
+                      "x-tenantOverride": true
                     },
                     "prefix": {
                       "type": "string",
                       "description": "A prefix in the HTTP header that will be used to send the incoming request token.",
-                      "default": "Bearer "
+                      "default": "Bearer ",
+                      "x-tenantOverride": true
                     }
                   }
                 },
@@ -2669,32 +2939,38 @@
                     "algorithm": {
                       "type": "string",
                       "description": "An algorithm which is used to sign the outgoing request token.",
-                      "default": "HS256"
+                      "default": "HS256",
+                      "x-tenantOverride": true
                     },
                     "expires": {
                       "type": "string",
                       "description": "A period when the outgoing request token expires.",
-                      "default": "5m"
+                      "default": "5m",
+                      "x-tenantOverride": true
                     },
                     "header": {
                       "type": "string",
                       "description": "The HTTP header that will be used to send the outgoing request token.",
-                      "default": "Authorization"
+                      "default": "Authorization",
+                      "x-tenantOverride": true
                     },
                     "inBody": {
                       "type": "boolean",
                       "description": "Whether a token is enabled in the outgoing request body or not.",
-                      "default": false
+                      "default": false,
+                      "x-tenantOverride": true
                     },
                     "prefix": {
                       "type": "string",
                       "description": "A prefix in the HTTP header that will be used to send the outgoing request token.",
-                      "default": "Bearer "
+                      "default": "Bearer ",
+                      "x-tenantOverride": true
                     },
                     "urlExclusionRegex": {
                       "type": "string",
                       "description": "The regular expression that specifies URLs from which the authorization should be excluded. The empty string means that this option is disabled.",
-                      "default": ""
+                      "default": "",
+                      "x-tenantOverride": true
                     }
                   }
                 },
@@ -2709,12 +2985,14 @@
                     "algorithm": {
                       "type": "string",
                       "description": "An algorithm which is used to sign the session token.",
-                      "default": "HS256"
+                      "default": "HS256",
+                      "x-tenantOverride": true
                     },
                     "expires": {
                       "type": "string",
                       "description": "A period when the session token expires.",
-                      "default": "30d"
+                      "default": "30d",
+                      "x-tenantOverride": true
                     }
                   }
                 },
@@ -2728,7 +3006,8 @@
                     "clockTolerance": {
                       "type": "integer",
                       "description": "A number of seconds which is acceptable when dealing with the clock differences among different servers.",
-                      "default": 60
+                      "default": 60,
+                      "x-tenantOverride": true
                     }
                   }
                 }
@@ -2742,22 +3021,26 @@
                 "limits_image_types_upload": {
                   "type": "string",
                   "description": "The supported image formats for uploading.",
-                  "default": "jpg;jpeg;jpe;jfif;jif;png;gif;bmp;svg;tiff;tif;webp;heic;heif;avif"
+                  "default": "jpg;jpeg;jpe;jfif;jif;png;gif;bmp;svg;tiff;tif;webp;heic;heif;avif",
+                  "x-tenantOverride": true
                 },
                 "utils_common_fontdir": {
                   "type": "string",
                   "description": "A directory where all the fonts are stored.",
-                  "default": "null"
+                  "default": "null",
+                  "x-tenantOverride": true
                 },
                 "utils_fonts_search_patterns": {
                   "type": "string",
                   "description": "The patterns for searching font files of the corresponding extensions.",
-                  "default": "*.ttf;*.ttc;*.otf"
+                  "default": "*.ttf;*.ttc;*.otf",
+                  "x-tenantOverride": true
                 },
                 "limits_document_types_upload": {
                   "type": "string",
                   "description": "Semicolon-separated list of document file extensions allowed for upload. Only files matching these extensions are accepted.",
-                  "default": "xlsx"
+                  "default": "xlsx",
+                  "x-tenantOverride": true
                 }
               },
               "x-section-intro": "These parameters configure the utils configuration."
@@ -2783,12 +3066,14 @@
                 "type": "string"
               },
               "default": [],
-              "description": "A list of the IP addresses that are trusted for the direct requests."
+              "description": "A list of the IP addresses that are trusted for the direct requests.",
+              "x-tenantOverride": true
             },
             "jwtToken": {
               "type": "boolean",
               "default": true,
-              "description": "Whether the trusted IP addresses are in the JWT or not."
+              "description": "Whether the trusted IP addresses are in the JWT or not.",
+              "x-tenantOverride": true
             }
           },
           "default": {
@@ -2803,17 +3088,20 @@
             "allow": {
               "type": "boolean",
               "default": true,
-              "description": "Whether the external requests are allowed or not."
+              "description": "Whether the external requests are allowed or not.",
+              "x-tenantOverride": true
             },
             "blockPrivateIP": {
               "type": "boolean",
               "default": true,
-              "description": "Whether the private IP address will be blocked or not."
+              "description": "Whether the private IP address will be blocked or not.",
+              "x-tenantOverride": true
             },
             "proxyUrl": {
               "type": "string",
               "default": "",
-              "description": "The proxy URL."
+              "description": "The proxy URL.",
+              "x-tenantOverride": true
             },
             "proxyUser": {
               "type": "object",
@@ -2822,13 +3110,15 @@
                 "username": {
                   "type": "string",
                   "default": "",
-                  "description": "The proxy authentication username."
+                  "description": "The proxy authentication username.",
+                  "x-tenantOverride": true
                 },
                 "password": {
                   "type": "string",
                   "default": "",
                   "writeOnly": true,
-                  "description": "The proxy authentication password."
+                  "description": "The proxy authentication password.",
+                  "x-tenantOverride": true
                 }
               },
               "default": {
@@ -2839,7 +3129,8 @@
             "proxyHeaders": {
               "type": "object",
               "default": {},
-              "description": "The proxy headers."
+              "description": "The proxy headers.",
+              "x-tenantOverride": true
             }
           },
           "default": {
@@ -2866,37 +3157,43 @@
           "type": "string",
           "description": "A directory that limits the files that can be accessed by **ONLYOFFICE Docs**.",
           "x-scope": "admin",
-          "default": ""
+          "default": "",
+          "x-tenantOverride": false
         },
         "baseDomain": {
           "type": "string",
           "description": "The tenant base domain name.",
           "x-scope": "admin",
-          "default": ""
+          "default": "",
+          "x-tenantOverride": false
         },
         "filenameConfig": {
           "type": "string",
           "default": "config.json",
           "description": "The name of the config file in the tenant folder to override *default.json*. It is used in the multi-tenant mode\nto initialize the specific tenant settings (wopi, ipfilter, jwt secret etc.).",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": false
         },
         "filenameSecret": {
           "type": "string",
           "default": "secret.key",
           "description": "The *.pem* filename where the tenant secret key is stored.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": false
         },
         "filenameLicense": {
           "type": "string",
           "default": "license.lic",
           "description": "The filename where the tenant license is stored.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": false
         },
         "defaultTenant": {
           "type": "string",
           "default": "localhost",
           "description": "The domain name of the default tenant.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": false
         },
         "cache": {
           "type": "object",
@@ -2907,19 +3204,22 @@
               "type": "integer",
               "default": 300,
               "description": "The TTL (time to live) for every generated cache element (measured in seconds).",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": false
             },
             "checkperiod": {
               "type": "integer",
               "default": 60,
               "description": "The period used for the automatic delete check interval (measured in seconds).",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": false
             },
             "useClones": {
               "type": "boolean",
               "default": false,
               "description": "Whether the cached variables will be cloned or not. If `true`, a copy of the cached variable will be created. If `false`, only the reference will be saved.",
-              "x-scope": "admin"
+              "x-scope": "admin",
+              "x-tenantOverride": false
             }
           },
           "default": {
@@ -2941,26 +3241,30 @@
           "type": "string",
           "default": "",
           "description": "A path to the license file.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": false
         },
         "warning_limit_percents": {
           "type": "integer",
           "default": 70,
           "description": "A percent range of the [connections and connections_view](https://api.onlyoffice.com/docs/docs-api/additional-api/command-service/license/)\nlimitations, exceeding which a license limit warning appears in logs.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "packageType": {
           "type": "integer",
           "default": 0,
           "description": "The license package type: 2 - Developer Edition.",
           "x-scope": "admin",
-          "x-note": "This parameter is set at the time of version build. You do not have to manually configure it."
+          "x-note": "This parameter is set at the time of version build. You do not have to manually configure it.",
+          "x-tenantOverride": true
         },
         "warning_license_expiration": {
           "type": "string",
           "default": "30d",
           "description": "The time before the license expires when a warning message is sent.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         }
       },
       "x-section-intro": "These parameters configure the license configuration."
@@ -2975,62 +3279,72 @@
           "type": "boolean",
           "default": false,
           "description": "Whether WOPI is enabled or not.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "host": {
           "type": "string",
           "default": "",
           "description": "The WOPI host (host name or IP address).",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "htmlTemplate": {
           "type": "string",
           "default": "../../web-apps/apps/api/wopi",
           "description": "A path to the WOPI HTML template.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": false
         },
         "wopiZone": {
           "type": "string",
           "enum": ["external-https", "external-http", "internal-https", "internal-http"],
           "default": "external-http",
           "description": "The discovery zone advertised by the document server. For SharePoint integrations, this value should match the zone configured with Set-SPWOPIZone.",
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "sendAuthorizationHeader": {
           "type": "boolean",
           "default": false,
           "description": "The `Authorization: Bearer <token>` header added to WOPI requests. Optional by specification, but may be needed for older SharePoint integrations.",
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "favIconUrlWord": {
           "type": "string",
           "default": "/web-apps/apps/documenteditor/main/resources/img/favicon.ico",
           "description": "A path to the favicon for the document editor.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "favIconUrlCell": {
           "type": "string",
           "default": "/web-apps/apps/spreadsheeteditor/main/resources/img/favicon.ico",
           "description": "A path to the favicon for the spreadsheet editor.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "favIconUrlSlide": {
           "type": "string",
           "default": "/web-apps/apps/presentationeditor/main/resources/img/favicon.ico",
           "description": "A path to the favicon for the presentation editor.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "favIconUrlPdf": {
           "type": "string",
           "default": "/web-apps/apps/pdfeditor/main/resources/img/favicon.ico",
           "description": "A path to the favicon for the PDF editor.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "favIconUrlDiagram": {
           "type": "string",
           "default": "/web-apps/apps/visioeditor/main/resources/img/favicon.ico",
           "description": "A path to the favicon for the diagram editor.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "fileInfoBlockList": {
           "type": "array",
@@ -3039,7 +3353,8 @@
           },
           "default": ["FileUrl"],
           "description": "A list of WOPI file information parameters that are blocked when sending this array to the browser. However, these parameters are available on the server.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "pdfView": {
           "type": "array",
@@ -3049,7 +3364,8 @@
           "default": [],
           "description": "The file types that can be viewed in the PDF editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "pdfEdit": {
           "type": "array",
@@ -3059,7 +3375,8 @@
           "default": [],
           "description": "The file types that can be edited in the PDF editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "forms": {
           "type": "array",
@@ -3069,7 +3386,8 @@
           "default": [],
           "description": "The form file types.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "wordView": {
           "type": "array",
@@ -3079,7 +3397,8 @@
           "default": [],
           "description": "The file types that can be viewed in the document editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "wordEdit": {
           "type": "array",
@@ -3089,7 +3408,8 @@
           "default": [],
           "description": "The file types that can be edited in the document editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "cellView": {
           "type": "array",
@@ -3099,7 +3419,8 @@
           "default": [],
           "description": "The file types that can be viewed in the spreadsheet editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "cellEdit": {
           "type": "array",
@@ -3109,7 +3430,8 @@
           "default": [],
           "description": "The file types that can be edited in the spreadsheet editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "slideView": {
           "type": "array",
@@ -3119,7 +3441,8 @@
           "default": [],
           "description": "The file types that can be viewed in the presentation editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "slideEdit": {
           "type": "array",
@@ -3129,7 +3452,8 @@
           "default": [],
           "description": "The file types that can be edited in the presentation editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "diagramView": {
           "type": "array",
@@ -3139,7 +3463,8 @@
           "default": [],
           "description": "The file types that can be viewed in the diagram editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "diagramEdit": {
           "type": "array",
@@ -3149,27 +3474,31 @@
           "default": [],
           "description": "The file types that can be edited in the diagram editor.",
           "x-scope": "admin",
-          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file."
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
         },
         "publicKey": {
           "type": "string",
           "default": "",
           "description": "The public key that the integrator uses to check the private key.",
           "x-scope": "admin",
-          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
         },
         "modulus": {
           "type": "string",
           "default": "",
           "description": "The RSA modulus in the Base64-encoded format that is used to retrieve the public key.",
           "x-scope": "admin",
-          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
         },
         "exponent": {
           "type": "integer",
           "default": 65537,
           "description": "The RSA exponent in the Base64-encoded format that is used to retrieve the public key.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "privateKey": {
           "type": "string",
@@ -3177,27 +3506,31 @@
           "writeOnly": true,
           "description": "The private key that signs the Document Server request.",
           "x-scope": "admin",
-          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
         },
         "publicKeyOld": {
           "type": "string",
           "default": "",
           "description": "The old public key that the integrator used to check the private key.",
           "x-scope": "admin",
-          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
         },
         "modulusOld": {
           "type": "string",
           "default": "",
           "description": "The old RSA modulus in the Base64-encoded format that was used to retrieve the public key.",
           "x-scope": "admin",
-          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
         },
         "exponentOld": {
           "type": "integer",
           "default": 65537,
           "description": "The old RSA exponent in the Base64-encoded format that was used to retrieve the public key.",
-          "x-scope": "admin"
+          "x-scope": "admin",
+          "x-tenantOverride": true
         },
         "privateKeyOld": {
           "type": "string",
@@ -3205,14 +3538,16 @@
           "writeOnly": true,
           "description": "The old private key that signed the Document Server request.",
           "x-scope": "admin",
-          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different."
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
         },
         "refreshLockInterval": {
           "type": "string",
           "default": "10m",
           "description": "The interval time in minutes for refreshing the lock on a file by resetting its automatic expiration timer to 30 minutes.",
           "x-scope": "admin",
-          "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$"
+          "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+          "x-tenantOverride": false
         },
         "dummy": {
           "type": "object",
@@ -3222,12 +3557,14 @@
             "enable": {
               "type": "boolean",
               "default": false,
-              "description": "Whether the dummy handlers are enabled or not."
+              "description": "Whether the dummy handlers are enabled or not.",
+              "x-tenantOverride": false
             },
             "sampleFilePath": {
               "type": "string",
               "default": "",
-              "description": "The dummy path to the sample file."
+              "description": "The dummy path to the sample file.",
+              "x-tenantOverride": true
             }
           },
           "default": {
@@ -3252,14 +3589,16 @@
               "maximum": 10485760000,
               "x-scope": ["admin", "tenant"],
               "description": "A maximum size of the file being requested (measured in bytes).",
-              "default": 104857600
+              "default": 104857600,
+              "x-tenantOverride": true
             },
             "signingKeyStorePath": {
               "type": "string",
               "description": "Legacy. The path to the signing certificate file. Use `signing.keyStorePath` instead.",
               "x-scope": "admin",
               "default": "",
-              "x-pinned": true
+              "x-pinned": true,
+              "x-tenantOverride": true
             },
             "signing": {
               "type": "object",
@@ -3270,7 +3609,8 @@
                 "keyStorePath": {
                   "type": "string",
                   "description": "The path to the signing certificate. P12/PFX for local x2t, PEM chain for cloud signing.",
-                  "x-pinned": true
+                  "x-pinned": true,
+                  "x-tenantOverride": true
                 },
                 "meta": {
                   "type": "object",
@@ -3280,22 +3620,26 @@
                     "reason": {
                       "type": "string",
                       "description": "The purpose of signing (e.g. Approved).",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "name": {
                       "type": "string",
                       "description": "The signer name.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "location": {
                       "type": "string",
                       "description": "The signing location.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "contactInfo": {
                       "type": "string",
                       "description": "The contact details (URL or email).",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     }
                   },
                   "x-pinned": true
@@ -3308,22 +3652,26 @@
                     "endpoint": {
                       "type": "string",
                       "description": "The KMS endpoint URL. Allows alternative KMS-compatible services.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "keyId": {
                       "type": "string",
                       "description": "The KMS key ID or ARN. If set, AWS KMS signing is active.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "accessKeyId": {
                       "type": "string",
                       "description": "The AWS access key. Leave empty to use the default credential chain.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "secretAccessKey": {
                       "type": "string",
                       "description": "The AWS secret access key.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     }
                   },
                   "x-pinned": true
@@ -3336,67 +3684,80 @@
                     "baseUrl": {
                       "type": "string",
                       "description": "The CSC API base URL. If set, CSC signing is active.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "tokenUrl": {
                       "type": "string",
                       "description": "The OAuth2 token endpoint.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "clientId": {
                       "type": "string",
                       "description": "The OAuth2 client ID.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "clientSecret": {
                       "type": "string",
                       "description": "The OAuth2 client secret.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "grantType": {
                       "type": "string",
                       "description": "Optional. The OAuth2 grant type: `''` (auto-detect), `'password'`, or `'client_credentials'`. Empty selects based on presence of username/password.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "clientAuth": {
                       "type": "string",
                       "description": "Optional. How the client authenticates to the token endpoint: `''` (body), `'basic'`, `'body'`, or `'both'`.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "tokenBodyFormat": {
                       "type": "string",
                       "description": "Optional. The token request body format: `'form'` (default, RFC 6749) or `'json'`.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "username": {
                       "type": "string",
                       "description": "Optional. The username for the password grant type.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "password": {
                       "type": "string",
                       "description": "Optional. The password for the password grant type.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "credentialId": {
                       "type": "string",
                       "description": "Optional. The signing credential ID. Auto-discovered via credentials/list when empty.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "clientData": {
                       "type": "string",
                       "description": "Optional. The provider-specific `clientData` for credentials/list (e.g. eSeal credential type).",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "scope": {
                       "type": "string",
                       "description": "Optional. The OAuth2 scope (e.g. `'service'`).",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     },
                     "audience": {
                       "type": "string",
                       "description": "Optional. The OAuth2 audience parameter.",
-                      "x-pinned": true
+                      "x-pinned": true,
+                      "x-tenantOverride": true
                     }
                   },
                   "x-pinned": true
@@ -3421,7 +3782,8 @@
                 }
               },
               "description": "The parameters that can be passed directly to the [node.js child_process.spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options) library (only for running x2t).",
-              "default": {}
+              "default": {},
+              "x-tenantOverride": true
             },
             "inputLimits": {
               "type": "array",
@@ -3504,27 +3866,32 @@
                     }
                   }
                 }
-              }
+              },
+              "x-tenantOverride": true
             },
             "args": {
               "type": "string",
               "description": "The additional parameters for running x2t.",
-              "default": ""
+              "default": "",
+              "x-tenantOverride": true
             },
             "docbuilderPath": {
               "type": "string",
               "description": "A path to the Document Builder application.",
-              "default": "null"
+              "default": "null",
+              "x-tenantOverride": true
             },
             "downloadAttemptDelay": {
               "type": "integer",
               "description": "The attempt delay to download the converted file.",
-              "default": 1000
+              "default": 1000,
+              "x-tenantOverride": true
             },
             "downloadAttemptMaxCount": {
               "type": "integer",
               "description": "A maximum number of attempts to download the converted file.",
-              "default": 3
+              "default": 3,
+              "x-tenantOverride": true
             },
             "downloadTimeout": {
               "type": "object",
@@ -3537,49 +3904,58 @@
                 "connectionAndInactivity": {
                   "type": "string",
                   "description": "A period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
-                  "default": "2m"
+                  "default": "2m",
+                  "x-tenantOverride": true
                 },
                 "wholeCycle": {
                   "type": "string",
                   "description": "The whole request cycle timeout.",
-                  "default": "2m"
+                  "default": "2m",
+                  "x-tenantOverride": true
                 }
               }
             },
             "errorfiles": {
               "type": "string",
               "description": "A path to the error files.",
-              "default": ""
+              "default": "",
+              "x-tenantOverride": true
             },
             "fontDir": {
               "type": "string",
               "description": "A path to the folder with fonts.",
-              "default": "null"
+              "default": "null",
+              "x-tenantOverride": true
             },
             "maxprocesscount": {
               "type": "integer",
               "description": "A maximum number of conversion processes which can be active at one time.",
-              "default": 1
+              "default": 1,
+              "x-tenantOverride": false
             },
             "maxRedeliveredCount": {
               "type": "integer",
               "description": "A maximum number of message re-deliveries.",
-              "default": 2
+              "default": 2,
+              "x-tenantOverride": true
             },
             "presentationThemesDir": {
               "type": "string",
               "description": "A path to the folder with the presentation themes.",
-              "default": "null"
+              "default": "null",
+              "x-tenantOverride": true
             },
             "streamWriterBufferSize": {
               "type": "integer",
               "description": "The StreamWriter buffer size.",
-              "default": 8388608
+              "default": 8388608,
+              "x-tenantOverride": true
             },
             "x2tPath": {
               "type": "string",
               "description": "A path to the x2t file converter.",
-              "default": "null"
+              "default": "null",
+              "x-tenantOverride": true
             }
           },
           "description": "The converter properties.",
@@ -3713,7 +4089,8 @@
         "port": {
           "type": "integer",
           "description": "The port on which the Admin Panel service is running.",
-          "default": 9000
+          "default": 9000,
+          "x-tenantOverride": true
         }
       },
       "x-section-intro": "These parameters configure the Admin Panel properties. For more details on using Admin Panel, you can refer to [this article](https://helpcenter.onlyoffice.com/docs/installation/docs-admin-panel.aspx)."

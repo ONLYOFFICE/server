@@ -252,9 +252,10 @@ exports.CONVERT_DRM = -90;
 exports.CONVERT_PASSWORD = -91;
 exports.CONVERT_ICU = -92;
 exports.CONVERT_LIMITS = -93;
-exports.CONVERT_TEMPORARY = -94;
+exports.CONVERT_ROWLIMITS = -94;
 exports.CONVERT_DETECT = -95;
 exports.CONVERT_CELLLIMITS = -96;
+exports.CONVERT_TEMPORARY = -98;
 exports.CONVERT_DEAD_LETTER = -99;
 exports.UPLOAD = -100;
 exports.UPLOAD_CONTENT_LENGTH = -101;
@@ -332,13 +333,6 @@ exports.ACTIVEMQ_QUEUE_PREFIX = 'queue://';
 exports.ACTIVEMQ_TOPIC_PREFIX = 'topic://';
 
 exports.TEMPLATES_DEFAULT_LOCALE = 'en-US';
-exports.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP = {
-  en: 'en-US',
-  pt: 'pt-BR',
-  zh: 'zh-CH',
-  'pt-PT': 'pt-PT',
-  'zh-TW': 'zh-TW'
-};
 exports.TABLE_RESULT_SCHEMA = [
   'tenant',
   'id',

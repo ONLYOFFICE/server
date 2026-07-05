@@ -71,9 +71,9 @@
 - bytes 3.1.2 ([MIT](https://raw.githubusercontent.com/visionmedia/bytes.js/master/LICENSE))
 - co 4.6.0 ([MIT](https://raw.githubusercontent.com/tj/co/master/LICENSE))
 - config 3.3.12 ([MIT](https://github.com/node-config/node-config/blob/master/LICENSE))
-- lcid 3.1.1 ([MIT](https://raw.githubusercontent.com/sindresorhus/lcid/main/license))
 - ms 2.1.3 ([MIT](https://raw.githubusercontent.com/vercel/ms/master/license.md))
 - pkijs 3.2.4 ([BSD-3-Clause](https://raw.githubusercontent.com/PeculiarVentures/PKI.js/master/LICENSE))
+- windows-locale 1.1.3 ([MIT](https://raw.githubusercontent.com/TiagoDanin/Windows-Locale/master/LICENSE))
 
 ### Metrics
 

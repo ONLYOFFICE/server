@@ -116,6 +116,7 @@ const util = require('util');
 const cfgEditSingleton = config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor = config.get('services.CoAuthoring.editor');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
+const cfgAiApiAllowBrowserProxy = config.get('aiSettings.allowBrowserProxy');
 //The waiting time to document assembly when all out(not 0 in case of F5 in the browser)
 const cfgAscSaveTimeOutDelay = config.get('services.CoAuthoring.server.savetimeoutdelay');
 
@@ -183,7 +184,8 @@ let preStopFlag = false;
 const expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
 const MIN_SAVE_EXPIRATION = 60000;
-const SHARD_ID = crypto.randomBytes(16).toString('base64'); //16 as guid
+// replica/shard id from env; random fallback keeps it always set and unique per process
+const SHARD_ID = process.env.REPLICA_ID || crypto.randomUUID();
 
 const PRECISION = [
   {name: 'hour', val: ms('1h')},
@@ -461,7 +463,8 @@ function updatePresenceCounters(ctx, conn, val) {
       aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
       //yield ctx.initTenantCache(); //no need.only global config
     }
-    if (utils.isLiveViewer(conn)) {
+    const mode = utils.getConnectionCountMode(conn);
+    if ('liveview' === mode) {
       yield editorStat.incrLiveViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
         yield editorStat.incrLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
@@ -470,7 +473,7 @@ function updatePresenceCounters(ctx, conn, val) {
         const countLiveView = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
         clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
       }
-    } else if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+    } else if ('view' === mode) {
       yield editorStat.incrViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
         yield editorStat.incrViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
@@ -490,6 +493,49 @@ function updatePresenceCounters(ctx, conn, val) {
       }
     }
   });
+}
+// legacy gauges report the editorStat scope: local process in memory mode, shared shard aggregate in redis mode
+async function emitLegacyConnectionGauges(ctx, statsDClient, editorStatSrc, visibleConnections) {
+  if (!statsDClient) {
+    return;
+  }
+  const countEdit = await editorStatSrc.getEditorConnectionsCount(ctx, visibleConnections);
+  statsDClient.gauge('expireDoc.connections.edit', countEdit);
+  const countLiveView = await editorStatSrc.getLiveViewerConnectionsCount(ctx, visibleConnections);
+  statsDClient.gauge('expireDoc.connections.liveview', countLiveView);
+  const countView = await editorStatSrc.getViewerConnectionsCount(ctx, visibleConnections);
+  statsDClient.gauge('expireDoc.connections.view', countView);
+}
+function buildReplicaTags(replicaId) {
+  if (!replicaId) {
+    return undefined;
+  }
+  // DogStatsD tag values must not contain ',', ':', '|' or '#'
+  const safe = String(replicaId).replace(/[^A-Za-z0-9_.-]/g, '_');
+  return ['replica:' + safe];
+}
+const replicaTags = buildReplicaTags(SHARD_ID);
+// per-replica gauge: one name, mode and replica as labels, counts from this process
+function emitLocalConnectionGauges(statsDClient, localCounts, instanceTags) {
+  if (!statsDClient) {
+    return;
+  }
+  const base = instanceTags || [];
+  for (const mode of ['edit', 'liveview', 'view']) {
+    statsDClient.gauge('coauth.connections', localCounts[mode], undefined, [...base, 'mode:' + mode]);
+  }
+}
+// zero shard counters for tenants gone since the previous cycle
+async function resetDisappearedTenantCounters(prevTenants, currentTenants) {
+  for (const tenantId of prevTenants) {
+    if (!currentTenants.has(tenantId)) {
+      const tenantCtx = new operationContext.Context();
+      tenantCtx.setTenant(tenantId);
+      await editorStat.setEditorConnectionsCountByShard(tenantCtx, SHARD_ID, 0);
+      await editorStat.setLiveViewerConnectionsCountByShard(tenantCtx, SHARD_ID, 0);
+      await editorStat.setViewerConnectionsCountByShard(tenantCtx, SHARD_ID, 0);
+    }
+  }
 }
 function addPresence(ctx, conn, updateCunters) {
   return co(function* () {
@@ -1725,13 +1771,7 @@ function getRequestParams(ctx, req, _opt_isNotInBody) {
           if (tenTokenRequiredParams) {
             res.params = {};
           }
-          Object.assign(res.params, checkJwtRes.decoded);
-          if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
-            Object.assign(res.params, checkJwtRes.decoded.payload);
-          }
-          if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
-            Object.assign(res.params, checkJwtRes.decoded.query);
-          }
+          utils.mergeJwtDecodedParams(res.params, checkJwtRes.decoded);
         } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
           res.code = constants.VKEY_KEY_EXPIRE;
         }
@@ -1805,6 +1845,10 @@ async function isSchemaCompatible([tableName, tableSchema]) {
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
 exports.editorStat = editorStat;
+exports.emitLegacyConnectionGauges = emitLegacyConnectionGauges;
+exports.emitLocalConnectionGauges = emitLocalConnectionGauges;
+exports.buildReplicaTags = buildReplicaTags;
+exports.resetDisappearedTenantCounters = resetDisappearedTenantCounters;
 exports.editorStatProxy = editorStatProxy;
 exports.sendData = sendData;
 exports.modifyConnectionForPassword = modifyConnectionForPassword;
@@ -3923,6 +3967,7 @@ exports.install = function (server, app, callbackFunction) {
 
         const [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
         const pluginSettings = yield aiProxyHandler.getPluginSettingsForInterface(ctx);
+        const tenAllowBrowserProxy = ctx.getCfg('aiSettings.allowBrowserProxy', cfgAiApiAllowBrowserProxy);
         sendData(ctx, conn, {
           type: 'license',
           license: {
@@ -3939,7 +3984,8 @@ exports.install = function (server, app, callbackFunction) {
             customization: licenseInfo.customization,
             advancedApi: licenseInfo.advancedApi
           },
-          aiPluginSettings: pluginSettings
+          aiPluginSettings: pluginSettings,
+          aiPluginSettingsAllowBrowserProxy: tenAllowBrowserProxy
         });
         ctx.logger.info('_checkLicense end');
       } catch (err) {
@@ -4269,6 +4315,7 @@ exports.install = function (server, app, callbackFunction) {
     const now = Date.now();
     yield editorStat.setEditorConnections(ctx, countEdit, countLiveView, countView, now, PRECISION);
   }
+  let expireDocPrevTenants = new Set();
   function expireDoc() {
     return co(function* () {
       const ctx = new operationContext.Context();
@@ -4334,10 +4381,11 @@ exports.install = function (server, app, callbackFunction) {
             ctx.logger.error('expireDoc connection closed');
           }
           yield updatePresence(ctx, conn);
-          if (utils.isLiveViewer(conn)) {
+          const mode = utils.getConnectionCountMode(conn);
+          if ('liveview' === mode) {
             countLiveViewByShard++;
             tenant.countLiveViewByShard++;
-          } else if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+          } else if ('view' === mode) {
             countViewByShard++;
             tenant.countViewByShard++;
           } else {
@@ -4353,16 +4401,19 @@ exports.install = function (server, app, callbackFunction) {
             yield editorStat.setEditorConnectionsCountByShard(ctx, SHARD_ID, tenant.countEditByShard);
             yield editorStat.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countLiveViewByShard);
             yield editorStat.setViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countViewByShard);
-            if (clientStatsD) {
-              //todo with multitenant
-              const countEdit = yield editorStat.getEditorConnectionsCount(ctx, connections);
-              clientStatsD.gauge('expireDoc.connections.edit', countEdit);
-              const countLiveView = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
-              clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
-              const countView = yield editorStat.getViewerConnectionsCount(ctx, connections);
-              clientStatsD.gauge('expireDoc.connections.view', countView);
-            }
+            //todo with multitenant
+            yield emitLegacyConnectionGauges(ctx, clientStatsD, editorStat, connections);
           }
+        }
+        const currentTenants = new Set(Object.keys(tenants));
+        yield resetDisappearedTenantCounters(expireDocPrevTenants, currentTenants);
+        expireDocPrevTenants = currentTenants;
+        if (0 === Object.keys(tenants).length) {
+          // no connections: reconcile shard counters and legacy gauges to zero
+          yield editorStat.setEditorConnectionsCountByShard(ctx, SHARD_ID, 0);
+          yield editorStat.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, 0);
+          yield editorStat.setViewerConnectionsCountByShard(ctx, SHARD_ID, 0);
+          yield emitLegacyConnectionGauges(ctx, clientStatsD, editorStat, connections);
         }
         if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
           //aggregated tenant stats
@@ -4374,6 +4425,7 @@ exports.install = function (server, app, callbackFunction) {
           yield editorStat.setLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countLiveViewByShard);
           yield editorStat.setViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countViewByShard);
         }
+        emitLocalConnectionGauges(clientStatsD, {edit: countEditByShard, liveview: countLiveViewByShard, view: countViewByShard}, replicaTags);
         ctx.initDefault();
       } catch (err) {
         ctx.logger.error('expireDoc error: %s', err.stack);
