@@ -167,6 +167,12 @@ function describeRequestError(error) {
   return `message=${error?.message} code=${error?.code} status=${status}`;
 }
 
+// Release the upstream socket/stream; safe after normal completion (no-op) or on client abort.
+function destroyUpstream(result) {
+  result?.stream?.destroy?.();
+  result?.response?.data?.destroy?.();
+}
+
 /**
  * Detects provider type and generates appropriate authentication headers based on URL patterns
  *
@@ -249,6 +255,7 @@ async function proxyRequest(req, res) {
   ctx.initFromRequest(req);
   const startDate = new Date();
   let success = false;
+  let result = null;
 
   try {
     ctx.logger.info('Start proxyRequest');
@@ -287,7 +294,17 @@ async function proxyRequest(req, res) {
       ctx.setUserId(userId);
     }
 
-    const body = JSON.parse(req.body);
+    let body;
+    try {
+      body = JSON.parse(req.body);
+    } catch (_) {
+      body = null;
+    }
+    if (!body || typeof body !== 'object') {
+      ctx.logger.warn('proxyRequest: invalid request body');
+      res.status(400).json({error: {message: 'proxyRequest: invalid request body', code: '400'}});
+      return;
+    }
     let uri = body.target;
 
     const providerHeaders = {};
@@ -317,7 +334,7 @@ async function proxyRequest(req, res) {
         await relayBrowserProxy(ctx, req, res, body, tenAiApiTimeout);
         return;
       }
-      ctx.logger.warn(`proxyRequest: target '${uri}' does not match any configured AI provider. Denying access.`);
+      ctx.logger.warn('proxyRequest: target %s does not match any configured AI provider. Denying access.', targetOrigin || 'invalid');
       res.status(403).json({
         error: {
           message: 'proxyRequest: target does not match any configured AI provider',
@@ -386,7 +403,7 @@ async function proxyRequest(req, res) {
     ctx.logger.debug('proxyRequest request: method=%s target=%s', requestParams.method, targetOrigin || 'invalid');
 
     // Use utils.httpRequest to make the request
-    const result = await utils.httpRequest(
+    result = await utils.httpRequest(
       ctx, // Operation context
       requestParams.method, // HTTP method
       requestParams.uri, // Target URL
@@ -400,7 +417,8 @@ async function proxyRequest(req, res) {
       }
     );
 
-    // Sanitize upstream headers (drop Set-Cookie/hop-by-hop) before relaying to the editor origin.
+    // Preserve the upstream status and sanitize upstream headers (drop Set-Cookie/hop-by-hop) before relaying.
+    res.status(result.response.status);
     res.set(sanitizeProxyResponseHeaders(result.response.headers));
 
     // Use pipeline to pipe the response data to the client
@@ -415,6 +433,7 @@ async function proxyRequest(req, res) {
     if (!res.headersSent) {
       try {
         if (error.response) {
+          res.status(error.response.status || error.statusCode || 502);
           res.set(sanitizeProxyResponseHeaders(error.response.headers));
           await pipeline(error.response.data, res);
         } else {
@@ -430,6 +449,8 @@ async function proxyRequest(req, res) {
       }
     }
   } finally {
+    // Release the upstream socket promptly so a client abort does not hold it until the timeout.
+    destroyUpstream(result);
     // Record the time taken for the proxyRequest in StatsD (skip cors requests and errors)
     if (clientStatsD && success) {
       clientStatsD.timing('coauth.aiProxy', new Date() - startDate);
@@ -453,6 +474,7 @@ async function proxyRequest(req, res) {
 async function relayBrowserProxy(ctx, req, res, body, tenAiApiTimeout) {
   const startDate = new Date();
   let success = false;
+  let result = null;
 
   try {
     const uri = body.target;
@@ -492,7 +514,7 @@ async function relayBrowserProxy(ctx, req, res, body, tenAiApiTimeout) {
     // Log only the safe origin; headers and body carry client secrets and must not be logged.
     ctx.logger.debug('proxyRequest relay: %s to %s', method, parsedTarget.origin);
 
-    const result = await utils.httpRequest(
+    result = await utils.httpRequest(
       ctx,
       method,
       uri,
@@ -528,6 +550,8 @@ async function relayBrowserProxy(ctx, req, res, body, tenAiApiTimeout) {
       }
     }
   } finally {
+    // Release the upstream socket promptly so a client abort does not hold it until the timeout.
+    destroyUpstream(result);
     if (clientStatsD && success) {
       clientStatsD.timing('coauth.aiBrowserProxy', new Date() - startDate);
     }
