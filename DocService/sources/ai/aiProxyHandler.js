@@ -107,8 +107,35 @@ function handleCorsHeaders(req, res, ctx, handleOptions = true) {
 
 const safeUrlOrigin = url => (URL.canParse(url) ? new URL(url).origin : null);
 
+// True when the normalized target is the configured base origin+path or strictly under it; component check blocks '..' escape, sibling-prefix borrow (/v1 vs /v1beta) and userinfo/host tricks.
+function isUnderProviderBase(baseUrl, normalizedTarget) {
+  let base;
+  let target;
+  try {
+    base = new URL(baseUrl);
+    target = new URL(normalizedTarget);
+  } catch (_) {
+    return false;
+  }
+  if (base.origin !== target.origin) {
+    return false;
+  }
+  const basePath = base.pathname;
+  // Root base path means the admin trusts the whole origin.
+  if (basePath === '/') {
+    return true;
+  }
+  if (target.pathname === basePath) {
+    return true;
+  }
+  const boundary = basePath.endsWith('/') ? basePath : basePath + '/';
+  return target.pathname.startsWith(boundary);
+}
+
 // HTTP methods the browser-proxy relay accepts; anything else is rejected before egress.
 const RELAY_ALLOWED_METHODS = ['GET', 'POST', 'DELETE', 'HEAD'];
+// Methods refused on the matched-provider path; a narrow denylist keeps AI/MCP verbs (GET/POST/PUT/PATCH/DELETE) working.
+const MATCHED_FORBIDDEN_METHODS = ['CONNECT', 'TRACE'];
 // Hop-by-hop, connection-management and proxy headers the client must not control on the outgoing request.
 const STRIP_REQUEST_HEADERS = [
   'host',
@@ -143,6 +170,21 @@ function sanitizeProxyRequestHeaders(headers) {
     if (!STRIP_REQUEST_HEADERS.includes(key.toLowerCase())) {
       res[key] = headers[key];
     }
+  }
+  return res;
+}
+
+// Merge server-injected provider headers over client headers, dropping any client case-variant so it cannot shadow the injected value on the wire.
+function mergeProviderHeaders(clientHeaders, providerHeaders) {
+  const res = {...clientHeaders};
+  for (const injected of Object.keys(providerHeaders)) {
+    const lower = injected.toLowerCase();
+    for (const existing of Object.keys(res)) {
+      if (existing.toLowerCase() === lower) {
+        delete res[existing];
+      }
+    }
+    res[injected] = providerHeaders[injected];
   }
   return res;
 }
@@ -189,7 +231,8 @@ function insertKeyToProvider(ctx, providerUrl, providerKey, uri, providerHeaders
   }
 
   // Prefer the auth slot the client left for us (empty header or empty key= query) over hardcoded per-provider rules.
-  const authHeader = Object.keys(requestHeaders).find(h => ['authorization', 'x-api-key', 'api-key'].includes(h.toLowerCase()));
+  const clientHeaderNames = requestHeaders && typeof requestHeaders === 'object' ? Object.keys(requestHeaders) : [];
+  const authHeader = clientHeaderNames.find(h => ['authorization', 'x-api-key', 'api-key'].includes(h.toLowerCase()));
   if (authHeader) {
     providerHeaders[authHeader] = authHeader.toLowerCase() === 'authorization' ? `Bearer ${providerKey}` : providerKey;
     return uri;
@@ -307,16 +350,30 @@ async function proxyRequest(req, res) {
     }
     let uri = body.target;
 
+    // Match and fetch on the same canonical bytes; a raw match lets '..' or '%2e%2e' escape the configured base path (egress re-normalizes before fetch).
+    let normalizedTarget = null;
+    if (typeof uri === 'string') {
+      try {
+        const canon = utils.normalizeExternalUri(uri);
+        const parsed = new URL(canon);
+        // Only http(s) targets are eligible for the trusted matched path; anything else falls through to the filtered relay.
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          normalizedTarget = canon;
+        }
+      } catch (_) {
+        normalizedTarget = null;
+      }
+    }
+    const targetOrigin = normalizedTarget ? safeUrlOrigin(normalizedTarget) : null;
+
     const providerHeaders = {};
     let providerMatched = false;
-    // Determine which configured target/secret to use based on the URL.
-    // Compare origins first to prevent userinfo-SSRF (e.g. https://api.x.com@evil.com)
-    // and subdomain-bypass (e.g. https://api.x.com.evil.com) that startsWith alone would miss.
-    const targetOrigin = uri ? safeUrlOrigin(uri) : null;
-    if (targetOrigin) {
+    // Determine which configured target/secret to use; match on normalized origin + path containment so the key is bound to the configured base.
+    if (normalizedTarget) {
       for (const target of getAiProxyTargets(tenAiApi)) {
-        if (safeUrlOrigin(target.url) === targetOrigin && uri.startsWith(target.url)) {
+        if (target?.url && isUnderProviderBase(target.url, normalizedTarget)) {
           providerMatched = true;
+          uri = normalizedTarget;
           if (target.headers) {
             // MCP servers carry their own auth headers; restore them verbatim from config.
             Object.assign(providerHeaders, target.headers);
@@ -344,8 +401,20 @@ async function proxyRequest(req, res) {
       return;
     }
 
-    // Merge key in headers; providerHeaders (spread last) always wins - axios normalises header names case-insensitively.
-    const headers = {...sanitizeProxyRequestHeaders(body.headers || {}), ...providerHeaders};
+    // Matched path attaches the org credential; validate the client-shaped request before egress.
+    if (body.headers != null && (typeof body.headers !== 'object' || Array.isArray(body.headers))) {
+      ctx.logger.warn('proxyRequest: invalid headers');
+      res.status(400).json({error: {message: 'proxyRequest: invalid headers', code: '400'}});
+      return;
+    }
+    if (typeof body.method !== 'string' || MATCHED_FORBIDDEN_METHODS.includes(body.method.toUpperCase())) {
+      ctx.logger.warn('proxyRequest: method not allowed');
+      res.status(400).json({error: {message: 'proxyRequest: method not allowed', code: '400'}});
+      return;
+    }
+
+    // Server-injected provider headers are authoritative; drop any client case-variant so it cannot shadow them (axios does NOT dedupe header names case-insensitively).
+    const headers = mergeProviderHeaders(sanitizeProxyRequestHeaders(body.headers || {}), providerHeaders);
 
     // Preserve Accept-Encoding from original request if not explicitly provided
     if (!headers['accept-encoding'] && req.headers['accept-encoding']) {
@@ -373,12 +442,12 @@ async function proxyRequest(req, res) {
         const auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
         headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + auth;
       }
-      // Replace protocol, host and port in URI with proxy URL
+      // Route through the proxy: protocol, hostname and port come from the proxy; set port explicitly so a default-port proxy does not inherit the provider port.
       const proxyUrl = new URL(tenAiApiProxy);
       const targetUrl = new URL(uri);
       targetUrl.protocol = proxyUrl.protocol;
-      targetUrl.host = proxyUrl.host;
-      targetUrl.port = proxyUrl.port || targetUrl.port;
+      targetUrl.hostname = proxyUrl.hostname;
+      targetUrl.port = proxyUrl.port;
       uri = targetUrl.toString();
       ctx.logger.debug(`proxyRequest: Updated URI to use proxy host: ${tenAiApiProxy}`);
     }
@@ -413,7 +482,9 @@ async function proxyRequest(req, res) {
       requestParams.limit, // Size limit
       requestParams.isInJwtToken, // Filter private requests
       {
-        decompress: false
+        decompress: false,
+        // Matched path runs with the private-IP filter off (isInJwtToken=true), so never follow a redirect to a different private/metadata host.
+        maxRedirects: 0
       }
     );
 
@@ -648,6 +719,7 @@ module.exports = {
   getPluginSettings,
   getPluginSettingsForInterface,
   sanitizeProxyRequestHeaders,
+  mergeProviderHeaders,
   sanitizeProxyResponseHeaders,
   describeRequestError
 };

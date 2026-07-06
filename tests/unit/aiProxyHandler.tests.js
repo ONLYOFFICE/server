@@ -118,6 +118,17 @@ describe('aiProxyHandler sanitizers', () => {
     expect(lower).not.toContain('proxy-authorization');
   });
 
+  test('mergeProviderHeaders drops client case-variants so the injected value wins', () => {
+    const out = aiProxyHandler.mergeProviderHeaders(
+      {Authorization: 'junk', authorization: '', 'content-type': 'application/json'},
+      {Authorization: 'Bearer sk-server'}
+    );
+    const authKeys = Object.keys(out).filter(k => k.toLowerCase() === 'authorization');
+    expect(authKeys).toEqual(['Authorization']);
+    expect(out['Authorization']).toBe('Bearer sk-server');
+    expect(out['content-type']).toBe('application/json');
+  });
+
   test('describeRequestError logs only message/code/status, never axios config or headers', () => {
     const err = new Error('Request failed with status code 401');
     err.code = 'ERR_BAD_REQUEST';
@@ -307,6 +318,157 @@ describe('aiProxyHandler proxyRequest (merged relay)', () => {
     expect(res.status).toBe(429);
     expect(res.headers['set-cookie']).toBeUndefined();
     expect(res.body).toContain('rate');
+  });
+
+  test('path escape via ".." is rejected: no match, no key, no egress', async () => {
+    mockContext({aiSettings: {providers: {p1: {url: 'https://api.example.com/v1', key: 'sk-server'}}}, 'aiSettings.allowBrowserProxy': false});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({response: {status: 200, headers: {}}, stream: Readable.from([])});
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com/v1/../admin', method: 'POST', headers: {}, data: '{}'});
+    expect(res.status).toBe(403);
+    expect(httpSpy).not.toHaveBeenCalled();
+  });
+
+  test('path escape via encoded "%2e%2e" is rejected', async () => {
+    mockContext({aiSettings: {providers: {p1: {url: 'https://api.example.com/v1', key: 'sk-server'}}}, 'aiSettings.allowBrowserProxy': false});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({response: {status: 200, headers: {}}, stream: Readable.from([])});
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com/v1/%2e%2e/admin', method: 'POST', headers: {}, data: '{}'});
+    expect(res.status).toBe(403);
+    expect(httpSpy).not.toHaveBeenCalled();
+  });
+
+  test('sibling-prefix "/v1beta" is not matched by base "/v1"', async () => {
+    mockContext({aiSettings: {providers: {p1: {url: 'https://api.example.com/v1', key: 'sk-server'}}}, 'aiSettings.allowBrowserProxy': false});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({response: {status: 200, headers: {}}, stream: Readable.from([])});
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com/v1beta/models', method: 'POST', headers: {}, data: '{}'});
+    expect(res.status).toBe(403);
+    expect(httpSpy).not.toHaveBeenCalled();
+  });
+
+  test('legitimate "/v1/chat" under base "/v1" matches, injects key, stays trusted', async () => {
+    mockContext({aiSettings: {providers: {p1: {url: 'https://api.example.com/v1', key: 'sk-server'}}}, 'aiSettings.allowBrowserProxy': false});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
+      response: {status: 200, headers: {'content-type': 'application/json'}},
+      stream: Readable.from(['{"ok":true}'])
+    });
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com/v1/chat', method: 'POST', headers: {}, data: '{}'});
+    expect(res.status).toBe(200);
+    const args = httpSpy.mock.calls[0];
+    expect(args[7]).toBe(true);
+    expect(args[3]['Authorization']).toBe('Bearer sk-server');
+  });
+
+  test('matched path disables redirect following (maxRedirects: 0)', async () => {
+    mockContext({aiSettings: {providers: {p1: {url: 'https://api.example.com', key: 'sk-server'}}}, 'aiSettings.allowBrowserProxy': false});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
+      response: {status: 200, headers: {'content-type': 'application/json'}},
+      stream: Readable.from(['{"ok":true}'])
+    });
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com/v1/chat', method: 'POST', headers: {}, data: '{}'});
+    expect(res.status).toBe(200);
+    const args = httpSpy.mock.calls[0];
+    expect(args[8]).toMatchObject({maxRedirects: 0});
+  });
+
+  test('auth case-shadow cannot suppress the injected key', async () => {
+    mockContext({aiSettings: {providers: {p1: {url: 'https://api.example.com', key: 'sk-server'}}}, 'aiSettings.allowBrowserProxy': false});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
+      response: {status: 200, headers: {'content-type': 'application/json'}},
+      stream: Readable.from(['{"ok":true}'])
+    });
+    const res = await postJson('/ai-proxy', {
+      target: 'https://api.example.com/v1/chat',
+      method: 'POST',
+      headers: {Authorization: 'junk', authorization: ''},
+      data: '{}'
+    });
+    expect(res.status).toBe(200);
+    const args = httpSpy.mock.calls[0];
+    const authKeys = Object.keys(args[3]).filter(k => k.toLowerCase() === 'authorization');
+    expect(authKeys).toHaveLength(1);
+    expect(args[3][authKeys[0]]).toBe('Bearer sk-server');
+    expect(Object.values(args[3])).not.toContain('junk');
+  });
+
+  test('configured MCP headers win over a client case-shadow', async () => {
+    mockContext({
+      aiSettings: {pluginSettings: {mcpServers: {m1: {url: 'https://mcp.example.com/sse', headers: {Authorization: 'Bearer mcp-secret'}}}}},
+      'aiSettings.allowBrowserProxy': false
+    });
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
+      response: {status: 200, headers: {'content-type': 'application/json'}},
+      stream: Readable.from(['{"ok":true}'])
+    });
+    const res = await postJson('/ai-proxy', {
+      target: 'https://mcp.example.com/sse',
+      method: 'POST',
+      headers: {authorization: 'junk'},
+      data: '{}'
+    });
+    expect(res.status).toBe(200);
+    const args = httpSpy.mock.calls[0];
+    const authKeys = Object.keys(args[3]).filter(k => k.toLowerCase() === 'authorization');
+    expect(authKeys).toEqual(['Authorization']);
+    expect(args[3]['Authorization']).toBe('Bearer mcp-secret');
+  });
+
+  test('proxy without explicit port does not inherit the provider port', async () => {
+    mockContext({
+      aiSettings: {providers: {p1: {url: 'http://127.0.0.1:11434', key: 'sk-server'}}},
+      'aiSettings.proxy': 'https://egress.internal',
+      'aiSettings.allowBrowserProxy': false
+    });
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
+      response: {status: 200, headers: {'content-type': 'application/json'}},
+      stream: Readable.from(['{"ok":true}'])
+    });
+    const res = await postJson('/ai-proxy', {target: 'http://127.0.0.1:11434/api/x', method: 'POST', headers: {}, data: '{}'});
+    expect(res.status).toBe(200);
+    const args = httpSpy.mock.calls[0];
+    expect(args[2]).toBe('https://egress.internal/api/x');
+    expect(args[2]).not.toContain('11434');
+  });
+
+  test('proxy with explicit port keeps that port', async () => {
+    mockContext({
+      aiSettings: {providers: {p1: {url: 'http://127.0.0.1:11434', key: 'sk-server'}}},
+      'aiSettings.proxy': 'https://egress.internal:9443',
+      'aiSettings.allowBrowserProxy': false
+    });
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
+      response: {status: 200, headers: {'content-type': 'application/json'}},
+      stream: Readable.from(['{"ok":true}'])
+    });
+    const res = await postJson('/ai-proxy', {target: 'http://127.0.0.1:11434/api/x', method: 'POST', headers: {}, data: '{}'});
+    expect(res.status).toBe(200);
+    const args = httpSpy.mock.calls[0];
+    expect(args[2]).toBe('https://egress.internal:9443/api/x');
+  });
+
+  test('matched path rejects forbidden method TRACE with 400', async () => {
+    mockContext({aiSettings: {providers: {p1: {url: 'https://api.example.com', key: 'sk-server'}}}, 'aiSettings.allowBrowserProxy': false});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({response: {status: 200, headers: {}}, stream: Readable.from([])});
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com/v1/chat', method: 'TRACE', headers: {}, data: '{}'});
+    expect(res.status).toBe(400);
+    expect(httpSpy).not.toHaveBeenCalled();
+  });
+
+  test('invalid target URL returns 400 (unsupported protocol, browser-proxy relays and rejects)', async () => {
+    mockContext({aiSettings: {providers: {p1: {url: 'https://api.example.com', key: 'sk-server'}}}, 'aiSettings.allowBrowserProxy': true});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({response: {status: 200, headers: {}}, stream: Readable.from([])});
+    const res = await postJson('/ai-proxy', {target: 'file:///etc/passwd', method: 'GET'});
+    expect(res.status).toBe(400);
+    expect(httpSpy).not.toHaveBeenCalled();
   });
 });
 

@@ -324,6 +324,11 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
   }
   return res;
 }
+// Canonicalize an external URI with the serializer the egress layer applies, so callers match on the exact bytes that will be fetched.
+function normalizeExternalUri(uri) {
+  return URI.serialize(URI.parse(uri));
+}
+exports.normalizeExternalUri = normalizeExternalUri;
 /*
  * @param {object} options - The options object to modify.
  */
