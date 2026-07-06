@@ -59,6 +59,9 @@ const clientStatsD = statsDClient.getClient();
 // AI plugin config.json guids (web DD007, desktop DD777) whose presence enables /ai-proxy; lowercased for case-insensitive match.
 const AI_PLUGIN_GUIDS = ['asc.{9dc93cdb-b576-4f0c-b55e-fcc9c48dd007}'];
 
+// Placeholder sent to the browser instead of a real key so client SDKs pass their local auth checks; insertKeyToProvider swaps it for the real key on proxy egress.
+const AI_KEY_PLACEHOLDER = '********';
+
 /**
  * Helper function to set CORS headers if the request origin is allowed
  *
@@ -234,9 +237,30 @@ function insertKeyToProvider(ctx, providerUrl, providerKey, uri, providerHeaders
     return uri;
   }
 
-  // Prefer the auth slot the client left for us (empty header or empty key= query) over hardcoded per-provider rules.
-  const clientHeaderNames = requestHeaders && typeof requestHeaders === 'object' ? Object.keys(requestHeaders) : [];
-  const authHeader = clientHeaderNames.find(h => ['authorization', 'x-api-key', 'api-key'].includes(h.toLowerCase()));
+  // Universal swap: wherever the client left the placeholder (any header value or the URL), substitute the real key in place and keep the client's own format.
+  const clientHeaders = requestHeaders && typeof requestHeaders === 'object' ? requestHeaders : {};
+  let placeholderFound = false;
+  for (const name of Object.keys(clientHeaders)) {
+    // Skip hop-by-hop names so the swap never resurrects a stripped header (mergeProviderHeaders re-adds injected headers after the hop-by-hop strip).
+    if (STRIP_REQUEST_HEADERS.includes(name.toLowerCase())) {
+      continue;
+    }
+    const value = clientHeaders[name];
+    if (typeof value === 'string' && value.includes(AI_KEY_PLACEHOLDER)) {
+      providerHeaders[name] = value.split(AI_KEY_PLACEHOLDER).join(providerKey);
+      placeholderFound = true;
+    }
+  }
+  if (typeof uri === 'string' && uri.includes(AI_KEY_PLACEHOLDER)) {
+    uri = uri.split(AI_KEY_PLACEHOLDER).join(encodeURIComponent(providerKey));
+    placeholderFound = true;
+  }
+  if (placeholderFound) {
+    return uri;
+  }
+
+  // No placeholder present (legacy clients send an empty slot): prefer the auth slot the client left for us over hardcoded per-provider rules.
+  const authHeader = Object.keys(clientHeaders).find(h => ['authorization', 'x-api-key', 'api-key', 'x-goog-api-key'].includes(h.toLowerCase()));
   if (authHeader) {
     providerHeaders[authHeader] = authHeader.toLowerCase() === 'authorization' ? `Bearer ${providerKey}` : providerKey;
     return uri;
@@ -656,30 +680,32 @@ async function getPluginSettings(ctx) {
   };
 }
 
-// Blank secret values inside the opaque v5 plugin settings blob before sending it to the browser; the server AI proxy injects real credentials.
+// Replace secret values inside the opaque v5 plugin settings blob before sending it to the browser; the server AI proxy injects real credentials.
 function stripPluginSettingsSecrets(blob) {
   if (!blob || typeof blob !== 'object') {
     return blob;
   }
-  // Blank per-profile API keys.
+  // Only non-empty keys get the placeholder so unconfigured profiles still look unconfigured to the client.
   if (Array.isArray(blob.profiles)) {
     for (const profile of blob.profiles) {
       if (profile && profile.key) {
-        profile.key = '';
+        profile.key = AI_KEY_PLACEHOLDER;
       }
     }
   }
-  // Blank the web search provider key.
+  // Replace the web search provider key with the placeholder; its client sends the key only in auth headers, never in query.
   if (blob.webSearch && blob.webSearch.key) {
-    blob.webSearch.key = '';
+    blob.webSearch.key = AI_KEY_PLACEHOLDER;
   }
-  // Blank MCP server header values; the proxy restores them from config on use.
+  // Replace non-empty MCP server header values with the placeholder; the proxy restores the real values verbatim from config by target.url match on use.
   if (blob.mcpServers && typeof blob.mcpServers === 'object') {
     for (const id in blob.mcpServers) {
       const server = blob.mcpServers[id];
       if (server && server.headers && typeof server.headers === 'object') {
         for (const header in server.headers) {
-          server.headers[header] = '';
+          if (server.headers[header]) {
+            server.headers[header] = AI_KEY_PLACEHOLDER;
+          }
         }
       }
     }
@@ -732,5 +758,8 @@ module.exports = {
   sanitizeProxyRequestHeaders,
   mergeProviderHeaders,
   sanitizeProxyResponseHeaders,
-  describeRequestError
+  describeRequestError,
+  insertKeyToProvider,
+  stripPluginSettingsSecrets,
+  AI_KEY_PLACEHOLDER
 };
