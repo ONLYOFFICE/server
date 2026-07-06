@@ -223,6 +223,64 @@ exports.listFolders = function (fsPath, optNoSubDir) {
     return list;
   });
 };
+let installedPluginsCache = null;
+const installedPluginsExpire = ms('5m');
+// Drop the cached plugin scan so the next read re-scans; call from the plugins-folder fs.watch.
+exports.invalidateInstalledPluginsCache = function () {
+  installedPluginsCache = null;
+};
+// Scan the local plugins folder once; return each folder that has a readable config.json as {name, guid} (guid null when absent). Cached; empty when plugins are not served from disk.
+exports.getInstalledPlugins = function () {
+  return co(function* () {
+    const now = Date.now();
+    if (installedPluginsCache && now - installedPluginsCache.time < installedPluginsExpire) {
+      return installedPluginsCache.value;
+    }
+    const plugins = [];
+    if (config.has('services.CoAuthoring.server.static_content') && config.has('services.CoAuthoring.plugins.uri')) {
+      const staticContent = config.get('services.CoAuthoring.server.static_content');
+      const pluginsUri = config.get('services.CoAuthoring.plugins.uri');
+      const pluginsPath = staticContent[pluginsUri] && staticContent[pluginsUri].path;
+      if (pluginsPath) {
+        const folders = yield exports.listFolders(pluginsPath, true);
+        for (let i = 0; i < folders.length; ++i) {
+          let raw = null;
+          try {
+            raw = yield fsPromises.readFile(path.join(folders[i], 'config.json'), 'utf8');
+          } catch (_e) {
+            raw = null;
+          }
+          if (raw === null) {
+            continue;
+          }
+          let guid = null;
+          try {
+            const parsed = JSON.parse(raw);
+            guid = typeof parsed.guid === 'string' ? parsed.guid : null;
+          } catch (_e) {
+            guid = null;
+          }
+          plugins.push({name: path.basename(folders[i]), guid});
+        }
+      }
+    }
+    installedPluginsCache = {value: plugins, time: now};
+    return plugins;
+  });
+};
+// Lowercased guid set of installed plugins; gate features on a specific plugin being present.
+exports.getInstalledPluginGuids = function () {
+  return co(function* () {
+    const plugins = yield exports.getInstalledPlugins();
+    const guids = new Set();
+    for (let i = 0; i < plugins.length; ++i) {
+      if (plugins[i].guid) {
+        guids.add(plugins[i].guid.toLowerCase());
+      }
+    }
+    return guids;
+  });
+};
 exports.listObjects = function (fsPath, optNoSubDir) {
   return co(function* () {
     let stats;
@@ -464,7 +522,7 @@ async function downloadUrlPromise(
     if (err.status) {
       err.statusCode = err.status;
     } else if (!err.statusCode) {
-      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
+      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
       err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
@@ -556,7 +614,7 @@ async function postRequestPromise(
     if (err.status) {
       err.statusCode = err.status;
     } else if (!err.statusCode) {
-      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
+      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
       err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
@@ -641,7 +699,7 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
     if (err.status) {
       err.statusCode = err.status;
     } else if (!err.statusCode) {
-      // Unwrap cause chain: AxiosError.cause → RedirectionError.cause → original error with statusCode
+      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
       err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;

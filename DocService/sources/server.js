@@ -124,6 +124,7 @@ const updatePluginsCacheExpire = ms('5m');
 const updatePlugins = (eventType, filename) => {
   operationContext.global.logger.info('update Folder true: %s ; %s', eventType, filename);
   userPlugins = undefined;
+  utils.invalidateInstalledPluginsCache();
 };
 const readLicense = async function () {
   [licenseInfo, licenseOriginal] = await license.readLicense(cfgLicenseFile);
@@ -385,38 +386,21 @@ docsCoServer.install(server, app, () => {
       return;
     }
 
-    const staticContent = config.get('services.CoAuthoring.server.static_content');
     const pluginsUri = config.get('services.CoAuthoring.plugins.uri');
-    let pluginsPath = undefined;
     const pluginsAutostart = config.get('services.CoAuthoring.plugins.autostart');
-
-    if (staticContent[pluginsUri]) {
-      pluginsPath = staticContent[pluginsUri].path;
-    }
-
     const baseUrl = '../../../..';
-    utils.listFolders(pluginsPath, true).then(values => {
-      return co(function* () {
-        const configFile = 'config.json';
-        let stats = null;
-        const result = [];
-        for (let i = 0; i < values.length; ++i) {
-          try {
-            stats = yield utils.fsStat(path.join(values[i], configFile));
-          } catch (_err) {
-            stats = null;
-          }
-
-          if (stats && stats.isFile) {
-            result.push(baseUrl + pluginsUri + '/' + path.basename(values[i]) + '/' + configFile);
-          }
-        }
-
+    utils
+      .getInstalledPlugins()
+      .then(plugins => {
+        const result = plugins.map(plugin => baseUrl + pluginsUri + '/' + plugin.name + '/config.json');
         updatePluginsTime = new Date();
         userPlugins = {url: '', pluginsData: result, autostart: pluginsAutostart};
         sendUserPlugins(res, userPlugins);
+      })
+      .catch(e => {
+        operationContext.global.logger.error('plugins.json getInstalledPlugins error: %s', e.stack);
+        res.sendStatus(404);
       });
-    });
   });
   app.get('/themes.json', apicache.middleware('5 minutes'), (req, res) => {
     return co(function* () {

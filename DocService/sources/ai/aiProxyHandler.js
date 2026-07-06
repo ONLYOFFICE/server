@@ -55,6 +55,10 @@ const cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefi
 const cfgAiSettings = config.get('aiSettings');
 
 const clientStatsD = statsDClient.getClient();
+
+// AI plugin config.json guids (web DD007, desktop DD777) whose presence enables /ai-proxy; lowercased for case-insensitive match.
+const AI_PLUGIN_GUIDS = ['asc.{9dc93cdb-b576-4f0c-b55e-fcc9c48dd007}'];
+
 /**
  * Helper function to set CORS headers if the request origin is allowed
  *
@@ -303,6 +307,13 @@ async function proxyRequest(req, res) {
   try {
     ctx.logger.info('Start proxyRequest');
     await ctx.initTenantCache();
+    // Disable the endpoint when the AI plugin was removed from the distribution: no installed AI plugin guid means no legit caller.
+    const installedPluginGuids = await utils.getInstalledPluginGuids();
+    if (!AI_PLUGIN_GUIDS.some(guid => installedPluginGuids.has(guid))) {
+      ctx.logger.warn('proxyRequest: AI plugin is not installed; endpoint disabled');
+      res.status(404).json({error: {message: 'proxyRequest: AI plugin is not installed', code: '404'}});
+      return;
+    }
     const tenAiApiTimeout = ctx.getCfg('aiSettings.timeout', cfgAiApiTimeout);
     const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
     const tenAiApiProxy = ctx.getCfg('aiSettings.proxy', cfgAiApiProxy);

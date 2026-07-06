@@ -32,7 +32,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-const {describe, test, expect, beforeAll, afterAll, afterEach, jest} = require('@jest/globals');
+const {describe, test, expect, beforeAll, beforeEach, afterAll, afterEach, jest} = require('@jest/globals');
 const http = require('http');
 const express = require('express');
 const {Readable} = require('stream');
@@ -163,6 +163,11 @@ describe('aiProxyHandler proxyRequest (merged relay)', () => {
     jest.restoreAllMocks();
   });
 
+  // AI plugin present by default so the install gate lets requests through; disabled-path tests override this.
+  beforeEach(() => {
+    jest.spyOn(utils, 'getInstalledPluginGuids').mockResolvedValue(new Set(['asc.{9dc93cdb-b576-4f0c-b55e-fcc9c48dd007}']));
+  });
+
   // Stub the per-request context so getCfg returns the test config and tenant init is a no-op.
   function mockContext(cfg) {
     const base = {aiSettings: {}, 'aiSettings.proxy': '', 'aiSettings.timeout': '5m'};
@@ -181,6 +186,17 @@ describe('aiProxyHandler proxyRequest (merged relay)', () => {
     mockAuthOk();
     const res = await postJson('/ai-proxy', {target: 'https://api.example.com', method: 'GET'});
     expect(res.status).toBe(403);
+  });
+
+  test.each([
+    ['no plugins installed', new Set()],
+    ['only an unrelated plugin installed', new Set(['asc.{00000000-0000-0000-0000-000000000000}'])]
+  ])('AI plugin not installed (%s) returns 404', async (_label, guids) => {
+    mockContext({'aiSettings.allowBrowserProxy': true});
+    mockAuthOk();
+    utils.getInstalledPluginGuids.mockResolvedValue(guids);
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com', method: 'GET'});
+    expect(res.status).toBe(404);
   });
 
   test('invalid session JWT returns 403', async () => {
