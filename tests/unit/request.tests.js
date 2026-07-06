@@ -1255,12 +1255,14 @@ describe('HTTP Request Unit Tests', () => {
       await expect(buffer(stream)).rejects.toMatchObject({code: 'EBADDIGEST'});
     });
 
-    test.concurrent('sends Want-Repr-Digest when checksumVerification is enabled', async () => {
+    test.concurrent('sends Want-Repr-Digest and Want-Content-Digest when checksumVerification is enabled', async () => {
       const result = await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/mirror`, {
         timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
         limit: 1024 * 1024
       });
-      expect(JSON.parse(result.body).headers['want-repr-digest']).toBe('sha-256=10');
+      const {headers} = JSON.parse(result.body);
+      expect(headers['want-repr-digest']).toBe('sha-256=10');
+      expect(headers['want-content-digest']).toBe('sha-256=10');
     });
 
     test.concurrent('checksumVerification=false disables digest checks and Want-Repr-Digest', async () => {
@@ -1275,7 +1277,9 @@ describe('HTTP Request Unit Tests', () => {
         timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
         limit: 1024 * 1024
       });
-      expect(JSON.parse(mirror.body).headers['want-repr-digest']).toBeUndefined();
+      const mirrorHeaders = JSON.parse(mirror.body).headers;
+      expect(mirrorHeaders['want-repr-digest']).toBeUndefined();
+      expect(mirrorHeaders['want-content-digest']).toBeUndefined();
       const result = await utils.downloadUrlPromise(mockCtx, `${BASE_URL}/api/repr-digest-bad`, {
         timeout: {wholeCycle: '5s', connectionAndInactivity: '3s'},
         limit: 1024 * 1024

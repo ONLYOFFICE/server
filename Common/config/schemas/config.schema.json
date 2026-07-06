@@ -1877,7 +1877,7 @@
                 "checksumVerification": {
                   "type": "boolean",
                   "default": true,
-                  "description": "Whether downloaded content is verified against integrity response headers (Content-Length, Repr-Digest, Content-Digest, Digest, x-amz-checksum-*, x-goog-hash, OC-Checksum, Content-MD5) and caller-provided expected digests such as WOPI SHA256. When enabled, the Want-Repr-Digest header is added to download requests.",
+                  "description": "Whether downloaded content is verified against integrity response headers (Content-Length, Repr-Digest, Content-Digest, Digest, x-amz-checksum-*, x-goog-hash, OC-Checksum, Content-MD5) and caller-provided expected digests such as WOPI SHA256. When enabled, the Want-Repr-Digest and Want-Content-Digest headers are added to download requests.",
                   "x-tenantOverride": true
                 },
                 "headers": {

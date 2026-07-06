@@ -392,8 +392,9 @@ async function downloadUrlPromise(
     headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + authorization;
   }
   if (tenChecksumVerification) {
-    // Ask RFC 9530 capable servers for a representation digest; it is verified only on identity responses
+    // Ask RFC 9530 servers for a representation and content digest (negotiated by separate headers); verified only on identity responses
     headers['Want-Repr-Digest'] = 'sha-256=10';
+    headers['Want-Content-Digest'] = 'sha-256=10';
   }
   // Replay x-amz-checksum-mode only when the presigned URL was signed with it, so S3 returns the checksum without a 403
   Object.assign(headers, getPresignedChecksumModeHeaders(uri));
