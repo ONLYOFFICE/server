@@ -95,6 +95,7 @@ const sqlBase = require('./databaseConnectors/baseConnector');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
 const taskResult = require('./taskresult');
+const documentRecovery = require('./documentRecovery');
 const gc = require('./gc');
 const shutdown = require('./shutdown');
 const pubsubService = require('./pubsubRabbitMQ');
@@ -3258,7 +3259,7 @@ exports.install = function (server, app, callbackFunction) {
       } else {
         conn.sessionId = conn.id;
         const openedAt = openedAtStr ? sqlBase.DocumentAdditional.prototype.getOpenedAt(openedAtStr) : canvasService.getOpenedAt(resultRow);
-        const endAuthRes = yield* endAuth(ctx, conn, false, documentCallback, openedAt);
+        const endAuthRes = yield* endAuth(ctx, conn, false, documentCallback, openedAt, resultRow);
         if (endAuthRes && cmd) {
           //todo to allow forcesave TemplateSource after convertion(move to better place)
           if (wopiParamsFull?.commonInfo?.fileInfo?.TemplateSource) {
@@ -3272,7 +3273,7 @@ exports.install = function (server, app, callbackFunction) {
     }
   }
 
-  function* endAuth(ctx, conn, bIsRestore, documentCallback, opt_openedAt) {
+  function* endAuth(ctx, conn, bIsRestore, documentCallback, opt_openedAt, opt_resultRow) {
     const tenExpLockDoc = ctx.getCfg('services.CoAuthoring.expire.lockDoc', cfgExpLockDoc);
     const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
 
@@ -3316,7 +3317,8 @@ exports.install = function (server, app, callbackFunction) {
         const forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
         hasForgotten = forgotten.length > 0;
         ctx.logger.debug('endAuth hasForgotten %s', hasForgotten);
-        if (hasForgotten) {
+        // The recovery marker is not consumed, so a fresh editor open re-sends this warning until the marker clears.
+        if (hasForgotten || documentRecovery.isAssemblyRecovery(opt_resultRow)) {
           sendDataWarning(ctx, conn, constants.FILE_NOT_ASSEMBLED, 'File not assembled');
         }
       }

@@ -45,6 +45,7 @@ const sqlBase = require('./databaseConnectors/baseConnector');
 const utilsDocService = require('./utilsDocService');
 const docsCoServer = require('./DocsCoServer');
 const taskResult = require('./taskresult');
+const documentRecovery = require('./documentRecovery');
 const newFileTemplateUtils = require('./newFileTemplateUtils');
 const wopiUtils = require('./wopiUtils');
 const wopiClient = require('./wopiClient');
@@ -1286,7 +1287,8 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
               ctx.logger.warn('sendServerRequest returned an error: data = %s', replyStr);
             }
-            if (requestRes) {
+            // A callback ACK for Corrupted only confirms handling; a missing assembly output is still not a successful save.
+            if (requestRes && (!isError || isErrorCorrupted)) {
               isSfcSuccess = true;
               updateIfTask = undefined;
               yield docsCoServer.cleanDocumentOnExitPromise(ctx, docId, true, callbackUserIndex);
@@ -1302,7 +1304,7 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
                   clientStatsD.timing('coauth.saveAfterEditingSessionClosed', time);
                 }
               }
-            } else {
+            } else if (!requestRes) {
               storeForgotten = true;
             }
           } else {
@@ -1318,6 +1320,13 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
       storeForgotten = true;
     }
     if (undefined !== updateIfTask && !isSfcm) {
+      // Terminal assembly error with no retry: release SaveVersion (no new open conversion), keep pending changes for replay.
+      const isTerminalAssemblyError =
+        commonDefines.FileStatus.SaveVersion === recoverTask.status && !needRetry && !isEncrypted && isError && !isErrorCorrupted;
+      if (isTerminalAssemblyError) {
+        ctx.logger.warn('commandSfcCallback release SaveVersion after assembly error without output: statusInfo = %d', statusInfo);
+        documentRecovery.markAssemblyRecovery(recoverTask);
+      }
       ctx.logger.debug('commandSfcCallback restore %d status', recoverTask.status);
       updateIfTask.status = recoverTask.status;
       updateIfTask.statusInfo = recoverTask.statusInfo;
