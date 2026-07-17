@@ -643,8 +643,6 @@ function createDocId(ctx, wopiSrc, mode, fileInfo) {
   if ('view' !== mode) {
     docId = `${fileId}`;
   } else {
-    //todo rename operation requires lock
-    fileInfo.SupportsRename = false;
     //todo change docId to avoid empty cache after editors are gone
     if (fileInfo.LastModifiedTime) {
       docId = `view.${fileId}.${fileInfo.LastModifiedTime}`;
@@ -689,6 +687,10 @@ async function prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileT
     // Create document ID
     const docId = createDocId(ctx, wopiSrc, userAuth.mode, fileInfo);
     params.key = docId;
+    if ('view' === userAuth.mode) {
+      //todo rename operation requires lock
+      fileInfo.SupportsRename = false;
+    }
 
     // Check and invalidate cache
     const checkRes = await checkAndInvalidateCache(ctx, docId, fileInfo);
@@ -788,7 +790,7 @@ function getEditorHtml(req, res) {
       }
 
       const canEdit = fileInfo.UserCanOnlyComment || fileInfo.UserCanWrite || fileInfo.UserCanReview;
-      if (!canEdit) {
+      if (!canEdit && userAuth.mode !== 'view') {
         ctx.logger.warn('wopiEditor: edit mode is not allowed, fallback to view mode');
         userAuth.mode = 'view';
         userAuth.forcedViewMode = true;
