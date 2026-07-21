@@ -44,9 +44,7 @@
  * .requires-test-example). No :root tokens. No bare element selectors.
  * -------------------------------------------------------------------------- */
 
-/* Open Sans cascade: OS-installed font first (local), else the shared core-fonts
-   copy bundled with every install (stable relative path), else font-family's sans-serif.
-   The one global at-rule here; harmless to legacy pages since only index.html loads this file. */
+/* Not in the repo: build_tools copies these next to this stylesheet. */
 @font-face {
   font-family: 'Open Sans';
   font-style: normal;
@@ -55,7 +53,7 @@
   src:
     local('Open Sans'),
     local('OpenSans'),
-    url('../../../../../core-fonts/opensans/OpenSans-Regular.ttf') format('truetype');
+    url('OpenSans-Regular.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Open Sans';
@@ -65,7 +63,7 @@
   src:
     local('Open Sans SemiBold'),
     local('OpenSans-Semibold'),
-    url('../../../../../core-fonts/opensans/OpenSans-Semibold.ttf') format('truetype');
+    url('OpenSans-Semibold.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Open Sans';
@@ -75,7 +73,7 @@
   src:
     local('Open Sans Bold'),
     local('OpenSans-Bold'),
-    url('../../../../../core-fonts/opensans/OpenSans-Bold.ttf') format('truetype');
+    url('OpenSans-Bold.ttf') format('truetype');
 }
 
 /* ---- Phase 1 routing rules ------------------------------------------------ */
