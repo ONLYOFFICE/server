@@ -60,7 +60,13 @@ const HEALTH_CHECK_KEY_MAX = 10000;
 
 function getStoragePath(ctx, strPath, opt_specialDir) {
   opt_specialDir = opt_specialDir || cfgCacheStorage.cacheFolderName;
-  return opt_specialDir + '/' + tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/');
+  const storagePath = opt_specialDir + '/' + tenantManager.getTenantPathPrefix(ctx) + strPath.replace(/\\/g, '/');
+  // reject keys that escape the special dir via path traversal for every backend
+  const normalized = path.posix.normalize(storagePath);
+  if (normalized !== opt_specialDir && !normalized.startsWith(opt_specialDir + '/')) {
+    throw new Error('getStoragePath: path escapes storage root');
+  }
+  return storagePath;
 }
 function getStorage(storageCfg) {
   switch (storageCfg.name) {
