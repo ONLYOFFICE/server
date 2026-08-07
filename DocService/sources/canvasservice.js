@@ -1780,6 +1780,7 @@ exports.downloadFile = function (req, res) {
   return co(function* () {
     const ctx = new operationContext.Context();
     let stream = null;
+    let upstreamStream = null;
     try {
       let startDate = null;
       if (clientStatsD) {
@@ -1894,6 +1895,7 @@ exports.downloadFile = function (req, res) {
         });
         const response = downloadResult.response;
         stream = downloadResult.stream;
+        upstreamStream = response.data;
         // Sanitize Content-Disposition by removing control chars (prevents CRLF/header injection)
         if (response.headers['content-disposition']) {
           response.headers['content-disposition'] = response.headers['content-disposition'].replace(/\p{Cc}/gu, '');
@@ -1936,12 +1938,14 @@ exports.downloadFile = function (req, res) {
         }
       }
     } finally {
-      // Ensure stream is properly destroyed
-      if (stream && typeof stream.destroy === 'function') {
-        try {
-          stream.destroy();
-        } catch (destroyErr) {
-          ctx.logger.warn('Error destroying stream: %s', destroyErr.stack);
+      // pipe() does not propagate destroy, so close the upstream response too or the source server stalls until the whole cycle timeout
+      for (const streamToDestroy of [upstreamStream, stream]) {
+        if (streamToDestroy && typeof streamToDestroy.destroy === 'function') {
+          try {
+            streamToDestroy.destroy();
+          } catch (destroyErr) {
+            ctx.logger.warn('Error destroying stream: %s', destroyErr.stack);
+          }
         }
       }
       ctx.logger.info('End downloadFile');
