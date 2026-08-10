@@ -1095,7 +1095,7 @@
     },
     "persistentStorage": {
       "type": "object",
-      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration — specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
+      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration - specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
       "x-section-intro": "These parameters configure the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage.md) object. The separation is convenient for server upgrades.",
       "x-tenantOverride": false
     },
@@ -2204,9 +2204,9 @@
                   "default": {
                     "idleTimeoutMillis": 30000,
                     "connectionTimeoutMillis": 60000,
-                    "maxLifetimeSeconds": 60000,
-                    "statement_timeout": 60000,
-                    "query_timeout": 60000
+                    "maxLifetimeSeconds": 1800,
+                    "statement_timeout": 0,
+                    "query_timeout": 300000
                   },
                   "properties": {
                     "connectionTimeoutMillis": {
@@ -2223,20 +2223,20 @@
                     },
                     "maxLifetimeSeconds": {
                       "type": "integer",
-                      "description": "A number of seconds that represents the maximum lifetime.",
-                      "default": 60000,
+                      "description": "A number of seconds after which a pooled connection is recycled. A running query is never interrupted: the connection is marked as expired and closed when it is returned to the pool. Recycling lets the pool pick up a database failover or an address change and bounds the lifetime of a backend process. Set to 0 to disable recycling.",
+                      "default": 1800,
                       "x-tenantOverride": false
                     },
                     "query_timeout": {
                       "type": "integer",
-                      "description": "A number of milliseconds before a query call times out.",
-                      "default": 60000,
+                      "description": "A number of milliseconds before a query call times out on the client side. When it fires, the query is reported as failed and the pool destroys the connection, but the query is not cancelled on the server explicitly. While `statement_timeout` is 0, this is the only limit that keeps a stuck query from holding a pool slot forever. Set to 0 to disable.",
+                      "default": 300000,
                       "x-tenantOverride": false
                     },
                     "statement_timeout": {
                       "type": "integer",
-                      "description": "A number of milliseconds before the query statement times out.",
-                      "default": 60000,
+                      "description": "A number of milliseconds before the query statement times out on the server side. It is passed in the PostgreSQL startup message, so a connection pooler may reject the connection, silently drop the value or forward it to the backend: PgBouncer rejects it unless the parameter is listed in its `ignore_startup_parameters`, and listing it there makes the pooler drop the value instead of applying it. Behind a pooler set the limit on the database itself, for example `ALTER ROLE onlyoffice SET statement_timeout = '60s'`. Set to 0 to disable, which is the default.",
+                      "default": 0,
                       "x-tenantOverride": false
                     }
                   }
