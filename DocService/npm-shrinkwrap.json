@@ -224,14 +224,14 @@
       "integrity": "sha512-T8TbSnGsxo6TDBJx/Sgv/BlVJL3tshxZP7Aq5R1mSnM5OcHY2dQaxLMu2+E8u3gN0MLOzdjurqN4ZRVuzQycOQ=="
     },
     "@redis/bloom": {
-      "version": "6.2.0",
-      "resolved": "https://registry.npmjs.org/@redis/bloom/-/bloom-6.2.0.tgz",
-      "integrity": "sha512-ggQvzpeCKnybwUrEiMVVtE1Np4vWnRfpeAaIP2MdZiVw7PHOhJrF4cONVuLRn1TkMi6ehp2OPjTOMK+8XmiQSQ=="
+      "version": "6.2.1",
+      "resolved": "https://registry.npmjs.org/@redis/bloom/-/bloom-6.2.1.tgz",
+      "integrity": "sha512-huQgNLaCIZfQ9SeLn4q9124uOUd8HbZDYHwwUzNcRgHqCHiHKl2dDxMqJCeWh8cMqZAoWuHR8XnWbDMIf+o7ag=="
     },
     "@redis/client": {
-      "version": "6.2.0",
-      "resolved": "https://registry.npmjs.org/@redis/client/-/client-6.2.0.tgz",
-      "integrity": "sha512-HHszna68MTBRiDZV3Wo2wANH7Z5v/nuh+ZyCAGBce0PS8tDcg1/yzZ1vqbKbUyTdz1wB54kqZxXrnPwpR8Ivdw==",
+      "version": "6.2.1",
+      "resolved": "https://registry.npmjs.org/@redis/client/-/client-6.2.1.tgz",
+      "integrity": "sha512-LzxBY7SIBvvJiyCgcaJZZakE3fJrZZ++i24+EDW9fKpCl68D35uJcKFpZZwCfOoG9WZTbyZlMzMeM0gtOAMU9Q==",
       "requires": {
         "cluster-key-slot": "1.1.2"
       },
@@ -244,19 +244,19 @@
       }
     },
     "@redis/json": {
-      "version": "6.2.0",
-      "resolved": "https://registry.npmjs.org/@redis/json/-/json-6.2.0.tgz",
-      "integrity": "sha512-oweO7PfHWYXkgVT88K+Fm3Wx98lKYKAEXaH162gVbw1kmBOBVQHxw0Yjh1p6BYBUIQMHqLyWwYe99eK7/hD1VQ=="
+      "version": "6.2.1",
+      "resolved": "https://registry.npmjs.org/@redis/json/-/json-6.2.1.tgz",
+      "integrity": "sha512-AFIUJ8Gj0DaaSBHYuSt8+O0oYWM+50OK1c0OmodB7XERIA8+BbyV3O4v76f9iccWasd1/7qjfZTpuzexUaZtrQ=="
     },
     "@redis/search": {
-      "version": "6.2.0",
-      "resolved": "https://registry.npmjs.org/@redis/search/-/search-6.2.0.tgz",
-      "integrity": "sha512-chLEQfalFW3+uCPE99XoIOZhcQ3eF7S3fGxgiiaPf6MMrOZHEiTvgMnXR4xXZX0yDecyoWjGYlQQKTYag/ZExg=="
+      "version": "6.2.1",
+      "resolved": "https://registry.npmjs.org/@redis/search/-/search-6.2.1.tgz",
+      "integrity": "sha512-2vfOAOyYFE7UUw3sBBlkqqruBtOUS4HRY5MtW4hp83llrwvtrTE4r22CEqXddlV+54zkLxBE4nmsIJ/dpezQrQ=="
     },
     "@redis/time-series": {
-      "version": "6.2.0",
-      "resolved": "https://registry.npmjs.org/@redis/time-series/-/time-series-6.2.0.tgz",
-      "integrity": "sha512-/H/eE/lnhZLZYpHGpI+ZN7TePb7isEaub8b07oQcTDQptPslVKdUFwNhUm+hQHks781oh+F1Leiip1WHh4HfWw=="
+      "version": "6.2.1",
+      "resolved": "https://registry.npmjs.org/@redis/time-series/-/time-series-6.2.1.tgz",
+      "integrity": "sha512-kiYniph04dJOole+L359B6C9E+jYS2uDP7hca6Onj0xF38ZIpyxARO0Iq0W4ZRn1e8Q6vqW00QFZVSMRA/2Ijw=="
     },
     "@socket.io/component-emitter": {
       "version": "3.1.2",
@@ -1984,15 +1984,15 @@
       }
     },
     "redis": {
-      "version": "6.2.0",
-      "resolved": "https://registry.npmjs.org/redis/-/redis-6.2.0.tgz",
-      "integrity": "sha512-BShYVyT0Gx67CE80xry5XroSSv6Vxr60yKs0HRiBbUc7kHm+bY7gvSDBBgTjuiV/reWKeZWLyA1ebC5z359wRQ==",
+      "version": "6.2.1",
+      "resolved": "https://registry.npmjs.org/redis/-/redis-6.2.1.tgz",
+      "integrity": "sha512-Z9VHtgYs48PiQC77X9O2Er8Hj4T+5BtFjT91/vi5Is1D04N72cA946ZslM1ImJw8ZctFBZWAVjM7S5wJNeHMpg==",
       "requires": {
-        "@redis/bloom": "6.2.0",
-        "@redis/client": "6.2.0",
-        "@redis/json": "6.2.0",
-        "@redis/search": "6.2.0",
-        "@redis/time-series": "6.2.0"
+        "@redis/bloom": "6.2.1",
+        "@redis/client": "6.2.1",
+        "@redis/json": "6.2.1",
+        "@redis/search": "6.2.1",
+        "@redis/time-series": "6.2.1"
       }
     },
     "redis-errors": {

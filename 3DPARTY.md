@@ -54,7 +54,7 @@
 - mysql2 3.13.0 ([MIT](https://raw.githubusercontent.com/sidorares/node-mysql2/master/License))
 - oracledb 6.9.0 ([(Apache-2.0 OR UPL-1.0)](https://raw.githubusercontent.com/oracle/node-oracledb/main/LICENSE.txt))
 - pg 8.14.0 ([MIT](https://raw.githubusercontent.com/brianc/node-postgres/master/LICENSE))
-- redis 6.2.0 ([MIT](https://raw.githubusercontent.com/redis/node-redis/master/LICENSE))
+- redis 6.2.1 ([MIT](https://raw.githubusercontent.com/redis/node-redis/master/LICENSE))
 - retry 0.13.1 ([MIT](https://raw.githubusercontent.com/tim-kos/node-retry/master/License))
 - sharp 0.32.6 ([Apache-2.0](https://raw.githubusercontent.com/lovell/sharp/master/LICENSE))
 - socket.io 4.8.1 ([MIT](https://raw.githubusercontent.com/socketio/socket.io/main/LICENSE))
