@@ -181,7 +181,9 @@ describe('external request via HTTP forward proxy (bug 82673)', () => {
           socket.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n');
           return;
         }
-        const upstream = net.connect(parseInt(target[2], 10), target[1], () => {
+        // Pin localhost to IPv4 so CI resolvers preferring ::1 cannot bypass the origin listening on 127.0.0.1
+        const upstreamHost = target[1] === 'localhost' ? '127.0.0.1' : target[1];
+        const upstream = net.connect(parseInt(target[2], 10), upstreamHost, () => {
           socket.write('HTTP/1.1 200 Connection established\r\n\r\n');
           // Bytes past the head already belong to the tunnel and must reach the origin
           const leftover = buffered.subarray(headEnd + 4);
@@ -234,7 +236,7 @@ describe('external request via HTTP forward proxy (bug 82673)', () => {
       const result = await utils.httpRequest(
         ctx,
         'POST',
-        `https://127.0.0.1:${originPort}/v1/chat`,
+        `https://localhost:${originPort}/v1/chat`,
         {Authorization: 'Bearer sk-secret', 'Content-Type': 'application/json'},
         '{"secret-body":1}',
         REQUEST_TIMEOUT,
@@ -246,7 +248,7 @@ describe('external request via HTTP forward proxy (bug 82673)', () => {
       expect(await readAll(result.stream)).toBe('{"ok":true}');
       // The proxy must see one CONNECT and no target request data; the tunneled request must reach the origin intact
       expect(proxyHits.length).toBe(1);
-      expect(proxyHits[0].startsWith(`CONNECT 127.0.0.1:${originPort} `)).toBe(true);
+      expect(proxyHits[0].startsWith(`CONNECT localhost:${originPort} `)).toBe(true);
       expect(proxyHits[0].includes('sk-secret')).toBe(false);
       expect(proxyHits[0].includes('secret-body')).toBe(false);
       expect(originHits).toEqual([{auth: 'Bearer sk-secret', proxyAuth: undefined, body: '{"secret-body":1}'}]);
@@ -261,7 +263,7 @@ describe('external request via HTTP forward proxy (bug 82673)', () => {
       const result = await utils.httpRequest(
         ctx,
         'POST',
-        `https://127.0.0.1:${originPort}/v1/chat`,
+        `https://localhost:${originPort}/v1/chat`,
         {Authorization: 'Bearer sk-secret', 'Content-Type': 'application/json'},
         '{"secret-body":1}',
         REQUEST_TIMEOUT,
@@ -273,7 +275,7 @@ describe('external request via HTTP forward proxy (bug 82673)', () => {
       expect(await readAll(result.stream)).toBe('{"ok":true}');
       // Proxy auth belongs to the CONNECT request; the tunneled request must carry the target auth and never the proxy auth
       expect(proxyHits.length).toBe(1);
-      expect(proxyHits[0].startsWith(`CONNECT 127.0.0.1:${originPort} `)).toBe(true);
+      expect(proxyHits[0].startsWith(`CONNECT localhost:${originPort} `)).toBe(true);
       // Header names are case-insensitive on the wire, so locate the line by name and compare the value exactly
       const proxyAuthLine = proxyHits[0].split('\r\n').find(line => line.toLowerCase().startsWith('proxy-authorization:'));
       expect(proxyAuthLine?.replace(/^[^:]+:\s*/, '')).toBe('Basic ' + Buffer.from('user:pa:ss').toString('base64'));
@@ -286,7 +288,7 @@ describe('external request via HTTP forward proxy (bug 82673)', () => {
   it('fails closed on proxyHeaders for https targets instead of leaking them past the proxy', async () => {
     const ctx = makeCtx({proxyUrl: `http://127.0.0.1:${proxyPort}`, proxyHeaders: {'X-Proxy-Extra': 'extra-value'}});
     await expect(
-      utils.httpRequest(ctx, 'POST', `https://127.0.0.1:${originPort}/v1/chat`, {}, '{}', REQUEST_TIMEOUT, null, false, {maxRedirects: 0})
+      utils.httpRequest(ctx, 'POST', `https://localhost:${originPort}/v1/chat`, {}, '{}', REQUEST_TIMEOUT, null, false, {maxRedirects: 0})
     ).rejects.toThrow('proxyHeaders is not supported for HTTPS');
     expect(proxyHits.length).toBe(0);
     expect(originHits.length).toBe(0);
