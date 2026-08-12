@@ -361,6 +361,7 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
       const proxyUrl = tenExternalRequestAction.proxyUrl;
       const parsedProxyUrl = url.parse(proxyUrl);
 
+      // axios tunnels https targets with CONNECT and forward-proxies plain http itself
       options.proxy = {
         host: parsedProxyUrl.hostname,
         port: parsedProxyUrl.port,
@@ -373,7 +374,11 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
       //`Proxy-Authorization` custom headers you have set using `headers`.
       options.proxy.auth = tenExternalRequestAction.proxyUser;
     }
-    if (tenExternalRequestAction.proxyHeaders) {
+    if (tenExternalRequestAction.proxyHeaders && Object.keys(tenExternalRequestAction.proxyHeaders).length > 0) {
+      // With CONNECT the proxy never sees https request headers, so merging these would leak them to the target instead
+      if (uri.startsWith('https:')) {
+        throw new Error('externalRequest.action.proxyHeaders is not supported for HTTPS requests');
+      }
       options.headers = {
         ...options.headers,
         ...tenExternalRequestAction.proxyHeaders
