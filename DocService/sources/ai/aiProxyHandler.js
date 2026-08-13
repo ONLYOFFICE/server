@@ -41,17 +41,12 @@ const config = require('config');
 const utils = require('./../../../Common/sources/utils');
 const operationContext = require('./../../../Common/sources/operationContext');
 const commonDefines = require('./../../../Common/sources/commondefines');
-const tenantManager = require('./../../../Common/sources/tenantManager');
 const docsCoServer = require('./../DocsCoServer');
 const statsDClient = require('./../../../Common/sources/statsdclient');
 
 const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
-const cfgAiApiProxy = config.get('aiSettings.proxy');
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
 const cfgAiApiAllowBrowserProxy = config.get('aiSettings.allowBrowserProxy');
-const cfgTokenEnableOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
-const cfgTokenOutboxHeader = config.get('services.CoAuthoring.token.outbox.header');
-const cfgTokenOutboxPrefix = config.get('services.CoAuthoring.token.outbox.prefix');
 const cfgAiSettings = config.get('aiSettings');
 
 const clientStatsD = statsDClient.getClient();
@@ -340,7 +335,6 @@ async function proxyRequest(req, res) {
     }
     const tenAiApiTimeout = ctx.getCfg('aiSettings.timeout', cfgAiApiTimeout);
     const tenAiApi = ctx.getCfg('aiSettings', cfgAiSettings);
-    const tenAiApiProxy = ctx.getCfg('aiSettings.proxy', cfgAiApiProxy);
     const tenAllowBrowserProxy = ctx.getCfg('aiSettings.allowBrowserProxy', cfgAiApiAllowBrowserProxy);
 
     // 1. Handle CORS preflight (OPTIONS) requests if necessary
@@ -350,8 +344,6 @@ async function proxyRequest(req, res) {
 
     let docId = '';
     let userId = '';
-    let userName = '';
-    let userCustomerId = '';
     const checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
     if (!checkJwtRes || !checkJwtRes.decoded) {
       ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.description);
@@ -365,8 +357,6 @@ async function proxyRequest(req, res) {
     } else {
       docId = checkJwtRes?.decoded?.document?.key;
       userId = checkJwtRes?.decoded?.editorConfig?.user?.id;
-      userName = checkJwtRes?.decoded?.editorConfig?.user?.name;
-      userCustomerId = checkJwtRes?.decoded?.editorConfig?.user?.customerId;
 
       ctx.setDocId(docId);
       ctx.setUserId(userId);
@@ -454,37 +444,6 @@ async function proxyRequest(req, res) {
     // Preserve Accept-Encoding from original request if not explicitly provided
     if (!headers['accept-encoding'] && req.headers['accept-encoding']) {
       headers['accept-encoding'] = req.headers['accept-encoding'];
-    }
-
-    // use proxy instead of direct request
-    if (tenAiApiProxy) {
-      const tenTokenEnableOutbox = ctx.getCfg('services.CoAuthoring.token.enable.request.outbox', cfgTokenEnableOutbox);
-      if (tenTokenEnableOutbox) {
-        const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
-        const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-        const [licenseInfo] = await tenantManager.getTenantLicense(ctx);
-
-        const dataObject = {
-          key: docId,
-          user: {
-            id: userId,
-            name: userName,
-            customerId: userCustomerId || licenseInfo.customerId
-          }
-        };
-
-        const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-        const auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
-        headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + auth;
-      }
-      // Route through the proxy: protocol, hostname and port come from the proxy; set port explicitly so a default-port proxy does not inherit the provider port.
-      const proxyUrl = new URL(tenAiApiProxy);
-      const targetUrl = new URL(uri);
-      targetUrl.protocol = proxyUrl.protocol;
-      targetUrl.hostname = proxyUrl.hostname;
-      targetUrl.port = proxyUrl.port;
-      uri = targetUrl.toString();
-      ctx.logger.debug(`proxyRequest: Updated URI to use proxy host: ${tenAiApiProxy}`);
     }
 
     // Configure timeout options for the request

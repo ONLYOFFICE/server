@@ -392,7 +392,7 @@ describe('aiProxyHandler proxyRequest (merged relay)', () => {
 
   // Stub the per-request context so getCfg returns the test config and tenant init is a no-op.
   function mockContext(cfg) {
-    const base = {aiSettings: {}, 'aiSettings.proxy': '', 'aiSettings.timeout': '5m'};
+    const base = {aiSettings: {}, 'aiSettings.timeout': '5m'};
     const merged = {...base, ...cfg};
     jest.spyOn(operationContext.Context.prototype, 'initFromRequest').mockImplementation(() => {});
     jest.spyOn(operationContext.Context.prototype, 'initTenantCache').mockResolvedValue(undefined);
@@ -723,41 +723,6 @@ describe('aiProxyHandler proxyRequest (merged relay)', () => {
     const authKeys = Object.keys(args[3]).filter(k => k.toLowerCase() === 'authorization');
     expect(authKeys).toEqual(['Authorization']);
     expect(args[3]['Authorization']).toBe('Bearer mcp-secret');
-  });
-
-  test('proxy without explicit port does not inherit the provider port', async () => {
-    mockContext({
-      aiSettings: {providers: {p1: {url: 'http://127.0.0.1:11434', key: 'sk-server'}}},
-      'aiSettings.proxy': 'https://egress.internal',
-      'aiSettings.allowBrowserProxy': false
-    });
-    mockAuthOk();
-    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
-      response: {status: 200, headers: {'content-type': 'application/json'}},
-      stream: Readable.from(['{"ok":true}'])
-    });
-    const res = await postJson('/ai-proxy', {target: 'http://127.0.0.1:11434/api/x', method: 'POST', headers: {}, data: '{}'});
-    expect(res.status).toBe(200);
-    const args = httpSpy.mock.calls[0];
-    expect(args[2]).toBe('https://egress.internal/api/x');
-    expect(args[2]).not.toContain('11434');
-  });
-
-  test('proxy with explicit port keeps that port', async () => {
-    mockContext({
-      aiSettings: {providers: {p1: {url: 'http://127.0.0.1:11434', key: 'sk-server'}}},
-      'aiSettings.proxy': 'https://egress.internal:9443',
-      'aiSettings.allowBrowserProxy': false
-    });
-    mockAuthOk();
-    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
-      response: {status: 200, headers: {'content-type': 'application/json'}},
-      stream: Readable.from(['{"ok":true}'])
-    });
-    const res = await postJson('/ai-proxy', {target: 'http://127.0.0.1:11434/api/x', method: 'POST', headers: {}, data: '{}'});
-    expect(res.status).toBe(200);
-    const args = httpSpy.mock.calls[0];
-    expect(args[2]).toBe('https://egress.internal:9443/api/x');
   });
 
   test('matched path rejects forbidden method TRACE with 400', async () => {
