@@ -241,3 +241,45 @@ describe('readFileStable', () => {
     await expect(utils.readFileStable(ctx, filePath)).rejects.toMatchObject({code: 'ENOENT'});
   });
 });
+
+describe('getBaseUrlByRequest', () => {
+  function makeRequest(headers, protocol = 'http') {
+    const lowerCased = Object.fromEntries(Object.entries(headers).map(([name, value]) => [name.toLowerCase(), value]));
+    return {protocol, get: name => lowerCased[name.toLowerCase()]};
+  }
+
+  test('reports the external scheme and host', () => {
+    const req = makeRequest({'x-forwarded-proto': 'https', 'x-forwarded-host': 'docs.example.com'});
+
+    expect(utils.getBaseUrlByRequest(ctx, req)).toBe('https://docs.example.com');
+  });
+
+  // public proxy configs put the virtual path into X-Forwarded-Host itself, so a hostname-only check would break them
+  test('keeps a virtual path encoded into X-Forwarded-Host', () => {
+    const req = makeRequest({'x-forwarded-proto': 'https', 'x-forwarded-host': 'docs.example.com/documentserver-virtual-path'});
+
+    expect(utils.getBaseUrlByRequest(ctx, req)).toBe('https://docs.example.com/documentserver-virtual-path');
+  });
+
+  test('keeps a virtual path passed as X-Forwarded-Prefix', () => {
+    const req = makeRequest({
+      'x-forwarded-proto': 'https',
+      'x-forwarded-host': 'docs.example.com',
+      'x-forwarded-prefix': '/documentserver-virtual-path'
+    });
+
+    expect(utils.getBaseUrlByRequest(ctx, req)).toBe('https://docs.example.com/documentserver-virtual-path');
+  });
+
+  test('keeps a host with an explicit port', () => {
+    const req = makeRequest({'x-forwarded-host': 'docs.example.com:8443'});
+
+    expect(utils.getBaseUrlByRequest(ctx, req)).toBe('http://docs.example.com:8443');
+  });
+
+  test('falls back to the Host header when no forwarded headers are sent', () => {
+    const req = makeRequest({host: 'docs.example.com'});
+
+    expect(utils.getBaseUrlByRequest(ctx, req)).toBe('http://docs.example.com');
+  });
+});

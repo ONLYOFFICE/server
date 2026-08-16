@@ -63,6 +63,7 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const infoRouter = require('./routes/info');
 const metaRouter = require('./routes/meta');
+const baseUrlHandler = require('./routes/baseurl');
 const {handleConvertUpload} = require('./middleware/convertUpload');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
@@ -266,17 +267,7 @@ docsCoServer.install(server, app, () => {
   app.post('/downloadfile/:docid', rawFileParser, canvasService.downloadFile);
   app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
-  app.get('/baseurl', (req, res) => {
-    const ctx = new operationContext.Context();
-    try {
-      ctx.initFromRequest(req);
-      //todo
-      // yield ctx.initTenantCache();
-      res.send(utils.getBaseUrlByRequest(ctx, req));
-    } catch (err) {
-      ctx.logger.error('baseurl error: %s', err.stack);
-    }
-  });
+  app.get('/baseurl', baseUrlHandler);
 
   app.get('/robots.txt', (req, res) => {
     res.setHeader('Content-Type', 'plain/text');
