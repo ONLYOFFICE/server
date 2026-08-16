@@ -1163,6 +1163,53 @@ function* checkHostFilter(ctx, hostname) {
   return status;
 }
 exports.checkHostFilter = checkHostFilter;
+function isLoopbackAddress(ipString) {
+  if (!ipString || !ipaddr.isValid(ipString)) {
+    return false;
+  }
+  let ip = ipaddr.parse(ipString);
+  if ('ipv6' === ip.kind() && ip.isIPv4MappedAddress()) {
+    ip = ip.toIPv4Address();
+  }
+  return 'loopback' === ip.range();
+}
+exports.isLoopbackAddress = isLoopbackAddress;
+//walk the forwarded chain while every hop is loopback, so a client-supplied X-Forwarded-For cannot win
+function getClientIpBehindLoopbackProxy(req) {
+  const addresses = forwarded(req);
+  let index = 0;
+  while (index < addresses.length - 1 && isLoopbackAddress(addresses[index])) {
+    index++;
+  }
+  return addresses[index];
+}
+exports.getClientIpBehindLoopbackProxy = getClientIpBehindLoopbackProxy;
+//nginx-independent equivalent of "allow 127.0.0.1; deny all" for the private endpoints
+async function checkInternalAccess(req, res, next) {
+  let ipString;
+  try {
+    ipString = getClientIpBehindLoopbackProxy(req);
+  } catch (err) {
+    return next(err);
+  }
+  //decide before any config load, so a local shutdown call cannot be denied by a tenant cache failure
+  if (isLoopbackAddress(ipString)) {
+    return next();
+  }
+  //no widening knob on purpose: ipfilter.rules are shared with the outbound checkHostFilter and default to allow-all
+  const ctx = new operationContext.Context();
+  let status = cfgIpFilterErrorCode;
+  try {
+    ctx.initFromRequest(req);
+    await ctx.initTenantCache();
+    status = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
+  } catch (err) {
+    ctx.logger.error('checkInternalAccess config error: %s', err.stack);
+  }
+  ctx.logger.warn('checkInternalAccess denied ip=%s url=%s', ipString, req.originalUrl);
+  return res.sendStatus(status);
+}
+exports.checkInternalAccess = checkInternalAccess;
 async function checkClientIp(req, res, next) {
   try {
     const ctx = new operationContext.Context();

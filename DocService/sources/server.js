@@ -223,6 +223,10 @@ docsCoServer.install(server, app, () => {
     });
   });
 
+  //guard the private endpoints before the static router, which serves the /info page from static_content
+  app.use('/info', utils.checkInternalAccess);
+  app.use('/internal', utils.checkInternalAccess);
+
   app.use('/', staticRouter);
 
   const rawFileParser = bodyParser.raw({
@@ -280,11 +284,11 @@ docsCoServer.install(server, app, () => {
   app.post('/docbuilder/from-file', utils.checkClientIp, handleConvertUpload, convertFromFile.builderFromFile);
   // Shared Info router (provides /info.json)
   app.use('/info', infoRouter(docsCoServer.getConnections));
-  app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
-  app.delete('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
-  app.get('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.getShutdownStatus);
-  app.put('/internal/cluster/pre-stop', utils.checkClientIp, docsCoServer.preStop);
-  app.delete('/internal/cluster/pre-stop', utils.checkClientIp, docsCoServer.preStop);
+  app.put('/internal/cluster/inactive', docsCoServer.shutdown);
+  app.delete('/internal/cluster/inactive', docsCoServer.shutdown);
+  app.get('/internal/cluster/inactive', docsCoServer.getShutdownStatus);
+  app.put('/internal/cluster/pre-stop', docsCoServer.preStop);
+  app.delete('/internal/cluster/pre-stop', docsCoServer.preStop);
 
   app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
 
