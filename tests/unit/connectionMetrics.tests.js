@@ -273,4 +273,13 @@ describe('connection count metrics', () => {
     // legacy names byte-for-byte preserved, then the single per-replica name three times
     expect(emittedNames).toEqual([...LEGACY_GAUGE_NAMES, REPLICA_GAUGE_NAME, REPLICA_GAUGE_NAME, REPLICA_GAUGE_NAME]);
   });
+
+  test('countConnectionsByMode recounts a mixed array by mode', () => {
+    const conns = [makeConn('edit'), makeConn('edit'), makeConn('view'), makeConn('closed'), makeConn('liveview')];
+    expect(docsCoServer.countConnectionsByMode(conns)).toEqual({edit: 2, liveview: 1, view: 2});
+  });
+
+  test('countConnectionsByMode returns 0/0/0 for no connections', () => {
+    expect(docsCoServer.countConnectionsByMode([])).toEqual({edit: 0, liveview: 0, view: 0});
+  });
 });

@@ -470,29 +470,19 @@ function updatePresenceCounters(ctx, conn, val) {
       if (aggregationCtx) {
         yield editorStat.incrLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
       }
-      if (clientStatsD) {
-        const countLiveView = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
-        clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
-      }
     } else if ('view' === mode) {
       yield editorStat.incrViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
         yield editorStat.incrViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
-      }
-      if (clientStatsD) {
-        const countView = yield editorStat.getViewerConnectionsCount(ctx, connections);
-        clientStatsD.gauge('expireDoc.connections.view', countView);
       }
     } else {
       yield editorStat.incrEditorConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
         yield editorStat.incrEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
       }
-      if (clientStatsD) {
-        const countEditors = yield editorStat.getEditorConnectionsCount(ctx, connections);
-        clientStatsD.gauge('expireDoc.connections.edit', countEditors);
-      }
     }
+    scheduleLegacyConnectionGauge(ctx.tenant, mode);
+    scheduleLocalConnectionGauges();
   });
 }
 // legacy gauges report the editorStat scope: local process in memory mode, shared shard aggregate in redis mode
@@ -525,6 +515,60 @@ function emitLocalConnectionGauges(statsDClient, localCounts, instanceTags) {
   for (const mode of ['edit', 'liveview', 'view']) {
     statsDClient.gauge('coauth.connections', localCounts[mode], undefined, [...base, 'mode:' + mode]);
   }
+}
+// a gauge only needs its last value per statsd flush window, so coalesce the connect/disconnect burst
+const GAUGES_THROTTLE_MS = 1000;
+const gaugesTimers = new Map();
+// run fn at most once per key per window; it reads the state on fire, so every coalesced event is counted
+function throttleGauge(key, fn) {
+  if (gaugesTimers.has(key)) {
+    return;
+  }
+  gaugesTimers.set(
+    key,
+    setTimeout(async () => {
+      gaugesTimers.delete(key);
+      try {
+        await fn();
+      } catch (err) {
+        operationContext.global.logger.error('throttleGauge %s error: %s', key, err.stack);
+      }
+    }, GAUGES_THROTTLE_MS)
+  );
+}
+// count connections of this process by mode: pure property reads, no I/O
+function countConnectionsByMode(conns) {
+  const counts = {edit: 0, liveview: 0, view: 0};
+  for (const conn of conns) {
+    counts[utils.getConnectionCountMode(conn)]++;
+  }
+  return counts;
+}
+function scheduleLocalConnectionGauges() {
+  if (!clientStatsD) {
+    return;
+  }
+  throttleGauge('local', () => emitLocalConnectionGauges(clientStatsD, countConnectionsByMode(connections), replicaTags));
+}
+async function emitLegacyConnectionGaugeByMode(tenant, mode) {
+  const ctx = new operationContext.Context();
+  ctx.setTenant(tenant);
+  let count;
+  if ('liveview' === mode) {
+    count = await editorStat.getLiveViewerConnectionsCount(ctx, connections);
+  } else if ('view' === mode) {
+    count = await editorStat.getViewerConnectionsCount(ctx, connections);
+  } else {
+    count = await editorStat.getEditorConnectionsCount(ctx, connections);
+  }
+  clientStatsD.gauge('expireDoc.connections.' + mode, count);
+}
+// the legacy value is a shared editorStat aggregate, so throttle the query itself, per tenant and mode
+function scheduleLegacyConnectionGauge(tenant, mode) {
+  if (!clientStatsD) {
+    return;
+  }
+  throttleGauge(tenant + '|' + mode, () => emitLegacyConnectionGaugeByMode(tenant, mode));
 }
 // zero shard counters for tenants gone since the previous cycle
 async function resetDisappearedTenantCounters(prevTenants, currentTenants) {
@@ -1848,6 +1892,7 @@ exports.editorData = editorData;
 exports.editorStat = editorStat;
 exports.emitLegacyConnectionGauges = emitLegacyConnectionGauges;
 exports.emitLocalConnectionGauges = emitLocalConnectionGauges;
+exports.countConnectionsByMode = countConnectionsByMode;
 exports.buildReplicaTags = buildReplicaTags;
 exports.resetDisappearedTenantCounters = resetDisappearedTenantCounters;
 exports.editorStatProxy = editorStatProxy;
