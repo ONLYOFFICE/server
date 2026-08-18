@@ -828,6 +828,14 @@ function getEditorHtml(req, res) {
     }
   });
 }
+// bug 83205: sign with the derived WopiConvert secret so this token cannot pass as an inbox token
+async function signConvertStatusToken(ctx, docId, wopiSrc) {
+  const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
+  const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
+  const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+  const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.WopiConvert);
+  return jwt.sign({docId, wopiSrc}, utils.getJwtHsKey(secret), options);
+}
 function getConverterHtml(req, res) {
   return co(function* () {
     const params = {statusHandler: undefined};
@@ -835,8 +843,6 @@ function getConverterHtml(req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
-      const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
       const tenWopiHost = ctx.getCfg('wopi.host', cfgWopiHost);
 
       let wopiSrc = req.query['wopisrc'];
@@ -875,10 +881,7 @@ function getConverterHtml(req, res) {
         params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
         params.statusHandler += `?${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrc)}&access_token=${encodeURIComponent(access_token)}`;
         params.statusHandler += `&targetext=${encodeURIComponent(targetext)}&docId=${encodeURIComponent(docId)}`;
-        const tokenData = {docId};
-        const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-        const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-        const token = jwt.sign(tokenData, utils.getJwtHsKey(secret), options);
+        const token = yield signConvertStatusToken(ctx, docId, wopiSrc);
 
         params.statusHandler += `&token=${encodeURIComponent(token)}`;
       }
@@ -1354,6 +1357,7 @@ exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;
 exports.getEditorHtml = getEditorHtml;
 exports.getConverterHtml = getConverterHtml;
+exports.signConvertStatusToken = signConvertStatusToken;
 exports.putFile = putFile;
 exports.parsePutFileResponse = parsePutFileResponse;
 exports.putRelativeFile = putRelativeFile;

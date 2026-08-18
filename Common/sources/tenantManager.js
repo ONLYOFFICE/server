@@ -167,6 +167,11 @@ async function replaceTenantConfig(ctx, config) {
 
 function getTenantSecret(ctx, type) {
   return co(function* () {
+    // bug 83205: a derived type has no config element of its own, it is computed from the secret it derives from
+    if (commonDefines.c_oAscSecretType.WopiConvert === type) {
+      const base = yield getTenantSecret(ctx, commonDefines.c_oAscSecretType.Session);
+      return utils.deriveSecret(base, constants.JWT_PURPOSE_WOPI_CONVERT);
+    }
     let cfgTenant;
     //check config
     const tenantConfig = yield getTenantConfig(ctx);

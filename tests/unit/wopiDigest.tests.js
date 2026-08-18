@@ -40,6 +40,15 @@ const {pipeline} = require('node:stream/promises');
 
 const {planIntegrityChecks, IntegrityStream} = require('../../Common/sources/downloadIntegrity');
 const {getContentsExpectedDigest, getWopiFileUrl} = require('../../DocService/sources/wopiUtils');
+const wopiClient = require('../../DocService/sources/wopiClient');
+const {signToken, checkJwt} = require('../../DocService/sources/DocsCoServer');
+const commonDefines = require('../../Common/sources/commondefines');
+const constants = require('../../Common/sources/constants');
+const operationContext = require('../../Common/sources/operationContext');
+const config = require('../../Common/node_modules/config');
+
+const tokenCtx = operationContext.global;
+const cfgTokenAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
 
 const body = Buffer.from('wopi file contents');
 const otherBody = Buffer.from('changed file contents');
@@ -140,5 +149,38 @@ describe('WOPI SHA256 verification through the integrity pipeline', () => {
 
   test('a malformed SHA256 is skipped, not failed', async () => {
     expect(await runContentsDigest({SHA256: 'not a real digest'}, [body])).toBeNull();
+  });
+});
+
+// bug 83205: the convert-and-edit status token is signed with the derived WopiConvert secret,
+// so it must not verify as an inbox/browser/session token on the shared secret.
+describe('convert-and-edit status token purpose binding (bug 83205)', () => {
+  test('its own handler accepts it and carries the signed callback target', async () => {
+    const token = await wopiClient.signConvertStatusToken(tokenCtx, 'doc-83205', 'https://host/wopi/files/1');
+    const res = await checkJwt(tokenCtx, token, commonDefines.c_oAscSecretType.WopiConvert);
+    expect(res.decoded.docId).toBe('doc-83205');
+    expect(res.decoded.wopiSrc).toBe('https://host/wopi/files/1');
+  });
+
+  test('the inbox path rejects it, so it cannot reach /docbuilder', async () => {
+    const token = await wopiClient.signConvertStatusToken(tokenCtx, 'doc-83205', 'https://host/wopi/files/1');
+    for (const type of [commonDefines.c_oAscSecretType.Inbox, commonDefines.c_oAscSecretType.Browser, commonDefines.c_oAscSecretType.Session]) {
+      const res = await checkJwt(tokenCtx, token, type);
+      expect(res.decoded).toBe(null);
+    }
+  });
+
+  test('a missing token is rejected, so the handler has no tokenless branch left', async () => {
+    for (const token of [undefined, '', 'not-a-jwt']) {
+      const res = await checkJwt(tokenCtx, token, commonDefines.c_oAscSecretType.WopiConvert);
+      expect(res.decoded).toBe(null);
+      expect(res.code).toBe(constants.JWT_ERROR_CODE);
+    }
+  });
+
+  test('an inbox token is rejected by the convert-and-edit handler', async () => {
+    const token = await signToken(tokenCtx, {docId: 'doc-83205'}, cfgTokenAlgorithm, 300, commonDefines.c_oAscSecretType.Inbox);
+    const res = await checkJwt(tokenCtx, token, commonDefines.c_oAscSecretType.WopiConvert);
+    expect(res.decoded).toBe(null);
   });
 });

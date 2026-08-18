@@ -35,7 +35,6 @@
 'use strict';
 
 const path = require('path');
-const config = require('config');
 const co = require('co');
 const mime = require('mime');
 const taskResult = require('./taskresult');
@@ -53,8 +52,6 @@ const operationContext = require('./../../Common/sources/operationContext');
 const sqlBase = require('./databaseConnectors/baseConnector');
 const utilsDocService = require('./utilsDocService');
 const {buildParamsDigest, buildBodyDigest, buildConvDocIdFromDigests} = require('./convertDocId');
-
-const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 
 const CONVERT_ASYNC_DELAY = 1000;
 
@@ -846,9 +843,8 @@ function getConverterHtmlHandler(req, res) {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('convert-and-edit-handler start');
-      const tenTokenEnableBrowser = ctx.getCfg('services.CoAuthoring.token.enable.browser', cfgTokenEnableBrowser);
 
-      const wopiSrc = req.query['wopisrc'];
+      let wopiSrc = req.query['wopisrc'];
       const access_token = req.query['access_token'];
       const targetext = req.query['targetext'];
       let docId = req.query['docid'];
@@ -867,16 +863,17 @@ function getConverterHtmlHandler(req, res) {
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
+      // bug 83205: this token is always minted by getConverterHtml, so require it regardless of token.enable.browser
       const token = req.query['token'];
-      if (tenTokenEnableBrowser || token) {
-        const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
-        if (checkJwtRes.decoded) {
-          docId = checkJwtRes.decoded.docId;
-        } else {
-          ctx.logger.debug('convert-and-edit-handler invalid token %j', token);
-          utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.VKEY), isJson);
-          return;
-        }
+      const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.WopiConvert);
+      if (checkJwtRes.decoded) {
+        docId = checkJwtRes.decoded.docId;
+        // bug 83205: take the callback target from the signed token, never from the query
+        wopiSrc = checkJwtRes.decoded.wopiSrc;
+      } else {
+        ctx.logger.debug('convert-and-edit-handler invalid token %j', token);
+        utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.VKEY), isJson);
+        return;
       }
       ctx.setDocId(docId);
 

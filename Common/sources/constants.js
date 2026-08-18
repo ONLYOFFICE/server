@@ -307,6 +307,10 @@ exports.JWT_EXPIRED_CODE = 4005;
 exports.JWT_EXPIRED_REASON = 'token:';
 exports.JWT_ERROR_CODE = 4006;
 exports.JWT_ERROR_REASON = 'token:';
+
+// bug 83205: purpose label for the key that signs the WOPI convert-and-edit status token
+exports.JWT_PURPOSE_WOPI_CONVERT = 'wopi-convert-and-edit';
+
 exports.DROP_CODE = 4007;
 exports.DROP_REASON = 'drop';
 exports.UPDATE_VERSION_CODE = 4008;

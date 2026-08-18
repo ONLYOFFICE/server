@@ -1306,6 +1306,16 @@ function getJwtHsKey(secret) {
 }
 exports.getJwtHsKey = getJwtHsKey;
 
+// bug 83205: derive a per-purpose secret so a token minted for one flow cannot verify as a token of another
+function deriveSecret(secret, purpose) {
+  if (!purpose || null == secret || 0 === secret.length) {
+    return undefined;
+  }
+  const base = typeof secret === 'string' ? Buffer.from(secret, 'utf8') : secret;
+  return crypto.createHmac('sha256', base).update(purpose).digest('hex');
+}
+exports.deriveSecret = deriveSecret;
+
 function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
   const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
   const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);

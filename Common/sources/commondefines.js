@@ -1202,7 +1202,9 @@ const c_oAscSecretType = {
   Browser: 0,
   Inbox: 1,
   Outbox: 2,
-  Session: 3
+  Session: 3,
+  // bug 83205: derived from Session, never configured; used only for tokens DS issues and verifies itself
+  WopiConvert: 4
 };
 const c_oAscQueueType = {
   rabbitmq: 'rabbitmq',
