@@ -134,7 +134,9 @@ Optional Variables:
 
 */
 {
-  port: 8125
+  address: process.env.DS_METRICS_HOST || '0.0.0.0'
+, mgmt_address: process.env.DS_METRICS_HOST || '0.0.0.0'
+, port: 8125
 , flushInterval: 600000
 , backends: [ "./backends/console" ]
 }
