@@ -320,6 +320,7 @@
   "services": {
     "CoAuthoring": {
       "server": {
+        "host": "",
         "port": 8000,
         "workerpercpu": 1,
         "mode": "development",

@@ -97,6 +97,7 @@ function classify(p) {
   if (p === 'services.CoAuthoring.server.documentFormatsFile') return false;
   if (
     [
+      'services.CoAuthoring.server.host',
       'services.CoAuthoring.server.port',
       'services.CoAuthoring.server.limits_tempfile_upload',
       'services.CoAuthoring.server.editorDataStorage',

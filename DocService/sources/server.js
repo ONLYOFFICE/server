@@ -182,15 +182,19 @@ docsCoServer.install(server, app, () => {
     operationContext.global.logger.error('embeddedConverter.start error: %s', err && err.stack);
   });
 
-  server.listen(config.get('services.CoAuthoring.server.port'), () => {
-    operationContext.global.logger.warn(
-      'Express server listening on port %d in %s mode. Version: %s. Build: %s',
-      config.get('services.CoAuthoring.server.port'),
-      app.settings.env,
-      commonDefines.buildVersion,
-      commonDefines.buildNumber
-    );
-  });
+  server.listen(
+    config.get('services.CoAuthoring.server.port'),
+    config.get('services.CoAuthoring.server.host') || undefined,
+    () => {
+      operationContext.global.logger.warn(
+        'Express server listening on port %d in %s mode. Version: %s. Build: %s',
+        config.get('services.CoAuthoring.server.port'),
+        app.settings.env,
+        commonDefines.buildVersion,
+        commonDefines.buildNumber
+      );
+    }
+  );
 
   app.get('/index.html', (req, res) => {
     return co(function* () {

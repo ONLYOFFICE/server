@@ -2703,6 +2703,12 @@
                   "default": "development",
                   "x-tenantOverride": true
                 },
+                "host": {
+                  "type": "string",
+                  "description": "The IP address the server listens on.",
+                  "default": "",
+                  "x-tenantOverride": false
+                },
                 "newFileTemplate": {
                   "type": "string",
                   "description": "A path to the \"new\" file template if a file of 0 bytes was received from the link for opening.",
