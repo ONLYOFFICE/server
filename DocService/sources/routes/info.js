@@ -4,6 +4,7 @@ const express = require('express');
 const ms = require('ms');
 const config = require('config');
 const cron = require('cron');
+const utils = require('../../../Common/sources/utils');
 const commonDefines = require('../../../Common/sources/commondefines');
 const operationContext = require('../../../Common/sources/operationContext');
 const tenantManager = require('../../../Common/sources/tenantManager');
@@ -317,8 +318,8 @@ async function licenseInfo(req, res, getConnections = null) {
 function createInfoRouter(getConnections = null) {
   const router = express.Router();
 
-  // The ACL lives on the mount point in server.js, which also covers the static info page; this router adds no guard of its own
-  router.get('/info.json', async (req, res) => {
+  // License info endpoint with client IP check
+  router.get('/info.json', utils.checkClientIp, async (req, res) => {
     await licenseInfo(req, res, getConnections);
   });
 
