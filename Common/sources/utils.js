@@ -57,7 +57,13 @@ const NodeCache = require('node-cache');
 const ms = require('ms');
 const constants = require('./constants');
 const commonDefines = require('./commondefines');
-const {planIntegrityChecks, IntegrityStream, getRawContentEncoding, getPresignedChecksumModeHeaders} = require('./downloadIntegrity');
+const {
+  planIntegrityChecks,
+  IntegrityStream,
+  getRawContentEncoding,
+  getPresignedChecksumModeHeaders,
+  getPresentIntegrityHeaders
+} = require('./downloadIntegrity');
 const forwarded = require('forwarded');
 const {RequestFilteringHttpAgent, RequestFilteringHttpsAgent} = require('request-filtering-agent');
 const https = require('https');
@@ -499,7 +505,20 @@ async function downloadUrlPromise(
       response.data.destroy(error);
       throw error;
     }
-    const integrityPlan = tenChecksumVerification ? planIntegrityChecks(headers, status, getRawContentEncoding(response), expectedDigest) : null;
+    const rawContentEncoding = getRawContentEncoding(response);
+    const integrityPlan = tenChecksumVerification ? planIntegrityChecks(headers, status, rawContentEncoding, expectedDigest) : null;
+    if (tenChecksumVerification && !integrityPlan?.digest) {
+      // Report integrity headers that arrived but were not verifiable, so a skip is not indistinguishable from no header at all
+      const unusedIntegrityHeaders = getPresentIntegrityHeaders(headers);
+      if (Object.keys(unusedIntegrityHeaders).length > 0) {
+        ctx.logger.debug(
+          'integrity headers not verified: status=%d encoding=%s headers=%j',
+          status,
+          rawContentEncoding || 'identity',
+          unusedIntegrityHeaders
+        );
+      }
+    }
     const limitedStream = new SizeLimitStream(limit);
     const integrityStream = integrityPlan ? new IntegrityStream(integrityPlan, response) : null;
     // Lets the caller read the verified digest {source, algorithm} after the stream/pipeline finishes; null when nothing was verified

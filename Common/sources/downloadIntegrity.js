@@ -49,6 +49,10 @@ const NODE_ALGORITHM_BY_TOKEN = {
   sha: 'sha1',
   md5: 'md5'
 };
+// Response headers that carry integrity information, used to report what arrived but was not verified
+const INTEGRITY_HEADER_NAMES = ['repr-digest', 'content-digest', 'digest', 'x-goog-hash', 'oc-checksum', 'content-md5'];
+// Every S3 checksum header shares this prefix, including the variants Node cannot compute
+const AMZ_CHECKSUM_PREFIX = 'x-amz-checksum-';
 // Relative strength used to pick one algorithm when a header offers several
 const ALGORITHM_STRENGTH = {sha512: 4, sha256: 3, sha1: 2, md5: 1};
 const DIGEST_BYTE_LENGTH = {sha512: 64, sha256: 32, sha1: 20, md5: 16};
@@ -123,7 +127,7 @@ function selectAmzChecksum(headers) {
     return null;
   }
   for (const name of AMZ_ALGORITHM_PREFERENCE) {
-    const value = headers['x-amz-checksum-' + name];
+    const value = headers[AMZ_CHECKSUM_PREFIX + name];
     if (!value) {
       continue;
     }
@@ -132,7 +136,7 @@ function selectAmzChecksum(headers) {
     if (/-\d+$/.test(expectedBase64) || !isPlausibleBase64Digest(name, expectedBase64)) {
       continue;
     }
-    return {nodeAlgorithm: name, expectedBase64, source: 'x-amz-checksum-' + name};
+    return {nodeAlgorithm: name, expectedBase64, source: AMZ_CHECKSUM_PREFIX + name};
   }
   return null;
 }
@@ -454,7 +458,7 @@ class IntegrityStream extends Transform {
 // SigV4 presigned query param names are matched case-insensitively; URL.searchParams percent-decodes the values
 const AMZ_SIGNATURE_PARAM = 'x-amz-signature';
 const AMZ_SIGNED_HEADERS_PARAM = 'x-amz-signedheaders';
-const AMZ_CHECKSUM_MODE_HEADER = 'x-amz-checksum-mode';
+const AMZ_CHECKSUM_MODE_HEADER = AMZ_CHECKSUM_PREFIX + 'mode';
 
 /**
  * Request headers to replay for an S3 presigned download URL so it returns its native checksum.
@@ -494,7 +498,25 @@ function getPresignedChecksumModeHeaders(uri) {
   return {[AMZ_CHECKSUM_MODE_HEADER]: 'ENABLED'};
 }
 
+/**
+ * Collect the integrity response headers this module knows about, for diagnostics only.
+ * Lets a caller tell "no integrity header arrived" from "one arrived and was not verifiable".
+ *
+ * @param {object} [headers] - Response headers (lowercase keys)
+ * @returns {Object<string, string>} Present integrity headers and their raw values
+ */
+function getPresentIntegrityHeaders(headers) {
+  const present = {};
+  for (const [name, value] of Object.entries(headers || {})) {
+    if (INTEGRITY_HEADER_NAMES.includes(name) || name.startsWith(AMZ_CHECKSUM_PREFIX)) {
+      present[name] = value;
+    }
+  }
+  return present;
+}
+
 exports.parseDigestDictionary = parseDigestDictionary;
+exports.getPresentIntegrityHeaders = getPresentIntegrityHeaders;
 exports.getRawContentEncoding = getRawContentEncoding;
 exports.validateCallerDigest = validateCallerDigest;
 exports.planIntegrityChecks = planIntegrityChecks;

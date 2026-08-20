@@ -44,7 +44,8 @@ const {
   validateCallerDigest,
   planIntegrityChecks,
   IntegrityStream,
-  getPresignedChecksumModeHeaders
+  getPresignedChecksumModeHeaders,
+  getPresentIntegrityHeaders
 } = require('../../Common/sources/downloadIntegrity');
 
 const body = Buffer.from('valid content data');
@@ -71,6 +72,27 @@ async function runIntegrityStream(plan, chunks, response) {
   await pipeline(Readable.from(chunks), stream, devNull());
   return stream;
 }
+
+describe('getPresentIntegrityHeaders', () => {
+  test('returns nothing when the response carries no integrity header', () => {
+    expect(getPresentIntegrityHeaders({'content-length': '10'})).toEqual({});
+    expect(getPresentIntegrityHeaders(undefined)).toEqual({});
+  });
+  test('returns the integrity headers that arrived, so a skipped one is visible in the log', () => {
+    const headers = {'content-digest': 'sha-256=:garbage:', 'oc-checksum': 'ADLER32:0561d5f5', 'content-length': '10'};
+    expect(getPresentIntegrityHeaders(headers)).toEqual({
+      'content-digest': 'sha-256=:garbage:',
+      'oc-checksum': 'ADLER32:0561d5f5'
+    });
+  });
+  test('reports every S3 checksum header, including the algorithms Node cannot compute', () => {
+    const headers = {'x-amz-checksum-crc64nvme': 'abc', 'x-amz-checksum-type': 'COMPOSITE', etag: '"x"'};
+    expect(getPresentIntegrityHeaders(headers)).toEqual({
+      'x-amz-checksum-crc64nvme': 'abc',
+      'x-amz-checksum-type': 'COMPOSITE'
+    });
+  });
+});
 
 describe('getPresignedChecksumModeHeaders', () => {
   const SIG = 'X-Amz-Signature=abcdef0123456789';
