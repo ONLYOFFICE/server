@@ -348,7 +348,9 @@
         "documentFormatsFile": "../../document-formats/onlyoffice-docs-formats.json",
         "downloadFileAllowExt": ["pdf", "xlsx"],
         "tokenRequiredParams": true,
-        "forceSaveUsingButtonWithoutChanges": false
+        "forceSaveUsingButtonWithoutChanges": false,
+        "docbuilderEnable": true,
+        "convertServiceEnable": true
       },
       "requestDefaults": {
         "headers": {

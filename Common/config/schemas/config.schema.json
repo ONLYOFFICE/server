@@ -2594,6 +2594,18 @@
                     }
                   }
                 },
+                "convertServiceEnable": {
+                  "type": "boolean",
+                  "description": "Whether the conversion public API endpoints are enabled or not. When disabled, requests to /converter, /converter/from-file and /ConvertService.ashx are rejected with HTTP 403. Conversions initiated by the editors are not affected.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "docbuilderEnable": {
+                  "type": "boolean",
+                  "description": "Whether the /docbuilder public API endpoints are enabled or not. When disabled, requests to /docbuilder and /docbuilder/from-file are rejected with HTTP 403.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
                 "documentFormatsFile": {
                   "type": "string",
                   "description": "A path to the \"onlyoffice-docs-formats\" file.",

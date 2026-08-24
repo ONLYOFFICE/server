@@ -65,6 +65,7 @@ const infoRouter = require('./routes/info');
 const metaRouter = require('./routes/meta');
 const baseUrlHandler = require('./routes/baseurl');
 const {handleConvertUpload} = require('./middleware/convertUpload');
+const {createCheckEnable} = require('./middleware/checkEnable');
 const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
@@ -72,6 +73,8 @@ const {resolveConfigPath} = require('./../../Common/sources/pathUtils');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
+const cfgDocbuilderEnable = config.get('services.CoAuthoring.server.docbuilderEnable');
+const cfgConvertServiceEnable = config.get('services.CoAuthoring.server.convertServiceEnable');
 const cfgHtmlTemplate = config.get('wopi.htmlTemplate');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
@@ -236,14 +239,27 @@ docsCoServer.install(server, app, () => {
   const forms = multer();
   const fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
 
+  const checkDocbuilderEnable = createCheckEnable('checkDocbuilderEnable', 403, ctx =>
+    ctx.getCfg('services.CoAuthoring.server.docbuilderEnable', cfgDocbuilderEnable)
+  );
+  const checkConvertServiceEnable = createCheckEnable('checkConvertServiceEnable', 403, ctx =>
+    ctx.getCfg('services.CoAuthoring.server.convertServiceEnable', cfgConvertServiceEnable)
+  );
+  const checkWopiEnable = createCheckEnable('checkWopiEnable', 404, ctx => ctx.getCfg('wopi.enable', cfgWopiEnable));
+  const checkWopiDummyEnable = createCheckEnable(
+    'checkWopiDummyEnable',
+    404,
+    ctx => ctx.getCfg('wopi.enable', cfgWopiEnable) && ctx.getCfg('wopi.dummy.enable', cfgWopiDummyEnable)
+  );
+
   app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
   app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
   app.post('/command', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 
-  app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
-  app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
-  app.post('/converter', utils.checkClientIp, rawFileParser, converterService.convertJson);
-  app.post('/converter/from-file', utils.checkClientIp, handleConvertUpload, convertFromFile.commandConvertFromBody);
+  app.get('/ConvertService.ashx', checkConvertServiceEnable, utils.checkClientIp, rawFileParser, converterService.convertXml);
+  app.post('/ConvertService.ashx', checkConvertServiceEnable, utils.checkClientIp, rawFileParser, converterService.convertXml);
+  app.post('/converter', checkConvertServiceEnable, utils.checkClientIp, rawFileParser, converterService.convertJson);
+  app.post('/converter/from-file', checkConvertServiceEnable, utils.checkClientIp, handleConvertUpload, convertFromFile.commandConvertFromBody);
 
   app.param('docid', (req, res, next, val) => {
     if (constants.DOC_ID_REGEX.test(val)) {
@@ -274,10 +290,10 @@ docsCoServer.install(server, app, () => {
     res.send('User-agent: *\nDisallow: /');
   });
 
-  app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
+  app.post('/docbuilder', checkDocbuilderEnable, utils.checkClientIp, rawFileParser, (req, res) => {
     converterService.builder(req, res);
   });
-  app.post('/docbuilder/from-file', utils.checkClientIp, handleConvertUpload, convertFromFile.builderFromFile);
+  app.post('/docbuilder/from-file', checkDocbuilderEnable, utils.checkClientIp, handleConvertUpload, convertFromFile.builderFromFile);
   // Shared Info router (provides /info.json)
   app.use('/info', infoRouter(docsCoServer.getConnections));
   app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
@@ -288,45 +304,6 @@ docsCoServer.install(server, app, () => {
 
   app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
 
-  function checkWopiEnable(req, res, next) {
-    //todo may be move code into wopiClient or wopiClient.discovery...
-    const ctx = new operationContext.Context();
-    ctx.initFromRequest(req);
-    ctx
-      .initTenantCache()
-      .then(() => {
-        const tenWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
-        if (tenWopiEnable) {
-          next();
-        } else {
-          res.sendStatus(404);
-        }
-      })
-      .catch(err => {
-        ctx.logger.error('checkWopiEnable error: %s', err.stack);
-        res.sendStatus(404);
-      });
-  }
-  function checkWopiDummyEnable(req, res, next) {
-    //todo may be move code into wopiClient or wopiClient.discovery...
-    const ctx = new operationContext.Context();
-    ctx.initFromRequest(req);
-    ctx
-      .initTenantCache()
-      .then(() => {
-        const tenWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
-        const tenWopiDummyEnable = ctx.getCfg('wopi.dummy.enable', cfgWopiDummyEnable);
-        if (tenWopiEnable && tenWopiDummyEnable) {
-          next();
-        } else {
-          res.sendStatus(404);
-        }
-      })
-      .catch(err => {
-        ctx.logger.error('checkWopiDummyEnable error: %s', err.stack);
-        res.sendStatus(404);
-      });
-  }
   //todo dest
   app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
   app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
