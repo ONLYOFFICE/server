@@ -49,6 +49,7 @@ const documentRecovery = require('./documentRecovery');
 const newFileTemplateUtils = require('./newFileTemplateUtils');
 const wopiUtils = require('./wopiUtils');
 const wopiClient = require('./wopiClient');
+const wopiEgress = require('./wopiEgress');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
@@ -1813,6 +1814,10 @@ exports.downloadFile = function (req, res) {
 
       let authorization;
       let isInJwtToken = false;
+      // marks the download as a wopi source, whose destination and redirect hops the wopi egress boundary judges
+      let isWopiSource = false;
+      let wopiKind;
+      let wopiAccessToken;
       let errorDescription;
       let headers, fromTemplate, requestedTemplateExt, expectedDigest;
       // download accepts WOPI/changesUrl/document shapes, so it is a choke point only (not marker-guarded); see checkJwtPurpose
@@ -1827,15 +1832,15 @@ exports.downloadFile = function (req, res) {
             requestedTemplateExt = pathModule.extname(decoded.fileInfo.BaseFileName).substring(1);
             fromTemplate = newFileTemplateUtils.getNewFileTemplateExt(requestedTemplateExt);
           } else {
-            ({url, headers, expectedDigest} = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
-            const filterStatus = yield wopiClient.checkIpFilter(ctx, url);
-            if (0 === filterStatus) {
-              //todo use directIfIn
-              // the url comes from FileUrl, TemplateSource or userAuth, so it may skip the private-address filter only when that very source was signed
-              isInJwtToken = wopiUtils.isWopiSourceSigned(signed, decoded.fileInfo, decoded.userAuth);
-            } else {
-              errorDescription = 'access deny';
-            }
+            // a wopi source is attacker-supplied, so "we signed it" is not proof of trust; the boundary judges the destination and every hop
+            ({
+              url,
+              headers,
+              expectedDigest,
+              kind: wopiKind,
+              access_token: wopiAccessToken
+            } = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
+            isWopiSource = true;
           }
         } else if (decoded.changesUrl) {
           url = decoded.changesUrl;
@@ -1883,12 +1888,14 @@ exports.downloadFile = function (req, res) {
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url}, secret, false);
         }
-        const urlParsed = urlModule.parse(url);
-        const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
-        if (0 !== filterStatus) {
-          ctx.logger.warn('Error downloadFile checkIpFilter error: url = %s', url);
-          res.sendStatus(filterStatus);
-          return;
+        if (!isWopiSource) {
+          const urlParsed = urlModule.parse(url);
+          const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+          if (0 !== filterStatus) {
+            ctx.logger.warn('Error downloadFile checkIpFilter error: url = %s', url);
+            res.sendStatus(filterStatus);
+            return;
+          }
         }
 
         if (req.get('Range')) {
@@ -1898,16 +1905,17 @@ exports.downloadFile = function (req, res) {
           headers['Range'] = req.get('Range');
         }
 
-        const downloadResult = yield utils.downloadUrlPromise(ctx, url, {
+        const downloadOptions = {
           timeout: tenDownloadTimeout,
           limit: tenDownloadMaxBytes,
           authorization,
           isInJwtToken,
-          headers,
           expectedDigest,
-          beforeRedirect,
           returnStream: true
-        });
+        };
+        const downloadResult = yield isWopiSource
+          ? wopiEgress.download(ctx, url, {...downloadOptions, headers, kind: wopiKind, access_token: wopiAccessToken})
+          : utils.downloadUrlPromise(ctx, url, {...downloadOptions, headers, beforeRedirect});
         const response = downloadResult.response;
         stream = downloadResult.stream;
         upstreamStream = response.data;

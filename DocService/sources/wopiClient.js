@@ -50,6 +50,7 @@ const constants = require('./../../Common/sources/constants');
 const jwtService = require('./jwtService');
 const commonDefines = require('./../../Common/sources/commondefines');
 const wopiUtils = require('./wopiUtils');
+const wopiEgress = require('./wopiEgress');
 const newFileTemplateUtils = require('./newFileTemplateUtils');
 const templateLocale = require('./../../Common/sources/templateLocale');
 const documentFormats = require('./../../Common/sources/documentFormats');
@@ -907,11 +908,6 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
       const fileInfo = wopiParams.commonInfo.fileInfo;
       const userAuth = wopiParams.userAuth;
       const uri = `${userAuth.wopiSrc}/contents?access_token=${encodeURIComponent(userAuth.access_token)}`;
-      const filterStatus = yield checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        return postRes;
-      }
-
       //collabora nexcloud connector sets only UserCanWrite=true
       const canEdit = fileInfo.UserCanOnlyComment || fileInfo.UserCanWrite || fileInfo.UserCanReview;
       if (fileInfo && (fileInfo.SupportsUpdate || canEdit)) {
@@ -939,11 +935,9 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
           const streamObj = yield dataStream();
           dataStream = streamObj.readStream;
         }
-        postRes = yield utils.postRequestPromise(ctx, uri, {
+        postRes = yield wopiEgress.post(ctx, uri, {
           timeout: tenCallbackRequestTimeout,
-          isInJwtToken: true,
           headers,
-          beforeRedirect: wopiUtils.blockWopiRedirect,
           data,
           dataStream,
           dataSize
@@ -977,11 +971,6 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
       const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-      const filterStatus = yield checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        return res;
-      }
-
       const headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget || suggestedExt)};
       if (isFileConversion) {
         headers['X-WOPI-FileConversion'] = isFileConversion;
@@ -994,11 +983,9 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
         const streamObj = yield dataStream();
         dataStream = streamObj.readStream;
       }
-      const postRes = yield utils.postRequestPromise(ctx, uri, {
+      const postRes = yield wopiEgress.post(ctx, uri, {
         timeout: tenCallbackRequestTimeout,
-        isInJwtToken: true,
         headers,
-        beforeRedirect: wopiUtils.blockWopiRedirect,
         data,
         dataStream,
         dataSize
@@ -1034,11 +1021,6 @@ async function renameFile(ctx, wopiParams, name) {
     const fileInfo = wopiParams.commonInfo.fileInfo;
     const userAuth = wopiParams.userAuth;
     const uri = `${userAuth.wopiSrc}?access_token=${encodeURIComponent(userAuth.access_token)}`;
-    const filterStatus = await checkIpFilter(ctx, uri);
-    if (0 !== filterStatus) {
-      return res;
-    }
-
     if (fileInfo && fileInfo.SupportsRename) {
       const fileNameMaxLength = fileInfo.FileNameMaxLength || 255;
       name = name.substring(0, fileNameMaxLength);
@@ -1048,12 +1030,7 @@ async function renameFile(ctx, wopiParams, name) {
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
 
       ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-      const postRes = await utils.postRequestPromise(ctx, uri, {
-        timeout: tenCallbackRequestTimeout,
-        isInJwtToken: true,
-        headers,
-        beforeRedirect: wopiUtils.blockWopiRedirect
-      });
+      const postRes = await wopiEgress.post(ctx, uri, {timeout: tenCallbackRequestTimeout, headers});
       ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
       if (postRes.body) {
         res = JSON.parse(postRes.body);
@@ -1105,31 +1082,6 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
   }
   return res;
 }
-// Private helper: one signed WOPI GET -> {res} on success, {redirectedUri} if redirected, throws on error
-async function _wopiGet(ctx, uri, access_token, baseHeaders, timeout) {
-  const headers = {...baseHeaders};
-  let redirectedUri = null;
-  await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
-  ctx.logger.debug('wopi GET request uri=%s headers=%j', uri, headers);
-  try {
-    return {
-      res: await utils.downloadUrlPromise(ctx, uri, {
-        timeout,
-        isInJwtToken: true,
-        headers,
-        beforeRedirect: (options, responseDetails) => {
-          redirectedUri = options.href;
-          ctx.logger.debug('wopi GET redirect %d to: %s', responseDetails.statusCode, redirectedUri);
-          throw new Error(`WOPI redirect ${responseDetails.statusCode}`);
-        }
-      })
-    };
-  } catch (err) {
-    if (redirectedUri) return {redirectedUri};
-    throw err;
-  }
-}
-
 /**
  * Checks file info from WOPI server (implements CheckFileInfo operation)
  * @see https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/files/checkfileinfo
@@ -1146,28 +1098,16 @@ async function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
     ctx.logger.info('wopi checkFileInfo start');
     const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
     const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-    if (0 !== (await checkIpFilter(ctx, uri))) {
-      ctx.logger.warn('wopi checkFileInfo blocked by IP filter uri=%s', uri);
-      return {fileInfo: {error: true, statusCode: 403}};
-    }
     const headers = opt_sc ? {'X-WOPI-SessionContext': opt_sc} : {};
-    const firstGet = await _wopiGet(ctx, uri, access_token, headers, tenDownloadTimeout);
-    const {redirectedUri} = firstGet;
-    let getRes = firstGet.res;
+    await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
+    ctx.logger.debug('wopi GET request uri=%s headers=%j', uri, headers);
+    const getRes = await wopiEgress.download(ctx, uri, {timeout: tenDownloadTimeout, headers, kind: 'checkFileInfo', access_token});
     let redirectedWopiSrc;
-    if (redirectedUri) {
-      const rUrl = new URL(redirectedUri);
+    if (getRes.wopiFinalUri !== uri) {
+      const rUrl = new URL(getRes.wopiFinalUri);
       rUrl.search = '';
       redirectedWopiSrc = rUrl.toString();
       ctx.logger.info('wopi checkFileInfo redirect: %s -> %s', wopiSrc, redirectedWopiSrc);
-      const newUri = `${redirectedWopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-      if (0 !== (await checkIpFilter(ctx, newUri))) {
-        ctx.logger.warn('wopi checkFileInfo redirect blocked by IP filter uri=%s', newUri);
-        return {fileInfo: {error: true, statusCode: 403}};
-      }
-      const retry = await _wopiGet(ctx, newUri, access_token, headers, tenDownloadTimeout);
-      if (retry.redirectedUri) throw new Error('WOPI redirect loop');
-      getRes = retry.res;
     }
     ctx.logger.debug('wopi checkFileInfo headers=%j body=%s', getRes.response.headers, getRes.body);
     return {fileInfo: JSON.parse(getRes.body), redirectedWopiSrc};
@@ -1192,22 +1132,10 @@ async function lock(ctx, command, lockId, fileInfo, userAuth) {
       const wopiSrc = userAuth.wopiSrc;
       const access_token = userAuth.access_token;
       const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-      const filterStatus = await checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        res.error = true;
-        res.statusCode = 403;
-        return res;
-      }
-
       const headers = {'X-WOPI-Override': command, 'X-WOPI-Lock': lockId};
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
-      const postRes = await utils.postRequestPromise(ctx, uri, {
-        timeout: tenCallbackRequestTimeout,
-        isInJwtToken: true,
-        headers,
-        beforeRedirect: wopiUtils.blockWopiRedirect
-      });
+      const postRes = await wopiEgress.post(ctx, uri, {timeout: tenCallbackRequestTimeout, headers});
       ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
     } else {
       ctx.logger.info('wopi %s SupportsLocks = false', command);
@@ -1237,20 +1165,10 @@ async function unlock(ctx, wopiParams) {
       const lockId = wopiParams.commonInfo.lockId;
       const access_token = wopiParams.userAuth.access_token;
       const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-      const filterStatus = await checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        return;
-      }
-
       const headers = {'X-WOPI-Override': 'UNLOCK', 'X-WOPI-Lock': lockId};
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-      const postRes = await utils.postRequestPromise(ctx, uri, {
-        timeout: tenCallbackRequestTimeout,
-        isInJwtToken: true,
-        headers,
-        beforeRedirect: wopiUtils.blockWopiRedirect
-      });
+      const postRes = await wopiEgress.post(ctx, uri, {timeout: tenCallbackRequestTimeout, headers});
       ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
     } else {
       ctx.logger.info('wopi SupportsLocks = false');
@@ -1277,16 +1195,6 @@ function numberToBase64(val) {
   return buffer.toString('base64');
 }
 
-function checkIpFilter(ctx, uri) {
-  return co(function* () {
-    const urlParsed = new URL(uri);
-    const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
-    if (0 !== filterStatus) {
-      ctx.logger.warn('wopi checkIpFilter error: url = %s', uri);
-    }
-    return filterStatus;
-  });
-}
 function getWopiParams(lockId, fileInfo, wopiSrc, access_token, access_token_ttl) {
   const commonInfo = {lockId, fileInfo};
   const userAuth = {
@@ -1344,7 +1252,7 @@ function dummyOk(req, res) {
   res.sendStatus(200);
 }
 
-exports.checkIpFilter = checkIpFilter;
+exports._checkFileInfoForTesting = checkFileInfo;
 exports.discovery = discovery;
 exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;

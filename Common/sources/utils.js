@@ -345,7 +345,33 @@ function isAllowDirectRequest(ctx, uri, isInJwtToken) {
   }
   return res;
 }
-function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions) {
+// an ipv4-mapped ipv6 address is the same host as its ipv4 form, so callers compare and classify the ipv4 one
+function classifyAddress(address) {
+  if (!ipaddr.isValid(address)) {
+    return undefined;
+  }
+  let parsed = ipaddr.parse(address);
+  if ('ipv6' === parsed.kind() && parsed.isIPv4MappedAddress()) {
+    parsed = parsed.toIPv4Address();
+  }
+  const range = parsed.range();
+  return {normalized: parsed.toString(), range, isPublic: 'unicast' === range};
+}
+exports.classifyAddress = classifyAddress;
+// the agent checks allowIPAddressList before its own meta, private and deny checks, so this is the last line against a caller lifting one of those
+const NEVER_LIFTED_RANGES = new Set(['linkLocal', 'unspecified', 'broadcast', 'multicast']);
+function toLiftedAddressList(ctx, addresses, denyIPAddressList) {
+  const denied = new Set((denyIPAddressList ?? []).map(address => classifyAddress(address)?.normalized ?? address));
+  return (addresses ?? []).filter(address => {
+    const info = classifyAddress(address);
+    if (!info || NEVER_LIFTED_RANGES.has(info.range) || denied.has(info.normalized)) {
+      ctx.logger.warn('addExternalRequestOptions refuses to lift the private-ip filter for address = %s', address);
+      return false;
+    }
+    return true;
+  });
+}
+function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions, opt_filterAllowIPs) {
   let res = false;
   const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
   const tenRequestFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
@@ -354,13 +380,20 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
   } else if (tenExternalRequestAction.allow) {
     res = true;
     if (tenExternalRequestAction.blockPrivateIP) {
+      const filteringOptions = {...tenRequestFilteringAgent};
+      // addresses the caller has already judged, lifted for this request only
+      const lifted = toLiftedAddressList(ctx, opt_filterAllowIPs, tenRequestFilteringAgent.denyIPAddressList);
+      if (lifted.length > 0) {
+        filteringOptions.allowIPAddressList = [...(filteringOptions.allowIPAddressList ?? []), ...lifted];
+        ctx.logger.debug('addExternalRequestOptions allowIPAddressList=%j', filteringOptions.allowIPAddressList);
+      }
       options.httpsAgent = new RequestFilteringHttpsAgent({
         ...httpsAgentOptions,
-        ...tenRequestFilteringAgent
+        ...filteringOptions
       });
       options.httpAgent = new RequestFilteringHttpAgent({
         ...httpAgentOptions,
-        ...tenRequestFilteringAgent
+        ...filteringOptions
       });
     }
     if (tenExternalRequestAction.proxyUrl) {
@@ -436,7 +469,18 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
 async function downloadUrlPromise(
   ctx,
   uri,
-  {timeout, limit, authorization, isInJwtToken, headers: extraHeaders, returnStream, beforeRedirect, maxRedirects, expectedDigest} = {}
+  {
+    timeout,
+    limit,
+    authorization,
+    isInJwtToken,
+    headers: extraHeaders,
+    returnStream,
+    beforeRedirect,
+    maxRedirects,
+    expectedDigest,
+    filterAllowIPs
+  } = {}
 ) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
@@ -452,7 +496,7 @@ async function downloadUrlPromise(
   const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
 
-  if (!addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
+  if (!addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions, filterAllowIPs)) {
     throw new Error('Block external request. See externalRequest config options');
   }
 
@@ -556,7 +600,7 @@ async function downloadUrlPromise(
 async function postRequestPromise(
   ctx,
   uri,
-  {data, dataStream, dataSize, timeout, authorization, isInJwtToken, headers: extraHeaders, beforeRedirect, maxRedirects} = {}
+  {data, dataStream, dataSize, timeout, authorization, isInJwtToken, headers: extraHeaders, beforeRedirect, maxRedirects, filterAllowIPs} = {}
 ) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
@@ -568,7 +612,7 @@ async function postRequestPromise(
   const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
 
-  if (!addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
+  if (!addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions, filterAllowIPs)) {
     throw new Error('Block external request. See externalRequest config options');
   }
 
@@ -1133,29 +1177,37 @@ function pipeHttpStreams(from, to) {
   });
 }
 exports.pipeHttpStreams = pipeHttpStreams;
-function checkIpFilter(ctx, ipString, opt_hostname) {
+// report the rule that matched, so callers can tell an explicit admin allow from "no rule matched"
+function checkIpFilterDetailed(ctx, ipString, opt_hostname) {
   const tenIpFilterRules = ctx.getCfg('services.CoAuthoring.ipfilter.rules', cfgIpFilterRules);
 
   let status = 0;
+  let matchedRule;
   let ip4;
   let ip6;
+  let ip6Short;
   if (ipaddr.isValid(ipString)) {
     const ip = ipaddr.parse(ipString);
+    let ip6Address;
     if ('ipv6' === ip.kind()) {
+      ip6Address = ip;
       if (ip.isIPv4MappedAddress()) {
         ip4 = ip.toIPv4Address().toString();
       }
-      ip6 = ip.toNormalizedString();
     } else {
       ip4 = ip.toString();
-      ip6 = ip.toIPv4MappedAddress().toNormalizedString();
+      ip6Address = ip.toIPv4MappedAddress();
     }
+    // an administrator writes ::1, not its expanded form, so a rule is matched against both spellings of the same address
+    ip6 = ip6Address.toNormalizedString();
+    ip6Short = ip6Address.toString();
   }
 
   for (let i = 0; i < tenIpFilterRules.length; ++i) {
     const rule = tenIpFilterRules[i];
     const exp = getIpFilterRule(rule.address);
-    if ((opt_hostname && exp.test(opt_hostname)) || (ip4 && exp.test(ip4)) || (ip6 && exp.test(ip6))) {
+    if ((opt_hostname && exp.test(opt_hostname)) || (ip4 && exp.test(ip4)) || (ip6 && exp.test(ip6)) || (ip6Short && exp.test(ip6Short))) {
+      matchedRule = rule;
       if (!rule.allowed) {
         const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
         status = tenIpFilterErrorCode;
@@ -1163,7 +1215,11 @@ function checkIpFilter(ctx, ipString, opt_hostname) {
       break;
     }
   }
-  return status;
+  return {status, matchedRule};
+}
+exports.checkIpFilterDetailed = checkIpFilterDetailed;
+function checkIpFilter(ctx, ipString, opt_hostname) {
+  return checkIpFilterDetailed(ctx, ipString, opt_hostname).status;
 }
 exports.checkIpFilter = checkIpFilter;
 function* checkHostFilter(ctx, hostname) {

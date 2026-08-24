@@ -1852,6 +1852,24 @@
                   "description": "Whether it is allowed to connect meta IP address or not. Meta address can be `0.0.0.0` (IPv4) or `::` (IPv6) - a meta address that routing another address.",
                   "default": false,
                   "x-tenantOverride": false
+                },
+                "allowIPAddressList": {
+                  "type": "array",
+                  "description": "The IP addresses that are allowed even when they are private. The request-filtering-agent checks this list before its own meta, private and deny checks, so for ordinary outbound requests an entry here outranks everything. It does not permit a WOPI destination: that is decided by `services.CoAuthoring.ipfilter.rules` alone.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": [],
+                  "x-tenantOverride": false
+                },
+                "denyIPAddressList": {
+                  "type": "array",
+                  "description": "The IP addresses that are never allowed. For WOPI destinations a deny here outranks every permission, including an `ipfilter.rules` entry naming the same address. For other filtered requests the request-filtering-agent's own precedence applies, where `allowIPAddressList` is checked first; a direct request bypasses the agent entirely.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": [],
+                  "x-tenantOverride": false
                 }
               },
               "x-section-intro": "These parameters configure the [Request Filtering Agent configuration](https://github.com/azu/request-filtering-agent#api)."
@@ -1937,7 +1955,7 @@
                     "properties": {
                       "address": {
                         "type": "string",
-                        "description": "The IP address, CIDR notation, or `*` for all addresses (e.g., `192.168.1.0/24`, `10.0.0.1`, `*`)."
+                        "description": "The IP address, host name, or `*` wildcard pattern (e.g., `10.0.0.1`, `nextcloud.example.com`, `*.example.com`, `*`)."
                       },
                       "allowed": {
                         "type": "boolean",
@@ -3330,6 +3348,13 @@
           "description": "The discovery zone advertised by the document server. For SharePoint integrations, this value should match the zone configured with Set-SPWOPIZone.",
           "x-scope": ["admin", "tenant"],
           "x-tenantOverride": true
+        },
+        "requireIpFilterRule": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether every WOPI host must be named by a `services.CoAuthoring.ipfilter.rules` entry before the server will contact it. The catch-all `*` rule does not count, because it names nothing. Set to false to allow unlisted WOPI destinations as a temporary migration fallback while the rules are being written - this re-opens server-side request forgery. Every other WOPI egress protection stays active either way: the request is never treated as trusted, cloud metadata, link-local, multicast and `denyIPAddressList` addresses stay hard denied, each redirect hop is validated, and `externalRequest` routing still applies.",
+          "x-scope": ["admin"],
+          "x-tenantOverride": false
         },
         "sendAuthorizationHeader": {
           "type": "boolean",

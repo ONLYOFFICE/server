@@ -132,23 +132,6 @@ function getContentsExpectedDigest(fileInfo) {
   return {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: fileInfo.SHA256};
 }
 
-// Mirrors the branch order of getWopiFileUrl: the url comes from one of three places, and only the one it actually came from has to be signed.
-// Keep the two in step - a new source here without a case there would silently read as signed.
-function isWopiSourceSigned(signed, fileInfo, userAuth) {
-  if (!signed || 'object' !== typeof signed) {
-    return false;
-  }
-  if (fileInfo?.FileUrl) {
-    return signed.fileInfo?.FileUrl === fileInfo.FileUrl;
-  }
-  if (fileInfo?.TemplateSource) {
-    return signed.fileInfo?.TemplateSource === fileInfo.TemplateSource;
-  }
-  if (userAuth) {
-    return signed.userAuth?.wopiSrc === userAuth.wopiSrc && signed.userAuth?.access_token === userAuth.access_token;
-  }
-  return false;
-}
 /**
  * Gets a WOPI file URL with appropriate headers
  *
@@ -161,23 +144,52 @@ async function getWopiFileUrl(ctx, fileInfo, userAuth) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   let url;
   let expectedDigest;
+  // the three sources carry credentials differently across a redirect, so the caller is told which one this is
+  let kind;
+  let access_token;
   const headers = {'X-WOPI-MaxExpectedSize': tenMaxDownloadBytes};
   if (fileInfo?.FileUrl) {
     //Requests to the FileUrl can not be signed using proof keys. The FileUrl is used exactly as provided by the host, so it does not necessarily include the access token, which is required to construct the expected proof.
     url = fileInfo.FileUrl;
+    kind = 'fileUrl';
     // SHA256 in CheckFileInfo describes this file, which FileUrl serves the contents of
     expectedDigest = getContentsExpectedDigest(fileInfo);
   } else if (fileInfo?.TemplateSource) {
     // TemplateSource is a separate resource, so the file SHA256 is not guaranteed to describe it
     url = fileInfo.TemplateSource;
+    kind = 'templateSource';
   } else if (userAuth) {
     url = `${userAuth.wopiSrc}/contents?access_token=${encodeURIComponent(userAuth.access_token)}`;
     await fillStandardHeaders(ctx, headers, url, userAuth.access_token);
+    kind = 'contents';
+    access_token = userAuth.access_token;
     // The /contents endpoint returns the file this CheckFileInfo SHA256 describes
     expectedDigest = getContentsExpectedDigest(fileInfo);
   }
   ctx.logger.debug('getWopiFileUrl url=%s; headers=%j; expectedDigest=%j', url, headers, expectedDigest);
-  return {url, headers, expectedDigest};
+  return {url, headers, expectedDigest, kind, access_token};
+}
+
+// the headers a signed request carries are bound to its url, so a hop has to drop them before it can re-sign
+const URL_BOUND_HEADERS = ['Authorization', 'X-WOPI-Proof', 'X-WOPI-ProofOld', 'X-WOPI-TimeStamp'];
+function withoutUrlBoundHeaders(headers) {
+  const res = {};
+  const dropped = new Set(URL_BOUND_HEADERS.map(name => name.toLowerCase()));
+  for (const name of Object.keys(headers ?? {})) {
+    if (!dropped.has(name.toLowerCase())) {
+      res[name] = headers[name];
+    }
+  }
+  return res;
+}
+// a WOPI destination is only ever an http(s) URL, so reject every other scheme before egress
+function isHttpScheme(url) {
+  try {
+    const protocol = new URL(url).protocol;
+    return 'http:' === protocol || 'https:' === protocol;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -191,8 +203,9 @@ function blockWopiRedirect(_options, responseDetails) {
 
 module.exports = {
   getWopiFileUrl,
-  isWopiSourceSigned,
+  withoutUrlBoundHeaders,
   getContentsExpectedDigest,
   fillStandardHeaders,
-  blockWopiRedirect
+  blockWopiRedirect,
+  isHttpScheme
 };

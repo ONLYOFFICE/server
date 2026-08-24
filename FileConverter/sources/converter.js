@@ -52,6 +52,7 @@ const constants = require('./../../Common/sources/constants');
 const templateLocale = require('./../../Common/sources/templateLocale');
 const baseConnector = require('../../DocService/sources/databaseConnectors/baseConnector');
 const wopiUtils = require('./../../DocService/sources/wopiUtils');
+const wopiEgress = require('./../../DocService/sources/wopiEgress');
 const taskResult = require('./../../DocService/sources/taskresult');
 const statsDClient = require('./../../Common/sources/statsdclient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
@@ -513,7 +514,7 @@ function replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
     }
   }
 }
-function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_headers, opt_expectedDigest) {
+function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_headers, opt_expectedDigest, opt_wopi) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
   const tenDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
@@ -521,7 +522,8 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
   let res = constants.CONVERT_DOWNLOAD;
   let downloadAttemptCount = 0;
   const urlParsed = url.parse(uri);
-  const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+  // a wopi destination is judged by the wopi egress boundary, everything else keeps the plain host filter
+  const filterStatus = opt_wopi ? 0 : yield* utils.checkHostFilter(ctx, urlParsed.hostname);
   if (0 == filterStatus) {
     while (constants.NO_ERROR !== res && downloadAttemptCount++ < tenDownloadAttemptMaxCount) {
       try {
@@ -530,15 +532,17 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
         }
-        const {stream, getIntegrity} = yield utils.downloadUrlPromise(ctx, uri, {
+        const downloadOptions = {
           timeout: tenDownloadTimeout,
           limit: tenMaxDownloadBytes,
           authorization,
           isInJwtToken,
-          headers: opt_headers,
           expectedDigest: opt_expectedDigest,
           returnStream: true
-        });
+        };
+        const {stream, getIntegrity} = yield opt_wopi
+          ? wopiEgress.download(ctx, uri, {...downloadOptions, headers: opt_headers, ...opt_wopi})
+          : utils.downloadUrlPromise(ctx, uri, {...downloadOptions, headers: opt_headers});
         const hashStream = new utils.HashSizeStream();
         yield pipeline(stream, hashStream, fs.createWriteStream(fileFrom));
         ctx.logger.debug('downloadFile complete filesize=%d sha256=%s integrity=%j', hashStream.byteCount, hashStream.sha256, getIntegrity());
@@ -1225,17 +1229,26 @@ function* ExecuteTask(ctx, task) {
       let headers;
       let expectedDigest;
       let fileSize;
+      let wopiResource;
       const wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
-        isInJwtToken = true;
+        // WOPI src is untrusted, keep the private-IP filter for the download and x2t
+        isInJwtToken = false;
         const fileInfo = wopiParams.commonInfo?.fileInfo;
         fileSize = fileInfo?.Size;
         // expectedDigest is the CheckFileInfo SHA256 captured at open; a host edit before this download surfaces as a retryable digest mismatch
-        ({url, headers, expectedDigest} = yield wopiUtils.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
+        let kind;
+        let access_token;
+        ({url, headers, expectedDigest, kind, access_token} = yield wopiUtils.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
+        wopiResource = {kind, access_token};
       }
-      if (undefined === fileSize || fileSize > 0) {
-        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers, expectedDigest);
+      if (wopiParams && !wopiUtils.isHttpScheme(url)) {
+        // reject non-http(s) WOPI destinations before any egress
+        ctx.logger.warn('wopi download blocked, unsupported scheme url=%s', url);
+        error = constants.CONVERT_PARAMS;
+      } else if (undefined === fileSize || fileSize > 0) {
+        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers, expectedDigest, wopiResource);
       }
       if (constants.NO_ERROR === error) {
         replaceEmptyFile(ctx, dataConvert.fileFrom, format, cmd.getLCID());
@@ -1451,3 +1464,4 @@ exports.createRunner = createRunner;
 exports.simulateErrorResponse = simulateErrorResponse;
 exports.run = run;
 exports._receiveTaskSetTimeoutForTesting = receiveTaskSetTimeout;
+exports._ExecuteTaskForTesting = ExecuteTask;

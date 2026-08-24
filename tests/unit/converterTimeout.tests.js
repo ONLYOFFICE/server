@@ -77,7 +77,20 @@ jestGlobals.mock('../../Common/sources/runtime/profile', () => ({
   resetCache: jestGlobals.fn()
 }));
 
+const co = require('co');
+const utils = require('../../Common/sources/utils');
+const commonDefines = require('../../Common/sources/commondefines');
+const operationContext = require('../../Common/sources/operationContext');
 const converter = require('../../FileConverter/sources/converter');
+
+const DENIED_HOST = '127.0.0.2';
+
+// Only an ipfilter rule naming the host lets a WOPI conversion reach a non-public address
+function makeWopiCtx(rules) {
+  const ctx = new operationContext.Context();
+  ctx.config = {services: {CoAuthoring: {ipfilter: {rules, errorcode: 403}}}};
+  return ctx;
+}
 
 // Minimal queue that satisfies the surface used by createRunner / ackTask.
 class FakeQueue extends EventEmitter {
@@ -150,5 +163,68 @@ describe('receiveTaskSetTimeout', () => {
     clearTimeout(id);
     await jestGlobals.runAllTimersAsync();
     expect(processExitSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('WOPI conversion download', () => {
+  test('the download sink is reached only for a host the rules name, and never as a direct request', async () => {
+    // Reject at the sink so the download fails fast before x2t is spawned; capture the args the production code passed.
+    const spy = jestGlobals.spyOn(utils, 'downloadUrlPromise').mockRejectedValue(Object.assign(new Error('blocked'), {code: 'ETIMEDOUT'}));
+
+    const ctx = makeWopiCtx([{address: DENIED_HOST, allowed: true}]);
+    const fileUrl = `http://${DENIED_HOST}:1/file`;
+    const cmd = new commonDefines.InputCommand();
+    cmd.setDocId('wopi-download-allowed');
+    cmd.setFormat('docx');
+    cmd.setUrl(`http://${DENIED_HOST}:1/wopi`);
+    cmd.setWithAuthorization(false);
+    cmd.setWopiParams({
+      commonInfo: {fileInfo: {FileUrl: fileUrl, Size: 100}},
+      userAuth: {wopiSrc: `http://${DENIED_HOST}:1/wopi`, access_token: 'tok'}
+    });
+    const task = new commonDefines.TaskQueueData();
+    task.setCtx(ctx);
+    task.setCmd(cmd);
+    task.setToFile('out.docx');
+
+    try {
+      await co(converter._ExecuteTaskForTesting(ctx, task));
+    } catch (_err) {
+      // Post-download handling is irrelevant here; the sink args are already captured.
+    }
+
+    expect(spy).toHaveBeenCalled();
+    expect(spy.mock.calls[0][1]).toBe(fileUrl);
+    expect(spy.mock.calls[0][2]).toEqual(expect.objectContaining({isInJwtToken: false, filterAllowIPs: [DENIED_HOST]}));
+    spy.mockRestore();
+  });
+
+  test('a WOPI conversion to a non-public host no ipfilter rule names never reaches the download sink', async () => {
+    const spy = jestGlobals.spyOn(utils, 'downloadUrlPromise').mockRejectedValue(Object.assign(new Error('blocked'), {code: 'ETIMEDOUT'}));
+
+    const ctx = makeWopiCtx([{address: '*', allowed: true}]);
+    const fileUrl = `http://${DENIED_HOST}:1/file`;
+    const cmd = new commonDefines.InputCommand();
+    cmd.setDocId('wopi-download-refused');
+    cmd.setFormat('docx');
+    cmd.setUrl(`http://${DENIED_HOST}:1/wopi`);
+    cmd.setWithAuthorization(false);
+    cmd.setWopiParams({
+      commonInfo: {fileInfo: {FileUrl: fileUrl, Size: 100}},
+      userAuth: {wopiSrc: `http://${DENIED_HOST}:1/wopi`, access_token: 'tok'}
+    });
+    const task = new commonDefines.TaskQueueData();
+    task.setCtx(ctx);
+    task.setCmd(cmd);
+    task.setToFile('out.docx');
+
+    try {
+      await co(converter._ExecuteTaskForTesting(ctx, task));
+    } catch (_err) {
+      // the refusal happens before egress, so there is nothing to clean up here
+    }
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

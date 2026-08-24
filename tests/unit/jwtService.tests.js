@@ -46,7 +46,6 @@ const {describe, test, expect} = require('@jest/globals');
 
 const jwtService = require('../../DocService/sources/jwtService');
 const converterService = require('../../DocService/sources/converterservice');
-const wopiUtils = require('../../DocService/sources/wopiUtils');
 const docsCoServer = require('../../DocService/sources/DocsCoServer');
 const commonDefines = require('../../Common/sources/commondefines');
 const constants = require('../../Common/sources/constants');
@@ -521,25 +520,6 @@ describe('signed provenance', () => {
       // a sink that serves no operation refuses the nested copy too
       expect(checkJwtPurpose(gate, {document: {key: 'd'}, payload: {operation: 'converter'}}, 'browser-open')).toBe(false);
     }
-  });
-
-  test('isWopiSourceSigned judges the branch getWopiFileUrl actually takes, in the same priority order', () => {
-    const signedAll = {fileInfo: {FileUrl: 'http://s/f', TemplateSource: 'http://s/t'}, userAuth: {wopiSrc: 'http://s/w', access_token: 'a'}};
-    // FileUrl wins, so only FileUrl has to match
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {FileUrl: 'http://s/f'}, {wopiSrc: 'http://evil/w', access_token: 'b'})).toBe(true);
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {FileUrl: 'http://evil/f'}, undefined)).toBe(false);
-    // TemplateSource is next, and only when FileUrl is absent
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {TemplateSource: 'http://s/t'}, undefined)).toBe(true);
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {TemplateSource: 'http://evil/t'}, undefined)).toBe(false);
-    // userAuth last, and both halves of it have to match, because the token is part of the url
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {Size: 1}, {wopiSrc: 'http://s/w', access_token: 'a'})).toBe(true);
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {Size: 1}, {wopiSrc: 'http://s/w', access_token: 'b'})).toBe(false);
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {Size: 1}, {wopiSrc: 'http://evil/w', access_token: 'a'})).toBe(false);
-    // a real priority conflict: FileUrl is the branch taken, so a matching TemplateSource must not rescue it
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {FileUrl: 'http://evil/f', TemplateSource: 'http://s/t'}, undefined)).toBe(false);
-    // nothing signed at all, and no source at all
-    expect(wopiUtils.isWopiSourceSigned({}, {FileUrl: 'http://s/f'}, undefined)).toBe(false);
-    expect(wopiUtils.isWopiSourceSigned(signedAll, {Size: 1}, undefined)).toBe(false);
   });
 
   test('isSignedSource grants the outbox credential only to a url the token named', () => {

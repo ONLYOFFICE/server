@@ -53,6 +53,14 @@
       "utils": {
         "utils_common_fontdir": "/usr/share/fonts"
       },
+      "ipfilter": {
+        "rules": [
+          {"address": "localhost", "allowed": true},
+          {"address": "127.0.0.1", "allowed": true},
+          {"address": "::1", "allowed": true},
+          {"address": "*", "allowed": true}
+        ]
+      },
       "request-filtering-agent": {
         "allowPrivateIPAddress": true,
         "allowMetaIPAddress": true

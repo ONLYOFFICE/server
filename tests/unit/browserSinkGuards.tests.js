@@ -49,6 +49,7 @@ const canvasService = require('../../DocService/sources/canvasservice');
 const taskResult = require('../../DocService/sources/taskresult');
 const utils = require('../../Common/sources/utils');
 const wopiUtils = require('../../DocService/sources/wopiUtils');
+const wopiEgress = require('../../DocService/sources/wopiEgress');
 const {mintWithSecretType} = require('./mintToken.helper');
 const commonDefines = require('../../Common/sources/commondefines');
 const operationContext = require('../../Common/sources/operationContext');
@@ -180,8 +181,13 @@ describe('downloadFile refuses a request that resolves to no source', () => {
     expect(download).not.toHaveBeenCalled();
   });
 
-  test('the WOPI branch judges the source the url was actually built from, not merely a signed fileInfo', async () => {
+  // a WOPI url is attacker-supplied whether or not we signed it, so signing it can not grant the private-address exemption
+  test('a WOPI source is fetched through the wopi egress boundary, never as a privileged request', async () => {
     jest.spyOn(utils, 'checkHostFilter').mockReturnValue({[Symbol.iterator]: () => ({next: () => ({value: 0, done: true})})});
+    jest.spyOn(wopiEgress, 'evaluateDestination').mockResolvedValue({status: 0, filterAllowIPs: undefined});
+    const wopiDownload = jest
+      .spyOn(wopiEgress, 'download')
+      .mockImplementation(() => Promise.resolve({stream: Readable.from([Buffer.from('ok')]), response: {headers: {}, data: null}}));
     jest.spyOn(wopiUtils, 'getWopiFileUrl').mockResolvedValue({url: 'http://storage/wopi.docx', headers: {}, expectedDigest: undefined});
     const download = jest
       .spyOn(utils, 'downloadUrlPromise')
@@ -189,19 +195,15 @@ describe('downloadFile refuses a request that resolves to no source', () => {
     const cfgFalse = withTokenRequiredParams(false);
     const userAuth = {wopiSrc: 'http://private.invalid/w', access_token: 't'};
 
-    // a signed fileInfo with the url-bearing half arriving unsigned must not inherit the private-address exemption
-    download.mockClear();
-    const partial = await postDownloadFileBody({token: await mintBrowser({fileInfo: {Size: 10}}), userAuth});
-    expect(partial.status).toBe(200);
-    expect(download.mock.calls[0][2].isInJwtToken).toBe(false);
-
-    // the same request with userAuth inside the token is the legitimate one
-    download.mockClear();
-    const signed = await postDownloadFileBody({token: await mintBrowser({fileInfo: {Size: 10}, userAuth})});
-    expect(signed.status).toBe(200);
-    expect(download.mock.calls[0][2].isInJwtToken).toBe(true);
-    // and a privileged fetch refuses to follow a redirect, because the target of one is not signed
-    expect(typeof download.mock.calls[0][2].beforeRedirect).toBe('function');
+    // neither half-signed nor fully signed fileInfo turns the fetch into a plain privileged download
+    for (const token of [await mintBrowser({fileInfo: {Size: 10}}), await mintBrowser({fileInfo: {Size: 10}, userAuth})]) {
+      wopiDownload.mockClear();
+      download.mockClear();
+      const res = await postDownloadFileBody({token, userAuth});
+      expect(res.status).toBe(200);
+      expect(wopiDownload).toHaveBeenCalledTimes(1);
+      expect(download).not.toHaveBeenCalled();
+    }
     cfgFalse.mockRestore();
   });
 
