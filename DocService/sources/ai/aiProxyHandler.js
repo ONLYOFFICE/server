@@ -40,7 +40,7 @@ const {URL} = require('url');
 const config = require('config');
 const utils = require('./../../../Common/sources/utils');
 const operationContext = require('./../../../Common/sources/operationContext');
-const commonDefines = require('./../../../Common/sources/commondefines');
+const constants = require('./../../../Common/sources/constants');
 const docsCoServer = require('./../DocsCoServer');
 const statsDClient = require('./../../../Common/sources/statsdclient');
 
@@ -344,7 +344,10 @@ async function proxyRequest(req, res) {
 
     let docId = '';
     let userId = '';
-    const checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+    const checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, constants.JWT_PURPOSE_EDITOR_SESSION, {
+      header: 'Authorization',
+      prefix: 'Bearer '
+    });
     if (!checkJwtRes || !checkJwtRes.decoded) {
       ctx.logger.error('proxyRequest: checkJwtHeader error: %s', checkJwtRes?.description);
       res.status(403).json({

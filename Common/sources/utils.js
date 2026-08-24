@@ -1230,13 +1230,33 @@ function isEmptyObject(val) {
 }
 exports.isEmptyObject = isEmptyObject;
 // Overlay a verified JWT's claims onto a params object: base claims first, then payload, then query win.
+// JSON.parse gives `__proto__` as an own property and Object.assign writes it through the setter, so a token carrying one would install
+// inherited fields that Object.keys and every gate rule miss while the consumer reads them as ordinary values.
+const UNSAFE_MERGE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function assignOwnSafe(target, source) {
+  for (const key of Object.keys(source)) {
+    if (!UNSAFE_MERGE_KEYS.has(key)) {
+      target[key] = source[key];
+    }
+  }
+  return target;
+}
+// A signed url authorizes that url and nothing further, so a privileged fetch must not follow a redirect: the target is not signed,
+// and the direct-request exemption granted for the first hop would carry over to it.
+function blockPrivilegedRedirect(_options, responseDetails) {
+  const err = new Error(`redirect ${responseDetails.statusCode} blocked for a url whose privileges cannot follow it`);
+  err.statusCode = responseDetails.statusCode;
+  throw err;
+}
+exports.blockPrivilegedRedirect = blockPrivilegedRedirect;
+exports.assignOwnSafe = assignOwnSafe;
 function mergeJwtDecodedParams(target, decoded) {
-  Object.assign(target, decoded);
+  assignOwnSafe(target, decoded);
   if (!isEmptyObject(decoded.payload)) {
-    Object.assign(target, decoded.payload);
+    assignOwnSafe(target, decoded.payload);
   }
   if (!isEmptyObject(decoded.query)) {
-    Object.assign(target, decoded.query);
+    assignOwnSafe(target, decoded.query);
   }
   return target;
 }
@@ -1278,7 +1298,7 @@ function getJwtHsKey(secret) {
 }
 exports.getJwtHsKey = getJwtHsKey;
 
-// bug 83205: derive a per-purpose secret so a token minted for one flow cannot verify as a token of another
+// derive a per-purpose secret so a token minted for one flow cannot verify as a token of another
 function deriveSecret(secret, purpose) {
   if (!purpose || null == secret || 0 === secret.length) {
     return undefined;

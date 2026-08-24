@@ -37,14 +37,24 @@
 
 'use strict';
 
+// pin purposeCheck=validate before the first require('config') and restore right after: NODE_CONFIG outranks every config file, and jest reuses one process env per worker
+const savedNodeConfig = process.env.NODE_CONFIG;
+process.env.NODE_CONFIG = JSON.stringify({services: {CoAuthoring: {token: {purposeCheck: 'validate'}}}});
+
 const {describe, test, expect} = require('@jest/globals');
 
-const {signToken} = require('../../DocService/sources/DocsCoServer');
+const {mintWithSecretType} = require('./mintToken.helper');
 const {getRequestParamsFromFile} = require('../../DocService/sources/convertFromFile');
 const commonDefines = require('../../Common/sources/commondefines');
 const constants = require('../../Common/sources/constants');
 const operationContext = require('../../Common/sources/operationContext');
 const config = require('../../Common/node_modules/config');
+
+if (undefined === savedNodeConfig) {
+  delete process.env.NODE_CONFIG;
+} else {
+  process.env.NODE_CONFIG = savedNodeConfig;
+}
 
 const cfgTokenAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
 const cfgTokenExpires = config.get('services.CoAuthoring.token.outbox.expires');
@@ -64,8 +74,11 @@ function fakeReq(body, headerToken) {
 
 describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   test('accepts a signed token part and uses only the signed payload', async () => {
-    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
-    const res = await getRequestParamsFromFile(ctx, fakeReq({token}));
+    const token = await mintWithSecretType(ctx, PARAMS, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const res = await getRequestParamsFromFile(ctx, fakeReq({token}), constants.JWT_PURPOSE_CONVERTER);
     expect(res.badRequest).toBe(false);
     expect(res.code).toBe(constants.NO_ERROR);
     expect(res.isDecoded).toBe(true);
@@ -73,8 +86,15 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   });
 
   test('accepts a token nested inside the params JSON (classic body.token contract)', async () => {
-    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({outputtype: 'spoiled', token})}));
+    const token = await mintWithSecretType(ctx, PARAMS, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const res = await getRequestParamsFromFile(
+      ctx,
+      fakeReq({params: JSON.stringify({outputtype: 'spoiled', token})}),
+      constants.JWT_PURPOSE_CONVERTER
+    );
     expect(res.badRequest).toBe(false);
     expect(res.code).toBe(constants.NO_ERROR);
     expect(res.isDecoded).toBe(true);
@@ -83,8 +103,15 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   });
 
   test('accepts a header token alongside an unsigned params part', async () => {
-    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({outputtype: 'spoiled'})}, token));
+    const token = await mintWithSecretType(ctx, PARAMS, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const res = await getRequestParamsFromFile(
+      ctx,
+      fakeReq({params: JSON.stringify({outputtype: 'spoiled'})}, token),
+      constants.JWT_PURPOSE_CONVERTER
+    );
     expect(res.badRequest).toBe(false);
     expect(res.code).toBe(constants.NO_ERROR);
     expect(res.isDecoded).toBe(true);
@@ -92,8 +119,11 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   });
 
   test('a nested params token wins over the header (classic precedence: body token, header ignored)', async () => {
-    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({token})}, 'garbageheader'));
+    const token = await mintWithSecretType(ctx, PARAMS, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({token})}, 'garbageheader'), constants.JWT_PURPOSE_CONVERTER);
     expect(res.badRequest).toBe(false);
     expect(res.code).toBe(constants.NO_ERROR);
     expect(res.isDecoded).toBe(true);
@@ -101,7 +131,7 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   });
 
   test('an empty nested token is ignored (classic !!params.token), unsigned params used in non-token mode', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({...PARAMS, token: ''})}));
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({...PARAMS, token: ''})}), constants.JWT_PURPOSE_CONVERTER);
     if (inboxEnabled) {
       expect(res.code).not.toBe(constants.NO_ERROR);
     } else {
@@ -112,19 +142,43 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   });
 
   test('a non-string truthy nested token fails verification like classic, never accepted unsigned', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({...PARAMS, token: 12345})}));
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify({...PARAMS, token: 12345})}), constants.JWT_PURPOSE_CONVERTER);
     expect(res.code).not.toBe(constants.NO_ERROR);
     expect(res.isDecoded).toBe(false);
   });
 
+  test('an unsigned params field outside the token is dropped, and no setting can put it back', async () => {
+    const token = await mintWithSecretType(ctx, PARAMS, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const res = await getRequestParamsFromFile(
+      ctx,
+      fakeReq({token, params: JSON.stringify({url: 'http://attacker/x.docx'})}),
+      constants.JWT_PURPOSE_CONVERTER
+    );
+    expect(res.isDecoded).toBe(true);
+    expect(res.params.url).toBe(undefined);
+    expect(res.signedParams).toMatchObject(PARAMS);
+    // these routes never shipped stable, so the effective view is the signed one and tokenRequiredParams is not consulted at all
+    expect(res.params).toEqual(res.signedParams);
+  });
+
   test('400 on an unexpected unsigned scalar field', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify(PARAMS), outputtype: 'docx'}));
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify(PARAMS), outputtype: 'docx'}), constants.JWT_PURPOSE_CONVERTER);
     expect(res.badRequest).toBe(true);
   });
 
   test('accepts a token part together with a params part (3-part layout: token, params, file)', async () => {
-    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
-    const res = await getRequestParamsFromFile(ctx, fakeReq({token, params: JSON.stringify({outputtype: 'spoiled'})}));
+    const token = await mintWithSecretType(ctx, PARAMS, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const res = await getRequestParamsFromFile(
+      ctx,
+      fakeReq({token, params: JSON.stringify({outputtype: 'spoiled'})}),
+      constants.JWT_PURPOSE_CONVERTER
+    );
     expect(res.badRequest).toBe(false);
     expect(res.code).toBe(constants.NO_ERROR);
     expect(res.isDecoded).toBe(true);
@@ -133,8 +187,11 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   });
 
   test('a token part wins over the header (classic precedence: body token, header ignored)', async () => {
-    const token = await signToken(ctx, PARAMS, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
-    const res = await getRequestParamsFromFile(ctx, fakeReq({token}, 'garbageheader'));
+    const token = await mintWithSecretType(ctx, PARAMS, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const res = await getRequestParamsFromFile(ctx, fakeReq({token}, 'garbageheader'), constants.JWT_PURPOSE_CONVERTER);
     expect(res.badRequest).toBe(false);
     expect(res.code).toBe(constants.NO_ERROR);
     expect(res.isDecoded).toBe(true);
@@ -142,22 +199,26 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   });
 
   test('400 when the token part is duplicated into an array', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({token: ['a', 'b']}));
+    const res = await getRequestParamsFromFile(ctx, fakeReq({token: ['a', 'b']}), constants.JWT_PURPOSE_CONVERTER);
     expect(res.badRequest).toBe(true);
   });
 
   test('400 when the params part is duplicated into an array', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: [JSON.stringify(PARAMS), JSON.stringify(PARAMS)]}));
+    const res = await getRequestParamsFromFile(
+      ctx,
+      fakeReq({params: [JSON.stringify(PARAMS), JSON.stringify(PARAMS)]}),
+      constants.JWT_PURPOSE_CONVERTER
+    );
     expect(res.badRequest).toBe(true);
   });
 
   test('400 on invalid params JSON', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: '{not valid'}));
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: '{not valid'}), constants.JWT_PURPOSE_CONVERTER);
     expect(res.badRequest).toBe(true);
   });
 
   test('params source depends on mode: accepted in non-token mode, rejected when inbox tokens are required', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify(PARAMS)}));
+    const res = await getRequestParamsFromFile(ctx, fakeReq({params: JSON.stringify(PARAMS)}), constants.JWT_PURPOSE_CONVERTER);
     if (inboxEnabled) {
       expect(res.code).not.toBe(constants.NO_ERROR);
     } else {
@@ -168,11 +229,72 @@ describe('getRequestParamsFromFile (accept/reject contract, no server)', () => {
   });
 
   test('missing both a params part and a token: 400 in non-token mode, auth error when tokens required', async () => {
-    const res = await getRequestParamsFromFile(ctx, fakeReq({}));
+    const res = await getRequestParamsFromFile(ctx, fakeReq({}), constants.JWT_PURPOSE_CONVERTER);
     if (inboxEnabled) {
       expect(res.code).not.toBe(constants.NO_ERROR);
     } else {
       expect(res.badRequest).toBe(true);
     }
+  });
+});
+
+describe('getRequestParamsFromFile operation guard', () => {
+  test('a legit inbox converter token with filetype: accepted for converter, rejected for docbuilder (labels are not interchangeable)', async () => {
+    const token = await mintWithSecretType(
+      ctx,
+      {filetype: 'txt', outputtype: 'docx', url: 'http://storage/in.txt', key: 'c1'},
+      commonDefines.c_oAscSecretType.Inbox,
+      {algorithm: cfgTokenAlgorithm, expiresIn: cfgTokenExpires}
+    );
+    const ok = await getRequestParamsFromFile(ctx, fakeReq({token}), constants.JWT_PURPOSE_CONVERTER);
+    expect(ok.code).toBe(constants.NO_ERROR);
+    expect(ok.isDecoded).toBe(true);
+    const swapped = await getRequestParamsFromFile(ctx, fakeReq({token}), constants.JWT_PURPOSE_DOCBUILDER);
+    expect(swapped.code).toBe(constants.VKEY);
+    expect(swapped.isDecoded).toBe(false);
+  });
+
+  test('a legit inbox docbuilder token (no filetype, script goes in the file) reaches the builder on docbuilder', async () => {
+    const token = await mintWithSecretType(ctx, {key: 'b1', async: true}, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const res = await getRequestParamsFromFile(ctx, fakeReq({token}), constants.JWT_PURPOSE_DOCBUILDER);
+    expect(res.code).toBe(constants.NO_ERROR);
+    expect(res.isDecoded).toBe(true);
+  });
+
+  test('a browser marker token is rejected on both from-file operations', async () => {
+    const token = await mintWithSecretType(ctx, {document: {key: 'd'}, editorConfig: {}}, commonDefines.c_oAscSecretType.Browser, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    for (const op of ['converter', 'docbuilder']) {
+      const res = await getRequestParamsFromFile(ctx, fakeReq({token}), op);
+      expect(res.code).toBe(constants.VKEY);
+      expect(res.isDecoded).toBe(false);
+    }
+  });
+
+  test('the from-file purposes demand the operation claim the body endpoints only accept', async () => {
+    const bare = await mintWithSecretType(ctx, {filetype: 'txt', outputtype: 'docx', key: 'c1'}, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
+    const refused = await getRequestParamsFromFile(ctx, fakeReq({token: bare}), constants.JWT_PURPOSE_CONVERTER_FROM_FILE);
+    expect(refused.code).toBe(constants.VKEY);
+    expect(refused.params).toEqual({});
+    const claimed = await mintWithSecretType(
+      ctx,
+      {operation: constants.JWT_PURPOSE_CONVERTER, filetype: 'txt', outputtype: 'docx', key: 'c1'},
+      commonDefines.c_oAscSecretType.Inbox,
+      {algorithm: cfgTokenAlgorithm, expiresIn: cfgTokenExpires}
+    );
+    const accepted = await getRequestParamsFromFile(ctx, fakeReq({token: claimed}), constants.JWT_PURPOSE_CONVERTER_FROM_FILE);
+    expect(accepted.code).toBe(constants.NO_ERROR);
+    expect(accepted.isDecoded).toBe(true);
+    // the same claimed token is not interchangeable with the other from-file route
+    const swapped = await getRequestParamsFromFile(ctx, fakeReq({token: claimed}), constants.JWT_PURPOSE_DOCBUILDER_FROM_FILE);
+    expect(swapped.code).toBe(constants.VKEY);
   });
 });

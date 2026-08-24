@@ -39,7 +39,6 @@ const path = require('path');
 const {pipeline} = require('node:stream/promises');
 const {URL} = require('url');
 const co = require('co');
-const jwt = require('jsonwebtoken');
 const config = require('config');
 const {createReadStream} = require('fs');
 const {stat, lstat, readdir} = require('fs/promises');
@@ -48,13 +47,13 @@ const mimeDB = require('mime-db');
 const xmlbuilder2 = require('xmlbuilder2');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
+const jwtService = require('./jwtService');
 const commonDefines = require('./../../Common/sources/commondefines');
 const wopiUtils = require('./wopiUtils');
 const newFileTemplateUtils = require('./newFileTemplateUtils');
 const templateLocale = require('./../../Common/sources/templateLocale');
 const documentFormats = require('./../../Common/sources/documentFormats');
 const operationContext = require('./../../Common/sources/operationContext');
-const tenantManager = require('./../../Common/sources/tenantManager');
 const sqlBase = require('./databaseConnectors/baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
@@ -810,9 +809,7 @@ function getEditorHtml(req, res) {
         delete params.fileInfo[item];
       });
 
-      const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-      const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-      params.token = jwt.sign(params, utils.getJwtHsKey(secret), options);
+      params.token = yield jwtService.signToken(ctx, constants.JWT_PURPOSE_BROWSER_OPEN, params, tenTokenOutboxAlgorithm, tenTokenOutboxExpires);
     } catch (err) {
       ctx.logger.error('wopiEditor error: %s', err.stack);
       params.fileInfo = {};
@@ -828,13 +825,11 @@ function getEditorHtml(req, res) {
     }
   });
 }
-// bug 83205: sign with the derived WopiConvert secret so this token cannot pass as an inbox token
+// sign with a key derived from the purpose so this token cannot pass as an inbox token
 async function signConvertStatusToken(ctx, docId, wopiSrc) {
   const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
   const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
-  const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-  const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.WopiConvert);
-  return jwt.sign({docId, wopiSrc}, utils.getJwtHsKey(secret), options);
+  return await jwtService.signToken(ctx, constants.JWT_PURPOSE_WOPI_CONVERT, {docId, wopiSrc}, tenTokenOutboxAlgorithm, tenTokenOutboxExpires);
 }
 function getConverterHtml(req, res) {
   return co(function* () {
@@ -857,9 +852,9 @@ function getConverterHtml(req, res) {
 
       if (!(wopiSrc && access_token && access_token_ttl && ext && targetext)) {
         ctx.logger.debug(
-          'convert-and-edit invalid params: WOPISrc=%s; access_token=%s; access_token_ttl=%s; ext=%s; targetext=%s',
+          'convert-and-edit invalid params: WOPISrc=%s; hasAccessToken=%s; access_token_ttl=%s; ext=%s; targetext=%s',
           wopiSrc,
-          access_token,
+          !!access_token,
           access_token_ttl,
           ext,
           targetext
@@ -1101,9 +1096,7 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
     if (!prepareResult) {
       return;
     }
-    const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-    const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-    res.token = jwt.sign(res, utils.getJwtHsKey(secret), options);
+    res.token = await jwtService.signToken(ctx, constants.JWT_PURPOSE_BROWSER_OPEN, res, tenTokenOutboxAlgorithm, tenTokenOutboxExpires);
   } catch (err) {
     res = undefined;
     ctx.logger.error('wopi error RefreshFile:%s', err.stack);

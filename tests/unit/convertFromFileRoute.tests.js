@@ -42,21 +42,32 @@
 
 'use strict';
 
+// pin inbox JWT off before the first require('config') and restore right after: NODE_CONFIG outranks every config file, and jest reuses one process env per worker
+const savedNodeConfig = process.env.NODE_CONFIG;
+process.env.NODE_CONFIG = JSON.stringify({services: {CoAuthoring: {token: {enable: {request: {inbox: false}}}}}});
+
 const http = require('http');
 const stream = require('stream');
 const express = require('express');
-const {describe, test, expect, jest, beforeAll, afterAll, afterEach} = require('@jest/globals');
+const {describe, test, expect, beforeAll, afterAll, afterEach, jest} = require('@jest/globals');
 
 const {handleConvertUpload} = require('../../DocService/sources/middleware/convertUpload');
 const convertFromFile = require('../../DocService/sources/convertFromFile');
 const converterService = require('../../DocService/sources/converterservice');
 const docsCoServer = require('../../DocService/sources/DocsCoServer');
-const {signToken} = require('../../DocService/sources/DocsCoServer');
+const {mintWithSecretType} = require('./mintToken.helper');
 const taskResult = require('../../DocService/sources/taskresult');
 const storageBase = require('../../Common/sources/storage/storage-base');
 const commonDefines = require('../../Common/sources/commondefines');
+const constants = require('../../Common/sources/constants');
 const operationContext = require('../../Common/sources/operationContext');
 const config = require('../../Common/node_modules/config');
+
+if (undefined === savedNodeConfig) {
+  delete process.env.NODE_CONFIG;
+} else {
+  process.env.NODE_CONFIG = savedNodeConfig;
+}
 
 const cfgTokenAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
 const cfgTokenExpires = config.get('services.CoAuthoring.token.outbox.expires');
@@ -118,8 +129,11 @@ describe('POST /converter/from-file route contract (in-process, no server)', () 
 
   test('a token-supplied key (no params part) sets the docId in context for attribution', async () => {
     // token carries the params; params optional when a token is present
-    const payload = {key: 'attr-key-1', filetype: 'txt', outputtype: 'docx'};
-    const token = await signToken(new operationContext.Context(), payload, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const payload = {operation: constants.JWT_PURPOSE_CONVERTER, key: 'attr-key-1', filetype: 'txt', outputtype: 'docx'};
+    const token = await mintWithSecretType(new operationContext.Context(), payload, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
     const setDocId = jest.spyOn(operationContext.Context.prototype, 'setDocId');
     const spy = jest.spyOn(converterService, 'convertFromCommandBody').mockImplementation(async (req, res) => {
       res.status(200).send('mock');
@@ -247,8 +261,11 @@ describe('POST /docbuilder/from-file route contract (in-process, no server)', ()
   });
 
   test('200; builder receives the decoded token params and isDecoded=true when params carries a nested token', async () => {
-    const payload = {key: 'bld-token', argument: '{}'};
-    const token = await signToken(new operationContext.Context(), payload, cfgTokenAlgorithm, cfgTokenExpires, commonDefines.c_oAscSecretType.Inbox);
+    const payload = {operation: constants.JWT_PURPOSE_DOCBUILDER, key: 'bld-token', argument: '{}'};
+    const token = await mintWithSecretType(new operationContext.Context(), payload, commonDefines.c_oAscSecretType.Inbox, {
+      algorithm: cfgTokenAlgorithm,
+      expiresIn: cfgTokenExpires
+    });
     const spy = jest.spyOn(converterService, 'builder').mockImplementation(async (req, res) => {
       res.status(200).send('mock');
     });
@@ -267,10 +284,7 @@ describe('POST /docbuilder/from-file route contract (in-process, no server)', ()
   });
 });
 
-// The real convertFromCommandBody runs here; only the storage/db/queue boundary is mocked. These lock
-// in the async/poll behavior: async returns endConvert=false immediately, a no-file poll never writes
-// or enqueues, and a completed poll returns a fileUrl. The shardkey query param keeps async from being
-// downgraded by the DEFAULT_SHARD_KEY guard.
+// The real convertFromCommandBody runs here with only the storage/db/queue boundary mocked, locking in async/poll behavior: async returns endConvert=false at once, a no-file poll neither writes nor enqueues, a completed poll returns a fileUrl.
 describe('POST /converter/from-file async and polling behavior (real handler, mocked storage/db/queue)', () => {
   test('async=true with a file enqueues and answers endConvert=false immediately (no streamed bytes)', async () => {
     const putObject = jest.spyOn(storageBase, 'putObject').mockResolvedValue(undefined);

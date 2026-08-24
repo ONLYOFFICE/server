@@ -480,6 +480,8 @@
             "outbox": false
           }
         },
+        "purposeCheck": "validate",
+        "requireOperationForUnsignedSource": true,
         "browser": {
           "secretFromInbox": true
         },

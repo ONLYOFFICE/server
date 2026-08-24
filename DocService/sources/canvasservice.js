@@ -756,7 +756,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
   const token = cmd.getTokenDownload();
   if (tenTokenEnableBrowser && token) {
     // allow requests without token
-    const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
+    const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, constants.JWT_PURPOSE_BROWSER_IMGURLS);
     if (checkJwtRes.decoded) {
       //todo multiple url case
       if (checkJwtRes.decoded.images) {
@@ -1563,7 +1563,7 @@ exports.downloadAs = function (req, res) {
       if (tenTokenEnableBrowser || cmd.getTokenDownload() || cmd.getTokenSession()) {
         let isValidJwt = false;
         if (cmd.getTokenDownload()) {
-          const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), commonDefines.c_oAscSecretType.Browser);
+          const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), constants.JWT_PURPOSE_BROWSER_DOWNLOADAS);
           if (checkJwtRes.decoded) {
             isValidJwt = true;
             cmd.setFormat(checkJwtRes.decoded.fileType);
@@ -1573,7 +1573,7 @@ exports.downloadAs = function (req, res) {
             ctx.logger.warn('Error downloadAs jwt: %s', checkJwtRes.description);
           }
         } else {
-          const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+          const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), constants.JWT_PURPOSE_EDITOR_SESSION);
           if (checkJwtRes.decoded) {
             const decoded = checkJwtRes.decoded;
             const doc = checkJwtRes.decoded.document;
@@ -1651,7 +1651,7 @@ exports.saveFile = function (req, res) {
       ctx.logger.debug('Start saveFile');
 
       let isValidJwt = false;
-      const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+      const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), constants.JWT_PURPOSE_EDITOR_SESSION);
       if (checkJwtRes.decoded) {
         const doc = checkJwtRes.decoded.document;
         const edit = checkJwtRes.decoded.editorConfig;
@@ -1697,12 +1697,13 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
 
     baseUrl = utils.checkBaseUrl(ctx, baseUrl);
     const payload = {document: {key: docId}, ds_tokenType: 'printfile'};
+    // signed with a key derived for printfile, so this token cannot be replayed on any other session sink
     const token = yield docsCoServer.signToken(
       ctx,
+      constants.JWT_PURPOSE_PRINT_FILE,
       payload,
       tenTokenSessionAlgorithm,
-      tenTokenSessionExpires / 1000,
-      commonDefines.c_oAscSecretType.Session
+      tenTokenSessionExpires / 1000
     );
     //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
@@ -1739,9 +1740,10 @@ exports.printFile = function (req, res) {
       ctx.setDocId(docId);
       ctx.logger.info('Start printFile');
 
-      const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
+      // content checks stay next to the key check: the derived key proves who signed it, docId and ds_tokenType prove what it authorizes
+      const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, constants.JWT_PURPOSE_PRINT_FILE);
       if (checkJwtRes.decoded) {
-        const docIdBase = checkJwtRes.decoded.document.key;
+        const docIdBase = checkJwtRes.decoded.document?.key;
         if (docId !== docIdBase || checkJwtRes.decoded.ds_tokenType !== 'printfile') {
           ctx.logger.warn('Error printFile jwt: description = %s', 'access deny');
           res.sendStatus(403);
@@ -1813,9 +1815,12 @@ exports.downloadFile = function (req, res) {
       let isInJwtToken = false;
       let errorDescription;
       let headers, fromTemplate, requestedTemplateExt, expectedDigest;
-      const authRes = yield docsCoServer.getRequestParams(ctx, req);
+      // download accepts WOPI/changesUrl/document shapes, so it is a choke point only (not marker-guarded); see checkJwtPurpose
+      const authRes = yield docsCoServer.getRequestParams(ctx, req, constants.JWT_PURPOSE_DOWNLOAD);
       if (authRes.code === constants.NO_ERROR) {
         const decoded = authRes.params;
+        // isInJwtToken lets the download skip the private-address filter, so it must mean "this url was signed", not "some token verified"
+        const signed = authRes.signedParams;
         if (wopiClient.isWopiJwtToken(decoded)) {
           if (decoded.fileInfo.Size === 0) {
             //editnew case
@@ -1825,27 +1830,27 @@ exports.downloadFile = function (req, res) {
             ({url, headers, expectedDigest} = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
             const filterStatus = yield wopiClient.checkIpFilter(ctx, url);
             if (0 === filterStatus) {
-              //todo false? (true because it passed checkIpFilter for wopi)
               //todo use directIfIn
-              isInJwtToken = true;
+              // the url comes from FileUrl, TemplateSource or userAuth, so it may skip the private-address filter only when that very source was signed
+              isInJwtToken = wopiUtils.isWopiSourceSigned(signed, decoded.fileInfo, decoded.userAuth);
             } else {
               errorDescription = 'access deny';
             }
           }
         } else if (decoded.changesUrl) {
           url = decoded.changesUrl;
-          isInJwtToken = authRes.isDecoded;
+          isInJwtToken = signed.changesUrl === url;
         } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
           url = decoded.document.url;
-          isInJwtToken = authRes.isDecoded;
+          isInJwtToken = !!signed.document && signed.document.url === url;
         } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
           url = decoded.url;
-          isInJwtToken = authRes.isDecoded;
+          isInJwtToken = signed.url === url;
         } else if (!tenTokenEnableBrowser) {
           //todo token required
           if (decoded.url) {
             url = decoded.url;
-            isInJwtToken = authRes.isDecoded;
+            isInJwtToken = signed.url === url;
           }
         } else {
           errorDescription = 'access deny';
@@ -1858,6 +1863,14 @@ exports.downloadFile = function (req, res) {
         res.sendStatus(403);
         return;
       }
+      // a partially signed or malformed token can leave no usable source, and url.parse would then answer with a parser error instead of a refusal
+      // provenance was established for this url only, so a privileged fetch must not follow a redirect to one nobody signed
+      const beforeRedirect = isInJwtToken ? utils.blockPrivilegedRedirect : undefined;
+      if (!fromTemplate && ('string' !== typeof url || 0 === url.length)) {
+        ctx.logger.warn('Error downloadFile: the request resolved to no source url');
+        res.sendStatus(403);
+        return;
+      }
       if (fromTemplate) {
         // todo locale as param
         ctx.logger.debug('downloadFile from file template: requested=%s template=%s', requestedTemplateExt, fromTemplate);
@@ -1865,7 +1878,8 @@ exports.downloadFile = function (req, res) {
         const fileTemplatePath = pathModule.join(tenNewFileTemplate, locale, 'new.' + fromTemplate);
         res.sendFile(pathModule.resolve(fileTemplatePath));
       } else {
-        if (utils.canIncludeOutboxAuthorization(ctx, url)) {
+        // our own credential travels with the request, so it may only be attached to a url the token named
+        if (isInJwtToken && utils.canIncludeOutboxAuthorization(ctx, url)) {
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
           authorization = utils.fillJwtForRequest(ctx, {url}, secret, false);
         }
@@ -1891,6 +1905,7 @@ exports.downloadFile = function (req, res) {
           isInJwtToken,
           headers,
           expectedDigest,
+          beforeRedirect,
           returnStream: true
         });
         const response = downloadResult.response;

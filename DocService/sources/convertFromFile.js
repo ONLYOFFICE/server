@@ -45,7 +45,6 @@ const docsCoServer = require('./DocsCoServer');
 const converterService = require('./converterservice');
 
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
-const cfgTokenRequiredParams = config.get('services.CoAuthoring.server.tokenRequiredParams');
 const cfgTokenInboxHeader = config.get('services.CoAuthoring.token.inbox.header');
 const cfgTokenInboxPrefix = config.get('services.CoAuthoring.token.inbox.prefix');
 
@@ -62,13 +61,12 @@ function parseFromFileParams(value) {
 }
 // Params come from `params`; token may be a part, `params.token`, or the inbox header.
 // Body token wins over header; a `token` part may accompany a `params` part (3-part layout).
-async function getRequestParamsFromFile(ctx, req) {
+async function getRequestParamsFromFile(ctx, req, purpose) {
   const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
-  const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
   const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
   const tenTokenInboxPrefix = ctx.getCfg('services.CoAuthoring.token.inbox.prefix', cfgTokenInboxPrefix);
 
-  const res = {code: constants.NO_ERROR, description: '', isDecoded: false, params: undefined, badRequest: false};
+  const res = {code: constants.NO_ERROR, description: '', isDecoded: false, params: undefined, signedParams: {}, badRequest: false};
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
   const partToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : undefined;
   const authorization = req.get(tenTokenInboxHeader);
@@ -124,17 +122,21 @@ async function getRequestParamsFromFile(ctx, req) {
     res.code = constants.VKEY;
     let checkJwtRes;
     if (bodyToken) {
-      checkJwtRes = await docsCoServer.checkJwt(ctx, bodyToken, commonDefines.c_oAscSecretType.Inbox);
+      checkJwtRes = await docsCoServer.checkJwt(ctx, bodyToken, purpose);
     } else {
-      checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req);
+      checkJwtRes = await docsCoServer.checkJwtHeader(ctx, req, purpose);
+    }
+    // a rejected or absent token must not leave attacker-controlled request params behind
+    if (!checkJwtRes || !checkJwtRes.decoded) {
+      res.params = {};
     }
     if (checkJwtRes) {
       if (checkJwtRes.decoded) {
         res.code = constants.NO_ERROR;
         res.isDecoded = true;
-        // Match classic tokenRequiredParams merge/discard behavior.
-        res.params = !tenTokenRequiredParams && parsedParams ? parsedParams : {};
-        utils.mergeJwtDecodedParams(res.params, checkJwtRes.decoded);
+        // these routes take their metadata from the token alone and tokenRequiredParams does not relax them; they exist only on the unreleased 9.5 line, so no shipped version has the old behaviour
+        res.signedParams = utils.mergeJwtDecodedParams({}, checkJwtRes.decoded);
+        res.params = utils.mergeJwtDecodedParams({}, checkJwtRes.decoded);
       } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
         res.code = constants.VKEY_KEY_EXPIRE;
       }
@@ -154,14 +156,14 @@ async function getRequestParamsFromFile(ctx, req) {
 }
 // Shared from-file route handler: parse the strict contract, then delegate.
 // Pre-delegate failures answer with the delegate's legacy JSON error body, not a bare 400/403.
-function makeFromFileHandler(label, delegate, sendError, badRequestCode) {
+function makeFromFileHandler(label, delegate, sendError, badRequestCode, purpose) {
   return async function (req, res) {
     const ctx = new operationContext.Context();
     try {
       ctx.initFromRequest(req);
       await ctx.initTenantCache();
       ctx.logger.info('%s start', label);
-      const authRes = await getRequestParamsFromFile(ctx, req);
+      const authRes = await getRequestParamsFromFile(ctx, req, purpose);
       if (authRes.badRequest) {
         ctx.logger.warn('%s bad request %j', label, authRes);
         sendError(req, res, badRequestCode);
@@ -176,7 +178,7 @@ function makeFromFileHandler(label, delegate, sendError, badRequestCode) {
       if (authRes.params && authRes.params.key) {
         ctx.setDocId(authRes.params.key);
       }
-      await delegate(req, res, authRes.params, authRes.isDecoded);
+      await delegate(req, res, authRes.params, authRes.isDecoded, authRes.signedParams);
     } catch (err) {
       ctx.logger.error('%s error: %s', label, err.stack);
       if (!res.headersSent) {
@@ -195,13 +197,15 @@ const commandConvertFromBody = makeFromFileHandler(
   'commandConvertFromBody',
   (req, res, params, isDecoded) => converterService.convertFromCommandBody(req, res, params, isDecoded),
   sendConvertError,
-  constants.CONVERT_PARAMS
+  constants.CONVERT_PARAMS,
+  constants.JWT_PURPOSE_CONVERTER_FROM_FILE
 );
 const builderFromFile = makeFromFileHandler(
   'builderFromFile',
-  (req, res, params, isDecoded) => converterService.builder(req, res, params, isDecoded),
+  (req, res, params, isDecoded, signedParams) => converterService.builder(req, res, params, isDecoded, signedParams),
   sendBuilderError,
-  constants.UNKNOWN
+  constants.UNKNOWN,
+  constants.JWT_PURPOSE_DOCBUILDER_FROM_FILE
 );
 
 exports.getRequestParamsFromFile = getRequestParamsFromFile;

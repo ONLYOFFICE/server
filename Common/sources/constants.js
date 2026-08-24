@@ -308,8 +308,30 @@ exports.JWT_EXPIRED_REASON = 'token:';
 exports.JWT_ERROR_CODE = 4006;
 exports.JWT_ERROR_REASON = 'token:';
 
-// bug 83205: purpose label for the key that signs the WOPI convert-and-edit status token
+// purpose label for the key that signs the WOPI convert-and-edit status token
 exports.JWT_PURPOSE_WOPI_CONVERT = 'wopi-convert-and-edit';
+
+// purpose labels of every inbound token sink; the registry that maps them to keys and rules lives in DocService/sources/jwtService.js
+exports.JWT_PURPOSE_CONVERTER = 'converter';
+exports.JWT_PURPOSE_DOCBUILDER = 'docbuilder';
+// the from-file endpoints have no legacy callers, so they get their own labels and demand the operation claim outright
+exports.JWT_PURPOSE_CONVERTER_FROM_FILE = 'converter-from-file';
+exports.JWT_PURPOSE_DOCBUILDER_FROM_FILE = 'docbuilder-from-file';
+exports.JWT_PURPOSE_COMMAND = 'command';
+exports.JWT_PURPOSE_DOWNLOAD = 'download';
+// one label per browser sink, but not one token per sink: the config, history and WOPI tokens are each presented at several of them
+exports.JWT_PURPOSE_BROWSER_OPEN = 'browser-open';
+exports.JWT_PURPOSE_BROWSER_IMGURLS = 'browser-imgurls';
+exports.JWT_PURPOSE_BROWSER_DOWNLOADAS = 'browser-downloadas';
+exports.JWT_PURPOSE_BROWSER_SAVE_RELATIVE = 'browser-save-relative';
+// one token is issued per open document and comes back to every session sink, so the session family has exactly one label
+exports.JWT_PURPOSE_EDITOR_SESSION = 'editor-session';
+// also the derivation label of the key that signs the print-file URL token
+exports.JWT_PURPOSE_PRINT_FILE = 'printfile';
+
+// the claim an integrator puts in the token to state what the token authorizes; the wire values are converter, docbuilder and command, and a from-file route expects the same value as its body counterpart
+// download and the browser/session sinks name no operation: they share tokens with each other, so a token addressed to one of them would be refused by the next
+exports.JWT_CLAIM_OPERATION = 'operation';
 
 exports.DROP_CODE = 4007;
 exports.DROP_REASON = 'drop';

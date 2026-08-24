@@ -132,6 +132,23 @@ function getContentsExpectedDigest(fileInfo) {
   return {source: 'WOPI SHA256', nodeAlgorithm: 'sha256', expectedBase64: fileInfo.SHA256};
 }
 
+// Mirrors the branch order of getWopiFileUrl: the url comes from one of three places, and only the one it actually came from has to be signed.
+// Keep the two in step - a new source here without a case there would silently read as signed.
+function isWopiSourceSigned(signed, fileInfo, userAuth) {
+  if (!signed || 'object' !== typeof signed) {
+    return false;
+  }
+  if (fileInfo?.FileUrl) {
+    return signed.fileInfo?.FileUrl === fileInfo.FileUrl;
+  }
+  if (fileInfo?.TemplateSource) {
+    return signed.fileInfo?.TemplateSource === fileInfo.TemplateSource;
+  }
+  if (userAuth) {
+    return signed.userAuth?.wopiSrc === userAuth.wopiSrc && signed.userAuth?.access_token === userAuth.access_token;
+  }
+  return false;
+}
 /**
  * Gets a WOPI file URL with appropriate headers
  *
@@ -174,6 +191,7 @@ function blockWopiRedirect(_options, responseDetails) {
 
 module.exports = {
   getWopiFileUrl,
+  isWopiSourceSigned,
   getContentsExpectedDigest,
   fillStandardHeaders,
   blockWopiRedirect

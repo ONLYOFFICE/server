@@ -81,7 +81,6 @@ const crypto = require('crypto');
 const pathModule = require('path');
 const {isDeepStrictEqual} = require('util');
 const co = require('co');
-const jwt = require('jsonwebtoken');
 const ms = require('ms');
 const bytes = require('bytes');
 const storage = require('./../../Common/sources/storage/storage-base');
@@ -107,6 +106,8 @@ const runtimeProfile = require('./../../Common/sources/runtime/profile');
 const memoryGuard = require('./../../Common/sources/runtime/memoryGuard');
 const {notificationTypes, ...notificationService} = require('../../Common/sources/notificationService');
 const aiProxyHandler = require('./ai/aiProxyHandler');
+const jwtService = require('./jwtService');
+const {signToken, checkJwt, checkJwtHeader} = jwtService;
 
 const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
 const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
@@ -135,7 +136,6 @@ const cfgTokenSessionAlgorithm = config.get('services.CoAuthoring.token.session.
 const cfgTokenSessionExpires = config.get('services.CoAuthoring.token.session.expires');
 const cfgTokenInboxHeader = config.get('services.CoAuthoring.token.inbox.header');
 const cfgTokenInboxPrefix = config.get('services.CoAuthoring.token.inbox.prefix');
-const cfgTokenVerifyOptions = config.util.cloneDeep(config.get('services.CoAuthoring.token.verifyOptions'));
 const cfgForceSaveEnable = config.get('services.CoAuthoring.autoAssembly.enable');
 const cfgForceSaveInterval = config.get('services.CoAuthoring.autoAssembly.interval');
 const cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
@@ -612,13 +612,6 @@ const changeConnectionInfo = co.wrap(function* (ctx, conn, cmd) {
   }
   return false;
 });
-function signToken(ctx, payload, algorithm, expiresIn, secretElem) {
-  return co(function* () {
-    const options = {algorithm, expiresIn};
-    const secret = yield tenantManager.getTenantSecret(ctx, secretElem);
-    return jwt.sign(payload, utils.getJwtHsKey(secret), options);
-  });
-}
 function needSendChanges(conn) {
   return !conn.user?.view || utils.isLiveViewer(conn);
 }
@@ -652,7 +645,8 @@ function fillJwtByConnection(ctx, conn) {
     // edit.ds_sessionId = conn.sessionId;
     edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
 
-    return yield signToken(ctx, payload, tenTokenSessionAlgorithm, tenTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
+    // signed with the key derived for the session family, so an inbox token cannot pass at a session sink even where both read one secret file
+    return yield signToken(ctx, constants.JWT_PURPOSE_EDITOR_SESSION, payload, tenTokenSessionAlgorithm, tenTokenSessionExpires / 1000);
   });
 }
 
@@ -1322,7 +1316,7 @@ async function saveRelativeFromChanges(ctx, conn, responseKey, data) {
   let forceSaveRes;
   if (tenTokenEnableBrowser || token) {
     docId = null;
-    const checkJwtRes = await checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
+    const checkJwtRes = await checkJwt(ctx, token, constants.JWT_PURPOSE_BROWSER_SAVE_RELATIVE);
     if (checkJwtRes.decoded) {
       docId = checkJwtRes.decoded.key;
     } else {
@@ -1739,55 +1733,15 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
   });
 }
 
-function checkJwt(ctx, token, type) {
-  return co(function* () {
-    const tenTokenVerifyOptions = ctx.getCfg('services.CoAuthoring.token.verifyOptions', cfgTokenVerifyOptions);
-
-    const res = {decoded: null, description: null, code: null, token};
-    const secret = yield tenantManager.getTenantSecret(ctx, type);
-    if (undefined == secret) {
-      ctx.logger.warn('empty secret: token = %s', token);
-    }
-    try {
-      res.decoded = jwt.verify(token, utils.getJwtHsKey(secret), tenTokenVerifyOptions);
-      ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
-    } catch (err) {
-      ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
-      if ('TokenExpiredError' === err.name) {
-        res.code = constants.JWT_EXPIRED_CODE;
-        res.description = constants.JWT_EXPIRED_REASON + err.message;
-      } else if ('JsonWebTokenError' === err.name) {
-        res.code = constants.JWT_ERROR_CODE;
-        res.description = constants.JWT_ERROR_REASON + err.message;
-      }
-    }
-    return res;
-  });
-}
-function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
-  return co(function* () {
-    const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
-    const tenTokenInboxPrefix = ctx.getCfg('services.CoAuthoring.token.inbox.prefix', cfgTokenInboxPrefix);
-
-    const header = opt_header || tenTokenInboxHeader;
-    const prefix = opt_prefix || tenTokenInboxPrefix;
-    const secretType = opt_secretType || commonDefines.c_oAscSecretType.Inbox;
-    const authorization = req.get(header);
-    if (authorization && authorization.startsWith(prefix)) {
-      const token = authorization.substring(prefix.length);
-      return yield checkJwt(ctx, token, secretType);
-    }
-    return null;
-  });
-}
-function getRequestParams(ctx, req, _opt_isNotInBody) {
+function getRequestParams(ctx, req, purpose) {
   return co(function* () {
     const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
     const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
     const tenTokenInboxPrefix = ctx.getCfg('services.CoAuthoring.token.inbox.prefix', cfgTokenInboxPrefix);
 
-    const res = {code: constants.NO_ERROR, description: '', isDecoded: false, params: undefined};
+    // three views of one request: wireParams is what arrived unsigned, signedParams is what the token carried, params is what the request acts on
+    const res = {code: constants.NO_ERROR, description: '', isDecoded: false, params: undefined, signedParams: {}, wireParams: {}};
     if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0) {
       try {
         res.params = JSON.parse(req.body.toString('utf8'));
@@ -1796,7 +1750,8 @@ function getRequestParams(ctx, req, _opt_isNotInBody) {
       }
     }
     if (!res.params) {
-      res.params = req.query;
+      // a copy, not the live object: the merge below would otherwise rewrite req.query, and proxyCommand forwards it verbatim on the shard hop
+      res.params = utils.assignOwnSafe({}, req.query);
     }
     const authorization = req.get(tenTokenInboxHeader);
     const hasBodyToken = !!res.params?.token;
@@ -1805,16 +1760,25 @@ function getRequestParams(ctx, req, _opt_isNotInBody) {
       res.code = constants.VKEY;
       let checkJwtRes;
       if (res.params.token) {
-        checkJwtRes = yield checkJwt(ctx, res.params.token, commonDefines.c_oAscSecretType.Inbox);
+        checkJwtRes = yield checkJwt(ctx, res.params.token, purpose);
       } else {
-        checkJwtRes = yield checkJwtHeader(ctx, req);
+        checkJwtRes = yield checkJwtHeader(ctx, req, purpose);
+      }
+      // a rejected or absent token must not leave attacker-controlled request params behind
+      if (!checkJwtRes || !checkJwtRes.decoded) {
+        res.params = {};
       }
       if (checkJwtRes) {
         if (checkJwtRes.decoded) {
           res.code = constants.NO_ERROR;
           res.isDecoded = true;
+          // header tokens keep their fields under payload/query, so the signed view has to be the same flattening the effective one gets
+          res.signedParams = utils.mergeJwtDecodedParams({}, checkJwtRes.decoded);
           if (tenTokenRequiredParams) {
             res.params = {};
+          } else {
+            // the wire view exists only where the wire survives; it is taken before the merge, or a field the token also names would look like one it never had
+            res.wireParams = utils.assignOwnSafe({}, res.params);
           }
           utils.mergeJwtDecodedParams(res.params, checkJwtRes.decoded);
         } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
@@ -1921,9 +1885,11 @@ exports.setForceSave = setForceSave;
 exports.startForceSave = startForceSave;
 exports.resetForceSaveAfterChanges = resetForceSaveAfterChanges;
 exports.getExternalChangeInfo = getExternalChangeInfo;
-exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
+// the JWT layer lives in jwtService; re-exported so existing callers and tests keep one entry point
+exports.checkJwt = checkJwt;
 exports.checkJwtHeader = checkJwtHeader;
+exports.validateJwtPayloadForOperation = jwtService.validateJwtPayloadForOperation;
 
 async function encryptPasswordParams(ctx, data) {
   let dataWithPassword;
@@ -1978,8 +1944,8 @@ exports.install = function (server, app, callbackFunction) {
         const handshake = socket.handshake;
         const token = handshake?.auth?.session || handshake?.auth?.token;
         if (tenTokenEnableBrowser || token) {
-          const secretType = handshake?.auth?.session ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
-          checkJwtRes = yield checkJwt(ctx, token, secretType);
+          const purpose = handshake?.auth?.session ? constants.JWT_PURPOSE_EDITOR_SESSION : constants.JWT_PURPOSE_BROWSER_OPEN;
+          checkJwtRes = yield checkJwt(ctx, token, purpose);
           if (!checkJwtRes.decoded) {
             res = new Error('not authorized');
             res.data = {code: checkJwtRes.code, description: checkJwtRes.description};
@@ -2946,8 +2912,8 @@ exports.install = function (server, app, callbackFunction) {
       //check jwt
       const token = data.jwtSession || data.jwtOpen;
       if (tenTokenEnableBrowser || token) {
-        const secretType = data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
-        const checkJwtRes = yield checkJwt(ctx, token, secretType);
+        const purpose = data.jwtSession ? constants.JWT_PURPOSE_EDITOR_SESSION : constants.JWT_PURPOSE_BROWSER_OPEN;
+        const checkJwtRes = yield checkJwt(ctx, token, purpose);
         if (checkJwtRes.decoded) {
           isDecoded = true;
           const decoded = checkJwtRes.decoded;
@@ -4633,6 +4599,24 @@ exports.healthCheck = function (req, res) {
     }
   });
 };
+// the carrier and the two routing keys are transport, not command input: proxyCommand adds the shard key on the internal hop, so it can never be signed
+const COMMAND_TRANSPORT_FIELDS = new Set(['token', constants.SHARD_KEY_API_NAME, constants.SHARD_KEY_WOPI_NAME]);
+// A verified command must be exactly the token: every field here selects the action, so one that arrived on the wire without the token
+// naming the same value is refused by name rather than dropped, which would silently turn a valid-looking request into a different command.
+// The comparison is against the wire view, taken before the merge, because the merge has already let the signed value win by then.
+function unsignedCommandFields(authRes) {
+  const signed = authRes.signedParams || {};
+  const names = [];
+  for (const name of Object.keys(authRes.wireParams || {})) {
+    if (COMMAND_TRANSPORT_FIELDS.has(name)) {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(signed, name) || !isDeepStrictEqual(authRes.wireParams[name], signed[name])) {
+      names.push(name);
+    }
+  }
+  return names;
+}
 function validateInputParams(ctx, authRes, command) {
   const commandsWithoutKey = ['version', 'license', 'getForgottenList'];
   const isValidWithoutKey = commandsWithoutKey.includes(command.c);
@@ -4851,11 +4835,18 @@ exports.commandFromServer = function (req, res) {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('commandFromServer start');
-      const authRes = yield getRequestParams(ctx, req);
+      const authRes = yield getRequestParams(ctx, req, constants.JWT_PURPOSE_COMMAND);
       const params = authRes.params;
+      const unsigned = authRes.isDecoded ? unsignedCommandFields(authRes) : [];
       // Key is document id
       output.key = params.key;
-      output.error = validateInputParams(ctx, authRes, params);
+      if (unsigned.length > 0) {
+        // only the names, never the values, and only the first few: the list is attacker-sized
+        ctx.logger.warn('commandFromServer refused: %d field(s) did not come from the token: %j', unsigned.length, unsigned.slice(0, 10));
+        output.error = commonDefines.c_oAscServerCommandErrors.Token;
+      } else {
+        output.error = validateInputParams(ctx, authRes, params);
+      }
       if (output.error === commonDefines.c_oAscServerCommandErrors.NoError) {
         if (params.key && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
           postRes = yield proxyCommand(ctx, req, params);

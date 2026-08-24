@@ -42,6 +42,7 @@ const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const docsCoServer = require('./DocsCoServer');
+const jwtService = require('./jwtService');
 const canvasService = require('./canvasservice');
 const wopiClient = require('./wopiClient');
 const storage = require('./../../Common/sources/storage/storage-base');
@@ -322,6 +323,14 @@ function getConvertParamsBasics(params, opt_fallbackFileName) {
   const outputExt = formatChecker.getStringFromFormat(outputFormat);
   return {valid: true, filetype, outputtype, outputFormat, oformAsPdf, outputExt};
 }
+// withAuthorization attaches our outbox credential to the source fetch, so the url itself must be signed and not merely accompanied by a valid token
+function isSignedSource(authRes, url) {
+  // the handler picks a source by truthiness, so a signed null, '' or 0 is not a source at all: it would leave the raw body as the script
+  if (!authRes.isDecoded || 'string' !== typeof url || 0 === url.length) {
+    return false;
+  }
+  return !!authRes.signedParams && authRes.signedParams.url === url;
+}
 // Apply shared InputCommand settings; returns outputExt (a multi-image thumbnail can switch it to zip).
 async function fillConvertCommand(ctx, cmd, params, basics, opt_isDecoded) {
   cmd.setEmbeddedFonts(false);
@@ -436,7 +445,7 @@ async function convertRequest(req, res, isJson) {
     await ctx.initTenantCache();
     ctx.logger.info('convertRequest start');
     let params;
-    const authRes = await docsCoServer.getRequestParams(ctx, req);
+    const authRes = await docsCoServer.getRequestParams(ctx, req, constants.JWT_PURPOSE_CONVERTER);
     if (authRes.code === constants.NO_ERROR) {
       params = authRes.params;
     } else {
@@ -447,7 +456,7 @@ async function convertRequest(req, res, isJson) {
     ctx.setDocId(params.key);
     //todo use hash of params as id
     const prepared = await prepareConvertCommand(ctx, params, {
-      isDecoded: authRes.isDecoded,
+      isDecoded: isSignedSource(authRes, params.url),
       sourceUrl: params.url,
       buildDocId: basics => 'conv_' + params.key + '_' + basics.outputFormat
     });
@@ -488,7 +497,7 @@ function convertRequestXml(req, res) {
   return convertRequest(req, res, false);
 }
 
-function builderRequest(req, res, opt_params, opt_isDecoded) {
+function builderRequest(req, res, opt_params, opt_isDecoded, opt_signedParams) {
   return co(function* () {
     const ctx = new operationContext.Context();
     try {
@@ -497,9 +506,9 @@ function builderRequest(req, res, opt_params, opt_isDecoded) {
       ctx.logger.info('builderRequest start');
       let authRes;
       if (opt_params) {
-        authRes = {code: constants.NO_ERROR, params: opt_params, isDecoded: !!opt_isDecoded};
+        authRes = {code: constants.NO_ERROR, params: opt_params, isDecoded: !!opt_isDecoded, signedParams: opt_signedParams || {}};
       } else {
-        authRes = yield docsCoServer.getRequestParams(ctx, req);
+        authRes = yield docsCoServer.getRequestParams(ctx, req, constants.JWT_PURPOSE_DOCBUILDER);
       }
       const params = authRes.params;
       let docId = params.key;
@@ -512,6 +521,12 @@ function builderRequest(req, res, opt_params, opt_isDecoded) {
       const isInBody = req.body && Buffer.isBuffer(req.body) && req.body.length > 0;
       const multipartFile = req.file;
       const isInMultipartBody = !!(multipartFile && multipartFile.buffer);
+      // a url that only the merge supplied is as unsigned as a body script, so the source counts as signed only when the token itself named it
+      const hasSource = !!params.url || isInBody || isInMultipartBody;
+      const unsignedScript = hasSource && !isSignedSource(authRes, params.url);
+      if (constants.NO_ERROR === error && unsignedScript && !jwtService.allowUnsignedSource(ctx, authRes, constants.JWT_PURPOSE_DOCBUILDER)) {
+        error = constants.VKEY;
+      }
       if (error === constants.NO_ERROR && (params.key || params.url || isInBody || isInMultipartBody)) {
         if (needCreateId) {
           const task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'bld_', 8);
@@ -521,7 +536,7 @@ function builderRequest(req, res, opt_params, opt_isDecoded) {
         const cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
         cmd.setBuilderParams({argument: params.argument});
-        if (authRes.isDecoded) {
+        if (isSignedSource(authRes, params.url)) {
           cmd.setWithAuthorization(true);
         }
         cmd.setDocId(docId);
@@ -854,24 +869,25 @@ function getConverterHtmlHandler(req, res) {
         constants.AVS_OFFICESTUDIO_FILE_UNKNOWN === formatChecker.getFormatFromString(targetext)
       ) {
         ctx.logger.debug(
-          'convert-and-edit-handler invalid params: WOPISrc=%s; access_token=%s; targetext=%s; docId=%s',
+          'convert-and-edit-handler invalid params: WOPISrc=%s; hasAccessToken=%s; targetext=%s; docId=%s',
           wopiSrc,
-          access_token,
+          !!access_token,
           targetext,
           docId
         );
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.CONVERT_PARAMS), isJson);
         return;
       }
-      // bug 83205: this token is always minted by getConverterHtml, so require it regardless of token.enable.browser
+      // this token is always minted by getConverterHtml, so require it regardless of token.enable.browser
       const token = req.query['token'];
-      const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.WopiConvert);
+      // the derived key and the payload rule are bound by one policy
+      const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, constants.JWT_PURPOSE_WOPI_CONVERT);
       if (checkJwtRes.decoded) {
         docId = checkJwtRes.decoded.docId;
-        // bug 83205: take the callback target from the signed token, never from the query
+        // take the callback target from the signed token, never from the query
         wopiSrc = checkJwtRes.decoded.wopiSrc;
       } else {
-        ctx.logger.debug('convert-and-edit-handler invalid token %j', token);
+        ctx.logger.debug('convert-and-edit-handler invalid token');
         utils.fillResponse(req, res, new commonDefines.ConvertStatus(constants.VKEY), isJson);
         return;
       }
@@ -920,3 +936,5 @@ exports.buildConvFromFileDocId = buildConvFromFileDocId;
 exports.convertAndEdit = convertAndEdit;
 exports.getConverterHtmlHandler = getConverterHtmlHandler;
 exports.builder = builderRequest;
+// test-only surface: production code reaches this through convertRequest and builderRequest
+exports.isSignedSource = isSignedSource;
