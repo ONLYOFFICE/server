@@ -2715,6 +2715,13 @@
                   "default": "development",
                   "x-tenantOverride": true
                 },
+                "host": {
+                  "type": "string",
+                  "description": "The bind address of the HTTP listener. An empty value listens on all interfaces.",
+                  "default": "",
+                  "x-scope": [],
+                  "x-tenantOverride": false
+                },
                 "newFileTemplate": {
                   "type": "string",
                   "description": "A path to the \"new\" file template if a file of 0 bytes was received from the link for opening.",
@@ -4068,6 +4075,13 @@
       "additionalProperties": false,
       "x-scope": ["admin", "tenant"],
       "properties": {
+        "host": {
+          "type": "string",
+          "description": "The bind address of the HTTP listener. An empty value listens on all interfaces.",
+          "default": "",
+          "x-scope": [],
+          "x-tenantOverride": false
+        },
         "passwordValidation": {
           "type": "object",
           "x-scope": ["admin", "tenant"],

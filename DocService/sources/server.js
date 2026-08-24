@@ -185,10 +185,12 @@ docsCoServer.install(server, app, () => {
     operationContext.global.logger.error('embeddedConverter.start error: %s', err && err.stack);
   });
 
-  server.listen(config.get('services.CoAuthoring.server.port'), () => {
+  server.listen(config.get('services.CoAuthoring.server.port'), config.get('services.CoAuthoring.server.host'), () => {
+    const address = server.address();
     operationContext.global.logger.warn(
-      'Express server listening on port %d in %s mode. Version: %s. Build: %s',
-      config.get('services.CoAuthoring.server.port'),
+      'Express server listening on %s:%d in %s mode. Version: %s. Build: %s',
+      address.address,
+      address.port,
       app.settings.env,
       commonDefines.buildVersion,
       commonDefines.buildNumber
