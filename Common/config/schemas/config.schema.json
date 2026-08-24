@@ -4050,6 +4050,13 @@
       "additionalProperties": false,
       "x-scope": ["admin", "tenant"],
       "properties": {
+        "host": {
+          "type": "string",
+          "description": "The bind address of the HTTP listener. An empty value listens on all interfaces.",
+          "default": "",
+          "x-scope": [],
+          "x-tenantOverride": false
+        },
         "passwordValidation": {
           "type": "object",
           "x-scope": ["admin", "tenant"],

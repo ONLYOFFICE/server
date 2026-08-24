@@ -1,5 +1,6 @@
 {
   "adminPanel": {
+    "host": "",
     "port": 9000
   },
   "statsd": {
