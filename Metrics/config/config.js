@@ -133,9 +133,11 @@ Optional Variables:
                        { metric: '', bins: [ 50, 100, 150, 200, 'inf'] } ]
 
 */
+//DS_METRICS_HOST binds both listeners; unset keeps the statsd default of all interfaces
 {
-  address: process.env.DS_METRICS_HOST || '0.0.0.0'
-, mgmt_address: process.env.DS_METRICS_HOST || '0.0.0.0'
+  address: process.env.DS_METRICS_HOST || ''
+, mgmt_address: process.env.DS_METRICS_HOST || ''
+, address_ipv6: (process.env.DS_METRICS_HOST || '').includes(':')
 , port: 8125
 , flushInterval: 600000
 , backends: [ "./backends/console" ]

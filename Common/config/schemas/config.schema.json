@@ -2705,8 +2705,9 @@
                 },
                 "host": {
                   "type": "string",
-                  "description": "The IP address the server listens on.",
+                  "description": "The bind address of the HTTP listener. An empty value listens on all interfaces.",
                   "default": "",
+                  "x-scope": [],
                   "x-tenantOverride": false
                 },
                 "newFileTemplate": {
