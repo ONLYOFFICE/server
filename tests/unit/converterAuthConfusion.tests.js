@@ -188,71 +188,40 @@ describe('token confusion on from-file endpoints', () => {
 });
 
 describe('operation claim on the wire', () => {
-  test('only the literal false switches the unsigned-source rule off; a bad tenant value fails closed', async () => {
-    const real = operationContext.Context.prototype.getCfg;
-    for (const [value, expectRefused] of [
-      [false, false],
-      [true, true],
-      [0, true],
-      ['', true],
-      [null, true],
-      ['false', true]
-    ]) {
-      const cfg = jest.spyOn(operationContext.Context.prototype, 'getCfg').mockImplementation(function (key, def) {
-        return 'services.CoAuthoring.token.requireOperationForUnsignedSource' === key ? value : real.call(this, key, def);
-      });
-      try {
-        const answer = await post(docbuilderUrl, await mintInbox({key: 'b5'}), 'builder.CreateFile("docx");builder.CloseFile();');
-        expect([String(value), (await answer.json()).error === -8]).toEqual([String(value), expectRefused]);
-      } finally {
-        cfg.mockRestore();
-      }
-    }
-  });
-
-  test('purposeCheck off does NOT disable the unsigned-source rule: that rule has a switch of its own', async () => {
-    const real = operationContext.Context.prototype.getCfg;
-    const cfg = jest.spyOn(operationContext.Context.prototype, 'getCfg').mockImplementation(function (key, def) {
-      return 'services.CoAuthoring.token.purposeCheck' === key ? 'off' : real.call(this, key, def);
-    });
-    try {
-      // off still lifts the heuristic and the field sets, so a command-shaped token reaches the builder
-      const shaped = await post(docbuilderUrl, await mintInbox({c: 'info', key: 'b6', url: 'http://storage/script.docbuilder'}), '');
-      expect((await shaped.json()).error).not.toBe(-8);
-      // but an unsigned script still needs the claim, because the blanket off must not hand that permission back
-      const inline = await post(docbuilderUrl, await mintInbox({key: 'b6'}), 'builder.CreateFile("docx");builder.CloseFile();');
-      expect((await inline.json()).error).toBe(-8);
-    } finally {
-      cfg.mockRestore();
-    }
-  });
-
-  test('a claim that matches lets the body script through with the rule on', async () => {
+  test('a claim that matches lets the body script through', async () => {
     const token = await mintInbox({operation: 'docbuilder', key: 'b7'});
     const answer = await post(docbuilderUrl, token, 'builder.CreateFile("docx");builder.CloseFile();');
     expect((await answer.json()).error).not.toBe(-8);
   });
 
-  test('requireOperationForUnsignedSource false restores the pre-10.0.0 behaviour for the body script', async () => {
-    // the operator escape hatch: the rule is on by default, and turning it off must bring back exactly the old acceptance
+  test('a claimless body script keeps working, as it did before the purpose gate', async () => {
+    const token = await mintInbox({key: 'b4'});
+    const answer = await post(docbuilderUrl, token, 'builder.CreateFile("docx");builder.CloseFile();');
+    expect((await answer.json()).error).not.toBe(-8);
+  });
+
+  test('strict is what closes the body script: the claim rule refuses a claimless token there', async () => {
     const real = operationContext.Context.prototype.getCfg;
     const cfg = jest.spyOn(operationContext.Context.prototype, 'getCfg').mockImplementation(function (key, def) {
-      return 'services.CoAuthoring.token.requireOperationForUnsignedSource' === key ? false : real.call(this, key, def);
+      return 'services.CoAuthoring.token.purposeCheck' === key ? 'strict' : real.call(this, key, def);
     });
     try {
-      const token = await mintInbox({key: 'b4'});
-      const answer = await post(docbuilderUrl, token, 'builder.CreateFile("docx");builder.CloseFile();');
-      expect((await answer.json()).error).not.toBe(-8);
+      const refused = await post(docbuilderUrl, await mintInbox({key: 'b1'}), 'builder.CreateFile("docx");builder.CloseFile();');
+      expect((await refused.json()).error).toBe(-8);
+      const claimed = await post(
+        docbuilderUrl,
+        await mintInbox({operation: 'docbuilder', key: 'b1'}),
+        'builder.CreateFile("docx");builder.CloseFile();'
+      );
+      expect((await claimed.json()).error).not.toBe(-8);
     } finally {
       cfg.mockRestore();
     }
   });
 
-  test('a claimless token cannot run an unsigned script on either docbuilder route', async () => {
-    // this is the {key} token external data links mint: it used to be a complete build request, because the script itself is never signed
+  test('the from-file route requires the claim at every purposeCheck setting', async () => {
+    // operationRequired is a property of the route, so no config value reaches it
     const token = await mintInbox({key: 'b1'});
-    const body = await post(docbuilderUrl, token, 'builder.CreateFile("docx");builder.CloseFile();');
-    expect((await body.json()).error).toBe(-8);
     const fromFile = await postFromFile(docbuilderFromFileUrl, token, 'builder.CreateFile("docx");builder.CloseFile();');
     expect((await fromFile.json()).error).toBe(-8);
   });

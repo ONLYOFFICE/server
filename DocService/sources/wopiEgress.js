@@ -111,7 +111,8 @@ function evaluateDestination(ctx, uri) {
     const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
     const tenRequestFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequestFilteringAgent);
     const tenRequireIpFilterRule = ctx.getCfg('wopi.requireIpFilterRule', cfgWopiRequireIpFilterRule);
-    const hostname = new URL(uri).hostname;
+    // the WHATWG url keeps the brackets around an ipv6 literal, which neither the resolver nor the rules ever use
+    const hostname = new URL(uri).hostname.replace(/^\[|\]$/g, '');
     const refuse = reason => {
       ctx.logger.warn('wopi egress refuses %s: %s', hostname, reason);
       return {status: tenIpFilterErrorCode, filterAllowIPs: undefined};

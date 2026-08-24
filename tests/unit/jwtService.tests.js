@@ -512,7 +512,7 @@ describe('signed provenance', () => {
     expect(converterService.isSignedSource({isDecoded: true, signedParams: {url: 'http://s/a'}}, 'http://s/a')).toBe(true);
   });
 
-  test('a nested operation claim is fatal in every mode, so it cannot reach the unsigned-source rule', () => {
+  test('a nested operation claim is fatal in every mode, so it can never read as a top-level one', () => {
     for (const mode of ['off', 'validate', 'strict']) {
       const gate = purposeModeCtx(mode);
       expect(checkJwtPurpose(gate, {payload: {operation: 'docbuilder', key: 'k'}}, 'docbuilder')).toBe(false);

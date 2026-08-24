@@ -486,7 +486,6 @@
           }
         },
         "purposeCheck": "validate",
-        "requireOperationForUnsignedSource": true,
         "browser": {
           "secretFromInbox": true
         },

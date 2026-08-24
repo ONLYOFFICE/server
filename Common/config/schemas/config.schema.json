@@ -1859,8 +1859,7 @@
                   "items": {
                     "type": "string"
                   },
-                  "default": [],
-                  "x-tenantOverride": false
+                  "default": []
                 },
                 "denyIPAddressList": {
                   "type": "array",
@@ -1868,8 +1867,7 @@
                   "items": {
                     "type": "string"
                   },
-                  "default": [],
-                  "x-tenantOverride": false
+                  "default": []
                 }
               },
               "x-section-intro": "These parameters configure the [Request Filtering Agent configuration](https://github.com/azu/request-filtering-agent#api)."
@@ -2929,15 +2927,9 @@
                 },
                 "purposeCheck": {
                   "type": "string",
-                  "description": "How strictly an inbound token must prove what it is for. It governs the compatibility-sensitive half: the marker heuristic, the closed field sets of `docbuilder` and `command`, and the `operation` claim. `off` - none of them is applied. It does NOT reach `token.requireOperationForUnsignedSource`, which has a switch of its own so that a blanket `off` cannot quietly hand back permission to run an unsigned script. `validate` - the heuristic rejects browser/session token shapes on the guarded inbox operations (converter, docbuilder, command), a token whose `operation` claim names another operation is rejected, and a sink that serves no named operation rejects any token carrying the claim at all. `strict` - the claim additionally becomes mandatory, but only at the sinks that name an operation (converter, docbuilder, command); the browser, editor-session and download sinks share their tokens with one another and keep accepting claimless ones. An unknown value fails closed at every sink that verifies an integrator token, not only at the three inbox operations. What this setting never relaxes: every sink still enforces the structure its handler reads, including the ban on a `url` in a from-file token, so an empty signed token authorizes nothing at the sinks that name their fields - `browser-open` and `download` are the documented exception, they accept any plain-object payload because a partially signed request is legitimate there, and the from-file endpoints still require the claim on every token they verify - like every other endpoint they do accept an unsigned request when inbound JWT is disabled.",
+                  "description": "How strictly an inbound token must prove what it is for. It governs the compatibility-sensitive half: the marker heuristic, the closed field sets of `docbuilder` and `command`, and the `operation` claim. `off` - none of them is applied. `validate` - the heuristic rejects browser/session token shapes on the guarded inbox operations (converter, docbuilder, command), a token whose `operation` claim names another operation is rejected, and a sink that serves no named operation rejects any token carrying the claim at all. `strict` - the claim additionally becomes mandatory, but only at the sinks that name an operation (converter, docbuilder, command); the browser, editor-session and download sinks share their tokens with one another and keep accepting claimless ones. `strict` is also the setting that closes a `/docbuilder` request carrying its script in the request body: that script is never covered by the signature, so the claim is the only thing telling such a build apart from any other token that fits the builder field set. An unknown value fails closed at every sink that verifies an integrator token, not only at the three inbox operations. What this setting never relaxes: every sink still enforces the structure its handler reads, including the ban on a `url` in a from-file token, so an empty signed token authorizes nothing at the sinks that name their fields - `browser-open` and `download` are the documented exception, they accept any plain-object payload because a partially signed request is legitimate there, and the from-file endpoints still require the claim on every token they verify - like every other endpoint they do accept an unsigned request when inbound JWT is disabled.",
                   "enum": ["off", "validate", "strict"],
                   "default": "validate",
-                  "x-tenantOverride": true
-                },
-                "requireOperationForUnsignedSource": {
-                  "type": "boolean",
-                  "description": "Whether a request whose source content is not covered by the token must carry a matching `operation` claim. Today this is `/docbuilder` with the script in the raw request body or in a multipart part and no `url` in the token: the script itself is never signed, so without the claim any valid inbox token - including the one-field `{key}` that external data links mint for an unrelated feature - is a complete request to run arbitrary builder code. Set to `false` to restore the pre-10.0.0 behaviour for an integration that posts a script with a claimless token. This is the only switch for the rule: `token.purposeCheck: off` does not reach it, deliberately, because the blanket switch must not hand back permission to run an unsigned script. Any value other than the literal `true` or `false` is an invalid security setting and fails closed. A refusal prints `reason=unsigned-source` with `mode=require-unsigned-source`, naming the switch to flip. The `/converter/from-file` and `/docbuilder/from-file` routes are not governed by this setting - they require the claim unconditionally.",
-                  "default": true,
                   "x-tenantOverride": true
                 },
                 "inbox": {

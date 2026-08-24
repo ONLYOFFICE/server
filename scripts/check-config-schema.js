@@ -140,6 +140,8 @@ function classify(p) {
   if (p === 'wopi.htmlTemplate') return false;
   if (p === 'wopi.refreshLockInterval') return false;
   if (p === 'wopi.dummy.enable') return false;
+  // enforced from the global services.CoAuthoring.ipfilter.rules, so a tenant cannot opt itself out
+  if (p === 'wopi.requireIpFilterRule') return false;
   if (p.startsWith('wopi.')) return true;
 
   if (p.startsWith('tenants.')) return false;

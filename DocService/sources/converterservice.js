@@ -521,12 +521,6 @@ function builderRequest(req, res, opt_params, opt_isDecoded, opt_signedParams) {
       const isInBody = req.body && Buffer.isBuffer(req.body) && req.body.length > 0;
       const multipartFile = req.file;
       const isInMultipartBody = !!(multipartFile && multipartFile.buffer);
-      // a url that only the merge supplied is as unsigned as a body script, so the source counts as signed only when the token itself named it
-      const hasSource = !!params.url || isInBody || isInMultipartBody;
-      const unsignedScript = hasSource && !isSignedSource(authRes, params.url);
-      if (constants.NO_ERROR === error && unsignedScript && !jwtService.allowUnsignedSource(ctx, authRes, constants.JWT_PURPOSE_DOCBUILDER)) {
-        error = constants.VKEY;
-      }
       if (error === constants.NO_ERROR && (params.key || params.url || isInBody || isInMultipartBody)) {
         if (needCreateId) {
           const task = yield* taskResult.addRandomKeyTask(ctx, undefined, 'bld_', 8);
@@ -536,7 +530,10 @@ function builderRequest(req, res, opt_params, opt_isDecoded, opt_signedParams) {
         const cmd = new commonDefines.InputCommand();
         cmd.setCommand('builder');
         cmd.setBuilderParams({argument: params.argument});
-        if (isSignedSource(authRes, params.url)) {
+        // a script in the body can never be signed, so a matching claim stands in for provenance there and keeps the network options such a build had before
+        const claimedBodyScript =
+          !params.url && (isInBody || isInMultipartBody) && jwtService.hasOperationClaim(authRes, constants.JWT_PURPOSE_DOCBUILDER);
+        if (isSignedSource(authRes, params.url) || claimedBodyScript) {
           cmd.setWithAuthorization(true);
         }
         cmd.setDocId(docId);

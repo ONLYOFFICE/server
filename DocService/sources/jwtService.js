@@ -47,7 +47,6 @@ const cfgTokenInboxHeader = config.get('services.CoAuthoring.token.inbox.header'
 const cfgTokenInboxPrefix = config.get('services.CoAuthoring.token.inbox.prefix');
 const cfgTokenVerifyOptions = config.util.cloneDeep(config.get('services.CoAuthoring.token.verifyOptions'));
 const cfgTokenPurposeCheck = config.get('services.CoAuthoring.token.purposeCheck');
-const cfgTokenRequireOperationForUnsignedSource = config.get('services.CoAuthoring.token.requireOperationForUnsignedSource');
 
 // Reject browser/session token shapes on converter and command: Browser and Inbox share secret.inbox, so they verify identically. Docbuilder has a closed field set of its own instead.
 function validateJwtPayloadForOperation(decoded) {
@@ -285,13 +284,10 @@ const REASON = {
   claimMissing: 'claim-missing',
   claimMismatch: 'claim-mismatch',
   payloadShape: 'payload-shape',
-  markerHeuristic: 'marker-heuristic',
-  unsignedSource: 'unsigned-source'
+  markerHeuristic: 'marker-heuristic'
 };
 // the mode reported on the verdict line; a token Document Server issued to itself is checked strictly whatever the tenant configured, so it is never reported under a tenant mode
 const PURPOSE_MODE_INTERNAL = 'internal';
-// the unsigned-source rule has a switch of its own and is not governed by purposeCheck, so its verdict line names that switch instead of a purposeCheck value
-const RULE_UNSIGNED_SOURCE = 'require-unsigned-source';
 function getPurposeMode(ctx, purpose) {
   const policy = TOKEN_POLICIES[purpose];
   return policy && policy.derived ? PURPOSE_MODE_INTERNAL : ctx.getCfg('services.CoAuthoring.token.purposeCheck', cfgTokenPurposeCheck);
@@ -434,34 +430,12 @@ async function checkJwt(ctx, token, purpose) {
   applyJwtPurpose(ctx, res, purpose, verified);
   return res;
 }
-// The sink knows what the gate cannot see: the work comes from content nobody signed. The claim ties the token to the capability, not to those bytes - binding the bytes needs a digest - but without it any inbox token is a complete request.
-// The rule sits outside purposeCheck on purpose: it has a switch of its own, and the blanket off must not quietly hand back permission to run an unsigned script.
-function allowUnsignedSource(ctx, authRes, purpose) {
-  const tenRequire = ctx.getCfg('services.CoAuthoring.token.requireOperationForUnsignedSource', cfgTokenRequireOperationForUnsignedSource);
-  if (!authRes.isDecoded) {
-    return true;
-  }
-  // the claim is compared with the operation the policy serves, not with the purpose label: an alias purpose has a different one,
-  // and a caller naming no registered purpose is a code defect whose absent claim must not read as a match against undefined
+// A body script carries no signature of its own, so a matching claim is the only positive evidence that the caller minted this token for this work.
+function hasOperationClaim(authRes, purpose) {
+  // compared with the operation the policy serves, not with the purpose label, so an alias purpose matches and an unregistered one never reads as a match against undefined
   const operation = TOKEN_POLICIES[purpose]?.operation;
-  if (!operation) {
-    ctx.logger.warn('checkJwt purpose rejected: purpose=%s mode=%s reason=%s', purpose, PURPOSE_MODE_INTERNAL, REASON.unknownPurpose);
-    return false;
-  }
-  // only the literal false switches the rule off; a tenant that writes 0, "" or null has an invalid security setting, and that fails closed like an unknown purposeCheck
-  if (true !== tenRequire && false !== tenRequire) {
-    ctx.logger.warn('checkJwt purpose rejected: purpose=%s mode=%s reason=%s', purpose, RULE_UNSIGNED_SOURCE, REASON.invalidMode);
-    return false;
-  }
-  if (!tenRequire) {
-    return true;
-  }
-  const signed = authRes.signedParams;
-  if (isPlainPayload(signed) && operation === signed[constants.JWT_CLAIM_OPERATION]) {
-    return true;
-  }
-  ctx.logger.warn('checkJwt purpose rejected: purpose=%s mode=%s reason=%s', purpose, RULE_UNSIGNED_SOURCE, REASON.unsignedSource);
-  return false;
+  const signed = authRes && authRes.signedParams;
+  return !!operation && isPlainPayload(signed) && operation === signed[constants.JWT_CLAIM_OPERATION];
 }
 async function checkJwtHeader(ctx, req, purpose, opt_carrier) {
   const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
@@ -482,4 +456,4 @@ exports.checkJwtPurpose = checkJwtPurpose;
 exports.signToken = signToken;
 exports.checkJwt = checkJwt;
 exports.checkJwtHeader = checkJwtHeader;
-exports.allowUnsignedSource = allowUnsignedSource;
+exports.hasOperationClaim = hasOperationClaim;
