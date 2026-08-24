@@ -56,6 +56,8 @@ const RELOAD_DEBOUNCE_MS = 200;
 
 // Retry timer for reload after a transient read, so a single mid-write event does not strand the process on stale config
 let reloadRetryTimer = null;
+// in-flight read of the config file, so a cache miss is served by one file read no matter how many requests race for it
+let pendingConfigRead = null;
 const RELOAD_RETRY_MS = 500;
 const RELOAD_MAX_RETRIES = 5;
 
@@ -90,16 +92,27 @@ async function getConfigFromFile(ctx) {
  * @param {operationContext} ctx - Operation context
  * @returns {Object} Cached configuration object
  */
-async function getConfig(ctx) {
-  let config = nodeCache.get(configFileName);
-  if (undefined === config) {
+async function readAndCacheConfig(ctx) {
+  try {
     const loaded = await getConfigFromFile(ctx);
     if (READ_TRANSIENT === loaded) {
       // do not cache a transient read failure; the next call will retry
       return null;
     }
-    config = loaded;
-    nodeCache.set(configFileName, config);
+    nodeCache.set(configFileName, loaded);
+    return loaded;
+  } finally {
+    pendingConfigRead = null;
+  }
+}
+async function getConfig(ctx) {
+  let config = nodeCache.get(configFileName);
+  if (undefined === config) {
+    // every request reads this cache, so coalesce the misses a ttl expiry produces into a single file read
+    if (!pendingConfigRead) {
+      pendingConfigRead = readAndCacheConfig(ctx);
+    }
+    config = await pendingConfigRead;
   }
   return config;
 }

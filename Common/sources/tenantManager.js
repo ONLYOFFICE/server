@@ -62,6 +62,8 @@ let licenseTuple; //to avoid array creating in getTenantLicense
 const c_LM = constants.LICENSE_MODE;
 
 const nodeCache = new NodeCache(cfgTenantsCache);
+// in-flight tenant config reads by path, so a cache miss is served by one file read
+const pendingTenantConfigs = new Map();
 
 function getDefautTenant() {
   return cfgTenantsDefaultTenant;
@@ -103,25 +105,43 @@ function getTenantByRequest(ctx, req) {
 function getTenantPathPrefix(ctx) {
   return isMultitenantMode(ctx) ? utils.removeIllegalCharacters(ctx.tenant) + '/' : '';
 }
+async function readTenantConfig(ctx, configPath) {
+  let res = null;
+  let cacheable = true;
+  try {
+    const cfgString = await readFile(configPath, {encoding: 'utf8'});
+    res = config.util.parseString(cfgString, path.extname(configPath).substring(1));
+    ctx.logger.debug('getTenantConfig from %s', configPath);
+  } catch (e) {
+    ctx.logger.debug('getTenantConfig error: %s', e.stack);
+    // an absent file is a legitimate empty config, any other error is transient and must not blank the tenant for a whole ttl
+    cacheable = 'ENOENT' === e.code;
+  } finally {
+    ctx.cleanTenantConfigCache(ctx.tenant);
+    if (cacheable) {
+      nodeCache.set(configPath, res);
+    }
+    pendingTenantConfigs.delete(configPath);
+  }
+  return res;
+}
 async function getTenantConfig(ctx) {
   let res = null;
   if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
     const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
     const configPath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameConfig);
     res = nodeCache.get(configPath);
-    if (res) {
+    // an absent config is cached as null, so only undefined means "not in cache"
+    if (undefined !== res) {
       ctx.logger.debug('getTenantConfig from cache');
     } else {
-      try {
-        const cfgString = await readFile(configPath, {encoding: 'utf8'});
-        res = config.util.parseString(cfgString, path.extname(configPath).substring(1));
-        ctx.logger.debug('getTenantConfig from %s', configPath);
-      } catch (e) {
-        ctx.logger.debug('getTenantConfig error: %s', e.stack);
-      } finally {
-        ctx.cleanTenantConfigCache(ctx.tenant);
-        nodeCache.set(configPath, res);
+      // coalesce concurrent reads so a ttl expiry on a busy tenant does not fan out into parallel file reads
+      let pending = pendingTenantConfigs.get(configPath);
+      if (!pending) {
+        pending = readTenantConfig(ctx, configPath);
+        pendingTenantConfigs.set(configPath, pending);
       }
+      res = await pending;
     }
   }
   return res;

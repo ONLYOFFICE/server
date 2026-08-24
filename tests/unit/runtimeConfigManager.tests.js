@@ -194,6 +194,20 @@ describe('runtimeConfigManager stable read', () => {
     expect(writeSpy).not.toHaveBeenCalled();
   });
 
+  test('coalesces concurrent misses into a single file read', async () => {
+    const {rcm, utilsMod} = loadRcm();
+    let releaseRead;
+    utilsMod.readFileStable.mockImplementation(() => new Promise(resolve => (releaseRead = resolve)));
+
+    const first = rcm.getConfig(ctx);
+    const second = rcm.getConfig(ctx);
+    await new Promise(resolve => setImmediate(resolve));
+    releaseRead(JSON.stringify({log: {options: {level: 'warn'}}}));
+    await Promise.all([first, second]);
+
+    expect(utilsMod.readFileStable).toHaveBeenCalledTimes(1);
+  });
+
   test('saveConfig writes a fresh config when no file exists yet (cold start)', async () => {
     const {rcm, utilsMod, loggerStub} = loadRcm();
     utilsMod.readFileStable.mockRejectedValue(Object.assign(new Error('ENOENT'), {code: 'ENOENT'}));
@@ -205,5 +219,124 @@ describe('runtimeConfigManager stable read', () => {
     expect(saved).toEqual({log: {options: {level: 'error'}}});
     expect(writeSpy).toHaveBeenCalledTimes(1);
     expect(loggerStub.configureLogger).toHaveBeenCalledWith({level: 'error'});
+  });
+});
+
+const TENANT = 'tenant1';
+const CACHE_TTL_MS = 301 * 1000;
+
+const contextLoggerStub = {
+  trace() {},
+  debug() {},
+  info() {},
+  warn() {},
+  error() {},
+  fatal() {},
+  shutdown: cb => cb && cb(),
+  configureLogger() {},
+  getLogger: () => ({trace() {}, debug() {}, info() {}, warn() {}, error() {}, fatal() {}, addContext() {}}),
+  getLoggerConfig: () => ({}),
+  getInitialLoggerConfig: () => ({})
+};
+
+// Loads a fresh operationContext/tenantManager pair in multitenant mode with a spy on the tenant config read.
+function loadModules() {
+  let operationContext, tenantManager;
+  const readFile = jestGlobals.fn();
+  jestGlobals.isolateModules(() => {
+    jestGlobals.doMock('fs/promises', () => ({...jestGlobals.requireActual('fs/promises'), readFile}));
+    jestGlobals.doMock('../../Common/sources/logger', () => contextLoggerStub);
+    // operationContext first: tenantManager -> utils -> operationContext is circular and the reverse order breaks it
+    operationContext = require('../../Common/sources/operationContext');
+    tenantManager = require('../../Common/sources/tenantManager');
+  });
+  tenantManager.setMultitenantMode(true);
+  return {operationContext, readFile};
+}
+
+async function initCtx(operationContext) {
+  const ctx = new operationContext.Context();
+  ctx.setTenant(TENANT);
+  await ctx.initTenantCache();
+  return ctx;
+}
+
+describe('tenant config cache', () => {
+  afterEach(() => {
+    jestGlobals.restoreAllMocks();
+    jestGlobals.useRealTimers();
+  });
+
+  test('picks up a tenant config change written by another instance once the ttl expires', async () => {
+    const {operationContext, readFile} = loadModules();
+    readFile.mockResolvedValue(JSON.stringify({wopi: {enable: false}}));
+    const before = await initCtx(operationContext);
+    expect(before.getCfg('wopi.enable', 'absent')).toBe(false);
+
+    // another instance enabled wopi: nothing invalidates this process, only the ttl can
+    readFile.mockResolvedValue(JSON.stringify({wopi: {enable: true}}));
+    jestGlobals.useFakeTimers();
+    await jestGlobals.advanceTimersByTimeAsync(CACHE_TTL_MS);
+    const after = await initCtx(operationContext);
+
+    expect(after.getCfg('wopi.enable', 'absent')).toBe(true);
+    expect(readFile).toHaveBeenCalledTimes(2);
+  });
+
+  test('reuses the merged config while the sources are unchanged', async () => {
+    const {operationContext, readFile} = loadModules();
+    readFile.mockResolvedValue(JSON.stringify({wopi: {enable: true}}));
+
+    const first = await initCtx(operationContext);
+    const second = await initCtx(operationContext);
+
+    expect(second.config).toBe(first.config);
+    expect(readFile).toHaveBeenCalledTimes(1);
+  });
+
+  test('caches an absent tenant config instead of reading the file on every request', async () => {
+    const {operationContext, readFile} = loadModules();
+    readFile.mockRejectedValue(Object.assign(new Error('ENOENT'), {code: 'ENOENT'}));
+
+    await initCtx(operationContext);
+    await initCtx(operationContext);
+
+    expect(readFile).toHaveBeenCalledTimes(1);
+  });
+
+  test('survives a runtime config reload landing between the source reads', async () => {
+    const {operationContext, readFile} = loadModules();
+    let releaseRead;
+    readFile.mockImplementation(() => new Promise(resolve => (releaseRead = resolve)));
+
+    const ctxTenant = new operationContext.Context();
+    ctxTenant.setTenant(TENANT);
+    const pending = ctxTenant.initTenantCache();
+    while (0 === readFile.mock.calls.length) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    ctxTenant.cleanRuntimeConfigCache();
+    releaseRead(JSON.stringify({wopi: {enable: false}}));
+
+    // the reload drops the merged cache mid-flight, which must not leave the sources unreadable
+    await expect(pending).resolves.toBeUndefined();
+    expect(ctxTenant.getCfg('wopi.enable', 'absent')).toBe(false);
+  });
+
+  test('serves concurrent cache misses with a single file read', async () => {
+    const {operationContext, readFile} = loadModules();
+    let releaseRead;
+    readFile.mockImplementation(() => new Promise(resolve => (releaseRead = resolve)));
+
+    const first = initCtx(operationContext);
+    const second = initCtx(operationContext);
+    // the runtime config lookup ahead of the tenant read does real io, so wait for the read itself rather than a fixed tick
+    while (0 === readFile.mock.calls.length) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    releaseRead(JSON.stringify({wopi: {enable: true}}));
+    await Promise.all([first, second]);
+
+    expect(readFile).toHaveBeenCalledTimes(1);
   });
 });

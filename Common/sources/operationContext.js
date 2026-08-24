@@ -43,6 +43,8 @@ const runtimeConfigManager = require('./runtimeConfigManager');
 const moduleReloader = require('./moduleReloader');
 
 let configCache = null;
+// bumped whenever the whole merged cache is dropped, so a merge built from sources read across that drop is not stored
+let configCacheGeneration = 0;
 
 function Context() {
   this.logger = logger.getLogger('nodeJS');
@@ -104,27 +106,40 @@ Context.prototype.initFromPubSub = function (data) {
   this.init(ctx.tenant, ctx.docId, ctx.userId, ctx.shardKey, ctx.wopiSrc, ctx.userSessionId);
 };
 Context.prototype.initTenantCache = async function () {
+  let generation;
+  let baseConfig;
+  let runtimeConfig;
+  let tenantConfig;
+  // a runtime config reload can drop the whole cache between these reads, so repeat them until no reload interferes
+  do {
+    generation = configCacheGeneration;
+    baseConfig = moduleReloader.getBaseConfig();
+    runtimeConfig = await runtimeConfigManager.getConfig(this);
+    tenantConfig = await tenantManager.getTenantConfig(this);
+  } while (generation !== configCacheGeneration);
   if (!configCache) {
     configCache = Object.create(null);
   }
-  this.config = configCache[this.tenant];
-  if (!this.config) {
-    const runtimeConfig = await runtimeConfigManager.getConfig(this);
-    const tenantConfig = await tenantManager.getTenantConfig(this);
-    this.config = utils.deepMergeObjects({}, moduleReloader.getBaseConfig(), runtimeConfig, tenantConfig);
-
-    // Merge persistentStorage with storage to support inheritance
-    if (this.config.persistentStorage && this.config.storage) {
-      this.config.persistentStorage = Context.normalizePersistentStorageCfg(this.config.storage, this.config.persistentStorage);
-    }
-
-    configCache[this.tenant] = this.config;
+  const cached = configCache[this.tenant];
+  // sources are cached with useClones false, so an unchanged source keeps its reference and the merge can be reused
+  if (cached && cached.base === baseConfig && cached.runtime === runtimeConfig && cached.tenant === tenantConfig) {
+    this.config = cached.config;
+    return;
   }
+  this.config = utils.deepMergeObjects({}, baseConfig, runtimeConfig, tenantConfig);
+
+  // Merge persistentStorage with storage to support inheritance
+  if (this.config.persistentStorage && this.config.storage) {
+    this.config.persistentStorage = Context.normalizePersistentStorageCfg(this.config.storage, this.config.persistentStorage);
+  }
+
+  configCache[this.tenant] = {base: baseConfig, runtime: runtimeConfig, tenant: tenantConfig, config: this.config};
 
   //todo license and secret
 };
 Context.prototype.cleanRuntimeConfigCache = function () {
   configCache = null;
+  configCacheGeneration++;
 };
 Context.prototype.cleanTenantConfigCache = function (tenant) {
   if (configCache) {
