@@ -168,6 +168,7 @@ function classify(p) {
   if (p === 'persistentStorage') return false;
   if (p.startsWith('persistentStorage.')) return false;
 
+  if (p === 'adminPanel.host') return false;
   if (p.startsWith('adminPanel.')) return true;
   if (p.startsWith('statsd.')) return false;
   if (p.startsWith('log.')) return false;
