@@ -1202,7 +1202,12 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
         const selectRes = yield taskResult.select(ctx, docId);
         const row = selectRes.length > 0 ? selectRes[0] : null;
         //send only if FileStatus.Ok to prevent forcesave after final save
-        if (row && row.status == commonDefines.FileStatus.Ok) {
+        //form submit is a separate integrator event, not a document version, so deliver it even after final save
+        const isFormSubmit = forceSaveType === commonDefines.c_oAscForceSaveTypes.Form;
+        if (row && (row.status == commonDefines.FileStatus.Ok || isFormSubmit)) {
+          if (row.status != commonDefines.FileStatus.Ok) {
+            ctx.logger.debug('commandSfcCallback form submit after final save: status = %d', row.status);
+          }
           if (forceSave) {
             const forceSaveDate = forceSave.getTime() ? new Date(forceSave.getTime()) : new Date();
             outputSfc.setForceSaveType(forceSaveType);
@@ -1238,6 +1243,8 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
               ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
             }
           }
+        } else {
+          ctx.logger.debug('commandSfcCallback skip forcesave after final save: type = %d; status = %s', forceSaveType, row && row.status);
         }
       } else {
         //if anybody in document stop save

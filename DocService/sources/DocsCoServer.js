@@ -978,8 +978,11 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   const forceSaveType = forceSave.getType();
   let end = success;
   if (commonDefines.c_oAscForceSaveTypes.Form === forceSaveType || commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
-    const forceSave = yield editorData.getForceSave(ctx, docId);
-    end = forceSave.ended;
+    //record is absent when the document was already cleaned on exit
+    const actualForceSave = yield editorData.getForceSave(ctx, docId);
+    if (actualForceSave) {
+      end = actualForceSave.ended;
+    }
   }
   const convertInfo = new commonDefines.InputCommand(cmd, true);
   //remove request specific fields from cmd
@@ -1243,6 +1246,9 @@ async function startForceSave(
     if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
       priority = constants.QUEUE_PRIORITY_VERY_LOW;
       expiration = getForceSaveExpiration(ctx);
+    } else if (commonDefines.c_oAscForceSaveTypes.Form === type) {
+      //reduce the disconnect race with the final save queued later; quorum queues split priorities only above 4
+      priority = constants.QUEUE_PRIORITY_HIGH;
     } else {
       priority = constants.QUEUE_PRIORITY_LOW;
     }
