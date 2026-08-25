@@ -13,11 +13,9 @@ const fs = require('fs');
 
 // Configuration values
 const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
-const cfgEditorStatStorage =
-  config.get('services.CoAuthoring.server.editorStatStorage') || config.get('services.CoAuthoring.server.editorDataStorage');
 
 // Initialize editor stat storage
-const editorStatStorage = require(`../${cfgEditorStatStorage}`);
+const {editorStatStorage} = require('../editorDataStorage');
 const editorStat = new editorStatStorage.EditorStat();
 
 // Constants

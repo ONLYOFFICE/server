@@ -2645,12 +2645,14 @@
                 },
                 "editorDataStorage": {
                   "type": "string",
-                  "description": "The editor data storage. The possible values: *\"editorDataRedis\"*, *\"\"*.",
+                  "enum": ["editorDataMemory", "editorDataRedis"],
+                  "description": "The editor data storage. The possible values: *\"editorDataMemory\"*, *\"editorDataRedis\"*.",
                   "default": "editorDataMemory",
                   "x-tenantOverride": false
                 },
                 "editorStatStorage": {
                   "type": "string",
+                  "enum": ["", "editorDataMemory", "editorDataRedis"],
                   "description": "The editor data storage for license calculation and statistics (local memory or redis). The possible values are *\"editorDataMemory\"*, *\"editorDataRedis\"*, or *\"\"*. The default *\"\"* value means that the value of the *editorDataStorage* parameter will be used. This parameter is primarily used for a sharded cluster.",
                   "default": "",
                   "x-tenantOverride": false
@@ -3915,12 +3917,14 @@
             },
             "args": {
               "type": "string",
+              "x-scope": "admin",
               "description": "The additional parameters for running x2t.",
               "default": "",
               "x-tenantOverride": true
             },
             "docbuilderPath": {
               "type": "string",
+              "x-scope": "admin",
               "description": "A path to the Document Builder application.",
               "default": "null",
               "x-tenantOverride": true
@@ -3967,6 +3971,7 @@
             },
             "fontDir": {
               "type": "string",
+              "x-scope": "admin",
               "description": "A path to the folder with fonts.",
               "default": "null",
               "x-tenantOverride": true
@@ -3997,6 +4002,7 @@
             },
             "x2tPath": {
               "type": "string",
+              "x-scope": "admin",
               "description": "A path to the x2t file converter.",
               "default": "null",
               "x-tenantOverride": true

@@ -42,8 +42,15 @@ const fs = require('fs');
 const log4js = require('log4js');
 const layouts = require('log4js/lib/layouts');
 const {resolveConfigPath} = require('./pathUtils');
-const logConfigPath = resolveConfigPath(config.get('log.filePath'));
+const moduleReloader = require('./moduleReloader');
+
+// runtime.json is merged into the config module, so logger settings are taken from the base config the OS admin owns
+const baseConfig = moduleReloader.getBaseConfig() || config.util.toObject();
+const logConfigPath = resolveConfigPath(baseConfig?.log?.filePath);
+const baseLogOptions = baseConfig?.log?.options;
 const logOptions = config.get('log.options');
+// a product allowlist kept in sync with the config schema, not a copy of the log4js level set
+const RUNTIME_LOG_LEVELS = new Set(['ALL', 'TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL', 'OFF']);
 
 // https://stackoverflow.com/a/36643588
 const dateToJSONWithTZ = function (d) {
@@ -85,11 +92,37 @@ log4js.addLayout('patternWithTokens', cfg => {
   return layouts.patternLayout(pattern, tokens);
 });
 
-const cachedLogConfig = JSON.parse(fs.readFileSync(logConfigPath, 'utf8'));
+const cachedLogConfig = config.util.extendDeep(JSON.parse(fs.readFileSync(logConfigPath, 'utf8')), baseLogOptions || {});
 let curLogConfig = cachedLogConfig;
 
+/**
+ * Keep only the log levels a runtime config may change, dropping everything else before it can reach log4js
+ * Appender types are passed to require() by log4js, so runtime config must never define appenders or layouts
+ * @param {Object} options - the "log.options" node of the runtime config
+ * @returns {Object} an options object holding only accepted levels
+ */
+function pickRuntimeLogLevels(options) {
+  const categories = options?.categories;
+  if (!categories || typeof categories !== 'object' || Array.isArray(categories)) {
+    return {};
+  }
+  const baseCategories = cachedLogConfig.categories || {};
+  const picked = {};
+  for (const [name, category] of Object.entries(categories)) {
+    // a category missing from the base config would reach log4js without appenders and break the whole configuration
+    if (!Object.prototype.hasOwnProperty.call(baseCategories, name) || !category || typeof category !== 'object') {
+      continue;
+    }
+    const level = category.level;
+    if (typeof level === 'string' && RUNTIME_LOG_LEVELS.has(level.toUpperCase())) {
+      picked[name] = {level};
+    }
+  }
+  return Object.keys(picked).length > 0 ? {categories: picked} : {};
+}
+
 function configureLogger(options) {
-  const mergedOptions = config.util.extendDeep({}, cachedLogConfig, options);
+  const mergedOptions = config.util.extendDeep({}, cachedLogConfig, pickRuntimeLogLevels(options));
   log4js.configure(mergedOptions);
   curLogConfig = mergedOptions;
 }
@@ -97,7 +130,7 @@ configureLogger(logOptions);
 
 const logger = log4js.getLogger('nodeJS');
 
-if (config.get('log.options.replaceConsole')) {
+if (baseLogOptions?.replaceConsole) {
   console.log = logger.info.bind(logger);
   console.info = logger.info.bind(logger);
   console.warn = logger.warn.bind(logger);

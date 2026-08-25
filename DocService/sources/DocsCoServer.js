@@ -109,10 +109,7 @@ const aiProxyHandler = require('./ai/aiProxyHandler');
 const jwtService = require('./jwtService');
 const {signToken, checkJwt, checkJwtHeader} = jwtService;
 
-const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
-const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
-const editorDataStorage = require('./' + cfgEditorDataStorage);
-const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
+const {editorDataStorage, editorStatStorage} = require('./editorDataStorage');
 const util = require('util');
 
 const cfgEditSingleton = config.get('services.CoAuthoring.server.edit_singleton');

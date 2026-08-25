@@ -47,9 +47,7 @@ const operationContext = require('./../../Common/sources/operationContext');
 const sqlBase = require('./databaseConnectors/baseConnector');
 const docsCoServer = require('./DocsCoServer');
 const taskResult = require('./taskresult');
-const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
-const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
-const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
+const {editorStatStorage} = require('./editorDataStorage');
 
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 
