@@ -3234,6 +3234,14 @@
           "x-scope": "admin",
           "x-tenantOverride": false
         },
+        "licenseRevalidateInterval": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5,
+          "description": "The minimal interval between the checks of the tenant license file state (measured in seconds). This is the check rate, not a guaranteed delay: on a network file system the actual delay also depends on the metadata cache of the mount. Set to 0 to disable the checks and rely on the cache TTL only.",
+          "x-scope": "admin",
+          "x-tenantOverride": false
+        },
         "cache": {
           "type": "object",
           "description": "The cache properties for reading multi-tenant license and secret.",

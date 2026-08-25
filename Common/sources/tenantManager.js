@@ -41,7 +41,7 @@ const NodeCache = require('node-cache');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
 const utils = require('./../../Common/sources/utils');
-const {readFile, readdir, writeFile} = require('fs/promises');
+const {readFile, readdir, stat, writeFile} = require('fs/promises');
 const path = require('path');
 
 const cfgTenantsBaseDomain = config.get('tenants.baseDomain');
@@ -51,6 +51,9 @@ const cfgTenantsFilenameLicense = config.get('tenants.filenameLicense');
 const cfgTenantsFilenameConfig = config.get('tenants.filenameConfig');
 const cfgTenantsDefaultTenant = config.get('tenants.defaultTenant');
 const cfgTenantsCache = config.util.cloneDeep(config.get('tenants.cache'));
+// zero disables the periodic checks and leaves the cache ttl as the only refresh
+const cfgTenantsLicenseRevalidateInterval =
+  config.get('tenants.licenseRevalidateInterval') * 1000 > 0 ? config.get('tenants.licenseRevalidateInterval') * 1000 : Infinity;
 const cfgSecretInbox = config.get('services.CoAuthoring.secret.inbox');
 const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgSecretSession = config.get('services.CoAuthoring.secret.session');
@@ -64,6 +67,8 @@ const c_LM = constants.LICENSE_MODE;
 const nodeCache = new NodeCache(cfgTenantsCache);
 // in-flight tenant config reads by path, so a cache miss is served by one file read
 const pendingTenantConfigs = new Map();
+// in-flight license revalidations by path, so parallel misses share one stat-compare-read chain
+const pendingTenantLicenses = new Map();
 
 function getDefautTenant() {
   return cfgTenantsDefaultTenant;
@@ -315,6 +320,88 @@ function fixTenantLicense(ctx, licenseInfo, licenseInfoTenant) {
   }
 }
 
+const LICENSE_STAMP_ABSENT = {mtimeMs: -1, size: -1, ino: -1, ctimeMs: -1};
+// a stable outcome is remembered, a transient one is retried instead of being cached for a whole ttl
+const LICENSE_OUTCOME = {success: 1, absent: 2, transient: 3};
+
+function isSameLicenseStamp(left, right) {
+  return left.mtimeMs === right.mtimeMs && left.size === right.size && left.ino === right.ino && left.ctimeMs === right.ctimeMs;
+}
+
+async function statTenantLicense(licensePath) {
+  try {
+    const stats = await stat(licensePath);
+    // ino and ctime catch a tmp+rename swap that keeps the same size and lands inside the mtime granularity
+    return {mtimeMs: stats.mtimeMs, size: stats.size, ino: stats.ino, ctimeMs: stats.ctimeMs};
+  } catch (e) {
+    if ('ENOENT' !== e.code) {
+      throw e;
+    }
+    // an absent file is a stable state of its own, so it is stamped and revalidated like any other
+    return LICENSE_STAMP_ABSENT;
+  }
+}
+
+async function readTenantLicenseEntry(ctx, licensePath, stamp) {
+  let content = null;
+  let outcome = LICENSE_OUTCOME.success;
+  try {
+    content = await readFile(licensePath, {encoding: 'utf8'});
+  } catch (e) {
+    // the read is done here because readLicenseTenant cannot tell an absent file from an unreadable one
+    outcome = 'ENOENT' === e.code ? LICENSE_OUTCOME.absent : LICENSE_OUTCOME.transient;
+    ctx.logger.warn('getTenantLicense read error: %s', e.stack);
+  }
+  const tuple = readLicenseTenant(ctx, content, licenseInfo);
+  fixTenantLicense(ctx, licenseInfo, tuple[0]);
+  if (null !== content && constants.LICENSE_RESULT.Error === tuple[0].type) {
+    // content that does not parse is treated as a half written file, so it is retried instead of remembered
+    outcome = LICENSE_OUTCOME.transient;
+  }
+  ctx.logger.debug('getTenantLicense from %s', licensePath);
+  return {tuple, stamp, checkedAt: Date.now(), outcome};
+}
+
+// stat the file and re-read it only when it changed, so a replaced license is picked up without waiting for the ttl
+async function revalidateTenantLicense(ctx, licensePath, cached) {
+  let res = cached;
+  try {
+    const stamp = await statTenantLicense(licensePath);
+    if (cached && isSameLicenseStamp(cached.stamp, stamp)) {
+      // an unchanged file only refreshes the revalidation stamp, so the ttl keeps counting from the last real read
+      cached.checkedAt = Date.now();
+    } else {
+      const entry = await readTenantLicenseEntry(ctx, licensePath, stamp);
+      if (LICENSE_OUTCOME.transient !== entry.outcome) {
+        // success and absent are both stable, so they replace whatever was cached, a deleted file included
+        nodeCache.set(licensePath, entry);
+        res = entry;
+      } else if (cached && LICENSE_OUTCOME.success === cached.outcome) {
+        // keep serving the good license and retry within the next interval instead of blanking the tenant
+        ctx.logger.warn('getTenantLicense keeps the previous license after a failed read of %s', licensePath);
+        cached.checkedAt = Date.now();
+      } else {
+        // nothing good to serve, so the failure is not cached at all and the next call reads again
+        res = entry;
+      }
+    }
+  } catch (e) {
+    // a stat that fails with anything but ENOENT is transient by definition
+    ctx.logger.warn('getTenantLicense revalidate error: %s', e.stack);
+    if (cached) {
+      if (LICENSE_OUTCOME.success === cached.outcome) {
+        cached.checkedAt = Date.now();
+      }
+    } else {
+      // read once for an answer and cache nothing, so the next call retries
+      res = await readTenantLicenseEntry(ctx, licensePath, LICENSE_STAMP_ABSENT);
+    }
+  } finally {
+    pendingTenantLicenses.delete(licensePath);
+  }
+  return res;
+}
+
 async function getTenantLicense(ctx) {
   let res = licenseTuple;
   if (isMultitenantMode(ctx) && !isDefaultTenant(ctx)) {
@@ -322,16 +409,20 @@ async function getTenantLicense(ctx) {
     if (licenseInfo.multitenancy || licenseInfo.alias) {
       const tenantPath = utils.removeIllegalCharacters(ctx.tenant);
       const licensePath = path.join(cfgTenantsBaseDir, tenantPath, cfgTenantsFilenameLicense);
-      let licenseTupleTenant = nodeCache.get(licensePath);
-      if (licenseTupleTenant) {
+      const cached = nodeCache.get(licensePath);
+      let entry = cached;
+      if (cached && Date.now() - cached.checkedAt < cfgTenantsLicenseRevalidateInterval) {
         ctx.logger.debug('getTenantLicense from cache');
       } else {
-        licenseTupleTenant = await readLicenseTenant(ctx, licensePath, licenseInfo);
-        fixTenantLicense(ctx, licenseInfo, licenseTupleTenant[0]);
-        nodeCache.set(licensePath, licenseTupleTenant);
-        ctx.logger.debug('getTenantLicense from %s', licensePath);
+        // coalesce the whole stat-compare-read chain, otherwise parallel calls fan out into parallel stats
+        let pending = pendingTenantLicenses.get(licensePath);
+        if (!pending) {
+          pending = revalidateTenantLicense(ctx, licensePath, cached);
+          pendingTenantLicenses.set(licensePath, pending);
+        }
+        entry = await pending;
       }
-      res = licenseTupleTenant;
+      res = entry.tuple;
     } else {
       res = [...res];
       res[0] = {...res[0]};
@@ -356,15 +447,17 @@ function isDefaultTenant(ctx) {
   return ctx.tenant === cfgTenantsDefaultTenant;
 }
 //todo move to license file?
-async function readLicenseTenant(ctx, licenseFile, baseVerifiedLicense) {
+function readLicenseTenant(ctx, licenseFileContent, baseVerifiedLicense) {
   const c_LR = constants.LICENSE_RESULT;
   const c_LM = constants.LICENSE_MODE;
   const res = {...baseVerifiedLicense};
   let oLicense = null;
   try {
-    const oFile = (await readFile(licenseFile)).toString();
+    if (null === licenseFileContent) {
+      throw new Error('license file is not readable');
+    }
     res.hasLicense = true;
-    oLicense = JSON.parse(oFile);
+    oLicense = JSON.parse(licenseFileContent);
     //do not verify tenant signature. verify main lic signature.
     //delete from object to keep signature secret
     delete oLicense['signature'];

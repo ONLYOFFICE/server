@@ -297,6 +297,7 @@
     "filenameSecret": "secret.key",
     "filenameLicense": "license.lic",
     "defaultTenant": "localhost",
+    "licenseRevalidateInterval": 5,
     "cache": {
       "stdTTL": 300,
       "checkperiod": 60,
