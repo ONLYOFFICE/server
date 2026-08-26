@@ -358,8 +358,16 @@ function classifyJwtPurpose(ctx, decoded, expectedPurpose) {
 function checkJwtPurpose(ctx, decoded, expectedPurpose) {
   return null === classifyJwtPurpose(ctx, decoded, expectedPurpose);
 }
+// a sink that accepts more than one purpose probes them in turn, so a single refusal there is a detail and only the caller knows the verdict
+function logJwtRefusal(ctx, quiet, format, ...args) {
+  if (quiet) {
+    ctx.logger.debug(format, ...args);
+  } else {
+    ctx.logger.warn(format, ...args);
+  }
+}
 // a purpose mismatch must look exactly like a bad token to every caller
-function applyJwtPurpose(ctx, res, purpose, verified) {
+function applyJwtPurpose(ctx, res, purpose, verified, quiet) {
   // a payload of `false` or `0` verifies but is falsy, so the signature outcome cannot be read off decoded
   if (!verified) {
     return;
@@ -369,18 +377,18 @@ function applyJwtPurpose(ctx, res, purpose, verified) {
     ctx.logger.debug('checkJwt accepted: purpose=%s mode=%s', purpose, getPurposeMode(ctx, purpose));
     return;
   }
-  rejectForPurpose(ctx, res, purpose, reason, getPurposeMode(ctx, purpose));
+  rejectForPurpose(ctx, res, purpose, reason, getPurposeMode(ctx, purpose), quiet);
 }
 // one line carries the whole verdict: which sink refused, under which mode, and why. It never carries a value out of the token.
-function rejectForPurpose(ctx, res, purpose, reason, mode) {
-  ctx.logger.warn('checkJwt purpose rejected: purpose=%s mode=%s reason=%s', purpose, mode, reason);
+function rejectForPurpose(ctx, res, purpose, reason, mode, quiet) {
+  logJwtRefusal(ctx, quiet, 'checkJwt purpose rejected: purpose=%s mode=%s reason=%s', purpose, mode, reason);
   res.decoded = null;
   res.code = constants.JWT_ERROR_CODE;
   res.description = constants.JWT_ERROR_REASON + 'purpose';
   return res;
 }
 // Shared verification core so type-based and purpose-derived keys produce one error contract.
-function verifyJwtWithSecret(ctx, token, secret) {
+function verifyJwtWithSecret(ctx, token, secret, quiet) {
   const tenTokenVerifyOptions = ctx.getCfg('services.CoAuthoring.token.verifyOptions', cfgTokenVerifyOptions);
 
   // the raw token is deliberately not carried on the result so a %j dump of it cannot leak a credential
@@ -394,7 +402,7 @@ function verifyJwtWithSecret(ctx, token, secret) {
     verified = true;
   } catch (err) {
     // never log the token itself
-    ctx.logger.warn('checkJwt error: name = %s message = %s', err.name, err.message);
+    logJwtRefusal(ctx, quiet, 'checkJwt error: name = %s message = %s', err.name, err.message);
     if ('TokenExpiredError' === err.name) {
       res.code = constants.JWT_EXPIRED_CODE;
       res.description = constants.JWT_EXPIRED_REASON + err.message;
@@ -419,15 +427,40 @@ async function signToken(ctx, purpose, payload, algorithm, expiresIn) {
   return jwt.sign(payload, utils.getJwtHsKey(secret), {algorithm, expiresIn});
 }
 // One verifier for every token. The policy names the key, the payload rule and the expected operation, so a caller can neither pair the wrong secret with a purpose nor verify a token without saying what it is for.
-async function checkJwt(ctx, token, purpose) {
+async function checkJwt(ctx, token, purpose, opt_quiet) {
   const policy = TOKEN_POLICIES[purpose];
   if (!policy) {
     // a mistyped constant reads as undefined, so a falsy purpose is a code defect and fails closed
     return rejectForPurpose(ctx, {decoded: null, description: null, code: null}, purpose, REASON.unknownPurpose, PURPOSE_MODE_INTERNAL);
   }
+  // quiet only moves a refusal from warn to debug: what is verified, and how, does not change
+  const quiet = true === opt_quiet;
   const secret = await resolveSecret(ctx, purpose, policy);
-  const {res, verified} = verifyJwtWithSecret(ctx, token, secret);
-  applyJwtPurpose(ctx, res, purpose, verified);
+  const {res, verified} = verifyJwtWithSecret(ctx, token, secret, quiet);
+  applyJwtPurpose(ctx, res, purpose, verified, quiet);
+  return res;
+}
+// named so a call site reads as a flag instead of a bare true, and unlike an options object it allocates nothing per connection
+const QUIET = true;
+// Presenter View opens a second window on the same document and gets the session token through docInfo, so sdkjs sends it as jwtOpen and it lands in the open slot instead of auth.session
+// the slot is client-chosen and never was a trust boundary, so this sink names both families it accepts and the token still names neither its purpose nor its key
+async function checkJwtForConnection(ctx, token, isSessionSlot) {
+  if (isSessionSlot) {
+    return checkJwt(ctx, token, constants.JWT_PURPOSE_EDITOR_SESSION);
+  }
+  // one family refusing is the normal case here, so both attempts stay quiet and the refusal is reported once below
+  const openRes = await checkJwt(ctx, token, constants.JWT_PURPOSE_BROWSER_OPEN, QUIET);
+  if (openRes.decoded) {
+    return openRes;
+  }
+  // the session key is derived, so this second attempt can only pass for a token this server issued to an open document
+  const sessionRes = await checkJwt(ctx, token, constants.JWT_PURPOSE_EDITOR_SESSION, QUIET);
+  if (sessionRes.decoded) {
+    return sessionRes;
+  }
+  // an expired session token must keep its own code, otherwise the client is told the signature is bad and never asks for a new one
+  const res = constants.JWT_EXPIRED_CODE === sessionRes.code ? sessionRes : openRes;
+  ctx.logger.warn('checkJwtForConnection refused: open=%s session=%s', openRes.description, sessionRes.description);
   return res;
 }
 // A body script carries no signature of its own, so a matching claim is the only positive evidence that the caller minted this token for this work.
@@ -455,5 +488,6 @@ exports.validateJwtPayloadForOperation = validateJwtPayloadForOperation;
 exports.checkJwtPurpose = checkJwtPurpose;
 exports.signToken = signToken;
 exports.checkJwt = checkJwt;
+exports.checkJwtForConnection = checkJwtForConnection;
 exports.checkJwtHeader = checkJwtHeader;
 exports.hasOperationClaim = hasOperationClaim;

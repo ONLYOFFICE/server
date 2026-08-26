@@ -1226,3 +1226,80 @@ describe('deriveSecret primitive, shared by every token Document Server issues t
     expect(utils.deriveSecret(null, 'printfile')).toBe(undefined);
   });
 });
+
+// the connection sink is the one place that takes either family: Presenter View reuses the session token but sdkjs sends it in the open slot
+describe('checkJwtForConnection (socket connection sink)', () => {
+  const OPEN = SINK_FIXTURES[constants.JWT_PURPOSE_BROWSER_OPEN];
+  const SESSION = SINK_FIXTURES[constants.JWT_PURPOSE_EDITOR_SESSION];
+  // longer than verifyOptions.clockTolerance, so the token is expired rather than merely stale
+  const EXPIRED_AGO = -120;
+
+  function connCtx() {
+    const lines = {warn: [], debug: [], error: []};
+    const record =
+      level =>
+      (format, ...args) =>
+        lines[level].push(require('util').format(format, ...args));
+    return {
+      lines,
+      ctx: {
+        getCfg: (_key, fallback) => fallback,
+        logger: {warn: record('warn'), debug: record('debug'), error: record('error')}
+      }
+    };
+  }
+
+  test('an integrator open token passes in the open slot and logs no refusal', async () => {
+    const {lines, ctx: spy} = connCtx();
+    const token = await mint(OPEN, commonDefines.c_oAscSecretType.Browser);
+    const res = await docsCoServer.checkJwtForConnection(spy, token, false);
+    expect(res.decoded).toMatchObject(OPEN);
+    expect(lines.warn).toEqual([]);
+  });
+
+  test('a session token passes in the session slot', async () => {
+    const token = await mintSession(SESSION);
+    expect((await docsCoServer.checkJwtForConnection(ctx, token, true)).decoded).toMatchObject(SESSION);
+  });
+
+  test('a session token passes in the open slot, which is what Presenter View sends', async () => {
+    const {lines, ctx: spy} = connCtx();
+    const token = await mintSession(SESSION);
+    const res = await docsCoServer.checkJwtForConnection(spy, token, false);
+    expect(res.decoded).toMatchObject(SESSION);
+    // the open-key attempt is expected to fail here, so it must not reach warn
+    expect(lines.warn).toEqual([]);
+  });
+
+  test('an open token is still refused in the session slot', async () => {
+    const token = await mint(OPEN, commonDefines.c_oAscSecretType.Browser);
+    const res = await docsCoServer.checkJwtForConnection(ctx, token, true);
+    expect(res.decoded).toBeNull();
+    expect(res.code).toBe(constants.JWT_ERROR_CODE);
+  });
+
+  test('a token from another derived family is refused in both slots and reported once', async () => {
+    const {lines, ctx: spy} = connCtx();
+    const token = await jwtService.signToken(spy, constants.JWT_PURPOSE_PRINT_FILE, PRINT_PAYLOAD, cfgTokenAlgorithm, 300);
+    const res = await docsCoServer.checkJwtForConnection(spy, token, false);
+    expect(res.decoded).toBeNull();
+    expect(res.code).toBe(constants.JWT_ERROR_CODE);
+    // the whole refusal must be that one line: any extra warn here would be a second, unexplained verdict
+    expect(lines.warn).toHaveLength(1);
+    expect(lines.warn[0]).toMatch(/^checkJwtForConnection refused/);
+  });
+
+  test('an expired session token in the open slot keeps the expired code, not the open-key signature error', async () => {
+    const token = await jwtService.signToken(ctx, constants.JWT_PURPOSE_EDITOR_SESSION, SESSION, cfgTokenAlgorithm, EXPIRED_AGO);
+    const res = await docsCoServer.checkJwtForConnection(ctx, token, false);
+    expect(res.decoded).toBeNull();
+    expect(res.code).toBe(constants.JWT_EXPIRED_CODE);
+  });
+
+  test('an expired open token keeps the expired code too', async () => {
+    const token = await mintWithSecretType(OPEN, commonDefines.c_oAscSecretType.Browser, EXPIRED_AGO);
+    const res = await docsCoServer.checkJwtForConnection(ctx, token, false);
+    expect(res.decoded).toBeNull();
+    expect(res.code).toBe(constants.JWT_EXPIRED_CODE);
+  });
+});

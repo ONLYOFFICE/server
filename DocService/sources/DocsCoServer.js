@@ -107,7 +107,7 @@ const memoryGuard = require('./../../Common/sources/runtime/memoryGuard');
 const {notificationTypes, ...notificationService} = require('../../Common/sources/notificationService');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const jwtService = require('./jwtService');
-const {signToken, checkJwt, checkJwtHeader} = jwtService;
+const {signToken, checkJwt, checkJwtForConnection, checkJwtHeader} = jwtService;
 
 const {editorDataStorage, editorStatStorage} = require('./editorDataStorage');
 const util = require('util');
@@ -1892,6 +1892,7 @@ exports.getExternalChangeInfo = getExternalChangeInfo;
 exports.getRequestParams = getRequestParams;
 // the JWT layer lives in jwtService; re-exported so existing callers and tests keep one entry point
 exports.checkJwt = checkJwt;
+exports.checkJwtForConnection = checkJwtForConnection;
 exports.checkJwtHeader = checkJwtHeader;
 exports.validateJwtPayloadForOperation = jwtService.validateJwtPayloadForOperation;
 
@@ -1948,8 +1949,7 @@ exports.install = function (server, app, callbackFunction) {
         const handshake = socket.handshake;
         const token = handshake?.auth?.session || handshake?.auth?.token;
         if (tenTokenEnableBrowser || token) {
-          const purpose = handshake?.auth?.session ? constants.JWT_PURPOSE_EDITOR_SESSION : constants.JWT_PURPOSE_BROWSER_OPEN;
-          checkJwtRes = yield checkJwt(ctx, token, purpose);
+          checkJwtRes = yield checkJwtForConnection(ctx, token, !!handshake?.auth?.session);
           if (!checkJwtRes.decoded) {
             res = new Error('not authorized');
             res.data = {code: checkJwtRes.code, description: checkJwtRes.description};
@@ -2922,8 +2922,7 @@ exports.install = function (server, app, callbackFunction) {
       //check jwt
       const token = data.jwtSession || data.jwtOpen;
       if (tenTokenEnableBrowser || token) {
-        const purpose = data.jwtSession ? constants.JWT_PURPOSE_EDITOR_SESSION : constants.JWT_PURPOSE_BROWSER_OPEN;
-        const checkJwtRes = yield checkJwt(ctx, token, purpose);
+        const checkJwtRes = yield checkJwtForConnection(ctx, token, !!data.jwtSession);
         if (checkJwtRes.decoded) {
           isDecoded = true;
           const decoded = checkJwtRes.decoded;
