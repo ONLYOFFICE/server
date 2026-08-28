@@ -98,6 +98,8 @@ const cfgDocumentFormatsFile = config.get('services.CoAuthoring.server.documentF
 let templatesFolderExtsCache = null;
 const templateFilesSizeCache = Object.create(null);
 let shutdownFlag = false;
+// domain-separates this input format from future hashed derivations, not from the arbitrary keys the old formula issued
+const WOPI_DOC_ID_HASH_DOMAIN = 'wopi/doc-id/v2';
 
 //patch mimeDB
 if (!mimeDB['application/vnd.visio2013']) {
@@ -648,21 +650,37 @@ async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, ac
   // Reread still shows Size=0: winner session is mid-write or reread failed.
   ctx.logger.warn('checkAndReplaceEmptyFile: 409 on create-new PutFile but file is still zero-byte after reread');
 }
-function createDocId(ctx, wopiSrc, mode, fileInfo) {
-  const fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
-  let docId = undefined;
-  if ('view' !== mode) {
-    docId = `${fileId}`;
-  } else {
-    //todo change docId to avoid empty cache after editors are gone
-    if (fileInfo.LastModifiedTime) {
-      docId = `view.${fileId}.${fileInfo.LastModifiedTime}`;
-    } else {
-      docId = `view.${fileId}.${fileInfo.Version}`;
-    }
+// only the fragment is dropped, because it never reaches the host; every other part of the url is what the launch named
+function getWopiResourceIdentity(wopiSrc) {
+  const parsed = new URL(wopiSrc);
+  if ('http:' !== parsed.protocol && 'https:' !== parsed.protocol) {
+    throw new TypeError(`wopiSrc is not an http(s) url: ${parsed.protocol}`);
   }
-  docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
-  return docId;
+  parsed.hash = '';
+  return parsed.href;
+}
+// the launch address identifies the document for the whole session; the working address may move with a redirect
+function getDocIdIdentity(userAuth) {
+  return userAuth.wopiSrcOriginal ?? userAuth.wopiSrc;
+}
+// a wopi host is a separate authority, so the document identity is the whole address it was launched from
+function createDocId(ctx, wopiSrc, mode, fileInfo) {
+  // a document nobody can address must fail the open rather than share a key with the next unusable one
+  const resource = getWopiResourceIdentity(wopiSrc);
+  //todo change docId to avoid empty cache after editors are gone
+  // every mode other than view edits the same document, the way the rest of the flow reads it
+  const isView = 'view' === mode;
+  const parts = [WOPI_DOC_ID_HASH_DOMAIN, isView ? 'view' : 'edit', resource];
+  if (isView) {
+    // the old key interpolated the value into a string, so a numeric version keeps naming the same document
+    const version = fileInfo.LastModifiedTime || fileInfo.Version;
+    if (undefined === version || null === version || '' === version) {
+      throw new TypeError('wopi CheckFileInfo reports no version to separate the view cache by');
+    }
+    parts.push(String(version));
+  }
+  // a fixed array of strings serializes unambiguously, so no field can be shifted into the next one
+  return `wopi_${crypto.createHash('sha256').update(JSON.stringify(parts)).digest('base64url')}`;
 }
 async function preOpen(ctx, lockId, docId, fileInfo, userAuth, baseUrl, fileType) {
   //todo move to lock and common info saving to websocket connection
@@ -683,20 +701,19 @@ async function preOpen(ctx, lockId, docId, fileInfo, userAuth, baseUrl, fileType
 /**
  * Prepares document for editing by creating document ID and validating cache
  * @param {operationContext.Context} ctx - The operation context
- * @param {string} wopiSrc - The WOPI source URL
  * @param {Object} fileInfo - File information from WOPI
- * @param {Object} userAuth - User authentication object
+ * @param {Object} userAuth - User authentication object, carrying the launch address the document key is derived from
  * @param {string} fileType - File type
  * @param {string} baseUrl - Base URL for internal file endpoints
  * @param {Object} params - Parameters object to update
  * @returns {Promise<boolean>} Promise resolving to success result
  */
-async function prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, baseUrl, params) {
+async function prepareDocumentForEditing(ctx, fileInfo, userAuth, fileType, baseUrl, params) {
   let retryInViewMode = false;
 
   do {
-    // Create document ID
-    const docId = createDocId(ctx, wopiSrc, userAuth.mode, fileInfo);
+    // a redirect only moves where the file is fetched from, it never renames the document it identifies
+    const docId = createDocId(ctx, getDocIdIdentity(userAuth), userAuth.mode, fileInfo);
     params.key = docId;
     if ('view' === userAuth.mode) {
       //todo rename operation requires lock
@@ -776,6 +793,8 @@ function getEditorHtml(req, res) {
       // Create user authentication object
       const userAuth = (params.userAuth = {
         wopiSrc,
+        // kept for the lifetime of the session, so a redirect can never move the document identity
+        wopiSrcOriginal: wopiSrc,
         access_token,
         access_token_ttl,
         userSessionId: usid,
@@ -808,7 +827,7 @@ function getEditorHtml(req, res) {
       }
 
       // Prepare document for editing (docId, cache validation)
-      const prepareResult = yield prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, utils.getBaseUrlByRequest(ctx, req), params);
+      const prepareResult = yield prepareDocumentForEditing(ctx, fileInfo, userAuth, fileType, utils.getBaseUrlByRequest(ctx, req), params);
       if (!prepareResult) {
         params.fileInfo = {};
         return;
@@ -1080,7 +1099,7 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
     const fileType = getFileTypeByInfo(fileInfo);
 
     res = {userAuth, fileInfo, queryParams: undefined};
-    const prepareResult = await prepareDocumentForEditing(ctx, userAuth.wopiSrc, fileInfo, userAuth, fileType, baseUrl, res);
+    const prepareResult = await prepareDocumentForEditing(ctx, fileInfo, userAuth, fileType, baseUrl, res);
     if (!prepareResult) {
       return;
     }
@@ -1286,3 +1305,5 @@ exports.setIsShutdown = setIsShutdown;
 exports.dummyCheckFileInfo = dummyCheckFileInfo;
 exports.dummyGetFile = dummyGetFile;
 exports.dummyOk = dummyOk;
+exports._createDocIdForTesting = createDocId;
+exports._getDocIdIdentityForTesting = getDocIdIdentity;

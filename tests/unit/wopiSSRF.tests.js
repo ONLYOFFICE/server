@@ -69,6 +69,7 @@ const express = require('express');
 
 const realDnsLookup = dns.lookup;
 const operationContext = require('../../Common/sources/operationContext');
+const constants = require('../../Common/sources/constants');
 const utils = require('../../Common/sources/utils');
 const wopiClient = require('../../DocService/sources/wopiClient');
 const wopiEgress = require('../../DocService/sources/wopiEgress');
@@ -1027,6 +1028,141 @@ describe('WOPI SSRF (WOPI SSRF)', () => {
         expect(res.seenHeaders[1]['X-WOPI-Proof']).toBeUndefined();
         expect(res.seenHeaders[1]['X-WOPI-MaxExpectedSize']).toBe('10');
       });
+    });
+  });
+});
+
+// The WOPI host is a separate security authority, so two hosts must never share a document key.
+// The key was the trailing path segment alone, which made a key collide across hosts and across paths.
+describe('WOPI document key identity', () => {
+  const keyCtx = operationContext.global;
+  const EDIT = {LastModifiedTime: '2026-08-26T10:00:00Z', Version: 'v1'};
+  const key = (wopiSrc, mode = 'edit', fileInfo = EDIT) => wopiClient._createDocIdForTesting(keyCtx, wopiSrc, mode, fileInfo);
+
+  it('the same file id on two hosts yields different keys', () => {
+    expect(key('https://legit.example/wopi/files/SHARED')).not.toBe(key('https://attacker.test/wopi/files/SHARED'));
+  });
+
+  it('the same file id under two paths of one host yields different keys', () => {
+    expect(key('https://one.example/L/wopi/files/SHARED')).not.toBe(key('https://one.example/X/wopi/files/SHARED'));
+  });
+
+  // a host that selects the file by query is as much a separate document as one that selects it by path
+  it('the query is part of the identity', () => {
+    const base = 'https://one.example/wopi/files/SHARED';
+    expect(key(`${base}?zone=L`)).not.toBe(key(`${base}?zone=X`));
+    expect(key(`${base}?zone=L`)).not.toBe(key(base));
+  });
+
+  it('the fragment is dropped, because it never reaches the host', () => {
+    const base = 'https://one.example/wopi/files/1';
+    expect(key(`${base}#fragment`)).toBe(key(base));
+  });
+
+  // the access token arrives in the POST body and is never part of WOPISrc, so no key can depend on it
+  it('two launches of one WOPISrc with different access tokens share a key', () => {
+    const wopiSrcOriginal = 'https://one.example/wopi/files/1';
+    const a = wopiClient._getDocIdIdentityForTesting({wopiSrcOriginal, access_token: 'aaa'});
+    const b = wopiClient._getDocIdIdentityForTesting({wopiSrcOriginal, access_token: 'bbb'});
+    expect(key(a)).toBe(key(b));
+  });
+
+  it('host case and the default port are normalized away', () => {
+    expect(key('https://ONE.Example/wopi/files/1')).toBe(key('https://one.example/wopi/files/1'));
+    expect(key('https://one.example:443/wopi/files/1')).toBe(key('https://one.example/wopi/files/1'));
+    expect(key('http://one.example:80/wopi/files/1')).toBe(key('http://one.example/wopi/files/1'));
+  });
+
+  it('scheme and non-default port stay part of the identity', () => {
+    expect(key('https://one.example/wopi/files/1')).not.toBe(key('http://one.example/wopi/files/1'));
+    expect(key('https://one.example:8443/wopi/files/1')).not.toBe(key('https://one.example/wopi/files/1'));
+  });
+
+  it('view and edit of one file do not share a key, and view versions separate', () => {
+    const src = 'https://one.example/wopi/files/1';
+    const v1 = key(src, 'view', {LastModifiedTime: 't1'});
+    const v2 = key(src, 'view', {LastModifiedTime: 't2'});
+    expect(key(src, 'edit')).not.toBe(v1);
+    expect(v1).not.toBe(v2);
+    // Version is what this legacy order falls back to; the spec makes it the required field, not the fallback
+    expect(key(src, 'view', {Version: 'v9'})).not.toBe(key(src, 'view', {Version: 'v8'}));
+  });
+
+  it('the key is a legal docId and stays well inside the length limit', () => {
+    const long = key('https://one.example/' + 'segment/'.repeat(120) + 'file');
+    expect(long).toMatch(constants.DOC_ID_REGEX);
+    expect(long.length).toBeLessThan(constants.DOC_ID_MAX_LENGTH);
+    expect(long.startsWith('wopi_')).toBe(true);
+  });
+
+  // a document that cannot be addressed must not reach shared state at all
+  it('a wopiSrc that names no http resource is refused instead of keyed', () => {
+    expect(() => key('not a url')).toThrow();
+    expect(() => key('file:///etc/passwd')).toThrow();
+    expect(() => key('data:text/plain,x')).toThrow();
+    expect(() => key('ftp://one.example/wopi/files/1')).toThrow();
+  });
+
+  it('a view open is refused when the host reports no version at all', () => {
+    const src = 'https://one.example/wopi/files/1';
+    expect(() => key(src, 'view', {})).toThrow();
+    expect(() => key(src, 'view', {Version: ''})).toThrow();
+    expect(key(src, 'view', {Version: 'v1'})).toEqual(expect.any(String));
+  });
+
+  // the old key interpolated the value, so a numeric version must not turn into a different document
+  it('a numeric version is kept and keyed as its string form', () => {
+    const src = 'https://one.example/wopi/files/1';
+    expect(key(src, 'view', {Version: 0})).toBe(key(src, 'view', {Version: '0'}));
+    expect(key(src, 'view', {Version: 1})).toBe(key(src, 'view', {Version: '1'}));
+    expect(key(src, 'view', {Version: 0})).not.toBe(key(src, 'view', {Version: 1}));
+  });
+
+  // nothing validates the mode segment of the url, so only view may split the key
+  it('every mode other than view shares the edit key', () => {
+    const src = 'https://one.example/wopi/files/1';
+    expect(key(src, 'embedded')).toBe(key(src, 'edit'));
+  });
+
+  // percent encoding is left alone, so a host that distinguishes two spellings keeps two documents
+  it('an escaped file id is not folded into its decoded form', () => {
+    expect(key('https://one.example/wopi/files/%41')).not.toBe(key('https://one.example/wopi/files/A'));
+    expect(key('https://one.example/wopi/files/%2Fetc')).not.toBe(key('https://one.example/wopi/files//etc'));
+    expect(key('https://one.example/wopi/files/1/')).not.toBe(key('https://one.example/wopi/files/1'));
+    expect(key('https://one.example/wopi/files/1?a=1&b=2')).not.toBe(key('https://one.example/wopi/files/1?b=2&a=1'));
+  });
+
+  // dot segments and a raw space name the same resource we fetch from, so folding them is what the host sees
+  it('only the equivalences the fetch itself applies are folded', () => {
+    expect(key('https://one.example/wopi/files/x/../1')).toBe(key('https://one.example/wopi/files/1'));
+    expect(key('https://one.example/wopi/files/a b')).toBe(key('https://one.example/wopi/files/a%20b'));
+  });
+
+  // A redirect moves where the file is fetched from; it must never move what the document is
+  describe('redirects do not move the identity', () => {
+    const identity = userAuth => wopiClient._getDocIdIdentityForTesting(userAuth);
+
+    it('the launch address is used even after the working address was redirected', () => {
+      const userAuth = {wopiSrcOriginal: 'https://one.example/wopi/files/1', wopiSrc: 'https://cdn.example/moved/1'};
+      expect(identity(userAuth)).toBe('https://one.example/wopi/files/1');
+      expect(key(identity(userAuth))).toBe(key('https://one.example/wopi/files/1'));
+    });
+
+    it('two launches redirected to one target keep separate keys', () => {
+      const a = {wopiSrcOriginal: 'https://one.example/wopi/files/1', wopiSrc: 'https://cdn.example/same'};
+      const b = {wopiSrcOriginal: 'https://two.example/wopi/files/1', wopiSrc: 'https://cdn.example/same'};
+      expect(key(identity(a))).not.toBe(key(identity(b)));
+    });
+
+    it('one launch whose redirect target changes keeps its key', () => {
+      const before = {wopiSrcOriginal: 'https://one.example/wopi/files/1', wopiSrc: 'https://cdn-a.example/1'};
+      const after = {wopiSrcOriginal: 'https://one.example/wopi/files/1', wopiSrc: 'https://cdn-b.example/1'};
+      expect(key(identity(before))).toBe(key(identity(after)));
+    });
+
+    // the v1 docId such a session actually runs under is not recoverable here, so an upgrade still needs a drain
+    it('falls back to the working url for a legacy serialized userAuth', () => {
+      expect(identity({wopiSrc: 'https://one.example/wopi/files/1'})).toBe('https://one.example/wopi/files/1');
     });
   });
 });
