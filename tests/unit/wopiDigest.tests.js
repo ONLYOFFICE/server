@@ -33,8 +33,11 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-const {describe, test, expect} = require('@jest/globals');
+const {describe, test, expect, beforeAll, afterAll} = require('@jest/globals');
 const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const {Readable, Writable} = require('stream');
 const {pipeline} = require('node:stream/promises');
 
@@ -184,5 +187,87 @@ describe('convert-and-edit status token purpose binding', () => {
     const token = await signToken(tokenCtx, constants.JWT_PURPOSE_CONVERTER, {docId: 'doc-83205'}, cfgTokenAlgorithm, 300);
     const res = await checkJwt(tokenCtx, token, constants.JWT_PURPOSE_WOPI_CONVERT);
     expect(res.decoded).toBe(null);
+  });
+});
+
+// a file type comes from the WOPI host and was interpolated straight into a path, so it could name one outside the folder
+describe('WOPI new-file template path', () => {
+  const SECRET = 'S3CR3T-INBOX-JWT-KEY';
+  let root;
+  let templateRoot;
+
+  // a layout that mirrors a deployment: the templates folder sits below a root that also holds the server config
+  beforeAll(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'oo-wopi-tpl-'));
+    templateRoot = path.join(root, 'document-templates', 'new');
+    fs.mkdirSync(path.join(templateRoot, 'en-US'), {recursive: true});
+    for (const ext of ['docx', 'pdf', 'pptx', 'xlsx', 'odt']) {
+      fs.writeFileSync(path.join(templateRoot, 'en-US', `new.${ext}`), 'LEGIT-TEMPLATE');
+    }
+    fs.writeFileSync(path.join(root, 'local.json'), JSON.stringify({secret: {inbox: {string: SECRET}}}));
+  });
+  afterAll(() => fs.rmSync(root, {recursive: true, force: true}));
+
+  function templateMeta(fileType) {
+    const ctx = new operationContext.Context();
+    ctx.config = {services: {CoAuthoring: {server: {newFileTemplate: templateRoot}}}};
+    return wopiClient._getNewFileTemplateMetaForTesting(ctx, 'en', 'en', fileType);
+  }
+
+  test('resolves a shipped extension to a file inside the templates folder', async () => {
+    const res = await templateMeta('docx');
+    expect(res.templateFileType).toBe('docx');
+    expect(res.size).toBe('LEGIT-TEMPLATE'.length);
+    expect(path.resolve(res.filePath).startsWith(path.resolve(templateRoot) + path.sep)).toBe(true);
+    expect(fs.readFileSync(res.filePath, 'utf8')).toBe('LEGIT-TEMPLATE');
+  });
+
+  test('keeps mapping the create-new aliases', async () => {
+    await expect(templateMeta('dotx')).resolves.toEqual(expect.objectContaining({templateFileType: 'docx'}));
+  });
+
+  test.each([
+    ['the reported proof of concept', 'Zx/../../../../local.json'],
+    ['backslash separators', String.raw`Zx\..\..\..\..\local.json`],
+    ['mixed separators', String.raw`Zx/..\../..\../local.json`],
+    ['a bare parent segment', '../local.json'],
+    ['an absolute posix path', '/etc/passwd'],
+    ['an absolute windows path', String.raw`C:\Windows\win.ini`],
+    ['a unc share', String.raw`\\attacker\share\x`],
+    // lexical containment alone accepts the rest, because they stay under the templates folder
+    ['an alternate data stream', 'docx:secret'],
+    ['the $DATA stream', 'docx::$DATA'],
+    ['a trailing dot', 'docx.'],
+    ['a trailing space', 'docx '],
+    ['an inner separator that stays inside', 'docx/../../en-US/new.docx'],
+    ['an empty type', ''],
+    ['a type with no template', 'notaformat'],
+    ['an inherited object member', 'constructor'],
+    ['the prototype accessor', '__proto__']
+  ])('refuses %s', async (_label, fileType) => {
+    await expect(templateMeta(fileType)).rejects.toThrow();
+  });
+
+  // odt ships no template in the product, so accepting it proves the list is read from the configured folder
+  test.each([['docx'], ['pdf'], ['pptx'], ['xlsx'], ['odt']])('accepts the template %s present in the folder', async fileType => {
+    await expect(templateMeta(fileType)).resolves.toEqual(expect.objectContaining({templateFileType: fileType}));
+  });
+
+  // discovery advertises editnew only for extensions that have a template, and the guard applies the same test
+  test('refuses a real document format that has no template in the folder', async () => {
+    await expect(templateMeta('rtf')).rejects.toThrow();
+  });
+
+  test('never reads a file outside the templates folder', async () => {
+    let leaked;
+    try {
+      const res = await templateMeta('Zx/../../../../local.json');
+      leaked = fs.readFileSync(res.filePath, 'utf8');
+    } catch {
+      leaked = undefined;
+    }
+    expect(leaked).toBeUndefined();
+    // the file the proof of concept targets is present, so the refusal is why it was not read
+    expect(fs.readFileSync(path.join(root, 'local.json'), 'utf8')).toContain(SECRET);
   });
 });

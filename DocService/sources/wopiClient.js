@@ -127,13 +127,14 @@ async function getTemplatesFolderExts(ctx) {
   if (templatesFolderExtsCache === null) {
     const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
     const dirContent = await readdir(`${tenNewFileTemplate}/${constants.TEMPLATES_DEFAULT_LOCALE}/`, {withFileTypes: true});
+    // the seed has a null prototype, so a lookup answers for the folder contents only and never for an inherited member
     templatesFolderExtsCache = dirContent
       .filter(dirObject => dirObject.isFile())
       .reduce((result, item) => {
         const ext = path.extname(item.name).substring(1);
         result[ext] = ext;
         return result;
-      }, {});
+      }, Object.create(null));
   }
   return templatesFolderExtsCache;
 }
@@ -572,7 +573,17 @@ async function getNewFileTemplateMeta(ctx, lang, ui, fileType) {
   // Try lang first, then ui; ui is a real fallback when lang is present but unsupported.
   const locale = templateLocale.resolveTemplateLocale([lang, ui], locales, constants.TEMPLATES_DEFAULT_LOCALE);
   const templateFileType = newFileTemplateUtils.getNewFileTemplateExt(fileType);
-  const filePath = `${tenNewFileTemplate}/${locale}/new.${templateFileType}`;
+  // the same test discovery uses to advertise editnew, so a host can only ask for a template we told it exists
+  const templatesFolderExts = await getTemplatesFolderExts(ctx);
+  if (!templatesFolderExts[templateFileType]) {
+    throw new Error(`new file template: "${templateFileType}" is not an advertised template extension`);
+  }
+  const templateRoot = path.resolve(tenNewFileTemplate);
+  const filePath = path.join(templateRoot, locale, `new.${templateFileType}`);
+  // independent of the check above, so a later refactor that widens the accepted file type cannot reach outside the folder
+  if (!filePath.startsWith(templateRoot + path.sep)) {
+    throw new Error(`new file template: "${filePath}" escapes "${templateRoot}"`);
+  }
   if (!templateFilesSizeCache[filePath]) {
     templateFilesSizeCache[filePath] = lstat(filePath).catch(err => {
       delete templateFilesSizeCache[filePath];
@@ -1253,6 +1264,7 @@ function dummyOk(req, res) {
 }
 
 exports._checkFileInfoForTesting = checkFileInfo;
+exports._getNewFileTemplateMetaForTesting = getNewFileTemplateMeta;
 exports.discovery = discovery;
 exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;
