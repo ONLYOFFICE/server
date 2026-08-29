@@ -6,8 +6,8 @@
   "bin": "sources/convertermaster.js",
   "dependencies": {
     "@aws-sdk/client-kms": "3.637.0",
-    "@expo/spawn-async": "1.7.2",
-    "asn1js": "3.0.5",
+    "@expo/spawn-async": "1.8.0",
+    "asn1js": "3.0.10",
     "bytes": "3.1.2",
     "co": "4.6.0",
     "config": "3.3.12",
