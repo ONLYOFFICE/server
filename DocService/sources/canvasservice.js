@@ -1046,6 +1046,99 @@ function checkAndFixAuthorizationLength(authorization, data) {
   }
   return res;
 }
+// Free the row with the marker so the changes stay recoverable by the next attempt
+async function releaseAssemblyRecovery(ctx, updateMask) {
+  const releaseTask = new taskResult.TaskResultData();
+  documentRecovery.markAssemblyRecovery(releaseTask);
+  return await taskResult.updateIf(ctx, releaseTask, updateMask);
+}
+// Best-effort presence/wopi cleanup, then the final DB transition that must not depend on it
+async function finalizeForgottenCopy(ctx, docId, updateMask, isStored, opt_userIndex) {
+  if (!isStored) {
+    // a failed copy releases the row and touches nothing else: presence and locks are as they were before the claim
+    const releaseRes = await releaseAssemblyRecovery(ctx, updateMask);
+    ctx.logger.warn('storeForgotten failed, changes kept: release affectedRows=%d', releaseRes.affectedRows);
+    return;
+  }
+  // the conditional delete is also the last ownership check: a miss means a new owner whose state must stay untouched
+  const cleanupRes = await cleanupCacheIf(ctx, updateMask);
+  ctx.logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
+  if (!cleanupRes) {
+    return;
+  }
+  // residue cleanup of the removed document is best-effort: each step runs even when the previous one failed
+  try {
+    //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
+    await docsCoServer.editorData.cleanDocumentOnExit(ctx, docId);
+  } catch (err) {
+    ctx.logger.error('Error storeForgotten cleanup: %s', err.stack);
+  }
+  try {
+    if (docsCoServer.getIsPreStop() && docsCoServer?.editorStatProxy?.deleteKey) {
+      await docsCoServer.editorStatProxy.deleteKey(docId);
+    }
+  } catch (err) {
+    ctx.logger.error('Error storeForgotten cleanup: %s', err.stack);
+  }
+  try {
+    //to unlock wopi file
+    await docsCoServer.unlockWopiDoc(ctx, docId, opt_userIndex);
+  } catch (err) {
+    ctx.logger.error('Error storeForgotten cleanup: %s', err.stack);
+  }
+}
+// Silent recovery result: proves ownership by token, parks the output in forgotten and never enters the callback path
+async function handleSaveToForgottenResult(ctx, cmd) {
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
+  const docId = cmd.getDocId();
+  const statusInfo = cmd.getStatusInfo();
+  const isError = constants.NO_ERROR != statusInfo;
+  const isErrorCorrupted = constants.CONVERT_CORRUPTED == statusInfo;
+  const userIndex = cmd.getUserIndex() || cmd.getUserActionIndex();
+  const selectRes = await taskResult.select(ctx, docId);
+  const row = selectRes.length > 0 ? selectRes[0] : null;
+  if (!row || commonDefines.FileStatus.SaveVersion !== row.status || cmd.getStatusInfoIn() !== row.status_info) {
+    // a lost token means a later recovery or an editor took the row over, so this result is dropped
+    ctx.logger.warn('commandSfcCallback saveToForgotten result ignored: status = %s', row && row.status);
+    return undefined;
+  }
+  const updateMask = new taskResult.TaskResultData();
+  updateMask.tenant = ctx.tenant;
+  updateMask.key = docId;
+  updateMask.status = row.status;
+  updateMask.statusInfo = row.status_info;
+  if (isError && !isErrorCorrupted) {
+    // no usable output: keep the changes and free the row for the next attempt
+    const releaseRes = await releaseAssemblyRecovery(ctx, updateMask);
+    ctx.logger.warn('commandSfcCallback saveToForgotten assembly error, changes kept: release affectedRows=%d', releaseRes.affectedRows);
+    return undefined;
+  }
+  // the output goes to forgotten only after a second CAS proves this result still owns the row
+  const claimTask = new taskResult.TaskResultData();
+  claimTask.status = commonDefines.FileStatus.SaveVersion;
+  // minutes since the epoch never collide with the milliseconds-of-hour token that started the save
+  claimTask.statusInfo = Math.floor(Date.now() / 60000);
+  const updateIfRes = await taskResult.updateIf(ctx, claimTask, updateMask);
+  if (!(updateIfRes.affectedRows > 0)) {
+    ctx.logger.warn('commandSfcCallback saveToForgotten lost the row before the forgotten copy');
+    return undefined;
+  }
+  updateMask.statusInfo = claimTask.statusInfo;
+  ctx.logger.debug('commandSfcCallback saveToForgotten claimed: statusInfo = %d', claimTask.statusInfo);
+  let isStored = false;
+  try {
+    ctx.logger.warn('storeForgotten');
+    const savePathDoc = docId + cmd.getSaveKey() + '/' + cmd.getOutputPath();
+    const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
+    await storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
+    isStored = true;
+  } catch (err) {
+    ctx.logger.error('Error storeForgotten: %s', err.stack);
+  }
+  await finalizeForgottenCopy(ctx, docId, updateMask, isStored, userIndex);
+  return undefined;
+}
 const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
   const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
@@ -1063,6 +1156,10 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
   let isSfcSuccess = false;
   let needRetry = false;
   let needUpdateVersionEvent = !isSfcm && !isEncrypted;
+  // a recovery result never reaches the integrator: it is handled whole by the silent branch
+  if (!isSfcm && !isEncrypted && true === cmd.getSaveToForgotten()) {
+    return yield handleSaveToForgottenResult(ctx, cmd);
+  }
   if (constants.EDITOR_CHANGES !== statusInfo || isSfcm) {
     const saveKey = docId + cmd.getSaveKey();
     let isError = constants.NO_ERROR != statusInfo;
@@ -1347,25 +1444,18 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
       }
     }
     if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
+      let isStored = false;
       try {
         ctx.logger.warn('storeForgotten');
         const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
         yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
+        isStored = true;
       } catch (err) {
         ctx.logger.error('Error storeForgotten: %s', err.stack);
       }
       if (!isSfcm) {
         //todo simultaneous opening
-        //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
-        yield docsCoServer.editorData.cleanDocumentOnExit(ctx, docId);
-        if (docsCoServer.getIsPreStop() && docsCoServer?.editorStatProxy?.deleteKey) {
-          yield docsCoServer.editorStatProxy.deleteKey(docId);
-        }
-        //to unlock wopi file
-        yield docsCoServer.unlockWopiDoc(ctx, docId, callbackUserIndex);
-        //cleanupRes can be false in case of simultaneous opening. it is OK
-        const cleanupRes = yield cleanupCacheIf(ctx, updateMask);
-        ctx.logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
+        yield finalizeForgottenCopy(ctx, docId, updateMask, isStored, callbackUserIndex);
       }
     }
     if (forceSave) {
@@ -1982,8 +2072,11 @@ exports.downloadFile = function (req, res) {
     }
   });
 };
-exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
+exports.saveFromChanges = function (ctx, docId, statusInfo, opt_options) {
+  const {format, userId, userIndex, userLcid, queue, initShardKey, saveToForgotten} = opt_options || {};
   return co(function* () {
+    let res = false;
+    let optFormat = format;
     try {
       let startDate = null;
       if (clientStatsD) {
@@ -1997,7 +2090,7 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
         if (null == optFormat) {
           optFormat = changeFormatByOrigin(ctx, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
         }
-        if (opt_initShardKey) {
+        if (initShardKey) {
           ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
           ctx.setWopiSrc(sqlBase.DocumentAdditional.prototype.getWopiSrc(row.additional));
         }
@@ -2006,23 +2099,30 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
         cmd.setDocId(docId);
         cmd.setOutputFormat(optFormat);
         cmd.setStatusInfoIn(statusInfo);
-        cmd.setUserActionId(opt_userId);
-        cmd.setUserActionIndex(opt_userIndex);
+        if (saveToForgotten) {
+          cmd.setSaveToForgotten(true);
+        }
+        cmd.setUserActionId(userId);
+        cmd.setUserActionIndex(userIndex);
         cmd.appendJsonParams(getOpenedAtJSONParams(row));
         //todo lang and region are different
-        cmd.setLCID(opt_userLcid);
-        const userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
-        cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
+        cmd.setLCID(userLcid);
+        // a forgotten-only assembly must not see WOPI params: they change how the converter handles the output
+        if (!saveToForgotten) {
+          const userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
+          cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
+        }
         addPasswordToCmd(ctx, cmd, row && row.password, row && row.change_id);
         addOriginFormat(ctx, cmd, row);
         setDelimiterByOutputFormat(cmd);
         yield* addRandomKeyTaskCmd(ctx, cmd);
         const queueData = getSaveTask(ctx, cmd);
         queueData.setFromChanges(true);
-        yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_NORMAL, opt_queue);
-        if (docsCoServer.getIsShutdown()) {
+        yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_NORMAL, queue);
+        if (docsCoServer.getIsShutdown() && !saveToForgotten) {
           yield docsCoServer.editorStat.addShutdown(redisKeyShutdown, docId);
         }
+        res = true;
         ctx.logger.debug('AddTask saveFromChanges');
       } else {
         if (row) {
@@ -2035,7 +2135,43 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
     } catch (e) {
       ctx.logger.error('Error saveFromChanges: %s', e.stack);
     }
+    return res;
   });
+};
+
+// Claim a closed document's pending changes for an assembly that lands in forgotten; the row keeps its callback
+exports.saveChangesToForgotten = async function (ctx, docId, status, statusInfo, opt_queue) {
+  const updateMask = new taskResult.TaskResultData();
+  updateMask.tenant = ctx.tenant;
+  updateMask.key = docId;
+  updateMask.status = status;
+  updateMask.statusInfo = statusInfo;
+  const updateTask = new taskResult.TaskResultData();
+  updateTask.status = commonDefines.FileStatus.SaveVersion;
+  updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
+  // a stale save is taken over with a token that differs from the one it leaves behind
+  if (updateTask.statusInfo === statusInfo) {
+    updateTask.statusInfo += 1;
+  }
+  const updateIfRes = await taskResult.updateIf(ctx, updateTask, updateMask);
+  if (!(updateIfRes.affectedRows > 0)) {
+    ctx.logger.debug('saveChangesToForgotten updateIf no effect: %s', docId);
+    return 'missed';
+  }
+  if (await exports.saveFromChanges(ctx, docId, updateTask.statusInfo, {queue: opt_queue, saveToForgotten: true})) {
+    return 'claimed';
+  }
+  // the claim must not outlive a failed enqueue: the exact token frees the row for the next run
+  updateMask.status = updateTask.status;
+  updateMask.statusInfo = updateTask.statusInfo;
+  const releaseRes = await releaseAssemblyRecovery(ctx, updateMask);
+  if (!(releaseRes.affectedRows > 0)) {
+    // a rollback miss means another owner already took the row over, so nothing here failed for good
+    ctx.logger.warn('saveChangesToForgotten enqueue failed but the row was already taken over: %s', docId);
+    return 'missed';
+  }
+  ctx.logger.warn('saveChangesToForgotten enqueue failed, changes kept: release affectedRows=%d', releaseRes.affectedRows);
+  return 'enqueueFailed';
 };
 
 async function processWopiSaveAs(ctx, cmd) {

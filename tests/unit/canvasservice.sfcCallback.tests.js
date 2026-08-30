@@ -43,11 +43,13 @@ jestApi.mock('../../DocService/sources/databaseConnectors/baseConnector', () => 
 
   function DocumentPassword() {}
   DocumentPassword.prototype.getCurPassword = jestApi.fn(() => null);
+  DocumentPassword.prototype.getDocPassword = jestApi.fn(() => ({}));
 
   function DocumentAdditional() {}
   DocumentAdditional.prototype.getOpenedAt = jestApi.fn(() => undefined);
+  DocumentAdditional.prototype.getDocumentLayout = jestApi.fn(() => undefined);
 
-  return {DocumentAdditional, DocumentPassword, UserCallback};
+  return {DocumentAdditional, DocumentPassword, UserCallback, deleteChanges: jestApi.fn()};
 });
 
 jestApi.mock('../../DocService/sources/DocsCoServer', () => ({
@@ -58,16 +60,19 @@ jestApi.mock('../../DocService/sources/DocsCoServer', () => ({
     CorruptedForce: 7
   },
   editorData: {
+    cleanDocumentOnExit: jestApi.fn().mockResolvedValue(undefined),
     getForceSave: jestApi.fn().mockResolvedValue(null),
     getdelSaved: jestApi.fn().mockResolvedValue(null)
   },
   editorStat: {
+    addShutdown: jestApi.fn().mockResolvedValue(undefined),
     removeShutdown: jestApi.fn().mockResolvedValue(undefined)
   },
   getEditorsCountPromise: jestApi.fn().mockResolvedValue(0),
   sendServerRequest: jestApi.fn().mockResolvedValue('{"error":1,"descr":"save uri is empty"}'),
   parseReplyData: jestApi.fn((_ctx, value) => (value ? JSON.parse(value) : null)),
   cleanDocumentOnExitPromise: jestApi.fn().mockResolvedValue(undefined),
+  cleanDocumentOnExitNoChangesPromise: jestApi.fn().mockResolvedValue(undefined),
   unlockWopiDoc: jestApi.fn().mockResolvedValue(undefined),
   getIsShutdown: jestApi.fn().mockReturnValue(false),
   getIsPreStop: jestApi.fn().mockReturnValue(false),
@@ -85,6 +90,7 @@ jestApi.mock('../../DocService/sources/wopiClient', () => ({
 
 jestApi.mock('../../Common/sources/storage/storage-base', () => ({
   copyObject: jestApi.fn(),
+  deletePath: jestApi.fn(),
   getObject: jestApi.fn(),
   getSignedUrl: jestApi.fn(),
   getSignedUrls: jestApi.fn(),
@@ -192,6 +198,7 @@ beforeEach(() => {
   });
 
   docsCoServer.sendServerRequest.mockResolvedValue('{"error":1,"descr":"save uri is empty"}');
+  docsCoServer.getIsShutdown.mockReturnValue(false);
   storage.listObjects.mockResolvedValue([]);
   storage.getObject.mockResolvedValue(Buffer.from('{}'));
   storage.getSignedUrl.mockResolvedValue('http://docservice/output.docx');
@@ -327,6 +334,275 @@ describe('commandSfcCallback bug 81576 recovery', () => {
       ctx,
       expect.objectContaining({docId: DOC_ID, success: false, type: commonDefines.c_oPublishType.updateVersion})
     );
+  });
+});
+
+function makeForgottenCommand(statusInfo = constants.NO_ERROR, token = SAVE_TOKEN) {
+  const cmd = makeSfcCommand(statusInfo);
+  cmd.setStatusInfoIn(token);
+  cmd.setSaveToForgotten(true);
+  return cmd;
+}
+
+describe('commandSfcCallback saveToForgotten', () => {
+  beforeEach(() => {
+    storage.copyObject.mockResolvedValue(undefined);
+    storage.deletePath.mockResolvedValue(undefined);
+  });
+
+  test('parks the output in forgotten without touching the callback, then removes the row and the changes', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(), false, false);
+
+    expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
+    expect(storage.copyObject).toHaveBeenCalledWith(ctx, `${DOC_ID}-save/output.docx`, `${DOC_ID}/output.docx`, undefined, expect.any(String));
+    expect(updateIfCalls[0]).toMatchObject({
+      mask: {status: commonDefines.FileStatus.SaveVersion, statusInfo: SAVE_TOKEN},
+      task: {status: commonDefines.FileStatus.SaveVersion}
+    });
+    expect(updateIfCalls[0].task.statusInfo).toBeGreaterThan(3600000);
+    expect(await taskResult.select(ctx, DOC_ID)).toHaveLength(0);
+    expect(storage.deletePath).toHaveBeenCalledWith(ctx, DOC_ID);
+    expect(docsCoServer.unlockWopiDoc).toHaveBeenCalledTimes(1);
+  });
+
+  test('ignores a result whose token was replaced by a later recovery', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx, commonDefines.FileStatus.SaveVersion, SAVE_TOKEN + 1);
+    await seedChange(ctx);
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(), false, false);
+
+    expect(storage.copyObject).not.toHaveBeenCalled();
+    expect(updateIfCalls).toHaveLength(0);
+    const [row] = await taskResult.select(ctx, DOC_ID);
+    expect(row.status).toBe(commonDefines.FileStatus.SaveVersion);
+    expect(row.status_info).toBe(SAVE_TOKEN + 1);
+    expect(await taskResult.getChangesPromise(ctx, DOC_ID)).toHaveLength(1);
+    expect(docsCoServer.publish).not.toHaveBeenCalled();
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      'commandSfcCallback saveToForgotten result ignored: status = %s',
+      commonDefines.FileStatus.SaveVersion
+    );
+  });
+
+  test('ignores a result after an editor took the row back', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx, commonDefines.FileStatus.Ok, constants.NO_ERROR);
+    await seedChange(ctx);
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(), false, false);
+
+    expect(storage.copyObject).not.toHaveBeenCalled();
+    expect(updateIfCalls).toHaveLength(0);
+    expect(await taskResult.select(ctx, DOC_ID)).toHaveLength(1);
+    expect(await taskResult.getChangesPromise(ctx, DOC_ID)).toHaveLength(1);
+  });
+
+  test('releases the row with the marker and keeps the changes when the assembly failed', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(constants.CONVERT_READ_FILE), false, false);
+
+    expect(storage.copyObject).not.toHaveBeenCalled();
+    const [row] = await taskResult.select(ctx, DOC_ID);
+    expect(row.status).toBe(commonDefines.FileStatus.Ok);
+    expect(row.status_info).toBe(constants.FILE_NOT_ASSEMBLED);
+    expect(await taskResult.getChangesPromise(ctx, DOC_ID)).toHaveLength(1);
+    expect(updateIfCalls).toEqual([
+      expect.objectContaining({
+        mask: expect.objectContaining({status: commonDefines.FileStatus.SaveVersion, statusInfo: SAVE_TOKEN}),
+        task: expect.objectContaining({status: commonDefines.FileStatus.Ok, statusInfo: constants.FILE_NOT_ASSEMBLED})
+      })
+    ]);
+  });
+
+  test('a failed forgotten copy keeps the row and the changes and releases the row with the marker', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+    storage.copyObject.mockRejectedValue(new Error('storage down'));
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(), false, false);
+
+    expect(storage.deletePath).not.toHaveBeenCalled();
+    expect(docsCoServer.editorData.cleanDocumentOnExit).not.toHaveBeenCalled();
+    expect(docsCoServer.unlockWopiDoc).not.toHaveBeenCalled();
+    const [row] = await taskResult.select(ctx, DOC_ID);
+    expect(row.status).toBe(commonDefines.FileStatus.Ok);
+    expect(row.status_info).toBe(constants.FILE_NOT_ASSEMBLED);
+    expect(await taskResult.getChangesPromise(ctx, DOC_ID)).toHaveLength(1);
+    expect(ctx.logger.warn).toHaveBeenCalledWith('storeForgotten failed, changes kept: release affectedRows=%d', 1);
+  });
+
+  test('a takeover during the copy leaves the new owner state untouched', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+    // an editor opened mid-copy: auth flipped SaveVersion back to Ok
+    storage.copyObject.mockImplementation(async () => {
+      const takeover = new taskResult.TaskResultData();
+      takeover.tenant = ctx.tenant;
+      takeover.key = DOC_ID;
+      takeover.status = commonDefines.FileStatus.Ok;
+      takeover.statusInfo = constants.NO_ERROR;
+      await taskResult.update(ctx, takeover);
+    });
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(), false, false);
+
+    expect(storage.deletePath).not.toHaveBeenCalled();
+    expect(docsCoServer.editorData.cleanDocumentOnExit).not.toHaveBeenCalled();
+    expect(docsCoServer.unlockWopiDoc).not.toHaveBeenCalled();
+    const [row] = await taskResult.select(ctx, DOC_ID);
+    expect(row.status).toBe(commonDefines.FileStatus.Ok);
+    expect(row.status_info).toBe(constants.NO_ERROR);
+    expect(await taskResult.getChangesPromise(ctx, DOC_ID)).toHaveLength(1);
+  });
+
+  test('a rejected residue cleanup after a successful park only logs: the document is already parked', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+    docsCoServer.editorData.cleanDocumentOnExit.mockRejectedValueOnce(new Error('redis down'));
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(), false, false);
+
+    expect(storage.copyObject).toHaveBeenCalledTimes(1);
+    expect(storage.deletePath).toHaveBeenCalledWith(ctx, DOC_ID);
+    expect(docsCoServer.unlockWopiDoc).toHaveBeenCalledTimes(1);
+    expect(await taskResult.select(ctx, DOC_ID)).toHaveLength(0);
+    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('storeForgotten cleanup'), expect.stringContaining('redis down'));
+    expect(ctx.logger.warn).not.toHaveBeenCalledWith('storeForgotten failed, changes kept: release affectedRows=%d', expect.anything());
+  });
+
+  test('a rejected WOPI unlock after a successful park only logs as well', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+    docsCoServer.unlockWopiDoc.mockRejectedValueOnce(new Error('wopi down'));
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(), false, false);
+
+    expect(storage.deletePath).toHaveBeenCalledWith(ctx, DOC_ID);
+    expect(await taskResult.select(ctx, DOC_ID)).toHaveLength(0);
+    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('storeForgotten cleanup'), expect.stringContaining('wopi down'));
+  });
+
+  test('a failed forgotten copy on the regular empty-callback path also keeps the changes', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+    storage.copyObject.mockRejectedValue(new Error('storage down'));
+    const cmd = makeSfcCommand(constants.NO_ERROR);
+    cmd.setUserId(undefined);
+
+    await canvasService.commandSfcCallback(ctx, cmd, false, false);
+
+    expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
+    expect(storage.deletePath).not.toHaveBeenCalled();
+    const [row] = await taskResult.select(ctx, DOC_ID);
+    expect(row.status).toBe(commonDefines.FileStatus.Ok);
+    expect(row.status_info).toBe(constants.FILE_NOT_ASSEMBLED);
+    expect(await taskResult.getChangesPromise(ctx, DOC_ID)).toHaveLength(1);
+  });
+
+  test('an EDITOR_CHANGES result stays silent: no callback, no cleanup, row released with the marker', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+    docsCoServer.getIsShutdown.mockReturnValue(true);
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(constants.EDITOR_CHANGES), false, false);
+
+    expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
+    expect(docsCoServer.cleanDocumentOnExitNoChangesPromise).not.toHaveBeenCalled();
+    expect(storage.copyObject).not.toHaveBeenCalled();
+    expect(docsCoServer.editorStat.removeShutdown).not.toHaveBeenCalled();
+    expect(updateIfCalls).toEqual([
+      expect.objectContaining({
+        mask: expect.objectContaining({status: commonDefines.FileStatus.SaveVersion, statusInfo: SAVE_TOKEN}),
+        task: expect.objectContaining({status: commonDefines.FileStatus.Ok, statusInfo: constants.FILE_NOT_ASSEMBLED})
+      })
+    ]);
+    const [row] = await taskResult.select(ctx, DOC_ID);
+    expect(row.status).toBe(commonDefines.FileStatus.Ok);
+    expect(row.status_info).toBe(constants.FILE_NOT_ASSEMBLED);
+    expect(await taskResult.getChangesPromise(ctx, DOC_ID)).toHaveLength(1);
+  });
+
+  test('a recovery result leaves the shutdown set alone even under the shutdown flag', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+    docsCoServer.getIsShutdown.mockReturnValue(true);
+
+    await canvasService.commandSfcCallback(ctx, makeForgottenCommand(), false, false);
+
+    expect(storage.copyObject).toHaveBeenCalledTimes(1);
+    expect(docsCoServer.editorStat.removeShutdown).not.toHaveBeenCalled();
+  });
+
+  test('a regular result under the shutdown flag still removes its member', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    await seedChange(ctx);
+    docsCoServer.getIsShutdown.mockReturnValue(true);
+
+    await canvasService.commandSfcCallback(ctx, makeSfcCommand(), false, false);
+
+    expect(docsCoServer.editorStat.removeShutdown).toHaveBeenCalledWith(expect.any(String), DOC_ID);
+  });
+
+  test('the flag survives only the trusted queue copy of the command', () => {
+    const data = {id: DOC_ID, saveToForgotten: true};
+    expect(new commonDefines.InputCommand(data).getSaveToForgotten()).toBeUndefined();
+    expect(new commonDefines.InputCommand(data, true).getSaveToForgotten()).toBe(true);
+    expect(new commonDefines.TaskQueueData({cmd: data}).getCmd().getSaveToForgotten()).toBe(true);
+  });
+});
+
+describe('saveFromChanges saveToForgotten', () => {
+  const wopiClient = require('../../DocService/sources/wopiClient');
+
+  function enqueuedCmd() {
+    const calls = docsCoServer.addTask.mock.calls;
+    return calls.length > 0 ? calls[calls.length - 1][0].getCmd() : null;
+  }
+
+  test('a forgotten-only task carries neither WOPI params nor a shutdown-set member', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    docsCoServer.getIsShutdown.mockReturnValue(true);
+
+    const res = await canvasService.saveFromChanges(ctx, DOC_ID, SAVE_TOKEN, {saveToForgotten: true});
+
+    expect(res).toBe(true);
+    expect(wopiClient.parseWopiCallback).not.toHaveBeenCalled();
+    expect(enqueuedCmd().getWopiParams()).toBeUndefined();
+    expect(enqueuedCmd().getSaveToForgotten()).toBe(true);
+    expect(enqueuedCmd().getStatusInfoIn()).toBe(SAVE_TOKEN);
+    expect(docsCoServer.editorStat.addShutdown).not.toHaveBeenCalled();
+  });
+
+  test('a regular task keeps its WOPI params and its shutdown-set member', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx);
+    docsCoServer.getIsShutdown.mockReturnValue(true);
+    const wopiParams = {userAuth: {wopiSrc: 'http://wopi'}};
+    wopiClient.parseWopiCallback.mockReturnValueOnce(wopiParams);
+
+    const res = await canvasService.saveFromChanges(ctx, DOC_ID, SAVE_TOKEN);
+
+    expect(res).toBe(true);
+    expect(enqueuedCmd().getWopiParams()).toBe(wopiParams);
+    expect(enqueuedCmd().getSaveToForgotten()).toBeUndefined();
+    expect(docsCoServer.editorStat.addShutdown).toHaveBeenCalledWith(expect.any(String), DOC_ID);
   });
 });
 

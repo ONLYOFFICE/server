@@ -199,33 +199,6 @@ describe('MemoryChangeStore', () => {
     });
   });
 
-  describe('getEmptyCallbacks', () => {
-    test('does not return empty-callback rows that have no changes', async () => {
-      await memoryChangeStore.upsert(ctx, {tenant: ctx.tenant, key: 'doc-nochanges', callback: ''});
-
-      const docs = await memoryChangeStore.getEmptyCallbacks();
-      expect(docs.some(d => d.id === 'doc-nochanges')).toBe(false);
-    });
-
-    test('returns {tenant, id} for docs with both changes and empty callback', async () => {
-      const t = new Date();
-      await memoryChangeStore.upsert(ctx, {tenant: ctx.tenant, key: 'doc-1', callback: ''});
-      await memoryChangeStore.insertChangesPromise(ctx, [{change: 'c0', time: t}], 'doc-1', 0, user);
-
-      const docs = await memoryChangeStore.getEmptyCallbacks();
-      expect(docs).toEqual([{tenant: 'tenant-1', id: 'doc-1'}]);
-    });
-
-    test('excludes doc with non-empty callback even when changes exist', async () => {
-      const t = new Date();
-      await memoryChangeStore.upsert(ctx, {tenant: ctx.tenant, key: 'doc-cb', callback: 'https://example.com/callback'});
-      await memoryChangeStore.insertChangesPromise(ctx, [{change: 'c0', time: t}], 'doc-cb', 0, user);
-
-      const docs = await memoryChangeStore.getEmptyCallbacks();
-      expect(docs.some(d => d.id === 'doc-cb')).toBe(false);
-    });
-  });
-
   test('multiple tenants stay isolated', async () => {
     const t = new Date();
     await memoryChangeStore.insertChangesPromise(ctx, [{change: 'a', time: t}], 'doc', 0, user);

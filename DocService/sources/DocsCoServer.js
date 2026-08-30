@@ -1708,17 +1708,13 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
       }
       while (true) {
         if (!sqlBase.isLockCriticalSection(docId)) {
-          yield canvasService.saveFromChanges(
-            ctx,
-            docId,
-            updateTask.statusInfo,
-            null,
-            opt_userId,
-            opt_userIndex,
-            opt_userLcid,
-            opt_queue,
-            opt_initShardKey
-          );
+          yield canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, {
+            userId: opt_userId,
+            userIndex: opt_userIndex,
+            userLcid: opt_userLcid,
+            queue: opt_queue,
+            initShardKey: opt_initShardKey
+          });
           break;
         }
         yield utils.sleep(c_oAscLockTimeOutDelay);
@@ -4890,8 +4886,12 @@ exports.shutdown = function (req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      ctx.logger.info('shutdown start');
-      output = yield shutdown.shutdown(ctx, editorStat, req.method === 'PUT');
+      const isShutdown = req.method === 'PUT';
+      // recovery is on by default; recoverChanges=0 keeps the plain quick drain of the old behavior
+      const recoverChangesParam = req.query?.recoverChanges;
+      const recoverChanges = isShutdown && '0' !== recoverChangesParam && 'false' !== recoverChangesParam;
+      ctx.logger.info('shutdown start: recoverChanges=%s', recoverChanges);
+      output = yield shutdown.shutdown(ctx, editorStat, isShutdown, recoverChanges);
     } catch (err) {
       ctx.logger.error('shutdown error %s', err.stack);
     } finally {
@@ -4942,7 +4942,8 @@ exports.getShutdownStatus = function (req, res) {
     ctx.initFromRequest(req);
     res.setHeader('Content-Type', 'application/json');
     res.json({
-      shutdown: getIsShutdown()
+      shutdown: getIsShutdown(),
+      recovery: shutdown.getLastRecoveryReport()
     });
   } catch (err) {
     ctx.logger.error('getShutdownStatus error %s', err.stack);

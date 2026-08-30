@@ -119,6 +119,7 @@ function InputCommand(data, copyExplicit) {
       this['builderParams'] = data['builderParams'];
       this['userconnectiondocid'] = data['userconnectiondocid'];
       this['originformat'] = data['originformat'];
+      this['saveToForgotten'] = data['saveToForgotten'];
     }
   } else {
     this['c'] = undefined; //string command
@@ -175,6 +176,8 @@ function InputCommand(data, copyExplicit) {
     this['isSaveAs'] = undefined;
     this['saveAsPath'] = undefined;
     this['oformAsPdf'] = undefined;
+    //internal: sfc output goes to forgotten instead of the callback
+    this['saveToForgotten'] = undefined;
   }
 }
 InputCommand.prototype = {
@@ -460,6 +463,12 @@ InputCommand.prototype = {
   },
   setStatusInfoIn(data) {
     this['status_info_in'] = data;
+  },
+  getSaveToForgotten() {
+    return this['saveToForgotten'];
+  },
+  setSaveToForgotten(data) {
+    this['saveToForgotten'] = data;
   },
   getAttempt() {
     return this['attempt'];
