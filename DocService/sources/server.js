@@ -153,6 +153,17 @@ if (!(cfgTokenEnableBrowser && cfgTokenEnableRequestInbox && cfgTokenEnableReque
   );
 }
 
+//only the inline value is inspected: a secret file is read lazily by the runtime and must not fail the boot
+const publicSecrets = ['inbox', 'outbox', 'session'].filter(
+  name => constants.PUBLIC_DEFAULT_SECRET === config.get(`services.CoAuthoring.secret.${name}`)?.string
+);
+if (publicSecrets.length > 0) {
+  operationContext.global.logger.warn(
+    'Replace the publicly known default signing secret in the following services.CoAuthoring.secret settings: %s.',
+    publicSecrets.join(', ')
+  );
+}
+
 updateLicense();
 fs.watchFile(cfgLicenseFile, updateLicense);
 setInterval(updateLicense, 86400000);

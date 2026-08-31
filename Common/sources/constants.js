@@ -359,6 +359,8 @@ exports.ACTIVEMQ_QUEUE_PREFIX = 'queue://';
 exports.ACTIVEMQ_TOPIC_PREFIX = 'topic://';
 
 exports.TEMPLATES_DEFAULT_LOCALE = 'en-US';
+//the signing secret shipped in default.json, publicly known and therefore worthless as a key
+exports.PUBLIC_DEFAULT_SECRET = 'secret';
 exports.TABLE_RESULT_SCHEMA = [
   'tenant',
   'id',
