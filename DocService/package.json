@@ -31,7 +31,7 @@
     "multer": "1.4.4",
     "multi-integer-range": "5.2.0",
     "multiparty": "4.2.3",
-    "mysql2": "3.13.0",
+    "mysql2": "3.22.0",
     "oracledb": "6.9.0",
     "pg": "8.14.0",
     "redis": "4.7.0",
