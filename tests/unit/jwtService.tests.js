@@ -1303,3 +1303,23 @@ describe('checkJwtForConnection (socket connection sink)', () => {
     expect(res.code).toBe(constants.JWT_EXPIRED_CODE);
   });
 });
+
+describe('shipped JWT defaults', () => {
+  //the placeholder is spelled out in both the config and the constant, so a drift would silently stop the startup warning from recognizing it
+  test('keeps the config and the constant in step', () => {
+    const coAuthoring = require('../../Common/config/default.json').services.CoAuthoring;
+
+    for (const type of ['browser', 'inbox', 'outbox', 'session']) {
+      expect(coAuthoring.secret[type].string).toBe(constants.PUBLIC_DEFAULT_SECRET);
+    }
+    expect(coAuthoring.token.enable).toEqual({browser: true, request: {inbox: true, outbox: true}});
+  });
+});
+
+describe('getJwtHsKey', () => {
+  //modern Node turns zero bytes into a working key, so this guard is the only thing keeping empty material out of sign and verify
+  test('refuses zero-length key material', () => {
+    expect(utils.getJwtHsKey('')).toBeUndefined();
+    expect(utils.getJwtHsKey(Buffer.alloc(0))).toBeUndefined();
+  });
+});

@@ -473,17 +473,17 @@
         "allowMetaIPAddress": false
       },
       "secret": {
-        "browser": {"string": "secret", "file": ""},
-        "inbox": {"string": "secret", "file": ""},
-        "outbox": {"string": "secret", "file": ""},
-        "session": {"string": "secret", "file": ""}
+        "browser": {"string": "developer-only-not-a-real-secret", "file": ""},
+        "inbox": {"string": "developer-only-not-a-real-secret", "file": ""},
+        "outbox": {"string": "developer-only-not-a-real-secret", "file": ""},
+        "session": {"string": "developer-only-not-a-real-secret", "file": ""}
       },
       "token": {
         "enable": {
-          "browser": false,
+          "browser": true,
           "request": {
-            "inbox": false,
-            "outbox": false
+            "inbox": true,
+            "outbox": true
           }
         },
         "purposeCheck": "validate",

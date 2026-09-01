@@ -2491,14 +2491,14 @@
                   "type": "object",
                   "description": "The parameters of a secret key to generate a token in the client-side browser requests to ONLYOFFICE Docs.",
                   "default": {
-                    "string": "secret",
+                    "string": "developer-only-not-a-real-secret",
                     "file": ""
                   },
                   "properties": {
                     "string": {
                       "type": "string",
                       "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
-                      "default": "secret",
+                      "default": "developer-only-not-a-real-secret",
                       "x-tenantOverride": true
                     },
                     "file": {
@@ -2513,14 +2513,14 @@
                   "type": "object",
                   "description": "The parameters of a secret key to generate a token in the incoming HTTP requests with the commands from the **document storage service** to the **document command service**, **document conversion service** and **document builder service**.",
                   "default": {
-                    "string": "secret",
+                    "string": "developer-only-not-a-real-secret",
                     "file": ""
                   },
                   "properties": {
                     "string": {
                       "type": "string",
                       "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
-                      "default": "secret",
+                      "default": "developer-only-not-a-real-secret",
                       "x-tenantOverride": true
                     },
                     "file": {
@@ -2535,14 +2535,14 @@
                   "type": "object",
                   "description": "The parameters of a secret key to generate a token in the outgoing HTTP requests to the `callbackUrl` address by **document editing service**.",
                   "default": {
-                    "string": "secret",
+                    "string": "developer-only-not-a-real-secret",
                     "file": ""
                   },
                   "properties": {
                     "string": {
                       "type": "string",
                       "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
-                      "default": "secret",
+                      "default": "developer-only-not-a-real-secret",
                       "x-tenantOverride": true
                     },
                     "file": {
@@ -2557,14 +2557,14 @@
                   "type": "object",
                   "description": "The parameters of a secret key to generate the session token.",
                   "default": {
-                    "string": "secret",
+                    "string": "developer-only-not-a-real-secret",
                     "file": ""
                   },
                   "properties": {
                     "string": {
                       "type": "string",
                       "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
-                      "default": "secret",
+                      "default": "developer-only-not-a-real-secret",
                       "x-tenantOverride": true
                     },
                     "file": {
@@ -2890,37 +2890,37 @@
                   "type": "object",
                   "description": "Whether the tokens are enabled or not.",
                   "default": {
-                    "browser": false,
+                    "browser": true,
                     "request": {
-                      "inbox": false,
-                      "outbox": false
+                      "inbox": true,
+                      "outbox": true
                     }
                   },
                   "properties": {
                     "browser": {
                       "type": "boolean",
                       "description": "Whether a token in the client-side browser requests is enabled or not.",
-                      "default": false,
+                      "default": true,
                       "x-tenantOverride": true
                     },
                     "request": {
                       "type": "object",
                       "description": "Whether the tokens in the HTTP requests are enabled or not.",
                       "default": {
-                        "inbox": false,
-                        "outbox": false
+                        "inbox": true,
+                        "outbox": true
                       },
                       "properties": {
                         "inbox": {
                           "type": "boolean",
                           "description": "Whether a token in the incoming HTTP requests is enabled or not.",
-                          "default": false,
+                          "default": true,
                           "x-tenantOverride": true
                         },
                         "outbox": {
                           "type": "boolean",
                           "description": "Whether a token in the outgoing HTTP requests is enabled or not.",
-                          "default": false,
+                          "default": true,
                           "x-tenantOverride": true
                         }
                       }

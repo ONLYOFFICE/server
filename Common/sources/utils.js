@@ -1344,6 +1344,10 @@ const jwtKeyCache = Object.create(null);
 function getJwtHsKey(secret) {
   let res = jwtKeyCache[secret];
   if (!res && secret != null) {
+    //modern Node builds a usable KeyObject from zero bytes, so empty material is refused before it can sign or verify
+    if (0 === secret.length) {
+      return undefined;
+    }
     try {
       res = jwtKeyCache[secret] = crypto.createSecretKey(typeof secret === 'string' ? Buffer.from(secret, 'utf8') : secret);
     } catch {
