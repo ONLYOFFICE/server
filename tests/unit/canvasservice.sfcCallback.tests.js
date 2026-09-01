@@ -59,6 +59,7 @@ jestApi.mock('../../DocService/sources/DocsCoServer', () => ({
     MustSaveForce: 6,
     CorruptedForce: 7
   },
+  checkJwt: jestApi.fn(),
   editorData: {
     cleanDocumentOnExit: jestApi.fn().mockResolvedValue(undefined),
     getForceSave: jestApi.fn().mockResolvedValue(null),
@@ -763,5 +764,187 @@ describe('forcesave callback delivery after final save', () => {
     await canvasService.commandSfcCallback(ctx, makeForceSaveCommand(commonDefines.c_oAscForceSaveTypes.Button), true, false);
 
     expect(lastCallbackData().getForceSaveType()).toBe(commonDefines.c_oAscForceSaveTypes.Button);
+  });
+});
+
+const SAVE_FILE_DOC_ID = 'savefile-doc';
+const SAVE_FILE_TENANT = 'localhost';
+const SAVE_FILE_TOKEN_USER = {id: 'token-user', index: 7};
+
+function makeSaveFileDecoded(editorConfig) {
+  return {
+    decoded: {
+      document: {key: SAVE_FILE_DOC_ID, ds_encrypted: true, permissions: {}},
+      editorConfig: Object.assign({mode: 'edit', user: SAVE_FILE_TOKEN_USER}, editorConfig)
+    }
+  };
+}
+
+function makeSaveFileReq(forceSaveType) {
+  const cmd = {
+    id: SAVE_FILE_DOC_ID,
+    userid: 'spoofed-user',
+    userindex: 42,
+    outputpath: 'output.docx',
+    tokenSession: 'session-jwt',
+    //a client sent forcesave must never reach setForceSave
+    forcesave: {type: commonDefines.c_oAscForceSaveTypes.Internal, time: 1, index: 2, authoruserid: 'spoofed-user'}
+  };
+  const query = {cmd: JSON.stringify(cmd)};
+  if (undefined !== forceSaveType) {
+    query['forcesavetype'] = forceSaveType;
+  }
+  return {
+    url: '/savefile/' + SAVE_FILE_DOC_ID,
+    method: 'POST',
+    headers: {host: 'localhost'},
+    query,
+    body: Buffer.from('encrypted-bytes')
+  };
+}
+
+function makeSaveFileRes() {
+  return {sendStatus: jestApi.fn(), setHeader: jestApi.fn(), send: jestApi.fn()};
+}
+
+async function seedSaveFileTask() {
+  const task = new taskResult.TaskResultData();
+  task.tenant = SAVE_FILE_TENANT;
+  task.key = SAVE_FILE_DOC_ID;
+  task.status = commonDefines.FileStatus.Ok;
+  task.statusInfo = constants.NO_ERROR;
+  task.userIndex = 1;
+  task.changeId = 0;
+  task.callback = 'http://callback';
+  task.baseurl = 'http://docservice';
+  await taskResult.upsert({tenant: SAVE_FILE_TENANT}, task);
+}
+
+function saveFileCallbackData() {
+  expect(docsCoServer.sendServerRequest).toHaveBeenCalledTimes(1);
+  return docsCoServer.sendServerRequest.mock.calls[0][2];
+}
+
+describe('saveFile', () => {
+  beforeEach(async () => {
+    docsCoServer.checkJwt.mockResolvedValue(makeSaveFileDecoded({ds_view: false}));
+    docsCoServer.editorData.getForceSave.mockResolvedValue({time: 222, index: 1, ended: false});
+    docsCoServer.getEditorsCountPromise.mockResolvedValue(0);
+    docsCoServer.sendServerRequest.mockResolvedValue('{"error":0}');
+    storage.getSignedUrl.mockResolvedValue('http://docservice/output.docx');
+    storage.putObject.mockResolvedValue(undefined);
+    await seedSaveFileTask();
+  });
+
+  describe('access check', () => {
+    test('refuses a token issued before ds_view came back', async () => {
+      docsCoServer.checkJwt.mockResolvedValue(makeSaveFileDecoded({}));
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(), res);
+
+      expect(res.sendStatus).toHaveBeenCalledWith(403);
+      expect(storage.putObject).not.toHaveBeenCalled();
+    });
+
+    test('refuses a document that is not encrypted', async () => {
+      const decoded = makeSaveFileDecoded({ds_view: false});
+      decoded.decoded.document.ds_encrypted = false;
+      docsCoServer.checkJwt.mockResolvedValue(decoded);
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(), res);
+
+      expect(res.sendStatus).toHaveBeenCalledWith(403);
+      expect(storage.putObject).not.toHaveBeenCalled();
+    });
+
+    test('refuses a session demoted to view', async () => {
+      docsCoServer.checkJwt.mockResolvedValue(makeSaveFileDecoded({ds_view: true}));
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(), res);
+
+      expect(res.sendStatus).toHaveBeenCalledWith(403);
+      expect(storage.putObject).not.toHaveBeenCalled();
+    });
+
+    test('refuses a session that left co-authoring', async () => {
+      docsCoServer.checkJwt.mockResolvedValue(makeSaveFileDecoded({ds_view: false, ds_isCloseCoAuthoring: true}));
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(), res);
+
+      expect(res.sendStatus).toHaveBeenCalledWith(403);
+      expect(storage.putObject).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('forcesavetype parsing', () => {
+    test.each([['3'], ['0'], ['4'], ['abc'], ['1.0'], [''], [['1']]])('refuses forcesavetype %j', async rawType => {
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(rawType), res);
+
+      expect(res.sendStatus).toHaveBeenCalledWith(400);
+      expect(storage.putObject).not.toHaveBeenCalled();
+      expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('save kind', () => {
+    test('without the parameter sends a final save and drops the client forcesave', async () => {
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(), res);
+
+      expect(saveFileCallbackData().getStatus()).toBe(docsCoServer.c_oAscServerStatus.MustSave);
+      expect(docsCoServer.setForceSave).not.toHaveBeenCalled();
+    });
+
+    test('button forcesave sends MustSaveForce with the token author', async () => {
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(String(commonDefines.c_oAscForceSaveTypes.Button)), res);
+
+      const outputSfc = saveFileCallbackData();
+      expect(outputSfc.getStatus()).toBe(docsCoServer.c_oAscServerStatus.MustSaveForce);
+      expect(outputSfc.getForceSaveType()).toBe(commonDefines.c_oAscForceSaveTypes.Button);
+      expect(JSON.parse(JSON.stringify(outputSfc.getActions()))).toEqual([
+        {type: commonDefines.c_oAscUserAction.ForceSaveButton, userid: SAVE_FILE_TOKEN_USER.id}
+      ]);
+
+      expect(docsCoServer.setForceSave).toHaveBeenCalledTimes(1);
+      const forceSave = docsCoServer.setForceSave.mock.calls[0][2];
+      expect(forceSave.getType()).toBe(commonDefines.c_oAscForceSaveTypes.Button);
+      expect(forceSave.getAuthorUserId()).toBe(SAVE_FILE_TOKEN_USER.id);
+      expect(forceSave.getAuthorUserIndex()).toBe(SAVE_FILE_TOKEN_USER.index);
+    });
+
+    test('timeout forcesave reports no button action and no author', async () => {
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(String(commonDefines.c_oAscForceSaveTypes.Timeout)), res);
+
+      const outputSfc = saveFileCallbackData();
+      expect(outputSfc.getStatus()).toBe(docsCoServer.c_oAscServerStatus.MustSaveForce);
+      expect(outputSfc.getForceSaveType()).toBe(commonDefines.c_oAscForceSaveTypes.Timeout);
+      expect(outputSfc.getActions()).toBeUndefined();
+
+      const forceSave = docsCoServer.setForceSave.mock.calls[0][2];
+      expect(forceSave.getAuthorUserId()).toBeUndefined();
+      expect(forceSave.getAuthorUserIndex()).toBe(SAVE_FILE_TOKEN_USER.index);
+    });
+
+    test('keeps the changes mark of the running forcesave record', async () => {
+      docsCoServer.editorData.getForceSave.mockResolvedValueOnce({time: 111, index: 5, ended: false});
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(String(commonDefines.c_oAscForceSaveTypes.Button)), res);
+
+      const forceSave = docsCoServer.setForceSave.mock.calls[0][2];
+      expect(forceSave.getTime()).toBe(111);
+      expect(forceSave.getIndex()).toBe(5);
+    });
   });
 });

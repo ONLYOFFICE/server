@@ -637,6 +637,8 @@ function fillJwtByConnection(ctx, conn) {
       edit.coEditing = {mode: conn.coEditingMode};
     }
     //no standart
+    //runtime role after server side demotions (license, memory guard, migration), read by the encrypted save endpoint
+    edit.ds_view = conn.user.view;
     edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
     edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
     // presenter viewer opens with same session jwt. do not put sessionId to jwt

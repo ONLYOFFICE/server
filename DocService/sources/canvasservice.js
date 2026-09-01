@@ -1731,6 +1731,31 @@ exports.downloadAs = function (req, res) {
     }
   });
 };
+//an intermediate save is requested with forcesavetype; only supported client provided types are accepted, null marks a bad value
+function getSaveFileForceSaveType(rawType) {
+  if (undefined === rawType) {
+    return undefined;
+  }
+  if (String(commonDefines.c_oAscForceSaveTypes.Button) === rawType) {
+    return commonDefines.c_oAscForceSaveTypes.Button;
+  }
+  if (String(commonDefines.c_oAscForceSaveTypes.Timeout) === rawType) {
+    return commonDefines.c_oAscForceSaveTypes.Timeout;
+  }
+  return null;
+}
+//reuse the current changes mark so an encrypted forcesave reports the same time as a server-side one
+function setSaveFileForceSave(cmd, actualForceSave, forceSaveType, tokenUser) {
+  const forceSave = new commonDefines.CForceSaveData(actualForceSave || {time: Date.now(), index: 0});
+  forceSave.setType(forceSaveType);
+  //the author comes from the session token because cmd is not signed
+  forceSave.setAuthorUserIndex(tokenUser?.index);
+  if (commonDefines.c_oAscForceSaveTypes.Button === forceSaveType) {
+    //an author turns into a ForceSaveButton action, which a timer driven save must not report
+    forceSave.setAuthorUserId(tokenUser?.id);
+  }
+  cmd.setForceSave(forceSave);
+}
 exports.saveFile = function (req, res) {
   return co(function* () {
     let docId = 'null';
@@ -1753,7 +1778,8 @@ exports.saveFile = function (req, res) {
       if (checkJwtRes.decoded) {
         const doc = checkJwtRes.decoded.document;
         const edit = checkJwtRes.decoded.editorConfig;
-        if (doc.ds_encrypted && !edit.ds_view && !edit.ds_isCloseCoAuthoring) {
+        //ds_view is the runtime role from the session, an absent claim must close the endpoint instead of passing as an editor
+        if (doc.ds_encrypted && false === edit.ds_view && !edit.ds_isCloseCoAuthoring) {
           isValidJwt = true;
           docId = doc.key;
           cmd.setDocId(doc.key);
@@ -1768,11 +1794,26 @@ exports.saveFile = function (req, res) {
         return;
       }
       ctx.setDocId(docId);
+      const forceSaveType = getSaveFileForceSaveType(req.query['forcesavetype']);
+      if (null === forceSaveType) {
+        ctx.logger.warn('Error saveFile: unsupported forcesavetype = %j', req.query['forcesavetype']);
+        res.sendStatus(400);
+        return;
+      }
+      //without forcesavetype the save is final and the callback gets MustSave instead of MustSaveForce
+      const isSfcm = undefined !== forceSaveType;
+      //the request owns the forcesave data: a client sent one would reach setForceSave and the rpc publish
+      cmd.setForceSave(undefined);
+      if (isSfcm) {
+        ctx.logger.debug('saveFile forcesave: type = %d', forceSaveType);
+        const actualForceSave = yield docsCoServer.editorData.getForceSave(ctx, docId);
+        setSaveFileForceSave(cmd, actualForceSave, forceSaveType, checkJwtRes.decoded.editorConfig.user);
+      }
       cmd.setStatusInfo(constants.NO_ERROR);
       yield* addRandomKeyTaskCmd(ctx, cmd);
       cmd.setOutputPath(constants.OUTPUT_NAME + pathModule.extname(cmd.getOutputPath()));
       yield storage.putObject(ctx, docId + cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
-      const replyStr = yield commandSfcCallback(ctx, cmd, false, true);
+      const replyStr = yield commandSfcCallback(ctx, cmd, isSfcm, true);
       if (replyStr) {
         utils.fillResponseSimple(res, replyStr, 'application/json');
       } else {
