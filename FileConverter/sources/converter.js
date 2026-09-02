@@ -121,6 +121,17 @@ function getCloudSigningMode(certPath, signingCfg) {
 }
 
 /**
+ * @param {number} formatTo - resolved output format
+ * @param {number} forceSaveType - c_oAscForceSaveTypes value of the task
+ * @returns {boolean} true when a form submit produces a pdf that x2t can sign
+ */
+function isSigningTask(formatTo, forceSaveType) {
+  // pdfa is already normalized to plain pdf in the TaskQueueDataConvert constructor
+  const isPdf = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF === formatTo || constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === formatTo;
+  return isPdf && commonDefines.c_oAscForceSaveTypes.Form === forceSaveType;
+}
+
+/**
  * @param {Object} ctx
  * @param {string} outputPath - PDF file to sign
  * @param {string} certPath - PEM chain path
@@ -259,7 +270,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
-    if (this.formatTo === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF && commonDefines.c_oAscForceSaveTypes.Form === this.forceSaveType) {
+    if (isSigningTask(this.formatTo, this.forceSaveType)) {
       const signingPath = resolveSigningPath(ctx);
       const signingCfg = ctx.getCfg('FileConverter.converter.signing', cfgSigning);
       const {isCloud, certPath} = getCloudSigningMode(signingPath, signingCfg);
