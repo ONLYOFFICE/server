@@ -378,14 +378,39 @@ function addPasswordToCmd(ctx, cmd, docPasswordStr, originFormat) {
 function addOriginFormat(ctx, cmd, row) {
   cmd.setOriginFormat(row && row.change_id);
 }
-function setDelimiterByOutputFormat(cmd) {
-  // todo: delimiter should be persisted in db on open and read from row here,
-  // instead of being inferred from output format (loses user-specified delimiter for csv)
+function setDelimiterByOutputFormat(ctx, cmd, row) {
   const outputFormat = cmd.getOutputFormat();
   if (outputFormat === constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_TSV) {
     cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Tab);
   } else if (outputFormat === constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_SCSV) {
     cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Semicolon);
+  } else if (outputFormat === constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_CSV) {
+    //csv carries no delimiter in its extension, so restore the one picked on open instead of the converter default
+    const csvDelimiter = row && sqlBase.DocumentAdditional.prototype.getCsvDelimiter(row.additional);
+    if (csvDelimiter) {
+      ctx.logger.debug('setDelimiterByOutputFormat from open params: %j', csvDelimiter);
+      cmd.setDelimiter(csvDelimiter.delimiter);
+      cmd.setDelimiterChar(csvDelimiter.delimiterChar);
+    }
+  }
+}
+//store the delimiter chosen in the open dialog, assembly from changes has no other source for it
+async function saveCsvDelimiter(ctx, cmd) {
+  const delimiter = cmd.getDelimiter();
+  const delimiterChar = cmd.getDelimiterChar();
+  if (undefined === delimiter && undefined === delimiterChar) {
+    return;
+  }
+  const task = new taskResult.TaskResultData();
+  task.tenant = ctx.tenant;
+  task.key = cmd.getDocId();
+  //update appends to the column, so pass the new entry only
+  task.additional = sqlBase.DocumentAdditional.prototype.setCsvDelimiter(delimiter, delimiterChar);
+  try {
+    await taskResult.update(ctx, task);
+  } catch (e) {
+    //failure to persist optional open parameters must not fail an already queued reopen
+    ctx.logger.warn('saveCsvDelimiter error: %s', e.stack);
   }
 }
 
@@ -650,6 +675,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
       dataQueue.setToFile('Editor.bin');
       dataQueue.setFromSettings(true);
       yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
+      yield saveCsvDelimiter(ctx, cmd);
     } else {
       outputData.setStatus('needpassword');
       outputData.setData(constants.CONVERT_PASSWORD);
@@ -712,10 +738,10 @@ const commandSfctByCmd = co.wrap(function* (ctx, cmd, opt_priority, opt_expirati
   yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password, row.change_id);
   addOriginFormat(ctx, cmd, row);
-  setDelimiterByOutputFormat(cmd);
   const userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
   cmd.setOutputFormat(changeFormatByOrigin(ctx, row, cmd.getOutputFormat()));
+  setDelimiterByOutputFormat(ctx, cmd, row);
   cmd.appendJsonParams(getOpenedAtJSONParams(row));
   const queueData = getSaveTask(ctx, cmd);
   queueData.setFromChanges(true);
@@ -2155,7 +2181,7 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, opt_options) {
         }
         addPasswordToCmd(ctx, cmd, row && row.password, row && row.change_id);
         addOriginFormat(ctx, cmd, row);
-        setDelimiterByOutputFormat(cmd);
+        setDelimiterByOutputFormat(ctx, cmd, row);
         yield* addRandomKeyTaskCmd(ctx, cmd);
         const queueData = getSaveTask(ctx, cmd);
         queueData.setFromChanges(true);

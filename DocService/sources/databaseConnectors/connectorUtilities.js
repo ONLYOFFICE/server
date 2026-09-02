@@ -214,6 +214,23 @@ DocumentAdditional.prototype.getShardKey = function (str) {
   return res;
 };
 
+DocumentAdditional.prototype.setCsvDelimiter = function (delimiter, delimiterChar) {
+  const additional = new DocumentAdditional();
+  additional.data.push({delimiter, delimiterChar});
+  return additional.toSQLInsert();
+};
+DocumentAdditional.prototype.getCsvDelimiter = function (str) {
+  let res;
+  const val = new DocumentAdditional();
+  val.fromString(str);
+  val.data.forEach(elem => {
+    if (undefined !== elem.delimiter || undefined !== elem.delimiterChar) {
+      res = {delimiter: elem.delimiter, delimiterChar: elem.delimiterChar};
+    }
+  });
+  return res;
+};
+
 DocumentAdditional.prototype.setWopiSrc = function (wopiSrc) {
   const additional = new DocumentAdditional();
   additional.data.push({wopiSrc});
