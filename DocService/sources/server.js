@@ -63,10 +63,10 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const infoRouter = require('./routes/info');
 const metaRouter = require('./routes/meta');
+const pluginsRouter = require('./routes/plugins');
 const baseUrlHandler = require('./routes/baseurl');
 const {handleConvertUpload} = require('./middleware/convertUpload');
 const {createCheckEnable} = require('./middleware/checkEnable');
-const ms = require('ms');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
 const {resolveConfigPath} = require('./../../Common/sources/pathUtils');
@@ -122,12 +122,10 @@ app.set('views', path.resolve(process.cwd(), cfgHtmlTemplate));
 app.set('view engine', 'ejs');
 const server = http.createServer(app);
 
-let licenseInfo, licenseOriginal, updatePluginsTime, userPlugins;
-const updatePluginsCacheExpire = ms('5m');
+let licenseInfo, licenseOriginal;
 
 const updatePlugins = (eventType, filename) => {
   operationContext.global.logger.info('update Folder true: %s ; %s', eventType, filename);
-  userPlugins = undefined;
   utils.invalidateInstalledPluginsCache();
 };
 const readLicense = async function () {
@@ -351,38 +349,7 @@ docsCoServer.install(server, app, () => {
     utils.fillResponseSimple(res, JSON.stringify({error: 0}), 'application/json');
   });
 
-  const sendUserPlugins = (res, data) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(data));
-  };
-  app.get('/plugins.json', (req, res) => {
-    //fs.watch is not reliable. Set cache expiry time
-    if (userPlugins && new Date() - updatePluginsTime < updatePluginsCacheExpire) {
-      sendUserPlugins(res, userPlugins);
-      return;
-    }
-
-    if (!config.has('services.CoAuthoring.server.static_content') || !config.has('services.CoAuthoring.plugins.uri')) {
-      res.sendStatus(404);
-      return;
-    }
-
-    const pluginsUri = config.get('services.CoAuthoring.plugins.uri');
-    const pluginsAutostart = config.get('services.CoAuthoring.plugins.autostart');
-    const baseUrl = '../../../..';
-    utils
-      .getInstalledPlugins()
-      .then(plugins => {
-        const result = plugins.map(plugin => baseUrl + pluginsUri + '/' + plugin.name + '/config.json');
-        updatePluginsTime = new Date();
-        userPlugins = {url: '', pluginsData: result, autostart: pluginsAutostart};
-        sendUserPlugins(res, userPlugins);
-      })
-      .catch(e => {
-        operationContext.global.logger.error('plugins.json getInstalledPlugins error: %s', e.stack);
-        res.sendStatus(404);
-      });
-  });
+  app.use('/plugins.json', pluginsRouter);
   app.get('/themes.json', apicache.middleware('5 minutes'), (req, res) => {
     return co(function* () {
       const themes = [];

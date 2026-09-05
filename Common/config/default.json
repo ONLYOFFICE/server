@@ -10,6 +10,7 @@
     "prefix": "ds."
   },
   "aiSettings": {
+    "enable": true,
     "actions": {},
     "models": [],
     "providers": {},

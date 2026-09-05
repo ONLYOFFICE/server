@@ -47,6 +47,7 @@ const statsDClient = require('./../../../Common/sources/statsdclient');
 const cfgAiApiAllowedOrigins = config.get('aiSettings.allowedCorsOrigins');
 const cfgAiApiTimeout = config.get('aiSettings.timeout');
 const cfgAiApiAllowBrowserProxy = config.get('aiSettings.allowBrowserProxy');
+const cfgAiEnable = config.get('aiSettings.enable');
 const cfgAiSettings = config.get('aiSettings');
 
 const clientStatsD = statsDClient.getClient();
@@ -56,6 +57,11 @@ const AI_PLUGIN_GUIDS = ['asc.{9dc93cdb-b576-4f0c-b55e-fcc9c48dd007}'];
 
 // Placeholder sent to the browser instead of a real key so client SDKs pass their local auth checks; insertKeyToProvider swaps it for the real key on proxy egress.
 const AI_KEY_PLACEHOLDER = '********';
+
+// Server-wide (tenant-aware) AI switch: off hides the AI plugin, stops shipping its settings and closes /ai-proxy.
+function isAiEnabled(ctx) {
+  return false !== ctx.getCfg('aiSettings.enable', cfgAiEnable);
+}
 
 /**
  * Helper function to set CORS headers if the request origin is allowed
@@ -326,6 +332,12 @@ async function proxyRequest(req, res) {
   try {
     ctx.logger.info('Start proxyRequest');
     await ctx.initTenantCache();
+    // Server-wide switch wins over anything the client sends; it needs no token, so it also holds with jwt turned off.
+    if (!isAiEnabled(ctx)) {
+      ctx.logger.warn('proxyRequest: AI is disabled by aiSettings.enable');
+      res.status(403).json({error: {message: 'proxyRequest: AI is disabled', code: '403'}});
+      return;
+    }
     // Disable the endpoint when the AI plugin was removed from the distribution: no installed AI plugin guid means no legit caller.
     const installedPluginGuids = await utils.getInstalledPluginGuids();
     if (!AI_PLUGIN_GUIDS.some(guid => installedPluginGuids.has(guid))) {
@@ -363,6 +375,14 @@ async function proxyRequest(req, res) {
 
       ctx.setDocId(docId);
       ctx.setUserId(userId);
+
+      //TODO: per-session enforcement only works while services.CoAuthoring.token.enable.browser is on; with jwt off the integrator flag never reaches the session token, use aiSettings.enable instead
+      //reject sessions opened with customization.ai === false (ds_aiDisabled is set by fillJwtByConnection)
+      if (true === checkJwtRes?.decoded?.editorConfig?.ds_aiDisabled) {
+        ctx.logger.warn('proxyRequest: AI is disabled for this editor session');
+        res.status(403).json({error: {message: 'proxyRequest: AI is disabled for this editor session', code: '403'}});
+        return;
+      }
     }
 
     let body;
@@ -676,6 +696,10 @@ function stripPluginSettingsSecrets(blob) {
 }
 
 async function getPluginSettingsForInterface(ctx) {
+  // Ship no providers, models or plugin settings to the browser while AI is off.
+  if (!isAiEnabled(ctx)) {
+    return undefined;
+  }
   // Prefer the new universal plugin settings blob when configured; strip secrets for the browser.
   const newBlob = ctx.getCfg('aiSettings.pluginSettings', cfgAiSettings.pluginSettings);
   if (newBlob && typeof newBlob === 'object' && Object.keys(newBlob).length > 0) {
@@ -715,6 +739,8 @@ async function getPluginSettingsForInterface(ctx) {
 
 module.exports = {
   proxyRequest,
+  isAiEnabled,
+  AI_PLUGIN_GUIDS,
   getPluginSettings,
   getPluginSettingsForInterface,
   sanitizeProxyRequestHeaders,

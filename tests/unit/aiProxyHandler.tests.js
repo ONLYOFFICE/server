@@ -198,6 +198,18 @@ describe('aiProxyHandler stripPluginSettingsSecrets', () => {
   });
 });
 
+describe('aiProxyHandler aiSettings.enable switch', () => {
+  const fakeCtx = cfg => ({getCfg: (key, fallback) => (key in cfg ? cfg[key] : fallback)});
+
+  test('getPluginSettingsForInterface sends nothing to the browser while ai is off', async () => {
+    const blob = {profiles: [{name: 'p1', baseUrl: 'https://api.anthropic.com', key: 'sk-real'}]};
+    const off = await aiProxyHandler.getPluginSettingsForInterface(fakeCtx({'aiSettings.enable': false, 'aiSettings.pluginSettings': blob}));
+    expect(off).toBeUndefined();
+    const on = await aiProxyHandler.getPluginSettingsForInterface(fakeCtx({'aiSettings.pluginSettings': blob}));
+    expect(on.profiles[0].key).toBe(aiProxyHandler.AI_KEY_PLACEHOLDER);
+  });
+});
+
 describe('aiProxyHandler insertKeyToProvider', () => {
   const GEMINI_URI = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
   const PH = aiProxyHandler.AI_KEY_PLACEHOLDER;
@@ -426,6 +438,32 @@ describe('aiProxyHandler proxyRequest (merged relay)', () => {
     jest.spyOn(docsCoServer, 'checkJwtHeader').mockResolvedValue({decoded: null, description: 'bad'});
     const res = await postJson('/ai-proxy', {target: 'https://api.example.com', method: 'GET'});
     expect(res.status).toBe(403);
+  });
+
+  test('aiSettings.enable=false returns 403 and no egress', async () => {
+    mockContext({'aiSettings.enable': false, 'aiSettings.allowBrowserProxy': true});
+    mockAuthOk();
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
+      response: {status: 200, headers: {}},
+      stream: Readable.from([])
+    });
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com', method: 'GET'});
+    expect(res.status).toBe(403);
+    expect(httpSpy).not.toHaveBeenCalled();
+  });
+
+  test('session JWT with ds_aiDisabled returns 403 and no egress', async () => {
+    mockContext({'aiSettings.allowBrowserProxy': true});
+    jest
+      .spyOn(docsCoServer, 'checkJwtHeader')
+      .mockResolvedValue({decoded: {document: {key: 'doc'}, editorConfig: {user: {id: 'user'}, ds_aiDisabled: true}}});
+    const httpSpy = jest.spyOn(utils, 'httpRequest').mockResolvedValue({
+      response: {status: 200, headers: {}},
+      stream: Readable.from([])
+    });
+    const res = await postJson('/ai-proxy', {target: 'https://api.example.com', method: 'GET'});
+    expect(res.status).toBe(403);
+    expect(httpSpy).not.toHaveBeenCalled();
   });
 
   test('relay rejects invalid target URL with 400', async () => {

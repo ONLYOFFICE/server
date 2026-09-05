@@ -612,6 +612,13 @@ const changeConnectionInfo = co.wrap(function* (ctx, conn, cmd) {
 function needSendChanges(conn) {
   return !conn.user?.view || utils.isLiveViewer(conn);
 }
+//ai is off only where a signed token says so; the same flag is read from an open, session and version history token
+function isAiDisabledByJwt(decoded) {
+  const edit = decoded?.editorConfig;
+  //the version history payload is flat, so the integrator may sign customization next to key/url instead of under editorConfig
+  return true === edit?.ds_aiDisabled || false === edit?.customization?.ai || false === decoded?.customization?.ai;
+}
+
 function fillJwtByConnection(ctx, conn) {
   return co(function* () {
     const tenTokenSessionAlgorithm = ctx.getCfg('services.CoAuthoring.token.session.algorithm', cfgTokenSessionAlgorithm);
@@ -644,6 +651,10 @@ function fillJwtByConnection(ctx, conn) {
     // presenter viewer opens with same session jwt. do not put sessionId to jwt
     // edit.ds_sessionId = conn.sessionId;
     edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
+    //keep ai-off flag in session jwt so ai-proxy can reject requests of this session
+    if (conn.aiDisabled) {
+      edit.ds_aiDisabled = true;
+    }
 
     // signed with the key derived for the session family, so an inbox token cannot pass at a session sink even where both read one secret file
     return yield signToken(ctx, constants.JWT_PURPOSE_EDITOR_SESSION, payload, tenTokenSessionAlgorithm, tenTokenSessionExpires / 1000);
@@ -1892,6 +1903,7 @@ exports.getRequestParams = getRequestParams;
 exports.checkJwt = checkJwt;
 exports.checkJwtForConnection = checkJwtForConnection;
 exports.checkJwtHeader = checkJwtHeader;
+exports.isAiDisabledByJwt = isAiDisabledByJwt;
 exports.validateJwtPayloadForOperation = jwtService.validateJwtPayloadForOperation;
 
 async function encryptPasswordParams(ctx, data) {
@@ -2875,6 +2887,10 @@ exports.install = function (server, app, callbackFunction) {
       }
     }
 
+    //ai-off flag comes from customization on open and from ds_aiDisabled on session restore; the token decides, not the client
+    //TODO: this path runs only while services.CoAuthoring.token.enable.browser is on; with jwt off the integrator flag never arrives, aiSettings.enable is the only switch left
+    data.aiDisabled = isAiDisabledByJwt(decoded);
+
     //todo make required fields
     if (decoded.url || decoded.payload || (decoded.key && !wopiClient.isWopiJwtToken(decoded))) {
       ctx.logger.warn('fillDataFromJwt token has invalid format');
@@ -2886,6 +2902,9 @@ exports.install = function (server, app, callbackFunction) {
     const openCmd = data.openCmd;
     data.mode = 'view';
     data.coEditingMode = 'strict';
+    //history reopens a fresh connection, so the restriction of the parent session is gone and only this token can carry it
+    //TODO: an integrator that does not sign the ai flag into its history token keeps ai available in history sessions; aiSettings.enable is the only switch that covers them
+    data.aiDisabled = isAiDisabledByJwt(decoded);
     data.docid = decoded.key;
     openCmd.url = decoded.url;
     if (decoded.changesUrl && decoded.previous) {
@@ -3083,6 +3102,8 @@ exports.install = function (server, app, callbackFunction) {
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
       conn.isEnterCorrectPassword = data.isEnterCorrectPassword;
       conn.denyChangeName = data.denyChangeName;
+      //trusted only when it came from a signed token; a re-auth on the same connection may switch ai off but never back on
+      conn.aiDisabled = conn.aiDisabled || true === data.aiDisabled;
       conn.editorType = data['editorType'];
       if (data.sessionTimeConnect) {
         conn.sessionTimeConnect = data.sessionTimeConnect;
@@ -3988,7 +4009,8 @@ exports.install = function (server, app, callbackFunction) {
 
         const [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
         const pluginSettings = yield aiProxyHandler.getPluginSettingsForInterface(ctx);
-        const tenAllowBrowserProxy = ctx.getCfg('aiSettings.allowBrowserProxy', cfgAiApiAllowBrowserProxy);
+        //while ai is off the browser gets neither settings nor the permission to reach a provider on its own
+        const tenAllowBrowserProxy = aiProxyHandler.isAiEnabled(ctx) && ctx.getCfg('aiSettings.allowBrowserProxy', cfgAiApiAllowBrowserProxy);
         sendData(ctx, conn, {
           type: 'license',
           license: {

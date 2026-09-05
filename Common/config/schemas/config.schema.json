@@ -72,6 +72,13 @@
       "additionalProperties": false,
       "x-scope": ["admin", "tenant"],
       "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Whether AI features are enabled in the editors or not. When disabled, the AI plugin is excluded from /plugins.json, its settings are not sent to the editors and /ai-proxy requests are rejected with HTTP 403.",
+          "default": true,
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
+        },
         "version": {
           "type": "integer",
           "description": "The version of the AI SDK.",
