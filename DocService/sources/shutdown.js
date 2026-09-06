@@ -74,7 +74,6 @@ function newRecoveryReport() {
     total: 0,
     claimed: 0,
     missed: 0,
-    editing: 0,
     inFlight: 0,
     noCache: 0,
     status: 0,
@@ -141,10 +140,7 @@ async function getSkipReason(ctx, row) {
   if (commonDefines.FileStatus.Ok !== row.status) {
     return 'status';
   }
-  const editorsCount = await docsCoServer.getEditorsCountPromise(ctx, row.id);
-  if (editorsCount > 0) {
-    return 'editing';
-  }
+  // presence is not asked: it outlives a killed process, and a save started by a live editor shows up as inFlight anyway
   const cache = await storage.listObjects(ctx, row.id);
   if (0 === cache.length) {
     return 'noCache';
@@ -245,12 +241,11 @@ async function startRecovery(ctx, editorStat, queue, startTime, report) {
   }
   ctx.initDefault();
   ctx.logger.info(
-    'shutdown recovery claimed %d of %d docs with changes: enqueueFailed=%d missed=%d editing=%d inFlight=%d noCache=%d status=%d unvisited=%d errors=%d',
+    'shutdown recovery claimed %d of %d docs with changes: enqueueFailed=%d missed=%d inFlight=%d noCache=%d status=%d unvisited=%d errors=%d',
     report.claimed,
     report.total,
     report.enqueueFailed,
     report.missed,
-    report.editing,
     report.inFlight,
     report.noCache,
     report.status,

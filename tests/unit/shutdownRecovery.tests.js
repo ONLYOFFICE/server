@@ -215,7 +215,6 @@ function fullReport(overrides) {
     total: 0,
     claimed: 0,
     missed: 0,
-    editing: 0,
     inFlight: 0,
     noCache: 0,
     status: 0,
@@ -369,8 +368,7 @@ describe('shutdown with recovery', () => {
 
     expect(res).toBe(true);
     expect(canvasService.saveChangesToForgotten).not.toHaveBeenCalled();
-    expect(docsCoServer.getEditorsCountPromise).not.toHaveBeenCalled();
-    expect(claimLog(ctx.logger)).toEqual([expect.any(String), 0, 4, 0, 0, 0, 2, 0, 2, 0, 0]);
+    expect(claimLog(ctx.logger)).toEqual([expect.any(String), 0, 4, 0, 0, 2, 0, 2, 0, 0]);
     expect(taskResult.select.mock.calls.map(call => call[1]).sort()).toEqual(['doc-none', 'doc-queued', 'doc-saving', 'doc-updating']);
     expect(shutdownModule.getLastRecoveryReport()).toMatchObject({inFlight: 2, status: 2, delivered: 4});
   });
@@ -437,19 +435,19 @@ describe('shutdown with recovery', () => {
     expect(shutdownModule.getLastRecoveryReport()).toMatchObject({clean: false, stoppedBy: null, claimed: 0, inFlight: 1, pending: 1});
   });
 
-  test('a document that still has editors is left to its own close path but verified at the end', async () => {
+  test('presence left over by a killed process does not stop the claim', async () => {
     const ctx = makeCtx();
-    sqlBase.getDocumentsWithChanges.mockResolvedValue([makeRow('doc-live')]);
+    sqlBase.getDocumentsWithChanges.mockResolvedValue([makeRow('doc-crashed')]);
+    // a killed process leaves its presence in redis for expire.presence, so it cannot vouch for a live session
     docsCoServer.getEditorsCountPromise.mockResolvedValue(1);
-    selectDelivered();
+    selectForgotten();
 
     const res = await shutdownModule.shutdown(ctx, makeEditorStat(0), true, true);
 
     expect(res).toBe(true);
-    expect(docsCoServer.getEditorsCountPromise).toHaveBeenCalledWith(ctx, 'doc-live');
-    expect(canvasService.saveChangesToForgotten).not.toHaveBeenCalled();
-    expect(taskResult.select).toHaveBeenCalledWith(ctx, 'doc-live');
-    expect(shutdownModule.getLastRecoveryReport()).toMatchObject({editing: 1, delivered: 1});
+    expect(docsCoServer.getEditorsCountPromise).not.toHaveBeenCalled();
+    expect(canvasService.saveChangesToForgotten).toHaveBeenCalledWith(ctx, 'doc-crashed', FileStatus.Ok, 0, expect.anything());
+    expect(shutdownModule.getLastRecoveryReport()).toMatchObject({clean: true, claimed: 1, forgotten: 1});
   });
 
   test('a lost CAS counts as missed, not claimed, and the row is still verified', async () => {
@@ -579,7 +577,7 @@ describe('shutdown with recovery', () => {
 
     expect(res).toBe(true);
     expect(canvasService.saveChangesToForgotten).toHaveBeenCalledTimes(2);
-    expect(claimLog(ctx.logger)).toEqual([expect.any(String), 1, 2, 0, 0, 0, 0, 0, 0, 0, 1]);
+    expect(claimLog(ctx.logger)).toEqual([expect.any(String), 1, 2, 0, 0, 0, 0, 0, 0, 1]);
     expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('shutdown recovery error'), expect.stringContaining('boom'));
     expect(shutdownModule.getLastRecoveryReport()).toMatchObject({finished: true, clean: false, errors: 1, forgotten: 1});
   });
@@ -667,12 +665,12 @@ describe('shutdown with recovery', () => {
     expect(shutdownModule.getLastRecoveryReport()).toMatchObject({clean: false, stoppedBy: 'aborted', claimed: 3, unvisited: 7, forgotten: 3});
   });
 
-  test('a resume that lands during the presence check does not claim the row', async () => {
+  test('a resume that lands during the cache check does not claim the row', async () => {
     const ctx = makeCtx();
     sqlBase.getDocumentsWithChanges.mockResolvedValue(makeRows(2, 'doc-'));
-    docsCoServer.getEditorsCountPromise.mockImplementation(() => {
+    storage.listObjects.mockImplementation(() => {
       docsCoServer.getIsShutdown.mockReturnValue(false);
-      return Promise.resolve(0);
+      return Promise.resolve(['Editor.bin']);
     });
 
     const res = await shutdownModule.shutdown(ctx, makeEditorStat(0), true, true);

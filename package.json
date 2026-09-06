@@ -37,6 +37,7 @@
     "storage-tests": "cd ./DocService && jest integration/withServerInstance/storage.tests.js --inject-globals=false --config=../tests/jest.config.js",
     "integration database tests": "cd ./DocService && jest integration/databaseTests --inject-globals=false --config=../tests/jest.config.js --passWithNoTests",
     "integration rabbitmq tests": "cd ./DocService && jest integration/rabbitmq --inject-globals=false --config=../tests/jest.config.js --passWithNoTests",
+    "integration redis tests": "cd ./DocService && jest integration/redis --inject-globals=false --config=../tests/jest.config.js --passWithNoTests",
     "tests": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js",
     "tests:dev": "cd ./DocService && jest --inject-globals=false --config=../tests/jest.config.js --watch",
     "install:Common": "npm ci --prefix ./Common",
