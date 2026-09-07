@@ -713,6 +713,10 @@ function debugMessages(ctx) {
   return ctx.logger.debug.mock.calls.map(args => args[0]);
 }
 
+function warnMessages(ctx) {
+  return ctx.logger.warn.mock.calls.map(args => args[0]);
+}
+
 describe('forcesave callback delivery after final save', () => {
   test.each([commonDefines.FileStatus.SaveVersion, commonDefines.FileStatus.UpdateVersion])(
     'delivers a form submit while the document is in status %i',
@@ -752,7 +756,7 @@ describe('forcesave callback delivery after final save', () => {
       await canvasService.commandSfcCallback(ctx, makeForceSaveCommand(type), true, false);
 
       expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
-      expect(debugMessages(ctx)).toContain('commandSfcCallback skip forcesave after final save: type = %d; status = %s');
+      expect(warnMessages(ctx)).toContain('commandSfcCallback skip forcesave, document is not live: type = %d; status = %s');
     }
   );
 
@@ -764,6 +768,45 @@ describe('forcesave callback delivery after final save', () => {
     await canvasService.commandSfcCallback(ctx, makeForceSaveCommand(commonDefines.c_oAscForceSaveTypes.Button), true, false);
 
     expect(lastCallbackData().getForceSaveType()).toBe(commonDefines.c_oAscForceSaveTypes.Button);
+  });
+
+  test.each([commonDefines.c_oAscForceSaveTypes.Button, commonDefines.c_oAscForceSaveTypes.Timeout])(
+    'delivers forcesave type %i for an encrypted document parked in None',
+    async type => {
+      const ctx = makeContext();
+      await seedTask(ctx, commonDefines.FileStatus.None, constants.NO_ERROR);
+      docsCoServer.sendServerRequest.mockResolvedValue('{"error":0}');
+
+      await canvasService.commandSfcCallback(ctx, makeForceSaveCommand(type), true, true);
+
+      const outputSfc = lastCallbackData();
+      expect(outputSfc).not.toBeNull();
+      expect(outputSfc.getForceSaveType()).toBe(type);
+      expect(outputSfc.getStatus()).toBe(docsCoServer.c_oAscServerStatus.MustSaveForce);
+      expect(debugMessages(ctx)).not.toContain('commandSfcCallback form submit after final save: status = %d');
+    }
+  );
+
+  test('drops a button forcesave in None when the document is not encrypted', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx, commonDefines.FileStatus.None, constants.NO_ERROR);
+    docsCoServer.sendServerRequest.mockResolvedValue('{"error":0}');
+
+    await canvasService.commandSfcCallback(ctx, makeForceSaveCommand(commonDefines.c_oAscForceSaveTypes.Button), true, false);
+
+    expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
+    expect(warnMessages(ctx)).toContain('commandSfcCallback skip forcesave, document is not live: type = %d; status = %s');
+  });
+
+  test('drops a button forcesave for an encrypted document after its final save', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx, commonDefines.FileStatus.UpdateVersion, Math.floor(Date.now() / 60000));
+    docsCoServer.sendServerRequest.mockResolvedValue('{"error":0}');
+
+    await canvasService.commandSfcCallback(ctx, makeForceSaveCommand(commonDefines.c_oAscForceSaveTypes.Button), true, true);
+
+    expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
+    expect(warnMessages(ctx)).toContain('commandSfcCallback skip forcesave, document is not live: type = %d; status = %s');
   });
 });
 
@@ -807,17 +850,27 @@ function makeSaveFileRes() {
   return {sendStatus: jestApi.fn(), setHeader: jestApi.fn(), send: jestApi.fn()};
 }
 
-async function seedSaveFileTask() {
+//an encrypted session is never assembled on the server, so its row is parked in None
+async function seedSaveFileTask(status = commonDefines.FileStatus.None) {
   const task = new taskResult.TaskResultData();
   task.tenant = SAVE_FILE_TENANT;
   task.key = SAVE_FILE_DOC_ID;
-  task.status = commonDefines.FileStatus.Ok;
+  task.status = status;
   task.statusInfo = constants.NO_ERROR;
   task.userIndex = 1;
   task.changeId = 0;
   task.callback = 'http://callback';
   task.baseurl = 'http://docservice';
   await taskResult.upsert({tenant: SAVE_FILE_TENANT}, task);
+}
+
+async function setSaveFileStatus(status, statusInfo = constants.NO_ERROR) {
+  const task = new taskResult.TaskResultData();
+  task.tenant = SAVE_FILE_TENANT;
+  task.key = SAVE_FILE_DOC_ID;
+  task.status = status;
+  task.statusInfo = statusInfo;
+  await taskResult.update({tenant: SAVE_FILE_TENANT}, task);
 }
 
 function saveFileCallbackData() {
@@ -934,6 +987,16 @@ describe('saveFile', () => {
       const forceSave = docsCoServer.setForceSave.mock.calls[0][2];
       expect(forceSave.getAuthorUserId()).toBeUndefined();
       expect(forceSave.getAuthorUserIndex()).toBe(SAVE_FILE_TOKEN_USER.index);
+    });
+
+    test('button forcesave is dropped after the final save of the session', async () => {
+      await setSaveFileStatus(commonDefines.FileStatus.UpdateVersion, Math.floor(Date.now() / 60000));
+      const res = makeSaveFileRes();
+
+      await canvasService.saveFile(makeSaveFileReq(String(commonDefines.c_oAscForceSaveTypes.Button)), res);
+
+      expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
+      expect(res.sendStatus).toHaveBeenCalledWith(400);
     });
 
     test('keeps the changes mark of the running forcesave record', async () => {

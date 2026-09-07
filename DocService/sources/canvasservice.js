@@ -1324,11 +1324,13 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
       if (isSfcm) {
         const selectRes = yield taskResult.select(ctx, docId);
         const row = selectRes.length > 0 ? selectRes[0] : null;
-        //send only if FileStatus.Ok to prevent forcesave after final save
+        //an encrypted document is never assembled on the server, so its row stays at None for the whole editing session
+        const isLive = row && (commonDefines.FileStatus.Ok == row.status || (isEncrypted && commonDefines.FileStatus.None == row.status));
+        //send only for a live document to prevent forcesave after final save
         //form submit is a separate integrator event, not a document version, so deliver it even after final save
         const isFormSubmit = forceSaveType === commonDefines.c_oAscForceSaveTypes.Form;
-        if (row && (row.status == commonDefines.FileStatus.Ok || isFormSubmit)) {
-          if (row.status != commonDefines.FileStatus.Ok) {
+        if (isLive || (row && isFormSubmit)) {
+          if (!isLive) {
             ctx.logger.debug('commandSfcCallback form submit after final save: status = %d', row.status);
           }
           if (forceSave) {
@@ -1367,7 +1369,7 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
             }
           }
         } else {
-          ctx.logger.debug('commandSfcCallback skip forcesave after final save: type = %d; status = %s', forceSaveType, row && row.status);
+          ctx.logger.warn('commandSfcCallback skip forcesave, document is not live: type = %d; status = %s', forceSaveType, row && row.status);
         }
       } else {
         //if anybody in document stop save
