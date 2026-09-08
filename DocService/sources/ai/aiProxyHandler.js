@@ -377,7 +377,7 @@ async function proxyRequest(req, res) {
       ctx.setUserId(userId);
 
       //TODO: per-session enforcement only works while services.CoAuthoring.token.enable.browser is on; with jwt off the integrator flag never reaches the session token, use aiSettings.enable instead
-      //reject sessions opened with customization.ai === false (ds_aiDisabled is set by fillJwtByConnection)
+      //reject sessions opened with customization.ai.disabled (ds_aiDisabled is set by fillJwtByConnection)
       if (true === checkJwtRes?.decoded?.editorConfig?.ds_aiDisabled) {
         ctx.logger.warn('proxyRequest: AI is disabled for this editor session');
         res.status(403).json({error: {message: 'proxyRequest: AI is disabled for this editor session', code: '403'}});

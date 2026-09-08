@@ -53,8 +53,8 @@ describe('DocsCoServer isAiDisabledByJwt', () => {
 
   test('open token keeps ai unless the integrator turned it off', () => {
     expect(docsCoServer.isAiDisabledByJwt(openToken())).toBe(false);
-    expect(docsCoServer.isAiDisabledByJwt(openToken({ai: true}))).toBe(false);
-    expect(docsCoServer.isAiDisabledByJwt(openToken({ai: false}))).toBe(true);
+    expect(docsCoServer.isAiDisabledByJwt(openToken({ai: {disabled: false}}))).toBe(false);
+    expect(docsCoServer.isAiDisabledByJwt(openToken({ai: {disabled: true}}))).toBe(true);
   });
 
   test('session token carries the restriction back on reconnect', () => {
@@ -65,19 +65,20 @@ describe('DocsCoServer isAiDisabledByJwt', () => {
   test('version history token keeps ai when it says nothing, as before the flag existed', () => {
     const historyToken = {key: 'doc_1', url: 'https://example.com/1', version: 1};
     expect(docsCoServer.isAiDisabledByJwt(historyToken)).toBe(false);
-    expect(docsCoServer.isAiDisabledByJwt({...historyToken, editorConfig: {customization: {ai: true}}})).toBe(false);
+    expect(docsCoServer.isAiDisabledByJwt({...historyToken, editorConfig: {customization: {ai: {disabled: false}}}})).toBe(false);
   });
 
   test('version history token carries the restriction in either shape the integrator signs', () => {
     const historyToken = {key: 'doc_1', url: 'https://example.com/1', version: 1};
-    expect(docsCoServer.isAiDisabledByJwt({...historyToken, editorConfig: {customization: {ai: false}}})).toBe(true);
-    expect(docsCoServer.isAiDisabledByJwt({...historyToken, customization: {ai: false}})).toBe(true);
+    expect(docsCoServer.isAiDisabledByJwt({...historyToken, editorConfig: {customization: {ai: {disabled: true}}}})).toBe(true);
+    expect(docsCoServer.isAiDisabledByJwt({...historyToken, customization: {ai: {disabled: true}}})).toBe(true);
   });
 
   test('a malformed or empty token restricts nothing', () => {
     expect(docsCoServer.isAiDisabledByJwt(undefined)).toBe(false);
     expect(docsCoServer.isAiDisabledByJwt({editorConfig: null})).toBe(false);
-    expect(docsCoServer.isAiDisabledByJwt({editorConfig: {customization: {ai: 'false'}}})).toBe(false);
+    expect(docsCoServer.isAiDisabledByJwt({editorConfig: {customization: {ai: false}}})).toBe(false);
+    expect(docsCoServer.isAiDisabledByJwt({editorConfig: {customization: {ai: {disabled: 'true'}}}})).toBe(false);
   });
 });
 

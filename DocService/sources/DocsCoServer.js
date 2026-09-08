@@ -616,7 +616,7 @@ function needSendChanges(conn) {
 function isAiDisabledByJwt(decoded) {
   const edit = decoded?.editorConfig;
   //the version history payload is flat, so the integrator may sign customization next to key/url instead of under editorConfig
-  return true === edit?.ds_aiDisabled || false === edit?.customization?.ai || false === decoded?.customization?.ai;
+  return true === edit?.ds_aiDisabled || true === edit?.customization?.ai?.disabled || true === decoded?.customization?.ai?.disabled;
 }
 
 function fillJwtByConnection(ctx, conn) {
