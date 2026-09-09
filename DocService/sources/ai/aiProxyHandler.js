@@ -52,13 +52,13 @@ const cfgAiSettings = config.get('aiSettings');
 
 const clientStatsD = statsDClient.getClient();
 
-// AI plugin config.json guids (web DD007, desktop DD777) whose presence enables /ai-proxy; lowercased for case-insensitive match.
+// AI Tools config.json guids (web DD007, desktop DD777) whose presence enables /ai-proxy; lowercased for case-insensitive match.
 const AI_PLUGIN_GUIDS = ['asc.{9dc93cdb-b576-4f0c-b55e-fcc9c48dd007}'];
 
 // Placeholder sent to the browser instead of a real key so client SDKs pass their local auth checks; insertKeyToProvider swaps it for the real key on proxy egress.
 const AI_KEY_PLACEHOLDER = '********';
 
-// Server-wide (tenant-aware) AI switch: off hides the AI plugin, stops shipping its settings and closes /ai-proxy.
+// Server-wide (tenant-aware) AI switch: off hides AI Tools, stops shipping its settings and closes /ai-proxy.
 function isAiEnabled(ctx) {
   return false !== ctx.getCfg('aiSettings.enable', cfgAiEnable);
 }
@@ -338,11 +338,11 @@ async function proxyRequest(req, res) {
       res.status(403).json({error: {message: 'proxyRequest: AI is disabled', code: '403'}});
       return;
     }
-    // Disable the endpoint when the AI plugin was removed from the distribution: no installed AI plugin guid means no legit caller.
+    // Disable the endpoint when AI Tools was removed from the distribution: no installed AI Tools guid means no legit caller.
     const installedPluginGuids = await utils.getInstalledPluginGuids();
     if (!AI_PLUGIN_GUIDS.some(guid => installedPluginGuids.has(guid))) {
-      ctx.logger.warn('proxyRequest: AI plugin is not installed; endpoint disabled');
-      res.status(404).json({error: {message: 'proxyRequest: AI plugin is not installed', code: '404'}});
+      ctx.logger.warn('proxyRequest: AI Tools is not installed; endpoint disabled');
+      res.status(404).json({error: {message: 'proxyRequest: AI Tools is not installed', code: '404'}});
       return;
     }
     const tenAiApiTimeout = ctx.getCfg('aiSettings.timeout', cfgAiApiTimeout);

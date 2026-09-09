@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
     //the scan itself is cached in getInstalledPlugins and dropped by the plugins folder watcher
     let plugins = await utils.getInstalledPlugins();
     let autostart = config.get(cfgPluginsAutostart);
-    //do not advertise the bundled ai plugin at all when ai is turned off for this tenant
+    //do not advertise the bundled AI Tools at all when ai is turned off for this tenant
     if (!aiProxyHandler.isAiEnabled(ctx)) {
       plugins = plugins.filter(plugin => !isAiPlugin(plugin.guid));
       autostart = Array.isArray(autostart) ? autostart.filter(guid => !isAiPlugin(guid)) : autostart;

@@ -74,7 +74,7 @@
       "properties": {
         "enable": {
           "type": "boolean",
-          "description": "Whether AI features are enabled in the editors or not. When disabled, the AI plugin is excluded from /plugins.json, its settings are not sent to the editors and /ai-proxy requests are rejected with HTTP 403.",
+          "description": "Whether AI features are enabled in the editors or not. When disabled, AI Tools is excluded from /plugins.json, its settings are not sent to the editors and /ai-proxy requests are rejected with HTTP 403.",
           "default": true,
           "x-scope": ["admin", "tenant"],
           "x-tenantOverride": true
@@ -143,13 +143,13 @@
         },
         "pluginSettings": {
           "type": "object",
-          "description": "Opaque universal AI plugin settings blob (profiles, assignments, mcpServers, webSearch, etc.) owned by the AI plugin and round-tripped verbatim.",
+          "description": "Opaque universal AI Tools settings blob (profiles, assignments, mcpServers, webSearch, etc.) owned by AI Tools and round-tripped verbatim.",
           "additionalProperties": true,
           "x-scope": ["admin", "tenant"],
           "x-tenantOverride": true
         }
       },
-      "x-section-intro": "These parameters configure the AI plugin properties."
+      "x-section-intro": "These parameters configure the AI Tools properties."
     },
     "log": {
       "type": "object",

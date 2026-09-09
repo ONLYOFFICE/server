@@ -397,7 +397,7 @@ describe('aiProxyHandler proxyRequest (merged relay)', () => {
     jest.restoreAllMocks();
   });
 
-  // AI plugin present by default so the install gate lets requests through; disabled-path tests override this.
+  // AI Tools present by default so the install gate lets requests through; disabled-path tests override this.
   beforeEach(() => {
     jest.spyOn(utils, 'getInstalledPluginGuids').mockResolvedValue(new Set(['asc.{9dc93cdb-b576-4f0c-b55e-fcc9c48dd007}']));
   });
@@ -425,7 +425,7 @@ describe('aiProxyHandler proxyRequest (merged relay)', () => {
   test.each([
     ['no plugins installed', new Set()],
     ['only an unrelated plugin installed', new Set(['asc.{00000000-0000-0000-0000-000000000000}'])]
-  ])('AI plugin not installed (%s) returns 404', async (_label, guids) => {
+  ])('AI Tools not installed (%s) returns 404', async (_label, guids) => {
     mockContext({'aiSettings.allowBrowserProxy': true});
     mockAuthOk();
     utils.getInstalledPluginGuids.mockResolvedValue(guids);

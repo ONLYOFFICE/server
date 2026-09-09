@@ -33,7 +33,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-// The bundled AI plugin must disappear from the plugin list the editors read when a tenant turns AI off
+// The bundled AI Tools must disappear from the plugin list the editors read when a tenant turns AI off
 
 'use strict';
 
@@ -111,7 +111,7 @@ describe('plugins.json route', () => {
     expect(body.autostart).toEqual([AI_GUID, OTHER_GUID]);
   });
 
-  test('hides the ai plugin and its autostart entry while ai is disabled', async () => {
+  test('hides AI Tools and its autostart entry while ai is disabled', async () => {
     mockCfg(false);
     mockPlugins();
     const res = await getJson();
