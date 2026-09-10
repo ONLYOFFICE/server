@@ -585,6 +585,10 @@ async function downloadUrlPromise(
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
     } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      // axios reports its own inactivity timeout as ECONNABORTED, so only a peer reset is worth another attempt
+      if ('ECONNRESET' === err.code) {
+        err.connectionReset = true;
+      }
       err.code = 'ESOCKETTIMEDOUT';
     }
     if (err.status) {
@@ -677,6 +681,10 @@ async function postRequestPromise(
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
     } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      // axios reports its own inactivity timeout as ECONNABORTED, so only a peer reset is worth another attempt
+      if ('ECONNRESET' === err.code) {
+        err.connectionReset = true;
+      }
       err.code = 'ESOCKETTIMEDOUT';
     }
     if (err.status) {
@@ -762,6 +770,10 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
     } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      // axios reports its own inactivity timeout as ECONNABORTED, so only a peer reset is worth another attempt
+      if ('ECONNRESET' === err.code) {
+        err.connectionReset = true;
+      }
       err.code = 'ESOCKETTIMEDOUT';
     }
     if (err.status) {

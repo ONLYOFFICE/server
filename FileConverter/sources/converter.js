@@ -561,8 +561,8 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
         ctx.logger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s %s', uri, downloadAttemptCount, err.code, err.connect, err.stack);
-        //not continue attempts if timeout
-        if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+        //not continue attempts if timeout, but a dropped connection is not a timeout
+        if ((err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') && !err.connectionReset) {
           break;
         } else if (err.code === 'EMSGSIZE') {
           res = constants.CONVERT_LIMITS;
@@ -684,6 +684,11 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
 
   if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
+    if (!fs.existsSync(dataConvert.fileFrom)) {
+      // the storage cache is gone, report it as temporary instead of throwing a bare ENOENT
+      ctx.logger.warn('processDownloadFromStorage empty storage cache: %s', dataConvert.fileFrom);
+      return constants.CONVERT_TEMPORARY;
+    }
     const sha256 = yield utils.checksumFile('sha256', dataConvert.fileFrom);
     if (tenEditor['binaryChanges']) {
       res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256);

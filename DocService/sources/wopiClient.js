@@ -447,6 +447,22 @@ function getWopiErrorMessage(statusCode) {
   }
 }
 
+// the host explains a refused lock or save only in these headers, so they must survive a non-debug log level
+function getWopiErrorHeaders(headers) {
+  if (!headers) {
+    return undefined;
+  }
+  const wanted = ['x-wopi-lock', 'x-wopi-lockfailurereason', 'x-wopi-servererror', 'x-wopi-invalidfilenameerror'];
+  const res = {};
+  Object.keys(headers).forEach(name => {
+    const lower = name.toLowerCase();
+    if (wanted.includes(lower)) {
+      res[lower] = headers[name];
+    }
+  });
+  return Object.keys(res).length > 0 ? res : undefined;
+}
+
 function isWopiJwtToken(decoded) {
   return !!decoded.fileInfo;
 }
@@ -985,7 +1001,13 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
         ctx.logger.debug('wopi PutFile error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
         postRes = {putFileError: true, statusCode: err.statusCode || 0, responseHeaders: err.response?.headers};
       } else {
-        ctx.logger.error('wopi PutFile error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
+        ctx.logger.error(
+          'wopi PutFile error status=%d (%s) wopiHeaders=%j:%s',
+          err.statusCode,
+          errorMsg,
+          getWopiErrorHeaders(err.response?.headers),
+          err.stack
+        );
       }
     } finally {
       ctx.logger.info('wopi PutFile end');
@@ -1174,7 +1196,14 @@ async function lock(ctx, command, lockId, fileInfo, userAuth) {
     res.error = true;
     res.statusCode = err.statusCode;
     const errorMsg = getWopiErrorMessage(err.statusCode);
-    ctx.logger.error('wopi %s error status=%d (%s):%s', command, err.statusCode, errorMsg, err.stack);
+    ctx.logger.error(
+      'wopi %s error status=%d (%s) wopiHeaders=%j:%s',
+      command,
+      err.statusCode,
+      errorMsg,
+      getWopiErrorHeaders(err.response?.headers),
+      err.stack
+    );
   } finally {
     ctx.logger.info('wopi %s end', command);
   }
@@ -1206,7 +1235,13 @@ async function unlock(ctx, wopiParams) {
     res = true;
   } catch (err) {
     const errorMsg = getWopiErrorMessage(err.statusCode);
-    ctx.logger.error('wopi Unlock error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
+    ctx.logger.error(
+      'wopi Unlock error status=%d (%s) wopiHeaders=%j:%s',
+      err.statusCode,
+      errorMsg,
+      getWopiErrorHeaders(err.response?.headers),
+      err.stack
+    );
   } finally {
     ctx.logger.info('wopi Unlock end');
   }

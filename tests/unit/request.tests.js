@@ -122,6 +122,11 @@ describe('HTTP Request Unit Tests', () => {
       }, 200); // 200 ms delay before sending any response
     });
 
+    // Endpoint that drops the connection before any response, so the client sees a peer reset
+    app.get('/api/reset-connection', (req, _res) => {
+      req.socket.destroy();
+    });
+
     // Endpoint that simulates partial response with incomplete body
     app.get('/api/partial-response', (req, res) => {
       // Send headers immediately
@@ -580,6 +585,28 @@ describe('HTTP Request Unit Tests', () => {
         // Different implementations might throw different error messages/codes
         expect(error.code).toBe('ESOCKETTIMEDOUT');
       }
+    });
+
+    test.concurrent('a peer reset is reported as retryable, unlike our own inactivity timeout', async () => {
+      let resetError;
+      try {
+        await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/reset-connection`, {timeout: {connectionAndInactivity: '5000ms'}, limit: 1024 * 1024});
+        throw new Error('Expected an error to be thrown');
+      } catch (error) {
+        resetError = error;
+      }
+      expect(resetError.code).toBe('ESOCKETTIMEDOUT');
+      expect(resetError.connectionReset).toBe(true);
+
+      let timeoutError;
+      try {
+        await utils.downloadUrlPromise(ctx, `${BASE_URL}/api/slow-headers`, {timeout: {connectionAndInactivity: '100ms'}, limit: 1024 * 1024});
+        throw new Error('Expected an error to be thrown');
+      } catch (error) {
+        timeoutError = error;
+      }
+      expect(timeoutError.code).toBe('ESOCKETTIMEDOUT');
+      expect(timeoutError.connectionReset).toBeUndefined();
     });
 
     test.concurrent('connectionAndInactivity does not trigger when longer than server delay', async () => {
