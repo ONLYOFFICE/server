@@ -42,7 +42,10 @@
 const savedNodeConfig = process.env.NODE_CONFIG;
 process.env.NODE_CONFIG = JSON.stringify({services: {CoAuthoring: {token: {purposeCheck: 'validate'}}}});
 
-const {describe, test, expect} = require('@jest/globals');
+const {describe, beforeEach, afterEach, test, expect, jest: jestGlobals} = require('@jest/globals');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 const jwtService = require('../../DocService/sources/jwtService');
 const converterService = require('../../DocService/sources/converterservice');
@@ -1321,5 +1324,196 @@ describe('getJwtHsKey', () => {
   test('refuses zero-length key material', () => {
     expect(utils.getJwtHsKey('')).toBeUndefined();
     expect(utils.getJwtHsKey(Buffer.alloc(0))).toBeUndefined();
+  });
+  test('gives a string and a Buffer of the same bytes the same key material', () => {
+    const fromString = utils.getJwtHsKey('shared-key-material');
+    const fromBuffer = utils.getJwtHsKey(Buffer.from('shared-key-material', 'utf8'));
+    expect(fromString).toBeDefined();
+    expect(fromBuffer).toBeDefined();
+    expect(fromString.export().equals(fromBuffer.export())).toBe(true);
+  });
+  test('refuses an absent secret whether or not a string secret warmed the cache', () => {
+    expect(utils.getJwtHsKey(undefined)).toBeUndefined();
+    expect(utils.getJwtHsKey(null)).toBeUndefined();
+    // a tenant whose secret file holds the literal text used to seed the cache slot an absent secret coerced to
+    expect(utils.getJwtHsKey('undefined')).toBeDefined();
+    expect(utils.getJwtHsKey('null')).toBeDefined();
+    expect(utils.getJwtHsKey(undefined)).toBeUndefined();
+    expect(utils.getJwtHsKey(null)).toBeUndefined();
+  });
+  test('refuses everything that is not string or Buffer key material', () => {
+    for (const bad of [0, 1, true, false, {}, [], () => {}, Symbol('s'), new Uint8Array([1, 2, 3])]) {
+      expect(utils.getJwtHsKey(bad)).toBeUndefined();
+    }
+  });
+  test('keeps binary secrets apart that a utf8 coercion would merge', () => {
+    const first = utils.getJwtHsKey(Buffer.from([0x80]));
+    const second = utils.getJwtHsKey(Buffer.from([0x81]));
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    expect(first.export().equals(Buffer.from([0x80]))).toBe(true);
+    expect(second.export().equals(Buffer.from([0x81]))).toBe(true);
+  });
+  test('a Buffer secret never picks up the key of a string that looks like its cache label', () => {
+    const binary = Buffer.from([0xc3, 0x28]);
+    const asBase64 = binary.toString('base64');
+    expect(utils.getJwtHsKey(asBase64).export().equals(Buffer.from(asBase64, 'utf8'))).toBe(true);
+    expect(utils.getJwtHsKey(binary).export().equals(binary)).toBe(true);
+  });
+});
+
+describe('signing refuses missing key material', () => {
+  const signCtx = {getCfg: (key, def) => def, logger: {debug() {}, warn() {}, error() {}}};
+  test('fillJwtForRequest throws instead of signing with a cached foreign key', () => {
+    // the literal text is what an absent secret coerced to while the key cache was a plain object
+    utils.getJwtHsKey('undefined');
+    expect(() => utils.fillJwtForRequest(signCtx, {a: 1}, undefined, true)).toThrow(/missing or invalid jwt secret/);
+    expect(() => utils.fillJwtForRequest(signCtx, {a: 1}, '', true)).toThrow(/missing or invalid jwt secret/);
+  });
+  test('isJwtHsKeyMaterial agrees with what getJwtHsKey accepts', () => {
+    for (const good of ['s', 'undefined', Buffer.from([0x00])]) {
+      expect(utils.isJwtHsKeyMaterial(good)).toBe(true);
+      expect(utils.getJwtHsKey(good)).toBeDefined();
+    }
+    for (const bad of [undefined, null, '', Buffer.alloc(0), 42, {}]) {
+      expect(utils.isJwtHsKeyMaterial(bad)).toBe(false);
+      expect(utils.getJwtHsKey(bad)).toBeUndefined();
+    }
+  });
+});
+
+// The tenant half of the same guard: over real tenant directories, a tenant without secret.key is refused whichever tenant was served before it.
+describe('tenant secret isolation in the jwt key cache', () => {
+  const SEED_TENANT = 'seed.example.test';
+  const MISSING_TENANT = 'missing.example.test';
+  const SEED_SECRET = 'undefined';
+  const CONVERTER_PAYLOAD = {url: 'http://storage/in.docx', filetype: 'docx', outputtype: 'pdf'};
+  const SESSION_PAYLOAD = {document: {key: 'doc-1'}, editorConfig: {user: {id: 'u1'}, ds_sessionTimeConnect: 1756000000000}};
+  const MOCKED_MODULES = ['config', '../../Common/sources/logger'];
+
+  let baseDir;
+  let tm;
+  let tenantJwtService;
+
+  // A fresh log4js per isolateModules load would pile listeners onto the shared cluster module, so the logger is stubbed out.
+  const loggerStub = {
+    trace() {},
+    debug() {},
+    info() {},
+    warn() {},
+    error() {},
+    fatal() {},
+    shutdown: cb => cb && cb(),
+    configureLogger() {},
+    getLogger: () => ({trace() {}, debug() {}, info() {}, warn() {}, error() {}, fatal() {}, addContext() {}}),
+    getLoggerConfig: () => ({}),
+    getInitialLoggerConfig: () => ({})
+  };
+
+  // Config mock factory: a Proxy that overrides the tenants keys and forwards everything else to the real config.
+  function makeConfigMock(overrides) {
+    const actual = jestGlobals.requireActual('config');
+    return new Proxy(actual, {
+      get(target, prop) {
+        if (prop === 'get') return key => (key in overrides ? overrides[key] : target.get(key));
+        if (prop === 'has') return key => key in overrides || target.has(key);
+        return target[prop];
+      }
+    });
+  }
+
+  function makeCtx(tenant) {
+    return {
+      tenant,
+      logger: {trace() {}, debug() {}, info() {}, warn() {}, error() {}, fatal() {}},
+      getCfg: (key, def) => def,
+      cleanTenantConfigCache() {}
+    };
+  }
+
+  // Loads tenantManager over a real tenant directory and the jwt layer on top of that same instance.
+  function loadModules() {
+    jestGlobals.isolateModules(() => {
+      jestGlobals.doMock('../../Common/sources/logger', () => loggerStub);
+      jestGlobals.doMock('config', () =>
+        makeConfigMock({'tenants.baseDir': baseDir, 'tenants.cache': {stdTTL: 60, checkperiod: 0, useClones: false}})
+      );
+      // operationContext must win the require cycle it forms with tenantManager, exactly as it does on a real start
+      require('../../Common/sources/operationContext');
+      tm = require('../../Common/sources/tenantManager');
+      tenantJwtService = require('../../DocService/sources/jwtService');
+    });
+    tm.setMultitenantMode(true);
+  }
+
+  beforeEach(() => {
+    baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tenant-secret-'));
+    fs.mkdirSync(path.join(baseDir, SEED_TENANT));
+    fs.mkdirSync(path.join(baseDir, MISSING_TENANT));
+    fs.writeFileSync(path.join(baseDir, SEED_TENANT, 'secret.key'), SEED_SECRET);
+    loadModules();
+  });
+  afterEach(() => {
+    // resetModules drops the loaded instances but keeps the doMock registrations, so every mocked module is released by name
+    MOCKED_MODULES.forEach(name => jestGlobals.dontMock(name));
+    jestGlobals.resetModules();
+    fs.rmSync(baseDir, {recursive: true, force: true});
+  });
+
+  test('the tenant directories are the ones the scenario describes', async () => {
+    expect(await tm.getTenantSecret(makeCtx(SEED_TENANT), commonDefines.c_oAscSecretType.Inbox)).toBe(SEED_SECRET);
+    expect(await tm.getTenantSecret(makeCtx(MISSING_TENANT), commonDefines.c_oAscSecretType.Inbox)).toBeUndefined();
+    expect(fs.existsSync(path.join(baseDir, MISSING_TENANT, 'secret.key'))).toBe(false);
+  });
+
+  test('a tenant without secret.key is refused before and after the seeding tenant is served', async () => {
+    const seedCtx = makeCtx(SEED_TENANT);
+    const missingCtx = makeCtx(MISSING_TENANT);
+    const purpose = constants.JWT_PURPOSE_CONVERTER;
+    // minted outside the server, so the first check below runs against a key cache nothing has warmed yet
+    const foreignToken = jwtLib.sign(CONVERTER_PAYLOAD, SEED_SECRET, {algorithm: 'HS256', expiresIn: 300});
+
+    const cold = await tenantJwtService.checkJwt(missingCtx, foreignToken, purpose);
+    expect(cold.decoded).toBeNull();
+    expect(cold.code).toBe(constants.JWT_ERROR_CODE);
+
+    const seed = await tenantJwtService.checkJwt(seedCtx, foreignToken, purpose);
+    expect(seed.decoded).toBeTruthy();
+
+    const warmed = await tenantJwtService.checkJwt(missingCtx, foreignToken, purpose);
+    expect(warmed.decoded).toBeNull();
+    expect(warmed.code).toBe(constants.JWT_ERROR_CODE);
+  });
+
+  test('the derived key path refuses a token minted with the seeding text once the cache is warm', async () => {
+    const seedCtx = makeCtx(SEED_TENANT);
+    const missingCtx = makeCtx(MISSING_TENANT);
+    const purpose = constants.JWT_PURPOSE_EDITOR_SESSION;
+    // the derived key is a hash, so only an ordinary sink puts the literal text of the seeding secret into the shared cache
+    const inboxToken = jwtLib.sign(CONVERTER_PAYLOAD, SEED_SECRET, {algorithm: 'HS256', expiresIn: 300});
+    expect((await tenantJwtService.checkJwt(seedCtx, inboxToken, constants.JWT_PURPOSE_CONVERTER)).decoded).toBeTruthy();
+
+    // a tenant without secret.key has no derived key either, so a token signed with that text must stay foreign
+    const forged = jwtLib.sign(SESSION_PAYLOAD, SEED_SECRET, {algorithm: 'HS256', expiresIn: 300});
+    const warmed = await tenantJwtService.checkJwt(missingCtx, forged, purpose);
+    expect(warmed.decoded).toBeNull();
+    expect(warmed.code).toBe(constants.JWT_ERROR_CODE);
+
+    // the seeding tenant keeps its own session tokens working, so the refusal above is about the missing key alone
+    const seedToken = await tenantJwtService.signToken(seedCtx, purpose, SESSION_PAYLOAD, 'HS256', 300);
+    expect((await tenantJwtService.checkJwt(seedCtx, seedToken, purpose)).decoded).toBeTruthy();
+    expect((await tenantJwtService.checkJwt(missingCtx, seedToken, purpose)).decoded).toBeNull();
+  });
+
+  test('signing for a tenant without secret.key throws instead of reusing a warm key', async () => {
+    const seedCtx = makeCtx(SEED_TENANT);
+    const missingCtx = makeCtx(MISSING_TENANT);
+    await tenantJwtService.signToken(seedCtx, constants.JWT_PURPOSE_CONVERTER, CONVERTER_PAYLOAD, 'HS256', 300);
+    await expect(tenantJwtService.signToken(missingCtx, constants.JWT_PURPOSE_CONVERTER, CONVERTER_PAYLOAD, 'HS256', 300)).rejects.toThrow(
+      /missing or invalid secret/
+    );
+    await expect(tenantJwtService.signToken(missingCtx, constants.JWT_PURPOSE_EDITOR_SESSION, SESSION_PAYLOAD, 'HS256', 300)).rejects.toThrow(
+      /missing or invalid secret/
+    );
   });
 });

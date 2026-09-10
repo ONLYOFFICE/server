@@ -1345,26 +1345,46 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
-const jwtKeyCache = Object.create(null);
+//separate caches per material type, so a string and a Buffer can never share a cache entry
+const jwtHsKeysByString = new Map();
+const jwtHsKeysByBuffer = new Map();
+/**
+ * Tells whether a value can be used as HS256/HS384/HS512 key material.
+ * The single source of truth for every sign and verify path, so a caller never has to infer it from a cache lookup.
+ * @param {*} secret - candidate JWT symmetric secret
+ * @returns {boolean} true for a non-empty string or Buffer
+ */
+function isJwtHsKeyMaterial(secret) {
+  //modern Node builds a usable KeyObject from zero bytes, so empty material is refused before it can sign or verify
+  if (typeof secret === 'string') {
+    return 0 !== secret.length;
+  }
+  return Buffer.isBuffer(secret) && 0 !== secret.length;
+}
+exports.isJwtHsKeyMaterial = isJwtHsKeyMaterial;
 /**
  * Gets or creates a cached symmetric key for JWT verification (HS256/HS384/HS512).
  * Caches crypto.KeyObject to avoid expensive key creation on every request.
- * Uses the same validation approach as jsonwebtoken library.
  * @param {string|Buffer} secret - JWT symmetric secret
  * @returns {crypto.KeyObject|undefined} Cached secret key object, or undefined when secret is missing/invalid
  */
 function getJwtHsKey(secret) {
-  let res = jwtKeyCache[secret];
-  if (!res && secret != null) {
-    //modern Node builds a usable KeyObject from zero bytes, so empty material is refused before it can sign or verify
-    if (0 === secret.length) {
-      return undefined;
-    }
+  //material is validated before the lookup, so an absent secret can never pick up another tenant's key
+  if (!isJwtHsKeyMaterial(secret)) {
+    return undefined;
+  }
+  const isBuffer = Buffer.isBuffer(secret);
+  const cache = isBuffer ? jwtHsKeysByBuffer : jwtHsKeysByString;
+  //base64 keeps bytes distinct, unlike the utf8 coercion that maps every invalid byte to the same replacement character
+  const cacheKey = isBuffer ? secret.toString('base64') : secret;
+  let res = cache.get(cacheKey);
+  if (!res) {
     try {
-      res = jwtKeyCache[secret] = crypto.createSecretKey(typeof secret === 'string' ? Buffer.from(secret, 'utf8') : secret);
+      res = crypto.createSecretKey(isBuffer ? secret : Buffer.from(secret, 'utf8'));
     } catch {
       return undefined;
     }
+    cache.set(cacheKey, res);
   }
   return res;
 }
@@ -1394,6 +1414,10 @@ function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
   }
 
   const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+  //signing without usable key material is a configuration failure, never something to paper over with a fallback key
+  if (!isJwtHsKeyMaterial(secret)) {
+    throw new Error('fillJwtForRequest: missing or invalid jwt secret');
+  }
   return jwt.sign(data, getJwtHsKey(secret), options);
 }
 exports.fillJwtForRequest = fillJwtForRequest;

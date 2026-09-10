@@ -394,8 +394,12 @@ function verifyJwtWithSecret(ctx, token, secret, quiet) {
   // the raw token is deliberately not carried on the result so a %j dump of it cannot leak a credential
   const res = {decoded: null, description: null, code: null};
   let verified = false;
-  if (undefined == secret) {
-    ctx.logger.warn('empty secret');
+  // a missing secret is a refusal, not a warning, so a tenant without key material can never verify anything
+  if (!utils.isJwtHsKeyMaterial(secret)) {
+    logJwtRefusal(ctx, quiet, 'checkJwt error: missing or invalid secret');
+    res.code = constants.JWT_ERROR_CODE;
+    res.description = constants.JWT_ERROR_REASON + 'secret';
+    return {res, verified};
   }
   try {
     res.decoded = jwt.verify(token, utils.getJwtHsKey(secret), tenTokenVerifyOptions);
@@ -424,6 +428,10 @@ async function signToken(ctx, purpose, payload, algorithm, expiresIn) {
     throw new Error(`no token policy for purpose ${purpose}`);
   }
   const secret = await resolveSecret(ctx, purpose, policy);
+  //signing without usable key material is a configuration failure, never something to paper over with a fallback key
+  if (!utils.isJwtHsKeyMaterial(secret)) {
+    throw new Error(`signToken: missing or invalid secret for purpose ${purpose}`);
+  }
   return jwt.sign(payload, utils.getJwtHsKey(secret), {algorithm, expiresIn});
 }
 // One verifier for every token. The policy names the key, the payload rule and the expected operation, so a caller can neither pair the wrong secret with a purpose nor verify a token without saying what it is for.
