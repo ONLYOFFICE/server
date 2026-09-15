@@ -36,6 +36,7 @@
 
 const {describe, expect, beforeAll, afterAll, beforeEach, it} = require('@jest/globals');
 const net = require('net');
+const http = require('http');
 const https = require('https');
 
 const operationContext = require('../../Common/sources/operationContext');
@@ -100,7 +101,7 @@ YMg7tj/wIu4RFfStH1rEggJSKsEffgwu0wZ4uMTBNBOUL6g/ffFWebgz9A==
 -----END CERTIFICATE-----`;
 
 // Build a context whose config overrides externalRequest and requestDefaults, mirroring the tenant override mechanism
-function makeCtx(action) {
+function makeCtx(action, filtering) {
   const c = new operationContext.Context();
   c.config = {
     externalRequest: {
@@ -117,7 +118,15 @@ function makeCtx(action) {
     services: {
       CoAuthoring: {
         // The origin stub below is self-signed; the TLS options must survive the CONNECT tunnel (lost in axios 1.16.1)
-        requestDefaults: {headers: {'User-Agent': 'DocumentServer'}, rejectUnauthorized: false}
+        requestDefaults: {headers: {'User-Agent': 'DocumentServer'}, rejectUnauthorized: false},
+        // the development config lifts private addresses, so the filtered cases state the production values explicitly
+        'request-filtering-agent': {
+          allowPrivateIPAddress: false,
+          allowMetaIPAddress: false,
+          allowIPAddressList: [],
+          denyIPAddressList: [],
+          ...filtering
+        }
       }
     }
   };
@@ -293,4 +302,164 @@ describe('external request via HTTP forward proxy (bug 82673)', () => {
     expect(proxyHits.length).toBe(0);
     expect(originHits.length).toBe(0);
   });
+});
+
+// the private-address filter judged the proxy instead of the target, so an egress proxy on a private address blocked every external request
+describe('external request through a proxy on a private address (bug 83857)', () => {
+  // a name the server itself cannot resolve, standing in for the public target that only the egress proxy resolves
+  const UNRESOLVABLE_HOST = 'origin.invalid';
+  // The stub routes this metadata address to the local origin, never to a real metadata service.
+  const REDIRECT_HOST = '169.254.169.254';
+  let proxy, proxyPort;
+  let httpOrigin, httpOriginPort;
+  let httpsOrigin, httpsOriginPort;
+  let proxyHits;
+  let originHits;
+  const sockets = new Set();
+  const savedEnv = {};
+
+  function track(socket) {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+    socket.on('error', () => {});
+  }
+
+  beforeAll(async () => {
+    for (const key of PROXY_ENV_KEYS) {
+      savedEnv[key] = process.env[key];
+    }
+
+    httpOrigin = http.createServer((req, res) => {
+      originHits.push(req.url);
+      if ('/redirect-name' === req.url) {
+        res.writeHead(302, {Location: `http://${REDIRECT_HOST}:${httpOriginPort}/data.csv`});
+        res.end();
+        return;
+      }
+      res.writeHead(200, {'Content-Type': 'text/csv'});
+      res.end('a,b\n1,2\n');
+    });
+    await new Promise(resolve => httpOrigin.listen(0, '127.0.0.1', resolve));
+    httpOriginPort = httpOrigin.address().port;
+
+    httpsOrigin = https.createServer({key: TEST_TLS_KEY, cert: TEST_TLS_CERT}, (req, res) => {
+      originHits.push(req.url);
+      res.writeHead(200, {'Content-Type': 'text/csv'});
+      res.end('a,b\n1,2\n');
+    });
+    await new Promise(resolve => httpsOrigin.listen(0, '127.0.0.1', resolve));
+    httpsOriginPort = httpsOrigin.address().port;
+
+    // Egress proxy stub: tunnels CONNECT, forwards absolute-form http, and resolves every target name to the local origins the way a real proxy would
+    proxy = http.createServer((req, res) => {
+      proxyHits.push(`${req.method} ${req.url} HTTP/${req.httpVersion}`);
+      const target = new URL(req.url);
+      const relay = http.get({host: '127.0.0.1', port: httpOriginPort, path: target.pathname}, upstreamRes => {
+        res.writeHead(upstreamRes.statusCode, upstreamRes.headers);
+        upstreamRes.pipe(res);
+      });
+      relay.on('error', () => res.destroy());
+    });
+    proxy.on('connection', track);
+    proxy.on('connect', (req, socket, head) => {
+      proxyHits.push(`${req.method} ${req.url} HTTP/${req.httpVersion}`);
+      const upstream = net.connect(httpsOriginPort, '127.0.0.1', () => {
+        socket.write('HTTP/1.1 200 Connection established\r\n\r\n');
+        if (head.length) {
+          upstream.write(head);
+        }
+        upstream.pipe(socket);
+        socket.pipe(upstream);
+      });
+      track(upstream);
+      upstream.on('error', () => socket.destroy());
+    });
+    await new Promise(resolve => proxy.listen(0, '127.0.0.1', resolve));
+    proxyPort = proxy.address().port;
+  });
+
+  afterAll(async () => {
+    for (const key of PROXY_ENV_KEYS) {
+      if (undefined === savedEnv[key]) {
+        delete process.env[key];
+      } else {
+        process.env[key] = savedEnv[key];
+      }
+    }
+    httpsOrigin.closeAllConnections();
+    httpOrigin.closeAllConnections();
+    for (const socket of sockets) {
+      socket.destroy();
+    }
+    await Promise.all([
+      new Promise(resolve => proxy.close(resolve)),
+      new Promise(resolve => httpOrigin.close(resolve)),
+      new Promise(resolve => httpsOrigin.close(resolve))
+    ]);
+  });
+
+  beforeEach(() => {
+    proxyHits = [];
+    originHits = [];
+    for (const key of PROXY_ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  // 127.0.0.1 is the private address of the proxy itself, the shape the customer reported
+  function proxiedCtx(filtering) {
+    return makeCtx({blockPrivateIP: true, proxyUrl: `http://127.0.0.1:${proxyPort}`}, filtering);
+  }
+
+  it(
+    'delegates a private http target to a proxy whose address is private',
+    async () => {
+      const ctx = proxiedCtx();
+      const result = await utils.downloadUrlPromise(ctx, `http://127.0.0.1:${httpOriginPort}/data.csv`, {timeout: REQUEST_TIMEOUT});
+      expect(result.body.toString()).toBe('a,b\n1,2\n');
+      expect(proxyHits).toEqual([`GET http://127.0.0.1:${httpOriginPort}/data.csv HTTP/1.1`]);
+      expect(originHits).toEqual(['/data.csv']);
+    },
+    JEST_TIMEOUT
+  );
+
+  it(
+    'reaches an https target through a proxy whose address is private',
+    async () => {
+      const ctx = proxiedCtx();
+      const result = await utils.downloadUrlPromise(ctx, `https://${UNRESOLVABLE_HOST}:${httpsOriginPort}/data.csv`, {timeout: REQUEST_TIMEOUT});
+      expect(result.body.toString()).toBe('a,b\n1,2\n');
+      expect(proxyHits).toEqual([`CONNECT ${UNRESOLVABLE_HOST}:${httpsOriginPort} HTTP/1.1`]);
+      expect(originHits).toEqual(['/data.csv']);
+    },
+    JEST_TIMEOUT
+  );
+
+  it(
+    'delegates a cross-host redirect to a private address without replaying the chain',
+    async () => {
+      const ctx = proxiedCtx();
+      const result = await utils.downloadUrlPromise(ctx, `http://${UNRESOLVABLE_HOST}:${httpOriginPort}/redirect-name`, {timeout: REQUEST_TIMEOUT});
+      expect(result.body.toString()).toBe('a,b\n1,2\n');
+      // one request per hop, to two different hosts: the chain is followed by the redirect library
+      expect(originHits).toEqual(['/redirect-name', '/data.csv']);
+      expect(proxyHits).toEqual([
+        `GET http://${UNRESOLVABLE_HOST}:${httpOriginPort}/redirect-name HTTP/1.1`,
+        `GET http://${REDIRECT_HOST}:${httpOriginPort}/data.csv HTTP/1.1`
+      ]);
+    },
+    JEST_TIMEOUT
+  );
+
+  it(
+    'keeps judging the connection itself when no proxy is configured',
+    async () => {
+      const ctx = makeCtx({blockPrivateIP: true});
+      await expect(utils.downloadUrlPromise(ctx, `http://127.0.0.1:${httpOriginPort}/data.csv`, {timeout: REQUEST_TIMEOUT})).rejects.toThrow(
+        'DNS lookup'
+      );
+      expect(originHits).toEqual([]);
+    },
+    JEST_TIMEOUT
+  );
 });

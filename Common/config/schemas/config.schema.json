@@ -3140,7 +3140,7 @@
             "blockPrivateIP": {
               "type": "boolean",
               "default": true,
-              "description": "Whether the private IP address will be blocked or not.",
+              "description": "Whether the private IP address will be blocked or not. Not applied to requests through `proxyUrl`; destination filtering is the proxy's responsibility.",
               "x-tenantOverride": true
             },
             "proxyUrl": {

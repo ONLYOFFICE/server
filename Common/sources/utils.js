@@ -379,7 +379,9 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
     res = true;
   } else if (tenExternalRequestAction.allow) {
     res = true;
-    if (tenExternalRequestAction.blockPrivateIP) {
+    const proxyUrl = tenExternalRequestAction.proxyUrl;
+    // A configured proxy owns destination filtering; the agents would only judge the proxy address.
+    if (tenExternalRequestAction.blockPrivateIP && !proxyUrl) {
       const filteringOptions = {...tenRequestFilteringAgent};
       // addresses the caller has already judged, lifted for this request only
       const lifted = toLiftedAddressList(ctx, opt_filterAllowIPs, tenRequestFilteringAgent.denyIPAddressList);
@@ -396,8 +398,7 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
         ...filteringOptions
       });
     }
-    if (tenExternalRequestAction.proxyUrl) {
-      const proxyUrl = tenExternalRequestAction.proxyUrl;
+    if (proxyUrl) {
       const parsedProxyUrl = url.parse(proxyUrl);
 
       // axios tunnels https targets with CONNECT and forward-proxies plain http itself
@@ -406,12 +407,10 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
         port: parsedProxyUrl.port,
         protocol: parsedProxyUrl.protocol
       };
-    }
-
-    if (tenExternalRequestAction.proxyUser?.username) {
-      //This will set an `Proxy-Authorization` header, overwriting any existing
-      //`Proxy-Authorization` custom headers you have set using `headers`.
-      options.proxy.auth = tenExternalRequestAction.proxyUser;
+      if (tenExternalRequestAction.proxyUser?.username) {
+        // this sets a `Proxy-Authorization` header, overwriting any custom one set through `headers`
+        options.proxy.auth = tenExternalRequestAction.proxyUser;
+      }
     }
     if (tenExternalRequestAction.proxyHeaders && Object.keys(tenExternalRequestAction.proxyHeaders).length > 0) {
       // With CONNECT the proxy never sees https request headers, so merging these would leak them to the target instead
