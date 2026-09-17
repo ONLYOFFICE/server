@@ -91,6 +91,31 @@ html[data-platform='k8s'] .example--k8s {
   gap: 16px;
 }
 
+/* Install free apps modal routing: same sibling pattern as .example-variant. */
+.install-variant {
+  display: none;
+}
+
+/* CentOS never rides on data-platform: it is Linux plus the rpm package type. */
+html[data-platform='linux'][data-package-type='rpm'] .install--linuxrpm,
+html[data-platform='win'] .install--win,
+html[data-platform='k8s'] .install--k8s {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Linux with any other (or missing) package type falls back to Debian / Ubuntu. */
+html[data-platform='linux']:not([data-package-type='rpm']) .install--linux {
+  display: flex;
+  flex-direction: column;
+}
+
+/* docker and any unrecognized value fall back to the Docker image variant. */
+html:not([data-platform='linux']):not([data-platform='win']):not([data-platform='k8s']) .install--docker {
+  display: flex;
+  flex-direction: column;
+}
+
 /* Admin Panel button shows in every edition. Routing (navigate vs Enterprise
    promo modal) is decided in JS from data-has-admin-panel (feedback #10/#11). */
 
@@ -670,6 +695,14 @@ html[data-platform='k8s'] .example--k8s {
   color: var(--w2-color-heading);
 }
 
+/* Caption under a field label (install modal), same token as the note body. */
+.welcome2 .welcome2__field-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--w2-color-text);
+}
+
 .welcome2 .welcome2__cmd {
   position: relative;
   margin: 0;
@@ -1132,6 +1165,23 @@ html[data-platform='k8s'] .example--k8s {
   flex-wrap: wrap;
   gap: 8px;
   padding: 16px;
+}
+
+/* Install modal: Figma export shows an 8px bottom body padding, not the flat 16px. */
+.welcome2 .welcome2__modal--install .welcome2__modal-body {
+  padding-bottom: 8px;
+}
+
+/* Install modal: 5px keeps the field at the mockup's 32px (one line) and 52px (two lines). */
+.welcome2 .welcome2__modal--install .welcome2__cmd pre {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+/* Install modal: the copy icon sits centered in the field, not pinned to the top. */
+.welcome2 .welcome2__modal--install .welcome2__copy {
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 /* Wide modal: hero + two-column promo (feature list + product screenshot). */
