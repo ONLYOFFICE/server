@@ -383,19 +383,22 @@ const INTRO_BODY = [
   '',
   'ONLYOFFICE Docs reads its settings through the [node-config](https://github.com/node-config/node-config) library. On startup, node-config loads several configuration files from the directory above and merges them, so that each file overrides the values set by the files loaded before it. The full list of supported file names and their load order is described in the [node-config documentation](https://github.com/node-config/node-config/wiki/Configuration-Files).',
   '',
-  'In a standard deployment, the files are applied in the following order, from the lowest priority to the highest (each file overrides the previous one):',
+  'In a standard deployment, node-config applies the following files from the lowest priority to the highest (each file overrides the previous one):',
   '',
   '- `default.json` - the base settings shipped with ONLYOFFICE Docs.',
   '- `{NODE_ENV}.json` - the deployment-specific settings, where `{NODE_ENV}` is the value of the `NODE_ENV` environment variable, for example, `production-linux.json` or `production-windows.json`.',
   '- `local.json` - your own overrides that are applied to every deployment.',
   '- `local-{NODE_ENV}.json` - your own overrides that are applied to a single deployment only, for example, `local-production-linux.json`.',
-  '- `runtime.json` - dynamic settings written by ONLYOFFICE Docs itself; loaded last, so it takes precedence over all the files above. See [Runtime config](#runtime-config).',
   '',
-  'To change a parameter, do not edit `default.json` or the `{NODE_ENV}.json` files: they are overwritten on every restart or upgrade. Instead, add the parameter to the `local.json` file (or to a `local-{NODE_ENV}.json` file), keep the whole object structure of the parameter, and set the required value. The same parameter can also be set in `runtime.json`, but with caution: the running server rereads this file on every save and applies the change immediately, without a restart.',
+  'ONLYOFFICE Docs applies `runtime.json` as an additional configuration layer, separate from the node-config file sequence. Its values override the base configuration above. Runtime-aware consumers can also pick up subsequent changes. In multi-tenant deployments, supported per-tenant settings override the runtime configuration. See [Runtime config](#runtime-config).',
+  '',
+  'Nested objects are merged by key. Arrays are replaced entirely by the value from the higher-priority configuration, including an empty array `[]`; their elements are not merged.',
   '',
   ':::warning',
-  'Please do not edit the contents of the `default.json` file directly. The default values will be restored each time you restart Docker container or upgrade **ONLYOFFICE Docs** to a new version, and all your changes will be lost.',
-  ':::'
+  'Do not edit the shipped `default.json` or `{NODE_ENV}.json` files, such as `production-linux.json` and `production-windows.json`: package upgrades and container initialization can replace them. Instead, add your overrides to `local.json` or `local-{NODE_ENV}.json`, keeping the full object structure of each parameter.',
+  ':::',
+  '',
+  'Changes to startup-only settings require a restart. The server monitors `runtime.json`, but reloading that file does not dynamically reconfigure every setting.'
 ].join('\n');
 
 /**

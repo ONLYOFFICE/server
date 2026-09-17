@@ -243,7 +243,7 @@
           }
         }
       },
-      "x-section-intro": "These parameters configure the `runtime.json` dynamic config file properties. This file allows you to change parameters without restarting. The file is reread based on a watch event or every 5 minutes."
+      "x-section-intro": "These parameters configure the `runtime.json` file and its cache. The server monitors file changes and reloads the cache. An expired cache entry is refreshed on the next read. Settings read only at startup still require a restart."
     },
     "queue": {
       "type": "object",
