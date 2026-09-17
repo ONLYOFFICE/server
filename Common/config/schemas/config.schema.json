@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "urn:onlyoffice:config:superset:1",
   "title": "ONLYOFFICE Docs Configuration Schema",
-  "description": "Complete configuration schema with scope markers for validation and documentation.\n\nCustom annotation `x-tenantOverride` (boolean):\n- `true`  \u2014 setting this key in a per-tenant `config.json` is safe and either takes effect (supported) or is silently ignored without breaking anything (deprecated/unused).\n- `false` \u2014 setting this key per-tenant either has no effect (global-only), takes effect only under specific conditions (conditional), or causes a silent inconsistency with shared/global state (unsafe). Refer to `docs/tenant-config-overrides.md` for the specific category and operational notes.\n\nThe annotation covers every leaf-key present in `default.json` plus the `persistentStorage` parent (annotated once, since its body inherits from `storage`). The detailed evidence trail is in `docs/tenant-config-override-audit.md`.",
+  "description": "Complete configuration schema with scope markers for validation and documentation.\n\nCustom annotation `x-tenantOverride` (boolean):\n- `true`  \u2014 setting this key in a per-tenant `config.json` is safe and either takes effect (supported) or is silently ignored without breaking anything (deprecated/unused).\n- `false` \u2014 setting this key per-tenant either has no effect (global-only), takes effect only under specific conditions (conditional), or causes a silent inconsistency with shared/global state (unsafe).\n\nThe annotation covers every leaf-key present in `default.json` plus the `persistentStorage` parent (annotated once, since its body inherits from `storage`).",
   "type": "object",
   "additionalProperties": false,
   "$defs": {
@@ -3908,8 +3908,7 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "description": "The OOXML file types for which the limits are specified (text documents/spreadsheets/presentations). This does not include other objects, like images.",
-                  "default": "docx;dotx;docm;dotm\"/\"xlsx;xltx;xlsm;xltm\"/\"pptx;ppsx;potx;pptm;ppsm;potm"
+                  "description": "The OOXML file types for which the limits are specified (text documents/spreadsheets/presentations). This does not include other objects, like images."
                 },
                 "zip": {
                   "type": "object",
@@ -3922,8 +3921,7 @@
                     },
                     "uncompressed": {
                       "type": "string",
-                      "description": "The total uncompressed file size for text documents/spreadsheets/presentations.",
-                      "default": "50MB\"/\"300MB\"/\"50MB"
+                      "description": "The total uncompressed file size for text documents/spreadsheets/presentations."
                     }
                   }
                 }

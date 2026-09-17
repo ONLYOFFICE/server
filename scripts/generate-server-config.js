@@ -185,7 +185,7 @@ function formatDefaultBadge(value) {
   if (value === '') return '""';
   if (typeof value === 'string') {
     if (value.length > 60) return null;
-    return `"${value}"`;
+    return JSON.stringify(value);
   }
   if (typeof value === 'boolean' || typeof value === 'number') return String(value);
   if (Array.isArray(value)) {
@@ -470,7 +470,7 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
       // Default keeps backticks because it's an actual literal value.
       const paramCell = param.key;
       const typeCell = param.docTypeRaw;
-      const defaultCell = badge !== null ? `\`${badge}\`` : '';
+      const defaultCell = badge !== null ? escapeTableCell(`\`${badge}\``) : '';
       const descCell = descriptionForTable(param);
       lines.push(`| ${paramCell} | ${typeCell} | ${defaultCell} | ${descCell} |`);
       totalParamsWritten++;

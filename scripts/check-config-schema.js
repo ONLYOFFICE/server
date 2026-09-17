@@ -26,9 +26,7 @@
 //   false -- conditional / unsafe / global-only. Setting per-tenant either has no effect
 //            or causes a silent inconsistency with shared/global state.
 //
-// Sources of truth for the classification:
-//   docs/tenant-config-overrides.md     -- operator-facing guide
-//   docs/tenant-config-override-audit.md -- detailed evidence trail
+// Keep the classifier aligned with the configuration consumers and their scope.
 //
 // Usage:
 //   node scripts/check-config-schema.js          # check mode (CI-friendly)
