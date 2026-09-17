@@ -185,7 +185,7 @@ function formatDefaultBadge(value) {
   if (value === '') return '""';
   if (typeof value === 'string') {
     if (value.length > 60) return null;
-    return `"${value}"`;
+    return JSON.stringify(value);
   }
   if (typeof value === 'boolean' || typeof value === 'number') return String(value);
   if (Array.isArray(value)) {
@@ -229,7 +229,7 @@ function sectionAnchor(text) {
 //
 // Schema descriptions were authored for the legacy multi-page layout and use
 // relative links like `./notification.md` or `./license.md#licensewarning_limit_percents`.
-// In single-page mode every section lives on server-config.mdx, so those links
+// In single-page mode every section lives on server-config.md, so those links
 // must become same-page anchors:
 //   ./notification.md                              -> #notification        (section H2 anchor)
 //   ./storage.md                                   -> #document-storage-service
@@ -297,7 +297,7 @@ function escapeTableCell(value) {
 }
 
 /**
- * Build a single-cell description for the server-config.mdx page.
+ * Build a single-cell description for the server-config.md page.
  * Appends admonitions inline as **Warning:** / **Note:** blocks.
  */
 function descriptionForTable(param) {
@@ -322,7 +322,7 @@ function descriptionForTable(param) {
 
 /**
  * Build a flat ordered list of sections (one entry per group) for the
- * server-config.mdx page. Each entry: {heading, position, group, mappingPrefix}.
+ * server-config.md page. Each entry: {heading, position, group, mappingPrefix}.
  *
  * Sections are sorted by PREFIX_FILE_MAP `position`, then heading text.
  * For merged files (e.g. security.md), each subTitle becomes its own section.
@@ -370,7 +370,7 @@ function buildSectionExample(group, defaultConfig) {
 
 /**
  * Static Introduction body, lifted verbatim from the former intro.md. Wrapped
- * under `## Introduction` inside server-config.mdx instead of being a
+ * under `## Introduction` inside server-config.md instead of being a
  * separate page.
  */
 const INTRO_BODY = [
@@ -413,7 +413,7 @@ function sweepOutDir(outDir) {
 }
 
 /**
- * Write server-config.mdx: one long page, ## per section, APITable wrapping
+ * Write server-config.md: one long page, ## per section, APITable wrapping
  * a 4-column Markdown table per section. Param key in the first column drives
  * the row anchor produced by the APITable component.
  */
@@ -427,8 +427,8 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
   // come from _category_.json. That collapses the redundant "Server configuration"
   // > "Server configuration reference" nesting into one clickable item.
   //
-  // The file MUST be named after its parent folder (server-config.mdx), not
-  // index.mdx: api.onlyoffice.com's docusaurus.config.ts customizes
+  // The file MUST be named after its parent folder (server-config.md), not
+  // index.md: api.onlyoffice.com's docusaurus.config.ts customizes
   // sidebarItemsGenerator to exclude `index` from the category-index convention
   // (`if (params.fileName.toLowerCase() === 'index') return false`). The
   // folder-name convention is not excluded and is already used elsewhere in that
@@ -441,11 +441,9 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
   lines.push('pagination_next: null');
   lines.push('---');
   lines.push('');
-  lines.push('# Server configuration');
-  lines.push('');
-  lines.push('```mdx-code-block');
   lines.push("import APITable from '@site/src/components/APITable/APITable';");
-  lines.push('```');
+  lines.push('');
+  lines.push('# Server configuration');
   lines.push('');
   lines.push('## Introduction {#introduction}');
   lines.push('');
@@ -461,9 +459,7 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
       lines.push('');
     }
 
-    lines.push('```mdx-code-block');
     lines.push('<APITable>');
-    lines.push('```');
     lines.push('');
     lines.push('| Parameter | Type | Default | Description |');
     lines.push('|-----------|------|---------|-------------|');
@@ -474,16 +470,14 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
       // Default keeps backticks because it's an actual literal value.
       const paramCell = param.key;
       const typeCell = param.docTypeRaw;
-      const defaultCell = badge !== null ? `\`${badge}\`` : '';
+      const defaultCell = badge !== null ? escapeTableCell(`\`${badge}\``) : '';
       const descCell = descriptionForTable(param);
       lines.push(`| ${paramCell} | ${typeCell} | ${defaultCell} | ${descCell} |`);
       totalParamsWritten++;
       if (scopeMap[param.key]) paramsWithScope++;
     }
     lines.push('');
-    lines.push('```mdx-code-block');
     lines.push('</APITable>');
-    lines.push('```');
     lines.push('');
 
     const example = buildSectionExample(section.group, defaultConfig);
@@ -497,7 +491,7 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
     }
   }
 
-  fs.writeFileSync(path.join(outDir, 'server-config.mdx'), lines.join('\n'));
+  fs.writeFileSync(path.join(outDir, 'server-config.md'), lines.join('\n'));
   return {totalParamsWritten, paramsWithScope};
 }
 
@@ -623,14 +617,14 @@ function main() {
   const totalParamsWritten = tableStats.totalParamsWritten;
   const paramsWithScope = tableStats.paramsWithScope;
 
-  // server-config.mdx is the category index for the server-config folder, so the folder
+  // server-config.md is the category index for the server-config folder, so the folder
   // collapses into a single clickable sidebar item. This label and position
   // drive that one item (the doc's own sidebar_label/position are intentionally
   // omitted). Avoids the redundant "Server configuration" > "Server
   // configuration reference" two-level nesting.
   fs.writeFileSync(path.join(outDir, '_category_.json'), JSON.stringify({label: 'Server configuration', position: 1}, null, 2) + '\n');
 
-  const filesGenerated = 2; // server-config.mdx + _category_.json
+  const filesGenerated = 2; // server-config.md + _category_.json
 
   // Report: gaps between default.json and schema docs
   const inDefaultNotInSchema = defaultLeafKeys.filter(k => !schemaKeySet.has(k));
