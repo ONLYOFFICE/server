@@ -42,7 +42,7 @@ const PREFIX_FILE_MAP = [
   // Top-level sections
   {prefix: 'activemq', file: 'activemq.md', title: 'ActiveMQ', position: 13},
   {prefix: 'adminPanel', file: 'admin-panel.md', title: 'Admin Panel', position: 2},
-  {prefix: 'aiSettings', file: 'ai-settings.md', title: 'AI plugin settings', position: 4},
+  {prefix: 'aiSettings', file: 'ai-settings.md', title: 'AI Tools settings', position: 4},
   {prefix: 'bottleneck', file: 'bottleneck.md', title: 'Bottleneck', position: 16},
   {prefix: 'FileConverter', file: 'converter.md', title: 'Converter', position: 40},
   {prefix: 'dnscache', file: 'dns-cache.md', title: 'DNS cache', position: 14},
@@ -145,6 +145,7 @@ function schemaTypeToDoc(node) {
  */
 function walkSchema(node, prefix, out) {
   if (!node || typeof node !== 'object') return;
+  if (node['x-doc-hidden'] === true) return;
   if (node.description && prefix) {
     out.push({
       key: prefix,
@@ -152,7 +153,7 @@ function walkSchema(node, prefix, out) {
       description: node.description,
       defaultValue: node.default, // may be undefined
       xNote: node['x-note'], // custom :::note admonition text (optional)
-      xWarning: node['x-warning'] // explicit :::warning override (optional)
+      xWarning: node['x-warning'] // sensitive-value warning flag (optional)
     });
   }
   if (node.properties) {
@@ -304,10 +305,7 @@ function descriptionForTable(param) {
   let desc = escapeTableCell(rewriteInternalLinks((param.description || '').trim()));
 
   const adm = [];
-  const lastSegment = param.key.split('.').pop().toLowerCase();
-  const warnExplicit = param.xWarning === true;
-  const warnHeuristic = param.docTypeRaw !== 'object' && /^(pass(word|phrase|s)?|secret(string|key|accesskey|s)?)$/i.test(lastSegment);
-  if (warnExplicit || warnHeuristic) {
+  if (param.xWarning === true) {
     adm.push('**Warning:** Do not store sensitive values in version control. Consider using environment variables or a secrets manager.');
   }
   if (param.xNote) {

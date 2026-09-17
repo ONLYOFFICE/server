@@ -88,7 +88,7 @@
         },
         "timeout": {
           "type": "string",
-          "description": "An AI proxy timeout (measured in minutes).",
+          "description": "An AI proxy timeout as a duration string.",
           "default": "5m",
           "x-scope": ["admin", "tenant"],
           "x-tenantOverride": true
@@ -260,7 +260,7 @@
         "visibilityTimeout": {
           "type": "integer",
           "default": 300,
-          "description": "The conversion timeout (measured in seconds).",
+          "description": "The queue task visibility timeout (measured in seconds). Together with `queue.retentionPeriod`, it contributes to the conversion timeout.",
           "x-tenantOverride": false
         },
         "retentionPeriod": {
@@ -315,6 +315,7 @@
                 "pass": {
                   "type": "string",
                   "description": "The authentication password.",
+                  "x-warning": true,
                   "x-scope": "admin",
                   "default": "",
                   "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
@@ -372,7 +373,7 @@
               "type": "string",
               "format": "email",
               "default": "from@example.com",
-              "description": "The email address of the sender. All email addresses can be plain *\"sender@server.com\"*\nor with formatted name *&#x27;\"Sender Name\" sender@server.com&#x27;*.",
+              "description": "The email address of the sender. All email addresses can be plain *\"sender@server.com\"*\nor with formatted name *'\"Sender Name\" sender@server.com'*.",
               "x-scope": "admin",
               "x-tenantOverride": false
             },
@@ -810,6 +811,7 @@
               "type": "string",
               "default": "verysecretstring",
               "description": "The secret string which is used to sign the URL.",
+              "x-warning": true,
               "x-tenantOverride": true
             }
           },
@@ -872,7 +874,7 @@
                     },
                     "SSEKMSKeyId": {
                       "type": "string",
-                      "description": "The identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it&#x27;s uploaded."
+                      "description": "The identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it's uploaded."
                     }
                   },
                   "x-tenantOverride": true
@@ -903,7 +905,7 @@
                     },
                     "SSEKMSKeyId": {
                       "type": "string",
-                      "description": "The identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it&#x27;s copied."
+                      "description": "The identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it's copied."
                     }
                   },
                   "default": {
@@ -1051,7 +1053,7 @@
         "urlExpires": {
           "type": "integer",
           "default": 604800,
-          "description": "The time when the URL to the S3 AWS document storage expires (measured in milliseconds).",
+          "description": "Unused by the current storage backends. Configure `storage.fs.urlExpires` instead, in seconds.",
           "x-tenantOverride": true
         },
         "accessKeyId": {
@@ -1065,6 +1067,7 @@
           "default": "",
           "writeOnly": true,
           "description": "A secret key to access the S3 AWS document storage or MS Azure Blob Storage.",
+          "x-warning": true,
           "x-tenantOverride": true
         },
         "sslEnabled": {
@@ -1114,7 +1117,7 @@
         },
         "socketOptions": {
           "type": "object",
-          "description": "The [RabbitMQ socket options](https://amqp-node.github.io/amqplib/channel_api.html#connect) that will be passed to the socket library (`net` or `tls`). These options must be fields set on the object supplied. The socket options can be used for the SSL connection and can contain the following fields:\n\n- **cert** - defines a certificate to present to the server (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **key** - defines the private key for the certificate (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **passphrase** - defines a passphrase for the private key, **type**: string, **example**: \"MySecretPassword\";\n\n- **ca** - defines a list of the CA certificates in PEM format that we will trust, since we are using a self-signed certificate, **type**: array, **example**: [];\n\n- **noDelay** - defines if TCP_NODELAY (Nagle&#x27;s algorithm) is set on the underlying socket or not, **type**: boolean, **example**: true.",
+          "description": "The [RabbitMQ socket options](https://amqp-node.github.io/amqplib/channel_api.html#connect) that will be passed to the socket library (`net` or `tls`). These options must be fields set on the object supplied. The socket options can be used for the SSL connection and can contain the following fields:\n\n- **cert** - defines a certificate to present to the server (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **key** - defines the private key for the certificate (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **passphrase** - defines a passphrase for the private key, **type**: string, **example**: \"MySecretPassword\";\n\n- **ca** - defines a list of the CA certificates in PEM format that we will trust, since we are using a self-signed certificate, **type**: array, **example**: [];\n\n- **noDelay** - defines if TCP_NODELAY (Nagle's algorithm) is set on the underlying socket or not, **type**: boolean, **example**: true.",
           "default": {},
           "x-tenantOverride": false
         },
@@ -1587,6 +1590,7 @@
                 "type": "string"
               },
               "description": "A password which is used for the OpenPGP encryption.",
+              "x-warning": true,
               "default": ["verysecretstring"],
               "x-tenantOverride": true
             }
@@ -1605,6 +1609,7 @@
                 "type": "string"
               },
               "description": "A password which is used for the OpenPGP decryption.",
+              "x-warning": true,
               "default": ["verysecretstring"],
               "x-tenantOverride": true
             }
@@ -1646,7 +1651,7 @@
             "iterationsByteLength": {
               "type": "integer",
               "default": 5,
-              "description": "The iterations length measured in bytes.",
+              "description": "The number of decimal digits in the random PBKDF2 iteration count. The minimum is 4.",
               "x-tenantOverride": false
             }
           },
@@ -1661,6 +1666,7 @@
           "type": "string",
           "default": "verysecretstring",
           "description": "A password which is used for the AES-256-GCM encryption.",
+          "x-warning": true,
           "x-tenantOverride": false
         }
       },
@@ -1926,7 +1932,7 @@
                 "step": {
                   "type": "string",
                   "enum": ["1m", "5m", "10m", "15m", "30m"],
-                  "description": "The delay in minutes between the intervals.",
+                  "description": "The interval between automatic force-save checks, as a duration string.",
                   "default": "1m",
                   "x-tenantOverride": false
                 },
@@ -1938,7 +1944,7 @@
                 },
                 "interval": {
                   "type": "string",
-                  "description": "The interval time in minutes for initiating the automatic forcesaving.",
+                  "description": "The interval time for initiating the automatic forcesaving, as a duration string.",
                   "default": "5m",
                   "x-tenantOverride": true
                 }
@@ -2095,7 +2101,7 @@
                     },
                     "socketTimeout": {
                       "type": "integer",
-                      "description": "A number of milliseconds when a connection request made by a client or a server doesn&#x27;t receive a response from the other end.",
+                      "description": "A number of milliseconds when a connection request made by a client or a server doesn't receive a response from the other end.",
                       "default": 60000,
                       "x-tenantOverride": false
                     }
@@ -2104,6 +2110,7 @@
                 "dbPass": {
                   "type": "string",
                   "description": "A password set to the database account.",
+                  "x-warning": true,
                   "default": "onlyoffice",
                   "x-tenantOverride": false
                 },
@@ -2209,7 +2216,7 @@
                     },
                     "thin": {
                       "type": "boolean",
-                      "description": "The connection to Oracle in the Thick Mode using Oracle Instant Client in a cluster.",
+                      "description": "Whether to use the Oracle Thin driver. False means Thick mode with Oracle Client libraries.",
                       "default": true,
                       "x-tenantOverride": false
                     }
@@ -2459,7 +2466,7 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "The database name, `\"redis\"` or `\"ioredis\"`.",
+                  "description": "The Redis client library, `\"redis\"` or `\"ioredis\"`.",
                   "default": "redis",
                   "x-tenantOverride": false
                 },
@@ -2605,7 +2612,7 @@
                   "properties": {
                     "connectionAndInactivity": {
                       "type": "string",
-                      "description": "A period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
+                      "description": "The request timeout as a duration string. `wholeCycle` limits the whole request cycle.",
                       "default": "10m",
                       "x-tenantOverride": true
                     },
@@ -2704,7 +2711,7 @@
                   "properties": {
                     "connectionAndInactivity": {
                       "type": "string",
-                      "description": "A period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
+                      "description": "The request timeout as a duration string. `wholeCycle` limits the whole request cycle.",
                       "default": "2m",
                       "x-tenantOverride": true
                     },
@@ -2730,7 +2737,7 @@
                 },
                 "maxRequestChanges": {
                   "type": "integer",
-                  "description": "A maximum size of the request changes.",
+                  "description": "The maximum number of change records read from the database at once.",
                   "default": 20000,
                   "x-tenantOverride": true
                 },
@@ -3164,6 +3171,7 @@
                   "default": "",
                   "writeOnly": true,
                   "description": "The proxy authentication password.",
+                  "x-warning": true,
                   "x-tenantOverride": true
                 }
               },
@@ -3557,7 +3565,7 @@
         "exponent": {
           "type": "integer",
           "default": 65537,
-          "description": "The RSA exponent in the Base64-encoded format that is used to retrieve the public key.",
+          "description": "The RSA public exponent as an integer. The server Base64-encodes it in discovery.",
           "x-scope": "admin",
           "x-tenantOverride": true
         },
@@ -3589,7 +3597,7 @@
         "exponentOld": {
           "type": "integer",
           "default": 65537,
-          "description": "The old RSA exponent in the Base64-encoded format that was used to retrieve the public key.",
+          "description": "The previous RSA public exponent as an integer. The server Base64-encodes it in discovery.",
           "x-scope": "admin",
           "x-tenantOverride": true
         },
@@ -3605,7 +3613,7 @@
         "refreshLockInterval": {
           "type": "string",
           "default": "10m",
-          "description": "The interval time in minutes for refreshing the lock on a file by resetting its automatic expiration timer to 30 minutes.",
+          "description": "The interval time, as a duration string, for refreshing the lock on a file by resetting its automatic expiration timer to 30 minutes.",
           "x-scope": "admin",
           "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
           "x-tenantOverride": false
@@ -3731,6 +3739,7 @@
                     "secretAccessKey": {
                       "type": "string",
                       "description": "The AWS secret access key.",
+                      "x-warning": true,
                       "x-pinned": true,
                       "x-tenantOverride": true
                     }
@@ -3763,6 +3772,7 @@
                     "clientSecret": {
                       "type": "string",
                       "description": "The OAuth2 client secret.",
+                      "x-warning": true,
                       "x-pinned": true,
                       "x-tenantOverride": true
                     },
@@ -3793,6 +3803,7 @@
                     "password": {
                       "type": "string",
                       "description": "Optional. The password for the password grant type.",
+                      "x-warning": true,
                       "x-pinned": true,
                       "x-tenantOverride": true
                     },
@@ -3837,6 +3848,7 @@
                     "SIGNING_KEYSTORE_PASSPHRASE": {
                       "type": "string",
                       "description": "The passphrase for the PKCS#12 keystore file.",
+                      "x-warning": true,
                       "x-pinned": true
                     }
                   }
@@ -3908,7 +3920,7 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "description": "The OOXML file types for which the limits are specified (text documents/spreadsheets/presentations). This does not include other objects, like images."
+                  "description": "The OOXML file types for which the limits are specified (text documents/spreadsheets/presentations/diagrams). This does not include other objects, like images."
                 },
                 "zip": {
                   "type": "object",
@@ -3921,7 +3933,7 @@
                     },
                     "uncompressed": {
                       "type": "string",
-                      "description": "The total uncompressed file size for text documents/spreadsheets/presentations."
+                      "description": "The maximum total uncompressed size of the matching files in the archive."
                     }
                   }
                 }
@@ -3964,7 +3976,7 @@
               "properties": {
                 "connectionAndInactivity": {
                   "type": "string",
-                  "description": "A period which specifies two timeouts:\n\n- **read timeout** - time to wait for a server to send response headers (and start the response body) before aborting the request;\n\n- **connection timeout** - sets the socket to timeout after timeout of inactivity. Note that increasing the timeout beyond the OS-wide TCP connection timeout will not have any effect.\n\nThis parameter is sent to the **npm** module.",
+                  "description": "The request timeout as a duration string. `wholeCycle` limits the whole request cycle.",
                   "default": "2m",
                   "x-tenantOverride": true
                 },
@@ -4122,6 +4134,7 @@
           "type": "object",
           "x-scope": ["admin", "tenant"],
           "description": "The password validation requirements.",
+          "x-doc-hidden": true,
           "properties": {
             "minLength": {
               "$ref": "#/$defs/passlength",
