@@ -441,11 +441,9 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
   lines.push('pagination_next: null');
   lines.push('---');
   lines.push('');
-  lines.push('# Server configuration');
-  lines.push('');
-  lines.push('```mdx-code-block');
   lines.push("import APITable from '@site/src/components/APITable/APITable';");
-  lines.push('```');
+  lines.push('');
+  lines.push('# Server configuration');
   lines.push('');
   lines.push('## Introduction {#introduction}');
   lines.push('');
@@ -461,9 +459,7 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
       lines.push('');
     }
 
-    lines.push('```mdx-code-block');
     lines.push('<APITable>');
-    lines.push('```');
     lines.push('');
     lines.push('| Parameter | Type | Default | Description |');
     lines.push('|-----------|------|---------|-------------|');
@@ -481,9 +477,7 @@ function writeReferenceTable(outDir, orderedSections, sectionIntroMap, defaultCo
       if (scopeMap[param.key]) paramsWithScope++;
     }
     lines.push('');
-    lines.push('```mdx-code-block');
     lines.push('</APITable>');
-    lines.push('```');
     lines.push('');
 
     const example = buildSectionExample(section.group, defaultConfig);
