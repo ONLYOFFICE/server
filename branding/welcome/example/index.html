@@ -1,5 +1,5 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html lang="en" data-platform="{{WELCOME_PLATFORM}}" data-package-type="{{WELCOME_PACKAGE_TYPE}}" data-has-admin-panel="{{HAS_ADMIN_PANEL}}">
+<html lang="en" data-platform="{{WELCOME_PLATFORM}}" data-has-admin-panel="{{HAS_ADMIN_PANEL}}">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -119,8 +119,12 @@
         <div class="welcome2__section-head">
           <div class="welcome2__section-head-row">
             <h2 id="welcome2-apps-title" class="welcome2__h2">Expand your Docs with ONLYOFFICE apps and AI tools</h2>
-            <span class="welcome2__chip welcome2__chip--positive">Free &amp; open source</span>
           </div>
+        </div>
+
+        <div class="welcome2__apps-label-row">
+          <h5 class="welcome2__apps-label">ONLYOFFICE apps</h5>
+          <span class="welcome2__chip welcome2__chip--positive">Free &amp; open source</span>
         </div>
 
         <ul class="welcome2__app-grid">
@@ -167,7 +171,8 @@
         </ul>
 
         <div class="welcome2__button-row">
-          <button type="button" class="welcome2__btn welcome2__btn--primary" data-modal-open="welcome2-modal-install">Install free apps</button>
+          <button type="button" class="welcome2__btn welcome2__btn--primary install-open-btn" data-modal-open="welcome2-modal-install">Install free apps</button>
+          <a class="welcome2__btn welcome2__btn--primary install-open-link" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
           <a
             class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon"
             target="_blank"
@@ -179,6 +184,18 @@
           </a>
         </div>
       </section>
+
+      <!-- Enterprise promo strip: Community edition only, gated in CSS on data-has-admin-panel. -->
+      <div class="welcome2__enterprise-promo">
+        <div class="welcome2__enterprise-promo-copy">
+          <div class="welcome2__enterprise-promo-title-row">
+            <img class="welcome2__enterprise-promo-icon" src="css/promo-gift.svg" alt="" width="16" height="16" aria-hidden="true" />
+            <span class="welcome2__enterprise-promo-title">Unlock more with Enterprise or Developer solutions</span>
+          </div>
+          <p class="welcome2__enterprise-promo-desc">Get free access to the enterprise or developer-ready office suite for 30 days.</p>
+        </div>
+        <a class="welcome2__btn welcome2__btn--primary welcome2__btn--small" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docs.aspx">Start free trial</a>
+      </div>
 
       <section class="welcome2__accordion">
         <button type="button" class="welcome2__accordion-head" data-extras-toggle aria-expanded="false" aria-controls="welcome2-connectors-body">
@@ -371,7 +388,7 @@
           </div>
         </div>
         <div class="welcome2__modal-foot">
-          <button type="button" class="welcome2__btn welcome2__btn--primary" data-modal-open="welcome2-modal-install">Install free apps</button>
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
           <a class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/docspace">
             <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="16" height="16" aria-hidden="true" />
             View on GitHub
@@ -428,7 +445,7 @@
           </div>
         </div>
         <div class="welcome2__modal-foot">
-          <button type="button" class="welcome2__btn welcome2__btn--primary" data-modal-open="welcome2-modal-install">Install free apps</button>
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
           <a class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/docspace">
             <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="16" height="16" aria-hidden="true" />
             View on GitHub
@@ -485,7 +502,7 @@
           </div>
         </div>
         <div class="welcome2__modal-foot">
-          <button type="button" class="welcome2__btn welcome2__btn--primary" data-modal-open="welcome2-modal-install">Install free apps</button>
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
           <a class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/docspace">
             <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="16" height="16" aria-hidden="true" />
             View on GitHub
@@ -550,7 +567,7 @@
           </div>
         </div>
         <div class="welcome2__modal-foot">
-          <button type="button" class="welcome2__btn welcome2__btn--primary" data-modal-open="welcome2-modal-install">Install free apps</button>
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
           <a class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/docspace">
             <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="16" height="16" aria-hidden="true" />
             View on GitHub
@@ -578,14 +595,14 @@
             </div>
           </div>
           <div class="welcome2__modal-foot">
-            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-enterprise-install-script.aspx#installingonlyofficedocspaceusingscriptfordocker_block">Open full guide</a>
+            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-script.aspx">Open full guide</a>
             <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
           </div>
         </div>
 
         <div class="install-variant install--linux" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-install-linux-title">
           <div class="welcome2__modal-head">
-            <h2 class="welcome2__modal-title" id="welcome2-modal-install-linux-title">Install apps - Debian / Ubuntu</h2>
+            <h2 class="welcome2__modal-title" id="welcome2-modal-install-linux-title">Install apps - Linux (DEB / RPM)</h2>
             <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
           </div>
           <div class="welcome2__modal-body">
@@ -595,32 +612,11 @@
             </div>
             <div class="welcome2__note welcome2__note--info">
               <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Run as root</span>
-              <span class="welcome2__note-body">Package installation supports amd64 only. When complete, open this server's IP address to finish setup.</span>
+              <span class="welcome2__note-body">When installation is complete, open this server's IP address to finish setup.</span>
             </div>
           </div>
           <div class="welcome2__modal-foot">
-            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-enterprise-install-script.aspx#installingonlyofficedocspacefromdebrpmpackages_block">Open full guide</a>
-            <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
-          </div>
-        </div>
-
-        <div class="install-variant install--linuxrpm" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-install-linuxrpm-title">
-          <div class="welcome2__modal-head">
-            <h2 class="welcome2__modal-title" id="welcome2-modal-install-linuxrpm-title">Install apps - CentOS</h2>
-            <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
-          </div>
-          <div class="welcome2__modal-body">
-            <div class="welcome2__cmd-group">
-              <p class="welcome2__field-label">Download and start the installation</p>
-              <div class="welcome2__cmd"><pre>curl -O https://download.onlyoffice.com/apps/apps-install.sh &amp;&amp; bash apps-install.sh package</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
-            </div>
-            <div class="welcome2__note welcome2__note--info">
-              <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Run as root</span>
-              <span class="welcome2__note-body">Package installation supports amd64 only. When complete, open this server's IP address to finish setup.</span>
-            </div>
-          </div>
-          <div class="welcome2__modal-foot">
-            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-enterprise-install-script.aspx#installingonlyofficedocspacefromdebrpmpackages_block">Open full guide</a>
+            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-script.aspx#installingonlyofficedocspacefromdebrpmpackages_block">Open full guide</a>
             <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
           </div>
         </div>
@@ -641,35 +637,12 @@
             </div>
           </div>
           <div class="welcome2__modal-foot">
-            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://download.onlyoffice.com/docspace/windows/ONLYOFFICE_DocSpace_Enterprise_Win-install.latest.exe">Download .exe</a>
-            <a class="welcome2__btn welcome2__btn--ghost-light" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-enterprise-install-windows.aspx">Open full guide</a>
+            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://download.onlyoffice.com/docspace/windows/ONLYOFFICE_DocSpace_Community_Win-install.latest.exe">Download .exe</a>
+            <a class="welcome2__btn welcome2__btn--ghost-light" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-windows.aspx">Open full guide</a>
           </div>
         </div>
-
-        <div class="install-variant install--k8s" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-install-k8s-title">
-          <div class="welcome2__modal-head">
-            <h2 class="welcome2__modal-title" id="welcome2-modal-install-k8s-title">Install apps - Kubernetes</h2>
-            <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
           </div>
-          <div class="welcome2__modal-body">
-            <div class="welcome2__cmd-group">
-              <p class="welcome2__field-label">Deploy the chart</p>
-              <div class="welcome2__cmd"><pre>helm repo add onlyoffice https://download.onlyoffice.com/charts/stable
-helm repo update
-helm install docspace -f values.yaml onlyoffice/docspace</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
             </div>
-            <div class="welcome2__note welcome2__note--info">
-              <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Prepare the cluster first</span>
-              <span class="welcome2__note-body">These are the final steps. The chart needs prerequisites (storage, MySQL, RabbitMQ, Redis, OpenSearch) and your own values.yaml - see the full guide.</span>
-            </div>
-          </div>
-          <div class="welcome2__modal-foot">
-            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/Kubernetes-DocSpace">Open full guide</a>
-            <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Test-example command modals (feedback #9). Platform variant shown via data-platform. -->
     <div class="welcome2__overlay" id="welcome2-modal-test-start" hidden>

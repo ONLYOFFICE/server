@@ -96,21 +96,13 @@ html[data-platform='k8s'] .example--k8s {
   display: none;
 }
 
-/* CentOS never rides on data-platform: it is Linux plus the rpm package type. */
-html[data-platform='linux'][data-package-type='rpm'] .install--linuxrpm,
-html[data-platform='win'] .install--win,
-html[data-platform='k8s'] .install--k8s {
+html[data-platform='linux'] .install--linux,
+html[data-platform='win'] .install--win {
   display: flex;
   flex-direction: column;
 }
 
-/* Linux with any other (or missing) package type falls back to Debian / Ubuntu. */
-html[data-platform='linux']:not([data-package-type='rpm']) .install--linux {
-  display: flex;
-  flex-direction: column;
-}
-
-/* docker and any unrecognized value fall back to the Docker image variant. */
+/* docker and any unrecognized value fall back to the Docker image variant; k8s is excluded here since it shows a plain link instead. */
 html:not([data-platform='linux']):not([data-platform='win']):not([data-platform='k8s']) .install--docker {
   display: flex;
   flex-direction: column;
@@ -416,6 +408,25 @@ html:not([data-platform='linux']):not([data-platform='win']):not([data-platform=
   width: 16px;
   height: 16px;
   display: block;
+}
+
+/* Small size: same label style as the base button, just a shorter fixed height. */
+.welcome2 .welcome2__btn--small {
+  min-height: 32px;
+  /* 5px keeps the button at the mockup's 32px once the 1px border is counted. */
+  padding: 5px 28px;
+}
+
+/* Apps-section Install trigger: k8s shows the external link, every other platform the modal button. */
+.welcome2 .install-open-btn,
+.welcome2 .install-open-link {
+  display: none;
+}
+html:not([data-platform='k8s']) .welcome2 .install-open-btn {
+  display: inline-flex;
+}
+html[data-platform='k8s'] .welcome2 .install-open-link {
+  display: inline-flex;
 }
 
 .welcome2 .welcome2__button-row {
@@ -876,6 +887,19 @@ html:not([data-platform='linux']):not([data-platform='win']):not([data-platform=
   gap: 20px;
 }
 
+.welcome2 .welcome2__apps-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome2 .welcome2__apps-label {
+  font-size: 14px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--w2-color-heading);
+}
+
 .welcome2 .welcome2__app-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -947,6 +971,71 @@ html:not([data-platform='linux']):not([data-platform='win']):not([data-platform=
   line-height: 16px;
   font-weight: 400;
   margin: 0;
+}
+
+/* ---- Enterprise promo strip (Community edition only) --------------------- */
+
+.welcome2 .welcome2__enterprise-promo {
+  display: none;
+  align-items: center;
+  /* Sits 32px under the apps buttons instead of the full 48px section gap, per the mockup. */
+  margin-top: -16px;
+  width: 100%;
+  min-height: 80px;
+  padding: 20px;
+  gap: 32px;
+  background: rgba(71, 129, 209, 0.05);
+  border-radius: 12px;
+}
+
+/* data-has-admin-panel is the page's existing Community-vs-Enterprise signal. */
+html[data-has-admin-panel='false'] .welcome2 .welcome2__enterprise-promo {
+  display: flex;
+}
+
+.welcome2 .welcome2__enterprise-promo-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.welcome2 .welcome2__enterprise-promo-title-row {
+  display: flex;
+  /* Keeps the icon on the first line when the title wraps on narrow screens. */
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.welcome2 .welcome2__enterprise-promo-title {
+  font-size: 14px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--w2-color-heading);
+}
+
+.welcome2 .welcome2__enterprise-promo-icon {
+  flex: 0 0 16px;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.welcome2 .welcome2__enterprise-promo-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--w2-color-text);
+}
+
+/* Narrow screens: the trial button drops under the copy instead of squeezing it. */
+@media (max-width: 720px) {
+  .welcome2 .welcome2__enterprise-promo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
 }
 
 /* ---- Connectors ---------------------------------------------------------- */
