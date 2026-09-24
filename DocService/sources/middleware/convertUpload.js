@@ -33,53 +33,63 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-// Multipart upload middleware for the from-file endpoints: per-request multer with tenant-scoped
-// fileSize (maxDownloadBytes) + fixed memory limits; 413 on size, 400 otherwise.
+// Multipart upload middleware for the from-file and convert-to endpoints: tenant-scoped size limits, 413 on size, 400 otherwise.
 
 'use strict';
 
 const config = require('config');
 const multer = require('multer');
 const operationContext = require('../../../Common/sources/operationContext');
+const {isDeclaredOversize, sendTooLarge} = require('./bodySizeLimit');
 
 const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 
 const convertFieldMaxBytes = 1024 * 1024;
 const convertMaxFields = 30;
+// API rule: a multipart body may exceed maxDownloadBytes by this much for form fields and framing, larger is rejected unread
+const multipartBodyAllowanceBytes = 32 * 1024 * 1024;
 
-// maxDownloadBytes is tenant-scoped -> build multer per request after initTenantCache; on init
-// failure fall back to the global default.
-async function handleConvertUpload(req, res, next) {
-  const ctx = new operationContext.Context();
-  ctx.initFromRequest(req);
-  let maxFileBytes = cfgDownloadMaxBytes;
-  try {
-    await ctx.initTenantCache();
-    maxFileBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgDownloadMaxBytes);
-  } catch (err) {
-    ctx.logger.warn('multipart upload tenant init error, using default maxDownloadBytes: %s', err.stack);
-  }
-  const upload = multer({
-    limits: {
-      fieldSize: convertFieldMaxBytes,
-      fileSize: maxFileBytes,
-      files: 1,
-      fields: convertMaxFields,
-      parts: convertMaxFields + 2
+// Tenant maxDownloadBytes, an early 413 on the declared length, then multer; selectFiles picks single('file') or any().
+function createConvertUpload(selectFiles) {
+  return async function (req, res, next) {
+    const ctx = new operationContext.Context();
+    ctx.initFromRequest(req);
+    let maxFileBytes = cfgDownloadMaxBytes;
+    try {
+      await ctx.initTenantCache();
+      maxFileBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgDownloadMaxBytes);
+    } catch (err) {
+      ctx.logger.warn('multipart upload tenant init error, using default maxDownloadBytes: %s', err.stack);
     }
-  });
-  upload.single('file')(req, res, err => {
-    if (!err) {
-      return next();
+    if (isDeclaredOversize(req, maxFileBytes + multipartBodyAllowanceBytes)) {
+      ctx.logger.warn('multipart upload rejected before reading: content-length %s', req.headers['content-length']);
+      sendTooLarge(res);
+      return;
     }
-    if (err instanceof multer.MulterError && 'LIMIT_FILE_SIZE' === err.code) {
-      ctx.logger.warn('multipart upload rejected: file exceeds maxDownloadBytes = %s', maxFileBytes);
-      res.sendStatus(413);
-    } else {
-      ctx.logger.warn('multipart upload error: %s', err.message);
-      res.sendStatus(400);
-    }
-  });
+    const upload = multer({
+      limits: {
+        fieldSize: convertFieldMaxBytes,
+        fileSize: maxFileBytes,
+        files: 1,
+        fields: convertMaxFields,
+        parts: convertMaxFields + 2
+      }
+    });
+    selectFiles(upload)(req, res, err => {
+      if (!err) {
+        return next();
+      }
+      if (err instanceof multer.MulterError && 'LIMIT_FILE_SIZE' === err.code) {
+        ctx.logger.warn('multipart upload rejected: file exceeds maxDownloadBytes = %s', maxFileBytes);
+        sendTooLarge(res);
+      } else {
+        ctx.logger.warn('multipart upload error: %s', err.message);
+        res.sendStatus(400);
+      }
+    });
+  };
 }
 
-module.exports = {handleConvertUpload};
+const handleConvertUpload = createConvertUpload(upload => upload.single('file'));
+
+module.exports = {handleConvertUpload, createConvertUpload, multipartBodyAllowanceBytes};

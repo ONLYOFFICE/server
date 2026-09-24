@@ -65,7 +65,8 @@ const infoRouter = require('./routes/info');
 const metaRouter = require('./routes/meta');
 const pluginsRouter = require('./routes/plugins');
 const baseUrlHandler = require('./routes/baseurl');
-const {handleConvertUpload} = require('./middleware/convertUpload');
+const {handleConvertUpload, createConvertUpload} = require('./middleware/convertUpload');
+const {createBodySizeLimit, getErrorStatus, sendTooLarge} = require('./middleware/bodySizeLimit');
 const {createCheckEnable} = require('./middleware/checkEnable');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
@@ -80,7 +81,6 @@ const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.brow
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgLicenseFile = resolveConfigPath(config.get('license.license_file'));
-const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
 
 // if (false) {
 // 	var cluster = require('cluster');
@@ -239,16 +239,24 @@ docsCoServer.install(server, app, () => {
 
   app.use('/', staticRouter);
 
-  const rawFileParser = bodyParser.raw({
-    inflate: true,
-    limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'),
-    type() {
-      return true;
-    }
-  });
-  const urleEcodedParser = bodyParser.urlencoded({extended: false});
+  const rawBodyMaxBytes = config.get('services.CoAuthoring.server.limits_tempfile_upload');
+  const rawFileParser = [
+    createBodySizeLimit(rawBodyMaxBytes),
+    bodyParser.raw({
+      inflate: true,
+      limit: rawBodyMaxBytes,
+      type() {
+        return true;
+      }
+    })
+  ];
+  const urlencodedMaxBytes = 100 * 1024;
+  const urleEcodedParser = [
+    createBodySizeLimit(urlencodedMaxBytes, 'application/x-www-form-urlencoded'),
+    bodyParser.urlencoded({extended: false, limit: urlencodedMaxBytes})
+  ];
   const forms = multer();
-  const fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
+  const convertToUpload = createConvertUpload(upload => upload.any());
 
   const checkDocbuilderEnable = createCheckEnable('checkDocbuilderEnable', 403, ctx =>
     ctx.getCfg('services.CoAuthoring.server.docbuilderEnable', cfgDocbuilderEnable)
@@ -318,8 +326,8 @@ docsCoServer.install(server, app, () => {
   //todo dest
   app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
   app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
-  app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
-  app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
+  app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, convertToUpload, converterService.convertTo);
+  app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, convertToUpload, converterService.convertTo);
   app.post(
     '/hosting/wopi/:documentType/:mode',
     checkWopiEnable,
@@ -411,6 +419,16 @@ docsCoServer.install(server, app, () => {
   app.use((err, req, res, _next) => {
     const ctx = new operationContext.Context();
     ctx.initFromRequest(req);
+    const status = getErrorStatus(err);
+    if (500 !== status) {
+      ctx.logger.warn('default error handler: %d %s', status, err.message);
+      if (413 === status) {
+        sendTooLarge(res);
+      } else {
+        res.sendStatus(status);
+      }
+      return;
+    }
     ctx.logger.error('default error handler:%s', err.stack);
     res.sendStatus(500);
   });
