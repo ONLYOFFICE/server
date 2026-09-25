@@ -684,9 +684,13 @@
             </div>
           </div>
           <div class="example-variant example--k8s">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Enable the test example in the Helm release</p>
+              <div class="welcome2__cmd"><pre>helm upgrade documentserver onlyoffice/docs --set example.enabled=true --no-hooks</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
             <p class="welcome2__k8s-note">
-              For information on how to launch the test example, see
-              <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/Kubernetes-Docs?tab=readme-ov-file#51-example-deployment-optional">the Kubernetes deployment notes</a>.
+              <code>documentserver</code> is the release name from the
+              <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/Kubernetes-Docs?tab=readme-ov-file#51-example-deployment-optional">official Kubernetes example</a>; replace it with your own release name if different.
             </p>
           </div>
           <div class="welcome2__note">
@@ -856,9 +860,13 @@
             </div>
           </div>
           <div class="example-variant example--k8s">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Enable the Admin Panel in the Helm release</p>
+              <div class="welcome2__cmd"><pre>helm upgrade documentserver onlyoffice/docs --set adminpanel.enabled=true --no-hooks</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
             <p class="welcome2__k8s-note">
-              For information on how to launch the Admin Panel, see
-              <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/Kubernetes-Docs">the Kubernetes deployment notes</a>.
+              <code>documentserver</code> is the release name from the
+              <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/Kubernetes-Docs?tab=readme-ov-file#54-admin-panel-deployment-optional">official Kubernetes example</a>; replace it with your own release name if different.
             </p>
           </div>
           <div class="welcome2__note welcome2__note--info">
