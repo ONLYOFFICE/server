@@ -36,6 +36,7 @@
 'use strict';
 
 const os = require('os');
+const fs = require('fs');
 const util = require('util');
 const config = require('config');
 const locale = require('windows-locale');
@@ -43,7 +44,47 @@ const ms = require('ms');
 const decodeHeic = require('heic-decode');
 const operationContext = require('./../../Common/sources/operationContext');
 
+// Linux reports SSE3 as "pni" in /proc/cpuinfo.
+const REQUIRED_X64_V2_FLAGS = ['pni', 'ssse3', 'sse4_1', 'sse4_2', 'popcnt', 'cx16', 'lahf_lm'];
+
+function getMissingX64V2Flags(cpuInfo) {
+  const processors = cpuInfo.match(/^[ \t]*processor[ \t]*:/gm) || [];
+  const flagLines = cpuInfo.match(/^[ \t]*flags[ \t]*:[^\r\n]*/gm) || [];
+  if (flagLines.length === 0 || (processors.length > 0 && processors.length !== flagLines.length)) return null;
+
+  const flagSets = flagLines.map(line => {
+    const flags = line.slice(line.indexOf(':') + 1).trim();
+    return flags ? new Set(flags.split(/\s+/)) : null;
+  });
+  if (flagSets.some(flags => !flags)) return null;
+
+  return REQUIRED_X64_V2_FLAGS.filter(flag => flagSets.some(flags => !flags.has(flag)));
+}
+
 function initializeSharp() {
+  let skipReason = null;
+  // todo on sharp upgrade, recheck CPU requirements; sharp 0.34 checks only SSE4.2 after loading
+  if (process.platform === 'linux' && process.arch === 'x64') {
+    let cpuInfo = null;
+    try {
+      cpuInfo = fs.readFileSync('/proc/cpuinfo', 'utf8');
+    } catch (error) {
+      skipReason = `unable to read /proc/cpuinfo: ${error.message}`;
+    }
+    if (cpuInfo !== null) {
+      const missingFlags = getMissingX64V2Flags(cpuInfo);
+      if (missingFlags === null) {
+        skipReason = 'CPU flags unavailable in /proc/cpuinfo';
+      } else if (missingFlags.length > 0) {
+        skipReason = `CPU lacks x86-64-v2 flags: ${missingFlags.join(', ')}`;
+      }
+    }
+  }
+  if (skipReason) {
+    operationContext.global.logger.warn('Sharp disabled: %s. Image processing functionality will be limited.', skipReason);
+    return;
+  }
+
   let originalValues = {};
   try {
     const tmp = os.tmpdir();
@@ -58,8 +99,7 @@ function initializeSharp() {
 
     sharp = require('sharp');
   } catch (error) {
-    operationContext.global.logger.warn('Sharp module failed to load. Image processing functionality will be limited.');
-    operationContext.global.logger.warn('Sharp load error:', error.message);
+    operationContext.global.logger.warn('Sharp module failed to load. Image processing functionality will be limited: %s', error.message);
   } finally {
     // Restore original values
     Object.keys(originalValues).forEach(key => {
@@ -276,3 +316,4 @@ module.exports.processImageOptimal = processImageOptimal;
 module.exports.determineOptimalFormat = determineOptimalFormat;
 module.exports.localeToLCID = localeToLCID;
 module.exports.notifyLicenseExpiration = notifyLicenseExpiration;
+module.exports.getMissingX64V2Flags = getMissingX64V2Flags;
