@@ -770,6 +770,19 @@ describe('forcesave callback delivery after final save', () => {
     expect(lastCallbackData().getForceSaveType()).toBe(commonDefines.c_oAscForceSaveTypes.Button);
   });
 
+  test('sends a user forcesave nowhere when its author has no callback of its own', async () => {
+    const ctx = makeContext();
+    await seedTask(ctx, commonDefines.FileStatus.Ok, constants.NO_ERROR);
+    docsCoServer.sendServerRequest.mockResolvedValue('{"error":0}');
+    const {UserCallback} = require('../../DocService/sources/databaseConnectors/baseConnector');
+    UserCallback.prototype.getCallbackByUserIndex.mockReturnValueOnce('');
+
+    await canvasService.commandSfcCallback(ctx, makeForceSaveCommand(commonDefines.c_oAscForceSaveTypes.Button), true, false);
+
+    expect(UserCallback.prototype.getCallbackByUserIndex).toHaveBeenCalledWith(ctx, expect.any(String), 1, true);
+    expect(docsCoServer.sendServerRequest).not.toHaveBeenCalled();
+  });
+
   test.each([commonDefines.c_oAscForceSaveTypes.Button, commonDefines.c_oAscForceSaveTypes.Timeout])(
     'delivers forcesave type %i for an encrypted document parked in None',
     async type => {
@@ -784,6 +797,13 @@ describe('forcesave callback delivery after final save', () => {
       expect(outputSfc.getForceSaveType()).toBe(type);
       expect(outputSfc.getStatus()).toBe(docsCoServer.c_oAscServerStatus.MustSaveForce);
       expect(debugMessages(ctx)).not.toContain('commandSfcCallback form submit after final save: status = %d');
+      const {UserCallback} = require('../../DocService/sources/databaseConnectors/baseConnector');
+      expect(UserCallback.prototype.getCallbackByUserIndex).toHaveBeenCalledWith(
+        ctx,
+        expect.any(String),
+        1,
+        type === commonDefines.c_oAscForceSaveTypes.Button
+      );
     }
   );
 

@@ -1197,13 +1197,18 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
     const forceSaveType = forceSave ? forceSave.getType() : commonDefines.c_oAscForceSaveTypes.Command;
     const forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
     const forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
-    const callbackUserIndex = forceSaveUserIndex || 0 === forceSaveUserIndex ? forceSaveUserIndex : userLastChangeIndex;
+    const hasForceSaveAuthor = forceSaveUserIndex || 0 === forceSaveUserIndex;
+    const callbackUserIndex = hasForceSaveAuthor ? forceSaveUserIndex : userLastChangeIndex;
+    const exactCallback =
+      hasForceSaveAuthor &&
+      (commonDefines.c_oAscForceSaveTypes.Button === forceSaveType || commonDefines.c_oAscForceSaveTypes.Form === forceSaveType);
     let uri, baseUrl, wopiParams, lastOpenDate;
     const selectRes = yield taskResult.select(ctx, docId);
     const row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
       if (row.callback) {
-        uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, callbackUserIndex);
+        //a user-initiated forcesave goes only to its author's callback; timers keep their existing fallback
+        uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, callbackUserIndex, exactCallback);
         wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
       }
       if (row.baseurl) {
