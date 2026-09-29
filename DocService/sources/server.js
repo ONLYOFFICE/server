@@ -122,20 +122,23 @@ app.set('views', path.resolve(process.cwd(), cfgHtmlTemplate));
 app.set('view engine', 'ejs');
 const server = http.createServer(app);
 
-let licenseInfo, licenseOriginal;
-
 const updatePlugins = (eventType, filename) => {
   operationContext.global.logger.info('update Folder true: %s ; %s', eventType, filename);
   utils.invalidateInstalledPluginsCache();
 };
-const readLicense = async function () {
-  [licenseInfo, licenseOriginal] = await license.readLicense(cfgLicenseFile);
+const readLicense = () => license.readLicense(cfgLicenseFile);
+const applyLicense = function ([licenseInfo, licenseOriginal]) {
+  tenantManager.setDefLicense(licenseInfo, licenseOriginal);
+  // expiration notices walk every tenant, so a reload waiting in the license command does not wait for them
+  docsCoServer.notifyLicenseExpirations(operationContext.global, licenseInfo).then(
+    () => operationContext.global.logger.info('End updateLicense'),
+    err => operationContext.global.logger.error('updateLicense error: %s', err.stack)
+  );
 };
-const updateLicense = async () => {
+const reloadLicense = tenantManager.createLicenseReloader(cfgLicenseFile, readLicense, applyLicense);
+const updateLicense = async force => {
   try {
-    await readLicense();
-    await docsCoServer.setLicenseInfo(operationContext.global, licenseInfo, licenseOriginal);
-    operationContext.global.logger.info('End updateLicense');
+    await reloadLicense(force);
   } catch (err) {
     operationContext.global.logger.error('updateLicense error: %s', err.stack);
   }
@@ -162,9 +165,11 @@ if (publicSecrets.length > 0) {
   );
 }
 
-updateLicense();
-fs.watchFile(cfgLicenseFile, updateLicense);
-setInterval(updateLicense, 86400000);
+// the watcher polls every few seconds, so the license command also checks the file; every other trigger loads as before
+docsCoServer.setLicenseReloader(() => reloadLicense(false));
+updateLicense(true);
+fs.watchFile(cfgLicenseFile, () => updateLicense(true));
+setInterval(() => updateLicense(true), 86400000);
 
 try {
   const staticContent = config.get('services.CoAuthoring.server.static_content');

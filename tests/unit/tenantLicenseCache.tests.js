@@ -386,3 +386,270 @@ describe('tenant license cache revalidation', () => {
     expect(statSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('server license reloader', () => {
+  const GOOD = [{hasLicense: true}, null];
+  const UNREAD = [{hasLicense: false}, null];
+  const denied = async () => {
+    throw Object.assign(new Error('denied'), {code: 'EACCES'});
+  };
+
+  beforeEach(() => {
+    baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'server-license-'));
+    licensePath = path.join(baseDir, 'license.lic');
+  });
+  afterEach(() => {
+    jestGlobals.restoreAllMocks();
+    fs.rmSync(baseDir, {recursive: true, force: true});
+  });
+
+  test('reads an unchanged file once and only stats it afterwards', async () => {
+    const {tm, statSpy} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const read = jestGlobals.fn(async () => GOOD);
+    const apply = jestGlobals.fn();
+    const reload = tm.createLicenseReloader(licensePath, read, apply);
+
+    await reload(true);
+    await reload();
+    await reload();
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(statSpy).toHaveBeenCalledTimes(3);
+  });
+
+  test('applies a replaced file on the next call without waiting for the watcher', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const applied = [];
+    const read = async () => [{hasLicense: true}, fs.readFileSync(licensePath, 'utf8')];
+    const reload = tm.createLicenseReloader(licensePath, read, ([, content]) => applied.push(content));
+
+    await reload(true);
+    writeLicense(PAID_LICENSE, 2000000);
+    await reload();
+
+    expect(applied).toEqual([TRIAL_LICENSE, PAID_LICENSE]);
+  });
+
+  test('an absent file is a settled state and a license written later is applied on the next call', async () => {
+    const {tm} = loadTenantManager();
+    const read = jestGlobals.fn(async () => UNREAD);
+    const apply = jestGlobals.fn();
+    const reload = tm.createLicenseReloader(licensePath, read, apply);
+
+    await reload(true);
+    await reload();
+    expect(read).toHaveBeenCalledTimes(1);
+
+    writeLicense(PAID_LICENSE, 2000000);
+    read.mockResolvedValue(GOOD);
+    await reload();
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(apply).toHaveBeenLastCalledWith(GOOD);
+  });
+
+  test('force reads even an unchanged file', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const read = jestGlobals.fn(async () => GOOD);
+    const reload = tm.createLicenseReloader(licensePath, read, () => {});
+
+    await reload(true);
+    await reload(true);
+
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  test('an unforced read that fails keeps the applied license and is retried after the interval', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const nowSpy = jestGlobals.spyOn(Date, 'now').mockReturnValue(NOW);
+    const read = jestGlobals.fn(async () => GOOD);
+    const apply = jestGlobals.fn();
+    const reload = tm.createLicenseReloader(licensePath, read, apply);
+    await reload(true);
+
+    writeLicense(PAID_LICENSE, 2000000);
+    read.mockResolvedValueOnce(UNREAD);
+    await reload();
+    nowSpy.mockReturnValue(NOW + 1000);
+    await reload();
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(apply).toHaveBeenCalledTimes(1);
+
+    nowSpy.mockReturnValue(NOW + 5001);
+    await reload();
+    expect(apply).toHaveBeenCalledTimes(2);
+
+    nowSpy.mockReturnValue(NOW + 60000);
+    await reload();
+    expect(read).toHaveBeenCalledTimes(3);
+  });
+
+  test('a failed read is applied when nothing good was applied before it', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const apply = jestGlobals.fn();
+    const reload = tm.createLicenseReloader(licensePath, async () => UNREAD, apply);
+
+    await reload();
+
+    expect(apply).toHaveBeenCalledWith(UNREAD);
+  });
+
+  test('a forced read applies even a failed read, as the watcher always did', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const read = jestGlobals.fn(async () => GOOD);
+    const apply = jestGlobals.fn();
+    const reload = tm.createLicenseReloader(licensePath, read, apply);
+    await reload(true);
+
+    read.mockResolvedValueOnce(UNREAD);
+    await reload(true);
+
+    expect(apply).toHaveBeenLastCalledWith(UNREAD);
+  });
+
+  test('a forced call reads a file an unforced call could not read, without waiting for the interval', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(PAID_LICENSE, 2000000);
+    jestGlobals.spyOn(Date, 'now').mockReturnValue(NOW);
+    const read = jestGlobals.fn(async () => GOOD);
+    read.mockResolvedValueOnce(UNREAD);
+    const reload = tm.createLicenseReloader(licensePath, read, () => {});
+
+    await reload();
+    await reload(true);
+    await reload();
+
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  test('a file that came back between stat and read is not applied over a settled license', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const nowSpy = jestGlobals.spyOn(Date, 'now').mockReturnValue(NOW);
+    const read = jestGlobals.fn(async () => GOOD);
+    const apply = jestGlobals.fn();
+    const reload = tm.createLicenseReloader(licensePath, read, apply);
+    await reload(true);
+
+    fs.rmSync(licensePath);
+    await reload();
+    expect(apply).toHaveBeenCalledTimes(1);
+
+    nowSpy.mockReturnValue(NOW + 5001);
+    read.mockResolvedValue(UNREAD);
+    await reload();
+    expect(apply).toHaveBeenLastCalledWith(UNREAD);
+  });
+
+  test('an unforced call keeps the loaded license when stat fails, a forced one still reads', async () => {
+    const {tm, statSpy} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const read = jestGlobals.fn(async () => GOOD);
+    const reload = tm.createLicenseReloader(licensePath, read, () => {});
+    await reload(true);
+
+    statSpy.mockImplementation(denied);
+    await reload();
+    expect(read).toHaveBeenCalledTimes(1);
+
+    await reload(true);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  test('a stat that recovers after a failure reads the file once more and then settles', async () => {
+    const {tm, statSpy} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    statSpy.mockImplementationOnce(denied);
+    const read = jestGlobals.fn(async () => GOOD);
+    const reload = tm.createLicenseReloader(licensePath, read, () => {});
+
+    await reload(true);
+    await reload();
+    await reload();
+
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  test('a read that throws is retried on the next call and does not block later calls', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const read = jestGlobals.fn(async () => GOOD);
+    read.mockRejectedValueOnce(new Error('read failed'));
+    const reload = tm.createLicenseReloader(licensePath, read, () => {});
+
+    await expect(reload(true)).rejects.toThrow('read failed');
+    await reload();
+
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  test('a failed forced read of an unchanged file is retried by the next call', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const read = jestGlobals.fn(async () => GOOD);
+    const reload = tm.createLicenseReloader(licensePath, read, () => {});
+
+    await reload(true);
+    read.mockRejectedValueOnce(new Error('read failed'));
+    await expect(reload(true)).rejects.toThrow('read failed');
+    await reload();
+    await reload();
+
+    expect(read).toHaveBeenCalledTimes(3);
+  });
+
+  test('calls made before a check starts share one stat and one read', async () => {
+    const {tm, statSpy} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const read = jestGlobals.fn(async () => GOOD);
+    const reload = tm.createLicenseReloader(licensePath, read, () => {});
+
+    const calls = [reload(true)];
+    for (let i = 0; i < 99; i++) {
+      calls.push(reload());
+    }
+    await Promise.all(calls);
+
+    expect(statSpy).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  test('a call made during a read waits for a check of its own that sees the replaced file', async () => {
+    const {tm} = loadTenantManager();
+    writeLicense(TRIAL_LICENSE, 1000000);
+    const events = [];
+    let firstStarted;
+    const started = new Promise(resolve => (firstStarted = resolve));
+    let releaseFirst;
+    const firstDone = new Promise(resolve => (releaseFirst = resolve));
+    const read = async () => {
+      const content = fs.readFileSync(licensePath, 'utf8');
+      events.push(`start ${content === TRIAL_LICENSE ? 'trial' : 'paid'}`);
+      if (1 === events.length) {
+        firstStarted();
+        await firstDone;
+      }
+      events.push('end');
+      return GOOD;
+    };
+    const reload = tm.createLicenseReloader(licensePath, read, () => {});
+
+    const first = reload(true);
+    await started;
+    writeLicense(PAID_LICENSE, 2000000);
+    const second = reload();
+    // give a second read that ignored the running one time to start
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(events).toEqual(['start trial']);
+
+    releaseFirst();
+    await Promise.all([first, second]);
+    expect(events).toEqual(['start trial', 'end', 'start paid', 'end']);
+  });
+});

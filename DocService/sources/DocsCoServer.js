@@ -179,6 +179,7 @@ let pubsub;
 let queue;
 let shutdownFlag = false;
 let preStopFlag = false;
+let reloadLicense = null;
 const expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
 const MIN_SAVE_EXPIRATION = 60000;
@@ -4585,7 +4586,9 @@ exports.install = function (server, app, callbackFunction) {
 };
 exports.setLicenseInfo = async function (globalCtx, data, original) {
   tenantManager.setDefLicense(data, original);
-
+  await notifyLicenseExpirations(globalCtx, data);
+};
+async function notifyLicenseExpirations(globalCtx, data) {
   await utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
 
   const tenantsList = await tenantManager.getAllTenants(globalCtx);
@@ -4597,6 +4600,10 @@ exports.setLicenseInfo = async function (globalCtx, data, original) {
     const [licenseInfo] = await tenantManager.getTenantLicense(ctx);
     await utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
   }
+}
+exports.notifyLicenseExpirations = notifyLicenseExpirations;
+exports.setLicenseReloader = function (reloader) {
+  reloadLicense = reloader;
 };
 exports.healthCheck = function (req, res) {
   return co(function* () {
@@ -4717,6 +4724,14 @@ function* findForgottenFile(ctx, docId) {
 }
 
 function* commandLicense(ctx) {
+  if (reloadLicense) {
+    try {
+      yield reloadLicense();
+    } catch (err) {
+      // a failed reload answers from the license already in memory, as the command always did
+      ctx.logger.warn('commandLicense reload error: %s', err.stack);
+    }
+  }
   const nowUTC = getLicenseNowUtc();
   const users = yield editorStat.getPresenceUniqueUser(ctx, nowUTC);
   const users_view = yield editorStat.getPresenceUniqueViewUser(ctx, nowUTC);

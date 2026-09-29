@@ -328,7 +328,7 @@ function isSameLicenseStamp(left, right) {
   return left.mtimeMs === right.mtimeMs && left.size === right.size && left.ino === right.ino && left.ctimeMs === right.ctimeMs;
 }
 
-async function statTenantLicense(licensePath) {
+async function statLicenseFile(licensePath) {
   try {
     const stats = await stat(licensePath);
     // ino and ctime catch a tmp+rename swap that keeps the same size and lands inside the mtime granularity
@@ -366,7 +366,7 @@ async function readTenantLicenseEntry(ctx, licensePath, stamp) {
 async function revalidateTenantLicense(ctx, licensePath, cached) {
   let res = cached;
   try {
-    const stamp = await statTenantLicense(licensePath);
+    const stamp = await statLicenseFile(licensePath);
     if (cached && isSameLicenseStamp(cached.stamp, stamp)) {
       // an unchanged file only refreshes the revalidation stamp, so the ttl keeps counting from the last real read
       cached.checkedAt = Date.now();
@@ -400,6 +400,54 @@ async function revalidateTenantLicense(ctx, licensePath, cached) {
     pendingTenantLicenses.delete(licensePath);
   }
   return res;
+}
+
+// a license file that exists but was not read is retried at most this often, about the file watcher poll
+const LICENSE_RETRY_INTERVAL = 5000;
+
+// read the server license only when its file stamp changed, unless forced; forced reads apply whatever they read
+function createLicenseReloader(licenseFile, read, apply) {
+  let loaded = null;
+  let appliedSettled = false;
+  let tail = Promise.resolve();
+  let pending = null;
+  let pendingForce = false;
+  const reload = async force => {
+    let stamp = null;
+    try {
+      stamp = await statLicenseFile(licenseFile);
+    } catch {
+      // an unforced call keeps the loaded license when the file cannot be stamped, a forced one still reads it
+    }
+    const unchanged = stamp && loaded?.stamp && isSameLicenseStamp(stamp, loaded.stamp) && Date.now() < loaded.retryAt;
+    if (!force && loaded && (!stamp || unchanged)) {
+      return;
+    }
+    // a read that throws leaves nothing remembered, so the next call reads again
+    loaded = null;
+    const tuple = await read();
+    // hasLicense must agree with the stamp: the reader reports a failed read without it, and a file may come or go between stat and read
+    const settled = (LICENSE_STAMP_ABSENT !== stamp) === !!tuple[0]?.hasLicense;
+    if (force || settled || !appliedSettled) {
+      apply(tuple);
+      appliedSettled = settled;
+    }
+    loaded = {stamp, retryAt: settled ? Infinity : Date.now() + LICENSE_RETRY_INTERVAL};
+  };
+  return (force = false) => {
+    pendingForce = pendingForce || force;
+    if (!pending) {
+      // calls made before a check starts share it, and each check starts only after the previous one ended
+      pending = tail.then(() => {
+        const runForce = pendingForce;
+        pending = null;
+        pendingForce = false;
+        return reload(runForce);
+      });
+      tail = pending.catch(() => {});
+    }
+    return pending;
+  };
 }
 
 async function getTenantLicense(ctx) {
@@ -595,6 +643,7 @@ exports.getTenantDerivedSecret = getTenantDerivedSecret;
 exports.getTenantLicense = getTenantLicense;
 exports.getServerLicense = getServerLicense;
 exports.setDefLicense = setDefLicense;
+exports.createLicenseReloader = createLicenseReloader;
 exports.setTenantConfig = setTenantConfig;
 exports.replaceTenantConfig = replaceTenantConfig;
 exports.isMultitenantMode = isMultitenantMode;
