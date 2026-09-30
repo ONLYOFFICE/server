@@ -1399,9 +1399,18 @@ function deriveSecret(secret, purpose) {
 }
 exports.deriveSecret = deriveSecret;
 
-function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
+const OUTBOUND_OPERATIONS = new Set(constants.JWT_OUTBOUND_OPERATIONS);
+function fillJwtForRequest(ctx, operation, payload, secret, opt_inBody) {
   const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
   const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
+  //an outgoing token without its operation could be replayed as any other token signed with the same secret
+  if (!OUTBOUND_OPERATIONS.has(operation)) {
+    throw new Error('fillJwtForRequest: unknown outbound operation');
+  }
+  //a business field of that name would either be overwritten by the claim or pose as one inside the payload wrapper
+  if (Object.prototype.hasOwnProperty.call(payload, constants.JWT_CLAIM_OPERATION)) {
+    throw new Error('fillJwtForRequest: payload carries its own operation');
+  }
   //todo refuse prototypes in payload(they are simple getter/setter).
   //JSON.parse/stringify is more universal but Object.assign is enough for our inputs
   payload = Object.assign(Object.create(null), payload);
@@ -1411,6 +1420,7 @@ function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
   } else {
     data = {payload};
   }
+  data[constants.JWT_CLAIM_OPERATION] = operation;
 
   const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
   //signing without usable key material is a configuration failure, never something to paper over with a fallback key

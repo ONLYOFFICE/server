@@ -796,7 +796,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       for (let i = 0; i < urls.length; ++i) {
         if (utils.canIncludeOutboxAuthorization(ctx, urls[i])) {
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorizations[i] = [utils.fillJwtForRequest(ctx, {url: urls[i]}, secret, false)];
+          authorizations[i] = [utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_DOWNLOAD, {url: urls[i]}, secret, false)];
         }
       }
       isInJwtToken = true;
@@ -2057,7 +2057,7 @@ exports.downloadFile = function (req, res) {
         // our own credential travels with the request, so it may only be attached to a url the token named
         if (isInJwtToken && utils.canIncludeOutboxAuthorization(ctx, url)) {
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorization = utils.fillJwtForRequest(ctx, {url}, secret, false);
+          authorization = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_DOWNLOAD, {url}, secret, false);
         }
         if (!isWopiSource) {
           const urlParsed = urlModule.parse(url);

@@ -541,7 +541,7 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
         let authorization;
         if (utils.canIncludeOutboxAuthorization(ctx, uri) && withAuthorization) {
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
+          authorization = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_DOWNLOAD, {url: uri}, secret, false);
         }
         const downloadOptions = {
           timeout: tenDownloadTimeout,

@@ -1118,6 +1118,15 @@ describe('the verdict line', () => {
       'strict'
     ],
     [
+      'our own outgoing token, even under off',
+      'off',
+      {payload: {url: 'http://s/a.docx'}, operation: constants.JWT_OUTBOUND_OPERATION_DOWNLOAD},
+      constants.JWT_PURPOSE_DOCBUILDER,
+      commonDefines.c_oAscSecretType.Inbox,
+      'claim-outbound',
+      'off'
+    ],
+    [
       'claim on a sink that serves none',
       'validate',
       {url: 'http://s/a.pdf', fileType: 'pdf', operation: constants.JWT_PURPOSE_COMMAND},
@@ -1367,8 +1376,12 @@ describe('signing refuses missing key material', () => {
   test('fillJwtForRequest throws instead of signing with a cached foreign key', () => {
     // the literal text is what an absent secret coerced to while the key cache was a plain object
     utils.getJwtHsKey('undefined');
-    expect(() => utils.fillJwtForRequest(signCtx, {a: 1}, undefined, true)).toThrow(/missing or invalid jwt secret/);
-    expect(() => utils.fillJwtForRequest(signCtx, {a: 1}, '', true)).toThrow(/missing or invalid jwt secret/);
+    expect(() => utils.fillJwtForRequest(signCtx, constants.JWT_OUTBOUND_OPERATION_CALLBACK, {a: 1}, undefined, true)).toThrow(
+      /missing or invalid jwt secret/
+    );
+    expect(() => utils.fillJwtForRequest(signCtx, constants.JWT_OUTBOUND_OPERATION_CALLBACK, {a: 1}, '', true)).toThrow(
+      /missing or invalid jwt secret/
+    );
   });
   test('isJwtHsKeyMaterial agrees with what getJwtHsKey accepts', () => {
     for (const good of ['s', 'undefined', Buffer.from([0x00])]) {
@@ -1379,6 +1392,174 @@ describe('signing refuses missing key material', () => {
       expect(utils.isJwtHsKeyMaterial(bad)).toBe(false);
       expect(utils.getJwtHsKey(bad)).toBeUndefined();
     }
+  });
+});
+
+// Our outgoing tokens are signed with a secret that usually equals the inbox one, so each states its operation and no inbound sink may accept it back.
+describe('outbound tokens carry their operation', () => {
+  const signCtx = {getCfg: (key, def) => def, logger: {debug() {}, warn() {}, error() {}}};
+  const OUTBOX_SECRET = 'outbound-operation-test-secret';
+  const DOWNLOAD = constants.JWT_OUTBOUND_OPERATION_DOWNLOAD;
+  const CALLBACK = constants.JWT_OUTBOUND_OPERATION_CALLBACK;
+  const signAndDecode = (operation, payload, inBody) =>
+    jwtLib.verify(utils.fillJwtForRequest(signCtx, operation, payload, OUTBOX_SECRET, inBody), OUTBOX_SECRET);
+  // every purpose label, so a sink added later is covered without touching this test
+  const ALL_PURPOSES = Object.entries(constants)
+    .filter(([name]) => name.startsWith('JWT_PURPOSE_'))
+    .map(([, purpose]) => purpose);
+  const DERIVED_PURPOSES = [constants.JWT_PURPOSE_EDITOR_SESSION, constants.JWT_PURPOSE_PRINT_FILE, constants.JWT_PURPOSE_WOPI_CONVERT];
+  const OUTBOUND_SHAPES = [
+    ['download fetch', DOWNLOAD, {url: 'http://storage/in.docx'}, false],
+    ['callback header', CALLBACK, {key: 'k', status: 2, url: 'http://ds/cache/out.docx', users: ['u']}, false],
+    ['callback body', CALLBACK, {key: 'k', status: 4, users: ['u']}, true]
+  ];
+  function gateCtx(mode) {
+    const warn = [];
+    return {
+      warn,
+      ctx: {
+        getCfg: (key, fallback) => ('services.CoAuthoring.token.purposeCheck' === key ? mode : fallback),
+        logger: {warn: (format, ...args) => warn.push(require('util').format(format, ...args)), debug() {}, info() {}, error() {}}
+      }
+    };
+  }
+
+  test('a missing, unknown or inbound operation is refused before anything is signed', () => {
+    for (const bad of [
+      undefined,
+      null,
+      '',
+      'Download',
+      constants.JWT_PURPOSE_CONVERTER,
+      constants.JWT_PURPOSE_DOCBUILDER,
+      constants.JWT_PURPOSE_COMMAND
+    ]) {
+      expect(() => utils.fillJwtForRequest(signCtx, bad, {url: 'u'}, OUTBOX_SECRET, false)).toThrow(/unknown outbound operation/);
+    }
+  });
+  test('the claim sits at the top level of both carriers and the caller payload is left untouched', () => {
+    const fetchPayload = {url: 'http://storage/in.docx'};
+    const header = signAndDecode(DOWNLOAD, fetchPayload, false);
+    expect(header.operation).toBe(DOWNLOAD);
+    expect(header.payload).toEqual({url: 'http://storage/in.docx'});
+    const callbackPayload = {key: 'k', status: 2};
+    const body = signAndDecode(CALLBACK, callbackPayload, true);
+    expect(body.operation).toBe(CALLBACK);
+    expect(body.key).toBe('k');
+    expect(body.status).toBe(2);
+    expect(fetchPayload).toEqual({url: 'http://storage/in.docx'});
+    expect(callbackPayload).toEqual({key: 'k', status: 2});
+  });
+  test('a payload that carries its own operation is refused in both carriers, even an undefined or hidden one', () => {
+    const hidden = {key: 'k'};
+    Object.defineProperty(hidden, 'operation', {value: 'command', enumerable: false});
+    for (const payload of [{key: 'k', operation: 'command'}, {key: 'k', operation: undefined}, hidden]) {
+      for (const inBody of [false, true]) {
+        expect(() => utils.fillJwtForRequest(signCtx, CALLBACK, payload, OUTBOX_SECRET, inBody)).toThrow(/payload carries its own operation/);
+      }
+    }
+  });
+  test('the outbound values are not part of the inbound vocabulary', () => {
+    expect(constants.JWT_OUTBOUND_OPERATIONS).toEqual([DOWNLOAD, CALLBACK]);
+    for (const value of constants.JWT_OUTBOUND_OPERATIONS) {
+      expect([constants.JWT_PURPOSE_CONVERTER, constants.JWT_PURPOSE_DOCBUILDER, constants.JWT_PURPOSE_COMMAND]).not.toContain(value);
+    }
+  });
+  test('without the claim our fetch token would pass the converter and docbuilder gates', () => {
+    const unclaimed = {payload: {url: 'http://storage/in.docx'}, iat: 1, exp: 2};
+    expect(checkJwtPurpose(purposeModeCtx('validate'), unclaimed, constants.JWT_PURPOSE_CONVERTER)).toBe(true);
+    expect(checkJwtPurpose(purposeModeCtx('validate'), unclaimed, constants.JWT_PURPOSE_DOCBUILDER)).toBe(true);
+  });
+  test('the stock configuration signs outgoing and incoming tokens with one secret, which is what makes the replay possible', async () => {
+    const outbox = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+    expect(outbox).toBeTruthy();
+    expect(outbox).toBe(await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Inbox));
+  });
+  for (const mode of ['off', 'validate', 'strict']) {
+    test.each(OUTBOUND_SHAPES)(
+      `%s signed with the outbox secret is refused at every sink under ${mode}`,
+      async (_name, operation, payload, inBody) => {
+        const outbox = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
+        const token = utils.fillJwtForRequest(signCtx, operation, payload, outbox, inBody);
+        for (const purpose of ALL_PURPOSES) {
+          const {warn, ctx: spy} = gateCtx(mode);
+          const res = await jwtService.checkJwt(spy, token, purpose);
+          const verdicts = warn.filter(line => line.startsWith('checkJwt purpose '));
+          expect([purpose, res.decoded]).toEqual([purpose, null]);
+          if (DERIVED_PURPOSES.includes(purpose)) {
+            // a derived key refuses the signature before the gate is reached
+            expect([purpose, verdicts]).toEqual([purpose, []]);
+          } else {
+            expect([purpose, verdicts]).toEqual([purpose, [`checkJwt purpose rejected: purpose=${purpose} mode=${mode} reason=claim-outbound`]]);
+          }
+        }
+      }
+    );
+  }
+  test('a nested claim is still reported first when the top-level claim is an outbound value', async () => {
+    const token = await mint(
+      {operation: DOWNLOAD, payload: {url: 'http://storage/in.docx', operation: constants.JWT_PURPOSE_CONVERTER}},
+      commonDefines.c_oAscSecretType.Inbox
+    );
+    const {warn, ctx: spy} = gateCtx('validate');
+    await jwtService.checkJwt(spy, token, constants.JWT_PURPOSE_CONVERTER);
+    expect(warn.filter(line => line.startsWith('checkJwt purpose '))).toEqual([
+      `checkJwt purpose rejected: purpose=${constants.JWT_PURPOSE_CONVERTER} mode=validate reason=claim-nested`
+    ]);
+  });
+});
+
+// sendServerRequest signs the header and the body token separately and may re-sign the header when it is too large, so every signature is checked.
+describe('callbacks sign every carrier as callback', () => {
+  const CALLBACK_SECRET = 'callback-operation-test-secret';
+  const CALLBACK = constants.JWT_OUTBOUND_OPERATION_CALLBACK;
+  const callbackCtx = {getCfg: (key, def) => def, logger: {debug() {}, warn() {}, info() {}, error() {}}};
+  function callbackData() {
+    const data = new commonDefines.OutputSfcData('doc-key');
+    data.setStatus(2);
+    data.setUrl('http://ds/cache/out.docx');
+    data.setChangeUrl('http://ds/cache/changes.zip');
+    return data;
+  }
+  function sentCarriers(post) {
+    expect(post).toHaveBeenCalledTimes(1);
+    const options = post.mock.calls[0][2];
+    const body = JSON.parse(options.data);
+    return {header: jwtLib.verify(options.authorization, CALLBACK_SECRET), body, bodyToken: jwtLib.verify(body.token, CALLBACK_SECRET)};
+  }
+  afterEach(() => {
+    jestGlobals.restoreAllMocks();
+  });
+  test('without the size fallback both the header and the body token carry the claim and the full data', async () => {
+    jestGlobals.spyOn(tenantManager, 'getTenantSecret').mockResolvedValue(CALLBACK_SECRET);
+    const post = jestGlobals.spyOn(utils, 'postRequestPromise').mockResolvedValue({body: '{"error":0}'});
+    await docsCoServer.sendServerRequest(callbackCtx, 'http://integrator/callback', callbackData());
+    const {header, body, bodyToken} = sentCarriers(post);
+    expect(header.operation).toBe(CALLBACK);
+    expect(header.payload.changesurl).toBe('http://ds/cache/changes.zip');
+    expect(bodyToken.operation).toBe(CALLBACK);
+    expect(bodyToken.changesurl).toBe('http://ds/cache/changes.zip');
+    expect(body.operation).toBeUndefined();
+  });
+  test('the first header, the header re-signed after the size fallback and the body token all carry the claim', async () => {
+    jestGlobals.spyOn(tenantManager, 'getTenantSecret').mockResolvedValue(CALLBACK_SECRET);
+    const post = jestGlobals.spyOn(utils, 'postRequestPromise').mockResolvedValue({body: '{"error":0}'});
+    const firstHeaders = [];
+    const shrinkHeader = (auth, data) => {
+      firstHeaders.push(jwtLib.verify(auth, CALLBACK_SECRET));
+      data.setChangeUrl(undefined);
+      return false;
+    };
+    await docsCoServer.sendServerRequest(callbackCtx, 'http://integrator/callback', callbackData(), shrinkHeader);
+    expect(firstHeaders).toHaveLength(1);
+    expect(firstHeaders[0].operation).toBe(CALLBACK);
+    expect(firstHeaders[0].payload.changesurl).toBe('http://ds/cache/changes.zip');
+    const {header, body, bodyToken} = sentCarriers(post);
+    expect(header.operation).toBe(CALLBACK);
+    expect(header.payload.changesurl).toBeUndefined();
+    expect(bodyToken.operation).toBe(CALLBACK);
+    expect(bodyToken.changesurl).toBe('http://ds/cache/changes.zip');
+    expect(body.operation).toBeUndefined();
   });
 });
 

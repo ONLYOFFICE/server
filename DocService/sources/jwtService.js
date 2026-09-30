@@ -230,6 +230,8 @@ const TOKEN_POLICIES = Object.assign(Object.create(null), {
 });
 // the wire vocabulary is a closed set: every other purpose is an internal label and must never appear inside a token
 const WIRE_OPERATIONS = new Set([constants.JWT_PURPOSE_CONVERTER, constants.JWT_PURPOSE_DOCBUILDER, constants.JWT_PURPOSE_COMMAND]);
+// the values reserved for our own outgoing tokens, refused at every sink so an outgoing token cannot be replayed here
+const OUTBOUND_OPERATIONS = new Set(constants.JWT_OUTBOUND_OPERATIONS);
 // the complete set of fields a policy may declare; an unlisted one is a typo, and a typo like operationRequried would silently drop a requirement
 const POLICY_FIELDS = new Set(['secretType', 'derived', 'validate', 'legacyGuard', 'operation', 'operationRequired']);
 // Every way a policy can be wrong is a code defect that silently widens a sink, so the registry is checked once at load and the process refuses to start rather than fail at the first request.
@@ -270,6 +272,12 @@ for (const [purpose, policy] of Object.entries(TOKEN_POLICIES)) {
     throw new Error(`token policy ${purpose} names an operation that is not part of the wire vocabulary`);
   }
 }
+// a reserved outbound value can never be served by a sink, so it must stay out of the wire vocabulary
+for (const operation of OUTBOUND_OPERATIONS) {
+  if (WIRE_OPERATIONS.has(operation)) {
+    throw new Error(`outbound operation ${operation} is also part of the wire vocabulary`);
+  }
+}
 // token.purposeCheck governs only the marker heuristic and the operation claim: off leaves the structural rules alone, validate adds the heuristic and makes a present claim match, strict makes the claim mandatory wherever a sink names an operation.
 const PURPOSE_CHECK_OFF = 'off';
 const PURPOSE_CHECK_VALIDATE = 'validate';
@@ -281,6 +289,7 @@ const REASON = {
   invalidMode: 'invalid-mode',
   claimNotServedHere: 'claim-not-served-here',
   claimNested: 'claim-nested',
+  claimOutbound: 'claim-outbound',
   claimMissing: 'claim-missing',
   claimMismatch: 'claim-mismatch',
   payloadShape: 'payload-shape',
@@ -301,6 +310,10 @@ function checkOperationClaim(decoded, policy, mode) {
   // where a rule outside this gate - the unsigned-source one - would read it as a top-level claim
   if (nested) {
     return REASON.claimNested;
+  }
+  // fatal in every mode, off included: no token that predates the claim carries an outbound value, so off has nothing to keep working
+  if (OUTBOUND_OPERATIONS.has(claimed)) {
+    return REASON.claimOutbound;
   }
   // a sink with no legacy callers demands the claim whatever the mode says; otherwise off is the escape hatch
   if (PURPOSE_CHECK_OFF === mode && !policy.operationRequired) {

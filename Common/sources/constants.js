@@ -332,6 +332,10 @@ exports.JWT_PURPOSE_PRINT_FILE = 'printfile';
 // the claim an integrator puts in the token to state what the token authorizes; the wire values are converter, docbuilder and command, and a from-file route expects the same value as its body counterpart
 // download and the browser/session sinks name no operation: they share tokens with each other, so a token addressed to one of them would be refused by the next
 exports.JWT_CLAIM_OPERATION = 'operation';
+// the operation claim of the tokens Document Server signs for its own outgoing requests; reserved, so no inbound sink accepts a token that carries one
+exports.JWT_OUTBOUND_OPERATION_DOWNLOAD = 'download';
+exports.JWT_OUTBOUND_OPERATION_CALLBACK = 'callback';
+exports.JWT_OUTBOUND_OPERATIONS = [exports.JWT_OUTBOUND_OPERATION_DOWNLOAD, exports.JWT_OUTBOUND_OPERATION_CALLBACK];
 
 exports.DROP_CODE = 4007;
 exports.DROP_REASON = 'drop';

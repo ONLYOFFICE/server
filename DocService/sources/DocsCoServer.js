@@ -905,11 +905,11 @@ async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizat
   let auth;
   if (utils.canIncludeOutboxAuthorization(ctx, uri)) {
     const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-    const bodyToken = utils.fillJwtForRequest(ctx, dataObject, secret, true);
-    auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
+    const bodyToken = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_CALLBACK, dataObject, secret, true);
+    auth = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_CALLBACK, dataObject, secret, false);
     const authLen = auth.length;
     if (opt_checkAndFixAuthorizationLength && !opt_checkAndFixAuthorizationLength(auth, dataObject)) {
-      auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
+      auth = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_CALLBACK, dataObject, secret, false);
       ctx.logger.warn('authorization too large. Use body token instead. size reduced from %d to %d', authLen, auth.length);
     }
     dataObject.setToken(bodyToken);
