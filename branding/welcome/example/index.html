@@ -195,7 +195,7 @@
           </div>
           <p class="welcome2__enterprise-promo-desc">Get free access to the enterprise or developer-ready office suite for 30 days.</p>
         </div>
-        <a class="welcome2__btn welcome2__btn--primary welcome2__btn--small" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docs.aspx">Start free trial</a>
+        <button type="button" class="welcome2__btn welcome2__btn--primary welcome2__btn--small" data-modal-open="welcome2-modal-trial">Start free trial</button>
       </div>
 
       <section class="welcome2__accordion">
@@ -644,6 +644,115 @@
         </div>
           </div>
             </div>
+
+    <!-- Enterprise / Developer trial modal: opened from the Community-only promo strip. -->
+    <div class="welcome2__overlay" id="welcome2-modal-trial" hidden>
+      <div class="welcome2__modal welcome2__modal--wide welcome2__modal--trial" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-trial-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-trial-title">Choose your upgrade path</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="welcome2__trial-offer">
+            <h3 class="welcome2__trial-offer-title">Both solutions include AI tools, mobile editing, scalability and clustering, and tech support.</h3>
+            <p class="welcome2__trial-offer-desc">Pick the one that fits how you work.</p>
+          </div>
+
+          <div class="welcome2__trial-options">
+            <div class="welcome2__trial-option welcome2__trial-option--enterprise">
+              <div class="welcome2__trial-option-details">
+                <h3 class="welcome2__trial-option-title">Docs Enterprise</h3>
+                <p class="welcome2__trial-option-desc">For businesses that want to embed editors into the platform they use</p>
+                <ul class="welcome2__trial-features">
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-ai.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">AI tools</span>
+                      <p class="welcome2__trial-feature-desc">Summarize documents, generate and refine text, translate content, and get smart writing assistance built right into your docs, sheets, slides, and PDFs.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-mobile.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Mobile editing</span>
+                      <p class="welcome2__trial-feature-desc">Edit docs, sheets, slides, PDFs right from your mobile browser, no app required.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-scale.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Scalability and clustering</span>
+                      <p class="welcome2__trial-feature-desc">Comfortably edit and collaborate on docs no matter what size your team is.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-support.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Tech support</span>
+                      <p class="welcome2__trial-feature-desc">Get quick, professional help for any issue you run into.</p>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              <a class="welcome2__btn welcome2__btn--primary welcome2__btn--small welcome2__trial-cta" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download#docs-enterprise">Start 30-day free trial</a>
+            </div>
+
+            <div class="welcome2__trial-option welcome2__trial-option--developer">
+              <div class="welcome2__trial-option-details">
+                <h3 class="welcome2__trial-option-title">Docs Developer</h3>
+                <p class="welcome2__trial-option-desc">For businesses that want to customize and embed the editors into their own product</p>
+                <ul class="welcome2__trial-features">
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-full.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Full Enterprise feature set</span>
+                      <p class="welcome2__trial-feature-desc">Includes AI tools, mobile editing, scalability and clustering, and tech support.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-white-label.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">White labeling</span>
+                      <p class="welcome2__trial-feature-desc">Customize the editors with your own branding to match your product.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-automation.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Automation API</span>
+                      <p class="welcome2__trial-feature-desc">Interact with docs, sheets, slides, and forms from the outside.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-code.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">API integration</span>
+                      <p class="welcome2__trial-feature-desc">Embed the editors directly into your own product or workflow.</p>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              <a class="welcome2__btn welcome2__btn--primary welcome2__btn--small welcome2__trial-cta" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-developer#docs-developer">Start 30-day free trial</a>
+            </div>
+          </div>
+
+          <div class="welcome2__note">
+            <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Please note that the editors will be unavailable during the upgrade.</span>
+            <span class="welcome2__note-body">We recommend backing up your data before you start.</span>
+          </div>
+
+          <div class="welcome2__trial-divider" aria-hidden="true"></div>
+
+          <p class="welcome2__trial-links">
+            <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/demo-order.aspx">Request a free demo</a>
+            <span class="welcome2__trial-links-sep" aria-hidden="true">/</span>
+            <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/support-contact-form">Get tech assistance</a>
+            <span class="welcome2__trial-links-sep" aria-hidden="true">/</span>
+            <a href="mailto:sales@onlyoffice.com">Ask purchase questions</a>
+          </p>
+        </div>
+      </div>
+    </div>
 
     <!-- Test-example command modals (feedback #9). Platform variant shown via data-platform. -->
     <div class="welcome2__overlay" id="welcome2-modal-test-start" hidden>

@@ -1273,6 +1273,166 @@ html[data-has-admin-panel='false'] .welcome2 .welcome2__enterprise-promo {
   transform: translateY(-50%);
 }
 
+/* ---- Trial modal (Enterprise / Developer upgrade paths) ------------------ */
+
+.welcome2 .welcome2__trial-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  background: var(--w2-color-warn-bg);
+  border-radius: var(--w2-radius-card);
+}
+.welcome2 .welcome2__trial-offer-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--w2-color-heading);
+}
+.welcome2 .welcome2__trial-offer-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--w2-color-heading);
+}
+
+.welcome2 .welcome2__trial-options {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+.welcome2 .welcome2__trial-option {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 18px;
+  background: var(--w2-color-warn-bg);
+  border-radius: var(--w2-radius-card);
+}
+/* Grows so both CTAs sit on the card bottom edge whatever the copy height. */
+.welcome2 .welcome2__trial-option-details {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.welcome2 .welcome2__trial-option-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--w2-color-heading);
+}
+.welcome2 .welcome2__trial-option-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--w2-color-text);
+}
+
+.welcome2 .welcome2__trial-features {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.welcome2 .welcome2__trial-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.welcome2 .welcome2__trial-feature-icon {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--w2-radius-note);
+  background: var(--w2-trial-tint);
+}
+.welcome2 .welcome2__trial-feature-icon img {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+.welcome2 .welcome2__trial-feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.welcome2 .welcome2__trial-feature-title {
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--w2-color-heading);
+}
+.welcome2 .welcome2__trial-feature-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--w2-color-text);
+}
+
+.welcome2 .welcome2__trial-option--enterprise {
+  --w2-trial-tint: rgba(71, 129, 209, 0.1);
+}
+/* Purple column: overriding the primary tokens keeps hover and active states in scheme. */
+.welcome2 .welcome2__trial-option--developer {
+  --w2-trial-tint: rgba(109, 78, 194, 0.1);
+  --w2-color-primary: #8570bd;
+  --w2-color-primary-hover: rgba(133, 112, 189, 0.85);
+  --w2-color-primary-pressed: linear-gradient(0deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), #8570bd;
+}
+.welcome2 .welcome2__trial-cta {
+  width: 100%;
+}
+
+/* Grey info icon: this note states a consequence, not a warning. */
+.welcome2 .welcome2__modal--trial .welcome2__note-icon {
+  background-image: url('trial-info.svg');
+}
+
+.welcome2 .welcome2__trial-divider {
+  height: 1px;
+  background: #eceef1;
+}
+
+.welcome2 .welcome2__trial-links {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--w2-color-heading);
+}
+/* Underline drawn as a border so it lands exactly 1px under the 15px label, as in the mockup. */
+.welcome2 .welcome2__trial-links a {
+  padding-top: 2px;
+  line-height: 15px;
+  color: var(--w2-color-link);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.welcome2 .welcome2__trial-links a:hover {
+  color: var(--w2-color-link-hover);
+}
+
+/* Narrow screens: the two upgrade paths stack instead of squeezing to half width. */
+@media (max-width: 720px) {
+  .welcome2 .welcome2__trial-options {
+    flex-direction: column;
+  }
+}
+
 /* Wide modal: hero + two-column promo (feature list + product screenshot). */
 .welcome2 .welcome2__modal-hero {
   display: flex;
