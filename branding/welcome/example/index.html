@@ -1,5 +1,5 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html lang="en" data-platform="{{WELCOME_PLATFORM}}" data-has-admin-panel="{{HAS_ADMIN_PANEL}}" data-official-product-name="{{OFFICIAL_PRODUCT_NAME}}">
+<html lang="en" data-platform="{{WELCOME_PLATFORM}}" data-has-admin-panel="{{HAS_ADMIN_PANEL}}">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -588,7 +588,7 @@
           <div class="welcome2__modal-body">
             <div class="welcome2__cmd-group">
               <p class="welcome2__field-label">Download and start the installation</p>
-              <div class="welcome2__cmd"><pre id="welcome2-install-docker-cmd">curl -O https://download.onlyoffice.com/apps/apps-install.sh &amp;&amp; bash apps-install.sh docker</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+              <div class="welcome2__cmd"><pre>curl -O https://download.onlyoffice.com/apps/apps-install.sh &amp;&amp; bash apps-install.sh docker</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
             </div>
             <div class="welcome2__note welcome2__note--info">
               <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Run as root</span>
@@ -596,7 +596,7 @@
             </div>
           </div>
           <div class="welcome2__modal-foot">
-            <a id="welcome2-install-docker-guide" class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-script.aspx">Open full guide</a>
+            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-script.aspx">Open full guide</a>
             <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
           </div>
         </div>
@@ -609,7 +609,7 @@
           <div class="welcome2__modal-body">
             <div class="welcome2__cmd-group">
               <p class="welcome2__field-label">Download and start the installation</p>
-              <div class="welcome2__cmd"><pre id="welcome2-install-linux-cmd">curl -O https://download.onlyoffice.com/apps/apps-install.sh &amp;&amp; bash apps-install.sh package</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+              <div class="welcome2__cmd"><pre>curl -O https://download.onlyoffice.com/apps/apps-install.sh &amp;&amp; bash apps-install.sh package</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
             </div>
             <div class="welcome2__note welcome2__note--info">
               <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Run as root</span>
@@ -617,7 +617,7 @@
             </div>
           </div>
           <div class="welcome2__modal-foot">
-            <a id="welcome2-install-linux-guide" class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-script.aspx#installingonlyofficedocspacefromdebrpmpackages_block">Open full guide</a>
+            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-script.aspx#installingonlyofficedocspacefromdebrpmpackages_block">Open full guide</a>
             <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
           </div>
         </div>
@@ -638,8 +638,8 @@
             </div>
           </div>
           <div class="welcome2__modal-foot">
-            <a id="welcome2-install-win-download" class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://download.onlyoffice.com/apps/windows/ONLYOFFICE_Apps_Community_Win-install.latest.exe">Download .exe</a>
-            <a id="welcome2-install-win-guide" class="welcome2__btn welcome2__btn--ghost-light" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-windows.aspx">Open full guide</a>
+            <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://download.onlyoffice.com/apps/windows/ONLYOFFICE_Apps_Community_Win-install.latest.exe">Download .exe</a>
+            <a class="welcome2__btn welcome2__btn--ghost-light" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-windows.aspx">Open full guide</a>
           </div>
         </div>
           </div>
@@ -1108,30 +1108,6 @@
           }
           // Enterprise + running -> navigate (default link behavior).
         });
-      })();
-    </script>
-    <script>
-      (function () {
-        var officialName = document.documentElement.getAttribute('data-official-product-name') || '';
-        var firstWord = (officialName.split(' ')[0] || '').toLowerCase();
-        var KNOWN_EDITIONS = ['enterprise', 'developer'];
-        var edition = KNOWN_EDITIONS.indexOf(firstWord) !== -1 ? firstWord : 'community';
-        var script = edition === 'community' ? 'apps-install.sh' : 'apps-' + edition + '-install.sh';
-
-        ['docker', 'linux'].forEach(function (variant) {
-          var cmd = document.getElementById('welcome2-install-' + variant + '-cmd');
-          if (cmd) cmd.textContent = cmd.textContent.split(/apps(?:-\w+)?-install\.sh/).join(script);
-
-          var guide = document.getElementById('welcome2-install-' + variant + '-guide');
-          if (guide) guide.href = guide.href.replace('docspace-community-install-script.aspx', 'docspace-' + edition + '-install-script.aspx');
-        });
-
-        var editionTitleCase = edition.charAt(0).toUpperCase() + edition.slice(1);
-        var winDownload = document.getElementById('welcome2-install-win-download');
-        if (winDownload) winDownload.href = winDownload.href.replace('ONLYOFFICE_Apps_Community_Win-install', 'ONLYOFFICE_Apps_' + editionTitleCase + '_Win-install');
-
-        var winGuide = document.getElementById('welcome2-install-win-guide');
-        if (winGuide) winGuide.href = winGuide.href.replace('docspace-community-install-windows.aspx', 'docspace-' + edition + '-install-windows.aspx');
       })();
     </script>
     <script>
