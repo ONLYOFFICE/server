@@ -49,6 +49,8 @@ for dir in glob.glob(sdkjsDirectory + "/*"):
     if (os.path.isfile(testFile)):
         filesReplace.append(testFile)
 
+hasStaticGzip = any(os.path.isfile(file + ".gz") for file in filesReplace)
+
 for file in filesReplace:
     if not os.path.isfile(file):
         continue
@@ -81,6 +83,14 @@ if not os.path.isdir(testDevelopVersion):
     os.chdir(x2tDir)
     if ("windows" == platform.system().lower()):
         subprocess.call(["x2t.exe", "-create-js-cache"], stderr=subprocess.STDOUT, shell=True)
+        os.chdir(cur_dir)
+        binDirectory = curDirectory + "/../../bin"
+        subprocess.check_call(["cmd.exe", "/c", binDirectory + "/documentserver-flush-cache.bat"])
+        if hasStaticGzip:
+            subprocess.check_call(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", binDirectory + "/documentserver-static-gzip.ps1"])
     else:
         subprocess.call("./x2t -create-js-cache", stderr=subprocess.STDOUT, shell=True)
-    os.chdir(cur_dir)
+        os.chdir(cur_dir)
+        subprocess.check_call(["documentserver-flush-cache"])
+        if hasStaticGzip:
+            subprocess.check_call(["documentserver-static-gzip"])
