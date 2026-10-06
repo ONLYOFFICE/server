@@ -68,7 +68,7 @@
             <span class="welcome2__status-badge" aria-live="polite">Status unknown</span>
           </div>
           <p class="welcome2__desc">Use the test example to verify that the online editors are working correctly.</p>
-          <p class="welcome2__desc">Test example only. Modify and disable before production.</p>
+          <p class="welcome2__desc">Test example only. Modify or disable before production.</p>
         </div>
 
         <ul class="welcome2__editor-grid">
@@ -125,7 +125,7 @@
 
         <div class="welcome2__apps-label-row">
           <h5 class="welcome2__apps-label">ONLYOFFICE apps</h5>
-          <span class="welcome2__chip welcome2__chip--positive">Free &amp; open source</span>
+          <span id="welcome2-apps-chip" class="welcome2__chip welcome2__chip--positive">Free &amp; open source</span>
         </div>
 
         <ul class="welcome2__app-grid">
@@ -195,7 +195,7 @@
           </div>
           <p class="welcome2__enterprise-promo-desc">Get free access to the enterprise or developer-ready office suite for 30 days.</p>
         </div>
-        <button type="button" class="welcome2__btn welcome2__btn--primary welcome2__btn--small" data-modal-open="welcome2-modal-trial">Start free trial</button>
+        <button type="button" class="welcome2__btn welcome2__btn--primary welcome2__btn--small" data-modal-open="welcome2-modal-trial">Get started</button>
       </div>
 
       <section class="welcome2__accordion">
@@ -204,7 +204,7 @@
             <span class="welcome2__accordion-head-row">
               <span class="welcome2__accordion-title">Already using another platform?</span>
             </span>
-            <span class="welcome2__accordion-head-desc">Plug ONLYOFFICE into any ecosystem (DMS, CMS, LMS, etc.) &mdash; no custom code, no migration.</span>
+            <span class="welcome2__accordion-head-desc">Plug ONLYOFFICE into any ecosystem (DMS, CMS, LMS, etc.) - no custom code, no migration.</span>
           </span>
           <span class="welcome2__chevron" aria-hidden="true"></span>
         </button>
@@ -278,7 +278,7 @@
               <li>
                 <div class="welcome2__dev-text">
                   <h4 class="welcome2__dev-title">AI</h4>
-                  <p class="welcome2__dev-desc">Build Al-powered editor extensions that combine the plugin framework with an Al provider integration.</p>
+                  <p class="welcome2__dev-desc">Build AI-powered editor extensions that combine the plugin framework with an AI provider integration.</p>
                 </div>
                 <a target="_blank" rel="noopener noreferrer" href="https://api.onlyoffice.com/docs/ai/get-started/"
                 >Learn more &rarr;</a>
@@ -322,7 +322,7 @@
             <a target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/">Help Center</a>.
             <br />
             For any other inquiries, you are welcome to visit our
-            <a target="_blank" rel="noopener noreferrer" href="https://forum.onlyoffice.com/">Forum</a>
+            <a target="_blank" rel="noopener noreferrer" href="https://community.onlyoffice.com/">Forum</a>
             and
             <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE">GitHub</a>.
           </p>
@@ -407,7 +407,7 @@
         <div class="welcome2__modal-body">
           <div class="welcome2__modal-hero">
             <h3 class="welcome2__modal-hero-title">Create Rooms and start collaborating instantly</h3>
-            <p class="welcome2__modal-hero-desc">Set up the right space for any task and get work done faster</p>
+            <p class="welcome2__modal-hero-desc">Set up the right space for any task and get work done faster.</p>
           </div>
           <div class="welcome2__modal-promo">
             <ul class="welcome2__feature-list">
@@ -630,7 +630,7 @@
           <div class="welcome2__modal-body">
             <div class="welcome2__cmd-group">
               <p class="welcome2__field-label">1. Download and run the installer</p>
-              <p class="welcome2__field-desc">Download the .exe file, run it as Administrator, and follow the Setup Wizard. Windows Server 2016 (R2) or later is required.</p>
+              <p class="welcome2__field-desc">Download the .exe file, run it as Administrator, and follow the Setup Wizard. Windows Server 2016 or later is required.</p>
             </div>
             <div class="welcome2__cmd-group">
               <p class="welcome2__field-label">2. Finish setup at</p>
@@ -1226,6 +1226,10 @@
         var KNOWN_EDITIONS = ['enterprise', 'developer'];
         var edition = KNOWN_EDITIONS.indexOf(firstWord) !== -1 ? firstWord : 'community';
         var script = edition === 'community' ? 'apps-install.sh' : 'apps-' + edition + '-install.sh';
+
+        // Commercial editions ship non-open-source apps, so the chip says only Free.
+        var appsChip = document.getElementById('welcome2-apps-chip');
+        if (appsChip && edition !== 'community') appsChip.textContent = 'Free';
 
         ['docker', 'linux'].forEach(function (variant) {
           var cmd = document.getElementById('welcome2-install-' + variant + '-cmd');
