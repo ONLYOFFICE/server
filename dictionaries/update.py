@@ -3,6 +3,8 @@ import glob
 import json
 import subprocess
 import platform
+import shutil
+import uuid
 
 curDirectory = os.path.dirname(os.path.realpath(__file__))
 dictionatiesDirectory = curDirectory + "/../../dictionaries"
@@ -77,6 +79,7 @@ for file in filesReplace:
 
 testDevelopVersion = sdkjsDirectory + "/.git"
 if not os.path.isdir(testDevelopVersion):
+    cacheHash = uuid.uuid4().hex
     print("Update x2t cache...")
     x2tDir = curDirectory + "/../FileConverter/bin"
     cur_dir = os.getcwd()
@@ -85,12 +88,28 @@ if not os.path.isdir(testDevelopVersion):
         subprocess.call(["x2t.exe", "-create-js-cache"], stderr=subprocess.STDOUT, shell=True)
         os.chdir(cur_dir)
         binDirectory = curDirectory + "/../../bin"
-        subprocess.check_call(["cmd.exe", "/c", binDirectory + "/documentserver-flush-cache.bat"])
+        flushCache = binDirectory + "/documentserver-flush-cache.bat"
+        if os.path.isfile(flushCache):
+            subprocess.check_call(["cmd.exe", "/c", flushCache, "-h", cacheHash])
+        else:
+            print("Skip cache flush: documentserver-flush-cache.bat not found")
         if hasStaticGzip:
-            subprocess.check_call(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", binDirectory + "/documentserver-static-gzip.ps1"])
+            staticGzip = binDirectory + "/documentserver-static-gzip.ps1"
+            if os.path.isfile(staticGzip):
+                subprocess.check_call(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", staticGzip])
+            else:
+                print("Skip static gzip: documentserver-static-gzip.ps1 not found")
     else:
         subprocess.call("./x2t -create-js-cache", stderr=subprocess.STDOUT, shell=True)
         os.chdir(cur_dir)
-        subprocess.check_call(["documentserver-flush-cache"])
+        flushCache = shutil.which("documentserver-flush-cache")
+        if flushCache:
+            subprocess.check_call([flushCache, "-h", cacheHash])
+        else:
+            print("Skip cache flush: documentserver-flush-cache not found")
         if hasStaticGzip:
-            subprocess.check_call(["documentserver-static-gzip"])
+            staticGzip = shutil.which("documentserver-static-gzip")
+            if staticGzip:
+                subprocess.check_call([staticGzip])
+            else:
+                print("Skip static gzip: documentserver-static-gzip not found")
