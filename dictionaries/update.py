@@ -1,4 +1,5 @@
 import os
+import re
 import glob
 import json
 import subprocess
@@ -57,9 +58,11 @@ for file in filesReplace:
     startFind = "spellcheckGetLanguages"
     startReplace = "function(){"
     endFind = "};"
-    startIndex = content.find(startFind)
-    if startIndex == -1:
+    # the definition, not the first mention: calls to it come earlier in the bundles
+    startMatch = re.search(r"spellcheckGetLanguages['\"]?\]?\s*=\s*function", content)
+    if startMatch is None:
         continue
+    startIndex = startMatch.start()
     startReplaceIndex = content.find(startReplace, startIndex)
     if startReplaceIndex == -1:
         continue
