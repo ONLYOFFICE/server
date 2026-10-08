@@ -695,6 +695,16 @@ function stripPluginSettingsSecrets(blob) {
   return blob;
 }
 
+// A v5 blob set on any config layer owns the AI settings, even when it holds no profiles.
+function isPluginSettingsSet(blob) {
+  return !!blob && typeof blob === 'object' && Object.keys(blob).length > 0;
+}
+
+// Server mode replaces every personal AI setting in the editor, so a blob takes effect only while it offers a model.
+function hasManagedProfiles(blob) {
+  return Array.isArray(blob?.profiles) && blob.profiles.length > 0;
+}
+
 async function getPluginSettingsForInterface(ctx) {
   // Ship no providers, models or plugin settings to the browser while AI is off.
   if (!isAiEnabled(ctx)) {
@@ -702,8 +712,9 @@ async function getPluginSettingsForInterface(ctx) {
   }
   // Prefer the new universal plugin settings blob when configured; strip secrets for the browser.
   const newBlob = ctx.getCfg('aiSettings.pluginSettings', cfgAiSettings.pluginSettings);
-  if (newBlob && typeof newBlob === 'object' && Object.keys(newBlob).length > 0) {
-    return stripPluginSettingsSecrets(JSON.parse(JSON.stringify(newBlob)));
+  if (isPluginSettingsSet(newBlob)) {
+    // Without profiles the editor keeps its personal settings, and the legacy fallback below stays off.
+    return hasManagedProfiles(newBlob) ? stripPluginSettingsSecrets(JSON.parse(JSON.stringify(newBlob))) : undefined;
   }
 
   let pluginSettings = await getPluginSettings(ctx);

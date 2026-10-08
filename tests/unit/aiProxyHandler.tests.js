@@ -210,6 +210,53 @@ describe('aiProxyHandler aiSettings.enable switch', () => {
   });
 });
 
+describe('aiProxyHandler getPluginSettingsForInterface activation', () => {
+  const fakeCtx = cfg => ({getCfg: (key, fallback) => (key in cfg ? cfg[key] : fallback)});
+  // The snapshot the admin panel stores after the last model is removed.
+  const EMPTY_SNAPSHOT = {version: 5, profiles: [], customProviders: []};
+  const LEGACY_ACTIONS = {Chat: {model: 'gpt-4o'}};
+
+  test('v5 snapshot without profiles is not sent, so the editor keeps its personal settings', async () => {
+    const out = await aiProxyHandler.getPluginSettingsForInterface(fakeCtx({'aiSettings.pluginSettings': EMPTY_SNAPSHOT}));
+    expect(out).toBeUndefined();
+  });
+
+  test('v5 snapshot without profiles also keeps the legacy settings from being sent', async () => {
+    const out = await aiProxyHandler.getPluginSettingsForInterface(
+      fakeCtx({'aiSettings.pluginSettings': EMPTY_SNAPSHOT, 'aiSettings.actions': LEGACY_ACTIONS, 'aiSettings.version': 3})
+    );
+    expect(out).toBeUndefined();
+  });
+
+  test.each([
+    [
+      'stale assignments and ancillary settings',
+      {...EMPTY_SNAPSHOT, assignments: {chat: 'gone'}, mcpServers: {m1: {url: 'https://mcp.example.com'}}, webSearch: {key: 'W'}}
+    ],
+    ['missing profiles', {version: 5, customProviders: []}],
+    ['non-array profiles', {version: 5, profiles: {p1: {}}}]
+  ])('v5 blob without usable profiles (%s) sends neither it nor the legacy settings', async (_label, blob) => {
+    const out = await aiProxyHandler.getPluginSettingsForInterface(
+      fakeCtx({'aiSettings.pluginSettings': blob, 'aiSettings.actions': LEGACY_ACTIONS, 'aiSettings.version': 3})
+    );
+    expect(out).toBeUndefined();
+  });
+
+  test('v5 snapshot with a profile is sent', async () => {
+    const blob = {version: 5, profiles: [{id: 'p1', baseUrl: 'https://api.example.com', key: 'sk-real'}], assignments: {chat: 'p1'}};
+    const out = await aiProxyHandler.getPluginSettingsForInterface(fakeCtx({'aiSettings.pluginSettings': blob}));
+    expect(out.profiles).toHaveLength(1);
+    expect(out.assignments).toEqual({chat: 'p1'});
+  });
+
+  test('legacy settings are still sent when no v5 blob is set', async () => {
+    const out = await aiProxyHandler.getPluginSettingsForInterface(
+      fakeCtx({'aiSettings.pluginSettings': {}, 'aiSettings.actions': LEGACY_ACTIONS, 'aiSettings.version': 3})
+    );
+    expect(out.actions).toEqual(LEGACY_ACTIONS);
+  });
+});
+
 describe('aiProxyHandler insertKeyToProvider', () => {
   const GEMINI_URI = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
   const PH = aiProxyHandler.AI_KEY_PLACEHOLDER;
